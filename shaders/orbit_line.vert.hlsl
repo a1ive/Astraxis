@@ -1,12 +1,9 @@
 // Screen-space-width polyline. Points come from a storage buffer; each segment
 // expands to a quad (6 vertices), clipped against the camera plane.
 
-struct LinePoint
-{
-    float4 pos_fade; // xyz = camera-relative position (km), w = fade parameter (0 = head, 1 = tail)
-};
-
-StructuredBuffer<LinePoint> u_points : register(t0, space0);
+// SDL's D3D12 backend binds storage buffers as raw views.
+// Each point is 16 bytes: xyz = camera-relative position (km), w = fade (0 = head, 1 = tail).
+ByteAddressBuffer u_points : register(t0, space0);
 
 cbuffer Uniforms : register(b0, space1)
 {
@@ -36,13 +33,13 @@ VSOutput main(uint vertex_id : SV_VertexID)
     float2 corner = kCorners[vertex_id % 6];
     uint first = (uint)u_params.x;
 
-    LinePoint a = u_points[first + segment];
-    LinePoint b = u_points[first + segment + 1];
+    float4 a = asfloat(u_points.Load4((first + segment) * 16u));
+    float4 b = asfloat(u_points.Load4((first + segment + 1u) * 16u));
 
-    float4 c0 = mul(u_view_proj, float4(a.pos_fade.xyz, 1.0));
-    float4 c1 = mul(u_view_proj, float4(b.pos_fade.xyz, 1.0));
-    float f0 = a.pos_fade.w;
-    float f1 = b.pos_fade.w;
+    float4 c0 = mul(u_view_proj, float4(a.xyz, 1.0));
+    float4 c1 = mul(u_view_proj, float4(b.xyz, 1.0));
+    float f0 = a.w;
+    float f1 = b.w;
 
     VSOutput output;
     if (c0.w < kMinW && c1.w < kMinW) {

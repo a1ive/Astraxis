@@ -14,6 +14,8 @@ namespace {
 
 constexpr float kTailOpacity = 0.12f;
 
+static_assert(sizeof(glm::vec4) == 16, "Orbit point stride must match the shader's raw buffer loads");
+
 struct VertexUniforms {
     glm::mat4 view_proj;
     glm::vec4 viewport;
