@@ -1,0 +1,144 @@
+# Sagittarius A*: the Galactic Centre black hole and the star S2, whose orbit
+# shows the Schwarzschild precession (~12 arcmin per orbit) measured by GRAVITY.
+#
+# Orbits are integrated as timelike geodesics of the Kerr metric
+# (src/ephem/kerr_geodesic.cpp, ported from the reference project) - not
+# Keplerian ellipses.
+#
+# [GR20] GRAVITY Collaboration 2020, A&A 636, L5 (arXiv:2004.07187), Table E.1:
+#        M = 4.261e6 M_sun, R0 = 8246.7 pc; S2: a = 125.058 mas, e = 0.884649,
+#        i = 134.567 deg, omega = 66.263 deg, Omega = 228.171 deg, P = 16.0455 yr,
+#        t_peri = 2018.37900 (Julian year). The elements are osculating at the epoch
+#        of the last apocentre (2010), so the integration starts there.
+# [RB04] Reid & Brunthaler 2004, ApJ 616, 872: Sgr A* at RA 17h45m40.0400s,
+#        Dec -29d00m28.138s (ICRS) - orients the orbit on the sky.
+# [HA17] Habibi et al. 2017, ApJ 847, 120: S-stars incl. S2 have T_eff 21,000-28,500 K
+#        (B0-B3 V). We use 25,000 K; the radius (6 R_sun) is an assumption typical of
+#        such stars, and L = R^2 (T / 5772 K)^4 follows from it.
+#
+# Rendering: the hole is ray traced (src/ephem/kerr_null.cpp, shaders/black_hole.frag.hlsl):
+# shadow, lensed starfield and an ILLUSTRATIVE thin accretion disk (temperature profile
+# T ~ r^-3/4 (1 - sqrt(r_in/r))^1/4 from the ISCO, Doppler beaming and gravitational
+# redshift). Sgr A*'s real accretion flow is hot, thick and radiatively inefficient; the
+# disk axis (here the north Galactic pole) is likewise an artistic choice.
+#
+# Model choices: the hole is taken as non-spinning (Schwarzschild). Its spin is not
+# measured; S2's orbit is not in any assumed equatorial plane, and spin effects at
+# S2's distance are tiny compared with the Schwarzschild precession.
+# The "Death Star" is NOT a real object (nor a real-sized one): a test particle on an
+# orbit with pericentre 40 M (~1.7 au), where the periapsis advances by ~18 deg per
+# orbit. The line of apsides is drawn at each periapsis, so the lines fan out as
+# the orbit precesses. Its radius is exaggerated ~30,000x (the fictional DS-I is
+# ~160 km across) so it shows as a sphere in the orbit view; this does not affect
+# its motion. It is lit by the accretion disk.
+# The background sky (catalog stars and the Milky Way) is the one seen from Earth,
+# not from the Galactic Centre.
+# [SVS20] Milky Way: NASA/Goddard Space Flight Center Scientific Visualization Studio,
+#         Deep Star Maps 2020 (Gaia DR2: ESA/Gaia/DPAC), see assets/textures/SOURCES.md.
+
+name = "Sgr A*"
+
+[sky]
+milky_way = "textures/milky_way.jpg"   # [SVS20], without the Hipparcos/Tycho stars
+milky_way_brightness = 0.25
+
+[view]
+focus = "Sgr A*"
+distance_km = 6.0e11           # ~4000 au: the whole S2 orbit
+start = "now"
+warp = 2629800.0               # 1 month per second: an S2 orbit in ~3 minutes
+up = "Sgr A*"                  # the disk axis
+
+[[bodies]]
+name = "Sgr A*"
+kind = "black_hole"
+gm_km3_s2 = 5.65487707e17      # 4.261e6 GM_sun [GR20]
+spin = 0.0
+pole_ra_dec_deg = [192.85948, 27.12825]   # disk axis: north Galactic pole (illustrative)
+disk_outer_m = 25.0
+disk_temperature_k = 6500.0
+disk_brightness = 0.6
+
+[[bodies]]
+name = "S2"
+parent = "Sgr A*"
+kind = "star"
+radii_km = [4174200.0]         # 6 R_sun (assumed)
+temperature_k = 25000.0        # [HA17]
+luminosity_solar = 12669.0
+orbit_color = "#a9c8ff"
+trail_history_days = 5860.0    # one orbit (16.0455 yr)
+[bodies.orbit]
+type = "kerr_geodesic"
+elements_epoch = "previous_apocentre"
+span_years = [1850.0, 2200.0]
+step_eta = 0.003
+[bodies.orbit.elements]        # [GR20] Table E.1
+a_mas = 125.058
+distance_pc = 8246.7
+e = 0.884649
+i_deg = 134.567
+node_deg = 228.171
+arg_peri_deg = 66.263
+t_peri_year = 2018.37900
+sky_ra_dec_deg = [266.41683333, -29.00781611]   # [RB04]
+
+[[bodies]]
+name = "Death Star"
+parent = "Sgr A*"
+kind = "planet"
+style = "death_star"
+radii_km = [5.0e6]             # EXAGGERATED for visibility (see the header)
+color = "#a7abb0"
+prime_meridian_deg = [0.0, 720.0]   # one turn every 12 h (arbitrary)
+orbit_color = "#ffd27f"
+trail_history_days = 8.0       # ~3.5 orbits: the rosette
+mark_periapsides = true
+[bodies.orbit]
+type = "kerr_geodesic"
+rolling_window_days = 30.0     # integrated around the current time
+step_eta = 0.004
+[bodies.orbit.elements]        # hypothetical: r_p = 40 M = 2.52e8 km, e = 0.7
+a_au = 5.607833
+e = 0.7
+i_deg = 134.567
+node_deg = 300.0
+arg_peri_deg = 0.0
+t_peri_year = 2026.0
+sky_ra_dec_deg = [266.41683333, -29.00781611]
+
+[[events]]
+name = "The black hole: shadow, lensed sky and disk"
+time = "2026-10-01"
+focus = "Sgr A*"
+distance_km = 3.8e8            # ~60 M
+warp = 60.0
+
+[[events]]
+name = "S2 pericentre (2018-05-19, 120 au, 7,700 km/s)"
+time = "2018-04-01"
+focus = "S2"
+distance_km = 6.0e10
+warp = 86400.0
+
+[[events]]
+name = "Next S2 pericentre (2034-06)"
+time = "2034-04-15"
+focus = "S2"
+distance_km = 6.0e10
+warp = 86400.0
+
+[[events]]
+name = "Death Star: apsidal advance (top-down)"
+time = "2026-10-01"
+focus = "Sgr A*"
+distance_km = 4.5e9            # the apoapsis (~230 M) fits vertically
+warp = 7200.0                  # one orbit (~2.35 d) in ~28 s
+from_orbit_normal = "Death Star"
+
+[[events]]
+name = "Death Star at periapsis (40 M, 0.2 c)"
+time = "2025-12-31 22:00"      # periapsis at t_peri_year = 2026.0
+focus = "Death Star"
+distance_km = 3.0e7
+warp = 60.0

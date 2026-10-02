@@ -1,0 +1,210 @@
+#include "render/body_pass.hpp"
+
+#include "core/math.hpp"
+#include "render/gpu_buffer.hpp"
+#include "render/shader.hpp"
+#include "render/texture.hpp"
+
+#include <shaders/body.frag.h>
+#include <shaders/body.vert.h>
+
+#include <SDL3/SDL_log.h>
+
+#include <cmath>
+#include <cstdint>
+#include <vector>
+
+namespace astraxis {
+
+namespace {
+
+constexpr int kSlices = 128; // longitude segments
+constexpr int kStacks = 64;  // latitude segments
+
+struct VertexUniforms {
+    glm::mat4 model;
+    glm::mat4 view_proj;
+    glm::mat4 rotation;
+    glm::vec4 inv_scale;
+};
+
+struct FragmentUniforms {
+    glm::vec4 sun;
+    glm::vec4 color;
+    glm::vec4 params;
+    glm::vec4 occluders[kMaxOccluders];
+};
+
+struct SphereVertex {
+    glm::vec3 position;
+    glm::vec2 uv;
+};
+
+void build_sphere(std::vector<SphereVertex>& vertices, std::vector<uint16_t>& indices)
+{
+    // The seam column is duplicated (i = 0 and i = kSlices) so u runs 0..1 without wrapping.
+    for (int j = 0; j <= kStacks; ++j) {
+        const double lat = -kPi / 2.0 + kPi * j / kStacks;
+        for (int i = 0; i <= kSlices; ++i) {
+            const double lon = kTwoPi * i / kSlices;
+            const glm::vec3 p(static_cast<float>(std::cos(lat) * std::cos(lon)),
+                              static_cast<float>(std::cos(lat) * std::sin(lon)), static_cast<float>(std::sin(lat)));
+            const glm::vec2 uv(static_cast<float>(i) / kSlices, 1.0f - static_cast<float>(j) / kStacks);
+            vertices.push_back({p, uv});
+        }
+    }
+    // Counter-clockwise when seen from outside.
+    for (int j = 0; j < kStacks; ++j) {
+        for (int i = 0; i < kSlices; ++i) {
+            const uint16_t a = static_cast<uint16_t>(j * (kSlices + 1) + i);
+            const uint16_t b = static_cast<uint16_t>(a + 1);
+            const uint16_t c = static_cast<uint16_t>(a + kSlices + 1);
+            const uint16_t d = static_cast<uint16_t>(c + 1);
+            indices.insert(indices.end(), {a, b, d, a, d, c});
+        }
+    }
+}
+
+} // namespace
+
+bool BodyPass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
+{
+    m_device = device;
+
+    SDL_GPUShader* vs = create_shader(device, {.dxil = kBodyVertDxil,
+                                               .stage = SDL_GPU_SHADERSTAGE_VERTEX,
+                                               .num_uniform_buffers = 1});
+    SDL_GPUShader* fs = create_shader(device, {.dxil = kBodyFragDxil,
+                                               .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
+                                               .num_samplers = 1,
+                                               .num_uniform_buffers = 1});
+    if (!vs || !fs) {
+        SDL_ReleaseGPUShader(device, vs);
+        SDL_ReleaseGPUShader(device, fs);
+        return false;
+    }
+
+    SDL_GPUVertexBufferDescription vb = {};
+    vb.slot = 0;
+    vb.pitch = sizeof(SphereVertex);
+    vb.input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX;
+
+    SDL_GPUVertexAttribute attrs[2] = {};
+    attrs[0] = {.location = 0, .buffer_slot = 0, .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
+                .offset = offsetof(SphereVertex, position)};
+    attrs[1] = {.location = 1, .buffer_slot = 0, .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2,
+                .offset = offsetof(SphereVertex, uv)};
+
+    SDL_GPUColorTargetDescription color = {};
+    color.format = format.color;
+
+    SDL_GPUGraphicsPipelineCreateInfo info = {};
+    info.vertex_shader = vs;
+    info.fragment_shader = fs;
+    info.vertex_input_state.vertex_buffer_descriptions = &vb;
+    info.vertex_input_state.num_vertex_buffers = 1;
+    info.vertex_input_state.vertex_attributes = attrs;
+    info.vertex_input_state.num_vertex_attributes = 2;
+    info.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
+    info.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
+    info.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_BACK;
+    info.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
+    info.multisample_state.sample_count = format.samples;
+    info.depth_stencil_state.enable_depth_test = true;
+    info.depth_stencil_state.enable_depth_write = true;
+    info.depth_stencil_state.compare_op = SDL_GPU_COMPAREOP_GREATER; // reversed-Z
+    info.target_info.color_target_descriptions = &color;
+    info.target_info.num_color_targets = 1;
+    info.target_info.has_depth_stencil_target = true;
+    info.target_info.depth_stencil_format = format.depth;
+
+    m_pipeline = SDL_CreateGPUGraphicsPipeline(device, &info);
+    SDL_ReleaseGPUShader(device, vs);
+    SDL_ReleaseGPUShader(device, fs);
+    if (!m_pipeline) {
+        SDL_LogError(SDL_LOG_CATEGORY_GPU, "Body pipeline creation failed: %s", SDL_GetError());
+        return false;
+    }
+
+    std::vector<SphereVertex> vertices;
+    std::vector<uint16_t> indices;
+    build_sphere(vertices, indices);
+    m_index_count = static_cast<uint32_t>(indices.size());
+    m_vertices = create_static_buffer(device, SDL_GPU_BUFFERUSAGE_VERTEX, vertices.data(),
+                                      static_cast<uint32_t>(vertices.size() * sizeof(SphereVertex)));
+    m_indices = create_static_buffer(device, SDL_GPU_BUFFERUSAGE_INDEX, indices.data(),
+                                     static_cast<uint32_t>(indices.size() * sizeof(uint16_t)));
+
+    SDL_GPUSamplerCreateInfo sampler = {};
+    sampler.min_filter = SDL_GPU_FILTER_LINEAR;
+    sampler.mag_filter = SDL_GPU_FILTER_LINEAR;
+    sampler.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
+    sampler.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
+    sampler.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+    sampler.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+    sampler.max_anisotropy = 8.0f;
+    sampler.enable_anisotropy = true;
+    sampler.max_lod = 1000.0f;
+    m_sampler = SDL_CreateGPUSampler(device, &sampler);
+    m_white = create_solid_texture(device, 255, 255, 255, 255);
+
+    return m_vertices && m_indices && m_sampler && m_white;
+}
+
+void BodyPass::shutdown()
+{
+    if (!m_device) {
+        return;
+    }
+    SDL_ReleaseGPUBuffer(m_device, m_vertices);
+    SDL_ReleaseGPUBuffer(m_device, m_indices);
+    SDL_ReleaseGPUSampler(m_device, m_sampler);
+    SDL_ReleaseGPUTexture(m_device, m_white);
+    m_sampler = nullptr;
+    m_white = nullptr;
+    SDL_ReleaseGPUGraphicsPipeline(m_device, m_pipeline);
+    m_vertices = nullptr;
+    m_indices = nullptr;
+    m_pipeline = nullptr;
+    m_device = nullptr;
+}
+
+void BodyPass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const CameraView& view, const SunLight& sun,
+                    std::span<const BodyDrawItem> items) const
+{
+    if (items.empty()) {
+        return;
+    }
+
+    SDL_BindGPUGraphicsPipeline(pass, m_pipeline);
+    SDL_GPUBufferBinding vb = {.buffer = m_vertices, .offset = 0};
+    SDL_BindGPUVertexBuffers(pass, 0, &vb, 1);
+    SDL_GPUBufferBinding ib = {.buffer = m_indices, .offset = 0};
+    SDL_BindGPUIndexBuffer(pass, &ib, SDL_GPU_INDEXELEMENTSIZE_16BIT);
+
+    for (const BodyDrawItem& item : items) {
+        VertexUniforms vu;
+        vu.model = item.model;
+        vu.view_proj = view.view_proj;
+        vu.rotation = item.rotation;
+        vu.inv_scale = glm::vec4(item.inv_scale, 0.0f);
+        SDL_PushGPUVertexUniformData(cmd, 0, &vu, sizeof(vu));
+
+        FragmentUniforms fu = {};
+        fu.sun = glm::vec4(item.sun_direction, item.sun_angular_radius);
+        fu.color = glm::vec4(item.color, static_cast<float>(item.style));
+        fu.params = glm::vec4(static_cast<float>(item.occluder_count), sun.ambient, item.texture ? 1.0f : 0.0f,
+                              item.flip_u ? 1.0f : 0.0f);
+        for (int k = 0; k < item.occluder_count && k < kMaxOccluders; ++k) {
+            fu.occluders[k] = item.occluders[k];
+        }
+        SDL_PushGPUFragmentUniformData(cmd, 0, &fu, sizeof(fu));
+
+        SDL_GPUTextureSamplerBinding tex = {.texture = item.texture ? item.texture : m_white, .sampler = m_sampler};
+        SDL_BindGPUFragmentSamplers(pass, 0, &tex, 1);
+
+        SDL_DrawGPUIndexedPrimitives(pass, m_index_count, 1, 0, 0, 0);
+    }
+}
+
+} // namespace astraxis

@@ -1,0 +1,147 @@
+# Jupiter and the four Galilean satellites (mean-element model).
+#
+# Sources
+# [ELEM] JPL SSD, Planetary Satellite Mean Elements (https://ssd.jpl.nasa.gov/sats/elem/),
+#        ephemeris JUP365, Laplace-plane frame, epoch 2000-01-01.5 TDB.
+# [SPHY] JPL SSD, Planetary Satellite Physical Parameters (https://ssd.jpl.nasa.gov/sats/phys_par/).
+# [PCK]  NAIF pck00011.tpc (IAU WGCCRE 2015 report): pole, prime meridian, radii.
+#        Linear T terms and nutation/precession terms are ignored (< 0.01 deg over centuries).
+# [APX]  E. M. Standish, Approximate Positions of the Planets, Tables 2a/2b
+#        (https://ssd.jpl.nasa.gov/planets/approx_pos.html), 3000 BC - 3000 AD.
+#
+# Precession signs: [ELEM] lists apsidal/nodal periods as magnitudes. Nodes regress.
+# Io's and Europa's apsides are locked to the Laplace resonance and regress; Ganymede's
+# and Callisto's advance. With these signs, d(node + arg_peri + M)/dt reproduces the
+# synchronous rotation rates of [PCK] (203.4889538, 101.3747235, 50.3176081,
+# 21.5710715 deg/day) to within 0.001 deg/day (checked in tests/sim_tests.cpp).
+#
+# Colors are sRGB and artistic (used when a texture is missing).
+# Textures: see assets/textures/SOURCES.md. texture_left_lon_deg is the longitude of the
+# map's left edge, increasing eastward across the map (texture_lon_direction = "east").
+# The USGS maps are labeled "positive west" but are laid out with east to the right;
+# the left edges were verified against Valhalla (Callisto), Pele and Loki (Io), and
+# Galileo Regio (Ganymede).
+
+name = "Jupiter"
+
+# Heliocentric orbit of the scene origin, used for the sun direction. [APX]
+# Each element is [value at J2000, rate per Julian century].
+[origin_heliocentric]
+type = "jpl_approx_planet"
+a_au = [5.20248019, -0.00002864]
+e = [0.04853590, 0.00018026]
+i_deg = [1.29861416, -0.00322699]
+mean_longitude_deg = [34.33479152, 3034.90371757]
+lon_peri_deg = [14.27495244, 0.18199196]
+node_deg = [100.29282654, 0.13024619]
+b = -0.00012452
+c = 0.06064060
+s = -0.35635438
+f = 38.35125000
+
+[[bodies]]
+name = "Jupiter"
+radii_km = [71492.0, 66854.0]          # equatorial, polar [PCK]
+pole_ra_dec_deg = [268.056595, 64.495303] # [PCK]
+prime_meridian_deg = [284.95, 870.5360000] # W0, deg/day (System III) [PCK]
+color = "#e0cdb0"
+style = "gas_giant"
+# Atmospheric features drift in longitude, so the map alignment is arbitrary.
+texture = "textures/jupiter.jpg"
+texture_left_lon_deg = -180.0
+
+[[bodies]]
+name = "Io"
+parent = "Jupiter"
+radii_km = [1821.49]                   # mean radius [SPHY]
+pole_ra_dec_deg = [268.05, 64.50]      # [PCK]
+prime_meridian_deg = [200.39, 203.4889538]
+color = "#edd173"
+orbit_color = "#f2cc66"
+texture = "textures/io.jpg"
+texture_left_lon_deg = -180.0
+
+[bodies.orbit]                         # [ELEM]
+type = "mean_elements"
+a_km = 421800.0
+e = 0.004
+arg_peri_deg = 49.1
+mean_anomaly_deg = 330.9
+i_deg = 0.0
+node_deg = 0.0
+period_days = 1.762732
+apsis_period_years = -1.333
+node_period_years = 0.0
+laplace_pole_ra_dec_deg = [268.1, 64.5]
+
+[[bodies]]
+name = "Europa"
+parent = "Jupiter"
+radii_km = [1560.80]
+pole_ra_dec_deg = [268.08, 64.51]
+prime_meridian_deg = [36.022, 101.3747235]
+color = "#dbccb3"
+orbit_color = "#bfd9f2"
+texture = "textures/europa.jpg"
+texture_left_lon_deg = 0.0
+
+[bodies.orbit]
+type = "mean_elements"
+a_km = 671100.0
+e = 0.009
+arg_peri_deg = 45.0
+mean_anomaly_deg = 345.4
+i_deg = 0.5
+node_deg = 184.0
+period_days = 3.525463
+apsis_period_years = -1.394
+node_period_years = -30.202
+laplace_pole_ra_dec_deg = [268.1, 64.5]
+
+[[bodies]]
+name = "Ganymede"
+parent = "Jupiter"
+radii_km = [2631.20]
+pole_ra_dec_deg = [268.20, 64.57]
+prime_meridian_deg = [44.064, 50.3176081]
+color = "#9e9485"
+orbit_color = "#b3e6b3"
+texture = "textures/ganymede.jpg"
+texture_left_lon_deg = 0.0
+
+[bodies.orbit]
+type = "mean_elements"
+a_km = 1070400.0
+e = 0.001
+arg_peri_deg = 198.3
+mean_anomaly_deg = 324.8
+i_deg = 0.2
+node_deg = 58.5
+period_days = 7.155588
+apsis_period_years = 68.301
+node_period_years = -137.812
+laplace_pole_ra_dec_deg = [268.2, 64.6]
+
+[[bodies]]
+name = "Callisto"
+parent = "Jupiter"
+radii_km = [2410.30]
+pole_ra_dec_deg = [268.72, 64.83]
+prime_meridian_deg = [259.51, 21.5710715]
+color = "#73695c"
+orbit_color = "#d9b3e6"
+texture = "textures/callisto.jpg"
+texture_left_lon_deg = 0.0
+
+[bodies.orbit]
+type = "mean_elements"
+a_km = 1882700.0
+e = 0.007
+arg_peri_deg = 43.8
+mean_anomaly_deg = 87.4
+i_deg = 0.3
+node_deg = 309.1
+period_days = 16.690440
+apsis_period_years = 277.921
+node_period_years = -577.264
+laplace_pole_ra_dec_deg = [268.7, 64.8]

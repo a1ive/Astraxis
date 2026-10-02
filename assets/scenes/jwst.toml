@@ -1,0 +1,115 @@
+# The James Webb Space Telescope's halo orbit around Sun-Earth L2.
+#
+# In the default "Sun-Earth rotating" frame the x axis always points from the Sun
+# through the Earth, so L2 (1.5 million km beyond the Earth) stays fixed and JWST's
+# halo orbit around it shows up as a closed loop. Switch to the inertial frame to
+# see the same path wind around the Earth once a year.
+#
+# Sources
+# [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py:
+#        geocentric ICRF, 2021-12-25 .. 2031-09-27 (Horizons JWST coverage: definitive
+#        as-flown solution, then a 5-year predicted schedule). The Sun direction uses the
+#        heliocentric Earth-Moon barycenter (the Earth-EMB offset of ~4,700 km is ignored).
+# [GM]   JPL SSD astrodynamic parameters (DE440).
+#        L2 mass ratio = (GM_Earth + GM_Moon) / (GM_Sun + GM_Earth + GM_Moon)
+#                      = 403503.235625 / (1.32712440041279419e11 + 403503.235625)
+#                      = 3.04042340e-6  (Sun / Earth-Moon barycenter system).
+# [PCK]  NAIF pck00011.tpc (IAU 2015).
+# [SPHY] JPL SSD satellite physical parameters (Moon mean radius).
+
+name = "JWST"
+
+[view]
+focus = "Earth"
+frame = "Sun-Earth rotating"
+distance_km = 4.0e6
+start = "now"
+warp = 86400.0             # 1 day per second: a halo loop (~6 months) in ~3 minutes
+
+# Heliocentric Earth-Moon barycenter, for the Sun direction and the rotating frame. [HZN]
+[origin_heliocentric]
+type = "ephemeris"
+file = "ephem/emb.eph"
+[origin_heliocentric.fallback]             # Standish Table 2a, EM Bary
+type = "jpl_approx_planet"
+a_au = [1.00000018, -0.00000003]
+e = [0.01673163, -0.00003661]
+i_deg = [-0.00054346, -0.01337178]
+mean_longitude_deg = [100.46691572, 35999.37306329]
+lon_peri_deg = [102.93005885, 0.31795260]
+node_deg = [-5.11260389, -0.24123856]
+
+[[bodies]]
+name = "Earth"
+radii_km = [6378.1366, 6356.7519]          # [PCK]
+gm_km3_s2 = 403503.235625                  # Earth + Moon, for the Moon's relative orbit [GM]
+pole_ra_dec_deg = [0.0, 90.0]              # [PCK]
+prime_meridian_deg = [190.147, 360.9856235]
+color = "#5b86c9"
+texture = "textures/earth.jpg"             # NASA Blue Marble NG (see textures/SOURCES.md)
+texture_left_lon_deg = -180.0
+
+[[bodies]]
+name = "Moon"
+parent = "Earth"
+radii_km = [1737.4]                        # [SPHY]
+pole_ra_dec_deg = [269.9949, 66.5392]      # [PCK] (libration terms ignored)
+prime_meridian_deg = [38.3213, 13.17635815]
+color = "#a8a49c"
+orbit_color = "#c8c4bc"
+texture = "textures/moon.jpg"              # NASA SVS CGI Moon Kit
+texture_left_lon_deg = -180.0
+[bodies.orbit]                             # [HZN] 301
+type = "ephemeris"
+file = "ephem/moon_geo.eph"
+
+[[bodies]]
+name = "JWST"
+parent = "Earth"
+kind = "spacecraft"
+radii_km = [0.011]                         # sunshield ~21 m x 14 m
+color = "#ffd98a"
+orbit_color = "#ffcf6a"
+trail = "history"
+trail_history_days = 365.0                 # about two halo loops
+[bodies.orbit]                             # [HZN] -170
+type = "ephemeris"
+file = "ephem/jwst_geo.eph"
+
+[[frames]]
+name = "Sun-Earth rotating"
+type = "rotating"
+primary = "sun"
+secondary = "Earth"
+
+[[markers]]
+name = "L2"
+type = "lagrange"
+point = 2
+primary = "sun"
+secondary = "Earth"
+mass_ratio = 3.04042340e-6
+
+[[markers]]
+name = "L1"
+type = "lagrange"
+point = 1
+primary = "sun"
+secondary = "Earth"
+mass_ratio = 3.04042340e-6
+
+[[events]]
+name = "Launch (2021-12-25)"
+time = "2021-12-25 12:30"
+focus = "JWST"
+frame = "Sun-Earth rotating"
+distance_km = 3.0e5
+warp = 3600.0
+
+[[events]]
+name = "The full mission so far, from L2"
+time = "2022-01-24"
+focus = "Earth"
+frame = "Sun-Earth rotating"
+distance_km = 4.0e6
+warp = 604800.0

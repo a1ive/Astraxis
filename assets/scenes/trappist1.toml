@@ -1,0 +1,253 @@
+# TRAPPIST-1: an ultracool M8 dwarf and seven Earth-sized planets in a resonant
+# chain (period ratios close to 8:5:3:2:4/3:1, neighbouring triples in
+# three-body Laplace resonances), all within 0.062 au of the star.
+#
+# Integrated as a Newtonian eight-body system (Yoshida 6th-order symplectic,
+# src/ephem/nbody.cpp) from the initial conditions of the transit-timing fit:
+#
+# [AG21] Agol et al. 2021, PSJ 2, 1 (arXiv:2010.01074):
+#        Table 2: osculating Jacobi elements at BJD_TDB 2457257.93115525 (P, t0,
+#        e cos w, e sin w) and planet/star mass ratios mu (in units of 1e-5).
+#        Table 5: inclinations I (photodynamic model, impact parameter b0 > 0).
+#        Table 6: planet radii (1e8 cm = 1000 km).
+#        Table 7: M = 0.0898 M_sun (Mann et al. 2019), R = 0.1192 R_sun,
+#        L = 0.000553 L_sun (Ducrot et al. 2020), T_eff = 2566 K.
+#        Element convention from their NbodyGradient code (kepler_init.jl, init_nbody.jl,
+#        github.com/ericagol/TRAPPIST1_Spitzer): Jacobi hierarchy, sky plane x-y, z away
+#        from the observer, mid-transit at w + f = 270 deg; the TTV fit holds Omega = 0.
+# [GAIA] Gaia EDR3 via SIMBAD: ICRS position at J2000 (RA 23 06 29.3684948589,
+#        Dec -05 02 29.037301866 = 346.622368729, -5.041399251 deg),
+#        parallax 80.2123 mas (12.466916 pc).
+#
+# GM = mass * GM_sun (1.32712440041279419e11 km^3/s^2, JPL DE440); a planet's
+# GM = mu * 0.0898 GM_sun (the transit times fix only the mass ratios).
+# Times are BJD_TDB, i.e. when the light reaches the solar-system barycentre:
+# transits happen in the scene when they are seen from Earth.
+# The node on the sky is not measured; 0 is used for all planets (as in the fit).
+# Planet colours are artistic; the star colour comes from T_eff.
+# Check (tests/sim_tests.cpp): the integration reproduces the transit times that
+# AG21's posterior predicts over 2015-2019 and their impact parameters.
+
+name = "TRAPPIST-1"
+
+[view]
+focus = "TRAPPIST-1"
+distance_km = 2.5e7
+start = "now"
+warp = 7200.0                  # 2 hours per second: b orbits in 18 s, h in 3.8 min
+up = "orbit_normal:TRAPPIST-1 b"
+
+[[bodies]]
+name = "TRAPPIST-1"
+kind = "star"
+radii_km = [82927.4]           # 0.1192 R_sun [AG21]
+gm_km3_s2 = 1.191757712e10     # 0.0898 GM_sun [AG21]
+temperature_k = 2566.0
+luminosity_solar = 0.000553
+
+[[bodies]]
+name = "TRAPPIST-1 b"
+parent = "TRAPPIST-1"
+radii_km = [7119.0]
+color = "#8c7b70"
+orbit_color = "#ff9f80"
+[bodies.orbit]
+type = "nbody"
+
+[[bodies]]
+name = "TRAPPIST-1 c"
+parent = "TRAPPIST-1"
+radii_km = [6995.0]
+color = "#a39282"
+orbit_color = "#ffc080"
+[bodies.orbit]
+type = "nbody"
+
+[[bodies]]
+name = "TRAPPIST-1 d"
+parent = "TRAPPIST-1"
+radii_km = [5026.0]
+color = "#b0a08c"
+orbit_color = "#f2e080"
+[bodies.orbit]
+type = "nbody"
+
+[[bodies]]
+name = "TRAPPIST-1 e"
+parent = "TRAPPIST-1"
+radii_km = [5868.0]
+color = "#7f94a6"
+orbit_color = "#a0e0a0"
+[bodies.orbit]
+type = "nbody"
+
+[[bodies]]
+name = "TRAPPIST-1 f"
+parent = "TRAPPIST-1"
+radii_km = [6664.0]
+color = "#b4c2cc"
+orbit_color = "#80d8e0"
+[bodies.orbit]
+type = "nbody"
+
+[[bodies]]
+name = "TRAPPIST-1 g"
+parent = "TRAPPIST-1"
+radii_km = [7204.0]
+color = "#c3ccd4"
+orbit_color = "#90b0ff"
+[bodies.orbit]
+type = "nbody"
+
+[[bodies]]
+name = "TRAPPIST-1 h"
+parent = "TRAPPIST-1"
+radii_km = [4817.0]
+color = "#d4dadf"
+orbit_color = "#c8a0f0"
+[bodies.orbit]
+type = "nbody"
+
+[[bodies]]
+name = "Sun"
+parent = "TRAPPIST-1"
+kind = "star"
+radii_km = [695700.0]
+temperature_k = 5772.0
+luminosity_solar = 1.0
+trail = "none"
+[bodies.orbit]                 # opposite direction of TRAPPIST-1 as seen from the Sun [GAIA]
+type = "fixed"
+ra_dec_distance_pc = [166.622368729, 5.041399251, 12.466916]
+
+# Each planet starts on its Jacobi orbit: around the barycentre of the star and
+# all planets inside it ([AG21] init_nbody.jl).
+[nbody]
+epoch_jd_tdb = 2457257.93115525
+span_years = [2000.0, 2050.0]
+step_days = 0.02               # 75 steps per orbit of b; transit times drift by ~1 min
+order = 6                      # in 4 years (4th order at this step: ~1 hour)
+knots_per_orbit = 24
+origin = ["TRAPPIST-1"]
+
+[[nbody.members]]
+body = "TRAPPIST-1"
+
+[[nbody.members]]
+body = "TRAPPIST-1 b"
+gm_km3_s2 = 5.477318e5         # mu = 4.596e-5
+relative_to = ["TRAPPIST-1"]
+[nbody.members.transit_orbit]
+period_days = 1.510826
+t_transit_bjd_tdb = 2457257.55044
+e_cos_w = -0.00215
+e_sin_w = 0.00217
+i_deg = 89.728
+transit_u_deg = 270.0
+sky_ra_dec_deg = [346.622368729, -5.041399251]
+
+[[nbody.members]]
+body = "TRAPPIST-1 c"
+gm_km3_s2 = 5.212748e5         # mu = 4.374e-5
+relative_to = ["TRAPPIST-1", "TRAPPIST-1 b"]
+[nbody.members.transit_orbit]
+period_days = 2.421937
+t_transit_bjd_tdb = 2457258.58728
+e_cos_w = 0.00055
+e_sin_w = 0.00001
+i_deg = 89.778
+transit_u_deg = 270.0
+sky_ra_dec_deg = [346.622368729, -5.041399251]
+
+[[nbody.members]]
+body = "TRAPPIST-1 d"
+gm_km3_s2 = 1.545710e5         # mu = 1.297e-5
+relative_to = ["TRAPPIST-1", "TRAPPIST-1 b", "TRAPPIST-1 c"]
+[nbody.members.transit_orbit]
+period_days = 4.049219
+t_transit_bjd_tdb = 2457257.06768
+e_cos_w = -0.00496
+e_sin_w = 0.00267
+i_deg = 89.896
+transit_u_deg = 270.0
+sky_ra_dec_deg = [346.622368729, -5.041399251]
+
+[[nbody.members]]
+body = "TRAPPIST-1 e"
+gm_km3_s2 = 2.756536e5         # mu = 2.313e-5
+relative_to = ["TRAPPIST-1", "TRAPPIST-1 b", "TRAPPIST-1 c", "TRAPPIST-1 d"]
+[nbody.members.transit_orbit]
+period_days = 6.101013
+t_transit_bjd_tdb = 2457257.82771
+e_cos_w = 0.00433
+e_sin_w = -0.00461
+i_deg = 89.793
+transit_u_deg = 270.0
+sky_ra_dec_deg = [346.622368729, -5.041399251]
+
+[[nbody.members]]
+body = "TRAPPIST-1 f"
+gm_km3_s2 = 4.141358e5         # mu = 3.475e-5
+relative_to = ["TRAPPIST-1", "TRAPPIST-1 b", "TRAPPIST-1 c", "TRAPPIST-1 d", "TRAPPIST-1 e"]
+[nbody.members.transit_orbit]
+period_days = 9.207540
+t_transit_bjd_tdb = 2457257.07426
+e_cos_w = -0.00840
+e_sin_w = -0.00051
+i_deg = 89.740
+transit_u_deg = 270.0
+sky_ra_dec_deg = [346.622368729, -5.041399251]
+
+[[nbody.members]]
+body = "TRAPPIST-1 g"
+gm_km3_s2 = 5.265186e5         # mu = 4.418e-5
+relative_to = ["TRAPPIST-1", "TRAPPIST-1 b", "TRAPPIST-1 c", "TRAPPIST-1 d", "TRAPPIST-1 e", "TRAPPIST-1 f"]
+[nbody.members.transit_orbit]
+period_days = 12.352446
+t_transit_bjd_tdb = 2457257.71462
+e_cos_w = 0.00380
+e_sin_w = 0.00128
+i_deg = 89.742
+transit_u_deg = 270.0
+sky_ra_dec_deg = [346.622368729, -5.041399251]
+
+[[nbody.members]]
+body = "TRAPPIST-1 h"
+gm_km3_s2 = 1.296632e5         # mu = 1.088e-5
+relative_to = ["TRAPPIST-1", "TRAPPIST-1 b", "TRAPPIST-1 c", "TRAPPIST-1 d", "TRAPPIST-1 e", "TRAPPIST-1 f",
+               "TRAPPIST-1 g"]
+[nbody.members.transit_orbit]
+period_days = 18.772866
+t_transit_bjd_tdb = 2457249.60676
+e_cos_w = -0.00365
+e_sin_w = -0.00002
+i_deg = 89.805
+transit_u_deg = 270.0
+sky_ra_dec_deg = [346.622368729, -5.041399251]
+
+# Mid-transit times from the posterior of [AG21] (times_obs_and_posterior.txt in
+# their repository): c 2457367.57035, f .57732, e .59675 (Spitzer); b 2457512.88677
+# and c .88055 (HST, de Wit et al. 2016). Events start 1.5 h earlier.
+[[events]]
+name = "Triple transit of c, f and e (Spitzer, 2015-12-11)"
+time_tdb = "2015-12-11 00:11:18"
+focus = "TRAPPIST-1"
+from_body = "Sun"
+distance_km = 2.0e7
+warp = 300.0
+
+[[events]]
+name = "Double transit of b and c (HST, 2016-05-04)"
+time_tdb = "2016-05-04 07:37:59"
+focus = "TRAPPIST-1"
+from_body = "Sun"
+distance_km = 2.0e7
+warp = 300.0
+
+[[events]]
+name = "The resonant chain, face-on"
+time = "2026-01-01"
+focus = "TRAPPIST-1"
+from_orbit_normal = "TRAPPIST-1 e"
+distance_km = 2.5e7
+warp = 21600.0

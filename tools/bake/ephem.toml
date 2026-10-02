@@ -1,0 +1,129 @@
+# Ephemeris bake configuration for horizons_bake.py.
+# Run from the repository root:
+#     python tools/bake/horizons_bake.py tools/bake/ephem.toml [name ...]
+#
+# All targets: JPL Horizons geometric state vectors, ICRF, TDB, km and km/s.
+# Data spans are limited by Horizons coverage (spacecraft notes printed by Horizons):
+#   Voyager 1 (-31): 1977-Sep-05 .. 2100-Jan-01, launch 1977-Sep-06 12:56 UTC
+#   Voyager 2 (-32): 1977-Aug-20 15:32:32 TDB .. 2100-Jan-01
+#   JWST (-170):     2021-Dec-25 13:01:09 TDB .. 2031-Sep-27 23:59 TDB
+# Tolerances are for display: heliocentric positions carry the Sun's reflex motion
+# (hundreds of km on 88-365 day periods), which a tight tolerance would turn into
+# dense knots everywhere; tens of km are invisible even at flyby distances.
+# radius_km (equatorial, JPL SSD planetary physical parameters) is only used to
+# print flyby altitudes.
+#
+# Planets use system barycenters (Earth-Moon barycenter 3, Jupiter 5, ...): the
+# planet centers wobble around them by up to a few thousand km (Earth-Moon) or
+# hundreds of km (giant planets and their moons) on periods of days, which would
+# force dense knots. The offset is negligible at flyby distances.
+
+[defaults]
+tolerance_km = 20.0
+output_dir = "../../assets/ephem"   # relative to this file; files are <name>.eph
+
+# --- Heliocentric (center: Sun body center, 500@10) ------------------------
+
+[[target]]
+name = "emb"
+command = "3"
+naif_id = 3
+center = "500@10"
+center_naif_id = 10
+start = "1977-08-01"
+stop = "2100-01-01"
+base_step_minutes = 7200   # 5 d
+tolerance_km = 50.0
+radius_km = 6378.1366
+
+[[target]]
+name = "jupiter"
+command = "5"
+naif_id = 5
+center = "500@10"
+center_naif_id = 10
+start = "1977-08-01"
+stop = "2100-01-01"
+base_step_minutes = 14400  # 10 d
+tolerance_km = 50.0
+radius_km = 71492.0
+
+[[target]]
+name = "saturn"
+command = "6"
+naif_id = 6
+center = "500@10"
+center_naif_id = 10
+start = "1977-08-01"
+stop = "2100-01-01"
+base_step_minutes = 28800  # 20 d
+tolerance_km = 50.0
+radius_km = 60268.0
+
+[[target]]
+name = "uranus"
+command = "7"
+naif_id = 7
+center = "500@10"
+center_naif_id = 10
+start = "1977-08-01"
+stop = "2100-01-01"
+base_step_minutes = 57600  # 40 d
+tolerance_km = 50.0
+radius_km = 25559.0
+
+[[target]]
+name = "neptune"
+command = "8"
+naif_id = 8
+center = "500@10"
+center_naif_id = 10
+start = "1977-08-01"
+stop = "2100-01-01"
+base_step_minutes = 86400  # 60 d
+tolerance_km = 50.0
+radius_km = 24764.0
+
+[[target]]
+name = "voyager1"
+command = "-31"
+naif_id = -31
+center = "500@10"
+center_naif_id = 10
+start = "1977-09-06 13:00"
+stop = "2099-12-31"   # Horizons coverage ends exactly at 2100-01-01
+base_step_minutes = 1440   # 1 d
+encounters = ["jupiter", "saturn"]
+
+[[target]]
+name = "voyager2"
+command = "-32"
+naif_id = -32
+center = "500@10"
+center_naif_id = 10
+start = "1977-08-20 15:33"
+stop = "2099-12-31"   # Horizons coverage ends exactly at 2100-01-01
+base_step_minutes = 1440
+encounters = ["jupiter", "saturn", "uranus", "neptune"]
+
+# --- Geocentric (center: Earth body center, 500@399) -----------------------
+
+[[target]]
+name = "moon_geo"
+command = "301"
+naif_id = 301
+center = "500@399"
+center_naif_id = 399
+start = "2021-12-25 13:02"
+stop = "2031-09-27 23:00"
+base_step_minutes = 360    # 6 h
+
+[[target]]
+name = "jwst_geo"
+command = "-170"
+naif_id = -170
+center = "500@399"
+center_naif_id = 399
+start = "2021-12-25 13:02"
+stop = "2031-09-27 23:00"
+base_step_minutes = 360

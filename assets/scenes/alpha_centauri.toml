@@ -1,0 +1,141 @@
+# The alpha Centauri triple system: A and B on their 80-year orbit, Proxima
+# ~13,000 au away, and the Sun as a bright star in the sky.
+#
+# Integrated as a Newtonian three-body system (Yoshida 4th-order symplectic,
+# src/ephem/nbody.cpp) from initial conditions at J1991.25:
+#
+# [AK21] Akeson et al. 2021, AJ 162, 14 (arXiv:2104.10086), Table 8 "present work":
+#        orbit of B relative to A (Campbell elements on the sky), parallax 750.81 mas,
+#        masses m_A = 1.0788, m_B = 0.9092 M_sun, radii R_A = 1.2175, R_B = 0.8591 R_sun,
+#        luminosities L_A = 1.5059, L_B = 0.4981 L_sun; barycentre position (Table 9,
+#        J2019.5): RA 14:39:26.1413 = 219.85892215 deg, Dec -60:49:53.875 = -60.83163195 deg.
+#        Check (tests/sim_tests.cpp): the elements reproduce their ALMA relative astrometry.
+# [KE17] Kervella, Thevenin & Lovis 2017, A&A 598, L7 (arXiv:1611.03495):
+#        Table B.1, Proxima - alpha Cen position and velocity in Galactic axes (Hipparcos
+#        epoch 1991.25); Table 1, m_Prox = 0.1221 M_sun, R_Prox = 0.1542 R_sun (Mann et al.).
+# [BO12] Boyajian et al. 2012, ApJ 757, 112: Proxima T_eff = 3050 K.
+# Derived: T_eff of A and B = 5772 K * (L / R^2)^(1/4) = 5795 K and 5232 K;
+#          L_Prox = R^2 (T / 5772 K)^4 = 0.00185 L_sun (bolometric).
+# GM = mass * GM_sun (1.32712440041279419e11 km^3/s^2, JPL DE440).
+#
+# Positions are relative to the A+B barycentre. The depth sign of the AB orbit
+# (toward/away from us) follows the visual-binary convention; see visual_orbit.hpp.
+
+name = "Alpha Centauri"
+
+[view]
+focus = "Alpha Centauri AB"
+distance_km = 1.0e10          # ~70 au
+start = "now"
+warp = 31557600.0             # 1 year per second: one AB orbit in 80 s
+up = "orbit_normal:Alpha Centauri B"
+
+[[bodies]]
+name = "Alpha Centauri AB"
+kind = "barycenter"
+
+[[bodies]]
+name = "Alpha Centauri A"
+parent = "Alpha Centauri AB"
+kind = "star"
+radii_km = [847045.0]          # 1.2175 R_sun [AK21]
+temperature_k = 5795.0
+luminosity_solar = 1.5059
+orbit_color = "#ffe9b0"
+trail_history_days = 29133.0   # one orbital period (79.762 yr)
+[bodies.orbit]
+type = "nbody"
+
+[[bodies]]
+name = "Alpha Centauri B"
+parent = "Alpha Centauri AB"
+kind = "star"
+radii_km = [597676.0]          # 0.8591 R_sun [AK21]
+temperature_k = 5232.0
+luminosity_solar = 0.4981
+orbit_color = "#ffc888"
+trail_history_days = 29133.0
+[bodies.orbit]
+type = "nbody"
+
+[[bodies]]
+name = "Proxima Centauri"
+parent = "Alpha Centauri AB"
+kind = "star"
+radii_km = [107277.0]          # 0.1542 R_sun [KE17]
+temperature_k = 3050.0         # [BO12]
+luminosity_solar = 0.00185
+orbit_color = "#ff8a6a"
+trail_history_days = 365250.0  # a thousand years: Proxima's orbit takes ~550,000
+[bodies.orbit]
+type = "nbody"
+
+[[bodies]]
+name = "Sun"
+parent = "Alpha Centauri AB"
+kind = "star"
+radii_km = [695700.0]
+temperature_k = 5772.0
+luminosity_solar = 1.0
+trail = "none"
+[bodies.orbit]                 # opposite direction of alpha Cen as seen from the Sun
+type = "fixed"
+ra_dec_distance_pc = [39.85892215, 60.83163195, 1.33189489]   # 1000 / 750.81 mas
+
+[nbody]
+epoch_year = 1991.25
+span_years = [1000.0, 3000.0]
+step_days = 20.0
+origin = ["Alpha Centauri A", "Alpha Centauri B"]
+
+[[nbody.members]]
+body = "Alpha Centauri A"
+gm_km3_s2 = 1.43170182e11      # 1.0788 GM_sun
+
+[[nbody.members]]
+body = "Alpha Centauri B"
+gm_km3_s2 = 1.20662151e11      # 0.9092 GM_sun
+relative_to = ["Alpha Centauri A"]
+[nbody.members.visual_orbit]   # [AK21] Table 8
+a_arcsec = 17.4930
+parallax_mas = 750.81
+e = 0.51947
+i_deg = 79.2430
+node_deg = 205.073
+arg_peri_deg = 231.519
+t_peri_year = 1955.564
+sky_ra_dec_deg = [219.85892215, -60.83163195]
+
+[[nbody.members]]
+body = "Proxima Centauri"
+gm_km3_s2 = 1.62041889e10      # 0.1221 GM_sun
+relative_to = ["Alpha Centauri A", "Alpha Centauri B"]
+[nbody.members.galactic_state] # [KE17] Table B.1, Proxima - alpha Cen
+position_pc = [-0.05622, -0.00198, -0.02785]
+velocity_km_s = [-0.099, 0.173, 0.187]
+
+[[frames]]
+name = "Alpha Centauri A-centered"
+type = "inertial"
+origin = "Alpha Centauri A"
+
+[[events]]
+name = "Apastron (1995-06)"
+time = "1995-06-12"
+focus = "Alpha Centauri AB"
+distance_km = 1.0e10
+warp = 3155760.0
+
+[[events]]
+name = "Next periastron (2035-04, 11.2 au apart)"
+time = "2035-01-01"
+focus = "Alpha Centauri AB"
+distance_km = 5.0e9
+warp = 1209600.0
+
+[[events]]
+name = "Proxima and the pair, from afar"
+time = "2026-01-01"
+focus = "Alpha Centauri AB"
+distance_km = 4.0e12
+warp = 31557600.0

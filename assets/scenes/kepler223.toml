@@ -1,0 +1,183 @@
+# Kepler-223: four sub-Neptunes around a slightly evolved Sun-like star, locked
+# in a 3:4:6:8 resonant chain (period ratios 4:3, 3:2, 4:3) with two librating
+# three-body Laplace angles; a relic of migration in the gas disk.
+#
+# Integrated as a Newtonian five-body system (Yoshida 6th-order symplectic,
+# src/ephem/nbody.cpp) from the best-fit initial conditions of the
+# photodynamical fit:
+#
+# [MI16] Mills et al. 2016, Nature 533, 509 (arXiv:1612.07376):
+#        Extended Data Table 3, top (best fit under the eccentricity prior C1) at
+#        T_epoch = BJD 2455700.0 (800.0 + 2454900): P, T0, e, i, Omega (= 0, fixed),
+#        omega, mass (M_Jup), R_p / R_star; M_star = 1.125 M_sun (fixed),
+#        R_star = 1.744528317200141 R_sun.
+#        Methods: T_eff = 5821 K.
+#        Element convention from their code Phodymm (github.com/smmills/Phodymm,
+#        phodymm.cpp: keptostate, the initial-condition setup and the transit search):
+#        Jacobi coordinates, mid-transit at omega + f = 90 deg.
+#        Masses convert with the code's MSOMJ = 1047.37701464237 M_Jup per M_sun.
+# [GAIA] Gaia EDR3 via SIMBAD: ICRS position at J2000 (RA 19 53 16.4202435936,
+#        Dec +47 16 46.308434088 = 298.318417682, 47.279530121 deg),
+#        parallax 0.5005 +- 0.0215 mas (1998 pc).
+# Derived: L = R^2 (T_eff / 5772 K)^4 = 3.148 L_sun.
+#
+# GM = mass * GM_sun (1.32712440041279419e11 km^3/s^2, JPL DE440).
+# Times are BJD_TDB (as seen from the solar-system barycentre).
+# Planet colours are artistic; the star colour comes from T_eff.
+# Check (tests/sim_tests.cpp): the integration reproduces the linear transit
+# ephemerides that [MI16] Extended Data Table 1 fits to the Kepler data.
+# The background sky is the one seen from Earth (BSC5); from 2 kpc it would differ.
+
+name = "Kepler-223"
+
+[view]
+focus = "Kepler-223"
+distance_km = 6.0e7
+start = "now"
+warp = 21600.0                 # 6 hours per second: b orbits in 30 s, e in 79 s
+up = "orbit_normal:Kepler-223 b"
+
+[[bodies]]
+name = "Kepler-223"
+kind = "star"
+radii_km = [1213668.4]         # 1.744528 R_sun [MI16]
+gm_km3_s2 = 1.493014950e11     # 1.125 GM_sun [MI16]
+temperature_k = 5821.0
+luminosity_solar = 3.148
+
+[[bodies]]
+name = "Kepler-223 b"
+parent = "Kepler-223"
+radii_km = [19363.4]           # 0.015954404 R_star
+color = "#a9c4cf"
+style = "gas_giant"
+orbit_color = "#ffb080"
+[bodies.orbit]
+type = "nbody"
+
+[[bodies]]
+name = "Kepler-223 c"
+parent = "Kepler-223"
+radii_km = [22266.5]           # 0.018346435 R_star
+color = "#9fbcd8"
+style = "gas_giant"
+orbit_color = "#f0e080"
+[bodies.orbit]
+type = "nbody"
+
+[[bodies]]
+name = "Kepler-223 d"
+parent = "Kepler-223"
+radii_km = [33588.1]           # 0.027674878 R_star
+color = "#8fb0e0"
+style = "gas_giant"
+orbit_color = "#90e0b0"
+[bodies.orbit]
+type = "nbody"
+
+[[bodies]]
+name = "Kepler-223 e"
+parent = "Kepler-223"
+radii_km = [30050.3]           # 0.024759860 R_star
+color = "#98a8e6"
+style = "gas_giant"
+orbit_color = "#a8b8ff"
+[bodies.orbit]
+type = "nbody"
+
+[[bodies]]
+name = "Sun"
+parent = "Kepler-223"
+kind = "star"
+radii_km = [695700.0]
+temperature_k = 5772.0
+luminosity_solar = 1.0
+trail = "none"
+[bodies.orbit]                 # opposite direction of Kepler-223 as seen from the Sun [GAIA]
+type = "fixed"
+ra_dec_distance_pc = [118.318417682, -47.279530121, 1998.0]
+
+# Each planet starts on its Jacobi orbit: around the barycentre of the star and
+# all planets inside it.
+[nbody]
+epoch_jd_tdb = 2455700.0
+span_years = [1990.0, 2060.0]
+step_days = 0.1                # 74 steps per orbit of b
+order = 6
+knots_per_orbit = 24
+origin = ["Kepler-223"]
+
+[[nbody.members]]
+body = "Kepler-223"
+
+[[nbody.members]]
+body = "Kepler-223 b"
+gm_km3_s2 = 2.880192e6         # 0.022730704 M_Jup
+relative_to = ["Kepler-223"]
+[nbody.members.transit_orbit]
+period_days = 7.384720365879194
+t_transit_bjd_tdb = 2455701.516262774051825
+e = 0.105758145660053
+arg_peri_deg = 62.597372675420416
+i_deg = 90.701847866139545
+node_deg = 0.0
+transit_u_deg = 90.0
+sky_ra_dec_deg = [298.318417682, 47.279530121]
+
+[[nbody.members]]
+body = "Kepler-223 c"
+gm_km3_s2 = 2.193621e6         # 0.017312231 M_Jup
+relative_to = ["Kepler-223", "Kepler-223 b"]
+[nbody.members.transit_orbit]
+period_days = 9.845453934132928
+t_transit_bjd_tdb = 2455700.146170501596430
+e = 0.172729064427036
+arg_peri_deg = 85.015828120049491
+i_deg = 90.301811036839879
+node_deg = 0.0
+transit_u_deg = 90.0
+sky_ra_dec_deg = [298.318417682, 47.279530121]
+
+[[nbody.members]]
+body = "Kepler-223 d"
+gm_km3_s2 = 2.486441e6         # 0.019623187 M_Jup
+relative_to = ["Kepler-223", "Kepler-223 b", "Kepler-223 c"]
+[nbody.members.transit_orbit]
+period_days = 14.788902636701252
+t_transit_bjd_tdb = 2455704.851045349929109
+e = 0.037330052890247
+arg_peri_deg = 76.465729705828863
+i_deg = 92.189693102657941
+node_deg = 0.0
+transit_u_deg = 90.0
+sky_ra_dec_deg = [298.318417682, 47.279530121]
+
+[[nbody.members]]
+body = "Kepler-223 e"
+gm_km3_s2 = 1.213420e6         # 0.009576407 M_Jup
+relative_to = ["Kepler-223", "Kepler-223 b", "Kepler-223 c", "Kepler-223 d"]
+[nbody.members.transit_orbit]
+period_days = 19.726218957815664
+t_transit_bjd_tdb = 2455717.521944355066694
+e = 0.051464531998599
+arg_peri_deg = 111.706814565803512
+i_deg = 92.056638725826986
+node_deg = 0.0
+transit_u_deg = 90.0
+sky_ra_dec_deg = [298.318417682, 47.279530121]
+
+[[events]]
+name = "The 3:4:6:8 chain, face-on"
+time = "2026-01-01"
+focus = "Kepler-223"
+from_orbit_normal = "Kepler-223 c"
+distance_km = 6.0e7
+warp = 43200.0
+
+[[events]]
+name = "Edge-on, as Kepler saw it (2011-05)"
+time_tdb = "2011-05-18 12:00:00"
+focus = "Kepler-223"
+from_body = "Sun"
+distance_km = 1.2e8
+warp = 21600.0

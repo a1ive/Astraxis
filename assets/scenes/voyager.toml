@@ -1,0 +1,326 @@
+# The Voyager missions: the Sun, the planets and both Voyager spacecraft, 1977 onward.
+#
+# Sources
+# [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py (tools/bake/ephem.toml):
+#        heliocentric ICRF, 1977..2100. Planets are system barycenters (Earth = Earth-Moon
+#        barycenter). Voyager trajectories before 1981-01-01 (V1) / 1989-08-29 (V2) are
+#        patched-conic reconstructions of "rough accuracy" (Horizons notes); e.g. the baked
+#        V2 Neptune closest approach is ~4,000 km farther than the historical value.
+# [APX]  E. M. Standish, Approximate Positions of the Planets, Table 2a (+2b), used for
+#        Mercury, Venus and Mars, and outside the baked span for the others.
+# [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
+# [PCK]  NAIF pck00011.tpc (IAU 2015): radii, poles, prime meridians (T terms ignored).
+# Flyby times/distances: computed from the baked data by the bake tool (TDB).
+# Mission timeline events: Horizons spacecraft notes.
+
+name = "Voyager"
+
+[view]
+focus = "Sun"
+distance_km = 2.5e10       # ~170 au: both spacecraft and their paths
+start = "now"
+warp = 2629800.0           # 1 month per second
+up = "ecliptic"
+
+[[bodies]]
+name = "Sun"
+kind = "star"
+radii_km = [695700.0]                      # [PCK]
+gm_km3_s2 = 1.32712440041279419e11         # [GM]
+pole_ra_dec_deg = [286.13, 63.87]          # [PCK]
+prime_meridian_deg = [84.176, 14.1844]
+color = "#fff4e0"
+
+[[bodies]]
+name = "Mercury"
+parent = "Sun"
+radii_km = [2440.53, 2438.26]              # [PCK]
+pole_ra_dec_deg = [281.0103, 61.4155]
+prime_meridian_deg = [329.5988, 6.1385108]
+color = "#9c958e"
+orbit_color = "#8f8a85"
+[bodies.orbit]                             # [APX] Table 2a
+type = "jpl_approx_planet"
+a_au = [0.38709843, 0.00000000]
+e = [0.20563661, 0.00002123]
+i_deg = [7.00559432, -0.00590158]
+mean_longitude_deg = [252.25166724, 149472.67486623]
+lon_peri_deg = [77.45771895, 0.15940013]
+node_deg = [48.33961819, -0.12214182]
+
+[[bodies]]
+name = "Venus"
+parent = "Sun"
+radii_km = [6051.8]
+pole_ra_dec_deg = [272.76, 67.16]
+prime_meridian_deg = [160.20, -1.4813688]
+color = "#e8d6ae"
+orbit_color = "#d9c79f"
+[bodies.orbit]                             # [APX] Table 2a
+type = "jpl_approx_planet"
+a_au = [0.72332102, -0.00000026]
+e = [0.00676399, -0.00005107]
+i_deg = [3.39777545, 0.00043494]
+mean_longitude_deg = [181.97970850, 58517.81560260]
+lon_peri_deg = [131.76755713, 0.05679648]
+node_deg = [76.67261496, -0.27274174]
+
+[[bodies]]
+name = "Earth"
+parent = "Sun"
+radii_km = [6378.1366, 6356.7519]
+pole_ra_dec_deg = [0.0, 90.0]
+prime_meridian_deg = [190.147, 360.9856235]
+color = "#5b86c9"
+orbit_color = "#7fa6e0"
+texture = "textures/earth.jpg"
+texture_left_lon_deg = -180.0
+[bodies.orbit]                             # [HZN] Earth-Moon barycenter
+type = "ephemeris"
+file = "ephem/emb.eph"
+[bodies.orbit.fallback]                    # [APX] Table 2a, EM Bary
+type = "jpl_approx_planet"
+a_au = [1.00000018, -0.00000003]
+e = [0.01673163, -0.00003661]
+i_deg = [-0.00054346, -0.01337178]
+mean_longitude_deg = [100.46691572, 35999.37306329]
+lon_peri_deg = [102.93005885, 0.31795260]
+node_deg = [-5.11260389, -0.24123856]
+
+[[bodies]]
+name = "Mars"
+parent = "Sun"
+radii_km = [3396.19, 3376.20]
+pole_ra_dec_deg = [317.269202, 54.432516]
+prime_meridian_deg = [176.049863, 350.891982443297]
+color = "#c1673e"
+orbit_color = "#c98a6e"
+[bodies.orbit]                             # [APX] Table 2a
+type = "jpl_approx_planet"
+a_au = [1.52371243, 0.00000097]
+e = [0.09336511, 0.00009149]
+i_deg = [1.85181869, -0.00724757]
+mean_longitude_deg = [-4.56813164, 19140.29934243]
+lon_peri_deg = [-23.91744784, 0.45223625]
+node_deg = [49.71320984, -0.26852431]
+
+[[bodies]]
+name = "Jupiter"
+parent = "Sun"
+radii_km = [71492.0, 66854.0]
+gm_km3_s2 = 126712764.1                    # system [GM]
+pole_ra_dec_deg = [268.056595, 64.495303]
+prime_meridian_deg = [284.95, 870.5360000]
+color = "#e0cdb0"
+style = "gas_giant"
+orbit_color = "#e0c49a"
+texture = "textures/jupiter.jpg"
+texture_left_lon_deg = -180.0
+[bodies.orbit]                             # [HZN] Jupiter barycenter
+type = "ephemeris"
+file = "ephem/jupiter.eph"
+[bodies.orbit.fallback]                    # [APX] Tables 2a + 2b
+type = "jpl_approx_planet"
+a_au = [5.20248019, -0.00002864]
+e = [0.04853590, 0.00018026]
+i_deg = [1.29861416, -0.00322699]
+mean_longitude_deg = [34.33479152, 3034.90371757]
+lon_peri_deg = [14.27495244, 0.18199196]
+node_deg = [100.29282654, 0.13024619]
+b = -0.00012452
+c = 0.06064060
+s = -0.35635438
+f = 38.35125000
+
+[[bodies]]
+name = "Saturn"
+parent = "Sun"
+radii_km = [60268.0, 54364.0]
+gm_km3_s2 = 37940584.8418                  # system [GM]
+pole_ra_dec_deg = [40.589, 83.537]
+prime_meridian_deg = [38.90, 810.7939024]
+color = "#e3d3a3"
+orbit_color = "#d9c89a"
+[bodies.orbit]                             # [HZN] Saturn barycenter
+type = "ephemeris"
+file = "ephem/saturn.eph"
+[bodies.orbit.fallback]                    # [APX] Tables 2a + 2b
+type = "jpl_approx_planet"
+a_au = [9.54149883, -0.00003065]
+e = [0.05550825, -0.00032044]
+i_deg = [2.49424102, 0.00451969]
+mean_longitude_deg = [50.07571329, 1222.11494724]
+lon_peri_deg = [92.86136063, 0.54179478]
+node_deg = [113.63998702, -0.25015002]
+b = 0.00025899
+c = -0.13434469
+s = 0.87320147
+f = 38.35125000
+
+[[bodies]]
+name = "Uranus"
+parent = "Sun"
+radii_km = [25559.0, 24973.0]
+gm_km3_s2 = 5794556.4                      # system [GM]
+pole_ra_dec_deg = [257.311, -15.175]
+prime_meridian_deg = [203.81, -501.1600928]
+color = "#a9d8e0"
+orbit_color = "#9fcbd4"
+[bodies.orbit]                             # [HZN] Uranus barycenter
+type = "ephemeris"
+file = "ephem/uranus.eph"
+[bodies.orbit.fallback]                    # [APX] Tables 2a + 2b
+type = "jpl_approx_planet"
+a_au = [19.18797948, -0.00020455]
+e = [0.04685740, -0.00001550]
+i_deg = [0.77298127, -0.00180155]
+mean_longitude_deg = [314.20276625, 428.49512595]
+lon_peri_deg = [172.43404441, 0.09266985]
+node_deg = [73.96250215, 0.05739699]
+b = 0.00058331
+c = -0.97731848
+s = 0.17689245
+f = 7.67025000
+
+[[bodies]]
+name = "Neptune"
+parent = "Sun"
+radii_km = [24764.0, 24341.0]
+gm_km3_s2 = 6836527.10058                  # system [GM]
+pole_ra_dec_deg = [299.36, 43.46]
+prime_meridian_deg = [249.978, 541.1397757]
+color = "#5b7fd6"
+orbit_color = "#7b98e0"
+[bodies.orbit]                             # [HZN] Neptune barycenter
+type = "ephemeris"
+file = "ephem/neptune.eph"
+[bodies.orbit.fallback]                    # [APX] Tables 2a + 2b
+type = "jpl_approx_planet"
+a_au = [30.06952752, 0.00006447]
+e = [0.00895439, 0.00000818]
+i_deg = [1.77005520, 0.00022400]
+mean_longitude_deg = [304.22289287, 218.46515314]
+lon_peri_deg = [46.68158724, 0.01009938]
+node_deg = [131.78635853, -0.00606302]
+b = -0.00041348
+c = 0.68346318
+s = -0.10162547
+f = 7.67025000
+
+[[bodies]]
+name = "Voyager 1"
+parent = "Sun"
+kind = "spacecraft"
+radii_km = [0.002]                         # ~3.7 m high-gain antenna
+color = "#ffd27f"
+orbit_color = "#ffbf5c"
+trail = "history"                          # since launch
+[bodies.orbit]                             # [HZN] -31
+type = "ephemeris"
+file = "ephem/voyager1.eph"
+extrapolate = "linear"
+
+[[bodies]]
+name = "Voyager 2"
+parent = "Sun"
+kind = "spacecraft"
+radii_km = [0.002]
+color = "#9fe7ff"
+orbit_color = "#6fd3ff"
+trail = "history"
+[bodies.orbit]                             # [HZN] -32
+type = "ephemeris"
+file = "ephem/voyager2.eph"
+extrapolate = "linear"
+
+# Planet-centered views show the flyby trajectories as hyperbolas.
+[[frames]]
+name = "Jupiter-centered"
+type = "inertial"
+origin = "Jupiter"
+
+[[frames]]
+name = "Saturn-centered"
+type = "inertial"
+origin = "Saturn"
+
+[[frames]]
+name = "Uranus-centered"
+type = "inertial"
+origin = "Uranus"
+
+[[frames]]
+name = "Neptune-centered"
+type = "inertial"
+origin = "Neptune"
+
+# Flybys start about a day before closest approach (closest-approach times from the
+# bake tool, TDB; distances from the planet's system barycenter).
+[[events]]
+name = "Voyager 2 launch (1977-08-20)"
+time = "1977-08-21 00:00"
+focus = "Earth"
+distance_km = 6.0e7
+warp = 86400.0
+
+[[events]]
+name = "Voyager 1 at Jupiter (CA 1979-03-05 12:05, 348,066 km)"
+time_tdb = "1979-03-04 12:05"
+focus = "Jupiter"
+frame = "Jupiter-centered"
+distance_km = 4.0e6
+warp = 1200.0
+
+[[events]]
+name = "Voyager 2 at Jupiter (CA 1979-07-09 22:30, 720,883 km)"
+time_tdb = "1979-07-08 22:30"
+focus = "Jupiter"
+frame = "Jupiter-centered"
+distance_km = 6.0e6
+warp = 1200.0
+
+[[events]]
+name = "Voyager 1 at Saturn (CA 1980-11-12 23:46, 183,555 km)"
+time_tdb = "1980-11-11 23:46"
+focus = "Saturn"
+frame = "Saturn-centered"
+distance_km = 2.5e6
+warp = 1200.0
+
+[[events]]
+name = "Voyager 2 at Saturn (CA 1981-08-26 03:24, 159,764 km)"
+time_tdb = "1981-08-25 03:24"
+focus = "Saturn"
+frame = "Saturn-centered"
+distance_km = 2.5e6
+warp = 1200.0
+
+[[events]]
+name = "Voyager 2 at Uranus (CA 1986-01-24 17:58, 102,180 km)"
+time_tdb = "1986-01-23 17:58"
+focus = "Uranus"
+frame = "Uranus-centered"
+distance_km = 1.5e6
+warp = 1200.0
+
+[[events]]
+name = "Voyager 2 at Neptune (CA 1989-08-25 04:03, 33,661 km)"
+time_tdb = "1989-08-24 16:03"
+focus = "Neptune"
+frame = "Neptune-centered"
+distance_km = 6.0e5
+warp = 600.0
+
+[[events]]
+name = "Voyager 1 crosses the heliopause (2012-08-25)"
+time = "2012-08-25"
+focus = "Voyager 1"
+distance_km = 5.0e9
+warp = 2629800.0
+
+[[events]]
+name = "Voyager 2 crosses the heliopause (2018-11-15)"
+time = "2018-11-15"
+focus = "Voyager 2"
+distance_km = 5.0e9
+warp = 2629800.0
