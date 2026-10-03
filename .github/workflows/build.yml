@@ -39,11 +39,12 @@ jobs:
           if (-not (Test-Path "$cmakeBin/cmake.exe")) { throw 'Visual Studio bundled CMake was not found' }
           $cmakeBin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
-      # Link the CRT statically so the archive needs no VC++ redistributable.
+      # VC-LTL redirects the CRT to the Windows 10 system UCRT.
       - name: Configure
         run: >-
           cmake --preset win-msvc -B build/ci
           -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+          -DASTRAXIS_USE_VC_LTL=ON
 
       - name: Build
         run: msbuild build/ci/ALL_BUILD.vcxproj /m /nr:false /p:Configuration=Release /p:Platform=x64

@@ -31,6 +31,16 @@ cmake --build --preset win-msvc-debug
 
 Run `build/win-msvc/Debug/astraxis.exe`. Unit tests: `build/win-msvc/Debug/astraxis_tests.exe`.
 
+Windows MSVC non-Debug builds enable [VC-LTL5 v5.3.1](https://github.com/Chuyu-Team/VC-LTL5/tree/v5.3.1) by default, using the Windows 10 system `ucrtbase.dll` to reduce the runtime footprint. CMake downloads the pinned binary package and verifies its SHA-256. To build the CI Release configuration locally:
+
+```bash
+cmake --preset win-msvc -B build/win-vcltl -DASTRAXIS_USE_VC_LTL=ON -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+cmake --build build/win-vcltl --config Release
+ctest --test-dir build/win-vcltl -C Release --output-on-failure
+```
+
+`ASTRAXIS_USE_VC_LTL` defaults to `ON` for Windows MSVC and `OFF` elsewhere. Debug configurations always use the standard CRT, including its Debug heap support, even when this option is ON. Set `-DASTRAXIS_USE_VC_LTL=OFF` to also disable VC-LTL for non-Debug configurations. Existing CMake caches retain their previous setting; pass `-DASTRAXIS_USE_VC_LTL=ON` to enable it in an existing build directory. Linux builds do not use VC-LTL. This runtime choice does not extend the application's graphics support to older Windows versions.
+
 **Linux x64** (Vulkan): GCC or Clang with C++20, CMake ≥ 3.28, Ninja, and the X11/Wayland development headers SDL3 needs, e.g. on Ubuntu:
 
 ```bash
