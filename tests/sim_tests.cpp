@@ -343,6 +343,93 @@ void test_voyager_scene()
     check(glm::length(scene.bodies[static_cast<size_t>(jupiter)].world_position) < 1e-6, "Jupiter-centered frame");
 }
 
+void test_parker_scene()
+{
+    Scene scene = load_scene_or_die("parker.toml");
+    const int parker = scene.find("Parker Solar Probe");
+    const int venus = scene.find("Venus");
+    check(parker > 0 && venus > 0, "parker.toml bodies");
+
+    // Horizons, Parker Solar Probe (-96) and Venus (299) @ Sun, 2022-Jan-01 00:00 TDB, ICRF km.
+    const double t_ref = tdb_from_jd_tdb(2459580.5);
+    const glm::dvec3 parker_hzn(8.718605417334306E+07, -6.179560978012869E+07, -3.332843147602009E+07);
+    const glm::dvec3 venus_hzn(-1.015245425299603E+07, 9.746038667700523E+07, 4.449519499322341E+07);
+    const double e_parker = glm::length(scene.icrf_state_at(parker, t_ref).position - parker_hzn);
+    const double e_venus = glm::length(scene.icrf_state_at(venus, t_ref).position - venus_hzn);
+    check(e_parker < 5.0, "Parker matches Horizons (km)", e_parker);
+    check(e_venus < 5.0, "Venus matches Horizons (km)", e_venus);
+
+    // Each Venus flyby takes orbital energy away: the osculating period around the
+    // Sun drops across every closest approach (bake tool times, TDB), ending at the
+    // 88-day orbit of the mission design (Horizons spacecraft notes).
+    const CalendarDateTime flybys[] = {{2018, 10, 3, 8, 45, 36},  {2019, 12, 26, 18, 15, 55}, {2020, 7, 11, 3, 24, 49},
+                                   {2021, 2, 20, 20, 6, 53},  {2021, 10, 16, 9, 31, 58},  {2023, 8, 21, 12, 4, 3},
+                                   {2024, 11, 6, 18, 44, 49}};
+    auto period_days = [&](double t) {
+        scene.update(t);
+        double rp = 0.0;
+        double ra = 0.0;
+        double period = 0.0;
+        scene.osculating_apsides(parker, &rp, &ra, &period);
+        return period / kSecondsPerDay;
+    };
+    bool all_lower = true;
+    double last_period = 0.0;
+    for (const CalendarDateTime& d : flybys) {
+        const double t = (jd_from_calendar(d) - kJ2000Jd) * kSecondsPerDay;
+        const double before = period_days(t - 5.0 * kSecondsPerDay);
+        last_period = period_days(t + 5.0 * kSecondsPerDay);
+        all_lower = all_lower && last_period < before - 1.0;
+    }
+    check(all_lower, "every Venus flyby shortens the orbit", last_period);
+    check(std::abs(last_period - 88.0) < 1.0, "final orbital period (days)", last_period);
+
+    // The closest flyby (7) agrees with the bake tool and stays above the surface.
+    const double ca7 = (jd_from_calendar(flybys[6]) - kJ2000Jd) * kSecondsPerDay;
+    double best = 1e300;
+    for (double dt = -600.0; dt <= 600.0; dt += 1.0) {
+        best = std::min(best, glm::length(scene.icrf_state_at(parker, ca7 + dt).position -
+                                          scene.icrf_state_at(venus, ca7 + dt).position));
+    }
+    check(std::abs(best - 6423.0) < 20.0, "Venus flyby 7 distance (km)", best);
+
+    // Perihelion 22 at 9.86 solar radii, found by the scene's own periapsis search.
+    const double p22 = (jd_from_calendar({2024, 12, 24, 11, 42, 5}) - kJ2000Jd) * kSecondsPerDay;
+    const std::vector<double> peri = scene.periapsis_times(parker, p22 - 10.0 * kSecondsPerDay, p22 + 10.0 * kSecondsPerDay);
+    const double r22 = peri.size() == 1 ? glm::length(scene.icrf_state_at(parker, peri[0]).position) : 0.0;
+    check(peri.size() == 1 && std::abs(peri[0] - p22) < 60.0, "perihelion 22 time (s)",
+          peri.empty() ? -1.0 : peri[0] - p22);
+    check(std::abs(r22 / 695700.0 - 9.86) < 0.01, "perihelion 22 (solar radii)", r22 / 695700.0);
+
+    // Sun-Venus rotating frame: Venus stays on the +x axis.
+    for (size_t f = 0; f < scene.frames.size(); ++f) {
+        if (scene.frames[f].name == "Sun-Venus rotating") {
+            scene.set_active_frame(static_cast<int>(f));
+        }
+    }
+    scene.update(t_ref);
+    const glm::dvec3 w = scene.bodies[static_cast<size_t>(venus)].world_position;
+    check(w.x > 1.0e8 && std::abs(w.y) < 1e-3 && std::abs(w.z) < 1e-3, "Venus fixed in rotating frame", w.y);
+
+    // The history trail since launch, seen in the rotating frame, has no sharp
+    // corners: the knots alone leave the aphelion loops as coarse polygons.
+    double t_now = 0.0;
+    parse_utc("2026-10-01", &t_now);
+    scene.update(t_now);
+    std::vector<glm::dvec3> points;
+    std::vector<float> fades;
+    scene.trail(parker, t_now, 2048, points, fades);
+    double worst_turn_deg = 0.0;
+    for (size_t k = 1; k + 1 < points.size(); ++k) {
+        const glm::dvec3 a = points[k] - points[k - 1];
+        const glm::dvec3 b = points[k + 1] - points[k];
+        const double c = glm::dot(a, b) / (glm::length(a) * glm::length(b));
+        worst_turn_deg = std::max(worst_turn_deg, std::acos(std::clamp(c, -1.0, 1.0)) * kRadToDeg);
+    }
+    check(points.size() > 2048 && worst_turn_deg < 20.0, "rotating-frame trail is smooth (deg)", worst_turn_deg);
+    std::printf("info: Parker rotating-frame trail %zu points, sharpest turn %.1f deg\n", points.size(), worst_turn_deg);
+}
+
 void test_jwst_scene()
 {
     // Lagrange L2 of Sun / Earth-Moon: force balance in the rotating frame, ~1.5e6 km.
@@ -1232,6 +1319,7 @@ int main()
     test_tidal_locking();
     test_ephemeris();
     test_voyager_scene();
+    test_parker_scene();
     test_jwst_scene();
     test_galactic_frame();
     test_visual_orbit_convention();

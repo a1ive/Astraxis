@@ -614,6 +614,7 @@ void Loader::parse(const toml::table& root, Scene& out)
             out.view.focus = body_ref(out, *view, "focus", ctx, false);
         }
         out.view.distance_km = get_double_or(*view, "distance_km", 0.0);
+        out.view.pitch_rad = get_double_or(*view, "pitch_deg", out.view.pitch_rad * kRadToDeg) * kDegToRad;
         if (view->contains("frame")) {
             out.view.frame = frame_ref(*view, ctx);
         }

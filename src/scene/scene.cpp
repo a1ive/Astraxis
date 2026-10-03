@@ -18,6 +18,13 @@ constexpr double kObliquityJ2000 = 84381.412 / 3600.0 * kDegToRad;
 constexpr double kRotatingTrailDays = 30.0;
 // Default history length when a motion has no defined start.
 constexpr double kDefaultHistoryDays = 365.0;
+// History trails in moving frames: a segment is split while its midpoint lies
+// farther than this fraction of the chord from it (~4.6 deg of turn), at most
+// kTrailRefineDepth times, and the trail grows to at most kTrailRefineBudget
+// times the requested point count.
+constexpr double kTrailMaxSag = 0.01;
+constexpr int kTrailRefineDepth = 5;
+constexpr size_t kTrailRefineBudget = 4;
 
 } // namespace
 
@@ -335,11 +342,46 @@ void Scene::trail(int body_index, double t_tdb, int max_points, std::vector<glm:
     body.motion->history_times(t0, t_tdb, max_points, m_scratch_times);
     const bool fixed_frame = frame().type == DisplayFrame::Type::Inertial && frame().origin == 0;
     const double span = t_tdb - t0;
+    auto display_at = [&](double tk) {
+        const glm::dvec3 icrf = icrf_state_at(body_index, tk).position;
+        return fixed_frame ? icrf : frame_transform(tk).to_display(icrf);
+    };
+    auto emit = [&](double tk, const glm::dvec3& p) {
+        points.push_back(p);
+        fades.push_back(static_cast<float>((t_tdb - tk) / span));
+    };
+
+    // The samples follow the curvature of the motion itself (ephemeris knots). A
+    // moving frame can bend the path between them, e.g. a rotating frame turns a
+    // gentle aphelion arc into a loop, so there a segment is split while its
+    // midpoint sags off the chord.
+    const size_t max_refined = static_cast<size_t>(std::max(max_points, 0)) * kTrailRefineBudget;
+    auto refine = [&](auto&& self, double ta, const glm::dvec3& pa, double tb, const glm::dvec3& pb,
+                      int depth) -> void {
+        if (depth == 0 || points.size() >= max_refined) {
+            return;
+        }
+        const double tm = 0.5 * (ta + tb);
+        const glm::dvec3 pm = display_at(tm);
+        if (glm::length(pm - 0.5 * (pa + pb)) <= kTrailMaxSag * glm::length(pb - pa)) {
+            return;
+        }
+        self(self, ta, pa, tm, pm, depth - 1);
+        emit(tm, pm);
+        self(self, tm, pm, tb, pb, depth - 1);
+    };
+
+    double prev_t = 0.0;
+    glm::dvec3 prev_p(0.0);
     for (auto it = m_scratch_times.rbegin(); it != m_scratch_times.rend(); ++it) {
         const double tk = *it;
-        const glm::dvec3 icrf = icrf_state_at(body_index, tk).position;
-        points.push_back(fixed_frame ? icrf : frame_transform(tk).to_display(icrf));
-        fades.push_back(static_cast<float>((t_tdb - tk) / span));
+        const glm::dvec3 p = display_at(tk);
+        if (!fixed_frame && it != m_scratch_times.rbegin()) {
+            refine(refine, prev_t, prev_p, tk, p, kTrailRefineDepth);
+        }
+        emit(tk, p);
+        prev_t = tk;
+        prev_p = p;
     }
 }
 

@@ -22,7 +22,8 @@ Output format (little endian), see src/ephem/ephemeris.hpp:
     knots:   float64 t (TDB seconds since J2000), x, y, z (km), vx, vy, vz (km/s)
 
 The script also prints close approaches between each spacecraft and the
-targets listed in its `encounters` (for scene event lists).
+targets listed in its `encounters`, and with `periapsides = true` the
+periapsides around the center (for scene event lists).
 Only the Python standard library is used.
 """
 
@@ -294,6 +295,38 @@ def report_encounters(name, knots, others, radii):
             print(f'  encounter {name} - {other_name}: {calendar(tc)}  distance {dc:,.0f} km{alt}')
 
 
+def report_periapsides(name, knots):
+    """Distance minima from the center: r.v changes sign from - to + between knots."""
+    def radial(t):
+        lo, hi = 0, len(knots) - 1
+        while hi - lo > 1:
+            mid = (lo + hi) // 2
+            if knots[mid][0] <= t:
+                lo = mid
+            else:
+                hi = mid
+        # Velocity of the Hermite segment, by central difference of positions.
+        p = hermite(knots[lo], knots[hi], t)
+        dt = 1.0
+        a = hermite(knots[lo], knots[hi], t - dt)
+        b = hermite(knots[lo], knots[hi], t + dt)
+        return sum(p[i] * (b[i] - a[i]) for i in range(3))
+
+    for k in range(len(knots) - 1):
+        (t0, p0, v0), (t1, p1, v1) = knots[k], knots[k + 1]
+        if sum(p0[i] * v0[i] for i in range(3)) < 0.0 <= sum(p1[i] * v1[i] for i in range(3)):
+            lo, hi = t0, t1
+            for _ in range(80):
+                mid = 0.5 * (lo + hi)
+                if radial(mid) < 0.0:
+                    lo = mid
+                else:
+                    hi = mid
+            tc = 0.5 * (lo + hi)
+            r = math.sqrt(sum(x * x for x in eval_eph(knots, tc) or knots[k][1]))
+            print(f'  periapsis {name}: {calendar(tc)}  distance {r:,.0f} km')
+
+
 # --- Main ---------------------------------------------------------------------
 
 def jd_from_text(s):
@@ -349,6 +382,8 @@ def main():
         if enc and tgt['name'] in baked:
             others = {o: baked[o] for o in enc if o in baked}
             report_encounters(tgt['name'], baked[tgt['name']], others, radii)
+        if tgt.get('periapsides') and tgt['name'] in baked:
+            report_periapsides(tgt['name'], baked[tgt['name']])
 
 
 if __name__ == '__main__':

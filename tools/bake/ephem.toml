@@ -7,6 +7,8 @@
 #   Voyager 1 (-31): 1977-Sep-05 .. 2100-Jan-01, launch 1977-Sep-06 12:56 UTC
 #   Voyager 2 (-32): 1977-Aug-20 15:32:32 TDB .. 2100-Jan-01
 #   JWST (-170):     2021-Dec-25 13:01:09 TDB .. 2031-Sep-27 23:59 TDB
+#   Parker Solar Probe (-96): 2018-Aug-12 08:16:23 TDB .. 2030-Jan-01 (as flown to
+#                    2026-Sep-01, then the reference planning trajectory)
 # Tolerances are for display: heliocentric positions carry the Sun's reflex motion
 # (hundreds of km on 88-365 day periods), which a tight tolerance would turn into
 # dense knots everywhere; tens of km are invisible even at flyby distances.
@@ -105,6 +107,35 @@ start = "1977-08-20 15:33"
 stop = "2099-12-31"   # Horizons coverage ends exactly at 2100-01-01
 base_step_minutes = 1440
 encounters = ["jupiter", "saturn", "uranus", "neptune"]
+
+# Parker Solar Probe and Venus (its seven gravity assists). Venus has no moon, so
+# its body center (299) is used; both are kept tighter than the planets above
+# because the Venus-centered flyby view puts them within a few thousand km.
+
+[[target]]
+name = "venus"
+command = "299"
+naif_id = 299
+center = "500@10"
+center_naif_id = 10
+start = "2018-08-01"
+stop = "2030-01-01"
+base_step_minutes = 2880   # 2 d
+tolerance_km = 5.0
+radius_km = 6051.8
+
+[[target]]
+name = "parker"
+command = "-96"
+naif_id = -96
+center = "500@10"
+center_naif_id = 10
+start = "2018-08-12 08:17"
+stop = "2029-12-31"   # Horizons coverage ends exactly at 2030-01-01
+base_step_minutes = 720    # 12 h
+tolerance_km = 5.0
+encounters = ["venus"]
+periapsides = true         # print perihelia (scene event list)
 
 # --- Geocentric (center: Earth body center, 500@399) -----------------------
 

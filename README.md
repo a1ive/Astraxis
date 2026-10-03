@@ -9,6 +9,7 @@ A quiet, physically grounded astronomy visualizer meant to be left running in th
 | Jupiter | Jupiter and the four Galilean moons | JPL mean orbital elements |
 | Voyager | The Sun, planets and both Voyager probes from 1977 on | JPL Horizons ephemerides |
 | JWST | JWST's halo orbit around Sun–Earth L2 | JPL Horizons ephemerides |
+| Parker Solar Probe | Seven Venus gravity assists step the perihelion down to 9.86 solar radii; petals in the Sun–Venus rotating frame | JPL Horizons ephemerides |
 | Alpha Centauri | A, B and Proxima | Newtonian N-body integration |
 | Sgr A* | The Galactic Centre black hole and the star S2 | Kerr geodesics + GPU ray-traced black hole |
 | TRAPPIST-1 | Seven Earth-sized planets in a resonant chain around an ultracool dwarf | Newtonian N-body integration from transit-timing fits |

@@ -145,6 +145,7 @@ struct SceneEvent {
 struct SceneView {
     int focus = 0;
     double distance_km = 0.0; // 0 = automatic
+    double pitch_rad = 0.35;  // camera elevation above the frame's reference plane
     int frame = 0;
     bool start_now = true;
     double start_tdb = 0.0;
