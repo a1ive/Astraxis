@@ -33,6 +33,9 @@ struct FragmentUniforms {
     glm::vec4 color;
     glm::vec4 params;
     glm::vec4 occluders[kMaxOccluders];
+    glm::vec4 ring_center;
+    glm::vec4 ring_normal;
+    glm::vec4 ring_radii;
 };
 
 struct SphereVertex {
@@ -78,7 +81,7 @@ bool BodyPass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
     SDL_GPUShader* fs = create_shader(device, {.dxil = kBodyFragDxil,
                                                .spirv = kBodyFragSpirv,
                                                .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
-                                               .num_samplers = 1,
+                                               .num_samplers = 2,
                                                .num_uniform_buffers = 1});
     if (!vs || !fs) {
         SDL_ReleaseGPUShader(device, vs);
@@ -150,7 +153,18 @@ bool BodyPass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
     m_sampler = SDL_CreateGPUSampler(device, &sampler);
     m_white = create_solid_texture(device, 255, 255, 255, 255);
 
-    return m_vertices && m_indices && m_sampler && m_white;
+    SDL_GPUSamplerCreateInfo profile = {};
+    profile.min_filter = SDL_GPU_FILTER_LINEAR;
+    profile.mag_filter = SDL_GPU_FILTER_LINEAR;
+    profile.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
+    profile.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+    profile.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+    profile.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+    profile.max_lod = 1000.0f;
+    m_profile_sampler = SDL_CreateGPUSampler(device, &profile);
+    m_no_rings = create_profile_texture(device, {glm::vec2(0.0f)});
+
+    return m_vertices && m_indices && m_sampler && m_white && m_profile_sampler && m_no_rings;
 }
 
 void BodyPass::shutdown()
@@ -161,9 +175,13 @@ void BodyPass::shutdown()
     SDL_ReleaseGPUBuffer(m_device, m_vertices);
     SDL_ReleaseGPUBuffer(m_device, m_indices);
     SDL_ReleaseGPUSampler(m_device, m_sampler);
+    SDL_ReleaseGPUSampler(m_device, m_profile_sampler);
     SDL_ReleaseGPUTexture(m_device, m_white);
+    SDL_ReleaseGPUTexture(m_device, m_no_rings);
     m_sampler = nullptr;
+    m_profile_sampler = nullptr;
     m_white = nullptr;
+    m_no_rings = nullptr;
     SDL_ReleaseGPUGraphicsPipeline(m_device, m_pipeline);
     m_vertices = nullptr;
     m_indices = nullptr;
@@ -200,10 +218,16 @@ void BodyPass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const Ca
         for (int k = 0; k < item.occluder_count && k < kMaxOccluders; ++k) {
             fu.occluders[k] = item.occluders[k];
         }
+        fu.ring_center = glm::vec4(item.ring_center, item.ring_profile ? 1.0f : 0.0f);
+        fu.ring_normal = glm::vec4(item.ring_normal, 0.0f);
+        fu.ring_radii = glm::vec4(item.ring_inner_km, item.ring_outer_km, item.ring_samples, 0.0f);
         SDL_PushGPUFragmentUniformData(cmd, 0, &fu, sizeof(fu));
 
-        SDL_GPUTextureSamplerBinding tex = {.texture = item.texture ? item.texture : m_white, .sampler = m_sampler};
-        SDL_BindGPUFragmentSamplers(pass, 0, &tex, 1);
+        SDL_GPUTextureSamplerBinding tex[2] = {
+            {.texture = item.texture ? item.texture : m_white, .sampler = m_sampler},
+            {.texture = item.ring_profile ? item.ring_profile : m_no_rings, .sampler = m_profile_sampler},
+        };
+        SDL_BindGPUFragmentSamplers(pass, 0, tex, 2);
 
         SDL_DrawGPUIndexedPrimitives(pass, m_index_count, 1, 0, 0, 0);
     }

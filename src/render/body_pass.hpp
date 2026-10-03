@@ -26,6 +26,13 @@ struct BodyDrawItem {
     bool flip_u = false;               // map longitudes increase westward
     int occluder_count = 0;
     glm::vec4 occluders[kMaxOccluders] = {}; // camera-relative center, radius
+    // The body's own rings, which shade it (null: none).
+    SDL_GPUTexture* ring_profile = nullptr; // create_profile_texture
+    glm::vec3 ring_center{0.0f};            // camera-relative
+    glm::vec3 ring_normal{0.0f, 0.0f, 1.0f};
+    float ring_inner_km = 0.0f;
+    float ring_outer_km = 0.0f;
+    float ring_samples = 1.0f;
 };
 
 struct SunLight {
@@ -48,7 +55,9 @@ private:
     SDL_GPUBuffer* m_indices = nullptr;
     uint32_t m_index_count = 0;
     SDL_GPUSampler* m_sampler = nullptr;
-    SDL_GPUTexture* m_white = nullptr; // bound when a body has no texture
+    SDL_GPUSampler* m_profile_sampler = nullptr;
+    SDL_GPUTexture* m_white = nullptr;    // bound when a body has no texture
+    SDL_GPUTexture* m_no_rings = nullptr; // bound when a body has no rings
 };
 
 } // namespace astraxis

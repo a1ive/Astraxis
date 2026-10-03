@@ -364,8 +364,12 @@ bool App::load_scene(size_t index)
     m_scene_index = index;
 
     m_body_textures.assign(m_scene.bodies.size(), nullptr);
+    m_ring_textures.assign(m_scene.bodies.size(), nullptr);
     for (size_t i = 0; i < m_scene.bodies.size(); ++i) {
         const Body& body = m_scene.bodies[i];
+        if (!body.rings.profile.empty()) {
+            m_ring_textures[i] = create_profile_texture(m_renderer.device(), body.rings.profile);
+        }
         if (body.texture.empty()) {
             continue;
         }
@@ -574,12 +578,14 @@ void App::trace_black_hole(SDL_GPUCommandBuffer* cmd, uint32_t width, uint32_t h
 
 void App::release_body_textures()
 {
-    for (SDL_GPUTexture* texture : m_body_textures) {
-        if (texture) {
-            SDL_ReleaseGPUTexture(m_renderer.device(), texture);
+    for (auto* textures : {&m_body_textures, &m_ring_textures}) {
+        for (SDL_GPUTexture* texture : *textures) {
+            if (texture) {
+                SDL_ReleaseGPUTexture(m_renderer.device(), texture);
+            }
         }
+        textures->clear();
     }
-    m_body_textures.clear();
 }
 
 void App::start_tour()
@@ -755,8 +761,17 @@ void App::build_body_items()
         item.sun_direction = glm::vec3(to_sun / sun_distance);
         item.sun_angular_radius = static_cast<float>(light_radius / sun_distance);
 
-        if (!body.rings.bands.empty()) {
-            // Everything in the body-fixed frame; the ring plane is its equator.
+        SDL_GPUTexture* ring_texture = i < m_ring_textures.size() ? m_ring_textures[i] : nullptr;
+        if (ring_texture) {
+            // The rings shade the planet...
+            item.ring_profile = ring_texture;
+            item.ring_center = to_render(body.world_position, cam);
+            item.ring_normal = glm::vec3(body.orientation[2]);
+            item.ring_inner_km = static_cast<float>(body.rings.inner_km);
+            item.ring_outer_km = static_cast<float>(body.rings.outer_km);
+            item.ring_samples = static_cast<float>(body.rings.profile.size());
+
+            // ...and are drawn in the body-fixed frame, where their plane is the equator.
             const glm::dmat3 to_body = glm::transpose(body.orientation);
             RingDrawItem ring;
             ring.model = glm::translate(glm::mat4(1.0f), to_render(body.world_position, cam)) *
@@ -769,13 +784,9 @@ void App::build_body_items()
             ring.phase_g = static_cast<float>(body.rings.phase_g);
             ring.equatorial_radius = static_cast<float>(body.equatorial_radius_km);
             ring.polar_radius = static_cast<float>(body.polar_radius_km);
-            for (const RingBand& band : body.rings.bands) {
-                if (ring.band_count < kMaxRingBands) {
-                    ring.bands[ring.band_count++] =
-                        glm::vec4(static_cast<float>(band.inner_km), static_cast<float>(band.outer_km),
-                                  static_cast<float>(band.optical_depth), static_cast<float>(band.thickness_km));
-                }
-            }
+            ring.inner_km = static_cast<float>(body.rings.inner_km);
+            ring.outer_km = static_cast<float>(body.rings.outer_km);
+            ring.profile = ring_texture;
             m_ring_items.push_back(ring);
         }
 

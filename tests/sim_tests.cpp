@@ -668,6 +668,119 @@ void test_earth_moon_scene()
           "Moon-centered rotating frame", earth.x);
 }
 
+void test_saturn_scene()
+{
+    Scene scene = load_scene_or_die("saturn.toml");
+    auto tdb = [](const CalendarDateTime& c) { return (jd_from_calendar(c) - kJ2000Jd) * kSecondsPerDay; };
+    auto at = [&](int body, double t) { return scene.icrf_state_at(body, t).position; };
+
+    // Mean elements (phases fitted by tools/bake/fit_moon_phase.py) against the
+    // Horizons tables wherever these have data. Mimas librates by +-44 deg.
+    const char* moons[] = {"Mimas", "Enceladus", "Tethys", "Dione", "Rhea", "Titan", "Iapetus"};
+    for (const char* name : moons) {
+        const int b = scene.find(name);
+        const auto* eph = b > 0 ? dynamic_cast<const EphemerisMotion*>(scene.bodies[static_cast<size_t>(b)].motion.get()) : nullptr;
+        if (!eph || !eph->fallback()) {
+            check(false, "Saturn moon uses an ephemeris with mean-element fallback");
+            continue;
+        }
+        double worst = 0.0;
+        for (double t = eph->table().start(); t < eph->table().end(); t += 0.25 * kSecondsPerDay) {
+            if (!eph->table().covers(t)) {
+                continue;
+            }
+            const glm::dvec3 a = eph->table().eval(t).position;
+            const glm::dvec3 m = eph->fallback()->eval(t).position;
+            worst = std::max(worst, std::acos(std::clamp(glm::dot(a, m) / (glm::length(a) * glm::length(m)), -1.0, 1.0)) * kRadToDeg);
+        }
+        const bool mimas = std::string(name) == "Mimas";
+        check(worst < (mimas ? 45.0 : 1.5), "Saturn moon mean elements near Horizons (deg)", worst);
+    }
+
+    // Windowed table (Enceladus near Cassini only): gaps fall back to the mean
+    // elements, and the position stays continuous across a window's edge.
+    const int enceladus = scene.find("Enceladus");
+    const auto* enc = dynamic_cast<const EphemerisMotion*>(scene.bodies[static_cast<size_t>(enceladus)].motion.get());
+    check(enc && enc->table().max_gap() > 0.0 && !enc->table().covers(tdb({2006, 1, 1, 0, 0, 0})),
+          "Enceladus table has gaps");
+    if (enc) {
+        double seg_start = 0.0;
+        double seg_end = 0.0;
+        enc->table().segment(tdb({2008, 10, 9, 19, 7, 44}), &seg_start, &seg_end);
+        check(seg_end - seg_start > 2.0 * kSecondsPerDay && seg_end - seg_start < 30.0 * kSecondsPerDay,
+              "Enceladus window around the E5 flyby (days)", (seg_end - seg_start) / kSecondsPerDay);
+        double worst_jump = 0.0;
+        for (double t = seg_start - kSecondsPerDay; t < seg_start + 2.0 * kSecondsPerDay; t += 60.0) {
+            const State a = scene.icrf_state_at(enceladus, t);
+            worst_jump = std::max(worst_jump, glm::length(at(enceladus, t + 60.0) - a.position - a.velocity * 60.0));
+        }
+        check(worst_jump < 50.0, "Enceladus enters its table window without a jump (km/min)", worst_jump);
+    }
+
+    // The ring profile (Cassini RSS, Rev 7): landmarks of the main rings.
+    const RingSystem& rings = scene.bodies[0].rings;
+    check(rings.profile.size() == 8192 && std::abs(rings.inner_km - 72771.0) < 5.0 && std::abs(rings.outer_km - 144989.0) < 5.0,
+          "Saturn ring profile range", rings.inner_km);
+    check(rings.optical_depth(110000.0) > 3.0 && rings.optical_depth(119000.0) < 0.3 && rings.optical_depth(80000.0) < 0.3 &&
+              rings.optical_depth(130000.0) > 0.4 && rings.optical_depth(133580.0) < 0.05,
+          "Saturn rings: opaque B ring, thin C ring and Cassini Division, A ring, Encke gap", rings.optical_depth(110000.0));
+
+    // Flyby altitudes (mean radii) against NASA: "Titan Flyby (T-70) - June 21, 2010"
+    // (880 km), "Iapetus Flyby - Sept. 10, 2007" (about 1,640 km), "Enceladus Flyby -
+    // October 09, 2008" (25 km), NASA Science Cassini mission pages.
+    const int cassini = scene.find("Cassini");
+    auto altitude = [&](int craft, const char* moon_name, const CalendarDateTime& c) {
+        const int moon = scene.find(moon_name);
+        const double t0 = tdb(c);
+        double best = 1e300;
+        for (double dt = -900.0; dt <= 900.0; dt += 1.0) {
+            best = std::min(best, glm::length(at(craft, t0 + dt) - at(moon, t0 + dt)));
+        }
+        return best - scene.bodies[static_cast<size_t>(moon)].equatorial_radius_km;
+    };
+    const double t70 = altitude(cassini, "Titan", {2010, 6, 21, 1, 28, 48});
+    const double iapetus = altitude(cassini, "Iapetus", {2007, 9, 10, 14, 16, 55});
+    const double e5 = altitude(cassini, "Enceladus", {2008, 10, 9, 19, 7, 44});
+    check(std::abs(t70 - 880.0) < 10.0, "Cassini-Titan T70 altitude (km)", t70);
+    check(std::abs(iapetus - 1640.0) < 15.0, "Cassini-Iapetus altitude (km)", iapetus);
+    check(std::abs(e5 - 25.0) < 5.0, "Cassini-Enceladus E5 altitude (km)", e5);
+
+    // Huygens ends on Titan's surface.
+    const int huygens = scene.find("Huygens");
+    const double landed = altitude(huygens, "Titan", {2005, 1, 14, 11, 38, 49});
+    check(std::abs(landed) < 5.0, "Huygens on Titan's surface (km)", landed);
+
+    // Grand Finale: 22 dives between the rings and the planet (periapsis inside the
+    // D ring's inner edge, ~66,900 km), then the plunge.
+    int dives = 0;
+    for (const double tp : scene.periapsis_times(cassini, tdb({2017, 4, 20, 0, 0, 0}), tdb({2017, 9, 15, 10, 0, 0}))) {
+        dives += glm::length(at(cassini, tp)) < 66000.0 ? 1 : 0;
+    }
+    check(dives == 22, "Cassini's Grand Finale dives", dives);
+
+    // Synchronous moons: the PCK prime meridian faces Saturn (Horizons positions,
+    // over one Iapetus orbit; Mimas within its 2010-02 window). The IAU meridians
+    // are tied to surface features, which leaves offsets of a few degrees (Rhea
+    // ~2.9); eccentricity swings the direction by up to 2e (Titan, Iapetus ~3.3,
+    // Mimas 2.3 deg), and Iapetus' orbit is inclined ~7.6 deg to its Laplace plane.
+    const char* locked[] = {"Rhea", "Titan", "Iapetus", "Mimas"};
+    const double lock_limit[] = {4.0, 7.0, 10.0, 6.0};
+    for (int m = 0; m < 4; ++m) {
+        const bool mimas = m == 3;
+        const double t_begin = mimas ? tdb({2010, 2, 13, 0, 0, 0}) : tdb({2008, 1, 1, 0, 0, 0});
+        const double t_stop = mimas ? tdb({2010, 2, 14, 12, 0, 0}) : tdb({2008, 3, 21, 0, 0, 0});
+        double worst_lock = 0.0;
+        for (double t = t_begin; t < t_stop; t += (mimas ? 0.05 : 0.5) * kSecondsPerDay) {
+            scene.update(t);
+            const Body& moon = scene.bodies[static_cast<size_t>(scene.find(locked[m]))];
+            const glm::dvec3 to_saturn = glm::normalize(scene.bodies[0].world_position - moon.world_position);
+            worst_lock = std::max(worst_lock, std::acos(std::clamp(glm::dot(moon.orientation[0], to_saturn), -1.0, 1.0)) * kRadToDeg);
+        }
+        std::printf("info: %s prime meridian vs Saturn direction: worst %.2f deg\n", locked[m], worst_lock);
+        check(worst_lock < lock_limit[m], "Saturn moon's prime meridian faces Saturn (deg)", worst_lock);
+    }
+}
+
 void test_jwst_scene()
 {
     // Lagrange L2 of Sun / Earth-Moon: force balance in the rotating frame, ~1.5e6 km.
@@ -1561,6 +1674,7 @@ int main()
     test_parker_scene();
     test_jupiter_missions();
     test_earth_moon_scene();
+    test_saturn_scene();
     test_jwst_scene();
     test_galactic_frame();
     test_visual_orbit_convention();

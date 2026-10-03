@@ -17,9 +17,12 @@ namespace astraxis {
 // from the two-body arc that starts at the earlier knot. Orbits around a
 // planet (moons, orbiters) then need several times fewer knots.
 //
+// A table may also have gaps: knots further apart than its maximum spacing
+// enclose no data (e.g. a moon kept only around a spacecraft's flybys).
+//
 // File format (little endian):
 //   char[8] "AXEPH1\0\0" or "AXEPH2\0\0"; int32 target NAIF id; int32 center NAIF id;
-//   uint32 knot count; uint32 reserved;
+//   uint32 knot count; uint32 maximum knot spacing in seconds (0: no gaps);
 //   AXEPH2 only: float64 reference GM of the center (km^3/s^2)
 //   knots: float64 t (TDB s since J2000), x, y, z (km), vx, vy, vz (km/s)
 class EphemerisTable {
@@ -32,7 +35,11 @@ public:
 
     bool load(const std::filesystem::path& path, std::string* error);
     // Tables built in memory (integrated trajectories, tests).
-    void set_knots(std::vector<Knot> knots) { m_knots = std::move(knots); }
+    void set_knots(std::vector<Knot> knots)
+    {
+        m_knots = std::move(knots);
+        m_max_gap = 0.0;
+    }
     std::vector<Knot>& mutable_knots() { return m_knots; }
 
     int target_id() const { return m_target_id; }
@@ -40,7 +47,11 @@ public:
     int center_id() const { return m_center_id; }
     double start() const { return m_knots.front().t; }
     double end() const { return m_knots.back().t; }
-    bool covers(double t) const { return !m_knots.empty() && t >= start() && t <= end(); }
+    // Whether t has data: inside [start, end] and not in a gap.
+    bool covers(double t) const;
+    // Start and end of the stretch of data around t (requires covers(t)).
+    void segment(double t, double* seg_start, double* seg_end) const;
+    double max_gap() const { return m_max_gap; } // 0: no gaps
 
     // Interpolated state; t is clamped to [start, end].
     State eval(double t) const;
@@ -54,6 +65,7 @@ private:
     int m_target_id = 0;
     int m_center_id = 0;
     double m_reference_gm = 0.0;
+    double m_max_gap = 0.0;
     std::vector<Knot> m_knots;
 };
 
@@ -66,8 +78,8 @@ enum class Extrapolation {
 class EphemerisMotion final : public MotionSource {
 public:
     // `fallback` (optional) is used outside the table span and takes precedence
-    // over `extrapolation`; within `blend_s` of either end of the span the
-    // position fades between the two, so a less accurate fallback (e.g. mean
+    // over `extrapolation`; within `blend_s` of either end of the span (or of a
+    // stretch between gaps) the position fades between the two, so a less accurate fallback (e.g. mean
     // elements) does not jump. `parent_gm` (km^3/s^2, optional) enables the
     // osculating-orbit trail.
     EphemerisMotion(std::shared_ptr<const EphemerisTable> table, std::unique_ptr<MotionSource> fallback,

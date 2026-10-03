@@ -12,8 +12,6 @@
 
 namespace astraxis {
 
-inline constexpr int kMaxRingBands = 8;
-
 struct RingDrawItem {
     glm::mat4 model{1.0f};          // camera-relative translation * body-fixed axes (km)
     glm::vec3 sun_direction{1.0f};  // body frame, unit
@@ -24,12 +22,14 @@ struct RingDrawItem {
     float phase_g = 0.0f;
     float equatorial_radius = 1.0f; // of the planet, for its shadow (km)
     float polar_radius = 1.0f;
-    int band_count = 0;
-    glm::vec4 bands[kMaxRingBands] = {}; // inner, outer (km), optical depth, thickness (km)
+    float inner_km = 0.0f; // radial range of the profile
+    float outer_km = 0.0f;
+    SDL_GPUTexture* profile = nullptr; // create_profile_texture: optical depth, mu floor
 };
 
-// Draws faint planetary rings as additive, single-scattering annuli in the
-// planet's equatorial plane (depth-tested, not written).
+// Draws planetary rings as single-scattering annuli in the planet's
+// equatorial plane: scattered light is added, and what lies behind is dimmed by
+// the ring's transmission (depth-tested, not written).
 class RingPass {
 public:
     bool init(SDL_GPUDevice* device, const SceneTargetFormat& format);
@@ -43,6 +43,7 @@ private:
     SDL_GPUGraphicsPipeline* m_pipeline = nullptr;
     SDL_GPUBuffer* m_vertices = nullptr;
     uint32_t m_vertex_count = 0;
+    SDL_GPUSampler* m_sampler = nullptr;
 };
 
 } // namespace astraxis

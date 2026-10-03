@@ -10,6 +10,7 @@ A quiet, physically grounded astronomy visualizer meant to be left running in th
 | Voyager | The Sun, planets and both Voyager probes from 1977 on | JPL Horizons ephemerides |
 | JWST | JWST's halo orbit around Sun–Earth L2 | JPL Horizons ephemerides |
 | Earth–Moon | Artemis II's free-return flight, Artemis I's distant retrograde orbit and CAPSTONE's near-rectilinear halo orbit, in the Earth–Moon rotating frame | JPL Horizons ephemerides |
+| Saturn | Saturn's rings (Cassini radio-occultation optical depths), the seven major moons, Cassini's tour and Huygens' descent to Titan | JPL Horizons ephemerides, JPL mean orbital elements (phases fitted to Horizons) |
 | Parker Solar Probe | Seven Venus gravity assists step the perihelion down to 9.86 solar radii; petals in the Sun–Venus rotating frame | JPL Horizons ephemerides |
 | Alpha Centauri | A, B and Proxima | Newtonian N-body integration |
 | Sgr A* | The Galactic Centre black hole and the star S2 | Kerr geodesics + GPU ray-traced black hole |

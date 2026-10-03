@@ -15,6 +15,9 @@
 #   Artemis II (-1024): 2026-Apr-02 01:59 .. 2026-Apr-10 23:54 TDB (NASA/JSC navigation files,
 #                    concatenated; starts after ICPS separation)
 #   CAPSTONE (-1176): 2022-Jun-28 10:07 .. 2026-Aug-14 11:58 TDB (tracking to 2026-Jul-15)
+#   Cassini (-82):   1997-Oct-15 09:28 .. 2017-Sep-15 11:58 TDB (navigation team, post-mission
+#                    reconstruction released 2018-06-29)
+#   Huygens (-150):  2004-Dec-25 02:01 .. 2005-Jan-14 12:06 TDB
 #   Parker Solar Probe (-96): 2018-Aug-12 08:16:23 TDB .. 2030-Jan-01 (as flown to
 #                    2026-Sep-01, then the reference planning trajectory)
 # Tolerances are for display: heliocentric positions carry the Sun's reflex motion
@@ -377,3 +380,149 @@ stop = "2026-08-14 11:58"
 base_step_minutes = 120
 tolerance_km = 2.0
 periapsides = true
+
+# --- Saturn-centered (center: Saturn body center, 500@699) -----------------
+#
+# Cassini's tour, the Huygens probe, and the seven major moons over the same span
+# (moon flybys line up; elsewhere the scene uses mean elements). Kepler-relative
+# around the Saturn system GM (DE440, JPL SSD astrodynamic parameters). The four
+# inner moons need many knots (Saturn's oblateness bends their orbits), so they
+# keep data only near Cassini.
+
+[[target]]
+name = "mimas_cas"
+command = "601"
+naif_id = 601
+center = "500@699"
+center_naif_id = 699
+kepler_gm_km3_s2 = 37940584.8418
+start = "2004-06-01"
+stop = "2017-09-15 10:40"   # Cassini (windows_near) ends here
+base_step_minutes = 60
+tolerance_km = 10.0
+radius_km = 198.2
+windows_near = "-82"       # only near Cassini; mean elements elsewhere
+window_km = 60000.0
+window_pad_days = 1.5
+
+[[target]]
+name = "enceladus_cas"
+command = "602"
+naif_id = 602
+center = "500@699"
+center_naif_id = 699
+kepler_gm_km3_s2 = 37940584.8418
+start = "2004-06-01"
+stop = "2017-09-15 10:40"   # Cassini (windows_near) ends here
+base_step_minutes = 90
+tolerance_km = 5.0
+radius_km = 252.1
+windows_near = "-82"       # only near Cassini; mean elements elsewhere
+window_km = 60000.0
+window_pad_days = 1.5
+
+[[target]]
+name = "tethys_cas"
+command = "603"
+naif_id = 603
+center = "500@699"
+center_naif_id = 699
+kepler_gm_km3_s2 = 37940584.8418
+start = "2004-06-01"
+stop = "2017-09-15 10:40"   # Cassini (windows_near) ends here
+base_step_minutes = 120
+tolerance_km = 10.0
+radius_km = 531.1
+windows_near = "-82"       # only near Cassini; mean elements elsewhere
+window_km = 60000.0
+window_pad_days = 1.5
+
+[[target]]
+name = "dione_cas"
+command = "604"
+naif_id = 604
+center = "500@699"
+center_naif_id = 699
+kepler_gm_km3_s2 = 37940584.8418
+start = "2004-06-01"
+stop = "2017-09-15 10:40"   # Cassini (windows_near) ends here
+base_step_minutes = 180
+tolerance_km = 10.0
+radius_km = 561.4
+windows_near = "-82"       # only near Cassini; mean elements elsewhere
+window_km = 60000.0
+window_pad_days = 1.5
+
+[[target]]
+name = "rhea_cas"
+command = "605"
+naif_id = 605
+center = "500@699"
+center_naif_id = 699
+kepler_gm_km3_s2 = 37940584.8418
+start = "2004-06-01"
+stop = "2017-09-16"
+base_step_minutes = 300
+tolerance_km = 10.0
+radius_km = 763.5
+
+[[target]]
+name = "titan_cas"
+command = "606"
+naif_id = 606
+center = "500@699"
+center_naif_id = 699
+kepler_gm_km3_s2 = 37940584.8418
+start = "2004-06-01"
+stop = "2017-09-16"
+base_step_minutes = 720
+tolerance_km = 5.0
+radius_km = 2574.76
+
+[[target]]
+name = "iapetus_cas"
+command = "608"
+naif_id = 608
+center = "500@699"
+center_naif_id = 699
+kepler_gm_km3_s2 = 37940584.8418
+start = "2004-06-01"
+stop = "2017-09-16"
+base_step_minutes = 1440
+tolerance_km = 10.0
+radius_km = 734.3
+
+[[target]]
+name = "cassini_sat"
+command = "-82"
+naif_id = -82
+center = "500@699"
+center_naif_id = 699
+kepler_gm_km3_s2 = 37940584.8418
+start = "2004-06-01"
+stop = "2017-09-15 10:32"   # atmospheric entry (~1,800 km above the 1-bar level); later data is not a trajectory
+base_step_minutes = 360
+tolerance_km = 5.0
+periapsides = true
+encounters = ["mimas_cas", "enceladus_cas", "tethys_cas", "dione_cas", "rhea_cas", "titan_cas", "iapetus_cas"]
+encounter_km = 50000.0
+encounter_step_minutes = 10
+refine_near = ["mimas_cas", "enceladus_cas", "tethys_cas", "dione_cas", "rhea_cas", "titan_cas", "iapetus_cas"]
+refine_near_km = 30000.0
+
+[[target]]
+name = "huygens_sat"
+command = "-150"
+naif_id = -150
+center = "500@699"
+center_naif_id = 699
+kepler_gm_km3_s2 = 37940584.8418
+start = "2004-12-25 02:02"
+stop = "2005-01-14 12:06"
+base_step_minutes = 60
+tolerance_km = 2.0
+encounters = ["titan_cas"]
+encounter_km = 50000.0
+encounter_step_minutes = 10
+refine_near = ["titan_cas"]
+refine_near_km = 30000.0

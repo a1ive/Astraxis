@@ -1,0 +1,427 @@
+# Saturn, its rings, the seven major moons, and Cassini's tour (2004-2017) with
+# the Huygens probe's descent to Titan.
+#
+# Sources
+# [ELEM] JPL SSD, Planetary Satellite Mean Elements (https://ssd.jpl.nasa.gov/sats/elem/),
+#        ephemeris SAT441, Laplace-plane frame, epoch 2000-01-01.5 TDB.
+# [SPHY] JPL SSD, Planetary Satellite Physical Parameters (https://ssd.jpl.nasa.gov/sats/phys_par/).
+# [PCK]  NAIF pck00011.tpc (IAU 2015): poles, prime meridians, radii, the linear pole
+#        drift and the periodic terms (Saturn's angles S1..S6, 2 S1, 2 S2): e.g. Mimas'
+#        prime meridian term of 44.85 deg follows its 71-year libration, and paired RA/W
+#        terms (Mimas 13.5, Tethys 9.6, Rhea 3.1 deg) move the pole.
+# [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
+# [APX]  E. M. Standish, Approximate Positions of the Planets, Tables 2a + 2b.
+# [HZN]  JPL Horizons state vectors relative to Saturn's center, baked by
+#        tools/bake/horizons_bake.py (tools/bake/ephem.toml, Kepler-relative AXEPH2):
+#        Cassini 2004-06-01 .. its entry into Saturn on 2017-09-15 (navigation team's
+#        post-mission reconstruction), Huygens 2004-12-25 .. 2005-01-14 (landing), and the
+#        moons 2004-06-01 .. 2017-09-16. Outside that span the moons fade over one day
+#        into the mean elements [ELEM]. Saturn's heliocentric orbit (Sun direction): the
+#        Saturn system barycenter, 1977-2100 [HZN], else [APX].
+# [RSS]  Rings: normal optical depth from the Cassini Radio Science occultation of
+#        2005-05-03 (Rev 7 egress, X band), PDS volume CORSS_8001 (Marouf et al.),
+#        averaged to 8.8 km bins by tools/rings/make_saturn_rings.py; see
+#        assets/rings/SOURCES.md. Opaque parts of the B ring are clipped at the
+#        detection threshold (tau ~ 5).
+#
+# Mean elements: [ELEM]'s phase angles for Saturn's moons do not match SAT441 at
+# their epoch: at J2000 the mean longitudes are off by 6-157 deg (for Jupiter's
+# JUP365 table they match to 0.3 deg). The node, argument of periapsis and mean
+# anomaly at the epoch are therefore fitted to the Horizons tables over 2004-2017
+# by tools/bake/fit_moon_phase.py, keeping [ELEM]'s a, e, i, pole and rates
+# (rms angle: Iapetus 0.06, Titan 0.22, Dione 0.26, Enceladus 0.41, Rhea 0.46,
+# Tethys 0.68 deg). Mimas stays off by 14 deg rms (up to ~40 deg): its mean
+# longitude librates by +-44 deg over 70 years in the resonance with Tethys,
+# which a precessing ellipse cannot follow.
+#
+# [ELEM]'s period P for Saturn's moons is that of the mean longitude
+# (360 / P equals the PCK spin rate to 1e-4 deg/day), while the model here advances
+# the mean anomaly. So period_days = 360 / (W' - omega' - node'), with W' the PCK spin
+# rate (all seven are synchronous), omega' = +360 / (365.25 apsis_period) and
+# node' = -360 / (365.25 node_period): Saturn's oblateness advances the apsides and
+# regresses the nodes (for Mimas the two periods are in the 1:2 ratio that implies),
+# and Enceladus' apsidal period (2.916 yr) is that of its forced precession,
+# 2 n_Dione - n_Enceladus, which is prograde. Tethys' listed apsidal period
+# (0.005 yr, with e = 0.001) is left out: it would run the mean anomaly backward.
+#
+# Moon maps: USGS Cassini ISS mosaics (see assets/textures/SOURCES.md); colors are
+# used where a map is missing. Colors are sRGB; the planet's banding is procedural ("saturn" style: pale bands and
+# the north polar hexagon at ~78 deg N, illustrative). Ring tint and phase function are
+# illustrative too (backscattering ice particles); their brightness otherwise follows
+# from the optical depth, the lighting and the viewing geometry.
+
+name = "Saturn"
+
+[view]
+focus = "Saturn"
+distance_km = 1.2e6
+pitch_deg = 18.0
+start = "now"
+warp = 3600.0                  # 1 hour per second: Saturn turns in 10.5 seconds
+
+# Heliocentric orbit of the scene origin, used for the Sun direction.
+[origin_heliocentric]                      # [HZN] Saturn barycenter
+type = "ephemeris"
+file = "ephem/saturn.eph"
+[origin_heliocentric.fallback]             # [APX] Tables 2a + 2b
+type = "jpl_approx_planet"
+a_au = [9.54149883, -0.00003065]
+e = [0.05550825, -0.00032044]
+i_deg = [2.49424102, 0.00451969]
+mean_longitude_deg = [50.07571329, 1222.11494724]
+lon_peri_deg = [92.86136063, 0.54179478]
+node_deg = [113.63998702, -0.25015002]
+b = 0.00025899
+c = -0.13434469
+s = 0.87320147
+f = 38.35125000
+
+[[bodies]]
+name = "Saturn"
+radii_km = [60268.0, 54364.0]              # equatorial, polar [PCK]
+gm_km3_s2 = 37940584.8418                  # system [GM]
+pole_ra_dec_deg = [40.589, 83.537]         # [PCK]
+prime_meridian_deg = [38.90, 810.7939024]  # System III [PCK]
+pole_rate_deg_per_century = [-0.036, -0.004]
+nut_prec_angles = [[353.32, 75706.7], [28.72, 75706.7], [177.40, -36505.5], [300.00, -7225.9],
+                   [316.45, 506.2], [345.20, -1016.3], [706.64, 151413.4], [57.44, 151413.4]]  # [PCK] BODY6
+color = "#e3d3a3"
+style = "saturn"
+
+[bodies.rings]                             # [RSS]
+profile = "rings/saturn_rss.ring"
+color = "#d6c3a0"
+gain = 1.0
+phase_g = -0.3
+
+# --- Moons ----------------------------------------------------------------------
+
+[[bodies]]
+name = "Mimas"
+parent = "Saturn"
+radii_km = [198.2]                         # mean radius [SPHY]
+pole_ra_dec_deg = [40.66, 83.52]           # [PCK]
+prime_meridian_deg = [333.46, 381.9945550]
+pole_rate_deg_per_century = [-0.036, -0.004]
+nut_prec_ra = [0.0, 0.0, 13.56]
+nut_prec_dec = [0.0, 0.0, -1.53]
+nut_prec_pm = [0.0, 0.0, -13.48, 0.0, -44.85]
+color = "#b8b4ae"
+orbit_color = "#b0aca6"
+texture = "textures/mimas.jpg"
+texture_left_lon_deg = -180.0
+[bodies.orbit]                             # [HZN] 601
+type = "ephemeris"
+file = "ephem/mimas_cas.eph"
+fallback_blend_days = 1.0
+[bodies.orbit.fallback]                    # [ELEM]
+type = "mean_elements"
+a_km = 186000.0
+e = 0.020
+arg_peri_deg = 336.77                      # fitted; [ELEM] 160.4
+mean_anomaly_deg = 357.53                  # fitted; [ELEM] 275.3
+i_deg = 1.6
+node_deg = 173.48                          # fitted; [ELEM] 66.2
+period_days = 0.944894454                  # from the PCK spin rate; [ELEM] P = 0.942422 (mean longitude)
+apsis_period_years = 0.493
+node_period_years = -0.986
+laplace_pole_ra_dec_deg = [40.6, 83.5]
+
+[[bodies]]
+name = "Enceladus"
+parent = "Saturn"
+radii_km = [252.1]
+pole_ra_dec_deg = [40.66, 83.52]
+prime_meridian_deg = [6.32, 262.7318996]
+pole_rate_deg_per_century = [-0.036, -0.004]
+color = "#f2f2f0"
+orbit_color = "#d8e4ee"
+texture = "textures/enceladus.jpg"
+texture_left_lon_deg = 0.0
+[bodies.orbit]                             # [HZN] 602
+type = "ephemeris"
+file = "ephem/enceladus_cas.eph"
+fallback_blend_days = 1.0
+[bodies.orbit.fallback]                    # [ELEM]
+type = "mean_elements"
+a_km = 238400.0
+e = 0.005
+arg_peri_deg = 119.50                      # fitted; [ELEM] 119.5
+mean_anomaly_deg = 62.72                   # fitted; [ELEM] 57.0
+i_deg = 0.0
+node_deg = 0.00                            # fitted; [ELEM] 0.0
+period_days = 1.371983149                  # [ELEM] P = 1.370218
+apsis_period_years = 2.916
+node_period_years = 0.0
+laplace_pole_ra_dec_deg = [40.6, 83.5]
+
+[[bodies]]
+name = "Tethys"
+parent = "Saturn"
+radii_km = [531.1]
+pole_ra_dec_deg = [40.66, 83.52]
+prime_meridian_deg = [8.95, 190.6979085]
+pole_rate_deg_per_century = [-0.036, -0.004]
+nut_prec_ra = [0.0, 0.0, 0.0, 9.66]
+nut_prec_dec = [0.0, 0.0, 0.0, -1.09]
+nut_prec_pm = [0.0, 0.0, 0.0, -9.60, 2.23]
+color = "#dcdad6"
+orbit_color = "#c8c4be"
+texture = "textures/tethys.jpg"
+texture_left_lon_deg = -180.0
+[bodies.orbit]                             # [HZN] 603
+type = "ephemeris"
+file = "ephem/tethys_cas.eph"
+fallback_blend_days = 1.0
+[bodies.orbit.fallback]                    # [ELEM]
+type = "mean_elements"
+a_km = 295000.0
+e = 0.001
+arg_peri_deg = 348.50                      # fitted; [ELEM] 335.3
+mean_anomaly_deg = 300.70                  # fitted; [ELEM] 0.0
+i_deg = 1.1
+node_deg = 259.80                          # fitted; [ELEM] 273.0
+period_days = 1.885846110                  # [ELEM] P = 1.887802
+apsis_period_years = 0.0                   # [ELEM] lists 0.005 (see above)
+node_period_years = -4.982
+laplace_pole_ra_dec_deg = [40.6, 83.5]
+
+[[bodies]]
+name = "Dione"
+parent = "Saturn"
+radii_km = [561.4]
+pole_ra_dec_deg = [40.66, 83.52]
+prime_meridian_deg = [357.6, 131.5349316]
+pole_rate_deg_per_century = [-0.036, -0.004]
+color = "#cfccc6"
+orbit_color = "#bcc8d4"
+texture = "textures/dione.jpg"
+texture_left_lon_deg = -180.0
+[bodies.orbit]                             # [HZN] 604
+type = "ephemeris"
+file = "ephem/dione_cas.eph"
+fallback_blend_days = 1.0
+[bodies.orbit.fallback]                    # [ELEM]
+type = "mean_elements"
+a_km = 377700.0
+e = 0.002
+arg_peri_deg = 116.00                      # fitted; [ELEM] 116.0
+mean_anomaly_deg = 60.90                   # fitted; [ELEM] 212.0
+i_deg = 0.0
+node_deg = 0.00                            # fitted; [ELEM] 0.0
+period_days = 2.738669834                  # [ELEM] P = 2.736916
+apsis_period_years = 11.698
+node_period_years = 0.0
+laplace_pole_ra_dec_deg = [40.6, 83.5]
+
+[[bodies]]
+name = "Rhea"
+parent = "Saturn"
+radii_km = [763.5]
+pole_ra_dec_deg = [40.38, 83.55]
+prime_meridian_deg = [235.16, 79.6900478]
+pole_rate_deg_per_century = [-0.036, -0.004]
+nut_prec_ra = [0.0, 0.0, 0.0, 0.0, 0.0, 3.10]
+nut_prec_dec = [0.0, 0.0, 0.0, 0.0, 0.0, -0.35]
+nut_prec_pm = [0.0, 0.0, 0.0, 0.0, 0.0, -3.08]
+color = "#c9c5bf"
+orbit_color = "#c4bcd8"
+texture = "textures/rhea.jpg"
+texture_left_lon_deg = -180.0
+[bodies.orbit]                             # [HZN] 605
+type = "ephemeris"
+file = "ephem/rhea_cas.eph"
+fallback_blend_days = 1.0
+[bodies.orbit.fallback]                    # [ELEM]
+type = "mean_elements"
+a_km = 527200.0
+e = 0.001
+arg_peri_deg = 44.30                       # fitted; [ELEM] 44.3
+mean_anomaly_deg = 234.16                  # fitted; [ELEM] 31.5
+i_deg = 0.3
+node_deg = 133.70                          # fitted; [ELEM] 133.7
+period_days = 4.517587114                  # [ELEM] P = 4.517503
+apsis_period_years = 33.939
+node_period_years = -35.775
+laplace_pole_ra_dec_deg = [40.6, 83.5]
+
+[[bodies]]
+name = "Titan"
+parent = "Saturn"
+radii_km = [2574.76]                       # [SPHY]; the haze top is ~600 km higher
+pole_ra_dec_deg = [39.4827, 83.4279]       # [PCK]
+prime_meridian_deg = [186.5855, 22.5769768]
+color = "#d39a4e"                          # the orange haze (illustrative)
+orbit_color = "#e0b070"
+[bodies.orbit]                             # [HZN] 606
+type = "ephemeris"
+file = "ephem/titan_cas.eph"
+fallback_blend_days = 1.0
+[bodies.orbit.fallback]                    # [ELEM]
+type = "mean_elements"
+a_km = 1221900.0
+e = 0.029
+arg_peri_deg = 129.61                      # fitted; [ELEM] 78.3
+mean_anomaly_deg = 163.50                  # fitted; [ELEM] 11.7
+i_deg = 0.3
+node_deg = 78.60                           # fitted; [ELEM] 78.6
+period_days = 15.946442868                 # [ELEM] P = 15.945448
+apsis_period_years = 346.680
+node_period_years = -687.370
+laplace_pole_ra_dec_deg = [36.4, 84.0]
+
+[[bodies]]
+name = "Iapetus"
+parent = "Saturn"
+radii_km = [734.3]
+pole_ra_dec_deg = [318.16, 75.03]          # [PCK]
+prime_meridian_deg = [355.2, 4.5379572]
+pole_rate_deg_per_century = [-3.949, -1.143]
+color = "#8a7a66"
+orbit_color = "#b8a890"
+texture = "textures/iapetus.jpg"
+texture_left_lon_deg = -180.0
+[bodies.orbit]                             # [HZN] 608
+type = "ephemeris"
+file = "ephem/iapetus_cas.eph"
+fallback_blend_days = 1.0
+[bodies.orbit.fallback]                    # [ELEM]
+type = "mean_elements"
+a_km = 3561700.0
+e = 0.028
+arg_peri_deg = 276.69                      # fitted; [ELEM] 254.5
+mean_anomaly_deg = 208.72                  # fitted; [ELEM] 74.8
+i_deg = 7.6
+node_deg = 74.75                           # fitted; [ELEM] 86.5
+period_days = 79.335707123                 # [ELEM] P = 79.331002
+apsis_period_years = 1662.900
+node_period_years = -3130.302
+laplace_pole_ra_dec_deg = [288.7, 78.9]
+
+# --- Spacecraft -------------------------------------------------------------------
+
+[[bodies]]
+name = "Cassini"
+parent = "Saturn"
+kind = "spacecraft"
+radii_km = [0.002]                         # 4 m high-gain antenna
+color = "#ffd27f"
+orbit_color = "#ffbf5c"
+trail = "history"
+trail_history_days = 365.0
+trail_linger_days = 120.0                  # after the Grand Finale, fading
+[bodies.orbit]                             # [HZN] -82
+type = "ephemeris"
+file = "ephem/cassini_sat.eph"
+
+[[bodies]]
+name = "Huygens"
+parent = "Saturn"
+kind = "spacecraft"
+radii_km = [0.0014]                        # 2.7 m heat shield
+color = "#ffe9c0"
+orbit_color = "#ffd9a0"
+trail = "history"
+trail_linger_days = 30.0
+[bodies.orbit]                             # [HZN] -150
+type = "ephemeris"
+file = "ephem/huygens_sat.eph"
+
+# --- Events -------------------------------------------------------------------------
+# Closest approaches (TDB at the spacecraft) and distances from the bake tool; flyby
+# altitudes above the moons' mean radii [SPHY]. Flybys start an hour before.
+
+[[events]]
+name = "Cassini arrives: orbit insertion through the ring plane (2004-07-01)"
+time_tdb = "2004-06-30 22:00"
+focus = "Saturn"
+distance_km = 5.0e5
+warp = 600.0
+
+[[events]]
+name = "Cassini's tour, 2004-2017"
+time_tdb = "2004-07-01 00:00"
+focus = "Saturn"
+distance_km = 1.2e7
+warp = 604800.0
+
+# Touchdown 2005-01-14 11:38:49 TDB (2 km below Titan's mean radius: the local surface).
+[[events]]
+name = "Huygens descends to Titan (2005-01-14)"
+time_tdb = "2005-01-14 08:40"
+focus = "Titan"
+distance_km = 2.0e4
+warp = 120.0
+
+[[events]]
+name = "Cassini at Tethys (2005-09-24, 1,489 km)"
+time_tdb = "2005-09-24 01:43"
+focus = "Tethys"
+distance_km = 2.0e4
+warp = 60.0
+
+[[events]]
+name = "Cassini at Iapetus (2007-09-10, 1,633 km)"
+time_tdb = "2007-09-10 13:17"
+focus = "Iapetus"
+distance_km = 2.0e4
+warp = 60.0
+
+[[events]]
+name = "Cassini through Enceladus' plumes (2008-10-09, 23 km)"
+time_tdb = "2008-10-09 18:08"
+focus = "Enceladus"
+distance_km = 5000.0
+warp = 30.0
+
+# The Sun crosses the ring plane: the rings go dark and edge-on to the light.
+[[events]]
+name = "Equinox: the Sun in the ring plane (2009-08-11)"
+time_tdb = "2009-08-11 00:00"
+focus = "Saturn"
+distance_km = 6.0e5
+warp = 3600.0
+
+[[events]]
+name = "Cassini at Mimas (2010-02-13, 9,548 km)"
+time_tdb = "2010-02-13 16:23"
+focus = "Mimas"
+distance_km = 3.0e4
+warp = 60.0
+
+[[events]]
+name = "Cassini at Titan, lowest pass (2010-06-21, 878 km)"
+time_tdb = "2010-06-21 00:29"
+focus = "Titan"
+distance_km = 2.0e4
+warp = 60.0
+
+[[events]]
+name = "Cassini at Rhea (2011-01-11, 66 km)"
+time_tdb = "2011-01-11 03:55"
+focus = "Rhea"
+distance_km = 8000.0
+warp = 30.0
+
+[[events]]
+name = "Cassini at Dione (2011-12-12, 94 km)"
+time_tdb = "2011-12-12 08:40"
+focus = "Dione"
+distance_km = 8000.0
+warp = 30.0
+
+# First of 22 dives between the rings and the planet: periapsis 2017-04-26 09:04:44 TDB,
+# 63,172 km from the center (~2,900 km above the 1-bar level).
+[[events]]
+name = "Grand Finale: first dive inside the rings (2017-04-26)"
+time_tdb = "2017-04-26 03:00"
+focus = "Saturn"
+distance_km = 3.0e5
+warp = 600.0
+
+[[events]]
+name = "Cassini's final plunge (2017-09-15)"
+time_tdb = "2017-09-15 06:30"
+focus = "Saturn"
+distance_km = 2.0e5
+warp = 120.0

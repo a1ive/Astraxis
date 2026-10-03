@@ -98,6 +98,7 @@ private:
     std::string m_scene_error;
     Scene m_scene;
     std::vector<SDL_GPUTexture*> m_body_textures; // per body, may be null
+    std::vector<SDL_GPUTexture*> m_ring_textures; // per body: ring profile, may be null
     OrbitCamera m_camera;
     CameraDirector m_director;
     SimClock m_clock;

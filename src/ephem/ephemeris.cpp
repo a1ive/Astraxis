@@ -88,6 +88,7 @@ bool EphemerisTable::load(const std::filesystem::path& path, std::string* error)
     m_target_id = ids[0];
     m_center_id = ids[1];
     m_reference_gm = gm;
+    m_max_gap = static_cast<double>(counts[1]);
     m_knots.resize(counts[0]);
     for (size_t i = 0; i < m_knots.size(); ++i) {
         const double* k = &raw[i * 7];
@@ -97,6 +98,41 @@ bool EphemerisTable::load(const std::filesystem::path& path, std::string* error)
         }
     }
     return true;
+}
+
+bool EphemerisTable::covers(double t) const
+{
+    if (m_knots.empty() || t < start() || t > end()) {
+        return false;
+    }
+    if (m_max_gap <= 0.0 || t >= end()) {
+        return true;
+    }
+    const auto it = std::upper_bound(m_knots.begin(), m_knots.end(), t,
+                                     [](double value, const Knot& k) { return value < k.t; });
+    return it == m_knots.begin() || it->t - (it - 1)->t <= m_max_gap;
+}
+
+void EphemerisTable::segment(double t, double* seg_start, double* seg_end) const
+{
+    *seg_start = start();
+    *seg_end = end();
+    if (m_max_gap <= 0.0) {
+        return;
+    }
+    // Walk outward from t to the nearest gaps (segments hold at most a few thousand knots).
+    const auto it = std::upper_bound(m_knots.begin(), m_knots.end(), t,
+                                     [](double value, const Knot& k) { return value < k.t; });
+    size_t hi = std::min(static_cast<size_t>(it - m_knots.begin()), m_knots.size() - 1);
+    size_t lo = hi > 0 ? hi - 1 : 0;
+    while (lo > 0 && m_knots[lo].t - m_knots[lo - 1].t <= m_max_gap) {
+        --lo;
+    }
+    while (hi + 1 < m_knots.size() && m_knots[hi + 1].t - m_knots[hi].t <= m_max_gap) {
+        ++hi;
+    }
+    *seg_start = m_knots[lo].t;
+    *seg_end = m_knots[hi].t;
 }
 
 State EphemerisTable::eval(double t) const
@@ -130,7 +166,10 @@ State EphemerisMotion::eval(double t_tdb) const
 {
     if (m_table->covers(t_tdb)) {
         const State s = m_table->eval(t_tdb);
-        const double edge = std::min(t_tdb - m_table->start(), m_table->end() - t_tdb);
+        double seg_start = 0.0;
+        double seg_end = 0.0;
+        m_table->segment(t_tdb, &seg_start, &seg_end);
+        const double edge = std::min(t_tdb - seg_start, seg_end - t_tdb);
         if (!m_fallback || edge >= m_blend_s) {
             return s;
         }

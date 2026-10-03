@@ -13,6 +13,12 @@ Expected file names in <source_dir> (the default is 2048 px wide):
     europa.tif    -> europa.jpg
     ganymede.tif  -> ganymede.jpg
     callisto.tif  -> callisto.jpg
+    MI_170630_DLR_basemap_degrees.tif (from Cassini_DLR_Mimas.zip) -> mimas.jpg
+    Enceladus_Cassini_ISS_Global_Mosaic_100m_HPF.tif -> enceladus.jpg
+    Tethys_Cassini_mosaic_global_293m.tif            -> tethys.jpg
+    Dione_Cassini_Voyager_mosaic_global_154m.tif     -> dione.jpg
+    Rhea_Cassini_Voyager_mosaic_global_417m.tif      -> rhea.jpg
+    Iapetus_Cassini_Voyager_mosaic_global_783m.tif   -> iapetus.jpg
 
 Requires Pillow. The USGS mosaics are 100-200 MB GeoTIFFs (up to ~190 Mpx), so
 the decompression-bomb guard is disabled and images are pre-reduced by an
@@ -37,6 +43,12 @@ MAPS = [
     ('callisto.tif', 'callisto.jpg', True),
     ('world.200407.3x5400x2700.jpg', 'earth.jpg', False),
     ('lroc_color_poles_2k.tif', 'moon.jpg', False),
+    ('MI_170630_DLR_basemap_degrees.tif', 'mimas.jpg', True),
+    ('Enceladus_Cassini_ISS_Global_Mosaic_100m_HPF.tif', 'enceladus.jpg', True),
+    ('Tethys_Cassini_mosaic_global_293m.tif', 'tethys.jpg', True),
+    ('Dione_Cassini_Voyager_mosaic_global_154m.tif', 'dione.jpg', True),
+    ('Rhea_Cassini_Voyager_mosaic_global_417m.tif', 'rhea.jpg', True),
+    ('Iapetus_Cassini_Voyager_mosaic_global_783m.tif', 'iapetus.jpg', True),
 ]
 
 

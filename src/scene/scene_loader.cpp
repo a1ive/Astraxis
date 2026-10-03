@@ -14,7 +14,9 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <map>
 #include <sstream>
@@ -23,6 +25,9 @@
 namespace astraxis {
 
 namespace {
+
+// Samples of a ring profile rasterized from bands (Jupiter's: ~50 km each).
+constexpr int kBandProfileSamples = 4096;
 
 // Thrown on schema errors; caught at the top level and turned into a message.
 struct SchemaError {
@@ -197,6 +202,7 @@ private:
     std::unique_ptr<MotionSource> parse_motion(const toml::table& t, const std::string& ctx, const Body* parent);
     void parse_nbody(const toml::table& t, Scene& out);
     std::shared_ptr<const EphemerisTable> load_table(const std::string& file, const std::string& ctx);
+    void load_ring_profile(const std::string& file, const std::string& ctx, RingSystem& rings) const;
     int body_ref(const Scene& scene, const toml::table& t, std::string_view key, const std::string& ctx,
                  bool allow_sun) const;
 
@@ -218,6 +224,32 @@ std::shared_ptr<const EphemerisTable> Loader::load_table(const std::string& file
     }
     m_tables[file] = table;
     return table;
+}
+
+// Ring profile file (tools/rings/make_saturn_rings.py), little endian:
+//   char[8] "AXRING1\0"; float64 inner, outer radius (km); uint32 count; uint32 reserved;
+//   float32 normal optical depth[count], evenly from inner to outer.
+void Loader::load_ring_profile(const std::string& file, const std::string& ctx, RingSystem& rings) const
+{
+    std::ifstream in(m_asset_root / file, std::ios::binary);
+    char magic[8];
+    double radii[2];
+    uint32_t counts[2];
+    if (!in || !in.read(magic, 8) || std::memcmp(magic, "AXRING1", 8) != 0 ||
+        !in.read(reinterpret_cast<char*>(radii), sizeof(radii)) ||
+        !in.read(reinterpret_cast<char*>(counts), sizeof(counts)) || counts[0] < 2 || !(radii[1] > radii[0])) {
+        fail(ctx, "cannot read ring profile '" + file + "'");
+    }
+    std::vector<float> tau(counts[0]);
+    if (!in.read(reinterpret_cast<char*>(tau.data()), static_cast<std::streamsize>(tau.size() * sizeof(float)))) {
+        fail(ctx, "truncated ring profile '" + file + "'");
+    }
+    rings.inner_km = radii[0];
+    rings.outer_km = radii[1];
+    rings.profile.clear();
+    for (float t : tau) {
+        rings.profile.emplace_back(std::max(t, 0.0f), 0.0f); // a thin sheet
+    }
 }
 
 std::unique_ptr<MotionSource> Loader::parse_motion(const toml::table& t, const std::string& ctx, const Body* parent)
@@ -455,6 +487,33 @@ void Loader::parse(const toml::table& root, Scene& out)
         }
         body.pm_w0_deg = pm[0];
         body.pm_rate_deg_per_day = pm[1];
+        if (t->contains("pole_rate_deg_per_century")) {
+            double rate[2];
+            get_array(*t, "pole_rate_deg_per_century", ctx, rate, 2, 2);
+            body.pole_rate_deg_per_century = glm::dvec2(rate[0], rate[1]);
+        }
+        if (const toml::array* angles = (*t)["nut_prec_angles"].as_array()) {
+            for (const auto& node : *angles) {
+                const toml::array* pair = node.as_array();
+                if (!pair || pair->size() != 2 || !(*pair)[0].is_number() || !(*pair)[1].is_number()) {
+                    fail(ctx, "nut_prec_angles must be [deg, deg per century] pairs");
+                }
+                body.nut_prec_angles.emplace_back((*pair)[0].value<double>().value_or(0.0),
+                                                  (*pair)[1].value<double>().value_or(0.0));
+            }
+        }
+        for (const auto& [key, terms] : {std::pair<const char*, std::vector<double>*>{"nut_prec_ra", &body.nut_prec_ra},
+                                         {"nut_prec_dec", &body.nut_prec_dec},
+                                         {"nut_prec_pm", &body.nut_prec_pm}}) {
+            if (const toml::array* values = (*t)[key].as_array()) {
+                for (const auto& node : *values) {
+                    if (!node.is_number()) {
+                        fail(ctx, std::string(key) + " must be numbers (degrees)");
+                    }
+                    terms->push_back(node.value<double>().value_or(0.0));
+                }
+            }
+        }
 
         body.color = parse_color(*t, "color", ctx, glm::vec3(0.8f));
         body.orbit_color = parse_color(*t, "orbit_color", ctx, glm::vec3(0.6f));
@@ -464,6 +523,8 @@ void Loader::parse(const toml::table& root, Scene& out)
             body.style = SurfaceStyle::Solid;
         } else if (style == "gas_giant") {
             body.style = SurfaceStyle::GasGiantBands;
+        } else if (style == "saturn") {
+            body.style = SurfaceStyle::Saturn;
         } else if (style == "death_star") {
             body.style = SurfaceStyle::DeathStar;
         } else {
@@ -505,10 +566,18 @@ void Loader::parse(const toml::table& root, Scene& out)
                 fail(rctx, "gain must not be negative and |phase_g| must be < 1");
             }
             const toml::array* bands = (*rings)["bands"].as_array();
-            if (!bands || bands->empty()) {
-                fail(rctx, "needs [[bodies.rings.bands]]");
+            const bool has_profile = rings->contains("profile");
+            if ((!bands || bands->empty()) == !has_profile) {
+                fail(rctx, "needs either a profile file or [[bodies.rings.bands]]");
             }
-            for (const auto& node : *bands) {
+            if (has_profile) {
+                load_ring_profile(get_string(*rings, "profile", rctx), rctx, body.rings);
+                if (body.rings.inner_km < body.equatorial_radius_km) {
+                    fail(rctx, "the profile starts inside the planet");
+                }
+            }
+            for (size_t k = 0; bands && k < bands->size(); ++k) {
+                const toml::node& node = (*bands)[k];
                 const toml::table* b = node.as_table();
                 if (!b) {
                     fail(rctx, "bands must be tables");
@@ -526,8 +595,8 @@ void Loader::parse(const toml::table& root, Scene& out)
                 }
                 body.rings.bands.push_back(band);
             }
-            if (body.rings.bands.size() > 8) {
-                fail(rctx, "at most 8 bands");
+            if (!body.rings.bands.empty()) {
+                rasterize_ring_bands(body.rings, kBandProfileSamples);
             }
         }
 
@@ -539,6 +608,24 @@ void Loader::parse(const toml::table& root, Scene& out)
             body.motion = parse_motion(*orbit, ctx + " orbit", &out.bodies[static_cast<size_t>(body.parent)]);
         } else if (body.parent >= 0) {
             fail(ctx, "bodies with a parent need an [orbit]");
+        }
+
+        if (!body.nut_prec_ra.empty() || !body.nut_prec_dec.empty() || !body.nut_prec_pm.empty()) {
+            // The angles come from the nearest ancestor that defines them (or the body itself).
+            const size_t count = std::max({body.nut_prec_ra.size(), body.nut_prec_dec.size(), body.nut_prec_pm.size()});
+            int source = body.nut_prec_angles.empty() ? body.parent : static_cast<int>(out.bodies.size());
+            while (source >= 0 && source != static_cast<int>(out.bodies.size()) &&
+                   out.bodies[static_cast<size_t>(source)].nut_prec_angles.empty()) {
+                source = out.bodies[static_cast<size_t>(source)].parent;
+            }
+            const size_t available = source < 0 ? 0
+                                     : source == static_cast<int>(out.bodies.size())
+                                         ? body.nut_prec_angles.size()
+                                         : out.bodies[static_cast<size_t>(source)].nut_prec_angles.size();
+            if (count > available) {
+                fail(ctx, "nut_prec terms need as many nut_prec_angles (on the body or an ancestor)");
+            }
+            body.nut_prec_source = source;
         }
 
         index_of[body.name] = static_cast<int>(out.bodies.size());

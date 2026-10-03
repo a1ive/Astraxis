@@ -28,6 +28,52 @@ constexpr size_t kTrailRefineBudget = 4;
 
 } // namespace
 
+double RingSystem::optical_depth(double r_km) const
+{
+    if (profile.size() < 2 || r_km < inner_km || r_km > outer_km) {
+        return 0.0;
+    }
+    const double x = (r_km - inner_km) / (outer_km - inner_km) * static_cast<double>(profile.size() - 1);
+    const size_t i = std::min(static_cast<size_t>(x), profile.size() - 2);
+    const double f = x - static_cast<double>(i);
+    return profile[i].x + (profile[i + 1].x - profile[i].x) * f;
+}
+
+void rasterize_ring_bands(RingSystem& rings, int samples)
+{
+    rings.profile.clear();
+    if (rings.bands.empty() || samples < 2) {
+        return;
+    }
+    double inner = rings.bands[0].inner_km;
+    double outer = rings.bands[0].outer_km;
+    for (const RingBand& b : rings.bands) {
+        inner = std::min(inner, b.inner_km - 0.02 * (b.outer_km - b.inner_km));
+        outer = std::max(outer, b.outer_km + 0.02 * (b.outer_km - b.inner_km));
+    }
+    rings.inner_km = std::max(0.0, inner);
+    rings.outer_km = outer;
+    auto smooth = [](double e0, double e1, double x) {
+        const double t = std::clamp((x - e0) / (e1 - e0), 0.0, 1.0);
+        return t * t * (3.0 - 2.0 * t);
+    };
+    for (int k = 0; k < samples; ++k) {
+        const double r = rings.inner_km + (rings.outer_km - rings.inner_km) * k / (samples - 1);
+        double tau = 0.0;
+        double floor_weighted = 0.0;
+        for (const RingBand& b : rings.bands) {
+            const double width = b.outer_km - b.inner_km;
+            const double soft = 0.02 * width;
+            const double inside = smooth(b.inner_km - soft, b.inner_km + soft, r) *
+                                  (1.0 - smooth(b.outer_km - soft, b.outer_km + soft, r));
+            tau += inside * b.optical_depth;
+            floor_weighted += inside * b.optical_depth * (b.thickness_km / width);
+        }
+        // Where bands overlap, their thickness bounds are averaged by optical depth.
+        rings.profile.emplace_back(static_cast<float>(tau), tau > 0.0 ? static_cast<float>(floor_weighted / tau) : 0.0f);
+    }
+}
+
 double lagrange_gamma(double mass_ratio, int point)
 {
     const double mu = mass_ratio;
@@ -165,8 +211,31 @@ void Scene::update(double t_tdb)
         body.visible = visible;
         body.world_position = m_transform.to_display(pos);
 
-        const double w = wrap_two_pi((body.pm_w0_deg + body.pm_rate_deg_per_day * days) * kDegToRad);
-        body.orientation = glm::transpose(m_transform.axes) * iau_pole_frame(body.pole_ra, body.pole_dec) * rotation_z(w);
+        double ra = body.pole_ra;
+        double dec = body.pole_dec;
+        double w_deg = body.pm_w0_deg + body.pm_rate_deg_per_day * days;
+        if (body.nut_prec_source >= 0 || body.pole_rate_deg_per_century != glm::dvec2(0.0)) {
+            const double centuries = days / kDaysPerJulianCentury;
+            ra += body.pole_rate_deg_per_century.x * centuries * kDegToRad;
+            dec += body.pole_rate_deg_per_century.y * centuries * kDegToRad;
+            if (body.nut_prec_source >= 0) {
+                const auto& angles = bodies[static_cast<size_t>(body.nut_prec_source)].nut_prec_angles;
+                for (size_t k = 0; k < angles.size(); ++k) {
+                    const double theta = (angles[k].x + angles[k].y * centuries) * kDegToRad;
+                    if (k < body.nut_prec_ra.size()) {
+                        ra += body.nut_prec_ra[k] * std::sin(theta) * kDegToRad;
+                    }
+                    if (k < body.nut_prec_dec.size()) {
+                        dec += body.nut_prec_dec[k] * std::cos(theta) * kDegToRad;
+                    }
+                    if (k < body.nut_prec_pm.size()) {
+                        w_deg += body.nut_prec_pm[k] * std::sin(theta);
+                    }
+                }
+            }
+        }
+        const double w = wrap_two_pi(w_deg * kDegToRad);
+        body.orientation = glm::transpose(m_transform.axes) * iau_pole_frame(ra, dec) * rotation_z(w);
 
         if (visible && body.kind != BodyKind::Star) {
             extent = std::max(extent, glm::length(pos) + body.equatorial_radius_km);

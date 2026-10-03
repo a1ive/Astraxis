@@ -27,6 +27,8 @@ Per-file details, original download URLs and processing steps are in each direct
 | `assets/stars/bsc5.csv` | Yale Bright Star Catalogue, 5th Revised Ed. (Hoffleit & Warren 1991), CDS catalogue V/50 | Freely distributed astronomical data (NASA/CDS) |
 | `assets/textures/jupiter.jpg` | NASA/JPL/Space Science Institute, PIA07782 | Public domain |
 | `assets/textures/{io,europa,ganymede,callisto}.jpg` | USGS Astrogeology Science Center, Galileo/Voyager global mosaics | Public domain |
+| `assets/textures/{mimas,enceladus,tethys,dione,rhea,iapetus}.jpg` | USGS Astrogeology Science Center / DLR, Cassini ISS (and Voyager) global mosaics | Public domain |
+| `assets/rings/saturn_rss.ring` | NASA PDS Ring-Moon Systems Node, Cassini Radio Science ring occultation (CORSS_8001, Marouf et al.) | Public domain |
 | `assets/textures/earth.jpg` | NASA Earth Observatory, Blue Marble Next Generation (Reto Stöckli) | Public domain; credit: NASA Earth Observatory |
 | `assets/textures/moon.jpg` | NASA's Scientific Visualization Studio, CGI Moon Kit (LRO data) | Public domain; credit: NASA's Scientific Visualization Studio |
 | `assets/textures/milky_way.jpg` | NASA/GSFC Scientific Visualization Studio, Deep Star Maps 2020 | Public domain; credit: NASA/Goddard Space Flight Center Scientific Visualization Studio. Gaia DR2: ESA/Gaia/DPAC |

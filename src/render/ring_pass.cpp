@@ -18,7 +18,7 @@ namespace astraxis {
 
 namespace {
 
-// Outer-edge sagitta at 280,000 km: 280000 * (1 - cos(pi / 512)) ~ 5 km.
+// Outer-edge sagitta at 280,000 km (Jupiter's faint rings): 280000 * (1 - cos(pi / 512)) ~ 5 km.
 constexpr int kSegments = 512;
 
 struct RingVertex {
@@ -37,7 +37,7 @@ struct FragmentUniforms {
     glm::vec4 camera;
     glm::vec4 color;
     glm::vec4 params;
-    glm::vec4 bands[kMaxRingBands];
+    glm::vec4 radii;
 };
 
 } // namespace
@@ -53,6 +53,7 @@ bool RingPass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
     SDL_GPUShader* fs = create_shader(device, {.dxil = kRingFragDxil,
                                                .spirv = kRingFragSpirv,
                                                .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
+                                               .num_samplers = 1,
                                                .num_uniform_buffers = 1});
     if (!vs || !fs) {
         SDL_ReleaseGPUShader(device, vs);
@@ -71,12 +72,12 @@ bool RingPass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
     attrs[1] = {.location = 1, .buffer_slot = 0, .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT,
                 .offset = offsetof(RingVertex, edge)};
 
-    // Scattered light only adds (tau << 1: no visible extinction).
+    // result = scattered light + transmission (alpha) * what lies behind.
     SDL_GPUColorTargetDescription color = {};
     color.format = format.color;
     color.blend_state.enable_blend = true;
     color.blend_state.src_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
-    color.blend_state.dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
+    color.blend_state.dst_color_blendfactor = SDL_GPU_BLENDFACTOR_SRC_ALPHA;
     color.blend_state.color_blend_op = SDL_GPU_BLENDOP_ADD;
     color.blend_state.src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ZERO;
     color.blend_state.dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
@@ -121,7 +122,17 @@ bool RingPass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
     m_vertex_count = static_cast<uint32_t>(vertices.size());
     m_vertices = create_static_buffer(device, SDL_GPU_BUFFERUSAGE_VERTEX, vertices.data(),
                                       static_cast<uint32_t>(vertices.size() * sizeof(RingVertex)));
-    return m_vertices != nullptr;
+
+    SDL_GPUSamplerCreateInfo sampler = {};
+    sampler.min_filter = SDL_GPU_FILTER_LINEAR;
+    sampler.mag_filter = SDL_GPU_FILTER_LINEAR;
+    sampler.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
+    sampler.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+    sampler.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+    sampler.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+    sampler.max_lod = 1000.0f;
+    m_sampler = SDL_CreateGPUSampler(device, &sampler);
+    return m_vertices != nullptr && m_sampler != nullptr;
 }
 
 void RingPass::shutdown()
@@ -130,7 +141,9 @@ void RingPass::shutdown()
         return;
     }
     SDL_ReleaseGPUBuffer(m_device, m_vertices);
+    SDL_ReleaseGPUSampler(m_device, m_sampler);
     SDL_ReleaseGPUGraphicsPipeline(m_device, m_pipeline);
+    m_sampler = nullptr;
     m_vertices = nullptr;
     m_pipeline = nullptr;
     m_device = nullptr;
@@ -148,34 +161,25 @@ void RingPass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const Ca
     SDL_BindGPUVertexBuffers(pass, 0, &vb, 1);
 
     for (const RingDrawItem& item : items) {
-        const int count = std::min(item.band_count, kMaxRingBands);
-        if (count <= 0) {
+        if (!item.profile || !(item.outer_km > item.inner_km)) {
             continue;
         }
-        float inner = item.bands[0].x;
-        float outer = item.bands[0].y;
-        for (int k = 1; k < count; ++k) {
-            inner = std::min(inner, item.bands[k].x);
-            outer = std::max(outer, item.bands[k].y);
-        }
-        // Room for the soft edges (2% of a band's width) on both sides.
-        const float pad = 0.05f * (outer - inner);
-
         VertexUniforms vu;
         vu.model = item.model;
         vu.view_proj = view.view_proj;
-        vu.radii = glm::vec4(std::max(0.0f, inner - pad), outer + pad, 0.0f, 0.0f);
+        vu.radii = glm::vec4(item.inner_km, item.outer_km, 0.0f, 0.0f);
         SDL_PushGPUVertexUniformData(cmd, 0, &vu, sizeof(vu));
 
         FragmentUniforms fu = {};
         fu.sun = glm::vec4(item.sun_direction, item.sun_angular_radius);
         fu.camera = glm::vec4(item.camera, 0.0f);
         fu.color = glm::vec4(item.color, item.gain);
-        fu.params = glm::vec4(static_cast<float>(count), item.phase_g, item.equatorial_radius, item.polar_radius);
-        for (int k = 0; k < count; ++k) {
-            fu.bands[k] = item.bands[k];
-        }
+        fu.params = glm::vec4(item.phase_g, item.equatorial_radius, item.polar_radius, 0.0f);
+        fu.radii = glm::vec4(item.inner_km, item.outer_km, 0.0f, 0.0f);
         SDL_PushGPUFragmentUniformData(cmd, 0, &fu, sizeof(fu));
+
+        SDL_GPUTextureSamplerBinding tex = {.texture = item.profile, .sampler = m_sampler};
+        SDL_BindGPUFragmentSamplers(pass, 0, &tex, 1);
 
         SDL_DrawGPUPrimitives(pass, m_vertex_count, 1, 0, 0);
     }

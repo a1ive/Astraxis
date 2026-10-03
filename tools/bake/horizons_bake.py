@@ -23,7 +23,8 @@ shapes the interpolation, the knots themselves are exact samples.
 Output format (little endian), see src/ephem/ephemeris.hpp:
     char[8]  magic "AXEPH1\\0\\0" (plain Hermite) or "AXEPH2\\0\\0" (Kepler-relative)
     int32    target NAIF id, int32 center NAIF id
-    uint32   knot count, uint32 reserved (0)
+    uint32   knot count, uint32 max knot spacing in seconds (0: none; longer
+             intervals are gaps without data, see `windows_near`)
     AXEPH2:  float64 reference GM (km^3/s^2)
     knots:   float64 t (TDB seconds since J2000), x, y, z (km), vx, vy, vz (km/s)
 
@@ -35,6 +36,12 @@ periapsides around the center (for scene event lists).
 `refine_near = [targets]` re-fetches at 1 minute wherever the target comes
 within `refine_near_km` of those (already baked) targets, e.g. moon flybys that
 are too brief for the base step to notice.
+
+`windows_near = "<Horizons command>"` keeps data only where the target comes
+within `window_km` of that object (e.g. a moon near a spacecraft), padded by
+`window_pad_days` on each side; windows closer than 2 pads merge. The rest is
+a gap (the scene falls back to mean elements there). Each window is refined
+and reduced on its own.
 Only the Python standard library is used.
 """
 
@@ -294,11 +301,11 @@ def max_error(rows, kept, interp):
 
 # --- Output -------------------------------------------------------------------
 
-def write_eph(path, target_id, center_id, knots, gm=0.0):
+def write_eph(path, target_id, center_id, knots, gm=0.0, max_gap=0):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, 'wb') as f:
         f.write(b'AXEPH2\0\0' if gm else b'AXEPH1\0\0')
-        f.write(struct.pack('<iiII', target_id, center_id, len(knots), 0))
+        f.write(struct.pack('<iiII', target_id, center_id, len(knots), int(max_gap)))
         if gm:
             f.write(struct.pack('<d', gm))
         for t, p, v in knots:
@@ -308,9 +315,10 @@ def write_eph(path, target_id, center_id, knots, gm=0.0):
 class Table:
     """Baked knots with their interpolator."""
 
-    def __init__(self, knots, gm=0.0):
+    def __init__(self, knots, gm=0.0, max_gap=0):
         self.knots = knots
         self.gm = gm
+        self.max_gap = max_gap  # seconds; longer intervals between knots have no data
         self.interp = make_interp(gm)
 
     def start(self):
@@ -323,7 +331,7 @@ class Table:
 def read_eph(path):
     with open(path, 'rb') as f:
         data = f.read()
-    _, _, n, _ = struct.unpack_from('<iiII', data, 8)
+    _, _, n, max_gap = struct.unpack_from('<iiII', data, 8)
     offset = 24
     gm = 0.0
     if data[:6] == b'AXEPH2':
@@ -333,7 +341,7 @@ def read_eph(path):
     for i in range(n):
         vals = struct.unpack_from('<7d', data, offset + i * 56)
         knots.append((vals[0], vals[1:4], vals[4:7]))
-    return Table(knots, gm)
+    return Table(knots, gm, max_gap)
 
 
 def eval_eph(table, t):
@@ -347,6 +355,8 @@ def eval_eph(table, t):
             lo = mid
         else:
             hi = mid
+    if table.max_gap and knots[hi][0] - knots[lo][0] > table.max_gap:
+        return None  # in a gap
     return table.interp(knots[lo], knots[hi], t)
 
 
@@ -427,6 +437,23 @@ def refine_near(command, center, rows, gm, others, threshold, scan_step):
     print(f'    near other bodies: {len(merged)} windows, {len(fine)} samples at {MIN_STEP_MINUTES} min')
     kept = [r for r in rows if not any(a <= r[0] <= b for a, b in merged)]
     return sorted(kept + fine, key=lambda r: r[0])
+
+
+def near_windows(rows, command, center, start_jd, stop_jd, step_minutes, threshold, pad):
+    """Windows (t0, t1) where `command` comes within `threshold` km of the target
+    (both sampled every step), padded by `pad` seconds; merged when closer than 2 pads."""
+    other = {round(r[0]): r[1] for r in fetch(command, center, start_jd, stop_jd, step_minutes)}
+    windows = []
+    for t, p, _ in rows:
+        q = other.get(round(t))
+        if q is None or dist(p, q) >= threshold:
+            continue
+        a, b = t - pad, t + pad
+        if windows and a <= windows[-1][1] + 2.0 * pad:
+            windows[-1][1] = max(windows[-1][1], b)
+        else:
+            windows.append([a, b])
+    return windows
 
 
 def report_encounters(name, table, others, radii, step, threshold):
@@ -517,6 +544,31 @@ def main():
         print(f'{name}: {tgt["command"]} @ {tgt["center"]}, {tgt["start"]} .. {tgt["stop"]}, step {step} min, tol {tol} km')
         rows = fetch(tgt['command'], tgt['center'], start, stop, step)
         print(f'    fetched {len(rows)} samples')
+        max_gap = 0
+        if tgt.get('windows_near'):
+            pad = tgt.get('window_pad_days', 1.0) * DAY
+            windows = near_windows(rows, tgt['windows_near'], tgt['center'], start, stop, step, tgt['window_km'], pad)
+            knots, all_rows, err = [], [], 0.0
+            for a, b in windows:
+                part = [r for r in rows if a <= r[0] <= b]
+                if len(part) < 3:
+                    continue
+                part = refine(tgt['command'], tgt['center'], part, tol, step, tgt.get('max_refine', 4), interp)
+                seg = decimate(part, tol, interp)
+                err = max(err, max_error(part, seg, interp))
+                knots.extend(seg)
+                all_rows.extend(part)
+            # Knots within a window are far closer than the windows are apart (>= 2 pads).
+            spacing = max(b[0] - a[0] for a, b in zip(knots, knots[1:]) if b[0] - a[0] < pad)
+            max_gap = int(pad)
+            assert spacing < max_gap, f'{name}: knot spacing {spacing} s exceeds the gap threshold'
+            covered = sum(b - a for a, b in windows) / (stop - start) / DAY
+            print(f'    {len(windows)} windows near {tgt["windows_near"]} ({covered:.1%} of the span), '
+                  f'{len(all_rows)} samples -> {len(knots)} knots, max error {err:.3f} km')
+            write_eph(out, int(tgt['naif_id']), int(tgt['center_naif_id']), knots, gm, max_gap)
+            print(f'    wrote {out} ({os.path.getsize(out) // 1024} KB)')
+            baked[name] = Table(knots, gm, max_gap)
+            continue
         rows = refine(tgt['command'], tgt['center'], rows, tol, step, tgt.get('max_refine', 4), interp)
         if tgt.get('refine_near'):
             missing = [o for o in tgt['refine_near'] if o not in baked]

@@ -11,6 +11,12 @@
 | `earth.jpg` | NASA Earth Observatory，Blue Marble Next Generation（2004 年 7 月，Reto Stöckli），`world.200407.3x5400x2700.jpg`，<https://eoimages.gsfc.nasa.gov/images/imagerecords/74000/74092/world.200407.3x5400x2700.jpg> | NASA 图像，公有领域（请注明 NASA Earth Observatory） |
 | `moon.jpg` | NASA Scientific Visualization Studio，CGI Moon Kit（LRO 数据），`lroc_color_poles_2k.tif`，<https://svs.gsfc.nasa.gov/4720> | NASA 图像，公有领域（请注明 NASA's Scientific Visualization Studio）；页面说明是“为美观而非科学优化” |
 | `callisto.jpg` | USGS Astrogeology，Callisto Galileo/Voyager Global Mosaic 1km，<https://astrogeology.usgs.gov/search/map/callisto_galileo_voyager_global_mosaic_1km> | 公有领域 |
+| `mimas.jpg` | DLR / USGS Astrogeology，Mimas Cassini ISS 全球底图（2017-06-30，`MI_170630_DLR_basemap_degrees.tif`，在 `Cassini_DLR_Mimas.zip` 里） | 公有领域 |
+| `enceladus.jpg` | USGS Astrogeology，Enceladus Cassini ISS Global Mosaic 100m HPF（高通滤波，反照率被压平），<https://astrogeology.usgs.gov/search/map/enceladus_cassini_iss_global_mosaic_hpf_110m> | 公有领域 |
+| `tethys.jpg` | USGS Astrogeology，Tethys Cassini Global Mosaic 293m | 公有领域 |
+| `dione.jpg` | USGS Astrogeology，Dione Cassini/Voyager Global Mosaic 154m | 公有领域 |
+| `rhea.jpg` | USGS Astrogeology，Rhea Cassini/Voyager Global Mosaic 417m | 公有领域 |
+| `iapetus.jpg` | USGS Astrogeology，Iapetus Cassini/Voyager Global Mosaic 783m，<https://astrogeology.usgs.gov/search/map/iapetus_cassini_voyager_global_mosaic_803m> | 公有领域 |
 
 原始下载地址：
 
@@ -19,6 +25,13 @@
 - <https://planetarymaps.usgs.gov/mosaic/Europa_Voyager_GalileoSSI_global_mosaic_500m.tif>（184 MB）
 - <https://planetarymaps.usgs.gov/mosaic/Ganymede_Voyager_GalileoSSI_global_mosaic_1km.tif>（131 MB）
 - <https://planetarymaps.usgs.gov/mosaic/Callisto_Voyager_GalileoSSI_global_mosaic_1km.tif>（110 MB）
+- 土星卫星（planetarymaps.usgs.gov 现在跳转到 <https://asc-pds-services.s3.us-west-2.amazonaws.com/mosaic/>，下列路径都相对于它）：
+  - `Mimas/Cassini_DLR_Mimas.zip`（40 MB）
+  - `Enceladus/Cassini/Enceladus_Cassini_ISS_Global_Mosaic_100m_HPF.tif`（126 MB）
+  - `Tethys_Cassini_mosaic_global_293m.tif`（66 MB）
+  - `Dione_Cassini_Voyager_mosaic_global_154m.tif`（265 MB）
+  - `Rhea_Cassini_Voyager_mosaic_global_417m.tif`（66 MB）
+  - `Iapetus_Cassini_Voyager_mosaic_global_783m.tif`（17 MB）
 
 ## 经度约定
 
@@ -32,6 +45,14 @@ USGS 元数据标注的是“positive west”，但图像的实际排布是东�
 - Io：Pele（18.7°S 255°W）、Loki（13°N 309°W）
 - Ganymede：Galileo Regio
 
+- 土星卫星：全部是东经向右递增（Rhea、Iapetus 的标签写的是 PositiveWest，同样不可信）。左边缘：Enceladus 为 0°E，其余（Mimas、Tethys、Dione、Rhea、Iapetus）为 −180°E。用以下地貌验证过：
+  - Mimas：Herschel 坑（1.7°N 111.8°W）
+  - Tethys：Odysseus 坑（32.8°N 128.9°W）
+  - Rhea：Tirawa 盆地（34.2°N 151.7°W）
+  - Enceladus：Ali Baba（55.1°N 22.3°W）与 Aladdin（60.7°N 26.7°W）这对坑，Aladdin 在西北
+  - Iapetus：暗色的 Cassini Regio 以前导半球（90°W）为中心
+  - Dione：亮条纹地形在后随半球（270°W）
+  - 这些都是灰度图，按原样存成 JPEG
 - 地球（Blue Marble）和月球（CGI Moon Kit）都以 0° 为中心、东经递增，左边缘为 −180°E。月球的方向用危海（17°N 59°E）和第谷环形山（43°S 11°W）验证过。
 
 场景文件统一写成 `texture_left_lon_deg`（东经）。

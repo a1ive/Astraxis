@@ -18,6 +18,7 @@ enum class SurfaceStyle : int {
     Solid = 0,
     GasGiantBands = 1,
     DeathStar = 4, // procedural battle station: panels, equatorial trench, superlaser dish
+    Saturn = 5,    // procedural pale bands and the north polar hexagon
 };
 
 enum class BodyKind {
@@ -43,14 +44,30 @@ struct RingBand {
     double thickness_km = 0.0;  // vertical extent: limits the brightening seen edge-on
 };
 
-// Optically thin (dusty) rings, drawn by single scattering. `gain` scales the
+// Planetary rings, drawn by single scattering for any optical depth (thin
+// dusty rings like Jupiter's, or Saturn's opaque B ring). `gain` scales the
 // physical brightness (I/F), which is far too faint to see for Jupiter's rings.
 struct RingSystem {
-    std::vector<RingBand> bands;
-    glm::vec3 color{1.0f}; // sRGB tint (single-scattering albedo)
+    std::vector<RingBand> bands; // as listed in the scene file (if any)
+    glm::vec3 color{1.0f};       // sRGB tint (single-scattering albedo)
     double gain = 1.0;
     double phase_g = 0.0; // Henyey-Greenstein asymmetry (> 0: forward scattering)
+
+    // Radial profile used for rendering, sampled evenly over [inner_km,
+    // outer_km]: x = normal optical depth, y = lower bound for the |cos| of the
+    // viewing angle (band thickness / width; 0 for a thin sheet). Loaded from a
+    // measured profile or rasterized from `bands`. Empty: no rings.
+    std::vector<glm::vec2> profile;
+    double inner_km = 0.0;
+    double outer_km = 0.0;
+
+    // Normal optical depth at radius r (linear between samples, 0 outside).
+    double optical_depth(double r_km) const;
 };
+
+// Fills rings.profile from rings.bands: overlapping bands add up, and each
+// band's edges are softened over 2% of its width.
+void rasterize_ring_bands(RingSystem& rings, int samples);
 
 struct Body {
     std::string name;
@@ -73,12 +90,24 @@ struct Body {
     double luminosity_solar = 1.0;
 
     // IAU rotation model: spin pole in ICRF and prime meridian angle
-    // W = pm_w0_deg + pm_rate_deg_per_day * days since J2000.
-    glm::dvec3 pole{0.0, 0.0, 1.0};
+    // W = pm_w0_deg + pm_rate_deg_per_day * days since J2000, plus (optional)
+    // linear pole drift and the periodic terms of the IAU/PCK model:
+    //   RA  += ra_rate * T + sum nut_prec_ra[i]  * sin(theta_i)
+    //   Dec += dec_rate * T + sum nut_prec_dec[i] * cos(theta_i)
+    //   W   += sum nut_prec_pm[i] * sin(theta_i)
+    // with T in Julian centuries since J2000 and theta_i = a + b T from
+    // `nut_prec_angles` of the nearest ancestor that has them (the planet).
+    glm::dvec3 pole{0.0, 0.0, 1.0}; // at J2000, without periodic terms
     double pole_ra = 0.0; // radians; with pole_dec defines the IAU node direction
     double pole_dec = 1.5707963267948966;
     double pm_w0_deg = 0.0;
     double pm_rate_deg_per_day = 0.0;
+    glm::dvec2 pole_rate_deg_per_century{0.0}; // RA, Dec
+    std::vector<glm::dvec2> nut_prec_angles;   // planets: (a deg, b deg per century) for each theta_i
+    std::vector<double> nut_prec_ra;           // degrees, one per theta_i (trailing ones may be left out)
+    std::vector<double> nut_prec_dec;
+    std::vector<double> nut_prec_pm;
+    int nut_prec_source = -1; // body whose nut_prec_angles apply (-1: none)
 
     glm::vec3 color{1.0f}; // sRGB
     SurfaceStyle style = SurfaceStyle::Solid;

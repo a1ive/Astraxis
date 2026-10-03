@@ -1,5 +1,6 @@
 // Planet / moon shading: Lambert lighting, soft eclipse shadows from other
-// bodies (sun treated as a disk), procedural gas-giant bands and a procedural
+// bodies (sun treated as a disk), the shadow of the planet's own rings,
+// procedural gas-giant bands (Jupiter-like, Saturn-like) and a procedural
 // battle station.
 
 #include "common.hlsli"
@@ -9,10 +10,12 @@
 #define STYLE_STAR 2       // self-luminous: u_color is linear HDR radiance
 #define STYLE_BLACK_HOLE 3 // event horizon: absorbs everything
 #define STYLE_DEATH_STAR 4
+#define STYLE_SATURN 5
 
 static const float kPi = 3.14159265;
 
 FRAGMENT_TEXTURE(Texture2D, u_albedo, u_sampler, 0); // sRGB texture: samples are linear
+FRAGMENT_TEXTURE(Texture2D, u_ring_profile, u_ring_sampler, 1); // r = ring normal optical depth
 
 cbuffer Uniforms : register(b0, space3)
 {
@@ -20,6 +23,9 @@ cbuffer Uniforms : register(b0, space3)
     float4 u_color;                    // rgb = base color (sRGB), a = style
     float4 u_params;                   // x = occluder count, y = ambient, z = 1 if textured, w = 1 to flip u
     float4 u_occluders[MAX_OCCLUDERS]; // xyz = camera-relative center, w = radius
+    float4 u_ring_center;              // xyz = camera-relative center of the ring plane, w = 1 if it has rings
+    float4 u_ring_normal;              // xyz = ring plane normal (unit)
+    float4 u_ring_radii;               // x = inner, y = outer radius of the profile (km), z = profile samples
 };
 
 struct PSInput
@@ -79,6 +85,43 @@ float3 gas_giant_color(float3 local)
     float spot = exp(-dot(d, d) * 1.5);
     c = lerp(c, float3(0.80, 0.46, 0.33), spot * 0.85);
     return c;
+}
+
+// Saturn: pale, low-contrast belts and zones around a brighter equatorial zone,
+// and the hexagonal jet around the north pole (~78 deg N) with a darker,
+// bluish-gray interior. Illustrative, tinted by `base` (linear).
+float3 saturn_color(float3 local, float3 base)
+{
+    float lat = asin(clamp(local.z, -1.0, 1.0));
+    float lon = atan2(local.y, local.x);
+
+    float w = lat + 0.004 * sin(lon * 5.0 + lat * 30.0);
+    float shade = 1.0 + 0.09 * sin(w * 26.0) + 0.05 * sin(w * 71.0 + 0.8) + 0.03 * sin(w * 150.0 + 2.1);
+    float3 c = base * shade;
+    c = lerp(c, base * 1.1, 0.6 * exp(-(lat / 0.14) * (lat / 0.14)));
+
+    // Hexagon: the edge at 12 deg from the pole mid-side (13.9 deg at the corners).
+    float colat = 1.5707963 - lat;
+    float sector = fmod(lon + 6.2831853, 1.0471976) - 0.5235988;
+    float edge = 0.2094395 / cos(sector);
+    float inside = 1.0 - smoothstep(edge - 0.008, edge + 0.008, colat);
+    c = lerp(c, base * float3(0.70, 0.76, 0.80), 0.8 * inside);
+    c *= 1.0 - 0.15 * exp(-((colat - edge) / 0.01) * ((colat - edge) / 0.01));
+
+    c = lerp(c, base * 0.85, smoothstep(1.2, 1.45, -lat)); // grayer south polar region
+    return c;
+}
+
+// Where the ray from p toward the sun crosses the ring plane: the position in
+// the ring profile (0..1 across [inner, outer]; < 0 if the plane is behind).
+float ring_profile_u(float3 p, float3 L)
+{
+    float3 n = u_ring_normal.xyz;
+    float3 d = p - u_ring_center.xyz;
+    float denom = dot(L, n);
+    float t = -dot(d, n) / (abs(denom) > 1e-6 ? denom : 1e-6);
+    float r = length(d + t * L);
+    return t > 0.0 ? (r - u_ring_radii.x) / (u_ring_radii.y - u_ring_radii.x) : -1.0;
 }
 
 float hash21(float2 q)
@@ -195,6 +238,7 @@ float4 main(PSInput input) : SV_Target0
     }
 
     bool gas_giant = (int)u_color.a == STYLE_GAS_GIANT;
+    bool saturn = (int)u_color.a == STYLE_SATURN;
     float3 albedo;
     if (u_params.z > 0.5) {
         float2 uv = input.uv;
@@ -202,14 +246,22 @@ float4 main(PSInput input) : SV_Target0
             uv.x = 1.0 - uv.x;
         }
         albedo = u_albedo.Sample(u_sampler, uv).rgb;
+    } else if (saturn) {
+        albedo = saturn_color(normalize(input.local), srgb_to_linear(u_color.rgb));
     } else {
         albedo = srgb_to_linear(gas_giant ? gas_giant_color(normalize(input.local)) : u_color.rgb);
     }
-    float limb = gas_giant ? lerp(0.65, 1.0, pow(saturate(dot(n, V)), 0.4)) : 1.0;
+    float limb = gas_giant || saturn ? lerp(0.65, 1.0, pow(saturate(dot(n, V)), 0.4)) : 1.0;
+
+    // Sunlight through the planet's own rings (mip level from the footprint on the profile).
+    float ring_u = u_ring_center.w > 0.5 ? ring_profile_u(input.rel_pos, L) : -1.0;
+    float ring_lod = log2(max(fwidth(ring_u) * u_ring_radii.z, 1.0));
+    float ring_tau = u_ring_profile.SampleLevel(u_ring_sampler, float2(ring_u, 0.5), ring_lod).r;
+    float ring_t = ring_u >= 0.0 && ring_u <= 1.0 ? exp(-ring_tau / max(abs(dot(L, u_ring_normal.xyz)), 1e-3)) : 1.0;
 
     float ndl = dot(n, L);
     float diffuse = saturate(ndl) * smoothstep(-0.05, 0.05, ndl);
-    float lit = diffuse * eclipse_factor(input.rel_pos, L);
+    float lit = diffuse * eclipse_factor(input.rel_pos, L) * ring_t;
 
     float3 color = albedo * (lit * limb + u_params.y);
     return float4(color, 1.0);
