@@ -118,6 +118,7 @@ bool KerrEquatorial::step(glm::dvec2& x, glm::dvec2& u, double dt) const
     // Explicit Euler predictor, then Newton on F(y1) = y1 - y0 - dt f((y0 + y1) / 2).
     glm::dvec4 y1 = y0 + f(y0) * dt;
     bool converged = false;
+    double prev_err = HUGE_VAL;
     for (int iter = 0; iter < 12; ++iter) {
         const glm::dvec4 mid = (y0 + y1) * 0.5;
         const glm::dvec4 F = y1 - y0 - f(mid) * dt;
@@ -126,10 +127,16 @@ bool KerrEquatorial::step(glm::dvec2& x, glm::dvec2& u, double dt) const
         for (int i = 0; i < 4; ++i) {
             err = std::max(err, std::abs(F[i]) / scale[i]);
         }
-        if (err < 1e-15) {
+        if (!std::isfinite(err)) {
+            break; // diverged (e.g. NaN from inside the horizon)
+        }
+        // The residual floor is a few ulp (~1e-15 to 1e-13 relative): accept
+        // once it is tiny, or once it is small and has stopped shrinking.
+        if (err < 1e-15 || (err < 1e-12 && err > 0.5 * prev_err)) {
             converged = true;
             break;
         }
+        prev_err = err;
 
         // J = I - dt/2 df/dy at the midpoint (central differences, relative steps).
         glm::dmat4 J(1.0);

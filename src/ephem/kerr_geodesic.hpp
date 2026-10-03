@@ -29,7 +29,8 @@ public:
 
     // One implicit-midpoint step of length dt (km of coordinate time; may be
     // negative). Newton iterations with a central-difference Jacobian, as in the
-    // reference integrator. Returns false if Newton did not converge.
+    // reference integrator. Returns false if Newton did not converge (x and u
+    // are then overwritten with the last, unreliable iterate).
     bool step(glm::dvec2& x, glm::dvec2& u, double dt) const;
 
     // Covariant velocity from a coordinate velocity dx/dt (dimensionless, v/c).

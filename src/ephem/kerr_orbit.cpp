@@ -11,6 +11,7 @@ namespace astraxis {
 namespace {
 
 constexpr double kC = kSpeedOfLightKmS;
+constexpr int kMaxStepHalvings = 4;
 
 } // namespace
 
@@ -81,7 +82,24 @@ KerrOrbitMotion::PlaneState KerrOrbitMotion::integrate(PlaneState s, double t_en
         // Adaptive step ~ local dynamical time (geometric units: km of time).
         double dt_s = m_setup.step_eta * std::sqrt(r * r * r / m_mass_km) / kC;
         dt_s = std::min(dt_s, sign * (t_end - s.t));
-        m_kerr.step(s.x, s.u, sign * dt_s * kC);
+        // Retry a failed Newton solve with shorter steps; if that fails too, end
+        // the trajectory here rather than store a diverged state.
+        glm::dvec2 x = s.x;
+        glm::dvec2 u = s.u;
+        bool ok = false;
+        for (int halving = 0; !ok && halving <= kMaxStepHalvings; ++halving) {
+            if (halving > 0) {
+                dt_s *= 0.5;
+                x = s.x;
+                u = s.u;
+            }
+            ok =m_kerr.step(x, u, sign * dt_s * kC);
+        }
+        if (!ok) {
+            break;
+        }
+        s.x = x;
+        s.u = u;
         s.t += sign * dt_s;
         out.push_back(knot(s));
     }

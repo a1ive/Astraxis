@@ -440,18 +440,37 @@ void test_kerr_schwarzschild_precession()
     const double period = kTwoPi * std::sqrt(std::pow(setup.elements.a_km, 3) / setup.gm_km3_s2);
     setup.elements_epoch_tdb = setup.elements.t_peri_tdb - 0.5 * period; // 2010 apocentre
 
-    const KerrOrbitMotion orbit(setup, setup.elements_epoch_tdb, setup.elements_epoch_tdb + 4.2 * period);
+    const double t_end = setup.elements_epoch_tdb + 4.2 * period;
+    const KerrOrbitMotion orbit(setup, setup.elements_epoch_tdb, t_end);
     const auto& knots = orbit.table().knots();
+    // A failed Newton solve ends the trajectory: the whole span must be covered.
+    check(std::abs(knots.back().t - t_end) < 1.0, "S2 integration covers the span",
+          (t_end - knots.back().t) / kSecondsPerDay);
 
-    // Conserved quantities along the integration.
+    // Every Newton solve converges at the scene's step size (the residual floor
+    // is ~1e-13 here; a tolerance below it would fail ~3% of steps).
     const KerrEquatorial& kerr = orbit.metric();
-    (void)kerr;
+    const glm::dvec3 P = orbit.plane()[0];
+    const glm::dvec3 Q = orbit.plane()[1];
+    {
+        const double m = kerr.mass();
+        glm::dvec2 x(glm::dot(knots.front().position, P), glm::dot(knots.front().position, Q));
+        glm::dvec2 u = kerr.u_from_velocity(
+            x, glm::dvec2(glm::dot(knots.front().velocity, P), glm::dot(knots.front().velocity, Q)) /
+                   kSpeedOfLightKmS);
+        int failures = 0;
+        for (double t = 0.0; t < period * kSpeedOfLightKmS;) {
+            const double r = glm::length(x);
+            const double dt = 0.003 * std::sqrt(r * r * r / m);
+            failures += kerr.step(x, u, dt) ? 0 : 1;
+            t += dt;
+        }
+        check(failures == 0, "S2 Kerr IMR Newton converges over one orbit", failures);
+    }
 
     // Pericentre longitudes in the orbit plane: the knot with minimal r, refined
     // by a parabola through r(phi) of its neighbours (knots are ~14' apart in
     // angle at pericentre, comparable to the 12' precession being measured).
-    const glm::dvec3 P = orbit.plane()[0];
-    const glm::dvec3 Q = orbit.plane()[1];
     auto phi_of = [&](const glm::dvec3& p) { return std::atan2(glm::dot(p, Q), glm::dot(p, P)); };
     std::vector<double> peri;
     for (size_t i = 1; i + 1 < knots.size(); ++i) {
