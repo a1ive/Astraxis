@@ -61,35 +61,98 @@ jobs:
           Copy-Item 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'README.md' $package
           Compress-Archive -Path $package -DestinationPath 'build/Astraxis-windows-x64.zip'
           $hash = (Get-FileHash 'build/Astraxis-windows-x64.zip' -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$hash  Astraxis-windows-x64.zip" | Set-Content 'build/SHA256SUMS.txt' -Encoding ascii
+          "$hash  Astraxis-windows-x64.zip" | Set-Content 'build/Astraxis-windows-x64.sha256' -Encoding ascii
 
-      - uses: actions/upload-artifact@v7
+      - name: Upload windows package
+        uses: actions/upload-artifact@v7
         with:
-          name: Astraxis-windows-x64
-          path: |
-            build/Astraxis-windows-x64.zip
-            build/SHA256SUMS.txt
+          path: build/Astraxis-windows-x64.zip
+          archive: false
           if-no-files-found: error
-          compression-level: 0
+          retention-days: 14
+
+      - name: Upload windows checksum
+        uses: actions/upload-artifact@v7
+        with:
+          path: build/Astraxis-windows-x64.sha256
+          archive: false
+          if-no-files-found: error
+          retention-days: 14
+
+  build-linux:
+    name: Linux x64 Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      # Headers SDL3 needs for its X11 and Wayland video backends (it loads the
+      # libraries, and Vulkan, at run time). Audio and camera are disabled.
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ninja-build             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxss-dev             libxtst-dev libxfixes-dev libxkbcommon-dev libwayland-dev libdecor-0-dev             libdrm-dev libgbm-dev libegl-dev
+
+      - name: Configure
+        run: cmake --preset linux
+
+      - name: Build
+        run: cmake --build --preset linux-release
+
+      - name: Test
+        run: ctest --test-dir build/linux -C Release --output-on-failure --no-tests=error
+
+      - name: Package
+        run: |
+          set -euo pipefail
+          package=build/package/Astraxis-linux-x64
+          mkdir -p "$package"
+          cp build/linux/Release/astraxis "$package/"
+          cp -r build/linux/Release/assets "$package/"
+          cp LICENSE THIRD_PARTY_NOTICES.md README.md "$package/"
+          tar -C build/package -czf build/Astraxis-linux-x64.tar.gz Astraxis-linux-x64
+          (cd build && sha256sum Astraxis-linux-x64.tar.gz > Astraxis-linux-x64.sha256)
+
+      - name: Upload linux package
+        uses: actions/upload-artifact@v7
+        with:
+          path: build/Astraxis-linux-x64.tar.gz
+          archive: false
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload linux checksum
+        uses: actions/upload-artifact@v7
+        with:
+          path: build/Astraxis-linux-x64.sha256
+          archive: false
+          if-no-files-found: error
           retention-days: 14
 
   release:
     name: Publish tag release
-    needs: build
+    needs: [build, build-linux]
     if: startsWith(github.ref, 'refs/tags/') && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: write
     steps:
+      # Download the four raw files together; keep the platform archives intact.
       - uses: actions/download-artifact@v8
         with:
-          name: Astraxis-windows-x64
+          pattern: Astraxis-*
           path: dist
+          merge-multiple: true
+          skip-decompress: true
 
-      - name: Verify archive
+      - name: Verify archives and merge checksums
         working-directory: dist
-        run: sha256sum --check SHA256SUMS.txt
+        run: |
+          set -euo pipefail
+          cat Astraxis-windows-x64.sha256 Astraxis-linux-x64.sha256 > SHA256SUMS.txt
+          sha256sum --check SHA256SUMS.txt
+          cat SHA256SUMS.txt
 
       - name: Publish release
         env:
@@ -98,8 +161,8 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" dist/Astraxis-windows-x64.zip dist/SHA256SUMS.txt --clobber
+            gh release upload "$RELEASE_TAG" dist/Astraxis-windows-x64.zip dist/Astraxis-linux-x64.tar.gz dist/SHA256SUMS.txt --clobber
           else
-            gh release create "$RELEASE_TAG" dist/Astraxis-windows-x64.zip dist/SHA256SUMS.txt \
+            gh release create "$RELEASE_TAG" dist/Astraxis-windows-x64.zip dist/Astraxis-linux-x64.tar.gz dist/SHA256SUMS.txt \
               --verify-tag --generate-notes --title "$RELEASE_TAG"
           fi
