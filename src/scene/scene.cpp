@@ -48,24 +48,22 @@ void rasterize_ring_bands(RingSystem& rings, int samples)
     double inner = rings.bands[0].inner_km;
     double outer = rings.bands[0].outer_km;
     for (const RingBand& b : rings.bands) {
-        inner = std::min(inner, b.inner_km - 0.02 * (b.outer_km - b.inner_km));
-        outer = std::max(outer, b.outer_km + 0.02 * (b.outer_km - b.inner_km));
+        inner = std::min(inner, b.inner_km);
+        outer = std::max(outer, b.outer_km);
     }
-    rings.inner_km = std::max(0.0, inner);
-    rings.outer_km = outer;
-    auto smooth = [](double e0, double e1, double x) {
-        const double t = std::clamp((x - e0) / (e1 - e0), 0.0, 1.0);
-        return t * t * (3.0 - 2.0 * t);
-    };
+    // One empty sample beyond each end, so the edges fade within the profile.
+    const double margin = (outer - inner) / (samples - 3);
+    rings.inner_km = std::max(0.0, inner - margin);
+    rings.outer_km = outer + margin;
+    const double cell = (rings.outer_km - rings.inner_km) / (samples - 1);
     for (int k = 0; k < samples; ++k) {
-        const double r = rings.inner_km + (rings.outer_km - rings.inner_km) * k / (samples - 1);
+        const double r = rings.inner_km + cell * k;
         double tau = 0.0;
         double floor_weighted = 0.0;
         for (const RingBand& b : rings.bands) {
             const double width = b.outer_km - b.inner_km;
-            const double soft = 0.02 * width;
-            const double inside = smooth(b.inner_km - soft, b.inner_km + soft, r) *
-                                  (1.0 - smooth(b.outer_km - soft, b.outer_km + soft, r));
+            const double overlap = std::max(0.0, std::min(b.outer_km, r + 0.5 * cell) - std::max(b.inner_km, r - 0.5 * cell));
+            const double inside = overlap / cell;
             tau += inside * b.optical_depth;
             floor_weighted += inside * b.optical_depth * (b.thickness_km / width);
         }

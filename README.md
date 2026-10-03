@@ -6,7 +6,7 @@ A quiet, physically grounded astronomy visualizer meant to be left running in th
 
 | Scene | What you see | Motion source |
 |---|---|---|
-| Solar System (default) | The Sun, the planets, the major moons, the dwarf planets and the largest asteroids, and both Voyager probes from 1977 on | JPL Horizons ephemerides, JPL mean orbital elements, JPL Small-Body Database |
+| Solar System (default) | The Sun, the planets, the major moons, the dwarf planets and the largest asteroids, the rings of the four giant planets and of Haumea and Quaoar, and both Voyager probes from 1977 on | JPL Horizons ephemerides, JPL mean orbital elements, JPL Small-Body Database |
 | Jupiter | Jupiter, its faint rings, the Galilean and four inner moons, and the orbits of Galileo (1995–2003) and Juno (2016–) | JPL Horizons ephemerides, JPL mean orbital elements |
 | JWST | JWST's halo orbit around Sun–Earth L2 | JPL Horizons ephemerides |
 | Earth–Moon | Artemis II's free-return flight, Artemis I's distant retrograde orbit and CAPSTONE's near-rectilinear halo orbit, in the Earth–Moon rotating frame | JPL Horizons ephemerides |

@@ -17,6 +17,10 @@
 | `dione.jpg` | USGS Astrogeology，Dione Cassini/Voyager Global Mosaic 154m | 公有领域 |
 | `rhea.jpg` | USGS Astrogeology，Rhea Cassini/Voyager Global Mosaic 417m | 公有领域 |
 | `iapetus.jpg` | USGS Astrogeology，Iapetus Cassini/Voyager Global Mosaic 783m，<https://astrogeology.usgs.gov/search/map/iapetus_cassini_voyager_global_mosaic_803m> | 公有领域 |
+| `ariel.jpg` / `umbriel.jpg` / `titania.jpg` / `oberon.jpg` / `miranda.jpg` | USGS 用旅行者 2 号图像拼接的全球图（灰度，1440×720），由 JPL Solar System Simulator 发布：<https://space.jpl.nasa.gov/tmaps/uranus.html>（`ura1vuu2.tif` .. `ura5vuu2.tif`） | USGS 作品，公有领域；页面署名 Caltech/JPL/USGS |
+| `triton.jpg` | USGS Astrogeology，Triton Voyager 2 Global Color Mosaic（`Triton_Voyager2_ClrMosaic_GlobalFill_600m.tif`） | 公有领域 |
+| `pluto.jpg` | USGS Astrogeology，Pluto New Horizons LORRI/MVIC Global Mosaic 300m（2017-07，`Pluto_NewHorizons_Global_Mosaic_300m_Jul2017_8bit.tif`，灰度） | 公有领域 |
+| `charon.jpg` | USGS Astrogeology，Charon New Horizons LORRI/MVIC Global Mosaic 300m（2017-07，`Charon_NewHorizons_Global_Mosaic_300m_Jul2017_8bit.tif`，灰度） | 公有领域 |
 
 原始下载地址：
 
@@ -32,6 +36,10 @@
   - `Dione_Cassini_Voyager_mosaic_global_154m.tif`（265 MB）
   - `Rhea_Cassini_Voyager_mosaic_global_417m.tif`（66 MB）
   - `Iapetus_Cassini_Voyager_mosaic_global_783m.tif`（17 MB）
+  - `Triton_Voyager2_ClrMosaic_GlobalFill_600m.tif`（286 MB）
+  - `Pluto_NewHorizons_Global_Mosaic_300m_Jul2017_8bit.tif`（295 MB）
+  - `Charon_NewHorizons_Global_Mosaic_300m_Jul2017_8bit.tif`（77 MB）
+- 天王星卫星：<https://space.jpl.nasa.gov/tmaps/pix/ura1vuu2.tif> .. `ura5vuu2.tif`（各 0.2–0.4 MB；1 Ariel、2 Umbriel、3 Titania、4 Oberon、5 Miranda）
 
 ## 经度约定
 
@@ -55,9 +63,15 @@ USGS 元数据标注的是“positive west”，但图像的实际排布是东�
   - 这些都是灰度图，按原样存成 JPEG
 - 地球（Blue Marble）和月球（CGI Moon Kit）都以 0° 为中心、东经递增，左边缘为 −180°E。月球的方向用危海（17°N 59°E）和第谷环形山（43°S 11°W）验证过。
 
+- 天王星卫星（JPL Solar System Simulator 的图没有元数据）：东经向右递增，左边缘为 −180°E。三颗卫星的地貌都对得上：Oberon 的暗底 Hamlet 坑（46°S 44°E）、Titania 的 Ursula 坑（12°S 45°E）、Miranda 的 Arden 冕（29°S 74°E）与 Elsinore 冕（25°S 257°E）（坐标来自 USGS Gazetteer of Planetary Nomenclature，行星中心坐标、东经为正）。如果是西经递增，前两个会落在 315°E
+- Triton、Charon：标签为 PositiveEast、−180..180，左边缘 −180°E；Pluto：PositiveEast、0..360，左边缘 0°E，心形的 Sputnik Planitia（约 175°E）正好在图中央
+- Triton 的颜色来自旅行者号的滤镜合成，偏绿，按原样保留
+
 场景文件统一写成 `texture_left_lon_deg`（东经）。
 
 只有 USGS 拼接图会填补极区无数据像素。完整的地图不填补，否则地球极地海洋这类本来就暗的像素会被误当成缺失数据。
+
+天王星卫星、Triton、Pluto、Charon 有大片从未拍到的区域（旅行者 2 号 1986 年只看到天王星卫星的南半球；Triton 的北半球、Pluto 和 Charon 30°S 以南当时都在黑夜里），用另一种填补（`fill_unimaged`）：纯黑像素算作缺失（天王星卫星的图在拍摄边界有暗色的阴影毛刺，又没有真正很黑的地形，阈值取 40）；先闭运算去掉图内的零星黑点（避免把 Pluto 很暗的 Cthulhu 区当成缺失），再把边界向内腐蚀 15 像素去掉毛刺；缺失处在边界附近用附近已知像素的平均（归一化卷积，高斯半径为图宽的 2%），远处渐变到整幅图的平均亮度。所以这些区域显示为平淡的表面，不是真实的地貌。2020 年代太阳照着天王星卫星的北半球，所以现在看到的正好是填补的部分。
 
 木星的大气特征会在经度上漂移，所以 `jupiter.jpg` 的经度对齐没有物理意义。
 

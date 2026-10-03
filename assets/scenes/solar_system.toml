@@ -34,6 +34,13 @@
 # [SEDN] Pal et al. 2012, A&A 541, L6 (arXiv:1204.0899): diameter 995 +- 80 km.
 # [MARS] Marsset et al. 2020, Nature Astronomy 4, 569 (via [SBDB]): Pallas 568 x 532 x 448 km.
 # [PDSR], [RSS]: Jupiter's and Saturn's rings, see jupiter.toml / saturn.toml.
+# [PDSU] PDS Ring-Moon Systems Node, "Vital Statistics for Uranus's Rings and Inner
+#        Satellites" (https://pds-rings.seti.org/uranus/uranus_tables.html), from French
+#        et al. 1991 (in Uranus, Univ. of Arizona Press, 327-409).
+# [PDSN] PDS Ring-Moon Systems Node, "Vital Statistics for Neptune's Rings and Inner
+#        Satellites" (https://pds-rings.seti.org/neptune/neptune_tables.html).
+# [QRNG] Pereira et al. 2023, A&A (arXiv:2304.09237), Table 2 and Sect. 5:
+#        Quaoar's two rings and the Q1R pole, RA 17h19m16.8s, Dec +53 27' (ICRS).
 # Flyby times/distances: computed from the baked data by the bake tool (TDB).
 # Mission timeline events: Horizons spacecraft notes.
 #
@@ -202,7 +209,7 @@ node_deg = [49.71320984, -0.26852431]
 name = "Phobos"
 parent = "Mars"
 radii_km = [13.0, 11.4, 9.1]               # [PCK], long axis toward Mars
-pole_ra_dec_deg = [317.67071657, 52.88627266]  # [PCK] (periodic terms ignored)
+pole_ra_dec_deg = [317.67071657, 52.88627266]  # [PCK]
 prime_meridian_deg = [35.18774440, 1128.84475928]
 pole_rate_deg_per_century = [-0.10844326, -0.06134706]
 color = "#7d746b"
@@ -225,7 +232,7 @@ laplace_pole_ra_dec_deg = [317.7, 52.9]
 name = "Deimos"
 parent = "Mars"
 radii_km = [7.8, 6.0, 5.1]                 # [PCK]
-pole_ra_dec_deg = [316.65705808, 53.50992033]  # [PCK] (periodic terms ignored)
+pole_ra_dec_deg = [316.65705808, 53.50992033]  # [PCK]
 prime_meridian_deg = [79.39932954, 285.16188899]
 pole_rate_deg_per_century = [-0.10518014, -0.05979094]
 color = "#8f857a"
@@ -697,6 +704,9 @@ period_days = 79.335707123                 # [ELEM] P = 79.331002
 # period_days (of M) = 360 / (360 / P - apsis rate - node rate), with apsides advancing
 # and nodes regressing (oblateness). With [ELEM]'s phases, the direction is within
 # 0.1-0.3 deg rms of Horizons over 1972-2100 (Miranda: 1.8 deg).
+# Surface maps (assets/textures/SOURCES.md): Voyager 2 saw only the southern
+# hemispheres, in 1986; the rest is filled with a plain surface. In the 2020s the
+# Sun lights the northern hemispheres, so the maps show best in the 1980s-90s.
 
 [[bodies]]
 name = "Uranus"
@@ -705,6 +715,11 @@ radii_km = [25559.0, 24973.0]
 gm_km3_s2 = 5794556.4                      # system [GM]
 pole_ra_dec_deg = [257.311, -15.175]
 prime_meridian_deg = [203.81, -501.1600928]
+nut_prec_angles = [[115.75, 54991.87], [141.69, 41887.66], [135.03, 29927.35], [61.77, 25733.59],
+                   [249.32, 24471.46], [43.86, 22278.41], [77.66, 20289.42], [157.36, 16652.76],
+                   [101.81, 12872.63], [138.64, 8061.81], [102.23, -2024.22], [316.41, 2863.96],
+                   [304.01, -51.94], [308.71, -93.17], [340.82, -75.32], [259.14, -504.81],
+                   [204.46, -4048.44], [632.82, 5727.92]]  # [PCK] BODY7 (U1..U16, 2 U11, 2 U12), for the moons
 color = "#a9d8e0"
 orbit_color = "#9fcbd4"
 [bodies.orbit]                             # [HZN] Uranus barycenter
@@ -723,14 +738,93 @@ c = -0.97731848
 s = 0.17689245
 f = 7.67025000
 
+# Rings [PDSU]: middle radius, width and normal optical depth of the ten main
+# rings. Eccentricities and inclinations are left out (the epsilon ring's radius
+# varies by +-400 km); where a width or optical depth is a range, its middle is
+# used, and bounds ("<= 0.4", ">= 0.3") as given. The two faint dusty rings found
+# by Hubble (tau ~ 1e-5) are left out: next to the main rings they would be
+# invisible, and they would spread the profile over 3 times the radius. The
+# particles are very dark (albedo ~0.05); the gain is artistic, the backscattering
+# phase function illustrative.
+[bodies.rings]
+color = "#3f3f3f"
+gain = 30.0
+phase_g = -0.2
+
+[[bodies.rings.bands]]
+name = "6"
+inner_km = 41836.25
+outer_km = 41837.75
+optical_depth = 0.3
+
+[[bodies.rings.bands]]
+name = "5"
+inner_km = 42233.00
+outer_km = 42235.00
+optical_depth = 0.5
+
+[[bodies.rings.bands]]
+name = "4"
+inner_km = 42570.00
+outer_km = 42572.00
+optical_depth = 0.3
+
+[[bodies.rings.bands]]
+name = "Alpha"
+inner_km = 44714.50
+outer_km = 44721.50
+optical_depth = 0.4                        # width 4-10 km
+
+[[bodies.rings.bands]]
+name = "Beta"
+inner_km = 45657.00
+outer_km = 45665.00
+optical_depth = 0.3                        # width 5-11 km
+
+[[bodies.rings.bands]]
+name = "Eta"
+inner_km = 47175.20
+outer_km = 47176.80
+optical_depth = 0.4                        # <= 0.4
+
+[[bodies.rings.bands]]
+name = "Gamma"
+inner_km = 47625.75
+outer_km = 47628.25
+optical_depth = 0.3                        # width 1-4 km, tau >= 0.3
+
+[[bodies.rings.bands]]
+name = "Delta"
+inner_km = 48297.50
+outer_km = 48302.50
+optical_depth = 0.5                        # width 3-7 km
+
+[[bodies.rings.bands]]
+name = "Lambda"
+inner_km = 50023.00
+outer_km = 50025.00
+optical_depth = 0.1
+
+[[bodies.rings.bands]]
+name = "Epsilon"
+inner_km = 51120.00
+outer_km = 51178.00
+optical_depth = 1.4                        # width 20-96 km, tau 0.5-2.3
+
+
 [[bodies]]
 name = "Miranda"
 parent = "Uranus"
 radii_km = [240.4, 234.2, 232.9]           # [PCK]
-pole_ra_dec_deg = [257.43, -15.08]         # [PCK] (periodic terms ignored: no surface map)
+pole_ra_dec_deg = [257.43, -15.08]         # [PCK]
 prime_meridian_deg = [30.70, -254.6906892]
+nut_prec_ra = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 4.41, 0.0, 0.0, 0.0, 0.0, 0.0, -0.04]
+nut_prec_dec = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 4.25, 0.0, 0.0, 0.0, 0.0, 0.0, -0.02]
+nut_prec_pm = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.15, -1.27, 0.0, 0.0, 0.0, 0.0, -0.09, 0.15]
 color = "#b5b3ae"
 orbit_color = "#c4c8cc"
+texture = "textures/miranda.jpg"
+texture_left_lon_deg = -180.0
 [bodies.orbit]                             # [ELEM]
 type = "mean_elements"
 a_km = 129846.0
@@ -748,10 +842,15 @@ laplace_pole_ra_dec_deg = [77.311, 15.175]
 name = "Ariel"
 parent = "Uranus"
 radii_km = [581.1, 577.9, 577.7]           # [PCK]
-pole_ra_dec_deg = [257.43, -15.10]         # [PCK] (periodic terms ignored: no surface map)
+pole_ra_dec_deg = [257.43, -15.10]         # [PCK]
 prime_meridian_deg = [156.22, -142.8356681]
+nut_prec_ra = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.29]
+nut_prec_dec = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.28]
+nut_prec_pm = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.05, 0.08]
 color = "#c9c5bd"
 orbit_color = "#d2d6dc"
+texture = "textures/ariel.jpg"
+texture_left_lon_deg = -180.0
 [bodies.orbit]                             # [ELEM]
 type = "mean_elements"
 a_km = 190929.0
@@ -768,10 +867,15 @@ laplace_pole_ra_dec_deg = [77.311, 15.175]
 name = "Umbriel"
 parent = "Uranus"
 radii_km = [584.7]                         # [PCK]
-pole_ra_dec_deg = [257.43, -15.10]         # [PCK] (periodic terms ignored: no surface map)
+pole_ra_dec_deg = [257.43, -15.10]         # [PCK]
 prime_meridian_deg = [108.05, -86.8688923]
+nut_prec_ra = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.21]
+nut_prec_dec = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.2]
+nut_prec_pm = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.09, 0.0, 0.06]
 color = "#6f6c68"
 orbit_color = "#9a9ca2"
+texture = "textures/umbriel.jpg"
+texture_left_lon_deg = -180.0
 [bodies.orbit]                             # [ELEM]
 type = "mean_elements"
 a_km = 265986.0
@@ -789,10 +893,15 @@ laplace_pole_ra_dec_deg = [77.311, 15.175]
 name = "Titania"
 parent = "Uranus"
 radii_km = [788.9]                         # [PCK]
-pole_ra_dec_deg = [257.43, -15.10]         # [PCK] (periodic terms ignored: no surface map)
+pole_ra_dec_deg = [257.43, -15.10]         # [PCK]
 prime_meridian_deg = [77.74, -41.3514316]
+nut_prec_ra = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.29]
+nut_prec_dec = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.28]
+nut_prec_pm = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.08]
 color = "#b3a89c"
 orbit_color = "#c8beb2"
+texture = "textures/titania.jpg"
+texture_left_lon_deg = -180.0
 [bodies.orbit]                             # [ELEM]
 type = "mean_elements"
 a_km = 436298.0
@@ -810,10 +919,15 @@ laplace_pole_ra_dec_deg = [77.311, 15.175]
 name = "Oberon"
 parent = "Uranus"
 radii_km = [761.4]                         # [PCK]
-pole_ra_dec_deg = [257.43, -15.10]         # [PCK] (periodic terms ignored: no surface map)
+pole_ra_dec_deg = [257.43, -15.10]         # [PCK]
 prime_meridian_deg = [6.77, -26.7394932]
+nut_prec_ra = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.16]
+nut_prec_dec = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.16]
+nut_prec_pm = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.04]
 color = "#9a8d82"
 orbit_color = "#b6aaa0"
+texture = "textures/oberon.jpg"
+texture_left_lon_deg = -180.0
 [bodies.orbit]                             # [ELEM]
 type = "mean_elements"
 a_km = 583511.0
@@ -836,6 +950,14 @@ radii_km = [24764.0, 24341.0]
 gm_km3_s2 = 6836527.10058                  # system [GM]
 pole_ra_dec_deg = [299.36, 43.46]
 prime_meridian_deg = [249.978, 541.1397757]
+nut_prec_angles = [[357.85, 52.316], [323.92, 62606.6], [220.51, 55064.2], [354.27, 46564.5],
+                   [75.31, 26109.4], [35.36, 14325.4], [142.61, 2824.6], [177.85, 52.316],
+                   [647.84, 125213.2], [355.7, 104.632], [533.55, 156.948], [711.4, 209.264],
+                   [889.25, 261.58], [1067.1, 313.896], [1244.95, 366.212], [1422.8, 418.528],
+                   [1600.65, 470.844]]  # [PCK] BODY8 (N, N1..N7, 2 N1, 2..9 N7)
+nut_prec_ra = [0.70]
+nut_prec_dec = [-0.51]
+nut_prec_pm = [-0.48]
 color = "#5b7fd6"
 orbit_color = "#7b98e0"
 [bodies.orbit]                             # [HZN] Neptune barycenter
@@ -854,6 +976,43 @@ c = 0.68346318
 s = -0.10162547
 f = 7.67025000
 
+# Rings [PDSN]: Galle, Le Verrier, Lassell and Adams (Arago, a brightening at
+# Lassell's outer edge, has no width or optical depth in the table). The Adams
+# ring is drawn without its arcs (tau up to 0.1), Le Verrier at its upper width
+# bound (< 100 km). The rings are dusty, so they scatter forward (g = 0.5,
+# illustrative); their dark, reddish tint and the gain are artistic (gain x tau x
+# albedo about twice that of Jupiter's main ring in jupiter.toml, so that the narrow
+# Le Verrier and Adams rings show; Galle and Lassell stay 100 times fainter).
+[bodies.rings]
+color = "#4c4440"
+gain = 400.0
+phase_g = 0.5
+
+[[bodies.rings.bands]]
+name = "Galle"
+inner_km = 41000.00
+outer_km = 43000.00
+optical_depth = 0.0001
+
+[[bodies.rings.bands]]
+name = "Le Verrier"
+inner_km = 53150.00
+outer_km = 53250.00
+optical_depth = 0.01                       # width < 100 km
+
+[[bodies.rings.bands]]
+name = "Lassell"
+inner_km = 53200.00
+outer_km = 57200.00
+optical_depth = 0.0001
+
+[[bodies.rings.bands]]
+name = "Adams"
+inner_km = 62925.50
+outer_km = 62940.50
+optical_depth = 0.01                       # without the arcs (0.01 to 0.1)
+
+
 # Triton: retrograde (i > 90 deg) around its Laplace plane [ELEM] (NEP097, pole RA 299.8,
 # Dec 43.1). [ELEM]'s phases and periods drift by tens of degrees against Horizons
 # (its nodal period of 340 yr is about half the 676 yr found in the Horizons states).
@@ -867,10 +1026,15 @@ f = 7.67025000
 name = "Triton"
 parent = "Neptune"
 radii_km = [1352.6]                        # [PCK]
-pole_ra_dec_deg = [299.36, 41.17]          # [PCK] (periodic terms ignored: no surface map)
+pole_ra_dec_deg = [299.36, 41.17]          # [PCK]
 prime_meridian_deg = [296.53, -61.2572637]
+nut_prec_ra = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -32.35, 0.0, -6.28, -2.08, -0.74, -0.28, -0.11, -0.07, -0.02, -0.01]
+nut_prec_dec = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 22.55, 0.0, 2.1, 0.55, 0.16, 0.05, 0.02, 0.01]
+nut_prec_pm = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 22.25, 0.0, 6.73, 2.05, 0.74, 0.28, 0.11, 0.05, 0.02, 0.01]
 color = "#d9c8be"
 orbit_color = "#c8d4e0"
+texture = "textures/triton.jpg"
+texture_left_lon_deg = -180.0
 [bodies.orbit]                             # [ELEM] + plane precession and phase fitted to [HZN]
 type = "mean_elements"
 a_km = 354759.0
@@ -918,6 +1082,8 @@ pole_ra_dec_deg = [132.993, -6.163]        # [PCK]
 prime_meridian_deg = [302.695, 56.3625225]
 color = "#d8b48c"
 orbit_color = "#c8aa88"                    # its small loop around the barycenter
+texture = "textures/pluto.jpg"
+texture_left_lon_deg = 0.0
 [bodies.orbit]                             # [HZN] 901 (Charon relative to Pluto), scaled by -q
 scale = -0.1087647360
 type = "ephemeris"
@@ -942,6 +1108,8 @@ pole_ra_dec_deg = [132.993, -6.163]        # [PCK]
 prime_meridian_deg = [122.695, 56.3625225]
 color = "#a19a92"
 orbit_color = "#b8b4ae"
+texture = "textures/charon.jpg"
+texture_left_lon_deg = -180.0
 [bodies.orbit]                             # [HZN] 901, scaled by 1 - q
 scale = 0.8912352640
 type = "ephemeris"
@@ -1084,6 +1252,23 @@ node_deg = 121.786056
 period_days = 103208.1173
 laplace_pole_ra_dec_deg = [270.0, 66.56070889]
 
+# Ring [HAUM]: radius 2,287 km, width 70 km, apparent opacity 0.5 (seen at an
+# opening angle of 13.8 deg), i.e. normal optical depth -ln(1 - 0.5) sin(13.8 deg)
+# = 0.17 (ignoring diffraction, see the paper). In Haumea's equatorial plane. Tint
+# and gain illustrative. The planet's shadow on the ring treats Haumea as a sphere
+# of its longest semi-axis.
+[bodies.rings]
+color = "#9a9a9a"
+gain = 4.0
+phase_g = 0.0
+
+[[bodies.rings.bands]]
+name = "Ring"
+inner_km = 2252.00
+outer_km = 2322.00
+optical_depth = 0.17
+
+
 [[bodies]]
 name = "Makemake"
 parent = "Sun"
@@ -1132,6 +1317,7 @@ laplace_pole_ra_dec_deg = [270.0, 66.56070889]
 name = "Quaoar"
 parent = "Sun"
 radii_km = [566.1, 511.2]                  # [QUAO] oblate ellipsoid
+pole_ra_dec_deg = [259.82, 53.45]          # [QRNG] Q1R pole (preferred solution), assumed equatorial
 color = "#a8786a"
 orbit_color = "#b0928a"
 [bodies.orbit]                             # [HZN] 50000
@@ -1149,6 +1335,29 @@ i_deg = 7.991576
 node_deg = 188.919125
 period_days = 103553.0435
 laplace_pole_ra_dec_deg = [270.0, 66.56070889]
+
+# Rings [QRNG]: Q1R at 4,057 km (its tenuous part, 80-100 km wide, tau ~0.003;
+# the dense core, tau 0.4 over ~5 km, was only seen along short arcs and is left
+# out) and Q2R at 2,520 km (~10 km wide, tau ~0.004), both outside the Roche
+# limit. Assumed in Quaoar's equatorial plane (pole above). Tint and gain
+# illustrative.
+[bodies.rings]
+color = "#8a7a70"
+gain = 60.0
+phase_g = 0.0
+
+[[bodies.rings.bands]]
+name = "Q2R"
+inner_km = 2515.00
+outer_km = 2525.00
+optical_depth = 0.004
+
+[[bodies.rings.bands]]
+name = "Q1R"
+inner_km = 4012.00
+outer_km = 4102.00
+optical_depth = 0.003                      # width 80-100 km
+
 
 [[bodies]]
 name = "Sedna"

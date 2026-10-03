@@ -65,8 +65,9 @@ struct RingSystem {
     double optical_depth(double r_km) const;
 };
 
-// Fills rings.profile from rings.bands: overlapping bands add up, and each
-// band's edges are softened over 2% of its width.
+// Fills rings.profile from rings.bands: each sample is the optical depth
+// averaged over its cell (overlapping bands add up), so a ring narrower than a
+// sample (e.g. Uranus' 2 km rings) keeps its equivalent width, tau x width.
 void rasterize_ring_bands(RingSystem& rings, int samples);
 
 struct Body {

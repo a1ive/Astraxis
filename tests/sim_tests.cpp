@@ -501,6 +501,29 @@ void test_solar_system_bodies()
     const Body& quaoar = scene.bodies[static_cast<size_t>(scene.find("Quaoar"))];
     check(quaoar.equatorial_radius_b_km == 566.1 && quaoar.polar_radius_km == 511.2, "Quaoar spheroid");
 
+    // Rings from bands: each profile sample averages over its cell, so the narrow
+    // Uranian rings (1.5-2 km, samples ~1.2 km) keep their equivalent width
+    // (sum of tau x width) and none falls between samples.
+    for (const char* name : {"Uranus", "Neptune", "Haumea", "Quaoar"}) {
+        const RingSystem& rings = scene.bodies[static_cast<size_t>(scene.find(name))].rings;
+        double expected = 0.0;
+        for (const RingBand& b : rings.bands) {
+            expected += b.optical_depth * (b.outer_km - b.inner_km);
+        }
+        const double cell = (rings.outer_km - rings.inner_km) / static_cast<double>(rings.profile.size() - 1);
+        double integral = 0.0;
+        for (const glm::vec2& p : rings.profile) {
+            integral += p.x * cell;
+        }
+        check(!rings.bands.empty() && std::abs(integral / expected - 1.0) < 1e-3, name, integral / expected);
+    }
+    const RingSystem& uranus_rings = scene.bodies[static_cast<size_t>(scene.find("Uranus"))].rings;
+    bool all_present = uranus_rings.bands.size() == 10;
+    for (const RingBand& b : uranus_rings.bands) {
+        all_present = all_present && uranus_rings.optical_depth(0.5 * (b.inner_km + b.outer_km)) > 0.05;
+    }
+    check(all_present, "all ten Uranian rings in the profile");
+
     // Display hierarchy: the Moon and Charon are satellites of their primaries.
     check(scene.satellite_host(scene.find("Moon")) == scene.find("Earth") &&
               scene.satellite_host(scene.find("Earth")) == 0 &&

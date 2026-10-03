@@ -26,8 +26,8 @@ namespace astraxis {
 
 namespace {
 
-// Samples of a ring profile rasterized from bands (Jupiter's: ~50 km each).
-constexpr int kBandProfileSamples = 4096;
+// Samples of a ring profile rasterized from bands (Jupiter's: ~23 km each, Uranus': ~1.2 km).
+constexpr int kBandProfileSamples = 8192;
 
 // Thrown on schema errors; caught at the top level and turned into a message.
 struct SchemaError {
