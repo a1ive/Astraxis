@@ -589,6 +589,61 @@ void test_solar_system_missions()
 }
 
 // Solar System scene: the asteroid and Kuiper belts (two-body orbits from SBDB).
+// Arrokoth's shape model and pole against independent numbers in Porter et al. 2024,
+// Table 2: the volume (equal-volume diameter 19.896 km) and the pole's inclination to
+// the heliocentric orbit (100.39 deg) and to New Horizons' approach direction (41.096 deg).
+void test_arrokoth_shape()
+{
+    Scene scene = load_scene_or_die("solar_system.toml");
+    const int arrokoth = scene.find("Arrokoth");
+    const Body& body = scene.bodies[static_cast<size_t>(arrokoth)];
+    check(body.shape != nullptr, "Arrokoth has a shape model");
+    if (!body.shape) {
+        return;
+    }
+    const ShapeModel& shape = *body.shape;
+    glm::dvec3 lo(1e300), hi(-1e300);
+    for (const glm::vec3& p : shape.positions) {
+        lo = glm::min(lo, glm::dvec3(p));
+        hi = glm::max(hi, glm::dvec3(p));
+    }
+    const glm::dvec3 size = hi - lo;
+    check(std::abs(size.x - 34.546) < 0.01 && std::abs(size.y - 19.838) < 0.01 && std::abs(size.z - 13.822) < 0.01,
+          "Arrokoth overall dimensions (km)", size.x);
+    check(std::abs(size.x - 2.0 * body.equatorial_radius_km) < 0.01 &&
+              std::abs(size.z - 2.0 * body.polar_radius_km) < 0.01,
+          "Arrokoth radii are half its dimensions", body.equatorial_radius_km);
+
+    // Signed volume (positive: counter-clockwise seen from outside, a closed surface).
+    double volume = 0.0;
+    for (size_t k = 0; k < shape.indices.size(); k += 3) {
+        const glm::dvec3 a(shape.positions[shape.indices[k]]);
+        const glm::dvec3 b(shape.positions[shape.indices[k + 1]]);
+        const glm::dvec3 c(shape.positions[shape.indices[k + 2]]);
+        volume += glm::dot(a, glm::cross(b, c)) / 6.0;
+    }
+    const double d_equal = std::cbrt(6.0 * volume / kPi);
+    check(std::abs(d_equal - 19.896) < 0.01, "Arrokoth equal-volume diameter (km)", d_equal);
+    const auto [min_albedo, max_albedo] = std::minmax_element(shape.albedo.begin(), shape.albedo.end());
+    check(*min_albedo > 0.5f && *max_albedo < 2.5f, "Arrokoth relative albedo range", *max_albedo);
+
+    auto angle_deg = [](const glm::dvec3& a, const glm::dvec3& b) {
+        return std::acos(std::clamp(glm::dot(glm::normalize(a), glm::normalize(b)), -1.0, 1.0)) / kDegToRad;
+    };
+    const double ca = tdb_from_jd_tdb(2458484.73230); // 2019-01-01 05:34:31 TDB
+    const State orbit = scene.icrf_state_at(arrokoth, ca);
+    const double to_orbit = angle_deg(body.pole, glm::cross(orbit.position, orbit.velocity));
+    check(std::abs(to_orbit - 100.39) < 0.05, "Arrokoth pole to its orbit normal (deg)", to_orbit);
+    // Toward the approaching spacecraft, a day out (the approach is nearly straight).
+    const glm::dvec3 approach =
+        scene.icrf_state_at(scene.find("New Horizons"), ca - kSecondsPerDay).position -
+        scene.icrf_state_at(arrokoth, ca - kSecondsPerDay).position;
+    const double to_approach = angle_deg(body.pole, approach);
+    check(std::abs(to_approach - (180.0 - 41.096)) < 0.1, "Arrokoth pole to the approach direction (deg)", to_approach);
+    std::printf("info: Arrokoth pole to orbit normal %.2f deg, to the approaching spacecraft %.3f deg\n", to_orbit,
+                to_approach);
+}
+
 void test_solar_system_belts()
 {
     Scene scene = load_scene_or_die("solar_system.toml");
@@ -1954,6 +2009,7 @@ int main()
     test_solar_system_bodies();
     test_solar_system_missions();
     test_solar_system_belts();
+    test_arrokoth_shape();
     test_parker_scene();
     test_jupiter_missions();
     test_earth_moon_scene();

@@ -102,6 +102,7 @@ private:
     Scene m_scene;
     std::vector<SDL_GPUTexture*> m_body_textures; // per body, may be null
     std::vector<SDL_GPUTexture*> m_ring_textures; // per body: ring profile, may be null
+    std::vector<int> m_body_meshes;               // per body: BodyPass mesh index (-1: ellipsoid)
     OrbitCamera m_camera;
     CameraDirector m_director;
     SimClock m_clock;

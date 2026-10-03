@@ -24,6 +24,11 @@ Expected file names in <source_dir> (the default is 2048 px wide):
     Triton_Voyager2_ClrMosaic_GlobalFill_600m.tif    -> triton.jpg
     Pluto_NewHorizons_Global_Mosaic_300m_Jul2017_8bit.tif  -> pluto.jpg
     Charon_NewHorizons_Global_Mosaic_300m_Jul2017_8bit.tif -> charon.jpg
+    Mercury_MESSENGER_mosaic_global_250m_2013.tif    -> mercury.jpg
+    Mars_Viking_ClrMosaic_global_925m.tif            -> mars.jpg
+    Phobos_Viking_Mosaic_40ppd_DLRcontrol.tif        -> phobos.jpg
+    Vesta_Dawn_FC_HAMO_Mosaic_Global_74ppd.tif       -> vesta.jpg
+    Ceres_Dawn_FC_DLR_global_20ppd_Oct2015.tif       -> ceres.jpg
 
 Requires Pillow. The USGS mosaics are 100-200 MB GeoTIFFs (up to ~190 Mpx), so
 the decompression-bomb guard is disabled and images are pre-reduced by an
@@ -66,6 +71,11 @@ MAPS = [
     ('Triton_Voyager2_ClrMosaic_GlobalFill_600m.tif', 'triton.jpg', 'unimaged'),
     ('Pluto_NewHorizons_Global_Mosaic_300m_Jul2017_8bit.tif', 'pluto.jpg', 'unimaged'),
     ('Charon_NewHorizons_Global_Mosaic_300m_Jul2017_8bit.tif', 'charon.jpg', 'unimaged'),
+    ('Mercury_MESSENGER_mosaic_global_250m_2013.tif', 'mercury.jpg', 'polar'),
+    ('Mars_Viking_ClrMosaic_global_925m.tif', 'mars.jpg', False),
+    ('Phobos_Viking_Mosaic_40ppd_DLRcontrol.tif', 'phobos.jpg', 'polar'),
+    ('Vesta_Dawn_FC_HAMO_Mosaic_Global_74ppd.tif', 'vesta.jpg', False),
+    ('Ceres_Dawn_FC_DLR_global_20ppd_Oct2015.tif', 'ceres.jpg', 'polar'),
 ]
 
 

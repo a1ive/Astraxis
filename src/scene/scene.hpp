@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ephem/motion.hpp"
+#include "scene/shape_model.hpp"
 
 #include <glm/mat3x3.hpp>
 #include <glm/vec3.hpp>
@@ -128,6 +129,10 @@ struct Body {
     std::string texture;
     double texture_left_lon_deg = -180.0;
     bool texture_west_positive = false;
+
+    // Optional shape model (irregular bodies), drawn instead of the ellipsoid;
+    // the radii still serve as its overall size (shadows, camera distances).
+    std::shared_ptr<const ShapeModel> shape;
 
     RingSystem rings; // no bands: no rings
 

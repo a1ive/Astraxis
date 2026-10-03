@@ -37,9 +37,10 @@
 #        c = 511.2 km, from 37 stellar occultations.
 # [SEDN] Pal et al. 2012, A&A 541, L6 (arXiv:1204.0899): diameter 995 +- 80 km.
 # [MARS] Marsset et al. 2020, Nature Astronomy 4, 569 (via [SBDB]): Pallas 568 x 532 x 448 km.
-# [ARRO] Spencer et al. 2020, Science 367, eaay3999 (arXiv:2004.00727): Arrokoth's overall
-#        dimensions 36 x 20 x 10 km (two lobes), positive pole RA 317.5, Dec -24.9 deg
-#        (J2000), rotation period 15.92 h.
+# [ARRO] Arrokoth: shape model of Porter et al. 2024 (PDS SBN, doi:10.26007/97r3-1e19;
+#        assets/shapes/SOURCES.md), 34.546 x 19.838 x 13.822 km (Table 2 of the paper);
+#        pole and prime meridian from the New Horizons PCK nh_arrokoth_002.tpc, which
+#        states that these values were used in that shape model.
 # [BELT] JPL Small-Body Database Query API (https://ssd-api.jpl.nasa.gov/sbdb_query.api),
 #        osculating elements moved to the common epoch JD 2461200.5 TDB (2026-06-09).
 # [PDSR], [RSS]: Jupiter's and Saturn's rings, see jupiter.toml / saturn.toml.
@@ -81,6 +82,8 @@ pole_ra_dec_deg = [281.0103, 61.4155]
 prime_meridian_deg = [329.5988, 6.1385108]
 color = "#9c958e"
 orbit_color = "#8f8a85"
+texture = "textures/mercury.jpg"           # assets/textures/SOURCES.md
+texture_left_lon_deg = -180.0
 [bodies.orbit]                             # [APX] Table 2a
 type = "jpl_approx_planet"
 a_au = [0.38709843, 0.00000000]
@@ -197,6 +200,8 @@ pole_ra_dec_deg = [317.269202, 54.432516]
 prime_meridian_deg = [176.049863, 350.891982443297]
 color = "#c1673e"
 orbit_color = "#c98a6e"
+texture = "textures/mars.jpg"              # assets/textures/SOURCES.md
+texture_left_lon_deg = -180.0
 [bodies.orbit]                             # [APX] Table 2a
 type = "jpl_approx_planet"
 a_au = [1.52371243, 0.00000097]
@@ -223,6 +228,8 @@ prime_meridian_deg = [35.18774440, 1128.84475928]
 pole_rate_deg_per_century = [-0.10844326, -0.06134706]
 color = "#7d746b"
 orbit_color = "#a0968c"
+texture = "textures/phobos.jpg"            # assets/textures/SOURCES.md
+texture_left_lon_deg = -180.0
 [bodies.orbit]                             # [ELEM]
 type = "mean_elements"
 a_km = 9375.0
@@ -1151,6 +1158,8 @@ pole_ra_dec_deg = [291.418, 66.764]        # [PCK]
 prime_meridian_deg = [170.650, 952.1532]
 color = "#7a7570"
 orbit_color = "#9a948c"
+texture = "textures/ceres.jpg"             # assets/textures/SOURCES.md
+texture_left_lon_deg = 0.0
 [bodies.orbit]                             # [HZN] 1
 type = "ephemeris"
 file = "ephem/ceres.eph"
@@ -1199,6 +1208,8 @@ pole_ra_dec_deg = [309.031, 42.235]        # [PCK]
 prime_meridian_deg = [285.39, 1617.3329428]
 color = "#a59e93"
 orbit_color = "#bab2a6"
+texture = "textures/vesta.jpg"             # assets/textures/SOURCES.md
+texture_left_lon_deg = -180.0
 [bodies.orbit]                             # [HZN] 4
 type = "ephemeris"
 file = "ephem/vesta.eph"
@@ -1393,9 +1404,10 @@ laplace_pole_ra_dec_deg = [270.0, 66.56070889]
 [[bodies]]
 name = "Arrokoth"
 parent = "Sun"
-radii_km = [18.0, 10.0, 5.0]               # [ARRO] an ellipsoid of the contact binary's overall size
-pole_ra_dec_deg = [317.5, -24.9]           # [ARRO]
-prime_meridian_deg = [0.0, 542.7136]       # [ARRO] P = 15.92 h; W0 arbitrary
+shape = "shapes/arrokoth.mesh"             # [ARRO] the two lobes, Wenu along +x
+radii_km = [17.273, 9.919, 6.911]          # [ARRO] half the overall dimensions (shadows, camera distances)
+pole_ra_dec_deg = [319.3685820, -25.5875063]   # [ARRO]
+prime_meridian_deg = [71.9541475, 559.393617318826]  # [ARRO] P = 15.45 h (Spencer et al. 2020: 15.92 h)
 color = "#a8604a"
 orbit_color = "#a07868"
 [bodies.orbit]                             # [HZN] 2486958: New Horizons team trajectory, 1994-2034
@@ -1671,3 +1683,13 @@ time_tdb = "2019-01-01 05:14"
 focus = "Arrokoth"
 distance_km = 3.0e4
 warp = 30.0
+
+# The view of the CA06 image sequence (Porter et al. 2024, Table 1: 05:26:54.6 UTC, 6,622 km,
+# phase angle 32.6 deg), the best resolved image of the whole body.
+[[events]]
+name = "Arrokoth as New Horizons saw it (2019-01-01 05:27, 6,622 km)"
+time = "2019-01-01 05:26:55"
+focus = "Arrokoth"
+from_body = "New Horizons"
+distance_km = 90.0
+warp = 1.0

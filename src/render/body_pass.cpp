@@ -25,7 +25,7 @@ struct VertexUniforms {
     glm::mat4 model;
     glm::mat4 view_proj;
     glm::mat4 rotation;
-    glm::vec4 inv_scale;
+    glm::vec4 inv_scale; // w = map u of longitude 0 (turns)
 };
 
 struct FragmentUniforms {
@@ -38,12 +38,14 @@ struct FragmentUniforms {
     glm::vec4 ring_radii;
 };
 
-struct SphereVertex {
+struct BodyVertex {
     glm::vec3 position;
+    glm::vec3 normal;
     glm::vec2 uv;
+    float albedo;
 };
 
-void build_sphere(std::vector<SphereVertex>& vertices, std::vector<uint16_t>& indices)
+void build_sphere(std::vector<BodyVertex>& vertices, std::vector<uint32_t>& indices)
 {
     // The seam column is duplicated (i = 0 and i = kSlices) so u runs 0..1 without wrapping.
     for (int j = 0; j <= kStacks; ++j) {
@@ -53,16 +55,16 @@ void build_sphere(std::vector<SphereVertex>& vertices, std::vector<uint16_t>& in
             const glm::vec3 p(static_cast<float>(std::cos(lat) * std::cos(lon)),
                               static_cast<float>(std::cos(lat) * std::sin(lon)), static_cast<float>(std::sin(lat)));
             const glm::vec2 uv(static_cast<float>(i) / kSlices, 1.0f - static_cast<float>(j) / kStacks);
-            vertices.push_back({p, uv});
+            vertices.push_back({p, p, uv, 1.0f});
         }
     }
     // Counter-clockwise when seen from outside.
     for (int j = 0; j < kStacks; ++j) {
         for (int i = 0; i < kSlices; ++i) {
-            const uint16_t a = static_cast<uint16_t>(j * (kSlices + 1) + i);
-            const uint16_t b = static_cast<uint16_t>(a + 1);
-            const uint16_t c = static_cast<uint16_t>(a + kSlices + 1);
-            const uint16_t d = static_cast<uint16_t>(c + 1);
+            const uint32_t a = static_cast<uint32_t>(j * (kSlices + 1) + i);
+            const uint32_t b = a + 1;
+            const uint32_t c = a + kSlices + 1;
+            const uint32_t d = c + 1;
             indices.insert(indices.end(), {a, b, d, a, d, c});
         }
     }
@@ -91,14 +93,18 @@ bool BodyPass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
 
     SDL_GPUVertexBufferDescription vb = {};
     vb.slot = 0;
-    vb.pitch = sizeof(SphereVertex);
+    vb.pitch = sizeof(BodyVertex);
     vb.input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX;
 
-    SDL_GPUVertexAttribute attrs[2] = {};
+    SDL_GPUVertexAttribute attrs[4] = {};
     attrs[0] = {.location = 0, .buffer_slot = 0, .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
-                .offset = offsetof(SphereVertex, position)};
-    attrs[1] = {.location = 1, .buffer_slot = 0, .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2,
-                .offset = offsetof(SphereVertex, uv)};
+                .offset = offsetof(BodyVertex, position)};
+    attrs[1] = {.location = 1, .buffer_slot = 0, .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
+                .offset = offsetof(BodyVertex, normal)};
+    attrs[2] = {.location = 2, .buffer_slot = 0, .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2,
+                .offset = offsetof(BodyVertex, uv)};
+    attrs[3] = {.location = 3, .buffer_slot = 0, .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT,
+                .offset = offsetof(BodyVertex, albedo)};
 
     SDL_GPUColorTargetDescription color = {};
     color.format = format.color;
@@ -109,7 +115,7 @@ bool BodyPass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
     info.vertex_input_state.vertex_buffer_descriptions = &vb;
     info.vertex_input_state.num_vertex_buffers = 1;
     info.vertex_input_state.vertex_attributes = attrs;
-    info.vertex_input_state.num_vertex_attributes = 2;
+    info.vertex_input_state.num_vertex_attributes = 4;
     info.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
     info.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
     info.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_BACK;
@@ -131,14 +137,14 @@ bool BodyPass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
         return false;
     }
 
-    std::vector<SphereVertex> vertices;
-    std::vector<uint16_t> indices;
+    std::vector<BodyVertex> vertices;
+    std::vector<uint32_t> indices;
     build_sphere(vertices, indices);
-    m_index_count = static_cast<uint32_t>(indices.size());
-    m_vertices = create_static_buffer(device, SDL_GPU_BUFFERUSAGE_VERTEX, vertices.data(),
-                                      static_cast<uint32_t>(vertices.size() * sizeof(SphereVertex)));
-    m_indices = create_static_buffer(device, SDL_GPU_BUFFERUSAGE_INDEX, indices.data(),
-                                     static_cast<uint32_t>(indices.size() * sizeof(uint16_t)));
+    m_sphere.index_count = static_cast<uint32_t>(indices.size());
+    m_sphere.vertices = create_static_buffer(device, SDL_GPU_BUFFERUSAGE_VERTEX, vertices.data(),
+                                             static_cast<uint32_t>(vertices.size() * sizeof(BodyVertex)));
+    m_sphere.indices = create_static_buffer(device, SDL_GPU_BUFFERUSAGE_INDEX, indices.data(),
+                                            static_cast<uint32_t>(indices.size() * sizeof(uint32_t)));
 
     SDL_GPUSamplerCreateInfo sampler = {};
     sampler.min_filter = SDL_GPU_FILTER_LINEAR;
@@ -164,7 +170,7 @@ bool BodyPass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
     m_profile_sampler = SDL_CreateGPUSampler(device, &profile);
     m_no_rings = create_profile_texture(device, {glm::vec2(0.0f)});
 
-    return m_vertices && m_indices && m_sampler && m_white && m_profile_sampler && m_no_rings;
+    return m_sphere.vertices && m_sphere.indices && m_sampler && m_white && m_profile_sampler && m_no_rings;
 }
 
 void BodyPass::shutdown()
@@ -172,8 +178,10 @@ void BodyPass::shutdown()
     if (!m_device) {
         return;
     }
-    SDL_ReleaseGPUBuffer(m_device, m_vertices);
-    SDL_ReleaseGPUBuffer(m_device, m_indices);
+    clear_meshes();
+    SDL_ReleaseGPUBuffer(m_device, m_sphere.vertices);
+    SDL_ReleaseGPUBuffer(m_device, m_sphere.indices);
+    m_sphere = {};
     SDL_ReleaseGPUSampler(m_device, m_sampler);
     SDL_ReleaseGPUSampler(m_device, m_profile_sampler);
     SDL_ReleaseGPUTexture(m_device, m_white);
@@ -183,10 +191,44 @@ void BodyPass::shutdown()
     m_white = nullptr;
     m_no_rings = nullptr;
     SDL_ReleaseGPUGraphicsPipeline(m_device, m_pipeline);
-    m_vertices = nullptr;
-    m_indices = nullptr;
     m_pipeline = nullptr;
     m_device = nullptr;
+}
+
+void BodyPass::clear_meshes()
+{
+    for (Mesh& mesh : m_meshes) {
+        SDL_ReleaseGPUBuffer(m_device, mesh.vertices);
+        SDL_ReleaseGPUBuffer(m_device, mesh.indices);
+    }
+    m_meshes.clear();
+}
+
+int BodyPass::add_mesh(std::span<const glm::vec3> positions, std::span<const glm::vec3> normals,
+                       std::span<const float> albedo, std::span<const uint32_t> indices)
+{
+    if (positions.empty() || normals.size() != positions.size() || albedo.size() != positions.size() ||
+        indices.empty()) {
+        return -1;
+    }
+    std::vector<BodyVertex> vertices(positions.size());
+    for (size_t k = 0; k < positions.size(); ++k) {
+        vertices[k] = {positions[k], normals[k], glm::vec2(0.0f), albedo[k]};
+    }
+    Mesh mesh;
+    mesh.index_count = static_cast<uint32_t>(indices.size());
+    mesh.vertices = create_static_buffer(m_device, SDL_GPU_BUFFERUSAGE_VERTEX, vertices.data(),
+                                         static_cast<uint32_t>(vertices.size() * sizeof(BodyVertex)));
+    mesh.indices = create_static_buffer(m_device, SDL_GPU_BUFFERUSAGE_INDEX, indices.data(),
+                                        static_cast<uint32_t>(indices.size() * sizeof(uint32_t)));
+    if (!mesh.vertices || !mesh.indices) {
+        SDL_LogError(SDL_LOG_CATEGORY_GPU, "Body mesh creation failed: %s", SDL_GetError());
+        SDL_ReleaseGPUBuffer(m_device, mesh.vertices);
+        SDL_ReleaseGPUBuffer(m_device, mesh.indices);
+        return -1;
+    }
+    m_meshes.push_back(mesh);
+    return static_cast<int>(m_meshes.size()) - 1;
 }
 
 void BodyPass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const CameraView& view, const SunLight& sun,
@@ -197,17 +239,24 @@ void BodyPass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const Ca
     }
 
     SDL_BindGPUGraphicsPipeline(pass, m_pipeline);
-    SDL_GPUBufferBinding vb = {.buffer = m_vertices, .offset = 0};
-    SDL_BindGPUVertexBuffers(pass, 0, &vb, 1);
-    SDL_GPUBufferBinding ib = {.buffer = m_indices, .offset = 0};
-    SDL_BindGPUIndexBuffer(pass, &ib, SDL_GPU_INDEXELEMENTSIZE_16BIT);
+    const Mesh* bound = nullptr;
 
     for (const BodyDrawItem& item : items) {
+        const bool own_mesh = item.mesh >= 0 && item.mesh < static_cast<int>(m_meshes.size());
+        const Mesh* mesh = own_mesh ? &m_meshes[static_cast<size_t>(item.mesh)] : &m_sphere;
+        if (mesh != bound) {
+            SDL_GPUBufferBinding vb = {.buffer = mesh->vertices, .offset = 0};
+            SDL_BindGPUVertexBuffers(pass, 0, &vb, 1);
+            SDL_GPUBufferBinding ib = {.buffer = mesh->indices, .offset = 0};
+            SDL_BindGPUIndexBuffer(pass, &ib, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+            bound = mesh;
+        }
+
         VertexUniforms vu;
         vu.model = item.model;
         vu.view_proj = view.view_proj;
         vu.rotation = item.rotation;
-        vu.inv_scale = glm::vec4(item.inv_scale, 0.0f);
+        vu.inv_scale = glm::vec4(item.inv_scale, -item.texture_left_lon_deg / 360.0f);
         SDL_PushGPUVertexUniformData(cmd, 0, &vu, sizeof(vu));
 
         FragmentUniforms fu = {};
@@ -229,7 +278,7 @@ void BodyPass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const Ca
         };
         SDL_BindGPUFragmentSamplers(pass, 0, tex, 2);
 
-        SDL_DrawGPUIndexedPrimitives(pass, m_index_count, 1, 0, 0, 0);
+        SDL_DrawGPUIndexedPrimitives(pass, mesh->index_count, 1, 0, 0, 0);
     }
 }
 

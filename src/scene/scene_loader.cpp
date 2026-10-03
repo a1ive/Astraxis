@@ -586,6 +586,18 @@ void Loader::parse(const toml::table& root, Scene& out)
         }
         body.texture_west_positive = direction == "west";
 
+        if (const std::string shape = get_string_or(*t, "shape", ""); !shape.empty()) {
+            auto model = std::make_shared<ShapeModel>();
+            std::string error;
+            if (!load_shape_model(m_asset_root / shape, *model, &error)) {
+                fail(ctx, error);
+            }
+            if (!body.texture.empty()) {
+                fail(ctx, "a body with a shape model takes its albedo from the model, not a texture");
+            }
+            body.shape = std::move(model);
+        }
+
         if (const toml::table* rings = (*t)["rings"].as_table()) {
             const std::string rctx = ctx + " rings";
             body.rings.color = parse_color(*rings, "color", rctx, glm::vec3(1.0f));

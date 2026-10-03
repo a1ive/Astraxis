@@ -38,6 +38,7 @@ struct PSInput
     float3 axis_x   : TEXCOORD4;
     float3 axis_y   : TEXCOORD5;
     float3 axis_z   : TEXCOORD6;
+    float  albedo   : TEXCOORD7; // relative (shape models; 1 on ellipsoids)
 };
 
 float eclipse_factor(float3 p, float3 L)
@@ -251,6 +252,7 @@ float4 main(PSInput input) : SV_Target0
     } else {
         albedo = srgb_to_linear(gas_giant ? gas_giant_color(normalize(input.local)) : u_color.rgb);
     }
+    albedo *= input.albedo;
     float limb = gas_giant || saturn ? lerp(0.65, 1.0, pow(saturate(dot(n, V)), 0.4)) : 1.0;
 
     // Sunlight through the planet's own rings (mip level from the footprint on the profile).

@@ -46,6 +46,8 @@ pole_ra_dec_deg = [281.0103, 61.4155]
 prime_meridian_deg = [329.5988, 6.1385108]
 color = "#9c958e"
 orbit_color = "#8f8a85"
+texture = "textures/mercury.jpg"           # assets/textures/SOURCES.md
+texture_left_lon_deg = -180.0
 [bodies.orbit]                             # [APX] Table 2a
 type = "jpl_approx_planet"
 a_au = [0.38709843, 0.00000000]
@@ -105,6 +107,8 @@ pole_ra_dec_deg = [317.269202, 54.432516]
 prime_meridian_deg = [176.049863, 350.891982443297]
 color = "#c1673e"
 orbit_color = "#c98a6e"
+texture = "textures/mars.jpg"              # assets/textures/SOURCES.md
+texture_left_lon_deg = -180.0
 [bodies.orbit]                             # [APX] Table 2a
 type = "jpl_approx_planet"
 a_au = [1.52371243, 0.00000097]

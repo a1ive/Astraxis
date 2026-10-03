@@ -59,6 +59,8 @@ add_library(astraxis_sim STATIC
     src/scene/scene.hpp
     src/scene/scene_loader.cpp
     src/scene/scene_loader.hpp
+    src/scene/shape_model.cpp
+    src/scene/shape_model.hpp
     src/scene/star_catalog.cpp
     src/scene/star_catalog.hpp
 )

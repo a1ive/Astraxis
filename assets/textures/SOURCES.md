@@ -21,6 +21,11 @@
 | `triton.jpg` | USGS Astrogeology，Triton Voyager 2 Global Color Mosaic（`Triton_Voyager2_ClrMosaic_GlobalFill_600m.tif`） | 公有领域 |
 | `pluto.jpg` | USGS Astrogeology，Pluto New Horizons LORRI/MVIC Global Mosaic 300m（2017-07，`Pluto_NewHorizons_Global_Mosaic_300m_Jul2017_8bit.tif`，灰度） | 公有领域 |
 | `charon.jpg` | USGS Astrogeology，Charon New Horizons LORRI/MVIC Global Mosaic 300m（2017-07，`Charon_NewHorizons_Global_Mosaic_300m_Jul2017_8bit.tif`，灰度） | 公有领域 |
+| `mercury.jpg` | USGS Astrogeology，Mercury MESSENGER MDIS Global Mosaic 250m（2013-05，750 nm 单色，NAC/WAC，含两极平均拼接图），<https://astrogeology.usgs.gov/search/map/mercury_messenger_mdis_global_mosaic_250m> | 公有领域（请引用作者） |
+| `mars.jpg` | USGS Astrogeology，Mars Viking Global Color Mosaic 925m（约 1000 幅海盗号轨道器红、紫滤镜图像，Minnaert 光度归一化，扣除雾霾模型后着色），<https://astrogeology.usgs.gov/search/map/mars_viking_global_color_mosaic_925m> | 公有领域 |
+| `phobos.jpg` | USGS Astrogeology，Phobos Viking Global Mosaic 5m（Phil Stooke，以海盗号高分辨率图像为主，补充其他飞船的图像，DLR 控制网；`Phobos_Viking_Mosaic_40ppd_DLRcontrol.tif`），<https://astrogeology.usgs.gov/search/map/phobos_viking_global_mosaic_5m> | 公有领域（请引用作者） |
+| `vesta.jpg` | USGS Astrogeology / DLR，Vesta Dawn FC HAMO Global Mosaic 60m（黎明号分幅相机，约 2500 幅清晰滤镜图像），<https://astrogeology.usgs.gov/search/map/vesta_dawn_fc_hamo_global_mosaic_60m> | 公有领域（请引用作者） |
+| `ceres.jpg` | USGS Astrogeology / DLR，Ceres Dawn FC Global Mosaic 400m（2015-10，`Ceres_Dawn_FC_DLR_global_20ppd_Oct2015.tif`），<https://astrogeology.usgs.gov/search/map/ceres_dawn_fc_global_mosaic_400m> | 公有领域（请引用作者） |
 
 原始下载地址：
 
@@ -39,6 +44,11 @@
   - `Triton_Voyager2_ClrMosaic_GlobalFill_600m.tif`（286 MB）
   - `Pluto_NewHorizons_Global_Mosaic_300m_Jul2017_8bit.tif`（295 MB）
   - `Charon_NewHorizons_Global_Mosaic_300m_Jul2017_8bit.tif`（77 MB）
+  - `Mercury_MESSENGER_mosaic_global_250m_2013.tif`（1.9 GB）
+  - `Mars_Viking_ClrMosaic_global_925m.tif`（798 MB）
+  - `Phobos_Viking_Mosaic_40ppd_DLRcontrol.tif`（104 MB）
+  - `Vesta_Dawn_FC_HAMO_Mosaic_Global_74ppd.tif`（357 MB）
+  - `Ceres_Dawn_FC_DLR_global_20ppd_Oct2015.tif`（27 MB）
 - 天王星卫星：<https://space.jpl.nasa.gov/tmaps/pix/ura1vuu2.tif> .. `ura5vuu2.tif`（各 0.2–0.4 MB；1 Ariel、2 Umbriel、3 Titania、4 Oberon、5 Miranda）
 
 ## 经度约定
@@ -67,7 +77,18 @@ USGS 元数据标注的是“positive west”，但图像的实际排布是东�
 - Triton、Charon：标签为 PositiveEast、−180..180，左边缘 −180°E；Pluto：PositiveEast、0..360，左边缘 0°E，心形的 Sputnik Planitia（约 175°E）正好在图中央
 - Triton 的颜色来自旅行者号的滤镜合成，偏绿，按原样保留
 
+- 类地行星与小天体（以下都是标签为 PositiveEast、行星中心纬度的图，经过地貌核对）：
+  - Mercury、Mars、Phobos、Vesta：经度域 −180..180，左边缘 −180°E。Mercury 用 Caloris 盆地（31.5°N 162.7°E）核对，图里约 14°W 处有一条竖带是 USGS 用高入射角图像补的缺口（阴影明显）；Mars 用 Olympus Mons（18°N 226°E）、Hellas（42°S 70°E）、Syrtis Major 核对；Phobos 的 Stickney 坑在约 55°W（Gazetteer 为 49°W 附近；不规则天体投影到球面，有几度出入）
+  - Vesta 的经度是 Claudia″（Claudia Double Prime）系统，Claudia 坑在 146°E（USGS 页面说明）；场景用的 PCK W0 = 285.39° 正是这个系统（Dawn 重力数据集的坐标系文档 `VESTA_COORDINATES_131018` 列出了四种 Vesta 坐标系的 W0）。“雪人”三坑（Marcia、Calpurnia、Minucia）在约 340°E
+  - Ceres：经度域 0..360，左边缘 0°E。Occator 坑（19.8°N 239.3°E，IAU 系统，即 Kait 坑在 0°）正好落在图中这个位置，与 PCK 的 W0 = 170.65° 一致
+- Mercury 原本想用彩色拼接图（Global Color Mosaic 665m），但它是 1000/750/430 nm 映射到 RGB 的增强假彩色（整体偏蓝），两极还有缺块和乱纹，所以改用 2013 年的单色底图
+- Phobos 最初试过 Mars Express SRC 拼接图（`Phobos_ME_SRC_Mosaic_Global_16ppd.tif`），但其中混有原始图像的阴影和缺块，两侧边缘也接不上，所以改用 Stooke 的海盗号拼接图
+- Vesta 的 HAMO 拼接图里北纬 60° 以上处于极夜，很暗，按原样保留；Ceres 南纬约 82° 以南没有数据，用同纬度均值填补
+- 灰度图（Mercury、Phobos、Vesta、Ceres）按原样存成 JPEG，和其他卫星一样直接作为反照率：它们都经过拉伸，比真实的反照率亮得多（Phobos、Ceres 实际很暗）
+
 场景文件统一写成 `texture_left_lon_deg`（东经）。
+
+纹理坐标按**行星中心**经纬度计算（从天体中心看过去的方向），而不是单位球网格的参数经纬度，所以三轴椭球（Phobos、Vesta、Miranda、Ariel）上的地貌位置是对的；两者在 Vesta 上最多差约 7°。
 
 只有 USGS 拼接图会填补极区无数据像素。完整的地图不填补，否则地球极地海洋这类本来就暗的像素会被误当成缺失数据。
 

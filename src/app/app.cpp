@@ -398,8 +398,14 @@ bool App::load_scene(size_t index)
     m_label_alpha.clear();
     m_body_textures.assign(m_scene.bodies.size(), nullptr);
     m_ring_textures.assign(m_scene.bodies.size(), nullptr);
+    m_bodies.clear_meshes();
+    m_body_meshes.assign(m_scene.bodies.size(), -1);
     for (size_t i = 0; i < m_scene.bodies.size(); ++i) {
         const Body& body = m_scene.bodies[i];
+        if (body.shape) {
+            m_body_meshes[i] = m_bodies.add_mesh(body.shape->positions, body.shape->normals, body.shape->albedo,
+                                                 body.shape->indices);
+        }
         if (!body.rings.profile.empty()) {
             m_ring_textures[i] = create_profile_texture(m_renderer.device(), body.rings.profile);
         }
@@ -751,20 +757,20 @@ void App::build_body_items()
                               static_cast<float>(body.polar_radius_km));
 
         BodyDrawItem item;
-        glm::dmat3 orientation = body.orientation;
         if (i < m_body_textures.size() && m_body_textures[i]) {
-            // Turn the mesh so that u = 0 sits at the map's left-edge longitude
-            // (east longitude; a west-positive map is mirrored via flip_u).
+            // East longitude of the map's left edge (a west-positive map is mirrored via flip_u).
             item.texture = m_body_textures[i];
             item.flip_u = body.texture_west_positive;
-            const double left_east = body.texture_west_positive ? -body.texture_left_lon_deg
-                                                                : body.texture_left_lon_deg;
-            orientation = orientation * rotation_z(left_east * kDegToRad);
+            item.texture_left_lon_deg = static_cast<float>(body.texture_west_positive ? -body.texture_left_lon_deg
+                                                                                       : body.texture_left_lon_deg);
         }
-        item.rotation = glm::mat4(glm::mat3(orientation));
+        // A shape model is in km already; the ellipsoid is a scaled unit sphere.
+        item.mesh = i < m_body_meshes.size() ? m_body_meshes[i] : -1;
+        const glm::vec3 scale = item.mesh >= 0 ? glm::vec3(1.0f) : radii;
+        item.rotation = glm::mat4(glm::mat3(body.orientation));
         item.model = glm::translate(glm::mat4(1.0f), to_render(body.world_position, cam)) * item.rotation *
-                     glm::scale(glm::mat4(1.0f), radii);
-        item.inv_scale = 1.0f / radii;
+                     glm::scale(glm::mat4(1.0f), scale);
+        item.inv_scale = 1.0f / scale;
         item.color = body.color;
         item.style = static_cast<int>(body.style);
         if (body.kind == BodyKind::Star) {
