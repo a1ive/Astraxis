@@ -647,6 +647,46 @@ void test_alpha_centauri_scene()
     // The Sun is ~1.33 pc away, in Cassiopeia.
     const double d_sun = glm::length(scene.icrf_state_at(sun, 0.0).position) / kParsecKm;
     check(std::abs(d_sun - 1.3319) < 1e-3, "Sun distance from alpha Cen (pc)", d_sun);
+
+    // Proxima's planets [Suarez Mascareno et al. 2025, Table 3; Damasso et al. 2020,
+    // Table 1]: circular orbits whose time of inferior conjunction T0 puts the planet
+    // in front of the star, so Proxima's reflex RV is -K sin(2 pi (t - T0) / P)
+    // (positive = receding) and the planet's own line-of-sight velocity relative
+    // to Proxima is +v sin i sin(2 pi (t - T0) / P).
+    struct ProximaPlanet {
+        const char* name;
+        double t0_bjd;
+        double period_days;
+        double a_au;
+    };
+    const ProximaPlanet planets[] = {
+        {"Proxima Centauri d", 2460557.55, 5.12338, 0.02881},
+        {"Proxima Centauri b", 2460548.59, 11.18465, 0.04848},
+        {"Proxima Centauri c (unconfirmed)", 2455892.0, 1900.0, 1.48},
+    };
+    const glm::dvec3 away = unit_from_ra_dec(217.42894222 * kDegToRad, -62.67949019 * kDegToRad);
+    const double sin_i = std::sin(47.0 * kDegToRad);
+    for (const ProximaPlanet& p : planets) {
+        const int index = scene.find(p.name);
+        check(index >= 0 && scene.bodies[static_cast<size_t>(index)].parent == prox, p.name);
+        check(scene.lighting_star(index) == prox, "lit by Proxima");
+        const MotionSource& orbit = *scene.bodies[static_cast<size_t>(index)].motion;
+        const double period = p.period_days * kSecondsPerDay;
+        const double t0 = (p.t0_bjd - kJ2000Jd) * kSecondsPerDay;
+        const double a_km = p.a_au * kAuKm;
+        const double amplitude = kTwoPi / period * a_km * sin_i;
+        double worst = 0.0;
+        for (int k = 0; k < 12; ++k) {
+            const double phase = k / 12.0;
+            const double t = t0 + (7.0 + phase) * period;
+            const double planet_los = glm::dot(orbit.eval(t).velocity, away);
+            worst = std::max(worst, std::abs(planet_los - amplitude * std::sin(kTwoPi * phase)) / amplitude);
+        }
+        check(worst < 1e-6, "Proxima planet RV curve (relative error)", worst);
+        // In front of the star at conjunction.
+        const double depth = glm::dot(orbit.eval(t0).position, away);
+        check(std::abs(depth / (a_km * sin_i) + 1.0) < 1e-6, "Proxima planet in front at conjunction", depth);
+    }
 }
 
 // TransitOrbit: whatever the fit's convention, the planet is in front of the

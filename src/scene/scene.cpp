@@ -69,6 +69,22 @@ int Scene::star_index() const
     return -1;
 }
 
+int Scene::lighting_star(int body) const
+{
+    for (int p = bodies[static_cast<size_t>(body)].parent; p >= 0; p = bodies[static_cast<size_t>(p)].parent) {
+        if (bodies[static_cast<size_t>(p)].kind == BodyKind::Star) {
+            return p;
+        }
+    }
+    return -1;
+}
+
+glm::dvec3 Scene::light_position(int body) const
+{
+    const int star = lighting_star(body);
+    return star >= 0 ? bodies[static_cast<size_t>(star)].world_position : m_sun_position;
+}
+
 void Scene::set_active_frame(int index)
 {
     if (index >= 0 && index < static_cast<int>(frames.size())) {

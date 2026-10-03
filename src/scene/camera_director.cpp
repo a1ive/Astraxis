@@ -187,9 +187,9 @@ void CameraDirector::next_shot(const Scene& scene, OrbitCamera& camera)
     }
     m_kind = kind;
 
-    // Angles of the direction from `body` toward the sun (display frame).
+    // Angles of the direction from `body` toward the star lighting it (display frame).
     auto sun_angles = [&](int body, double* yaw, double* pitch) {
-        camera.angles_for_direction(scene.sun_position() - scene.bodies[static_cast<size_t>(body)].world_position,
+        camera.angles_for_direction(scene.light_position(body) - scene.bodies[static_cast<size_t>(body)].world_position,
                                     yaw, pitch);
     };
 
@@ -242,7 +242,7 @@ void CameraDirector::next_shot(const Scene& scene, OrbitCamera& camera)
             const Body& m = scene.bodies[static_cast<size_t>(i)];
             const glm::dvec3 planet = scene.bodies[static_cast<size_t>(m.parent)].world_position;
             const glm::dvec3 radial = glm::normalize(m.world_position - planet);
-            const glm::dvec3 sun = glm::normalize(scene.sun_position() - planet);
+            const glm::dvec3 sun = glm::normalize(scene.light_position(i) - planet);
             if (i != m_last_target && glm::dot(radial, sun) > -0.2) {
                 candidates.push_back(i);
             }

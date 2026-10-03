@@ -723,15 +723,18 @@ void App::build_body_items()
         }
 
         // Bodies orbiting a black hole with an accretion disk are lit by the disk,
-        // which outshines the scene's stars there; the rest by the star / the sun.
+        // which outshines the scene's stars there; bodies around a star (e.g. a
+        // planet of Proxima in a multiple system) by that star; the rest by the
+        // scene's star / the sun.
         glm::dvec3 light = m_scene.sun_position();
         double light_radius = sun_radius;
-        if (body.parent >= 0) {
-            const Body& parent = m_scene.bodies[static_cast<size_t>(body.parent)];
-            if (parent.kind == BodyKind::BlackHole && parent.disk_outer_m > 0.0) {
-                light = parent.world_position;
-                light_radius = parent.disk_outer_m * parent.gm_km3_s2 / (kSpeedOfLightKmS * kSpeedOfLightKmS);
-            }
+        const Body* parent = body.parent >= 0 ? &m_scene.bodies[static_cast<size_t>(body.parent)] : nullptr;
+        if (parent && parent->kind == BodyKind::BlackHole && parent->disk_outer_m > 0.0) {
+            light = parent->world_position;
+            light_radius = parent->disk_outer_m * parent->gm_km3_s2 / (kSpeedOfLightKmS * kSpeedOfLightKmS);
+        } else if (const int star_k = m_scene.lighting_star(static_cast<int>(i)); star_k >= 0) {
+            light = m_scene.bodies[static_cast<size_t>(star_k)].world_position;
+            light_radius = m_scene.bodies[static_cast<size_t>(star_k)].equatorial_radius_km;
         }
         const glm::dvec3 to_sun = light - body.world_position;
         const double sun_distance = glm::length(to_sun);

@@ -187,6 +187,11 @@ public:
 
     // Sun position in the display frame.
     const glm::dvec3& sun_position() const { return m_sun_position; }
+    // The star that lights `body`: its nearest star ancestor (e.g. Proxima for
+    // Proxima b in the alpha Cen scene), or -1 for the scene's star / the sun.
+    int lighting_star(int body) const;
+    // Position (display frame) of the star that lights `body`.
+    glm::dvec3 light_position(int body) const;
 
     // "Up" for the camera, in the display frame.
     glm::dvec3 up_axis() const;
