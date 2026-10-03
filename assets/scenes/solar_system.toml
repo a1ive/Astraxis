@@ -1,4 +1,4 @@
-# The Voyager missions: the Sun, the planets and both Voyager spacecraft, 1977 onward.
+# The Solar System: the Sun, the planets and the spacecraft that left it (Voyager 1 and 2), 1977 onward.
 #
 # Sources
 # [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py (tools/bake/ephem.toml):
@@ -13,7 +13,7 @@
 # Flyby times/distances: computed from the baked data by the bake tool (TDB).
 # Mission timeline events: Horizons spacecraft notes.
 
-name = "Voyager"
+name = "Solar System"
 
 [view]
 focus = "Sun"

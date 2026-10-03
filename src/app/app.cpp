@@ -32,6 +32,10 @@ constexpr double kPointerHideSeconds = 3.0; // during the tour, hide panel and c
 constexpr int kTrailPoints = 2048;
 constexpr double kMaxWarp = 1e8; // ~3.2 years per second
 constexpr float kOrbitOpacity = 0.55f;
+// A moon's label, marker and orbit fade out as its orbit shrinks on screen
+// from kSatelliteShowPx to kSatelliteHidePx (points, not pixels).
+constexpr double kSatelliteHidePx = 10.0;
+constexpr double kSatelliteShowPx = 28.0;
 constexpr float kAmbient = 0.012f;
 // Surface radiance of star spheres (linear HDR, times the blackbody color).
 constexpr float kStarSurface = 6.0f;
@@ -363,6 +367,8 @@ bool App::load_scene(size_t index)
     m_scene = std::move(scene);
     m_scene_index = index;
 
+    m_body_fades.assign(m_scene.bodies.size(), 1.0f); // until the next update()
+    m_label_alpha.clear();
     m_body_textures.assign(m_scene.bodies.size(), nullptr);
     m_ring_textures.assign(m_scene.bodies.size(), nullptr);
     for (size_t i = 0; i < m_scene.bodies.size(); ++i) {
@@ -678,6 +684,15 @@ void App::update(double real_dt)
     // Stars are ICRF directions: rotate them into the display frame.
     m_view.sky_view_proj =
         m_view.view_proj * glm::mat4(glm::mat3(glm::transpose(m_scene.current_transform().axes)));
+
+    const double px_per_radian = 0.5 * m_view.viewport.y * m_view.focal_y;
+    const double scale = m_window.content_scale();
+    satellite_fades(m_scene, m_view.position, px_per_radian, kSatelliteHidePx * scale, kSatelliteShowPx * scale,
+                    m_body_fades);
+    const int target = m_camera.target();
+    if (target >= 0 && target < static_cast<int>(m_body_fades.size())) {
+        m_body_fades[static_cast<size_t>(target)] = 1.0f; // the focus always shows
+    }
 }
 
 void App::build_body_items()
@@ -816,6 +831,15 @@ void App::build_orbit_lines()
     const glm::dvec3& cam = m_view.position;
 
     for (size_t i = 0; i < m_scene.bodies.size(); ++i) {
+        // An orbit fades with its body; a travelled path (e.g. a spacecraft's
+        // tour) stays while its host system is shown.
+        const int host = m_scene.satellite_host(static_cast<int>(i));
+        const float fade = m_scene.bodies[i].trail == TrailMode::History
+                               ? (host >= 0 ? m_body_fades[static_cast<size_t>(host)] : 1.0f)
+                               : m_body_fades[i];
+        if (fade <= 0.0f) {
+            continue;
+        }
         m_scene.trail(static_cast<int>(i), m_clock.t_tdb, kTrailPoints, m_trail_points, m_trail_fades);
         if (m_trail_points.size() < 2) {
             continue;
@@ -824,7 +848,7 @@ void App::build_orbit_lines()
         for (size_t k = 0; k < m_trail_points.size(); ++k) {
             m_line_points.emplace_back(to_render(m_trail_points[k], cam), m_trail_fades[k]);
         }
-        m_orbits.add_line(m_line_points, glm::vec4(m_scene.bodies[i].orbit_color, kOrbitOpacity));
+        m_orbits.add_line(m_line_points, glm::vec4(m_scene.bodies[i].orbit_color, kOrbitOpacity * fade));
     }
 
     // Lines of apsides, one per periapsis within the trail: from the periapsis
@@ -833,7 +857,7 @@ void App::build_orbit_lines()
     // part over the parent (or a black hole's disk) is left out.
     for (size_t i = 0; i < m_scene.bodies.size(); ++i) {
         const Body& body = m_scene.bodies[i];
-        if (!body.mark_periapsides || !body.visible) {
+        if (!body.mark_periapsides || !body.visible || m_body_fades[i] <= 0.0f) {
             continue;
         }
         const Body& parent = m_scene.bodies[static_cast<size_t>(body.parent)];
@@ -870,7 +894,7 @@ void App::build_orbit_lines()
                 m_line_points.clear();
                 m_line_points.emplace_back(to_render(transform.to_display(center + dir * seg[0]), cam), age);
                 m_line_points.emplace_back(to_render(transform.to_display(center + dir * seg[1]), cam), age);
-                m_orbits.add_line(m_line_points, glm::vec4(color, kOrbitOpacity));
+                m_orbits.add_line(m_line_points, glm::vec4(color, kOrbitOpacity * m_body_fades[i]));
             }
         }
     }

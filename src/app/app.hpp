@@ -26,10 +26,10 @@ union SDL_Event;
 
 namespace astraxis {
 
-// Command line: --scene <file stem> (default jupiter), --event <n> (1-based,
+// Command line: --scene <file stem> (default solar_system), --event <n> (1-based,
 // in the order of the Events list) to start at that event.
 struct LaunchOptions {
-    std::string scene = "jupiter";
+    std::string scene = "solar_system";
     int event = 0; // 0 = none
 };
 
@@ -130,6 +130,8 @@ private:
     std::vector<RingDrawItem> m_ring_items;
     std::vector<glm::dvec3> m_trail_points;
     std::vector<float> m_trail_fades;
+    std::vector<float> m_body_fades;  // per body: label/marker/orbit visibility (satellite_fades)
+    std::vector<float> m_label_alpha; // per body: displayed label opacity, eased toward its target
     std::vector<glm::vec4> m_line_points;
 };
 

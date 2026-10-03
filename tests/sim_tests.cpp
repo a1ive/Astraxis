@@ -344,14 +344,14 @@ void test_ephemeris()
     check(!broken.load(ASTRAXIS_ASSET_DIR "/scenes/jupiter.toml", &error), "rejects a non-ephemeris file");
 }
 
-void test_voyager_scene()
+void test_solar_system_scene()
 {
-    Scene scene = load_scene_or_die("voyager.toml");
+    Scene scene = load_scene_or_die("solar_system.toml");
     const int v1 = scene.find("Voyager 1");
     const int v2 = scene.find("Voyager 2");
     const int jupiter = scene.find("Jupiter");
     const int neptune = scene.find("Neptune");
-    check(v1 > 0 && v2 > 0 && jupiter > 0 && neptune > 0, "voyager.toml bodies");
+    check(v1 > 0 && v2 > 0 && jupiter > 0 && neptune > 0, "solar_system.toml bodies");
 
     // Not launched yet in 1977-07; visible (linearly extrapolated) in 2150.
     double t = 0.0;
@@ -1554,30 +1554,40 @@ void test_kerr_null_geodesics()
           disk_redshift(face_on, 0.0));
 }
 
-// Auto tour: many shots at varying times keep the camera finite and outside bodies.
-void test_camera_director(uint32_t seed)
+// Auto tour: many shots at varying times keep the camera finite and outside
+// bodies. The time warp follows the director's shot warp, as in the app.
+void test_camera_director(const char* scene_file, double base_warp, double minutes, uint32_t seed,
+                          bool* transit_seen = nullptr)
 {
-    Scene scene = load_jupiter();
+    Scene scene = load_scene_or_die(scene_file);
     double t = 0.0;
     parse_utc("2026-10-02 00:00", &t);
     scene.update(t);
 
     OrbitCamera camera;
-    camera.set_up_axis(scene.bodies[0].pole);
+    camera.set_up_axis(scene.up_axis());
     camera.focus(0, scene);
 
     CameraDirector director;
-    director.set_time_warp(3600.0);
+    director.set_time_warp(base_warp);
     director.start(scene, camera, seed);
 
     bool kinds_seen[static_cast<int>(CameraDirector::ShotKind::Count)] = {};
     const double dt = 1.0 / 30.0;
-    for (int frame = 0; frame < 30 * 60 * 20; ++frame) { // 20 minutes of real time
-        t += dt * 3600.0;
+    for (int frame = 0; frame < static_cast<int>(30.0 * 60.0 * minutes); ++frame) {
+        const double warp = director.shot_warp() > 0.0 ? director.shot_warp() : base_warp;
+        director.set_time_warp(warp);
+        t += dt * warp;
         scene.update(t);
         director.update(dt, scene, camera);
         camera.update(dt, scene);
         kinds_seen[static_cast<int>(director.current_shot())] = true;
+        if (director.current_shot() == CameraDirector::ShotKind::ShadowTransit) {
+            check(director.shot_warp() > 0.0 && director.shot_warp() <= 600.0, "transit shot slows time");
+            if (transit_seen) {
+                *transit_seen = true;
+            }
+        }
 
         const CameraView view = camera.view(1920, 1080);
         const bool finite = std::isfinite(view.position.x) && std::isfinite(view.position.y) &&
@@ -1599,6 +1609,49 @@ void test_camera_director(uint32_t seed)
         distinct += seen ? 1 : 0;
     }
     check(distinct >= 3, "director uses at least 3 shot kinds", distinct);
+}
+
+// Moons orbit their planet, and the primary of a barycenter stands for its
+// system; satellites fade out as their orbits shrink on screen.
+void test_satellite_fades()
+{
+    Scene scene;
+    auto add = [&](const char* name, int parent, BodyKind kind, const glm::dvec3& pos) {
+        Body b;
+        b.name = name;
+        b.parent = parent;
+        b.kind = kind;
+        b.world_position = pos;
+        scene.bodies.push_back(std::move(b));
+    };
+    const glm::dvec3 planet(1e8, 0.0, 0.0);
+    const glm::dvec3 bary(-5e9, 0.0, 0.0);
+    add("Sun", -1, BodyKind::Star, glm::dvec3(0.0));
+    add("Planet", 0, BodyKind::Planet, planet);
+    add("Moon", 1, BodyKind::Planet, planet + glm::dvec3(1e6, 0.0, 0.0));
+    add("System", 0, BodyKind::Barycenter, bary);
+    add("Primary", 3, BodyKind::Planet, bary + glm::dvec3(2000.0, 0.0, 0.0));
+    add("Secondary", 3, BodyKind::Planet, bary - glm::dvec3(17000.0, 0.0, 0.0));
+
+    const int hosts[] = {-1, 0, 1, 0, 0, 4};
+    bool hosts_ok = true;
+    for (int i = 0; i < 6; ++i) {
+        hosts_ok = hosts_ok && scene.satellite_host(i) == hosts[i];
+    }
+    check(hosts_ok, "satellite hosts (barycenter primary stands for its system)");
+
+    std::vector<float> fades;
+    // 1e7 km from the planet: the moon's orbit spans 100 px.
+    satellite_fades(scene, planet + glm::dvec3(0.0, 0.0, 1e7), 1000.0, 10.0, 28.0, fades);
+    check(fades[2] == 1.0f && fades[4] == 1.0f && fades[5] == 0.0f, "fades near the planet");
+    // Moon orbit at 19 px, halfway between hide and show.
+    satellite_fades(scene, planet + glm::dvec3(0.0, 0.0, 1e6 * 1000.0 / 19.0), 1000.0, 10.0, 28.0, fades);
+    check(std::abs(fades[2] - 0.5f) < 1e-3f, "fade halfway", fades[2]);
+    // Far out: the planet's orbit spans 1 px, so it and its moon are hidden; the
+    // dwarf-planet system still shows as its primary.
+    satellite_fades(scene, glm::dvec3(0.0, 0.0, 1e11), 1000.0, 10.0, 28.0, fades);
+    check(fades[0] == 1.0f && fades[1] == 0.0f && fades[2] == 0.0f && fades[4] == 1.0f && fades[5] == 0.0f,
+          "fades far out");
 }
 
 // Auto tour around Sgr A*: black hole close-ups happen, and no shot or transition
@@ -1670,7 +1723,7 @@ int main()
     test_tidal_locking();
     test_kepler_propagation();
     test_ephemeris();
-    test_voyager_scene();
+    test_solar_system_scene();
     test_parker_scene();
     test_jupiter_missions();
     test_earth_moon_scene();
@@ -1689,8 +1742,12 @@ int main()
     test_kerr_null_geodesics();
     test_sgr_a_scene();
     test_death_star_precession();
+    test_satellite_fades();
     for (uint32_t seed : {42u, 7u, 2026u, 99u, 12345u}) {
-        test_camera_director(seed);
+        test_camera_director("jupiter.toml", 3600.0, 20.0, seed);
+    }
+    for (uint32_t seed : {1u, 2u, 3u}) {
+        test_camera_director("solar_system.toml", 2629800.0, 10.0, seed);
     }
     test_camera_director_black_hole();
 

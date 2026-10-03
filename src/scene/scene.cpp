@@ -122,6 +122,40 @@ int Scene::star_index() const
     return -1;
 }
 
+int Scene::satellite_host(int body) const
+{
+    const int parent = bodies[static_cast<size_t>(body)].parent;
+    if (parent < 0 || bodies[static_cast<size_t>(parent)].kind != BodyKind::Barycenter) {
+        return parent;
+    }
+    for (int k = parent + 1; k < body; ++k) {
+        const Body& sibling = bodies[static_cast<size_t>(k)];
+        if (sibling.parent == parent && sibling.kind != BodyKind::Barycenter) {
+            return k; // the primary
+        }
+    }
+    return satellite_host(parent); // this is the primary
+}
+
+void satellite_fades(const Scene& scene, const glm::dvec3& camera, double px_per_radian, double hide_px,
+                     double show_px, std::vector<float>& fades)
+{
+    fades.assign(scene.bodies.size(), 1.0f);
+    // Parents and primaries precede their satellites, so host fades are ready.
+    for (size_t i = 0; i < scene.bodies.size(); ++i) {
+        const int host = scene.satellite_host(static_cast<int>(i));
+        if (host < 0) {
+            continue;
+        }
+        const glm::dvec3& host_pos = scene.bodies[static_cast<size_t>(host)].world_position;
+        const double r = glm::length(scene.bodies[i].world_position - host_pos);
+        const double d = glm::length(host_pos - camera);
+        const double px = d > r ? r / d * px_per_radian : show_px;
+        const double own = std::clamp((px - hide_px) / (show_px - hide_px), 0.0, 1.0);
+        fades[i] = static_cast<float>(own * own * (3.0 - 2.0 * own)) * fades[static_cast<size_t>(host)];
+    }
+}
+
 int Scene::lighting_star(int body) const
 {
     for (int p = bodies[static_cast<size_t>(body)].parent; p >= 0; p = bodies[static_cast<size_t>(p)].parent) {

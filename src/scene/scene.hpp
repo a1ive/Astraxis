@@ -225,6 +225,11 @@ public:
     int find(std::string_view body_name) const;
     int star_index() const;
 
+    // The body that `body` is shown orbiting: its parent, except around a
+    // barycenter, where the first child is the primary (shown orbiting the
+    // barycenter's own host) and later children orbit that primary. -1 if none.
+    int satellite_host(int body) const;
+
     void set_active_frame(int index);
     int active_frame() const { return m_active_frame; }
     const DisplayFrame& frame() const { return frames[static_cast<size_t>(m_active_frame)]; }
@@ -282,6 +287,15 @@ private:
 // primary-secondary separation (circular restricted three-body problem):
 // the root of Szebehely's quintic for L1 (point 1) or L2 (point 2).
 double lagrange_gamma(double mass_ratio, int point);
+
+// How much of each body's label, marker and orbit line to show (0..1) for a
+// camera at `camera` (display frame): a body whose distance from its
+// satellite_host spans fewer than hide_px pixels on screen is hidden, and more
+// than show_px fully shown, so that moons merge into their planet when the
+// camera pulls back. Satellites of a hidden body are hidden too.
+// `px_per_radian` is the screen scale (pixels per radian at the view center).
+void satellite_fades(const Scene& scene, const glm::dvec3& camera, double px_per_radian, double hide_px,
+                     double show_px, std::vector<float>& fades);
 
 // Ecliptic north pole (J2000, IAU 2006 obliquity) in ICRF.
 glm::dvec3 ecliptic_pole_icrf();

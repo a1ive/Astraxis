@@ -13,7 +13,8 @@ namespace astraxis {
 // scale of a random orbit, lit-crescent planet close-ups, moons against their
 // planet, spacecraft with their trail, moon shadow transits when one is
 // happening, black holes seen from just above their disk, and precessing
-// orbits seen face-on.
+// orbits seen face-on. Shots of fast motion (a spinning planet, a moon's
+// orbit, a shadow transit) slow the time warp down while they last.
 class CameraDirector {
 public:
     enum class ShotKind {
@@ -43,7 +44,7 @@ public:
     // Time warp the current shot needs (e.g. to follow a fast orbit), or 0.
     double shot_warp() const { return m_active ? m_shot_warp : 0.0; }
 
-    // Index of a moon whose shadow currently falls on the root body, or -1.
+    // Index of a moon whose shadow currently falls on its planet, or -1.
     static int find_shadow_transit(const Scene& scene);
 
 private:

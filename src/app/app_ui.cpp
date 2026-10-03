@@ -20,6 +20,8 @@ namespace {
 
 constexpr float kMarkerRadius = 2.5f;     // points; drawn when the body is smaller than this on screen
 constexpr float kLabelPickRadius = 10.0f; // points
+constexpr float kLabelPadding = 2.0f;     // points around each label when checking overlaps
+constexpr float kLabelFadeSeconds = 0.3f; // labels ease in/out over this long
 
 // "1 s = 2.5 h" style description of a time warp.
 void format_warp(double warp, bool reverse, char* buf, size_t size)
@@ -276,9 +278,23 @@ void App::build_labels()
                       marker.name.c_str());
     }
 
+    // Body labels are placed by priority: the focus, stars, bodies orbiting a
+    // star, spacecraft, then moons, larger bodies first. A label that would
+    // overlap one already placed is left out; labels ease in and out so that
+    // they do not flicker as bodies pass each other.
+    struct Candidate {
+        int body;
+        int rank;
+        ImVec2 screen;
+        float radius_px;
+    };
+    std::vector<Candidate> candidates;
+    const int focus = m_camera.target();
+    m_label_alpha.resize(m_scene.bodies.size(), 0.0f);
     for (size_t i = 0; i < m_scene.bodies.size(); ++i) {
         const Body& body = m_scene.bodies[i];
-        if (!body.visible || body.kind == BodyKind::Barycenter) {
+        if (!body.visible || body.kind == BodyKind::Barycenter || m_body_fades[i] <= 0.0f) {
+            m_label_alpha[i] = 0.0f;
             continue;
         }
         const glm::dvec3 rel = body.world_position - cam;
@@ -291,31 +307,75 @@ void App::build_labels()
                 hidden = occluded(rel, other.world_position - cam, other.equatorial_radius_km);
             }
         }
-        if (hidden) {
-            continue;
-        }
-
         ImVec2 screen;
         float w = 0.0f;
-        if (!project(rel, &screen, &w)) {
+        if (hidden || !project(rel, &screen, &w)) {
+            m_label_alpha[i] = 0.0f;
             continue;
         }
         const float radius_px = static_cast<float>(body.equatorial_radius_km) / w * m_view.focal_y * 0.5f *
                                 io.DisplaySize.y;
+        const int host = m_scene.satellite_host(static_cast<int>(i));
+        int rank = 4; // moons
+        if (static_cast<int>(i) == focus) {
+            rank = 0;
+        } else if (body.kind == BodyKind::Star) {
+            rank = 1;
+        } else if (body.kind == BodyKind::Spacecraft) {
+            rank = 3;
+        } else if (host < 0 || m_scene.bodies[static_cast<size_t>(host)].kind == BodyKind::Star) {
+            rank = 2;
+        }
+        candidates.push_back({static_cast<int>(i), rank, screen, radius_px});
+    }
+    std::sort(candidates.begin(), candidates.end(), [&](const Candidate& a, const Candidate& b) {
+        if (a.rank != b.rank) {
+            return a.rank < b.rank;
+        }
+        return m_scene.bodies[static_cast<size_t>(a.body)].equatorial_radius_km >
+               m_scene.bodies[static_cast<size_t>(b.body)].equatorial_radius_km;
+    });
+
+    std::vector<ImVec4> placed; // label rectangles: min x, min y, max x, max y
+    const float step = io.DeltaTime / kLabelFadeSeconds;
+    for (const Candidate& c : candidates) {
+        const size_t i = static_cast<size_t>(c.body);
+        const Body& body = m_scene.bodies[i];
+        const float fade = m_body_fades[i];
+
+        const float offset = std::max(c.radius_px, kMarkerRadius) * 0.7071f + 4.0f;
+        const ImVec2 text_pos(c.screen.x + offset, c.screen.y - offset - font_size * 0.5f);
+        const ImVec2 text_size = ImGui::CalcTextSize(body.name.c_str());
+        const ImVec4 rect(text_pos.x - kLabelPadding, text_pos.y - kLabelPadding,
+                          text_pos.x + text_size.x + kLabelPadding, text_pos.y + text_size.y + kLabelPadding);
+        bool overlaps = false;
+        for (const ImVec4& r : placed) {
+            if (rect.x < r.z && r.x < rect.z && rect.y < r.w && r.y < rect.w) {
+                overlaps = true;
+                break;
+            }
+        }
+        if (!overlaps && fade > 0.05f) {
+            placed.push_back(rect);
+        }
+        float& eased = m_label_alpha[i];
+        eased = std::clamp(eased + (overlaps ? -step : step), 0.0f, 1.0f);
+        const float alpha = eased * fade;
 
         // Spacecraft are never drawn as bodies, so they always get a marker.
-        if (radius_px < kMarkerRadius || body.kind == BodyKind::Spacecraft) {
-            draw->AddCircleFilled(screen, kMarkerRadius, to_imgui_color(glm::mix(body.color, glm::vec3(1.0f), 0.3f), 0.95f));
+        if (c.radius_px < kMarkerRadius || body.kind == BodyKind::Spacecraft) {
+            draw->AddCircleFilled(c.screen, kMarkerRadius,
+                                  to_imgui_color(glm::mix(body.color, glm::vec3(1.0f), 0.3f), 0.95f * fade));
         }
-        const float offset = std::max(radius_px, kMarkerRadius) * 0.7071f + 4.0f;
-        draw->AddText(ImVec2(screen.x + offset, screen.y - offset - font_size * 0.5f), IM_COL32(220, 225, 235, 190),
-                      body.name.c_str());
+        if (alpha > 0.0f) {
+            draw->AddText(text_pos, IM_COL32(220, 225, 235, static_cast<int>(190.0f * alpha)), body.name.c_str());
+        }
 
-        if (want_pick) {
-            const float dx = io.MousePos.x - screen.x;
-            const float dy = io.MousePos.y - screen.y;
-            if (std::sqrt(dx * dx + dy * dy) < std::max(radius_px, kLabelPickRadius)) {
-                set_focus(static_cast<int>(i));
+        if (want_pick && alpha > 0.3f) {
+            const float dx = io.MousePos.x - c.screen.x;
+            const float dy = io.MousePos.y - c.screen.y;
+            if (std::sqrt(dx * dx + dy * dy) < std::max(c.radius_px, kLabelPickRadius)) {
+                set_focus(c.body);
             }
         }
     }

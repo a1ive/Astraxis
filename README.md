@@ -6,8 +6,8 @@ A quiet, physically grounded astronomy visualizer meant to be left running in th
 
 | Scene | What you see | Motion source |
 |---|---|---|
+| Solar System (default) | The Sun, the planets and both Voyager probes from 1977 on | JPL Horizons ephemerides |
 | Jupiter | Jupiter, its faint rings, the Galilean and four inner moons, and the orbits of Galileo (1995–2003) and Juno (2016–) | JPL Horizons ephemerides, JPL mean orbital elements |
-| Voyager | The Sun, planets and both Voyager probes from 1977 on | JPL Horizons ephemerides |
 | JWST | JWST's halo orbit around Sun–Earth L2 | JPL Horizons ephemerides |
 | Earth–Moon | Artemis II's free-return flight, Artemis I's distant retrograde orbit and CAPSTONE's near-rectilinear halo orbit, in the Earth–Moon rotating frame | JPL Horizons ephemerides |
 | Saturn | Saturn's rings (Cassini radio-occultation optical depths), the seven major moons, Cassini's tour and Huygens' descent to Titan | JPL Horizons ephemerides, JPL mean orbital elements (phases fitted to Horizons) |
