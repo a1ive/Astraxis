@@ -20,6 +20,37 @@
 #
 # Positions are relative to the A+B barycentre. The depth sign of the AB orbit
 # (toward/away from us) follows the visual-binary convention; see visual_orbit.hpp.
+#
+# Proxima's planets are fixed circular Keplerian orbits around Proxima (their
+# periods are far below the N-body step, and their pull on the stars is negligible):
+# [SM25] Suarez Mascareno et al. 2025, A&A 700, A11 (arXiv:2507.21751), Table 3
+#        (adopted model, circular): b and d, time of inferior conjunction T0,
+#        P, a, m sin i; footnote: masses for orbits coplanar with the stellar spin
+#        axis, tilted 47 +- 7 deg (Klein et al. 2021). Sect. 5.3: no significant
+#        detection of c (K = 58 +- 28 cm/s, < 1.4 m/s at 99.7%).
+# [DA20] Damasso et al. 2020, Sci. Adv. 6, eaax7467, Table 1: the candidate c,
+#        P = 1900 d, T_conj = BJD 2455892, e = 0 (fixed), a = 1.48 au,
+#        m sin i = 5.8 M_earth. It remains unconfirmed: Artigau et al. 2022 found
+#        no evidence of it in HARPS data (as summarised in SM25 Sect. 3).
+#        Cross-check: DA20's b conjunction (BJD 2457897.9) falls 236.994 SM25
+#        periods before SM25's, so both papers use the same conjunction convention.
+# [GDR3] Gaia DR3 via SIMBAD: Proxima at RA 217.42894222, Dec -62.67949019 deg.
+# [CK17] Chen & Kipping 2017, ApJ 834, 17 (arXiv:1603.08614), Table 1:
+#        R = 1.008 M^0.2790 below 2.04 M_earth, R proportional to M^0.589 above
+#        (Earth units, continuous at the transition).
+# Radial velocities fix neither i nor the node. All three orbits are taken as
+# coplanar with i = 47 deg (as SM25's footnote) and Omega = 0; both are assumptions.
+# (Kervella et al. 2020 derived i and Omega for c from the Gaia DR2 proper-motion
+# anomaly, but the mean RV they derive over the Gaia window (-0.94 m/s) implies
+# the opposite phase to DA20's inferior conjunction; not used.)
+# Masses at i = 47 deg: d 0.356, b 1.443, c 7.93 M_earth; [CK17] radii
+# 0.755, 1.116, 2.736 R_earth (R_earth = 6371.0 km, JPL SSD). None transits:
+# radii and colours are estimates / artistic.
+# The orbits' reference plane is the sky plane at Proxima: its pole points away
+# from us, so the plane's x axis (node on the ICRF equator) is east and the
+# mean_elements node is Omega - 90 deg. At inferior conjunction the planet is in
+# front of the star, i.e. argument of latitude 270 deg (omega = 0, M = 270 deg).
+# Check (tests/sim_tests.cpp): Proxima's reflex velocity is -K sin(2 pi (t - T0) / P).
 
 name = "Alpha Centauri"
 
@@ -71,6 +102,61 @@ trail_history_days = 365250.0  # a thousand years: Proxima's orbit takes ~550,00
 type = "nbody"
 
 [[bodies]]
+name = "Proxima Centauri d"
+parent = "Proxima Centauri"
+radii_km = [4812.0]            # 0.755 R_earth [CK17], assuming i = 47 deg
+color = "#b3a08a"
+orbit_color = "#ffd08a"
+[bodies.orbit]                 # [SM25], oriented on the sky at [GDR3]
+type = "mean_elements"
+epoch_jd_tdb = 2460557.55      # inferior conjunction (BJD_TDB)
+a_km = 4309915.0               # 0.02881 au
+e = 0.0
+arg_peri_deg = 0.0
+mean_anomaly_deg = 270.0
+i_deg = 47.0                   # assumed (coplanar with the stellar spin)
+node_deg = -90.0               # Omega = 0 (assumed) - 90 deg
+period_days = 5.12338
+laplace_pole_ra_dec_deg = [217.42894222, -62.67949019]
+
+[[bodies]]
+name = "Proxima Centauri b"
+parent = "Proxima Centauri"
+radii_km = [7113.0]            # 1.116 R_earth [CK17], assuming i = 47 deg
+color = "#a08e7c"
+orbit_color = "#ffb08a"
+[bodies.orbit]                 # [SM25], oriented on the sky at [GDR3]
+type = "mean_elements"
+epoch_jd_tdb = 2460548.59      # inferior conjunction (BJD_TDB)
+a_km = 7252505.0               # 0.04848 au
+e = 0.0
+arg_peri_deg = 0.0
+mean_anomaly_deg = 270.0
+i_deg = 47.0                   # assumed (coplanar with the stellar spin)
+node_deg = -90.0               # Omega = 0 (assumed) - 90 deg
+period_days = 11.18465
+laplace_pole_ra_dec_deg = [217.42894222, -62.67949019]
+
+[[bodies]]
+name = "Proxima Centauri c (unconfirmed)"
+parent = "Proxima Centauri"
+radii_km = [17433.0]           # 2.736 R_earth [CK17], assuming i = 47 deg
+color = "#9fb4c8"
+style = "gas_giant"
+orbit_color = "#a0b8d8"
+[bodies.orbit]                 # [DA20], oriented on the sky at [GDR3]
+type = "mean_elements"
+epoch_jd_tdb = 2455892.0       # inferior conjunction (BJD_TDB)
+a_km = 221404849.0             # 1.48 au
+e = 0.0
+arg_peri_deg = 0.0
+mean_anomaly_deg = 270.0
+i_deg = 47.0                   # assumed (coplanar with the stellar spin)
+node_deg = -90.0               # Omega = 0 (assumed) - 90 deg
+period_days = 1900.0
+laplace_pole_ra_dec_deg = [217.42894222, -62.67949019]
+
+[[bodies]]
 name = "Sun"
 parent = "Alpha Centauri AB"
 kind = "star"
@@ -119,6 +205,11 @@ name = "Alpha Centauri A-centered"
 type = "inertial"
 origin = "Alpha Centauri A"
 
+[[frames]]
+name = "Proxima Centauri-centered"
+type = "inertial"
+origin = "Proxima Centauri"
+
 [[events]]
 name = "Apastron (1995-06)"
 time = "1995-06-12"
@@ -132,6 +223,22 @@ time = "2035-01-01"
 focus = "Alpha Centauri AB"
 distance_km = 5.0e9
 warp = 1209600.0
+
+[[events]]
+name = "Proxima d and b, 0.03 and 0.05 au from their star"
+time = "2026-01-01"
+focus = "Proxima Centauri"
+distance_km = 3.0e7
+warp = 21600.0                 # 6 hours per second: b orbits in 45 s, d in 20 s
+frame = "Proxima Centauri-centered"
+
+[[events]]
+name = "Proxima c (unconfirmed), 1.5 au out"
+time = "2026-01-01"
+focus = "Proxima Centauri"
+distance_km = 8.0e8
+warp = 2592000.0               # 30 days per second: c orbits in 63 s
+frame = "Proxima Centauri-centered"
 
 [[events]]
 name = "Proxima and the pair, from afar"
