@@ -269,6 +269,7 @@ std::unique_ptr<MotionSource> Loader::parse_motion(const toml::table& t, const s
         el.period_days = get_double(t, "period_days", ctx);
         el.apsis_period_years = get_double_or(t, "apsis_period_years", 0.0);
         el.node_period_years = get_double_or(t, "node_period_years", 0.0);
+        el.mean_anomaly_accel_deg_per_day2 = get_double_or(t, "mean_anomaly_accel_deg_per_day2", 0.0);
         double pole[2] = {0.0, 90.0};
         if (t.contains("laplace_pole_ra_dec_deg")) {
             get_array(t, "laplace_pole_ra_dec_deg", ctx, pole, 2, 2);
@@ -461,15 +462,20 @@ void Loader::parse(const toml::table& root, Scene& out)
             }
             const double m = body.gm_km3_s2 / (kSpeedOfLightKmS * kSpeedOfLightKmS);
             body.equatorial_radius_km = body.polar_radius_km = m + m * std::sqrt(1.0 - body.spin * body.spin);
+            body.equatorial_radius_b_km = body.equatorial_radius_km;
         } else if (body.kind == BodyKind::Barycenter) {
-            body.equatorial_radius_km = body.polar_radius_km = 1.0;
+            body.equatorial_radius_km = body.equatorial_radius_b_km = body.polar_radius_km = 1.0;
         } else {
-            double radii[2] = {0.0, 0.0};
-            get_array(*t, "radii_km", ctx, radii, 1, 2);
+            // [mean], [equatorial, polar] or [a, b, c] (a along the prime meridian).
+            double radii[3] = {0.0, 0.0, 0.0};
+            get_array(*t, "radii_km", ctx, radii, 1, 3);
+            const bool triaxial = radii[2] > 0.0;
             body.equatorial_radius_km = radii[0];
-            body.polar_radius_km = radii[1] > 0.0 ? radii[1] : radii[0];
-            if (body.equatorial_radius_km <= 0.0) {
-                fail(ctx, "radii must be positive");
+            body.equatorial_radius_b_km = triaxial ? radii[1] : radii[0];
+            body.polar_radius_km = triaxial ? radii[2] : (radii[1] > 0.0 ? radii[1] : radii[0]);
+            if (body.equatorial_radius_b_km <= 0.0 || body.polar_radius_km <= 0.0 ||
+                body.equatorial_radius_km < body.equatorial_radius_b_km) {
+                fail(ctx, "radii must be positive (and a >= b for [a, b, c])");
             }
         }
 
@@ -606,6 +612,10 @@ void Loader::parse(const toml::table& root, Scene& out)
             }
             m_current_body = static_cast<int>(out.bodies.size());
             body.motion = parse_motion(*orbit, ctx + " orbit", &out.bodies[static_cast<size_t>(body.parent)]);
+            // `scale` applies to the whole motion (fallback included).
+            if (orbit->contains("scale")) {
+                body.motion = std::make_unique<ScaledMotion>(std::move(body.motion), get_double(*orbit, "scale", ctx));
+            }
         } else if (body.parent >= 0) {
             fail(ctx, "bodies with a parent need an [orbit]");
         }

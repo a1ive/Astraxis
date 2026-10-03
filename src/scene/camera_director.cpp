@@ -161,7 +161,7 @@ void CameraDirector::next_shot(const Scene& scene, OrbitCamera& camera)
         if (b.mark_periapsides && b.motion) {
             precessing.push_back(idx);
         }
-        if (b.parent == 0 && b.kind != BodyKind::Barycenter) {
+        if (b.kind != BodyKind::Barycenter && scene.satellite_host(idx) == 0) {
             root_orbits.push_back(idx);
         }
     }

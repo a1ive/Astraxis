@@ -1,23 +1,49 @@
-# The Solar System: the Sun, the planets and the spacecraft that left it (Voyager 1 and 2), 1977 onward.
+# The Solar System: the Sun, the planets, the major moons, the dwarf planets and the
+# largest asteroids (radius > 400 km, plus Phobos, Deimos, Vesta, Pallas, Enceladus,
+# Mimas and Miranda), and the Voyager probes, 1977 onward.
 #
 # Sources
 # [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py (tools/bake/ephem.toml):
-#        heliocentric ICRF, 1977..2100. Planets are system barycenters (Earth = Earth-Moon
-#        barycenter). Voyager trajectories before 1981-01-01 (V1) / 1989-08-29 (V2) are
-#        patched-conic reconstructions of "rough accuracy" (Horizons notes); e.g. the baked
-#        V2 Neptune closest approach is ~4,000 km farther than the historical value.
+#        - planets: heliocentric system barycenters, 1977..2100; Voyager trajectories before
+#          1981-01-01 (V1) / 1989-08-29 (V2) are patched-conic reconstructions of "rough
+#          accuracy" (Horizons notes); e.g. the baked V2 Neptune closest approach is ~4,000
+#          km farther than the historical value.
+#        - the geocentric Moon, Charon relative to Pluto, the Pluto system barycenter and the
+#          small bodies, 1972..2100 (Kepler-relative tables).
+#        - Jupiter's and Saturn's moons relative to the planet's center (copied from
+#          jupiter.toml / saturn.toml; see the notes there), while the planets here are
+#          system barycenters: offsets of a few hundred km.
 # [APX]  E. M. Standish, Approximate Positions of the Planets, Table 2a (+2b), used for
 #        Mercury, Venus and Mars, and outside the baked span for the others.
+# [ELEM] JPL SSD, Planetary Satellite Mean Elements (https://ssd.jpl.nasa.gov/sats/elem/),
+#        epoch 2000-01-01.5 TDB; ephemerides as noted at each moon.
+# [SPHY] JPL SSD, Planetary Satellite Physical Parameters (https://ssd.jpl.nasa.gov/sats/phys_par/).
+# [SBDB] JPL Small-Body Database (https://ssd-api.jpl.nasa.gov/sbdb.api), osculating
+#        heliocentric elements, J2000 ecliptic, epoch JD 2461200.5 TDB = 2026-06-09
+#        (Pluto: 2457588.5 = 2016-07-19).
 # [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
-# [PCK]  NAIF pck00011.tpc (IAU 2015): radii, poles, prime meridians (T terms ignored).
+# [PCK]  NAIF pck00011.tpc (IAU 2015): radii, poles, prime meridians (T terms ignored
+#        unless given).
+# [ERIS] Sicardy et al. 2011, Nature 478, 493: R = 1163 +- 6 km (stellar occultation).
+# [HAUM] Ortiz et al. 2017, Nature 550, 219 (arXiv:2006.03113): semi-axes 1161 x 852 x 513
+#        km, ring pole RA 285.1, Dec -10.6 deg (J2000; solution 1), rotation 3.915341 h.
+# [MAKE] Brown 2013, ApJL 767, L7 (arXiv:1304.1041): equatorial diameter 1434 +- 14 km.
+# [GONG] Kiss et al. 2019, Icarus 334, 3 (arXiv:1903.05439): diameter 1230 +- 50 km.
+# [QUAO] Margoti et al. 2026 (arXiv:2607.06450): oblate ellipsoid, a = b = 566.1 km,
+#        c = 511.2 km, from 37 stellar occultations.
+# [SEDN] Pal et al. 2012, A&A 541, L6 (arXiv:1204.0899): diameter 995 +- 80 km.
+# [MARS] Marsset et al. 2020, Nature Astronomy 4, 569 (via [SBDB]): Pallas 568 x 532 x 448 km.
+# [PDSR], [RSS]: Jupiter's and Saturn's rings, see jupiter.toml / saturn.toml.
 # Flyby times/distances: computed from the baked data by the bake tool (TDB).
 # Mission timeline events: Horizons spacecraft notes.
+#
+# Colors are sRGB and illustrative where no surface map is used.
 
 name = "Solar System"
 
 [view]
 focus = "Sun"
-distance_km = 2.5e10       # ~170 au: both spacecraft and their paths
+distance_km = 2.5e10       # ~170 au: the Kuiper belt, the scattered disk and both Voyagers
 start = "now"
 warp = 2629800.0           # 1 month per second
 up = "ecliptic"
@@ -65,16 +91,16 @@ mean_longitude_deg = [181.97970850, 58517.81560260]
 lon_peri_deg = [131.76755713, 0.05679648]
 node_deg = [76.67261496, -0.27274174]
 
+# --- Earth and Moon ----------------------------------------------------------------
+# Both orbit their barycenter: Earth at -mu r, the Moon at (1 - mu) r, with r the
+# geocentric Moon and mu = 4902.800118 / (398600.435507 + 4902.800118) [GM].
+
 [[bodies]]
-name = "Earth"
+name = "Earth-Moon barycenter"
 parent = "Sun"
-radii_km = [6378.1366, 6356.7519]
-pole_ra_dec_deg = [0.0, 90.0]
-prime_meridian_deg = [190.147, 360.9856235]
-color = "#5b86c9"
+kind = "barycenter"
+gm_km3_s2 = 403503.235625                  # Earth + Moon, for the Moon's relative orbit [GM]
 orbit_color = "#7fa6e0"
-texture = "textures/earth.jpg"
-texture_left_lon_deg = -180.0
 [bodies.orbit]                             # [HZN] Earth-Moon barycenter
 type = "ephemeris"
 file = "ephem/emb.eph"
@@ -88,9 +114,69 @@ lon_peri_deg = [102.93005885, 0.31795260]
 node_deg = [-5.11260389, -0.24123856]
 
 [[bodies]]
+name = "Earth"
+parent = "Earth-Moon barycenter"
+radii_km = [6378.1366, 6356.7519]
+pole_ra_dec_deg = [0.0, 90.0]
+prime_meridian_deg = [190.147, 360.9856235]
+color = "#5b86c9"
+trail = "none"                             # its heliocentric orbit is the barycenter's
+texture = "textures/earth.jpg"
+texture_left_lon_deg = -180.0
+[bodies.orbit]                             # [HZN] 301 (geocentric Moon), scaled by -mu
+scale = -0.0121505844
+type = "ephemeris"
+file = "ephem/moon.eph"
+fallback_blend_days = 1.0
+[bodies.orbit.fallback]                    # [ELEM] DE405/LE405, J2000 ecliptic (drifts by degrees)
+type = "mean_elements"
+a_km = 384400.0
+e = 0.0554
+arg_peri_deg = 318.15
+mean_anomaly_deg = 135.27
+i_deg = 5.16
+node_deg = 125.08
+period_days = 27.555032                    # of M; [ELEM] P = 27.322 (mean longitude)
+apsis_period_years = 5.997
+node_period_years = -18.600
+laplace_pole_ra_dec_deg = [270.0, 66.56070889]
+
+[[bodies]]
+name = "Moon"
+parent = "Earth-Moon barycenter"
+radii_km = [1737.4]                        # [PCK]
+pole_ra_dec_deg = [269.9949, 66.5392]      # [PCK] (libration terms ignored)
+prime_meridian_deg = [38.3213, 13.17635815]
+pole_rate_deg_per_century = [0.0031, 0.0130]
+color = "#a8a49c"
+orbit_color = "#b4b8c4"
+texture = "textures/moon.jpg"              # NASA SVS CGI Moon Kit (as in earth_moon.toml)
+texture_left_lon_deg = -180.0
+[bodies.orbit]                             # [HZN] 301, scaled by 1 - mu
+scale = 0.9878494156
+type = "ephemeris"
+file = "ephem/moon.eph"
+fallback_blend_days = 1.0
+[bodies.orbit.fallback]                    # [ELEM] DE405/LE405, J2000 ecliptic (drifts by degrees)
+type = "mean_elements"
+a_km = 384400.0
+e = 0.0554
+arg_peri_deg = 318.15
+mean_anomaly_deg = 135.27
+i_deg = 5.16
+node_deg = 125.08
+period_days = 27.555032                    # of M; [ELEM] P = 27.322 (mean longitude)
+apsis_period_years = 5.997
+node_period_years = -18.600
+laplace_pole_ra_dec_deg = [270.0, 66.56070889]
+
+# --- Mars ----------------------------------------------------------------------------
+
+[[bodies]]
 name = "Mars"
 parent = "Sun"
 radii_km = [3396.19, 3376.20]
+gm_km3_s2 = 42828.375816                  # system [GM]
 pole_ra_dec_deg = [317.269202, 54.432516]
 prime_meridian_deg = [176.049863, 350.891982443297]
 color = "#c1673e"
@@ -104,18 +190,73 @@ mean_longitude_deg = [-4.56813164, 19140.29934243]
 lon_peri_deg = [-23.91744784, 0.45223625]
 node_deg = [49.71320984, -0.26852431]
 
+# Phobos and Deimos [ELEM] (MAR099, Laplace planes). [ELEM] rounds P to 4-5 digits,
+# which loses the phase within decades (Phobos makes 146,000 orbits from 1972 to
+# 2100). Both rotate synchronously, so the mean longitude advances at the PCK spin
+# rate W' (with Phobos' tidal acceleration, the quadratic PM term), and
+# period_days (of M) = 360 / (W' - apsis rate - node rate), with apsides advancing
+# and nodes regressing (Mars' oblateness). Against Horizons over 1972-2100 the
+# direction is within 2.0 deg rms (Phobos) and 0.3 deg (Deimos), with [ELEM]'s phases.
+
+[[bodies]]
+name = "Phobos"
+parent = "Mars"
+radii_km = [13.0, 11.4, 9.1]               # [PCK], long axis toward Mars
+pole_ra_dec_deg = [317.67071657, 52.88627266]  # [PCK] (periodic terms ignored)
+prime_meridian_deg = [35.18774440, 1128.84475928]
+pole_rate_deg_per_century = [-0.10844326, -0.06134706]
+color = "#7d746b"
+orbit_color = "#a0968c"
+[bodies.orbit]                             # [ELEM]
+type = "mean_elements"
+a_km = 9375.0
+e = 0.015
+arg_peri_deg = 216.3
+mean_anomaly_deg = 189.7
+i_deg = 1.1
+node_deg = 169.2
+period_days = 0.319042230                  # from the PCK spin rate; [ELEM] P = 0.3187
+mean_anomaly_accel_deg_per_day2 = 9.536137031212154e-09   # [PCK] quadratic PM term
+apsis_period_years = 1.1
+node_period_years = -2.3
+laplace_pole_ra_dec_deg = [317.7, 52.9]
+
+[[bodies]]
+name = "Deimos"
+parent = "Mars"
+radii_km = [7.8, 6.0, 5.1]                 # [PCK]
+pole_ra_dec_deg = [316.65705808, 53.50992033]  # [PCK] (periodic terms ignored)
+prime_meridian_deg = [79.39932954, 285.16188899]
+pole_rate_deg_per_century = [-0.10518014, -0.05979094]
+color = "#8f857a"
+orbit_color = "#b0a698"
+[bodies.orbit]                             # [ELEM]
+type = "mean_elements"
+a_km = 23457.0
+e = 0.0
+arg_peri_deg = 0.0
+mean_anomaly_deg = 205.0
+i_deg = 1.8
+node_deg = 54.3
+period_days = 1.262363152                  # from the PCK spin rate; [ELEM] P = 1.2625
+node_period_years = -56.2
+laplace_pole_ra_dec_deg = [316.6, 53.5]
+
+# --- Jupiter (body, rings and Galilean moons copied from jupiter.toml) --------------
+
 [[bodies]]
 name = "Jupiter"
 parent = "Sun"
-radii_km = [71492.0, 66854.0]
-gm_km3_s2 = 126712764.1                    # system [GM]
-pole_ra_dec_deg = [268.056595, 64.495303]
-prime_meridian_deg = [284.95, 870.5360000]
+radii_km = [71492.0, 66854.0]          # equatorial, polar [PCK]
+gm_km3_s2 = 126712764.1                # system [GM]; osculating orbits of the moons and spacecraft
+pole_ra_dec_deg = [268.056595, 64.495303] # [PCK]
+prime_meridian_deg = [284.95, 870.5360000] # W0, deg/day (System III) [PCK]
 color = "#e0cdb0"
 style = "gas_giant"
-orbit_color = "#e0c49a"
+# Atmospheric features drift in longitude, so the map alignment is arbitrary.
 texture = "textures/jupiter.jpg"
 texture_left_lon_deg = -180.0
+orbit_color = "#e0c49a"
 [bodies.orbit]                             # [HZN] Jupiter barycenter
 type = "ephemeris"
 file = "ephem/jupiter.eph"
@@ -132,14 +273,201 @@ c = 0.06064060
 s = -0.35635438
 f = 38.35125000
 
+# Faint dusty rings, single scattering (see shaders/ring.frag.hlsl). Radii, normal
+# optical depths and thicknesses [PDSR]. The real rings are about a millionth as
+# bright as Jupiter's disk, so `gain` is artistic; their relative brightness, the
+# brightening toward edge-on, the forward scattering and Jupiter's shadow are not.
+# Tint and phase asymmetry are illustrative (reddish dust, forward scattering).
+[bodies.rings]
+color = "#c9a487"
+gain = 5.0e4
+phase_g = 0.5
+
+[[bodies.rings.bands]]
+name = "Halo"
+inner_km = 89400.0
+outer_km = 123000.0
+optical_depth = 3.0e-6
+thickness_km = 10000.0
+
+[[bodies.rings.bands]]
+name = "Main ring"
+inner_km = 123000.0
+outer_km = 128940.0
+optical_depth = 5.0e-6
+thickness_km = 100.0
+
+[[bodies.rings.bands]]
+name = "Amalthea gossamer ring"
+inner_km = 128940.0
+outer_km = 181350.0
+optical_depth = 1.0e-7
+thickness_km = 2600.0
+
+[[bodies.rings.bands]]
+name = "Thebe gossamer ring"
+inner_km = 128940.0
+outer_km = 221900.0
+optical_depth = 1.0e-7
+thickness_km = 8800.0
+
+[[bodies.rings.bands]]
+name = "Thebe extension"
+inner_km = 221900.0
+outer_km = 280000.0
+optical_depth = 1.0e-8
+thickness_km = 8800.0
+
+[[bodies]]
+name = "Io"
+parent = "Jupiter"
+radii_km = [1821.49]                   # mean radius [SPHY]
+pole_ra_dec_deg = [268.05, 64.50]      # [PCK]
+prime_meridian_deg = [200.39, 203.4889538]
+color = "#edd173"
+orbit_color = "#f2cc66"
+texture = "textures/io.jpg"
+texture_left_lon_deg = -180.0
+
+[bodies.orbit]                         # [HZN] 501, Juno span
+type = "ephemeris"
+file = "ephem/io_juno.eph"
+fallback_blend_days = 1.0
+
+[bodies.orbit.fallback]                # [HZN] 501, Galileo span
+type = "ephemeris"
+file = "ephem/io_gll.eph"
+fallback_blend_days = 1.0
+
+[bodies.orbit.fallback.fallback]       # [ELEM]
+type = "mean_elements"
+a_km = 421800.0
+e = 0.004
+arg_peri_deg = 49.1
+mean_anomaly_deg = 330.9
+i_deg = 0.0
+node_deg = 0.0
+period_days = 1.762732
+apsis_period_years = -1.333
+node_period_years = 0.0
+laplace_pole_ra_dec_deg = [268.1, 64.5]
+
+[[bodies]]
+name = "Europa"
+parent = "Jupiter"
+radii_km = [1560.80]
+pole_ra_dec_deg = [268.08, 64.51]
+prime_meridian_deg = [36.022, 101.3747235]
+color = "#dbccb3"
+orbit_color = "#bfd9f2"
+texture = "textures/europa.jpg"
+texture_left_lon_deg = 0.0
+
+[bodies.orbit]                         # [HZN] 502, Juno span
+type = "ephemeris"
+file = "ephem/europa_juno.eph"
+fallback_blend_days = 1.0
+
+[bodies.orbit.fallback]                # [HZN] 502, Galileo span
+type = "ephemeris"
+file = "ephem/europa_gll.eph"
+fallback_blend_days = 1.0
+
+[bodies.orbit.fallback.fallback]       # [ELEM]
+type = "mean_elements"
+a_km = 671100.0
+e = 0.009
+arg_peri_deg = 45.0
+mean_anomaly_deg = 345.4
+i_deg = 0.5
+node_deg = 184.0
+period_days = 3.525463
+apsis_period_years = -1.394
+node_period_years = -30.202
+laplace_pole_ra_dec_deg = [268.1, 64.5]
+
+[[bodies]]
+name = "Ganymede"
+parent = "Jupiter"
+radii_km = [2631.20]
+pole_ra_dec_deg = [268.20, 64.57]
+prime_meridian_deg = [44.064, 50.3176081]
+color = "#9e9485"
+orbit_color = "#b3e6b3"
+texture = "textures/ganymede.jpg"
+texture_left_lon_deg = 0.0
+
+[bodies.orbit]                         # [HZN] 503, Juno span
+type = "ephemeris"
+file = "ephem/ganymede_juno.eph"
+fallback_blend_days = 1.0
+
+[bodies.orbit.fallback]                # [HZN] 503, Galileo span
+type = "ephemeris"
+file = "ephem/ganymede_gll.eph"
+fallback_blend_days = 1.0
+
+[bodies.orbit.fallback.fallback]       # [ELEM]
+type = "mean_elements"
+a_km = 1070400.0
+e = 0.001
+arg_peri_deg = 198.3
+mean_anomaly_deg = 324.8
+i_deg = 0.2
+node_deg = 58.5
+period_days = 7.155588
+apsis_period_years = 68.301
+node_period_years = -137.812
+laplace_pole_ra_dec_deg = [268.2, 64.6]
+
+[[bodies]]
+name = "Callisto"
+parent = "Jupiter"
+radii_km = [2410.30]
+pole_ra_dec_deg = [268.72, 64.83]
+prime_meridian_deg = [259.51, 21.5710715]
+color = "#73695c"
+orbit_color = "#d9b3e6"
+texture = "textures/callisto.jpg"
+texture_left_lon_deg = 0.0
+
+[bodies.orbit]                         # [HZN] 504, Juno span
+type = "ephemeris"
+file = "ephem/callisto_juno.eph"
+fallback_blend_days = 1.0
+
+[bodies.orbit.fallback]                # [HZN] 504, Galileo span
+type = "ephemeris"
+file = "ephem/callisto_gll.eph"
+fallback_blend_days = 1.0
+
+[bodies.orbit.fallback.fallback]       # [ELEM]
+type = "mean_elements"
+a_km = 1882700.0
+e = 0.007
+arg_peri_deg = 43.8
+mean_anomaly_deg = 87.4
+i_deg = 0.3
+node_deg = 309.1
+period_days = 16.690440
+apsis_period_years = 277.921
+node_period_years = -577.264
+laplace_pole_ra_dec_deg = [268.7, 64.8]
+
+# --- Saturn (body, rings and moons copied from saturn.toml) --------------------------
+
 [[bodies]]
 name = "Saturn"
 parent = "Sun"
-radii_km = [60268.0, 54364.0]
+radii_km = [60268.0, 54364.0]              # equatorial, polar [PCK]
 gm_km3_s2 = 37940584.8418                  # system [GM]
-pole_ra_dec_deg = [40.589, 83.537]
-prime_meridian_deg = [38.90, 810.7939024]
+pole_ra_dec_deg = [40.589, 83.537]         # [PCK]
+prime_meridian_deg = [38.90, 810.7939024]  # System III [PCK]
+pole_rate_deg_per_century = [-0.036, -0.004]
+nut_prec_angles = [[353.32, 75706.7], [28.72, 75706.7], [177.40, -36505.5], [300.00, -7225.9],
+                   [316.45, 506.2], [345.20, -1016.3], [706.64, 151413.4], [57.44, 151413.4]]  # [PCK] BODY6
 color = "#e3d3a3"
+style = "saturn"
 orbit_color = "#d9c89a"
 [bodies.orbit]                             # [HZN] Saturn barycenter
 type = "ephemeris"
@@ -156,6 +484,219 @@ b = 0.00025899
 c = -0.13434469
 s = 0.87320147
 f = 38.35125000
+
+[bodies.rings]                             # [RSS]
+profile = "rings/saturn_rss.ring"
+color = "#d6c3a0"
+gain = 1.0
+phase_g = -0.3
+
+[[bodies]]
+name = "Mimas"
+parent = "Saturn"
+radii_km = [198.2]                         # mean radius [SPHY]
+pole_ra_dec_deg = [40.66, 83.52]           # [PCK]
+prime_meridian_deg = [333.46, 381.9945550]
+pole_rate_deg_per_century = [-0.036, -0.004]
+nut_prec_ra = [0.0, 0.0, 13.56]
+nut_prec_dec = [0.0, 0.0, -1.53]
+nut_prec_pm = [0.0, 0.0, -13.48, 0.0, -44.85]
+color = "#b8b4ae"
+orbit_color = "#b0aca6"
+texture = "textures/mimas.jpg"
+texture_left_lon_deg = -180.0
+[bodies.orbit]                             # [HZN] 601
+type = "ephemeris"
+file = "ephem/mimas_cas.eph"
+fallback_blend_days = 1.0
+[bodies.orbit.fallback]                    # [ELEM]
+type = "mean_elements"
+a_km = 186000.0
+e = 0.020
+arg_peri_deg = 336.77                      # fitted; [ELEM] 160.4
+mean_anomaly_deg = 357.53                  # fitted; [ELEM] 275.3
+i_deg = 1.6
+node_deg = 173.48                          # fitted; [ELEM] 66.2
+period_days = 0.944894454                  # from the PCK spin rate; [ELEM] P = 0.942422 (mean longitude)
+apsis_period_years = 0.493
+node_period_years = -0.986
+laplace_pole_ra_dec_deg = [40.6, 83.5]
+
+[[bodies]]
+name = "Enceladus"
+parent = "Saturn"
+radii_km = [252.1]
+pole_ra_dec_deg = [40.66, 83.52]
+prime_meridian_deg = [6.32, 262.7318996]
+pole_rate_deg_per_century = [-0.036, -0.004]
+color = "#f2f2f0"
+orbit_color = "#d8e4ee"
+texture = "textures/enceladus.jpg"
+texture_left_lon_deg = 0.0
+[bodies.orbit]                             # [HZN] 602
+type = "ephemeris"
+file = "ephem/enceladus_cas.eph"
+fallback_blend_days = 1.0
+[bodies.orbit.fallback]                    # [ELEM]
+type = "mean_elements"
+a_km = 238400.0
+e = 0.005
+arg_peri_deg = 119.50                      # fitted; [ELEM] 119.5
+mean_anomaly_deg = 62.72                   # fitted; [ELEM] 57.0
+i_deg = 0.0
+node_deg = 0.00                            # fitted; [ELEM] 0.0
+period_days = 1.371983149                  # [ELEM] P = 1.370218
+apsis_period_years = 2.916
+node_period_years = 0.0
+laplace_pole_ra_dec_deg = [40.6, 83.5]
+
+[[bodies]]
+name = "Tethys"
+parent = "Saturn"
+radii_km = [531.1]
+pole_ra_dec_deg = [40.66, 83.52]
+prime_meridian_deg = [8.95, 190.6979085]
+pole_rate_deg_per_century = [-0.036, -0.004]
+nut_prec_ra = [0.0, 0.0, 0.0, 9.66]
+nut_prec_dec = [0.0, 0.0, 0.0, -1.09]
+nut_prec_pm = [0.0, 0.0, 0.0, -9.60, 2.23]
+color = "#dcdad6"
+orbit_color = "#c8c4be"
+texture = "textures/tethys.jpg"
+texture_left_lon_deg = -180.0
+[bodies.orbit]                             # [HZN] 603
+type = "ephemeris"
+file = "ephem/tethys_cas.eph"
+fallback_blend_days = 1.0
+[bodies.orbit.fallback]                    # [ELEM]
+type = "mean_elements"
+a_km = 295000.0
+e = 0.001
+arg_peri_deg = 348.50                      # fitted; [ELEM] 335.3
+mean_anomaly_deg = 300.70                  # fitted; [ELEM] 0.0
+i_deg = 1.1
+node_deg = 259.80                          # fitted; [ELEM] 273.0
+period_days = 1.885846110                  # [ELEM] P = 1.887802
+apsis_period_years = 0.0                   # [ELEM] lists 0.005 (see above)
+node_period_years = -4.982
+laplace_pole_ra_dec_deg = [40.6, 83.5]
+
+[[bodies]]
+name = "Dione"
+parent = "Saturn"
+radii_km = [561.4]
+pole_ra_dec_deg = [40.66, 83.52]
+prime_meridian_deg = [357.6, 131.5349316]
+pole_rate_deg_per_century = [-0.036, -0.004]
+color = "#cfccc6"
+orbit_color = "#bcc8d4"
+texture = "textures/dione.jpg"
+texture_left_lon_deg = -180.0
+[bodies.orbit]                             # [HZN] 604
+type = "ephemeris"
+file = "ephem/dione_cas.eph"
+fallback_blend_days = 1.0
+[bodies.orbit.fallback]                    # [ELEM]
+type = "mean_elements"
+a_km = 377700.0
+e = 0.002
+arg_peri_deg = 116.00                      # fitted; [ELEM] 116.0
+mean_anomaly_deg = 60.90                   # fitted; [ELEM] 212.0
+i_deg = 0.0
+node_deg = 0.00                            # fitted; [ELEM] 0.0
+period_days = 2.738669834                  # [ELEM] P = 2.736916
+apsis_period_years = 11.698
+node_period_years = 0.0
+laplace_pole_ra_dec_deg = [40.6, 83.5]
+
+[[bodies]]
+name = "Rhea"
+parent = "Saturn"
+radii_km = [763.5]
+pole_ra_dec_deg = [40.38, 83.55]
+prime_meridian_deg = [235.16, 79.6900478]
+pole_rate_deg_per_century = [-0.036, -0.004]
+nut_prec_ra = [0.0, 0.0, 0.0, 0.0, 0.0, 3.10]
+nut_prec_dec = [0.0, 0.0, 0.0, 0.0, 0.0, -0.35]
+nut_prec_pm = [0.0, 0.0, 0.0, 0.0, 0.0, -3.08]
+color = "#c9c5bf"
+orbit_color = "#c4bcd8"
+texture = "textures/rhea.jpg"
+texture_left_lon_deg = -180.0
+[bodies.orbit]                             # [HZN] 605
+type = "ephemeris"
+file = "ephem/rhea_cas.eph"
+fallback_blend_days = 1.0
+[bodies.orbit.fallback]                    # [ELEM]
+type = "mean_elements"
+a_km = 527200.0
+e = 0.001
+arg_peri_deg = 44.30                       # fitted; [ELEM] 44.3
+mean_anomaly_deg = 234.16                  # fitted; [ELEM] 31.5
+i_deg = 0.3
+node_deg = 133.70                          # fitted; [ELEM] 133.7
+period_days = 4.517587114                  # [ELEM] P = 4.517503
+apsis_period_years = 33.939
+node_period_years = -35.775
+laplace_pole_ra_dec_deg = [40.6, 83.5]
+
+[[bodies]]
+name = "Titan"
+parent = "Saturn"
+radii_km = [2574.76]                       # [SPHY]; the haze top is ~600 km higher
+pole_ra_dec_deg = [39.4827, 83.4279]       # [PCK]
+prime_meridian_deg = [186.5855, 22.5769768]
+color = "#d39a4e"                          # the orange haze (illustrative)
+orbit_color = "#e0b070"
+[bodies.orbit]                             # [HZN] 606
+type = "ephemeris"
+file = "ephem/titan_cas.eph"
+fallback_blend_days = 1.0
+[bodies.orbit.fallback]                    # [ELEM]
+type = "mean_elements"
+a_km = 1221900.0
+e = 0.029
+arg_peri_deg = 129.61                      # fitted; [ELEM] 78.3
+mean_anomaly_deg = 163.50                  # fitted; [ELEM] 11.7
+i_deg = 0.3
+node_deg = 78.60                           # fitted; [ELEM] 78.6
+period_days = 15.946442868                 # [ELEM] P = 15.945448
+apsis_period_years = 346.680
+node_period_years = -687.370
+laplace_pole_ra_dec_deg = [36.4, 84.0]
+
+[[bodies]]
+name = "Iapetus"
+parent = "Saturn"
+radii_km = [734.3]
+pole_ra_dec_deg = [318.16, 75.03]          # [PCK]
+prime_meridian_deg = [355.2, 4.5379572]
+pole_rate_deg_per_century = [-3.949, -1.143]
+color = "#8a7a66"
+orbit_color = "#b8a890"
+texture = "textures/iapetus.jpg"
+texture_left_lon_deg = -180.0
+[bodies.orbit]                             # [HZN] 608
+type = "ephemeris"
+file = "ephem/iapetus_cas.eph"
+fallback_blend_days = 1.0
+[bodies.orbit.fallback]                    # [ELEM]
+type = "mean_elements"
+a_km = 3561700.0
+e = 0.028
+arg_peri_deg = 276.69                      # fitted; [ELEM] 254.5
+mean_anomaly_deg = 208.72                  # fitted; [ELEM] 74.8
+i_deg = 7.6
+node_deg = 74.75                           # fitted; [ELEM] 86.5
+period_days = 79.335707123                 # [ELEM] P = 79.331002
+
+# --- Uranus ---------------------------------------------------------------------------
+# Moons [ELEM] (URA182, "equatorial": the plane of Uranus' equator, referred to its
+# positive (right-hand) pole, i.e. opposite to the IAU north pole of [PCK]). [ELEM]'s
+# P is the period of the mean longitude (360 / P equals the PCK spin rates), so
+# period_days (of M) = 360 / (360 / P - apsis rate - node rate), with apsides advancing
+# and nodes regressing (oblateness). With [ELEM]'s phases, the direction is within
+# 0.1-0.3 deg rms of Horizons over 1972-2100 (Miranda: 1.8 deg).
 
 [[bodies]]
 name = "Uranus"
@@ -183,6 +724,112 @@ s = 0.17689245
 f = 7.67025000
 
 [[bodies]]
+name = "Miranda"
+parent = "Uranus"
+radii_km = [240.4, 234.2, 232.9]           # [PCK]
+pole_ra_dec_deg = [257.43, -15.08]         # [PCK] (periodic terms ignored: no surface map)
+prime_meridian_deg = [30.70, -254.6906892]
+color = "#b5b3ae"
+orbit_color = "#c4c8cc"
+[bodies.orbit]                             # [ELEM]
+type = "mean_elements"
+a_km = 129846.0
+e = 0.001
+arg_peri_deg = 154.8
+mean_anomaly_deg = 73.0
+i_deg = 4.4
+node_deg = 100.9
+period_days = 1.413783464                  # of M; [ELEM] P = 1.413479 (mean longitude)
+apsis_period_years = 8.939
+node_period_years = -17.787
+laplace_pole_ra_dec_deg = [77.311, 15.175]
+
+[[bodies]]
+name = "Ariel"
+parent = "Uranus"
+radii_km = [581.1, 577.9, 577.7]           # [PCK]
+pole_ra_dec_deg = [257.43, -15.10]         # [PCK] (periodic terms ignored: no surface map)
+prime_meridian_deg = [156.22, -142.8356681]
+color = "#c9c5bd"
+orbit_color = "#d2d6dc"
+[bodies.orbit]                             # [ELEM]
+type = "mean_elements"
+a_km = 190929.0
+e = 0.001
+arg_peri_deg = 9.6
+mean_anomaly_deg = 193.5
+i_deg = 0.0
+node_deg = 0.0
+period_days = 2.520980911                  # of M; [ELEM] P = 2.520379 (mean longitude)
+apsis_period_years = 28.901
+laplace_pole_ra_dec_deg = [77.311, 15.175]
+
+[[bodies]]
+name = "Umbriel"
+parent = "Uranus"
+radii_km = [584.7]                         # [PCK]
+pole_ra_dec_deg = [257.43, -15.10]         # [PCK] (periodic terms ignored: no surface map)
+prime_meridian_deg = [108.05, -86.8688923]
+color = "#6f6c68"
+orbit_color = "#9a9ca2"
+[bodies.orbit]                             # [ELEM]
+type = "mean_elements"
+a_km = 265986.0
+e = 0.004
+arg_peri_deg = 183.4
+mean_anomaly_deg = 253.0
+i_deg = 0.1
+node_deg = 174.8
+period_days = 4.144547877                  # of M; [ELEM] P = 4.144177 (mean longitude)
+apsis_period_years = 64.126
+node_period_years = -129.745
+laplace_pole_ra_dec_deg = [77.311, 15.175]
+
+[[bodies]]
+name = "Titania"
+parent = "Uranus"
+radii_km = [788.9]                         # [PCK]
+pole_ra_dec_deg = [257.43, -15.10]         # [PCK] (periodic terms ignored: no surface map)
+prime_meridian_deg = [77.74, -41.3514316]
+color = "#b3a89c"
+orbit_color = "#c8beb2"
+[bodies.orbit]                             # [ELEM]
+type = "mean_elements"
+a_km = 436298.0
+e = 0.002
+arg_peri_deg = 184.0
+mean_anomaly_deg = 68.1
+i_deg = 0.1
+node_deg = 29.5
+period_days = 8.706100651                  # of M; [ELEM] P = 8.705869 (mean longitude)
+apsis_period_years = 579.928
+node_period_years = -1644.649
+laplace_pole_ra_dec_deg = [77.311, 15.175]
+
+[[bodies]]
+name = "Oberon"
+parent = "Uranus"
+radii_km = [761.4]                         # [PCK]
+pole_ra_dec_deg = [257.43, -15.10]         # [PCK] (periodic terms ignored: no surface map)
+prime_meridian_deg = [6.77, -26.7394932]
+color = "#9a8d82"
+orbit_color = "#b6aaa0"
+[bodies.orbit]                             # [ELEM]
+type = "mean_elements"
+a_km = 583511.0
+e = 0.002
+arg_peri_deg = 132.2
+mean_anomaly_deg = 143.6
+i_deg = 0.1
+node_deg = 76.8
+period_days = 13.463791958                 # of M; [ELEM] P = 13.463237 (mean longitude)
+apsis_period_years = 158.604
+node_period_years = -192.798
+laplace_pole_ra_dec_deg = [77.311, 15.175]
+
+# --- Neptune --------------------------------------------------------------------------
+
+[[bodies]]
 name = "Neptune"
 parent = "Sun"
 radii_km = [24764.0, 24341.0]
@@ -206,6 +853,326 @@ b = -0.00041348
 c = 0.68346318
 s = -0.10162547
 f = 7.67025000
+
+# Triton: retrograde (i > 90 deg) around its Laplace plane [ELEM] (NEP097, pole RA 299.8,
+# Dec 43.1). [ELEM]'s phases and periods drift by tens of degrees against Horizons
+# (its nodal period of 340 yr is about half the 676 yr found in the Horizons states).
+# So the plane's precession, the inclination and the mean argument of latitude were
+# fitted to Horizons states (every 10.3 days over 1972-2100): the orbit normal's
+# node and inclination give the precession and i; the mean of |r x v| / r^2 gives the
+# rate of M; then its phase. The circular orbit stays within 0.05 deg rms (worst 0.15)
+# of Horizons over that span.
+
+[[bodies]]
+name = "Triton"
+parent = "Neptune"
+radii_km = [1352.6]                        # [PCK]
+pole_ra_dec_deg = [299.36, 41.17]          # [PCK] (periodic terms ignored: no surface map)
+prime_meridian_deg = [296.53, -61.2572637]
+color = "#d9c8be"
+orbit_color = "#c8d4e0"
+[bodies.orbit]                             # [ELEM] + plane precession and phase fitted to [HZN]
+type = "mean_elements"
+a_km = 354759.0
+e = 0.0
+arg_peri_deg = 0.0
+mean_anomaly_deg = 57.743
+i_deg = 157.238
+node_deg = 176.777
+period_days = 5.876714259
+node_period_years = 675.5585
+laplace_pole_ra_dec_deg = [299.8, 43.1]
+
+# --- Pluto and Charon -----------------------------------------------------------------
+# Both orbit the system barycenter (outside Pluto: ~2,100 km from its center): Pluto at
+# -q r, Charon at (1 - q) r, with r Charon relative to Pluto and q = GM Charon / GM system
+# = 106.1 [SPHY] / 975.5 [GM].
+
+[[bodies]]
+name = "Pluto system"
+parent = "Sun"
+kind = "barycenter"
+gm_km3_s2 = 975.5                          # system [GM]
+orbit_color = "#c8aa88"
+[bodies.orbit]                             # [HZN] 9 (barycenter)
+type = "ephemeris"
+file = "ephem/pluto.eph"
+fallback_blend_days = 30.0
+[bodies.orbit.fallback]                    # [SBDB] osculating elements (134340), J2000 ecliptic
+type = "mean_elements"
+epoch_jd_tdb = 2457588.5
+a_km = 5922374660.0
+e = 0.25183788
+arg_peri_deg = 113.709002
+mean_anomaly_deg = 38.683663
+i_deg = 17.147711
+node_deg = 110.292384
+period_days = 90981.7165
+laplace_pole_ra_dec_deg = [270.0, 66.56070889]
+
+[[bodies]]
+name = "Pluto"
+parent = "Pluto system"
+radii_km = [1188.3]                        # [PCK]
+pole_ra_dec_deg = [132.993, -6.163]        # [PCK]
+prime_meridian_deg = [302.695, 56.3625225]
+color = "#d8b48c"
+orbit_color = "#c8aa88"                    # its small loop around the barycenter
+[bodies.orbit]                             # [HZN] 901 (Charon relative to Pluto), scaled by -q
+scale = -0.1087647360
+type = "ephemeris"
+file = "ephem/charon.eph"
+fallback_blend_days = 1.0
+[bodies.orbit.fallback]                    # [ELEM] PLU060, Pluto's equator (positive pole)
+type = "mean_elements"
+a_km = 19600.0
+e = 0.0
+arg_peri_deg = 0.0
+mean_anomaly_deg = 304.1
+i_deg = 0.0
+node_deg = 0.0
+period_days = 6.387222
+laplace_pole_ra_dec_deg = [132.993, -6.163]
+
+[[bodies]]
+name = "Charon"
+parent = "Pluto system"
+radii_km = [606.0]                         # [SPHY]
+pole_ra_dec_deg = [132.993, -6.163]        # [PCK]
+prime_meridian_deg = [122.695, 56.3625225]
+color = "#a19a92"
+orbit_color = "#b8b4ae"
+[bodies.orbit]                             # [HZN] 901, scaled by 1 - q
+scale = 0.8912352640
+type = "ephemeris"
+file = "ephem/charon.eph"
+fallback_blend_days = 1.0
+[bodies.orbit.fallback]                    # [ELEM] PLU060, Pluto's equator (positive pole)
+type = "mean_elements"
+a_km = 19600.0
+e = 0.0
+arg_peri_deg = 0.0
+mean_anomaly_deg = 304.1
+i_deg = 0.0
+node_deg = 0.0
+period_days = 6.387222
+laplace_pole_ra_dec_deg = [132.993, -6.163]
+
+# --- Dwarf planets and the largest asteroids --------------------------------------------
+# Heliocentric [HZN] 1972-2100; outside that, two-body orbits from the SBDB osculating
+# elements (epoch 2026-06-09; by 2100 they are off by up to
+# 5 deg for Ceres, which Jupiter perturbs, and 0.1 deg for the distant ones), faded in
+# over 30 days. Sizes from the cited papers; colors
+# are illustrative. Rotation is given where a pole is known; the others are uniform
+# spheres, so their orientation does not show.
+
+[[bodies]]
+name = "Ceres"
+parent = "Sun"
+radii_km = [487.3, 446.0]                  # [PCK]
+pole_ra_dec_deg = [291.418, 66.764]        # [PCK]
+prime_meridian_deg = [170.650, 952.1532]
+color = "#7a7570"
+orbit_color = "#9a948c"
+[bodies.orbit]                             # [HZN] 1
+type = "ephemeris"
+file = "ephem/ceres.eph"
+fallback_blend_days = 30.0
+[bodies.orbit.fallback]                    # [SBDB] osculating elements, J2000 ecliptic
+type = "mean_elements"
+epoch_jd_tdb = 2461200.5
+a_km = 413720779.5
+e = 0.07969230
+arg_peri_deg = 73.294215
+mean_anomaly_deg = 274.419346
+i_deg = 10.588028
+node_deg = 80.248627
+period_days = 1679.8531
+laplace_pole_ra_dec_deg = [270.0, 66.56070889]
+
+[[bodies]]
+name = "Pallas"
+parent = "Sun"
+radii_km = [284.0, 266.0, 224.0]           # [MARS] 568 x 532 x 448 km
+pole_ra_dec_deg = [33.0, -3.0]             # [PCK]
+prime_meridian_deg = [38.0, 1105.8036]
+color = "#8c8a86"
+orbit_color = "#a8a6a0"
+[bodies.orbit]                             # [HZN] 2
+type = "ephemeris"
+file = "ephem/pallas.eph"
+fallback_blend_days = 30.0
+[bodies.orbit.fallback]                    # [SBDB] osculating elements, J2000 ecliptic
+type = "mean_elements"
+epoch_jd_tdb = 2461200.5
+a_km = 414320130.8
+e = 0.23070010
+arg_peri_deg = 310.969916
+mean_anomaly_deg = 254.249652
+i_deg = 34.932793
+node_deg = 172.886619
+period_days = 1683.5048
+laplace_pole_ra_dec_deg = [270.0, 66.56070889]
+
+[[bodies]]
+name = "Vesta"
+parent = "Sun"
+radii_km = [289.0, 280.0, 229.0]           # [PCK]
+pole_ra_dec_deg = [309.031, 42.235]        # [PCK]
+prime_meridian_deg = [285.39, 1617.3329428]
+color = "#a59e93"
+orbit_color = "#bab2a6"
+[bodies.orbit]                             # [HZN] 4
+type = "ephemeris"
+file = "ephem/vesta.eph"
+fallback_blend_days = 30.0
+[bodies.orbit.fallback]                    # [SBDB] osculating elements, J2000 ecliptic
+type = "mean_elements"
+epoch_jd_tdb = 2461200.5
+a_km = 353255320.3
+e = 0.09020374
+arg_peri_deg = 151.468648
+mean_anomaly_deg = 81.190156
+i_deg = 7.143926
+node_deg = 103.701293
+period_days = 1325.3890
+laplace_pole_ra_dec_deg = [270.0, 66.56070889]
+
+[[bodies]]
+name = "Eris"
+parent = "Sun"
+radii_km = [1163.0]                        # [ERIS] 1163 +- 6 km
+color = "#ebe7e1"
+orbit_color = "#c8c4be"
+[bodies.orbit]                             # [HZN] 136199
+type = "ephemeris"
+file = "ephem/eris.eph"
+fallback_blend_days = 30.0
+[bodies.orbit.fallback]                    # [SBDB] osculating elements, J2000 ecliptic
+type = "mean_elements"
+epoch_jd_tdb = 2461200.5
+a_km = 10162773801.3
+e = 0.43823853
+arg_peri_deg = 150.794924
+mean_anomaly_deg = 211.774434
+i_deg = 43.925828
+node_deg = 36.004770
+period_days = 204516.6629
+laplace_pole_ra_dec_deg = [270.0, 66.56070889]
+
+[[bodies]]
+name = "Haumea"
+parent = "Sun"
+radii_km = [1161.0, 852.0, 513.0]          # [HAUM] semi-axes
+pole_ra_dec_deg = [285.1, -10.6]           # [HAUM] ring pole (solution 1, favoured by photometry)
+prime_meridian_deg = [0.0, 2206.646]       # [HAUM] P = 3.915341 h; W0 arbitrary
+color = "#e6e6ea"
+orbit_color = "#c4c6cc"
+[bodies.orbit]                             # [HZN] 136108
+type = "ephemeris"
+file = "ephem/haumea.eph"
+fallback_blend_days = 30.0
+[bodies.orbit.fallback]                    # [SBDB] osculating elements, J2000 ecliptic
+type = "mean_elements"
+epoch_jd_tdb = 2461200.5
+a_km = 6441727731.1
+e = 0.19444301
+arg_peri_deg = 240.690547
+mean_anomaly_deg = 223.210412
+i_deg = 28.208474
+node_deg = 121.786056
+period_days = 103208.1173
+laplace_pole_ra_dec_deg = [270.0, 66.56070889]
+
+[[bodies]]
+name = "Makemake"
+parent = "Sun"
+radii_km = [717.0]                         # [MAKE] equatorial diameter 1434 km
+color = "#d4a98a"
+orbit_color = "#c8aa96"
+[bodies.orbit]                             # [HZN] 136472
+type = "ephemeris"
+file = "ephem/makemake.eph"
+fallback_blend_days = 30.0
+[bodies.orbit.fallback]                    # [SBDB] osculating elements, J2000 ecliptic
+type = "mean_elements"
+epoch_jd_tdb = 2461200.5
+a_km = 6817314568.5
+e = 0.15888900
+arg_peri_deg = 297.092273
+mean_anomaly_deg = 169.937996
+i_deg = 29.027856
+node_deg = 79.294834
+period_days = 112364.8069
+laplace_pole_ra_dec_deg = [270.0, 66.56070889]
+
+[[bodies]]
+name = "Gonggong"
+parent = "Sun"
+radii_km = [615.0]                         # [GONG] diameter 1230 +- 50 km
+color = "#b0705a"
+orbit_color = "#b48a7c"
+[bodies.orbit]                             # [HZN] 225088
+type = "ephemeris"
+file = "ephem/gonggong.eph"
+fallback_blend_days = 30.0
+[bodies.orbit.fallback]                    # [SBDB] osculating elements, J2000 ecliptic
+type = "mean_elements"
+epoch_jd_tdb = 2461200.5
+a_km = 10003110806.2
+e = 0.50425100
+arg_peri_deg = 206.623284
+mean_anomaly_deg = 111.664542
+i_deg = 30.899067
+node_deg = 336.838316
+period_days = 199716.0317
+laplace_pole_ra_dec_deg = [270.0, 66.56070889]
+
+[[bodies]]
+name = "Quaoar"
+parent = "Sun"
+radii_km = [566.1, 511.2]                  # [QUAO] oblate ellipsoid
+color = "#a8786a"
+orbit_color = "#b0928a"
+[bodies.orbit]                             # [HZN] 50000
+type = "ephemeris"
+file = "ephem/quaoar.eph"
+fallback_blend_days = 30.0
+[bodies.orbit.fallback]                    # [SBDB] osculating elements, J2000 ecliptic
+type = "mean_elements"
+epoch_jd_tdb = 2461200.5
+a_km = 6456072110.2
+e = 0.03520024
+arg_peri_deg = 163.209051
+mean_anomaly_deg = 292.848757
+i_deg = 7.991576
+node_deg = 188.919125
+period_days = 103553.0435
+laplace_pole_ra_dec_deg = [270.0, 66.56070889]
+
+[[bodies]]
+name = "Sedna"
+parent = "Sun"
+radii_km = [497.5]                         # [SEDN] diameter 995 +- 80 km
+color = "#c0503a"
+orbit_color = "#b87a6c"
+[bodies.orbit]                             # [HZN] 90377
+type = "ephemeris"
+file = "ephem/sedna.eph"
+fallback_blend_days = 30.0
+[bodies.orbit.fallback]                    # [SBDB] osculating elements, J2000 ecliptic
+type = "mean_elements"
+epoch_jd_tdb = 2461200.5
+a_km = 81339283783.0
+e = 0.85988246
+arg_peri_deg = 311.098773
+mean_anomaly_deg = 358.595694
+i_deg = 11.925276
+node_deg = 144.506166
+period_days = 4630851.1836
+laplace_pole_ra_dec_deg = [270.0, 66.56070889]
+
+# --- Spacecraft --------------------------------------------------------------------
 
 [[bodies]]
 name = "Voyager 1"

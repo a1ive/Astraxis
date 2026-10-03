@@ -2,6 +2,7 @@
 
 #include <glm/vec3.hpp>
 
+#include <memory>
 #include <vector>
 
 namespace astraxis {
@@ -43,6 +44,44 @@ public:
             out.push_back(t0 + (t1 - t0) * static_cast<double>(i) / static_cast<double>(n - 1));
         }
     }
+};
+
+// Another motion scaled by a constant. Places both bodies of a pair around
+// their barycenter from one relative orbit r (secondary relative to primary):
+// the primary at -m2 / (m1 + m2) r, the secondary at m1 / (m1 + m2) r.
+class ScaledMotion final : public MotionSource {
+public:
+    ScaledMotion(std::unique_ptr<MotionSource> inner, double scale)
+        : m_inner(std::move(inner))
+        , m_scale(scale)
+    {
+    }
+    State eval(double t_tdb) const override
+    {
+        const State s = m_inner->eval(t_tdb);
+        return {s.position * m_scale, s.velocity * m_scale};
+    }
+    bool valid_at(double t_tdb) const override { return m_inner->valid_at(t_tdb); }
+    bool sample_orbit(double t_tdb, int count, std::vector<glm::dvec3>& out) const override
+    {
+        if (!m_inner->sample_orbit(t_tdb, count, out)) {
+            return false;
+        }
+        for (glm::dvec3& p : out) {
+            p *= m_scale;
+        }
+        return true;
+    }
+    void history_times(double t0, double t1, int max_points, std::vector<double>& out) const override
+    {
+        m_inner->history_times(t0, t1, max_points, out);
+    }
+    const MotionSource& inner() const { return *m_inner; }
+    double scale() const { return m_scale; }
+
+private:
+    std::unique_ptr<MotionSource> m_inner;
+    double m_scale;
 };
 
 // A body at a fixed position relative to its parent (e.g. a distant star).

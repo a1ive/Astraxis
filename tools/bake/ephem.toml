@@ -526,3 +526,159 @@ encounter_km = 50000.0
 encounter_step_minutes = 10
 refine_near = ["titan_cas"]
 refine_near_km = 30000.0
+
+# --- Solar System scene: Moon, Pluto system, dwarf planets and large asteroids ----
+# 1972..2100 (Pioneer 10 launched 1972-03-03). Small bodies: Horizons integrates the
+# current SBDB orbit solution. The Moon and Charon are relative to their planet's
+# center; the scene places both bodies of the pair around the barycenter by mass
+# ratio (orbit `scale`).
+
+[[target]]
+name = "moon"
+command = "301"
+naif_id = 301
+center = "500@399"
+center_naif_id = 399
+start = "1972-01-01"
+stop = "2099-12-31"
+base_step_minutes = 360    # 6 h
+tolerance_km = 20.0
+kepler_gm_km3_s2 = 403503.235625   # Earth + Moon (DE440, JPL SSD astrodynamic parameters)
+radius_km = 1737.4
+
+[[target]]
+name = "pluto"
+command = "9"              # Pluto system barycenter
+naif_id = 9
+center = "500@10"
+center_naif_id = 10
+start = "1972-01-01"
+stop = "2099-12-31"
+base_step_minutes = 14400  # 10 d
+tolerance_km = 50.0
+kepler_gm_km3_s2 = 1.32712440041279419e11
+radius_km = 1188.3
+
+[[target]]
+name = "charon"
+command = "901"
+naif_id = 901
+center = "500@999"
+center_naif_id = 999
+start = "1972-01-01"
+stop = "2099-12-31"
+base_step_minutes = 720    # 12 h
+tolerance_km = 10.0
+# Effective GM of the relative orbit, fitted to Horizons (2020, 60 days: 0.03 km vs
+# 171 km with the DE440 system GM of 975.5). It only shapes the interpolation; with
+# 975.5 the residual rotates with the orbit and needs ~40x more knots.
+kepler_gm_km3_s2 = 975.4271
+radius_km = 606.0
+
+[[target]]
+name = "ceres"
+command = "1;"
+naif_id = 2000001
+center = "500@10"
+center_naif_id = 10
+start = "1972-01-01"
+stop = "2099-12-31"
+base_step_minutes = 7200
+tolerance_km = 50.0
+kepler_gm_km3_s2 = 1.32712440041279419e11
+
+[[target]]
+name = "pallas"
+command = "2;"
+naif_id = 2000002
+center = "500@10"
+center_naif_id = 10
+start = "1972-01-01"
+stop = "2099-12-31"
+base_step_minutes = 7200
+tolerance_km = 50.0
+kepler_gm_km3_s2 = 1.32712440041279419e11
+
+[[target]]
+name = "vesta"
+command = "4;"
+naif_id = 2000004
+center = "500@10"
+center_naif_id = 10
+start = "1972-01-01"
+stop = "2099-12-31"
+base_step_minutes = 7200
+tolerance_km = 50.0
+kepler_gm_km3_s2 = 1.32712440041279419e11
+
+[[target]]
+name = "eris"
+command = "136199;"
+naif_id = 2136199
+center = "500@10"
+center_naif_id = 10
+start = "1972-01-01"
+stop = "2099-12-31"
+base_step_minutes = 14400
+tolerance_km = 50.0
+kepler_gm_km3_s2 = 1.32712440041279419e11
+
+[[target]]
+name = "haumea"
+command = "136108;"
+naif_id = 2136108
+center = "500@10"
+center_naif_id = 10
+start = "1972-01-01"
+stop = "2099-12-31"
+base_step_minutes = 14400
+tolerance_km = 50.0
+kepler_gm_km3_s2 = 1.32712440041279419e11
+
+[[target]]
+name = "makemake"
+command = "136472;"
+naif_id = 2136472
+center = "500@10"
+center_naif_id = 10
+start = "1972-01-01"
+stop = "2099-12-31"
+base_step_minutes = 14400
+tolerance_km = 50.0
+kepler_gm_km3_s2 = 1.32712440041279419e11
+
+[[target]]
+name = "gonggong"
+command = "225088;"
+naif_id = 2225088
+center = "500@10"
+center_naif_id = 10
+start = "1972-01-01"
+stop = "2099-12-31"
+base_step_minutes = 14400
+tolerance_km = 50.0
+kepler_gm_km3_s2 = 1.32712440041279419e11
+
+[[target]]
+name = "quaoar"
+command = "50000;"
+naif_id = 2050000
+center = "500@10"
+center_naif_id = 10
+start = "1972-01-01"
+stop = "2099-12-31"
+base_step_minutes = 14400
+tolerance_km = 50.0
+kepler_gm_km3_s2 = 1.32712440041279419e11
+
+[[target]]
+name = "sedna"
+command = "90377;"
+naif_id = 2090377
+center = "500@10"
+center_naif_id = 10
+start = "1972-01-01"
+stop = "2099-12-31"
+base_step_minutes = 14400
+tolerance_km = 50.0
+kepler_gm_km3_s2 = 1.32712440041279419e11

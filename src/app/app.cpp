@@ -720,7 +720,7 @@ void App::build_body_items()
             continue;
         }
         const glm::vec3 radii(static_cast<float>(body.equatorial_radius_km),
-                              static_cast<float>(body.equatorial_radius_km),
+                              static_cast<float>(body.equatorial_radius_b_km),
                               static_cast<float>(body.polar_radius_km));
 
         BodyDrawItem item;

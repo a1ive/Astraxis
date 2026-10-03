@@ -23,6 +23,9 @@ struct MeanElements {
     // 0 = no precession. (JPL tabulates magnitudes only.)
     double apsis_period_years = 0.0;
     double node_period_years = 0.0;
+    // Quadratic term of the mean anomaly, M += accel * (days since epoch)^2
+    // (e.g. Phobos' tidal acceleration).
+    double mean_anomaly_accel_deg_per_day2 = 0.0;
     double pole_ra_deg = 0.0; // reference plane pole
     double pole_dec_deg = 90.0;
 };

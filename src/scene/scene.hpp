@@ -74,7 +74,8 @@ struct Body {
     int parent = -1; // index into Scene::bodies; must precede this body
     BodyKind kind = BodyKind::Planet;
 
-    double equatorial_radius_km = 1.0;
+    double equatorial_radius_km = 1.0;   // largest (a, along the prime meridian for triaxial bodies)
+    double equatorial_radius_b_km = 1.0; // second equatorial semi-axis (b); = a for spheroids
     double polar_radius_km = 1.0;
     double gm_km3_s2 = 0.0; // enables osculating-orbit trails of its children
     double spin = 0.0;      // black holes: a / M

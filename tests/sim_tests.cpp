@@ -407,6 +407,107 @@ void test_solar_system_scene()
     check(glm::length(scene.bodies[static_cast<size_t>(jupiter)].world_position) < 1e-6, "Jupiter-centered frame");
 }
 
+// Solar System scene: moons and dwarf planets against Horizons, the two pairs
+// around their barycenters, and the shapes.
+void test_solar_system_bodies()
+{
+    Scene scene = load_scene_or_die("solar_system.toml");
+    auto at = [&](const char* name, double t) {
+        const int i = scene.find(name);
+        check(i >= 0, name);
+        return i >= 0 ? scene.icrf_state_at(i, t).position : glm::dvec3(0.0);
+    };
+    auto angle_deg = [](const glm::dvec3& a, const glm::dvec3& b) {
+        return std::acos(std::clamp(glm::dot(glm::normalize(a), glm::normalize(b)), -1.0, 1.0)) / kDegToRad;
+    };
+
+    // Mean-element moons against Horizons, 2026-Jan-01 00:00 TDB (JD 2461041.5), ICRF km,
+    // relative to the planet's center. Bounds: the worst case over 1972-2100.
+    const double t = tdb_from_jd_tdb(2461041.5);
+    struct Ref {
+        const char* moon;
+        const char* planet;
+        glm::dvec3 hzn;
+        double max_deg;
+    };
+    const Ref refs[] = {
+        {"Phobos", "Mars", {-2628.223, -8355.790, -2928.529}, 4.3},
+        {"Deimos", "Mars", {10863.689, 20169.954, 5021.957}, 0.7},
+        {"Miranda", "Uranus", {113206.352, -45282.815, 44805.770}, 4.4},
+        {"Ariel", "Uranus", {173540.311, -55002.747, 57468.461}, 1.0},
+        {"Umbriel", "Uranus", {-52480.299, -58662.732, 253016.586}, 0.3},
+        {"Titania", "Uranus", {362308.026, -14664.726, -241389.292}, 0.4},
+        {"Oberon", "Uranus", {289669.879, -193050.060, 467214.375}, 0.4},
+        {"Triton", "Neptune", {-284586.643, -111100.883, 180291.265}, 0.2},
+    };
+    for (const Ref& r : refs) {
+        const double a = angle_deg(at(r.moon, t) - at(r.planet, t), r.hzn);
+        check(a < r.max_deg, r.moon, a);
+        std::printf("info: %s vs Horizons in 2026: %.2f deg\n", r.moon, a);
+    }
+
+    // Earth and Moon around their barycenter (Horizons @ 500@3), Pluto and Charon
+    // around theirs (@ 500@9), from one scaled relative table each.
+    const glm::dvec3 moon_hzn(142572.086, 286065.541, 158212.898);
+    const glm::dvec3 earth_hzn(-1753.642, -3518.617, -1946.025);
+    const glm::dvec3 pluto_hzn(-1105.447, -785.154, 1644.354);
+    const glm::dvec3 charon_hzn(9057.326, 6432.789, -13474.591);
+    const double e_moon = glm::length(at("Moon", t) - at("Earth-Moon barycenter", t) - moon_hzn);
+    const double e_earth = glm::length(at("Earth", t) - at("Earth-Moon barycenter", t) - earth_hzn);
+    const double e_pluto = glm::length(at("Pluto", t) - at("Pluto system", t) - pluto_hzn);
+    const double e_charon = glm::length(at("Charon", t) - at("Pluto system", t) - charon_hzn);
+    check(e_moon < 25.0, "Moon around the Earth-Moon barycenter (km)", e_moon);
+    check(e_earth < 1.0, "Earth around the Earth-Moon barycenter (km)", e_earth);
+    check(e_pluto < 2.0, "Pluto around its barycenter (km)", e_pluto);
+    check(e_charon < 12.0, "Charon around the Pluto barycenter (km)", e_charon);
+
+    // The same geocentric Moon as the Earth-Moon scene's (separately baked) table.
+    Scene earth_moon = load_scene_or_die("earth_moon.toml");
+    const double t_a2 = tdb_from_jd_tdb(2461136.5); // 2026-04-06, during Artemis II
+    const glm::dvec3 geo = earth_moon.icrf_state_at(earth_moon.find("Moon"), t_a2).position -
+                           earth_moon.icrf_state_at(0, t_a2).position;
+    const double e_geo = glm::length(at("Moon", t_a2) - at("Earth", t_a2) - geo);
+    check(e_geo < 25.0, "geocentric Moon agrees between scenes (km)", e_geo);
+
+    // Fallbacks at the end of the baked tables (faded in over fallback_blend_days):
+    // osculating elements from 2026 (Pluto: 2016) drift, most for Ceres, which Jupiter
+    // perturbs; the Moon's mean elements are off by degrees.
+    const double t_end = tdb_from_jd_tdb(2488067.5); // 2099-12-30, within the tables
+    struct Join {
+        const char* body;
+        double max_deg;
+    };
+    for (const Join& j : {Join{"Ceres", 6.0}, Join{"Eris", 0.1}, Join{"Sedna", 0.2}, Join{"Pluto system", 0.6},
+                          Join{"Charon", 0.1}, Join{"Moon", 12.0}}) {
+        const int i = scene.find(j.body);
+        const int parent = scene.bodies[static_cast<size_t>(i)].parent;
+        const auto* scaled = dynamic_cast<const ScaledMotion*>(scene.bodies[static_cast<size_t>(i)].motion.get());
+        const MotionSource& m = scaled ? scaled->inner() : *scene.bodies[static_cast<size_t>(i)].motion;
+        const auto* eph = dynamic_cast<const EphemerisMotion*>(&m);
+        check(eph != nullptr && eph->fallback() != nullptr && parent >= 0, "baked table with a fallback");
+        if (!eph || !eph->fallback()) {
+            continue;
+        }
+        const double a = angle_deg(m.eval(t_end).position, eph->fallback()->eval(t_end).position);
+        check(a < j.max_deg, j.body, a);
+        std::printf("info: %s fallback at the end of its table: %.3f deg\n", j.body, a);
+    }
+
+    // Shapes: triaxial Haumea, Quaoar's oblate spheroid.
+    const Body& haumea = scene.bodies[static_cast<size_t>(scene.find("Haumea"))];
+    check(haumea.equatorial_radius_km == 1161.0 && haumea.equatorial_radius_b_km == 852.0 &&
+              haumea.polar_radius_km == 513.0,
+          "Haumea semi-axes");
+    const Body& quaoar = scene.bodies[static_cast<size_t>(scene.find("Quaoar"))];
+    check(quaoar.equatorial_radius_b_km == 566.1 && quaoar.polar_radius_km == 511.2, "Quaoar spheroid");
+
+    // Display hierarchy: the Moon and Charon are satellites of their primaries.
+    check(scene.satellite_host(scene.find("Moon")) == scene.find("Earth") &&
+              scene.satellite_host(scene.find("Earth")) == 0 &&
+              scene.satellite_host(scene.find("Charon")) == scene.find("Pluto"),
+          "satellite hosts in the Solar System scene");
+}
+
 void test_parker_scene()
 {
     Scene scene = load_scene_or_die("parker.toml");
@@ -1724,6 +1825,7 @@ int main()
     test_kepler_propagation();
     test_ephemeris();
     test_solar_system_scene();
+    test_solar_system_bodies();
     test_parker_scene();
     test_jupiter_missions();
     test_earth_moon_scene();

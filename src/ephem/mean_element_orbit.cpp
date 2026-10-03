@@ -35,13 +35,16 @@ KeplerElements MeanElementOrbit::elements_at(double t_tdb) const
     k.i = m_el.i_deg * kDegToRad;
     k.node = wrap_two_pi(m_el.node_deg * kDegToRad + m_node_rate * dt);
     k.arg_peri = wrap_two_pi(m_el.arg_peri_deg * kDegToRad + m_apsis_rate * dt);
-    k.mean_anomaly = wrap_two_pi(m_el.mean_anomaly_deg * kDegToRad + m_mean_motion * dt);
+    const double days = dt / kSecondsPerDay;
+    k.mean_anomaly = wrap_two_pi((m_el.mean_anomaly_deg + m_el.mean_anomaly_accel_deg_per_day2 * days * days) * kDegToRad +
+                                 m_mean_motion * dt);
     return k;
 }
 
 State MeanElementOrbit::eval(double t_tdb) const
 {
-    const State s = kepler_state(elements_at(t_tdb), m_mean_motion);
+    const double accel = m_el.mean_anomaly_accel_deg_per_day2 * kDegToRad / (kSecondsPerDay * kSecondsPerDay);
+    const State s = kepler_state(elements_at(t_tdb), m_mean_motion + 2.0 * accel * (t_tdb - m_el.epoch_tdb));
     return {m_plane_to_icrf * s.position, m_plane_to_icrf * s.velocity};
 }
 
