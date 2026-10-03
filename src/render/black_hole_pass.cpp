@@ -46,13 +46,18 @@ bool BlackHolePass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
 {
     m_device = device;
 
-    SDL_GPUShader* vs = create_shader(device, {.dxil = kFullscreenVertDxil, .stage = SDL_GPU_SHADERSTAGE_VERTEX});
+    SDL_GPUShader* vs = create_shader(
+        device, {.dxil = kFullscreenVertDxil, .spirv = kFullscreenVertSpirv, .stage = SDL_GPU_SHADERSTAGE_VERTEX});
     SDL_GPUShader* trace_fs = create_shader(device, {.dxil = kBlackHoleFragDxil,
+                                                     .spirv = kBlackHoleFragSpirv,
                                                      .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
                                                      .num_samplers = 2,
                                                      .num_uniform_buffers = 1});
     SDL_GPUShader* composite_fs = create_shader(
-        device, {.dxil = kBlackHoleCompositeFragDxil, .stage = SDL_GPU_SHADERSTAGE_FRAGMENT, .num_samplers = 2});
+        device, {.dxil = kBlackHoleCompositeFragDxil,
+                 .spirv = kBlackHoleCompositeFragSpirv,
+                 .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
+                 .num_samplers = 2});
     if (!vs || !trace_fs || !composite_fs) {
         SDL_ReleaseGPUShader(device, vs);
         SDL_ReleaseGPUShader(device, trace_fs);

@@ -6,16 +6,21 @@ namespace astraxis {
 
 SDL_GPUShader* create_shader(SDL_GPUDevice* device, const ShaderDesc& desc)
 {
-    if (!(SDL_GetGPUShaderFormats(device) & SDL_GPU_SHADERFORMAT_DXIL)) {
-        SDL_LogError(SDL_LOG_CATEGORY_GPU, "GPU device does not accept DXIL shaders");
+    const SDL_GPUShaderFormat formats = SDL_GetGPUShaderFormats(device);
+    SDL_GPUShaderCreateInfo info = {};
+    if ((formats & SDL_GPU_SHADERFORMAT_DXIL) && !desc.dxil.empty()) {
+        info.code = desc.dxil.data();
+        info.code_size = desc.dxil.size();
+        info.format = SDL_GPU_SHADERFORMAT_DXIL;
+    } else if ((formats & SDL_GPU_SHADERFORMAT_SPIRV) && !desc.spirv.empty()) {
+        info.code = desc.spirv.data();
+        info.code_size = desc.spirv.size();
+        info.format = SDL_GPU_SHADERFORMAT_SPIRV;
+    } else {
+        SDL_LogError(SDL_LOG_CATEGORY_GPU, "GPU device accepts neither DXIL nor SPIR-V shaders");
         return nullptr;
     }
-
-    SDL_GPUShaderCreateInfo info = {};
-    info.code = desc.dxil.data();
-    info.code_size = desc.dxil.size();
     info.entrypoint = "main";
-    info.format = SDL_GPU_SHADERFORMAT_DXIL;
     info.stage = desc.stage;
     info.num_samplers = desc.num_samplers;
     info.num_storage_textures = desc.num_storage_textures;

@@ -4,6 +4,20 @@
 #ifndef ASTRAXIS_COMMON_HLSLI
 #define ASTRAXIS_COMMON_HLSLI
 
+// Fragment-stage sampled texture `tex` with its sampler `smp` in slot n.
+// SDL_GPU expects (t[n], space2) + (s[n], space2) for DXIL, and a combined
+// image sampler at set 2, binding n for SPIR-V (Vulkan); dxc -spirv defines
+// __spirv__ and merges the pair through [[vk::combinedImageSampler]].
+#ifdef __spirv__
+#define FRAGMENT_TEXTURE(type, tex, smp, n)                              \
+    [[vk::combinedImageSampler]] [[vk::binding(n, 2)]] type tex;         \
+    [[vk::combinedImageSampler]] [[vk::binding(n, 2)]] SamplerState smp
+#else
+#define FRAGMENT_TEXTURE(type, tex, smp, n) \
+    type tex : register(t##n, space2);      \
+    SamplerState smp : register(s##n, space2)
+#endif
+
 // HLSL 2021 has no vector ternary; use select().
 float3 srgb_to_linear(float3 c)
 {

@@ -12,8 +12,7 @@
 
 static const float kPi = 3.14159265;
 
-Texture2D u_albedo : register(t0, space2);     // sRGB texture: samples are linear
-SamplerState u_sampler : register(s0, space2);
+FRAGMENT_TEXTURE(Texture2D, u_albedo, u_sampler, 0); // sRGB texture: samples are linear
 
 cbuffer Uniforms : register(b0, space3)
 {

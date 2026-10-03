@@ -9,10 +9,11 @@ namespace astraxis {
 SDL_GPUBuffer* create_static_buffer(SDL_GPUDevice* device, SDL_GPUBufferUsageFlags usage, const void* data,
                                     uint32_t size)
 {
-    SDL_GPUBufferCreateInfo buffer_info = {.usage = usage, .size = size};
+    SDL_GPUBufferCreateInfo buffer_info = {.usage = usage, .size = size, .props = 0};
     SDL_GPUBuffer* buffer = SDL_CreateGPUBuffer(device, &buffer_info);
 
-    SDL_GPUTransferBufferCreateInfo transfer_info = {.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD, .size = size};
+    SDL_GPUTransferBufferCreateInfo transfer_info = {
+        .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD, .size = size, .props = 0};
     SDL_GPUTransferBuffer* transfer = SDL_CreateGPUTransferBuffer(device, &transfer_info);
     if (!buffer || !transfer) {
         SDL_LogError(SDL_LOG_CATEGORY_GPU, "Static buffer creation failed: %s", SDL_GetError());
@@ -59,10 +60,10 @@ bool StreamBuffer::upload(SDL_GPUCommandBuffer* cmd, const void* data, uint32_t 
         while (capacity < size) {
             capacity *= 2;
         }
-        SDL_GPUBufferCreateInfo buffer_info = {.usage = m_usage, .size = capacity};
+        SDL_GPUBufferCreateInfo buffer_info = {.usage = m_usage, .size = capacity, .props = 0};
         m_buffer = SDL_CreateGPUBuffer(m_device, &buffer_info);
-        SDL_GPUTransferBufferCreateInfo transfer_info = {.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-                                                         .size = capacity};
+        SDL_GPUTransferBufferCreateInfo transfer_info = {
+            .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD, .size = capacity, .props = 0};
         m_transfer = SDL_CreateGPUTransferBuffer(m_device, &transfer_info);
         if (!m_buffer || !m_transfer) {
             SDL_LogError(SDL_LOG_CATEGORY_GPU, "Stream buffer creation failed: %s", SDL_GetError());

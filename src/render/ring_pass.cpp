@@ -47,9 +47,11 @@ bool RingPass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
     m_device = device;
 
     SDL_GPUShader* vs = create_shader(device, {.dxil = kRingVertDxil,
+                                               .spirv = kRingVertSpirv,
                                                .stage = SDL_GPU_SHADERSTAGE_VERTEX,
                                                .num_uniform_buffers = 1});
     SDL_GPUShader* fs = create_shader(device, {.dxil = kRingFragDxil,
+                                               .spirv = kRingFragSpirv,
                                                .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
                                                .num_uniform_buffers = 1});
     if (!vs || !fs) {

@@ -67,7 +67,7 @@ glm::vec3 to_render(const glm::dvec3& world, const glm::dvec3& camera)
 
 } // namespace
 
-bool App::init()
+bool App::init(const LaunchOptions& options)
 {
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_Init failed: %s", SDL_GetError());
@@ -128,11 +128,15 @@ bool App::init()
         }
     }
     std::sort(m_scene_files.begin(), m_scene_files.end());
-    // Default scene: jupiter.toml if present.
+    bool found = false;
     for (size_t i = 0; i < m_scene_files.size(); ++i) {
-        if (m_scene_files[i].stem() == "jupiter") {
+        if (m_scene_files[i].stem() == options.scene) {
             m_scene_index = i;
+            found = true;
         }
+    }
+    if (!found) {
+        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Scene '%s' not found", options.scene.c_str());
     }
 
     reset_to_now();
@@ -143,6 +147,13 @@ bool App::init()
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", message.c_str());
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Astraxis", message.c_str(), m_window.handle());
         return false;
+    }
+    if (options.event > 0) {
+        if (static_cast<size_t>(options.event) <= m_scene.events.size()) {
+            jump_to_event(static_cast<size_t>(options.event - 1));
+        } else {
+            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Scene has no event %d", options.event);
+        }
     }
 
     m_last_counter = SDL_GetPerformanceCounter();

@@ -26,9 +26,16 @@ union SDL_Event;
 
 namespace astraxis {
 
+// Command line: --scene <file stem> (default jupiter), --event <n> (1-based,
+// in the order of the Events list) to start at that event.
+struct LaunchOptions {
+    std::string scene = "jupiter";
+    int event = 0; // 0 = none
+};
+
 class App {
 public:
-    bool init();
+    bool init(const LaunchOptions& options);
     void run();
     void shutdown();
 

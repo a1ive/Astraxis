@@ -9,8 +9,11 @@ bool Renderer::init(SDL_Window* window, bool debug)
 {
     m_window = window;
 
-    // DXIL for our shaders; DXBC because the ImGui backend ships DXBC for D3D12.
-    m_device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_DXIL | SDL_GPU_SHADERFORMAT_DXBC, debug, nullptr);
+    // DXIL / SPIR-V for our shaders (Direct3D 12 / Vulkan); DXBC because the
+    // ImGui backend ships DXBC for D3D12. SDL tries Direct3D 12 before Vulkan;
+    // SDL_GPU_DRIVER=vulkan forces Vulkan (e.g. to test the SPIR-V path on Windows).
+    m_device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_DXIL | SDL_GPU_SHADERFORMAT_DXBC | SDL_GPU_SHADERFORMAT_SPIRV,
+                                   debug, nullptr);
     if (!m_device) {
         SDL_LogError(SDL_LOG_CATEGORY_GPU, "SDL_CreateGPUDevice failed: %s", SDL_GetError());
         return false;

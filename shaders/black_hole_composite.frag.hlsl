@@ -1,10 +1,10 @@
 // Composites the (possibly reduced-resolution) black hole trace into the scene:
 // color with its soft-edge coverage, and the depth the trace asked for.
 
-Texture2D u_color : register(t0, space2);
-Texture2D u_depth : register(t1, space2);
-SamplerState u_linear : register(s0, space2);
-SamplerState u_point : register(s1, space2);
+#include "common.hlsli"
+
+FRAGMENT_TEXTURE(Texture2D, u_color, u_linear, 0);
+FRAGMENT_TEXTURE(Texture2D, u_depth, u_point, 1);
 
 struct PSInput
 {

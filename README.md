@@ -20,7 +20,9 @@ Scenes are described in `assets/scenes/*.toml`; adding one needs no code changes
 
 ## Building
 
-Requirements: Windows, Visual Studio 2026 (with its bundled CMake), and the Windows SDK (for `dxc`). All other dependencies (SDL3, glm, Dear ImGui, toml++, stb_image) are fetched by CMake at pinned versions.
+All dependencies (SDL3, glm, Dear ImGui, toml++, stb_image, and Microsoft's DirectX Shader Compiler for HLSL → DXIL / SPIR-V) are fetched by CMake at pinned versions.
+
+**Windows** (Direct3D 12): Visual Studio 2026 with its bundled CMake.
 
 ```bash
 cmake --preset win-msvc
@@ -28,6 +30,26 @@ cmake --build --preset win-msvc-debug
 ```
 
 Run `build/win-msvc/Debug/astraxis.exe`. Unit tests: `build/win-msvc/Debug/astraxis_tests.exe`.
+
+**Linux x64** (Vulkan): GCC or Clang with C++20, CMake ≥ 3.28, Ninja, and the X11/Wayland development headers SDL3 needs, e.g. on Ubuntu:
+
+```bash
+sudo apt install ninja-build libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxss-dev   libxtst-dev libxfixes-dev libxkbcommon-dev libwayland-dev libdecor-0-dev libdrm-dev libgbm-dev libegl-dev
+cmake --preset linux
+cmake --build --preset linux-release
+```
+
+Run `build/linux/Release/astraxis` (needs a Vulkan driver). Unit tests: `build/linux/Release/astraxis_tests`.
+
+The Windows build also embeds the SPIR-V shaders: set `SDL_GPU_DRIVER=vulkan` to run it on Vulkan.
+
+## Command line
+
+```bash
+astraxis --scene sgr_a --event 1
+```
+
+`--scene` takes a file name from `assets/scenes/` without `.toml` (default `jupiter`); `--event` jumps to the n-th entry of the scene's Events list.
 
 ## Controls
 

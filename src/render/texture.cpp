@@ -39,7 +39,8 @@ SDL_GPUTexture* create_and_upload(SDL_GPUDevice* device, const uint8_t* rgba, ui
     }
 
     const uint32_t size = width * height * 4;
-    SDL_GPUTransferBufferCreateInfo transfer_info = {.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD, .size = size};
+    SDL_GPUTransferBufferCreateInfo transfer_info = {
+        .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD, .size = size, .props = 0};
     SDL_GPUTransferBuffer* transfer = SDL_CreateGPUTransferBuffer(device, &transfer_info);
     if (!transfer) {
         SDL_ReleaseGPUTexture(device, texture);

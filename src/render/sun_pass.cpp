@@ -47,9 +47,11 @@ bool SunPass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
     m_device = device;
 
     SDL_GPUShader* vs = create_shader(device, {.dxil = kSunVertDxil,
+                                               .spirv = kSunVertSpirv,
                                                .stage = SDL_GPU_SHADERSTAGE_VERTEX,
                                                .num_uniform_buffers = 1});
     SDL_GPUShader* fs = create_shader(device, {.dxil = kSunFragDxil,
+                                               .spirv = kSunFragSpirv,
                                                .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
                                                .num_uniform_buffers = 1});
     if (!vs || !fs) {

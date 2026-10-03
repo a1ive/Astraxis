@@ -15,10 +15,8 @@
 
 #include "common.hlsli"
 
-TextureCube u_sky : register(t0, space2);    // starfield in ICRF directions
-Texture2D u_blackbody : register(t1, space2); // log-temperature -> linear color
-SamplerState u_sky_sampler : register(s0, space2);
-SamplerState u_lut_sampler : register(s1, space2);
+FRAGMENT_TEXTURE(TextureCube, u_sky, u_sky_sampler, 0);     // starfield in ICRF directions
+FRAGMENT_TEXTURE(Texture2D, u_blackbody, u_lut_sampler, 1); // log-temperature -> linear color
 
 cbuffer Uniforms : register(b0, space3)
 {

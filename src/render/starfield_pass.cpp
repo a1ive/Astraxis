@@ -135,9 +135,11 @@ SDL_GPUGraphicsPipeline* create_starfield_pipeline(SDL_GPUDevice* device, SDL_GP
                                                    SDL_GPUSampleCount samples, SDL_GPUTextureFormat depth_format)
 {
     SDL_GPUShader* vs = create_shader(device, {.dxil = kStarfieldVertDxil,
+                                               .spirv = kStarfieldVertSpirv,
                                                .stage = SDL_GPU_SHADERSTAGE_VERTEX,
                                                .num_uniform_buffers = 1});
-    SDL_GPUShader* fs = create_shader(device, {.dxil = kStarfieldFragDxil, .stage = SDL_GPU_SHADERSTAGE_FRAGMENT});
+    SDL_GPUShader* fs = create_shader(
+        device, {.dxil = kStarfieldFragDxil, .spirv = kStarfieldFragSpirv, .stage = SDL_GPU_SHADERSTAGE_FRAGMENT});
     if (!vs || !fs) {
         SDL_ReleaseGPUShader(device, vs);
         SDL_ReleaseGPUShader(device, fs);
@@ -199,8 +201,10 @@ struct MilkyWayUniforms {
 SDL_GPUGraphicsPipeline* create_milky_way_pipeline(SDL_GPUDevice* device, SDL_GPUTextureFormat color_format,
                                                    SDL_GPUSampleCount samples, SDL_GPUTextureFormat depth_format)
 {
-    SDL_GPUShader* vs = create_shader(device, {.dxil = kFullscreenVertDxil, .stage = SDL_GPU_SHADERSTAGE_VERTEX});
+    SDL_GPUShader* vs = create_shader(
+        device, {.dxil = kFullscreenVertDxil, .spirv = kFullscreenVertSpirv, .stage = SDL_GPU_SHADERSTAGE_VERTEX});
     SDL_GPUShader* fs = create_shader(device, {.dxil = kMilkyWayFragDxil,
+                                               .spirv = kMilkyWayFragSpirv,
                                                .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
                                                .num_samplers = 1,
                                                .num_uniform_buffers = 1});

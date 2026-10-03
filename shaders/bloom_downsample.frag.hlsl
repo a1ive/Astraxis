@@ -4,8 +4,7 @@
 
 #include "common.hlsli"
 
-Texture2D u_source : register(t0, space2);
-SamplerState u_sampler : register(s0, space2);
+FRAGMENT_TEXTURE(Texture2D, u_source, u_sampler, 0);
 
 cbuffer Uniforms : register(b0, space3)
 {

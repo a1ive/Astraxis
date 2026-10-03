@@ -3,10 +3,8 @@
 
 #include "common.hlsli"
 
-Texture2D u_scene : register(t0, space2);
-Texture2D u_bloom : register(t1, space2);
-SamplerState u_scene_sampler : register(s0, space2);
-SamplerState u_bloom_sampler : register(s1, space2);
+FRAGMENT_TEXTURE(Texture2D, u_scene, u_scene_sampler, 0);
+FRAGMENT_TEXTURE(Texture2D, u_bloom, u_bloom_sampler, 1);
 
 cbuffer Uniforms : register(b0, space3)
 {

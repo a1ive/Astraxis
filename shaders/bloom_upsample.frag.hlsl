@@ -1,7 +1,8 @@
 // Bloom upsample: 3x3 tent filter, additively blended onto the next larger level.
 
-Texture2D u_source : register(t0, space2);
-SamplerState u_sampler : register(s0, space2);
+#include "common.hlsli"
+
+FRAGMENT_TEXTURE(Texture2D, u_source, u_sampler, 0);
 
 cbuffer Uniforms : register(b0, space3)
 {

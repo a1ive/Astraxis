@@ -15,6 +15,20 @@
         "lhs": "${hostSystemName}",
         "rhs": "Windows"
       }
+    },
+    {
+      "name": "linux",
+      "displayName": "Linux (Ninja Multi-Config, default compiler)",
+      "generator": "Ninja Multi-Config",
+      "binaryDir": "${sourceDir}/build/linux",
+      "cacheVariables": {
+        "FETCHCONTENT_BASE_DIR": "${sourceDir}/build/linux/_deps"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
     }
   ],
   "buildPresets": [
@@ -26,6 +40,16 @@
     {
       "name": "win-msvc-release",
       "configurePreset": "win-msvc",
+      "configuration": "Release"
+    },
+    {
+      "name": "linux-debug",
+      "configurePreset": "linux",
+      "configuration": "Debug"
+    },
+    {
+      "name": "linux-release",
+      "configurePreset": "linux",
       "configuration": "Release"
     }
   ]

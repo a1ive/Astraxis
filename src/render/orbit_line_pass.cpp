@@ -35,10 +35,12 @@ bool OrbitLinePass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
     m_points_buffer.init(device, SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ);
 
     SDL_GPUShader* vs = create_shader(device, {.dxil = kOrbitLineVertDxil,
+                                               .spirv = kOrbitLineVertSpirv,
                                                .stage = SDL_GPU_SHADERSTAGE_VERTEX,
                                                .num_storage_buffers = 1,
                                                .num_uniform_buffers = 1});
     SDL_GPUShader* fs = create_shader(device, {.dxil = kOrbitLineFragDxil,
+                                               .spirv = kOrbitLineFragSpirv,
                                                .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
                                                .num_uniform_buffers = 1});
     if (!vs || !fs) {

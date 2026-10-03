@@ -22,12 +22,14 @@ constexpr int kMaxBloomLevels = 7;
 constexpr bool kKarisAverage = false;
 constexpr uint32_t kMinBloomSize = 8;
 
-SDL_GPUGraphicsPipeline* create_fullscreen_pipeline(SDL_GPUDevice* device, std::span<const unsigned char> frag,
-                                                    uint32_t num_samplers, SDL_GPUTextureFormat format,
-                                                    bool additive)
+SDL_GPUGraphicsPipeline* create_fullscreen_pipeline(SDL_GPUDevice* device, std::span<const unsigned char> frag_dxil,
+                                                    std::span<const unsigned char> frag_spirv, uint32_t num_samplers,
+                                                    SDL_GPUTextureFormat format, bool additive)
 {
-    SDL_GPUShader* vs = create_shader(device, {.dxil = kFullscreenVertDxil, .stage = SDL_GPU_SHADERSTAGE_VERTEX});
-    SDL_GPUShader* fs = create_shader(device, {.dxil = frag,
+    SDL_GPUShader* vs = create_shader(
+        device, {.dxil = kFullscreenVertDxil, .spirv = kFullscreenVertSpirv, .stage = SDL_GPU_SHADERSTAGE_VERTEX});
+    SDL_GPUShader* fs = create_shader(device, {.dxil = frag_dxil,
+                                               .spirv = frag_spirv,
                                                .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
                                                .num_samplers = num_samplers,
                                                .num_uniform_buffers = 1});
@@ -73,9 +75,10 @@ bool PostProcess::init(SDL_GPUDevice* device, SDL_GPUTextureFormat hdr_format, S
     m_device = device;
     m_hdr_format = hdr_format;
 
-    m_downsample = create_fullscreen_pipeline(device, kBloomDownsampleFragDxil, 1, hdr_format, false);
-    m_upsample = create_fullscreen_pipeline(device, kBloomUpsampleFragDxil, 1, hdr_format, true);
-    m_composite = create_fullscreen_pipeline(device, kCompositeFragDxil, 2, output_format, false);
+    m_downsample =
+        create_fullscreen_pipeline(device, kBloomDownsampleFragDxil, kBloomDownsampleFragSpirv, 1, hdr_format, false);
+    m_upsample = create_fullscreen_pipeline(device, kBloomUpsampleFragDxil, kBloomUpsampleFragSpirv, 1, hdr_format, true);
+    m_composite = create_fullscreen_pipeline(device, kCompositeFragDxil, kCompositeFragSpirv, 2, output_format, false);
 
     SDL_GPUSamplerCreateInfo sampler = {};
     sampler.min_filter = SDL_GPU_FILTER_LINEAR;
