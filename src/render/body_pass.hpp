@@ -25,6 +25,12 @@ struct BodyDrawItem {
     int style = 0;
     glm::vec3 sun_direction{1.0f, 0.0f, 0.0f}; // unit vector from the body toward the sun
     float sun_angular_radius = 0.0f;            // as seen from the body (radians)
+    // A second star (e.g. the other sun of a circumbinary planet): direction,
+    // angular radius and its light relative to the sun's (linear RGB, which is
+    // white). Zero: none.
+    glm::vec3 light2_direction{1.0f, 0.0f, 0.0f};
+    float light2_angular_radius = 0.0f;
+    glm::vec3 light2_color{0.0f};
     SDL_GPUTexture* texture = nullptr; // optional equirectangular albedo (sRGB), ellipsoids only
     float texture_left_lon_deg = 0.0f; // east longitude of the map's left edge
     bool flip_u = false;               // map longitudes increase westward

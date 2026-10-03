@@ -30,6 +30,8 @@ struct VertexUniforms {
 
 struct FragmentUniforms {
     glm::vec4 sun;
+    glm::vec4 light2;
+    glm::vec4 light2_color;
     glm::vec4 color;
     glm::vec4 params;
     glm::vec4 occluders[kMaxOccluders];
@@ -261,6 +263,8 @@ void BodyPass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const Ca
 
         FragmentUniforms fu = {};
         fu.sun = glm::vec4(item.sun_direction, item.sun_angular_radius);
+        fu.light2 = glm::vec4(item.light2_direction, item.light2_angular_radius);
+        fu.light2_color = glm::vec4(item.light2_color, 0.0f);
         fu.color = glm::vec4(item.color, static_cast<float>(item.style));
         fu.params = glm::vec4(static_cast<float>(item.occluder_count), sun.ambient, item.texture ? 1.0f : 0.0f,
                               item.flip_u ? 1.0f : 0.0f);

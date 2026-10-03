@@ -1,5 +1,6 @@
-// Planet / moon shading: Lambert lighting, soft eclipse shadows from other
-// bodies (sun treated as a disk), the shadow of the planet's own rings,
+// Planet / moon shading: Lambert lighting by one or two stars (e.g. both suns
+// of a circumbinary planet), soft eclipse shadows from other bodies (each star
+// treated as a disk), the shadow of the planet's own rings,
 // procedural gas-giant bands (Jupiter-like, Saturn-like) and a procedural
 // battle station.
 
@@ -20,6 +21,8 @@ FRAGMENT_TEXTURE(Texture2D, u_ring_profile, u_ring_sampler, 1); // r = ring norm
 cbuffer Uniforms : register(b0, space3)
 {
     float4 u_sun;                      // xyz = unit direction to sun, w = sun angular radius (rad)
+    float4 u_light2;                   // the same for a second star
+    float4 u_light2_color;             // rgb = its light relative to the sun's (linear; 0 = none)
     float4 u_color;                    // rgb = base color (sRGB), a = style
     float4 u_params;                   // x = occluder count, y = ambient, z = 1 if textured, w = 1 to flip u
     float4 u_occluders[MAX_OCCLUDERS]; // xyz = camera-relative center, w = radius
@@ -41,7 +44,7 @@ struct PSInput
     float  albedo   : TEXCOORD7; // relative (shape models; 1 on ellipsoids)
 };
 
-float eclipse_factor(float3 p, float3 L)
+float eclipse_factor(float3 p, float3 L, float light_radius)
 {
     float lit = 1.0;
     int count = (int)u_params.x;
@@ -53,7 +56,7 @@ float eclipse_factor(float3 p, float3 L)
         }
         float radius = u_occluders[k].w;
         float perp = length(oc - along * L);
-        float penumbra = max(along * u_sun.w, 1e-3);
+        float penumbra = max(along * light_radius, 1e-3);
         // Fraction of the sun disk still visible, roughly.
         float s = smoothstep(radius - penumbra, radius + penumbra, perp);
         // Antumbra: an occluder smaller than the sun's disk never fully blocks it.
@@ -123,6 +126,21 @@ float ring_profile_u(float3 p, float3 L)
     float t = -dot(d, n) / (abs(denom) > 1e-6 ? denom : 1e-6);
     float r = length(d + t * L);
     return t > 0.0 ? (r - u_ring_radii.x) / (u_ring_radii.y - u_ring_radii.x) : -1.0;
+}
+
+// Lambert light from a star in direction L (angular radius light_radius),
+// through eclipses by other bodies and the planet's own rings.
+float star_light(float3 p, float3 n, float3 L, float light_radius)
+{
+    // Starlight through the rings (mip level from the footprint on the profile).
+    float ring_u = u_ring_center.w > 0.5 ? ring_profile_u(p, L) : -1.0;
+    float ring_lod = log2(max(fwidth(ring_u) * u_ring_radii.z, 1.0));
+    float ring_tau = u_ring_profile.SampleLevel(u_ring_sampler, float2(ring_u, 0.5), ring_lod).r;
+    float ring_t = ring_u >= 0.0 && ring_u <= 1.0 ? exp(-ring_tau / max(abs(dot(L, u_ring_normal.xyz)), 1e-3)) : 1.0;
+
+    float ndl = dot(n, L);
+    float diffuse = saturate(ndl) * smoothstep(-0.05, 0.05, ndl);
+    return diffuse * eclipse_factor(p, L, light_radius) * ring_t;
 }
 
 float hash21(float2 q)
@@ -227,7 +245,7 @@ float4 main(PSInput input) : SV_Target0
         DeathStarSurface s = death_star(normalize(input.local));
         float3 ns = normalize(input.axis_x * s.normal.x + input.axis_y * s.normal.y + input.axis_z * s.normal.z);
         float ndl_s = dot(ns, L);
-        float lit_s = saturate(ndl_s) * smoothstep(-0.05, 0.05, dot(n, L)) * eclipse_factor(input.rel_pos, L);
+        float lit_s = saturate(ndl_s) * smoothstep(-0.05, 0.05, dot(n, L)) * eclipse_factor(input.rel_pos, L, u_sun.w);
         float night = 1.0 - smoothstep(-0.15, 0.1, dot(n, L));
         float3 albedo_s = srgb_to_linear(u_color.rgb) / 0.42 * s.albedo; // u_color tints the hull
         return float4(albedo_s * (lit_s + u_params.y) + s.lights * night + s.glow, 1.0);
@@ -255,15 +273,10 @@ float4 main(PSInput input) : SV_Target0
     albedo *= input.albedo;
     float limb = gas_giant || saturn ? lerp(0.65, 1.0, pow(saturate(dot(n, V)), 0.4)) : 1.0;
 
-    // Sunlight through the planet's own rings (mip level from the footprint on the profile).
-    float ring_u = u_ring_center.w > 0.5 ? ring_profile_u(input.rel_pos, L) : -1.0;
-    float ring_lod = log2(max(fwidth(ring_u) * u_ring_radii.z, 1.0));
-    float ring_tau = u_ring_profile.SampleLevel(u_ring_sampler, float2(ring_u, 0.5), ring_lod).r;
-    float ring_t = ring_u >= 0.0 && ring_u <= 1.0 ? exp(-ring_tau / max(abs(dot(L, u_ring_normal.xyz)), 1e-3)) : 1.0;
-
-    float ndl = dot(n, L);
-    float diffuse = saturate(ndl) * smoothstep(-0.05, 0.05, ndl);
-    float lit = diffuse * eclipse_factor(input.rel_pos, L) * ring_t;
+    float3 lit = star_light(input.rel_pos, n, L, u_sun.w);
+    if (any(u_light2_color.rgb > 0.0)) {
+        lit += u_light2_color.rgb * star_light(input.rel_pos, n, u_light2.xyz, u_light2.w);
+    }
 
     float3 color = albedo * (lit * limb + u_params.y);
     return float4(color, 1.0);

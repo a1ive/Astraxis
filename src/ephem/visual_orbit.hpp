@@ -61,4 +61,25 @@ struct TransitOrbit {
 // Kepler's third law, so the orbit keeps the published period).
 VisualOrbit visual_orbit_from_transit(const TransitOrbit& transit, double gm);
 
+// A fixed two-body (Keplerian) orbit on the sky: the companion relative to the
+// primary. With ScaledMotion it places both around their barycenter, which is
+// how hierarchical multiples are nested (pair of pairs of stars).
+class VisualOrbitMotion final : public MotionSource {
+public:
+    VisualOrbitMotion(const VisualOrbit& orbit, double gm)
+        : m_orbit(orbit)
+        , m_gm(gm)
+        , m_frame(visual_orbit_frame(orbit))
+    {
+    }
+    State eval(double t_tdb) const override { return visual_orbit_state(m_orbit, m_gm, t_tdb); }
+    bool sample_orbit(double t_tdb, int count, std::vector<glm::dvec3>& out) const override;
+    const VisualOrbit& orbit() const { return m_orbit; }
+
+private:
+    VisualOrbit m_orbit;
+    double m_gm;
+    glm::dmat3 m_frame;
+};
+
 } // namespace astraxis

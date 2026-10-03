@@ -497,6 +497,7 @@ void App::jump_to_event(size_t index)
             const glm::dvec3 to_body = m_scene.bodies[static_cast<size_t>(e.from_body)].world_position -
                                        m_scene.bodies[static_cast<size_t>(e.focus)].world_position;
             m_camera.angles_for_direction(to_body, &yaw, &pitch);
+            yaw += e.phase_deg * kDegToRad;
         }
         m_camera.fly_to({e.focus, yaw, pitch, distance, false}, 2.0, m_scene);
     }
@@ -791,23 +792,41 @@ void App::build_body_items()
         }
 
         // Bodies orbiting a black hole with an accretion disk are lit by the disk,
-        // which outshines the scene's stars there; bodies around a star (e.g. a
-        // planet of Proxima in a multiple system) by that star; the rest by the
-        // scene's star / the sun.
+        // which outshines the scene's stars there; the rest by the brightest
+        // star where they are (e.g. Proxima for its planets in the alpha Cen
+        // scene) and a second one if it adds light (the other sun of a
+        // circumbinary planet), or else by the sun.
         glm::dvec3 light = m_scene.sun_position();
         double light_radius = sun_radius;
         const Body* parent = body.parent >= 0 ? &m_scene.bodies[static_cast<size_t>(body.parent)] : nullptr;
+        StarLight stars[kMaxStarLights];
+        int star_count = 0;
         if (parent && parent->kind == BodyKind::BlackHole && parent->disk_outer_m > 0.0) {
             light = parent->world_position;
             light_radius = parent->disk_outer_m * parent->gm_km3_s2 / (kSpeedOfLightKmS * kSpeedOfLightKmS);
-        } else if (const int star_k = m_scene.lighting_star(static_cast<int>(i)); star_k >= 0) {
-            light = m_scene.bodies[static_cast<size_t>(star_k)].world_position;
-            light_radius = m_scene.bodies[static_cast<size_t>(star_k)].equatorial_radius_km;
+        } else if (star_count = m_scene.lighting_stars(static_cast<int>(i), stars, kMaxStarLights); star_count > 0) {
+            const Body& brightest = m_scene.bodies[static_cast<size_t>(stars[0].star)];
+            light = brightest.world_position;
+            light_radius = brightest.equatorial_radius_km;
         }
         const glm::dvec3 to_sun = light - body.world_position;
         const double sun_distance = glm::length(to_sun);
         item.sun_direction = glm::vec3(to_sun / sun_distance);
         item.sun_angular_radius = static_cast<float>(light_radius / sun_distance);
+        if (star_count > 1) {
+            // Colors relative to the brightest star, which looks white (the eye
+            // adapts to it); the luminance follows the bolometric flux.
+            const Body& first = m_scene.bodies[static_cast<size_t>(stars[0].star)];
+            const Body& second = m_scene.bodies[static_cast<size_t>(stars[1].star)];
+            const glm::dvec3 to_second = second.world_position - body.world_position;
+            const double second_distance = glm::length(to_second);
+            const glm::dvec3 tint = blackbody_linear_srgb(second.temperature_k) /
+                                     glm::max(blackbody_linear_srgb(first.temperature_k), glm::dvec3(1e-3));
+            const double luminance = glm::dot(tint, glm::dvec3(0.2126, 0.7152, 0.0722));
+            item.light2_direction = glm::vec3(to_second / second_distance);
+            item.light2_angular_radius = static_cast<float>(second.equatorial_radius_km / second_distance);
+            item.light2_color = glm::vec3(tint * (stars[1].relative_flux / luminance));
+        }
 
         SDL_GPUTexture* ring_texture = i < m_ring_textures.size() ? m_ring_textures[i] : nullptr;
         if (ring_texture) {

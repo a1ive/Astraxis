@@ -175,14 +175,45 @@ void satellite_fades(const Scene& scene, const glm::dvec3& camera, double px_per
     }
 }
 
-int Scene::lighting_star(int body) const
+int Scene::lighting_stars(int body, StarLight* out, int max_lights) const
 {
-    for (int p = bodies[static_cast<size_t>(body)].parent; p >= 0; p = bodies[static_cast<size_t>(p)].parent) {
-        if (bodies[static_cast<size_t>(p)].kind == BodyKind::Star) {
-            return p;
+    const glm::dvec3& at = bodies[static_cast<size_t>(body)].world_position;
+    int count = 0;
+    for (size_t k = 0; k < bodies.size(); ++k) {
+        const Body& star = bodies[k];
+        if (star.kind != BodyKind::Star || !star.visible || static_cast<int>(k) == body) {
+            continue;
+        }
+        const glm::dvec3 d = star.world_position - at;
+        const StarLight light{static_cast<int>(k), star.luminosity_solar / std::max(glm::dot(d, d), 1.0)};
+        // Insertion into the list kept sorted by flux, brightest first.
+        int slot = count < max_lights ? count++ : max_lights;
+        while (slot > 0 && out[slot - 1].relative_flux < light.relative_flux) {
+            if (slot < max_lights) {
+                out[slot] = out[slot - 1];
+            }
+            --slot;
+        }
+        if (slot < max_lights) {
+            out[slot] = light;
         }
     }
-    return -1;
+    const double brightest = count > 0 ? out[0].relative_flux : 1.0;
+    int kept = 0;
+    for (int k = 0; k < count; ++k) {
+        const double relative = out[k].relative_flux / brightest;
+        if (relative >= kMinRelativeStarFlux) {
+            out[kept] = out[k];
+            out[kept++].relative_flux = relative;
+        }
+    }
+    return kept;
+}
+
+int Scene::lighting_star(int body) const
+{
+    StarLight light;
+    return lighting_stars(body, &light, 1) > 0 ? light.star : -1;
 }
 
 glm::dvec3 Scene::light_position(int body) const

@@ -50,6 +50,20 @@ State visual_orbit_state(const VisualOrbit& orbit, double gm, double t_tdb)
     return {frame * s.position, frame * s.velocity};
 }
 
+bool VisualOrbitMotion::sample_orbit(double t_tdb, int count, std::vector<glm::dvec3>& out) const
+{
+    // In the perifocal frame (node = i = arg_peri = 0), as visual_orbit_state.
+    KeplerElements k;
+    k.a = m_orbit.a_km;
+    k.e = m_orbit.e;
+    k.mean_anomaly = std::sqrt(m_gm / (k.a * k.a * k.a)) * (t_tdb - m_orbit.t_peri_tdb);
+    sample_ellipse(k, solve_kepler(k.mean_anomaly, k.e), count, out);
+    for (glm::dvec3& p : out) {
+        p = m_frame * p;
+    }
+    return true;
+}
+
 VisualOrbit visual_orbit_from_transit(const TransitOrbit& transit, double gm)
 {
     VisualOrbit o;

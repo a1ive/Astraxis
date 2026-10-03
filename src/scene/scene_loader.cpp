@@ -116,11 +116,16 @@ double parse_time(const toml::table& t, std::string_view key, const std::string&
 }
 
 // Campbell elements on the sky. Size: a_au, or a_arcsec with parallax_mas, or
-// a_mas with distance_pc. Epoch of periastron as a Julian year (t_peri_year).
-VisualOrbit parse_visual_orbit(const toml::table& t, const std::string& ctx)
+// a_mas with distance_pc, or (when the total `gm` is known) period_days through
+// Kepler's third law. Epoch of periastron as a Julian year (t_peri_year) or a
+// Julian date (t_peri_jd_tdb).
+VisualOrbit parse_visual_orbit(const toml::table& t, const std::string& ctx, double gm = 0.0)
 {
     VisualOrbit o;
-    if (t.contains("a_au")) {
+    if (gm > 0.0 && t.contains("period_days")) {
+        const double n = kTwoPi / (get_double(t, "period_days", ctx) * kSecondsPerDay);
+        o.a_km = std::cbrt(gm / (n * n));
+    } else if (t.contains("a_au")) {
         o.a_km = get_double(t, "a_au", ctx) * kAuKm;
     } else if (t.contains("a_arcsec")) {
         o.a_km = get_double(t, "a_arcsec", ctx) / (get_double(t, "parallax_mas", ctx) / 1000.0) * kAuKm;
@@ -133,7 +138,8 @@ VisualOrbit parse_visual_orbit(const toml::table& t, const std::string& ctx)
     o.i_deg = get_double(t, "i_deg", ctx);
     o.node_deg = get_double(t, "node_deg", ctx);
     o.arg_peri_deg = get_double(t, "arg_peri_deg", ctx);
-    o.t_peri_tdb = tdb_from_julian_year(get_double(t, "t_peri_year", ctx));
+    o.t_peri_tdb = t.contains("t_peri_jd_tdb") ? (get_double(t, "t_peri_jd_tdb", ctx) - kJ2000Jd) * kSecondsPerDay
+                                               : tdb_from_julian_year(get_double(t, "t_peri_year", ctx));
     double sky[2];
     get_array(t, "sky_ra_dec_deg", ctx, sky, 2, 2);
     o.ra_deg = sky[0];
@@ -390,6 +396,19 @@ std::unique_ptr<MotionSource> Loader::parse_motion(const toml::table& t, const s
                                                      tdb_from_julian_year(years[1]));
         }
         return KerrOrbitMotion::rolling(setup, get_double(t, "rolling_window_days", ctx));
+    }
+
+    // Fixed two-body orbits on the sky (the companion relative to the primary,
+    // for the total gm_km3_s2); `scale` splits them around a barycenter.
+    if (type == "visual_orbit" || type == "transit_orbit") {
+        const double gm = get_double(t, "gm_km3_s2", ctx);
+        if (gm <= 0.0) {
+            fail(ctx, "gm_km3_s2 must be positive");
+        }
+        const VisualOrbit orbit = type == "visual_orbit"
+                                      ? parse_visual_orbit(t, ctx, gm)
+                                      : visual_orbit_from_transit(parse_transit_orbit(t, ctx), gm);
+        return std::make_unique<VisualOrbitMotion>(orbit, gm);
     }
 
     if (type == "nbody") {
@@ -769,6 +788,10 @@ void Loader::parse(const toml::table& root, Scene& out)
                     fail(ctx, "from_body needs a focus (other than itself) and no from_orbit_normal");
                 }
             }
+            e.phase_deg = get_double_or(*t, "phase_deg", 0.0);
+            if (e.phase_deg != 0.0 && e.from_body < 0) {
+                fail(ctx, "phase_deg needs from_body");
+            }
             out.events.push_back(e);
         }
     }
@@ -903,13 +926,55 @@ void Loader::parse_nbody(const toml::table& t, Scene& out)
         const double body_gm = out.bodies[static_cast<size_t>(b)].gm_km3_s2;
         p.gm = m->contains("gm_km3_s2") || body_gm <= 0.0 ? get_double(*m, "gm_km3_s2", mctx) : body_gm;
         double period = 0.0;
+        auto osculating_period = [](const State& relative, double gm_pair) {
+            const double energy =
+                0.5 * glm::dot(relative.velocity, relative.velocity) - gm_pair / glm::length(relative.position);
+            if (energy >= 0.0) {
+                return 0.0;
+            }
+            const double a = -gm_pair / (2.0 * energy);
+            return kTwoPi * std::sqrt(a * a * a / gm_pair);
+        };
         std::vector<size_t> rel;
         if (const toml::array* r = (*m)["relative_to"].as_array()) {
             for (const auto& n : *r) {
                 rel.push_back(member_index(n.value_or(std::string()), mctx));
             }
         }
-        if (!rel.empty()) {
+        if (const toml::table* ss = (*m)["sky_state"].as_table()) {
+            // Barycentric Cartesian state as photodynamical codes (e.g. ELC) publish
+            // it: x and y on the sky, z toward the observer; x points to position
+            // angle node_deg (north through east), y 90 deg further. au, au/day.
+            if (!rel.empty() || is_root) {
+                fail(mctx, "sky_state is barycentric: no relative_to, and not for the root");
+            }
+            double pos[3];
+            double vel[3];
+            double sky[2];
+            get_array(*ss, "position_au", mctx, pos, 3, 3);
+            get_array(*ss, "velocity_au_per_day", mctx, vel, 3, 3);
+            get_array(*ss, "sky_ra_dec_deg", mctx, sky, 2, 2);
+            const double ra = sky[0] * kDegToRad;
+            const double dec = sky[1] * kDegToRad;
+            const double pa = get_double_or(*ss, "node_deg", 0.0) * kDegToRad;
+            const glm::dvec3 north(-std::sin(dec) * std::cos(ra), -std::sin(dec) * std::sin(ra), std::cos(dec));
+            const glm::dvec3 east(-std::sin(ra), std::cos(ra), 0.0);
+            const glm::dvec3 x = north * std::cos(pa) + east * std::sin(pa);
+            const glm::dvec3 y = east * std::cos(pa) - north * std::sin(pa);
+            const glm::dmat3 to_icrf(x, y, glm::cross(x, y)); // x cross y points at the observer
+            p.position = to_icrf * glm::dvec3(pos[0], pos[1], pos[2]) * kAuKm;
+            p.velocity = to_icrf * glm::dvec3(vel[0], vel[1], vel[2]) * (kAuKm / kSecondsPerDay);
+            // For knot thinning: the orbit around the earlier members (Jacobi-like).
+            if (!particles.empty()) {
+                std::vector<size_t> all(particles.size());
+                for (size_t k = 0; k < all.size(); ++k) {
+                    all[k] = k;
+                }
+                const auto [center, gm_center] = barycenter(all);
+                period = osculating_period({p.position - center.position, p.velocity - center.velocity},
+                                           gm_center + p.gm);
+            }
+        } else if (!rel.empty()) {
             const auto [center, gm_center] = barycenter(rel);
             const double gm_pair = gm_center + p.gm;
             State relative;
@@ -931,12 +996,7 @@ void Loader::parse_nbody(const toml::table& t, Scene& out)
             }
             p.position = center.position + relative.position;
             p.velocity = center.velocity + relative.velocity;
-            const double energy =
-                0.5 * glm::dot(relative.velocity, relative.velocity) - gm_pair / glm::length(relative.position);
-            if (energy < 0.0) {
-                const double a = -gm_pair / (2.0 * energy);
-                period = kTwoPi * std::sqrt(a * a * a / gm_pair);
-            }
+            period = osculating_period(relative, gm_pair);
         } else if (is_root && !body_of.empty()) {
             fail(mctx, "the root must be the first member");
         }

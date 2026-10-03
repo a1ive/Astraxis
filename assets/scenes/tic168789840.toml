@@ -1,0 +1,322 @@
+# TIC 168789840 (TYC 7037-89-1): six stars in three eclipsing binaries, the
+# first known "sextuply eclipsing" sextuple. Binaries A (1.57 d) and C (1.31 d)
+# orbit each other every ~3.7 years (an inner quadruple, ~4 au across), and
+# binary B (8.22 d) orbits that quadruple ~250 au away. The three binaries are
+# near "triplets": an F star with a K/M dwarf companion in each.
+#
+# Nested two-body (Keplerian) orbits around barycenters; the interactions
+# between the pairs are ignored (the hierarchy is wide: 1.6 d inside 3.7 yr
+# inside ~1600 yr).
+#
+# [PO21] Powell et al. 2021, AJ 161, 162 (arXiv:2101.03433):
+#        Table 2, "Global Fitted Periods" (linear fit to four eclipse epochs)
+#        1.570013, 8.217111, 1.305883 d and the TESS times of primary eclipse
+#        (BJD - 2450000) 8412.3855, 8411.9008, 8413.6822;
+#        Table 5, Lightcurvefactory column: inclinations 89.6, 88.5, 75.9 deg;
+#        circular orbits (Sect. 6.1);
+#        Table 7: masses, radii, T_eff and luminosities of the six stars, distance
+#        584 +- 70 pc (its binary semimajor axes 6.9, 21.4, 6.1 R_sun agree with
+#        Kepler's third law: 6.93, 21.45, 6.14);
+#        Table 8: the AC orbit from eclipse timing, P = 3.7 +- 0.6 yr, e = 0.28,
+#        omega = 166.0 deg (taken as A's, so C's is 346 deg), time of periastron
+#        BJD 2457662, i ~ 42 deg ("inferred from the mass function and the
+#        measured masses", Sect. 6.3, and matching the systemic RVs of A and C).
+#        Its a sin i (0.516 + 0.510 au) would instead give i ~ 16 deg for
+#        a = 3.68 au (Kepler's third law); 42 deg is used, as the paper adopts it.
+#        Table 4: B relative to AC at JY 2020.8236 (SOAR speckle), position
+#        angle 257.74 deg, separation 0.4230".
+# [SIMB] SIMBAD (UCAC4): ICRS position at J2000, RA 04 14 04.839192,
+#        Dec -31 55 22.43820 = 63.5201633, -31.9228995 deg.
+#
+# Assumed (not measured): the nodes of all orbits (0, except B's); B's orbit
+# around AC is a circle of radius 0.4230" x 584 pc = 247 au (P = 1642 yr), on
+# which B is at its ascending node at the speckle epoch (so the measured
+# position angle is the node), inclined 60 deg. [PO21] estimate ~2000 yr.
+# Primary eclipse: the cooler secondary in front of its primary.
+# GM = mass * GM_sun (1.32712440041279419e11 km^3/s^2, JPL DE440).
+# Check (tests/sim_tests.cpp): the binaries eclipse on the [PO21] ephemerides
+# and B stands at the speckle position.
+# The background sky is the one seen from Earth (BSC5); from 584 pc it would differ.
+
+name = "TIC 168789840"
+
+[view]
+focus = "TIC 168789840 AC"
+distance_km = 2.5e9
+start = "now"
+warp = 1209600.0               # 2 weeks per second: the quadruple turns in 97 s
+up = "orbit_normal:TIC 168789840 C"
+
+[[bodies]]
+name = "TIC 168789840"
+kind = "barycenter"
+
+# The inner quadruple and the outer binary, around the system barycenter:
+# B relative to AC, split by the masses.
+[[bodies]]
+name = "TIC 168789840 AC"
+parent = "TIC 168789840"
+kind = "barycenter"
+orbit_color = "#7088a8"
+[bodies.orbit]
+scale = -0.350626118           # -M_B / M_total
+type = "visual_orbit"
+gm_km3_s2 = 7.418625398e11     # 5.59 M_sun
+a_mas = 423.0
+distance_pc = 584.0
+e = 0.0
+i_deg = 60.0                   # assumed
+node_deg = 257.74              # the position angle measured at the speckle epoch
+arg_peri_deg = 0.0
+t_peri_year = 2020.8236
+sky_ra_dec_deg = [63.5201633, -31.9228995]
+
+[[bodies]]
+name = "TIC 168789840 B"
+parent = "TIC 168789840"
+kind = "barycenter"
+orbit_color = "#a8b8d0"
+[bodies.orbit]
+scale = 0.649373882            # M_AC / M_total
+type = "visual_orbit"
+gm_km3_s2 = 7.418625398e11
+a_mas = 423.0
+distance_pc = 584.0
+e = 0.0
+i_deg = 60.0
+node_deg = 257.74
+arg_peri_deg = 0.0
+t_peri_year = 2020.8236
+sky_ra_dec_deg = [63.5201633, -31.9228995]
+
+# A and C around the AC barycenter: C relative to A [PO21 Table 8].
+[[bodies]]
+name = "TIC 168789840 A"
+parent = "TIC 168789840 AC"
+kind = "barycenter"
+orbit_color = "#ffd890"
+[bodies.orbit]
+scale = -0.501377410           # -M_C / M_AC
+type = "visual_orbit"
+gm_km3_s2 = 4.817461573e11     # 3.63 M_sun
+period_days = 1351.425         # 3.7 Julian years
+e = 0.28
+i_deg = 42.0
+node_deg = 0.0                 # assumed
+arg_peri_deg = 346.0           # C's: A's 166 + 180
+t_peri_jd_tdb = 2457662.0
+sky_ra_dec_deg = [63.5201633, -31.9228995]
+
+[[bodies]]
+name = "TIC 168789840 C"
+parent = "TIC 168789840 AC"
+kind = "barycenter"
+orbit_color = "#90d8ff"
+[bodies.orbit]
+scale = 0.498622590            # M_A / M_AC
+type = "visual_orbit"
+gm_km3_s2 = 4.817461573e11
+period_days = 1351.425
+e = 0.28
+i_deg = 42.0
+node_deg = 0.0
+arg_peri_deg = 346.0
+t_peri_jd_tdb = 2457662.0
+sky_ra_dec_deg = [63.5201633, -31.9228995]
+
+# The three eclipsing binaries: the secondary relative to the primary, in front
+# of it at primary eclipse [PO21 Tables 2, 5, 7].
+[[bodies]]
+name = "TIC 168789840 A1"
+parent = "TIC 168789840 A"
+kind = "star"
+radii_km = [1036593.0]         # 1.49 R_sun
+temperature_k = 6400.0
+luminosity_solar = 3.39
+orbit_color = "#ffe9b0"
+[bodies.orbit]
+scale = -0.309392265           # -M_A2 / M_A
+type = "transit_orbit"
+gm_km3_s2 = 2.402095165e11     # 1.81 M_sun
+period_days = 1.570013
+t_transit_bjd_tdb = 2458412.3855
+e = 0.0
+arg_peri_deg = 90.0
+i_deg = 89.6
+transit_u_deg = 90.0
+sky_ra_dec_deg = [63.5201633, -31.9228995]
+
+[[bodies]]
+name = "TIC 168789840 A2"
+parent = "TIC 168789840 A"
+kind = "star"
+radii_km = [361764.0]          # 0.52 R_sun
+temperature_k = 3923.0
+luminosity_solar = 0.07
+orbit_color = "#ffa070"
+[bodies.orbit]
+scale = 0.690607735            # M_A1 / M_A
+type = "transit_orbit"
+gm_km3_s2 = 2.402095165e11
+period_days = 1.570013
+t_transit_bjd_tdb = 2458412.3855
+e = 0.0
+arg_peri_deg = 90.0
+i_deg = 89.6
+transit_u_deg = 90.0
+sky_ra_dec_deg = [63.5201633, -31.9228995]
+
+[[bodies]]
+name = "TIC 168789840 B1"
+parent = "TIC 168789840 B"
+kind = "star"
+radii_km = [1175733.0]         # 1.69 R_sun
+temperature_k = 6365.0
+luminosity_solar = 3.95
+orbit_color = "#ffe9b0"
+[bodies.orbit]
+scale = -0.336734694           # -M_B2 / M_B
+type = "transit_orbit"
+gm_km3_s2 = 2.601163825e11     # 1.96 M_sun
+period_days = 8.217111
+t_transit_bjd_tdb = 2458411.9008
+e = 0.0
+arg_peri_deg = 90.0
+i_deg = 88.5
+transit_u_deg = 90.0
+sky_ra_dec_deg = [63.5201633, -31.9228995]
+
+[[bodies]]
+name = "TIC 168789840 B2"
+parent = "TIC 168789840 B"
+kind = "star"
+radii_km = [431334.0]          # 0.62 R_sun
+temperature_k = 4290.0
+luminosity_solar = 0.12
+orbit_color = "#ffb880"
+[bodies.orbit]
+scale = 0.663265306            # M_B1 / M_B
+type = "transit_orbit"
+gm_km3_s2 = 2.601163825e11
+period_days = 8.217111
+t_transit_bjd_tdb = 2458411.9008
+e = 0.0
+arg_peri_deg = 90.0
+i_deg = 88.5
+transit_u_deg = 90.0
+sky_ra_dec_deg = [63.5201633, -31.9228995]
+
+[[bodies]]
+name = "TIC 168789840 C1"
+parent = "TIC 168789840 C"
+kind = "star"
+radii_km = [1008765.0]         # 1.45 R_sun
+temperature_k = 6350.0
+luminosity_solar = 2.74
+orbit_color = "#ffe9b0"
+[bodies.orbit]
+scale = -0.324175824           # -M_C2 / M_C
+type = "transit_orbit"
+gm_km3_s2 = 2.415366409e11     # 1.82 M_sun
+period_days = 1.305883
+t_transit_bjd_tdb = 2458413.6822
+e = 0.0
+arg_peri_deg = 90.0
+i_deg = 75.9
+transit_u_deg = 90.0
+sky_ra_dec_deg = [63.5201633, -31.9228995]
+
+[[bodies]]
+name = "TIC 168789840 C2"
+parent = "TIC 168789840 C"
+kind = "star"
+radii_km = [389592.0]          # 0.56 R_sun
+temperature_k = 3990.0
+luminosity_solar = 0.07
+orbit_color = "#ffa070"
+[bodies.orbit]
+scale = 0.675824176            # M_C1 / M_C
+type = "transit_orbit"
+gm_km3_s2 = 2.415366409e11
+period_days = 1.305883
+t_transit_bjd_tdb = 2458413.6822
+e = 0.0
+arg_peri_deg = 90.0
+i_deg = 75.9
+transit_u_deg = 90.0
+sky_ra_dec_deg = [63.5201633, -31.9228995]
+
+[[bodies]]
+name = "Sun"
+parent = "TIC 168789840"
+kind = "star"
+radii_km = [695700.0]
+temperature_k = 5772.0
+luminosity_solar = 1.0
+trail = "none"
+[bodies.orbit]                 # opposite direction of the system as seen from the Sun [SIMB]
+type = "fixed"
+ra_dec_distance_pc = [243.5201633, 31.9228995, 584.0]
+
+[[frames]]
+name = "Binary A-centered"
+type = "inertial"
+origin = "TIC 168789840 A"
+
+[[frames]]
+name = "Binary B-centered"
+type = "inertial"
+origin = "TIC 168789840 B"
+
+[[frames]]
+name = "Binary C-centered"
+type = "inertial"
+origin = "TIC 168789840 C"
+
+[[events]]
+name = "Binary A: 1.57-day pair, 0.03 au apart"
+time = "2026-01-01"
+focus = "TIC 168789840 A"
+frame = "Binary A-centered"
+distance_km = 2.5e7
+warp = 5400.0                  # 1.5 hours per second: one orbit in 25 s
+
+[[events]]
+name = "Binary C: 1.31 days, seen 14 deg off edge-on"
+time = "2026-01-01"
+focus = "TIC 168789840 C"
+frame = "Binary C-centered"
+distance_km = 2.2e7
+warp = 5400.0
+
+[[events]]
+name = "Binary B: 8.2 days, 250 au from the others"
+time = "2026-01-01"
+focus = "TIC 168789840 B"
+frame = "Binary B-centered"
+distance_km = 6.0e7
+warp = 21600.0                 # 6 hours per second: one orbit in 33 s
+
+[[events]]
+name = "The inner quadruple: A and C every 3.7 years"
+time = "2026-01-01"
+focus = "TIC 168789840 AC"
+from_orbit_normal = "TIC 168789840 C"
+distance_km = 2.0e9
+warp = 1209600.0
+
+[[events]]
+name = "Three eclipsing pairs, as seen from Earth"
+time = "2026-01-01"
+focus = "TIC 168789840 A"
+frame = "Binary A-centered"
+from_body = "Sun"
+distance_km = 2.5e7
+warp = 3600.0
+
+[[events]]
+name = "All six stars: B on its ~1600-year orbit"
+time = "2026-01-01"
+focus = "TIC 168789840"
+distance_km = 1.0e11
+warp = 31557600.0              # 1 year per second

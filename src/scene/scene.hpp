@@ -218,7 +218,16 @@ struct SceneEvent {
     int frame = -1;             // -1 = keep
     int from_orbit_normal = -1; // >= 0: view along this body's orbit normal (face-on orbit)
     int from_body = -1;         // >= 0: view from this body's direction (e.g. the Sun: as seen from Earth)
+    double phase_deg = 0.0;     // with from_body: turned this far around the up axis (180 = from behind)
 };
+
+// A star lighting a body, with its irradiance relative to the brightest one.
+struct StarLight {
+    int star = -1;
+    double relative_flux = 1.0;
+};
+inline constexpr int kMaxStarLights = 2;
+inline constexpr double kMinRelativeStarFlux = 1e-3;
 
 struct SceneView {
     int focus = 0;
@@ -273,8 +282,12 @@ public:
 
     // Sun position in the display frame.
     const glm::dvec3& sun_position() const { return m_sun_position; }
-    // The star that lights `body`: its nearest star ancestor (e.g. Proxima for
-    // Proxima b in the alpha Cen scene), or -1 for the scene's star / the sun.
+    // The stars that light `body`, brightest first (by L / d^2): up to
+    // kMaxStarLights of the visible stars, leaving out those fainter than
+    // kMinRelativeStarFlux of the brightest (e.g. both suns of a circumbinary
+    // planet, but not the Sun far away). None without star bodies: the sun.
+    int lighting_stars(int body, StarLight* out, int max_lights) const;
+    // The brightest of them, or -1 for the scene's star / the sun.
     int lighting_star(int body) const;
     // Position (display frame) of the star that lights `body`.
     glm::dvec3 light_position(int body) const;

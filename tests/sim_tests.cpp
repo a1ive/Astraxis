@@ -1386,6 +1386,7 @@ void test_alpha_centauri_scene()
     };
     const glm::dvec3 away = unit_from_ra_dec(217.42894222 * kDegToRad, -62.67949019 * kDegToRad);
     const double sin_i = std::sin(47.0 * kDegToRad);
+    scene.update(tdb_from_julian_year(2026.0)); // lighting goes by where the stars are
     for (const ProximaPlanet& p : planets) {
         const int index = scene.find(p.name);
         check(index >= 0 && scene.bodies[static_cast<size_t>(index)].parent == prox, p.name);
@@ -1534,6 +1535,197 @@ void test_trappist1_scene()
     const auto& b = static_cast<const EphemerisMotion&>(*scene.bodies[static_cast<size_t>(scene.find("TRAPPIST-1 b"))].motion);
     const double per_orbit = 1.510826 * static_cast<double>(b.table().knots().size()) / (50.0 * kDaysPerJulianYear);
     check(per_orbit > 20.0 && per_orbit < 30.0, "TRAPPIST-1 b knots per orbit", per_orbit);
+}
+
+// Mid-conjunction of `body` in front of `center` (minimum sky-projected
+// separation), searched within +-window of t_guess; NaN if none.
+double find_conjunction(const Scene& scene, int body, int center, const glm::dvec3& away, double t_guess,
+                        double window)
+{
+    auto relative = [&](double t) {
+        const State a = scene.icrf_state_at(body, t);
+        const State b = scene.icrf_state_at(center, t);
+        return State{a.position - b.position, a.velocity - b.velocity};
+    };
+    auto g = [&](double t) {
+        const State s = relative(t);
+        const glm::dvec3 r = s.position - away * glm::dot(s.position, away);
+        const glm::dvec3 v = s.velocity - away * glm::dot(s.velocity, away);
+        return glm::dot(r, v);
+    };
+    const double step = window / 50.0;
+    double t0 = t_guess - window;
+    double g0 = g(t0);
+    for (double t1 = t0 + step; t1 <= t_guess + window; t1 += step) {
+        const double g1 = g(t1);
+        if (g0 < 0.0 && g1 >= 0.0 && glm::dot(relative(t1).position, away) < 0.0) {
+            double lo = t0;
+            double hi = t1;
+            for (int k = 0; k < 60; ++k) {
+                const double mid = 0.5 * (lo + hi);
+                (g(mid) < 0.0 ? lo : hi) = mid;
+            }
+            return 0.5 * (lo + hi);
+        }
+        t0 = t1;
+        g0 = g1;
+    }
+    return std::nan("");
+}
+
+// Kepler-47 [Orosz et al. 2019]: integrated from the Table 7 barycentric
+// initial conditions (BJD - 2455000 below). In the Kepler years the planets
+// transit the primary when the paper's model does (Table 2, "model time")
+// to within the light-travel time across the orbits (2-8 min; ELC corrects
+// for it, we do not). The model's predictions for 2019-2026 (Table 10) fall
+// within a quarter of the predicted transit duration: c drifts ahead of ELC by
+// about 0.2 primary radii on the sky (cause unknown; 1-sigma 0.04-0.26 d), b
+// and d stay within minutes. The binary eclipses drift 0.6 s per orbit from
+// the linear ephemeris of Eq. (1), most likely the GR terms ELC includes
+// (Sect. 5.1) and we leave out.
+void test_kepler47_scene()
+{
+    Scene scene = load_scene_or_die("kepler47.toml");
+    const glm::dvec3 away = unit_toward(295.297909668, 46.920474260);
+    const int a = scene.find("Kepler-47 A");
+    const int b = scene.find("Kepler-47 B");
+    check(a > 0 && b > 0, "Kepler-47 stars");
+    if (a <= 0 || b <= 0) {
+        return;
+    }
+    struct Transit {
+        const char* name;
+        double time;
+        double duration_h; // 0: Kepler-era model time
+    };
+    const Transit transits[] = {
+        {"Kepler-47 b", -30.80876, 0.0},  {"Kepler-47 b", 352.25805, 0.0},  {"Kepler-47 b", 1408.96429, 0.0},
+        {"Kepler-47 d", 604.44003, 0.0},  {"Kepler-47 d", 1350.36740, 0.0}, {"Kepler-47 c", 246.65033, 0.0},
+        {"Kepler-47 c", 550.47748, 0.0},  {"Kepler-47 c", 850.98582, 0.0},  {"Kepler-47 c", 1154.78852, 0.0},
+        {"Kepler-47 b", 3522.04361, 4.86}, {"Kepler-47 b", 4961.81627, 3.34}, {"Kepler-47 b", 6402.38804, 10.99},
+        {"Kepler-47 d", 3590.46599, 5.02}, {"Kepler-47 d", 5456.14904, 34.28}, {"Kepler-47 d", 6390.01925, 6.46},
+        {"Kepler-47 c", 3575.38963, 5.78}, {"Kepler-47 c", 4483.55306, 6.61}, {"Kepler-47 c", 5996.00286, 6.10},
+    };
+    double worst_kepler_min = 0.0;
+    double worst_fraction = 0.0;
+    for (const Transit& p : transits) {
+        const int index = scene.find(p.name);
+        check(index > 0, p.name);
+        if (index <= 0) {
+            continue;
+        }
+        const double t_ref = tdb_from_jd_tdb(2455000.0 + p.time);
+        const double t = find_conjunction(scene, index, a, away, t_ref, 0.5 * kSecondsPerDay);
+        const double dt_min = std::isnan(t) ? 1e9 : (t - t_ref) / 60.0;
+        if (p.duration_h == 0.0) {
+            worst_kepler_min = std::max(worst_kepler_min, std::abs(dt_min));
+        } else {
+            worst_fraction = std::max(worst_fraction, std::abs(dt_min) / (60.0 * p.duration_h));
+        }
+    }
+    std::printf("info: Kepler-47 transits vs Orosz 2019: Kepler era worst %.2f min, 2019-2026 worst %.2f durations\n",
+                worst_kepler_min, worst_fraction);
+    check(worst_kepler_min < 8.0, "Kepler-47 transits match Orosz 2019 Table 2 (min)", worst_kepler_min);
+    check(worst_fraction < 0.25, "Kepler-47 transits within the Table 10 predictions (durations)", worst_fraction);
+
+    // Primary eclipses: B in front of A, P = 7.44837568 d, T0 = BJD 2454963.246137.
+    double worst_eclipse_min = 0.0;
+    for (int n : {1, 190, 400, 816}) {
+        const double t_ref = tdb_from_jd_tdb(2454963.246137 + 7.44837568 * n);
+        const double t = find_conjunction(scene, b, a, away, t_ref, 0.1 * kSecondsPerDay);
+        const double dt_min = std::isnan(t) ? 1e9 : (t - t_ref) / 60.0;
+        worst_eclipse_min = std::max(worst_eclipse_min, std::abs(dt_min));
+    }
+    std::printf("info: Kepler-47 primary eclipses vs linear ephemeris 2009-2025: worst %.2f min\n",
+                worst_eclipse_min);
+    check(worst_eclipse_min < 10.0, "Kepler-47 primary eclipses near the linear ephemeris (min)", worst_eclipse_min);
+
+    // Both stars light the planets, the red dwarf with ~2% of the light; the Sun not at all.
+    scene.update(tdb_from_jd_tdb(2461041.5));
+    StarLight lights[kMaxStarLights];
+    const int count = scene.lighting_stars(scene.find("Kepler-47 c"), lights, kMaxStarLights);
+    check(count == 2 && lights[0].star == a && lights[1].star == b, "Kepler-47 c lit by A and B", count);
+    if (count == 2) {
+        check(lights[1].relative_flux > 0.01 && lights[1].relative_flux < 0.03, "Kepler-47 B adds ~2% light",
+              lights[1].relative_flux);
+    }
+}
+
+// TIC 168789840 [Powell et al. 2021]: nested Keplerian orbits. Each binary's
+// secondary passes in front of its primary at the Table 2 primary eclipses,
+// close enough on the sky to eclipse; B stands at the Table 4 speckle position
+// relative to AC; A and C keep the Table 8 period and eccentricity.
+void test_tic168789840_scene()
+{
+    Scene scene = load_scene_or_die("tic168789840.toml");
+    const glm::dvec3 away = unit_toward(63.5201633, -31.9228995);
+    struct Binary {
+        const char* primary;
+        const char* secondary;
+        double period_days;
+        double t0_bjd;
+    };
+    const Binary binaries[] = {
+        {"TIC 168789840 A1", "TIC 168789840 A2", 1.570013, 2458412.3855},
+        {"TIC 168789840 B1", "TIC 168789840 B2", 8.217111, 2458411.9008},
+        {"TIC 168789840 C1", "TIC 168789840 C2", 1.305883, 2458413.6822},
+    };
+    for (const Binary& bin : binaries) {
+        const int p = scene.find(bin.primary);
+        const int s = scene.find(bin.secondary);
+        check(p > 0 && s > 0, bin.secondary);
+        if (p <= 0 || s <= 0) {
+            continue;
+        }
+        for (int n : {0, 1000}) {
+            const double t_ref = tdb_from_jd_tdb(bin.t0_bjd + bin.period_days * n);
+            const double t = find_conjunction(scene, s, p, away, t_ref, 0.2 * kSecondsPerDay);
+            const double dt_min = std::isnan(t) ? 1e9 : (t - t_ref) / 60.0;
+            check(std::abs(dt_min) < 0.1, "TIC 168789840 primary eclipse on the ephemeris (min)", dt_min);
+            if (!std::isnan(t)) {
+                const glm::dvec3 r = scene.icrf_state_at(s, t).position - scene.icrf_state_at(p, t).position;
+                const double sky = glm::length(r - away * glm::dot(r, away));
+                const double radii = scene.bodies[static_cast<size_t>(p)].equatorial_radius_km +
+                                     scene.bodies[static_cast<size_t>(s)].equatorial_radius_km;
+                check(sky < radii, "TIC 168789840 binaries eclipse", sky / radii);
+            }
+        }
+    }
+
+    // B relative to AC at the speckle epoch: PA 257.74 deg, 0.4230" (at 584 pc).
+    const int ac = scene.find("TIC 168789840 AC");
+    const int b = scene.find("TIC 168789840 B");
+    check(ac > 0 && b > 0, "TIC 168789840 AC and B");
+    if (ac > 0 && b > 0) {
+        const double t = tdb_from_julian_year(2020.8236);
+        const glm::dvec3 r = scene.icrf_state_at(b, t).position - scene.icrf_state_at(ac, t).position;
+        const double ra = 63.5201633 * kDegToRad;
+        const double dec = -31.9228995 * kDegToRad;
+        const glm::dvec3 north(-std::sin(dec) * std::cos(ra), -std::sin(dec) * std::sin(ra), std::cos(dec));
+        const glm::dvec3 east(-std::sin(ra), std::cos(ra), 0.0);
+        const double pa = wrap_two_pi(std::atan2(glm::dot(r, east), glm::dot(r, north))) * kRadToDeg;
+        const double sep = std::hypot(glm::dot(r, east), glm::dot(r, north)) / (584.0 * kAuKm) * 1000.0;
+        check(std::abs(pa - 257.74) < 0.05, "TIC 168789840 B position angle (deg)", pa);
+        check(std::abs(sep - 423.0) < 0.5, "TIC 168789840 B separation (mas)", sep);
+    }
+
+    // A and C: closest at periastron (BJD 2457662), a (1 - e) apart, every 3.7 years.
+    const int a = scene.find("TIC 168789840 A");
+    const int c = scene.find("TIC 168789840 C");
+    check(a > 0 && c > 0, "TIC 168789840 A and C");
+    if (a > 0 && c > 0) {
+        auto separation = [&](double jd) {
+            const double t = tdb_from_jd_tdb(jd);
+            return glm::length(scene.icrf_state_at(c, t).position - scene.icrf_state_at(a, t).position) / kAuKm;
+        };
+        const double a_au = 3.67647;
+        for (double jd : {2457662.0, 2457662.0 + 1351.425 * 3}) {
+            check(std::abs(separation(jd) - a_au * (1.0 - 0.28)) < 1e-3, "TIC 168789840 AC periastron (au)",
+                  separation(jd));
+        }
+        check(std::abs(separation(2457662.0 + 0.5 * 1351.425) - a_au * 1.28) < 1e-3, "TIC 168789840 AC apastron (au)",
+              separation(2457662.0 + 0.5 * 1351.425));
+    }
 }
 
 // Kepler-223 [Mills et al. 2016]: integrated from the best-fit initial
@@ -2024,6 +2216,8 @@ int main()
     test_transit_orbit_convention();
     test_trappist1_scene();
     test_kepler223_scene();
+    test_kepler47_scene();
+    test_tic168789840_scene();
     test_earth_moon_rotation();
     test_kerr_null_geodesics();
     test_sgr_a_scene();

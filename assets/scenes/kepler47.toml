@@ -1,0 +1,210 @@
+# Kepler-47: three planets around an eclipsing pair of stars, a Sun-like star
+# and a red dwarf 0.08 au apart (7.45-day orbit). The outer planet, c, orbits
+# in the habitable zone. All five orbits are nearly coplanar and seen edge-on:
+# the stars eclipse each other and every planet has been seen to transit.
+#
+# Integrated as a Newtonian five-body system (Yoshida 6th-order symplectic,
+# src/ephem/nbody.cpp) from the best-fit initial conditions of the
+# photodynamical fit:
+#
+# [OR19] Orosz et al. 2019, AJ 157, 174 (arXiv:1904.07255):
+#        Table 7, initial Cartesian barycentric conditions (masses in M_sun, au,
+#        au/day) at T_ref = BJD 2454965.000, from the best-fitting model of Table 5.
+#        Sect. 5.1: their code (ELC) works "relative to the system's barycenter"
+#        with G = k^2 (k = 0.01720209895); the eclipses and transits are where the
+#        bodies line up on the sky, so z is the line of sight. Its sign follows
+#        from the ephemerides: at T_ref the secondary has moved ~85 deg past the
+#        primary eclipse (Table 5 T_conj) and is heading to -z, so it eclipsed
+#        the primary from the +z side: +z points at the observer.
+#        Table 6: radii R_A = 0.936, R_B = 0.338 R_sun; planets 3.05 (b, inner),
+#        7.04 (d, middle), 4.65 (c, outer) R_earth. Sect. 5.3: T_A = 5636 K (fixed,
+#        Orosz et al. 2012); Table 5: T_B / T_A = 0.613, i.e. T_B = 3455 K.
+#        The planet masses (2.07, 19.0, 3.17 M_earth) are only loosely constrained.
+# [GAIA] Gaia EDR3 via SIMBAD: ICRS position at J2000 (RA 19 41 11.4983203032,
+#        Dec +46 55 13.707336288 = 295.297909668, 46.920474260 deg),
+#        parallax 0.954 +- 0.021 mas (1048 pc).
+# Derived: L = R^2 (T_eff / 5772 K)^4 = 0.796 and 0.0147 L_sun; the red dwarf
+#          adds ~2% to the planets' light, from at most 4.8 deg (from c) to
+#          16 deg (from b) beside the primary: a second, orange-tinted terminator.
+#
+# GM = mass * GM_sun (1.32712440041279419e11 km^3/s^2, JPL DE440; k^2 differs by 2e-10).
+# R_earth = 6371.0 km (mean, JPL SSD). Times are BJD_TDB (as seen from the
+# solar-system barycentre); light-travel time across the system is ignored.
+# Assumed: the orientation of the orbits on the sky (Table 7's x axis points
+# north; transits do not constrain it). Planet colours are artistic.
+# Check (tests/sim_tests.cpp): in 2009-2013 the planets transit within 6 min of
+# the [OR19] model (Table 2; ELC also corrects for light-travel time, worth
+# 2-8 min); the model's 2019-2026 predictions (Table 10) fall within 0.21
+# transit durations (c runs ~0.2 stellar radii ahead of ELC, cause unknown).
+# The primary eclipses drift from the linear ephemeris by 0.6 s per orbit
+# (8 min by 2025), most likely the GR terms that ELC includes and we do not.
+# The background sky is the one seen from Earth (BSC5); from 1 kpc it would differ.
+
+name = "Kepler-47"
+
+[view]
+focus = "Kepler-47"
+distance_km = 4.0e8
+start = "now"
+warp = 345600.0                # 4 days per second: c orbits in 76 s, b in 12 s
+up = "orbit_normal:Kepler-47 B"
+
+[[bodies]]
+name = "Kepler-47"
+kind = "barycenter"
+gm_km3_s2 = 1.724102840e11     # all five bodies: osculating orbits of the planets
+
+[[bodies]]
+name = "Kepler-47 A"
+parent = "Kepler-47"
+kind = "star"
+radii_km = [651175.2]          # 0.936 R_sun [OR19]
+temperature_k = 5636.0
+luminosity_solar = 0.796
+orbit_color = "#ffe9b0"
+trail = "history"
+trail_history_days = 7.4483648 # one binary orbit
+
+[bodies.orbit]
+type = "nbody"
+
+[[bodies]]
+name = "Kepler-47 B"
+parent = "Kepler-47"
+kind = "star"
+radii_km = [235146.6]          # 0.338 R_sun [OR19]
+temperature_k = 3455.0
+luminosity_solar = 0.0147
+orbit_color = "#ff9a70"
+trail = "history"
+trail_history_days = 7.4483648
+
+[bodies.orbit]
+type = "nbody"
+
+[[bodies]]
+name = "Kepler-47 b"
+parent = "Kepler-47"
+radii_km = [19431.6]           # 3.05 R_earth [OR19]
+color = "#c8bca8"
+orbit_color = "#ffb080"
+[bodies.orbit]
+type = "nbody"
+
+[[bodies]]
+name = "Kepler-47 d"
+parent = "Kepler-47"
+radii_km = [44851.8]           # 7.04 R_earth [OR19]
+color = "#b8c8d8"
+orbit_color = "#f0e080"
+[bodies.orbit]
+type = "nbody"
+
+[[bodies]]
+name = "Kepler-47 c"
+parent = "Kepler-47"
+radii_km = [29625.2]           # 4.65 R_earth [OR19]
+color = "#9fb8e0"
+orbit_color = "#90e0b0"
+[bodies.orbit]
+type = "nbody"
+
+[[bodies]]
+name = "Sun"
+parent = "Kepler-47"
+kind = "star"
+radii_km = [695700.0]
+temperature_k = 5772.0
+luminosity_solar = 1.0
+trail = "none"
+[bodies.orbit]                 # opposite direction of Kepler-47 as seen from the Sun [GAIA]
+type = "fixed"
+ra_dec_distance_pc = [115.297909668, -46.920474260, 1048.0]
+
+# [OR19] Table 7, barycentric; the output stays relative to the barycentre.
+[nbody]
+epoch_jd_tdb = 2454965.0
+span_years = [1990.0, 2060.0]
+step_days = 0.05               # 149 steps per binary orbit
+order = 6
+knots_per_orbit = 24
+
+[[nbody.members]]
+body = "Kepler-47 A"
+gm_km3_s2 = 1.270577302e11     # 0.9573912601143495 M_sun
+[nbody.members.sky_state]
+position_au = [2.092317942847221e-02, -1.364205200783173e-05, -1.988193746560007e-03]
+velocity_au_per_day = [1.350420386068420e-03, 1.239137665559171e-04, 1.835286133723581e-02]
+sky_ra_dec_deg = [295.297909668, 46.920474260]
+
+[[nbody.members]]
+body = "Kepler-47 B"
+gm_km3_s2 = 4.534288497e10     # 0.3416626576742950 M_sun
+[nbody.members.sky_state]
+position_au = [-5.866162141774457e-02, 3.791628623967441e-05, 5.649120240556342e-03]
+velocity_au_per_day = [-3.786681230811973e-03, -3.471736278879929e-04, -5.142910738078619e-02]
+sky_ra_dec_deg = [295.297909668, 46.920474260]
+
+[[nbody.members]]
+body = "Kepler-47 b"
+gm_km3_s2 = 8.239006860e5      # 6.208164703811071e-06 M_sun
+[nbody.members.sky_state]
+position_au = [1.302102743834203e-01, 8.812713793817102e-04, 2.500211844794519e-01]
+velocity_au_per_day = [-3.299902928667536e-02, 1.256761297656883e-04, 1.739447523236208e-02]
+sky_ra_dec_deg = [295.297909668, 46.920474260]
+
+[[nbody.members]]
+body = "Kepler-47 d"
+gm_km3_s2 = 7.580144401e6      # 5.711706000000001e-05 M_sun
+[nbody.members.sky_state]
+position_au = [2.398289447308760e-01, 8.391663271667140e-04, -6.478290001132635e-01]
+velocity_au_per_day = [2.207346827176963e-02, -3.936013341278077e-04, 8.701783937203954e-03]
+sky_ra_dec_deg = [295.297909668, 46.920474260]
+
+[[nbody.members]]
+body = "Kepler-47 c"
+gm_km3_s2 = 1.264829444e6      # 9.530601983442541e-06 M_sun
+[nbody.members.sky_state]
+position_au = [-3.872087634688049e-01, 5.540095504781927e-03, 9.270974333301998e-01]
+velocity_au_per_day = [-1.773342551338714e-02, 4.205823582940745e-04, -7.191666020340975e-03]
+sky_ra_dec_deg = [295.297909668, 46.920474260]
+
+[[events]]
+name = "Three planets around two suns, face-on"
+time = "2026-01-01"
+focus = "Kepler-47"
+from_orbit_normal = "Kepler-47 B"
+distance_km = 4.0e8
+warp = 345600.0
+
+[[events]]
+name = "The pair, 0.08 au apart (7.4-day orbit)"
+time = "2026-01-01"
+focus = "Kepler-47"
+distance_km = 4.0e7
+warp = 10800.0                 # 3 hours per second: one orbit in 60 s
+
+[[events]]
+name = "Primary eclipse as seen from Earth (2025-12-31)"
+time_tdb = "2025-12-31 12:30:00"
+focus = "Kepler-47"
+from_body = "Sun"
+distance_km = 2.5e7            # beyond B, which is 0.06 au in front of the barycenter
+warp = 120.0                   # the eclipse lasts ~4 hours
+
+[[events]]
+name = "Kepler-47 c in the habitable zone, under both suns"
+time = "2026-01-01"
+focus = "Kepler-47 c"
+from_body = "Kepler-47 A"
+phase_deg = -155.0             # a crescent, with the two suns in view beside it
+distance_km = 1.5e5
+warp = 3600.0
+
+[[events]]
+name = "Edge-on, as Kepler saw it (2011)"
+time = "2011-06-01"
+focus = "Kepler-47"
+from_body = "Sun"
+distance_km = 4.0e8
+warp = 172800.0
