@@ -404,7 +404,7 @@ bool App::load_scene(size_t index)
     const int focus = m_scene.view.focus;
     m_camera.focus(focus, m_scene);
     if (m_scene.view.distance_km > 0.0) {
-        m_camera.fly_to({focus, -1.2, m_scene.view.pitch_rad, m_scene.view.distance_km, false}, 0.0, m_scene);
+        m_camera.fly_to({focus, m_scene.view.yaw_rad, m_scene.view.pitch_rad, m_scene.view.distance_km, false}, 0.0, m_scene);
     }
     if (touring) {
         start_tour();

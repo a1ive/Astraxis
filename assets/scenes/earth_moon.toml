@@ -1,0 +1,228 @@
+# The Earth and the Moon with three missions: Artemis II's free-return flight
+# around the Moon (2026), Artemis I's distant retrograde orbit (2022), and CAPSTONE
+# in the near-rectilinear halo orbit planned for the Gateway (2022-2026).
+#
+# The default "Earth-Moon rotating" frame keeps the Moon still on the x axis:
+# Artemis II traces a figure eight, Artemis I a loop around the Moon that runs
+# against the Moon's own motion (retrograde). In the Moon-centered rotating frame
+# CAPSTONE's orbit stays put, a narrow loop from ~1,600 km above the north pole
+# to ~70,000 km beyond the south pole, repeating 9 times per 2 lunar months.
+#
+# Sources
+# [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py (tools/bake/ephem.toml):
+#        Moon around the Earth 2021-12-25 .. 2031-09-27; Artemis I (NASA/JSC as flown,
+#        after TLI) 2022-11-16 08:47 .. 2022-12-11 17:20 TDB; Artemis II (NASA/JSC
+#        navigation, after ICPS separation) 2026-04-02 02:00 .. 2026-04-10 23:54 TDB;
+#        CAPSTONE around the Moon (tracking to 2026-07-15, then predictions) from its
+#        deployment 2022-07-04 17:16 to 2026-08-14 11:58 TDB. The Sun direction uses the
+#        heliocentric Earth-Moon barycenter (as in jwst.toml).
+# [GM]   JPL SSD astrodynamic parameters (DE440): GM Earth 398600.435507, Moon
+#        4902.800118 km^3/s^2. Earth-Moon mass ratio for L1/L2:
+#        4902.800118 / (398600.435507 + 4902.800118) = 0.0121505844.
+# [PCK]  NAIF pck00011.tpc (IAU 2015): radii, poles, prime meridians.
+# [SPHY] JPL SSD satellite physical parameters (Moon mean radius).
+# Closest approaches (TDB at the spacecraft; altitude above the Moon's mean radius)
+# and the largest distances from the Earth (above its equatorial radius): computed
+# from the baked data. They agree with NASA's figures within a few km (checked in
+# tests/sim_tests.cpp).
+
+name = "Earth-Moon"
+
+[view]
+focus = "Earth"
+frame = "Earth-Moon rotating"
+distance_km = 8.0e5
+yaw_deg = -90.0                # looking along +y: the Moon to the right of the Earth
+pitch_deg = 50.0
+start = "2026-04-02 02:00"     # Artemis II, just after the ICPS separation
+warp = 3600.0                  # 1 hour per second: the 9-day flight in 3.5 minutes
+
+# Heliocentric Earth-Moon barycenter, for the Sun direction. [HZN]
+[origin_heliocentric]
+type = "ephemeris"
+file = "ephem/emb.eph"
+[origin_heliocentric.fallback]             # Standish Table 2a, EM Bary
+type = "jpl_approx_planet"
+a_au = [1.00000018, -0.00000003]
+e = [0.01673163, -0.00003661]
+i_deg = [-0.00054346, -0.01337178]
+mean_longitude_deg = [100.46691572, 35999.37306329]
+lon_peri_deg = [102.93005885, 0.31795260]
+node_deg = [-5.11260389, -0.24123856]
+
+[[bodies]]
+name = "Earth"
+radii_km = [6378.1366, 6356.7519]          # [PCK]
+gm_km3_s2 = 403503.235625                  # Earth + Moon, for the Moon's relative orbit [GM]
+pole_ra_dec_deg = [0.0, 90.0]              # [PCK]
+prime_meridian_deg = [190.147, 360.9856235]
+color = "#5b86c9"
+texture = "textures/earth.jpg"             # NASA Blue Marble NG (see textures/SOURCES.md)
+texture_left_lon_deg = -180.0
+
+[[bodies]]
+name = "Moon"
+parent = "Earth"
+radii_km = [1737.4]                        # [SPHY]
+gm_km3_s2 = 4902.800118                    # [GM]
+pole_ra_dec_deg = [269.9949, 66.5392]      # [PCK] (libration terms ignored)
+prime_meridian_deg = [38.3213, 13.17635815]
+color = "#a8a49c"
+orbit_color = "#c8c4bc"
+texture = "textures/moon.jpg"              # NASA SVS CGI Moon Kit
+texture_left_lon_deg = -180.0
+[bodies.orbit]                             # [HZN] 301
+type = "ephemeris"
+file = "ephem/moon_geo.eph"
+
+[[bodies]]
+name = "Artemis II"
+parent = "Earth"
+kind = "spacecraft"
+radii_km = [0.005]                         # Orion with its solar arrays, ~19 m across
+color = "#ffe08a"
+orbit_color = "#ffc34d"
+trail = "history"                          # the whole flight
+trail_linger_days = 30.0                   # after splashdown, fading
+[bodies.orbit]                             # [HZN] -1024
+type = "ephemeris"
+file = "ephem/artemis2.eph"
+
+[[bodies]]
+name = "Artemis I"
+parent = "Earth"
+kind = "spacecraft"
+radii_km = [0.005]
+color = "#ffb3a0"
+orbit_color = "#ff8a6e"
+trail = "history"
+trail_linger_days = 30.0                   # after splashdown, fading
+[bodies.orbit]                             # [HZN] -1023
+type = "ephemeris"
+file = "ephem/artemis1.eph"
+
+[[bodies]]
+name = "CAPSTONE"
+parent = "Moon"
+kind = "spacecraft"
+radii_km = [0.001]                         # 12U CubeSat with solar arrays
+color = "#a8f0c8"
+orbit_color = "#6fdba0"
+trail = "history"
+trail_history_days = 40.0                  # about 6 halo orbits
+trail_linger_days = 30.0                   # after the data end
+[bodies.orbit]                             # [HZN] -1176, Moon-centered
+type = "ephemeris"
+file = "ephem/capstone_sel.eph"
+
+[[frames]]
+name = "Earth-Moon rotating"
+type = "rotating"
+primary = "Earth"
+secondary = "Moon"
+origin = "Earth"
+
+[[frames]]
+name = "Earth-Moon rotating, Moon-centered"
+type = "rotating"
+primary = "Earth"
+secondary = "Moon"
+origin = "Moon"
+
+[[markers]]
+name = "L1"
+type = "lagrange"
+point = 1
+primary = "Earth"
+secondary = "Moon"
+mass_ratio = 0.0121505844
+
+[[markers]]
+name = "L2"
+type = "lagrange"
+point = 2
+primary = "Earth"
+secondary = "Moon"
+mass_ratio = 0.0121505844
+
+# --- Artemis II ------------------------------------------------------------------
+
+[[events]]
+name = "Artemis II: on the way to the Moon (2026-04-02)"
+time_tdb = "2026-04-02 02:00"
+focus = "Earth"
+frame = "Earth-Moon rotating"
+distance_km = 7.0e5
+warp = 3600.0
+
+# Closest approach 2026-04-06 23:01:49 TDB, 6,543 km above the far side; farthest
+# from the Earth 4 minutes later, 23:06:12 TDB, 406,765 km above its surface.
+[[events]]
+name = "Artemis II: behind the Moon, farthest humans (2026-04-06)"
+time_tdb = "2026-04-06 21:00"
+focus = "Moon"
+frame = "Earth-Moon rotating, Moon-centered"
+distance_km = 4.0e4
+warp = 300.0
+
+[[events]]
+name = "Artemis II: home (2026-04-10)"
+time_tdb = "2026-04-10 20:00"
+focus = "Earth"
+frame = "Earth-Moon rotating"
+distance_km = 1.2e5
+warp = 300.0
+
+# --- Artemis I -------------------------------------------------------------------
+
+[[events]]
+name = "Artemis I: the whole flight (2022-11-16)"
+time_tdb = "2022-11-16 08:47"
+focus = "Earth"
+frame = "Earth-Moon rotating"
+distance_km = 8.0e5
+warp = 7200.0
+
+[[events]]
+name = "Artemis I: outbound flyby (2022-11-21, 131 km)"
+time_tdb = "2022-11-21 11:58"
+focus = "Moon"
+distance_km = 2.0e4
+warp = 60.0
+
+# Farthest from the Earth 2022-11-28 21:07:35 TDB, 432,207 km above its surface.
+[[events]]
+name = "Artemis I: distant retrograde orbit (2022-11-25)"
+time_tdb = "2022-11-25 12:00"
+focus = "Moon"
+frame = "Earth-Moon rotating, Moon-centered"
+from_orbit_normal = "Moon"
+distance_km = 2.5e5
+warp = 3600.0
+
+[[events]]
+name = "Artemis I: return flyby (2022-12-05, 129 km)"
+time_tdb = "2022-12-05 15:45"
+focus = "Moon"
+distance_km = 2.0e4
+warp = 60.0
+
+# --- CAPSTONE ---------------------------------------------------------------------
+
+[[events]]
+name = "CAPSTONE: ballistic lunar transfer (2022-07)"
+time_tdb = "2022-07-05 00:00"
+focus = "Earth"
+frame = "Earth-Moon rotating"
+from_orbit_normal = "Moon"
+distance_km = 3.5e6
+warp = 86400.0
+
+# First perilune in the halo orbit 2022-11-14 00:39:27 TDB, 3,486 km from the Moon's center.
+[[events]]
+name = "CAPSTONE: arrives in the halo orbit (2022-11-13)"
+time_tdb = "2022-11-12 00:00"
+focus = "Moon"
+frame = "Earth-Moon rotating, Moon-centered"
+distance_km = 1.5e5
+warp = 3600.0

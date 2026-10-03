@@ -582,6 +582,92 @@ void test_jupiter_missions()
     }
 }
 
+// Artemis I/II and CAPSTONE against NASA's published figures (distances only:
+// mission blogs give times in local time zones, at the spacecraft or on Earth).
+void test_earth_moon_scene()
+{
+    Scene scene = load_scene_or_die("earth_moon.toml");
+    const int moon = scene.find("Moon");
+    const int a1 = scene.find("Artemis I");
+    const int a2 = scene.find("Artemis II");
+    const int capstone = scene.find("CAPSTONE");
+    check(moon > 0 && a1 > 0 && a2 > 0 && capstone > 0, "earth_moon.toml bodies");
+    auto at = [&](int body, double t) { return scene.icrf_state_at(body, t).position; };
+    auto tdb = [](const CalendarDateTime& c) { return (jd_from_calendar(c) - kJ2000Jd) * kSecondsPerDay; };
+    const double moon_r = scene.bodies[static_cast<size_t>(moon)].equatorial_radius_km;
+    const double earth_r = scene.bodies[0].equatorial_radius_km;
+
+    // Extremum of f over [t0 - span, t0 + span] at one-second steps.
+    auto extremum = [](auto f, double t0, double span, bool largest) {
+        double best = largest ? -1e300 : 1e300;
+        for (double dt = -span; dt <= span; dt += 1.0) {
+            const double v = f(t0 + dt);
+            best = largest ? std::max(best, v) : std::min(best, v);
+        }
+        return best;
+    };
+    auto above_moon = [&](int craft) { return [&, craft](double t) { return glm::length(at(craft, t) - at(moon, t)) - moon_r; }; };
+    auto above_earth = [&](int craft) { return [&, craft](double t) { return glm::length(at(craft, t)) - earth_r; }; };
+    constexpr double kMile = 1.609344;
+
+    // "Artemis I - Flight Day Six: Orion Performs Lunar Flyby, Closest Outbound
+    // Approach" (NASA blog, 2022-11-21): about 81 miles above the surface.
+    const double a1_flyby = extremum(above_moon(a1), tdb({2022, 11, 21, 12, 58, 49}), 900.0, false);
+    check(std::abs(a1_flyby - 81.0 * kMile) < 5.0, "Artemis I outbound flyby altitude (km)", a1_flyby);
+    // "Artemis I - Flight Day 13: Orion Goes the (Max) Distance" (2022-11-28): 268,563 miles.
+    const double a1_max = extremum(above_earth(a1), tdb({2022, 11, 28, 21, 7, 35}), 900.0, true);
+    check(std::abs(a1_max - 268563.0 * kMile) < 15.0, "Artemis I farthest from the Earth (km)", a1_max);
+    // "NASA's Artemis II Crew Eclipses Record for Farthest Human Spaceflight"
+    // (2026-04-06): about 4,067 miles from the lunar surface, 252,756 miles from the
+    // Earth at the farthest point. Both distances are from the surfaces (from the
+    // Earth's center the maximum would be 6,378 km larger).
+    const double a2_flyby = extremum(above_moon(a2), tdb({2026, 4, 6, 23, 1, 49}), 900.0, false);
+    check(std::abs(a2_flyby - 4067.0 * kMile) < 15.0, "Artemis II lunar flyby altitude (km)", a2_flyby);
+    const double a2_max = extremum(above_earth(a2), tdb({2026, 4, 6, 23, 6, 12}), 900.0, true);
+    check(std::abs(a2_max - 252756.0 * kMile) < 15.0, "Artemis II farthest from the Earth (km)", a2_max);
+
+    // CAPSTONE's near-rectilinear halo orbit is in 9:2 resonance with the synodic
+    // month (29.530589 d, mean; Meeus, Astronomical Algorithms, ch. 49): the mean
+    // time between perilunes over 2023-2025 is 2/9 of it. Perilunes lie over the
+    // north pole (southern L2 family).
+    const double t0 = tdb({2023, 1, 1, 0, 0, 0});
+    const double t1 = tdb({2026, 1, 1, 0, 0, 0});
+    const std::vector<double> peri = scene.periapsis_times(capstone, t0, t1);
+    const double mean_days = peri.size() > 1 ? (peri.back() - peri.front()) / (peri.size() - 1) / kSecondsPerDay : 0.0;
+    check(std::abs(mean_days - 2.0 / 9.0 * 29.530589) < 0.02, "CAPSTONE perilune interval (days)", mean_days);
+    double lowest_lat = 90.0;
+    for (const double tp : peri) {
+        const glm::dvec3 r = scene.bodies[static_cast<size_t>(capstone)].motion->eval(tp).position;
+        lowest_lat = std::min(lowest_lat, std::asin(glm::dot(r, scene.bodies[static_cast<size_t>(moon)].pole) / glm::length(r)) * kRadToDeg);
+    }
+    check(peri.size() > 150 && lowest_lat > 70.0, "CAPSTONE perilunes over the north pole (deg)", lowest_lat);
+
+    // After splashdown the spacecraft is gone, but its trail lingers (fading) for
+    // trail_linger_days and then disappears.
+    std::vector<glm::dvec3> points;
+    std::vector<float> fades;
+    scene.update(tdb({2026, 4, 20, 0, 0, 0}));
+    scene.trail(a2, tdb({2026, 4, 20, 0, 0, 0}), 2048, points, fades);
+    const float min_fade = fades.empty() ? 0.0f : *std::min_element(fades.begin(), fades.end());
+    check(!scene.bodies[static_cast<size_t>(a2)].visible && points.size() > 100 && min_fade > 0.25f,
+          "Artemis II trail lingers, fading, after splashdown", static_cast<double>(points.size()));
+    scene.update(tdb({2026, 5, 20, 0, 0, 0}));
+    scene.trail(a2, tdb({2026, 5, 20, 0, 0, 0}), 2048, points, fades);
+    check(points.empty(), "Artemis II trail gone 40 days after splashdown", static_cast<double>(points.size()));
+
+    // Moon-centered rotating frame: the Moon at the origin, the Earth on -x.
+    for (size_t f = 0; f < scene.frames.size(); ++f) {
+        if (scene.frames[f].name == "Earth-Moon rotating, Moon-centered") {
+            scene.set_active_frame(static_cast<int>(f));
+        }
+    }
+    scene.update(t0);
+    const glm::dvec3 earth = scene.bodies[0].world_position;
+    check(glm::length(scene.bodies[static_cast<size_t>(moon)].world_position) < 1e-6 && earth.x < -3.5e5 &&
+              std::abs(earth.y) < 1e-3 && std::abs(earth.z) < 1e-3,
+          "Moon-centered rotating frame", earth.x);
+}
+
 void test_jwst_scene()
 {
     // Lagrange L2 of Sun / Earth-Moon: force balance in the rotating frame, ~1.5e6 km.
@@ -1474,6 +1560,7 @@ int main()
     test_voyager_scene();
     test_parker_scene();
     test_jupiter_missions();
+    test_earth_moon_scene();
     test_jwst_scene();
     test_galactic_frame();
     test_visual_orbit_convention();

@@ -85,6 +85,7 @@ struct Body {
     glm::vec3 orbit_color{0.5f}; // sRGB
     TrailMode trail = TrailMode::Orbit;
     double trail_history_days = 0.0; // History trails: 0 = everything since the motion became valid
+    double trail_linger_days = 0.0;  // History trails: how long the trail stays after the motion ends
     // Draw the line of apsides at each periapsis within the trail, so the
     // apsidal advance (GR precession) shows as a fan of rotating lines.
     bool mark_periapsides = false;
@@ -166,6 +167,7 @@ struct SceneView {
     int focus = 0;
     double distance_km = 0.0; // 0 = automatic
     double pitch_rad = 0.35;  // camera elevation above the frame's reference plane
+    double yaw_rad = -1.2;    // camera azimuth from the frame's x axis
     int frame = 0;
     bool start_now = true;
     double start_tdb = 0.0;

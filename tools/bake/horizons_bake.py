@@ -114,8 +114,10 @@ def fetch(command, center, start_jd, stop_jd, step_minutes):
             part = [r for r in part if r[0] > rows[-1][0]]
         rows.extend(part)
     # Horizons only emits multiples of the step; make sure the stop time is a knot.
+    # (Ask for the last minute: a zero-length span is rejected right at the end of coverage.)
     if rows and rows[-1][0] < (stop_jd - J2000_JD) * DAY - 1.0:
-        rows.extend(horizons_vectors(command, center, stop_jd, stop_jd + 1e-6, 1))
+        tail = horizons_vectors(command, center, stop_jd - 1.0 / 1440.0, stop_jd, 1)
+        rows.extend(r for r in tail if r[0] > rows[-1][0])
     return rows
 
 

@@ -11,6 +11,10 @@
 #                    baseline predicts; impact into Jupiter 2003-Sep-21)
 #   Juno (-61):      2011-Aug-05 .. 2028-Sep-02 (reconstructed to 2026-Aug-24, then the
 #                    current prediction and the reference trajectory)
+#   Artemis I (-1023):  2022-Nov-16 08:46 .. 2022-Dec-11 17:21 TDB (NASA/JSC as-flown, after TLI)
+#   Artemis II (-1024): 2026-Apr-02 01:59 .. 2026-Apr-10 23:54 TDB (NASA/JSC navigation files,
+#                    concatenated; starts after ICPS separation)
+#   CAPSTONE (-1176): 2022-Jun-28 10:07 .. 2026-Aug-14 11:58 TDB (tracking to 2026-Jul-15)
 #   Parker Solar Probe (-96): 2018-Aug-12 08:16:23 TDB .. 2030-Jan-01 (as flown to
 #                    2026-Sep-01, then the reference planning trajectory)
 # Tolerances are for display: heliocentric positions carry the Sun's reflex motion
@@ -152,6 +156,9 @@ center_naif_id = 399
 start = "2021-12-25 13:02"
 stop = "2031-09-27 23:00"
 base_step_minutes = 360    # 6 h
+tolerance_km = 2.0         # Artemis lunar flybys come within ~130 km of the surface
+kepler_gm_km3_s2 = 403503.235625   # Earth + Moon (DE440, JPL SSD astrodynamic parameters)
+radius_km = 1737.4
 
 [[target]]
 name = "jwst_geo"
@@ -314,3 +321,59 @@ encounter_km = 100000.0
 encounter_step_minutes = 10
 refine_near = ["io_juno", "europa_juno", "ganymede_juno", "callisto_juno"]
 refine_near_km = 100000.0
+
+# --- Earth-Moon --------------------------------------------------------------
+#
+# Artemis I and II around the Earth (refined to 1 minute near the Moon), and
+# CAPSTONE around the Moon: its near-rectilinear halo orbit is a perturbed orbit
+# around the Moon, so Moon-centered Kepler-relative interpolation suits it.
+# Reference GMs: Earth 398600.435507, Moon 4902.800118 km^3/s^2 (DE440).
+
+[[target]]
+name = "artemis1"
+command = "-1023"
+naif_id = -1023
+center = "500@399"
+center_naif_id = 399
+kepler_gm_km3_s2 = 398600.435507
+start = "2022-11-16 08:47"
+stop = "2022-12-11 17:20"
+base_step_minutes = 60
+tolerance_km = 2.0
+encounters = ["moon_geo"]
+encounter_km = 100000.0
+encounter_step_minutes = 10
+refine_near = ["moon_geo"]
+refine_near_km = 70000.0
+refine_near_step_minutes = 10
+
+[[target]]
+name = "artemis2"
+command = "-1024"
+naif_id = -1024
+center = "500@399"
+center_naif_id = 399
+kepler_gm_km3_s2 = 398600.435507
+start = "2026-04-02 02:00"
+stop = "2026-04-10 23:54"
+base_step_minutes = 60
+tolerance_km = 2.0
+encounters = ["moon_geo"]
+encounter_km = 100000.0
+encounter_step_minutes = 10
+refine_near = ["moon_geo"]
+refine_near_km = 70000.0
+refine_near_step_minutes = 10
+
+[[target]]
+name = "capstone_sel"
+command = "-1176"
+naif_id = -1176
+center = "500@301"
+center_naif_id = 301
+kepler_gm_km3_s2 = 4902.800118
+start = "2022-07-04 17:16"   # deployed from the Photon upper stage
+stop = "2026-08-14 11:58"
+base_step_minutes = 120
+tolerance_km = 2.0
+periapsides = true

@@ -482,6 +482,7 @@ void Loader::parse(const toml::table& root, Scene& out)
             fail(ctx, "trail must be \"orbit\", \"history\" or \"none\"");
         }
         body.trail_history_days = get_double_or(*t, "trail_history_days", 0.0);
+        body.trail_linger_days = get_double_or(*t, "trail_linger_days", 0.0);
         body.mark_periapsides = (*t)["mark_periapsides"].value<bool>().value_or(false);
         if (body.mark_periapsides && body.trail_history_days <= 0.0) {
             fail(ctx, "mark_periapsides needs trail_history_days (the span searched for periapsides)");
@@ -655,6 +656,7 @@ void Loader::parse(const toml::table& root, Scene& out)
         }
         out.view.distance_km = get_double_or(*view, "distance_km", 0.0);
         out.view.pitch_rad = get_double_or(*view, "pitch_deg", out.view.pitch_rad * kRadToDeg) * kDegToRad;
+        out.view.yaw_rad = get_double_or(*view, "yaw_deg", out.view.yaw_rad * kRadToDeg) * kDegToRad;
         if (view->contains("frame")) {
             out.view.frame = frame_ref(*view, ctx);
         }

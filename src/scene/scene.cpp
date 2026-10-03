@@ -292,8 +292,40 @@ void Scene::trail(int body_index, double t_tdb, int max_points, std::vector<glm:
     points.clear();
     fades.clear();
     const Body& body = bodies[static_cast<size_t>(body_index)];
-    if (!body.visible || !body.motion || body.parent < 0 || body.trail == TrailMode::None) {
+    if (!body.motion || body.parent < 0 || body.trail == TrailMode::None) {
         return;
+    }
+
+    // A finished trajectory (e.g. a spacecraft after splashdown) can linger:
+    // its history trail ends where the motion ended and fades out over
+    // trail_linger_days.
+    double t_head = t_tdb; // newest point of the trail
+    double linger = 0.0;   // 0 .. 1: how far a finished trail has faded
+    if (!body.visible) {
+        const double window = body.trail_linger_days * kSecondsPerDay;
+        if (body.trail != TrailMode::History || window <= 0.0 ||
+            !bodies[static_cast<size_t>(body.parent)].visible) {
+            return;
+        }
+        // Motions are valid on one interval: find a valid time in the window,
+        // then bisect for the end of validity.
+        double valid = 0.0;
+        bool found = false;
+        for (int i = 1; i <= 64 && !found; ++i) {
+            valid = t_tdb - window * i / 64.0;
+            found = body.motion->valid_at(valid);
+        }
+        if (!found) {
+            return;
+        }
+        double lo = valid;
+        double hi = t_tdb;
+        for (int i = 0; i < 60; ++i) {
+            const double mid = 0.5 * (lo + hi);
+            (body.motion->valid_at(mid) ? lo : hi) = mid;
+        }
+        t_head = lo;
+        linger = (t_tdb - t_head) / window;
     }
 
     TrailMode mode = body.trail;
@@ -318,13 +350,13 @@ void Scene::trail(int body_index, double t_tdb, int max_points, std::vector<glm:
     }
 
     // History trail: earliest time at which the body exists, within the requested length.
-    double t0 = t_tdb - (history_days > 0.0 ? history_days : kDefaultHistoryDays) * kSecondsPerDay;
+    double t0 = t_head - (history_days > 0.0 ? history_days : kDefaultHistoryDays) * kSecondsPerDay;
     if (history_days <= 0.0 || !body.motion->valid_at(t0)) {
         // Binary search for the start of validity (motions are valid on one interval).
         double lo = t0;
-        double hi = t_tdb;
+        double hi = t_head;
         if (history_days <= 0.0) {
-            lo = t_tdb - 300.0 * kDaysPerJulianYear * kSecondsPerDay;
+            lo = t_head - 300.0 * kDaysPerJulianYear * kSecondsPerDay;
         }
         if (!body.motion->valid_at(lo)) {
             for (int i = 0; i < 60; ++i) {
@@ -335,20 +367,21 @@ void Scene::trail(int body_index, double t_tdb, int max_points, std::vector<glm:
         }
         t0 = lo;
     }
-    if (t0 >= t_tdb) {
+    if (t0 >= t_head) {
         return;
     }
 
-    body.motion->history_times(t0, t_tdb, max_points, m_scratch_times);
+    body.motion->history_times(t0, t_head, max_points, m_scratch_times);
     const bool fixed_frame = frame().type == DisplayFrame::Type::Inertial && frame().origin == 0;
-    const double span = t_tdb - t0;
+    const double span = t_head - t0;
     auto display_at = [&](double tk) {
         const glm::dvec3 icrf = icrf_state_at(body_index, tk).position;
         return fixed_frame ? icrf : frame_transform(tk).to_display(icrf);
     };
     auto emit = [&](double tk, const glm::dvec3& p) {
         points.push_back(p);
-        fades.push_back(static_cast<float>((t_tdb - tk) / span));
+        const double fade = (t_head - tk) / span;
+        fades.push_back(static_cast<float>(fade + (1.0 - fade) * linger)); // lingering: all toward the tail
     };
 
     // The samples are ephemeris knots. Where they are sparse (Kepler-relative
