@@ -127,6 +127,10 @@ target_link_libraries(astraxis PRIVATE
 )
 astraxis_set_warnings(astraxis)
 
+if(WIN32)
+    target_sources(astraxis PRIVATE res/astraxis.rc)
+endif()
+
 # Runtime assets (scenes, star catalog, textures) live next to the executable.
 add_custom_command(TARGET astraxis POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different

@@ -1,0 +1,4 @@
+// Windows resources for astraxis.exe. SDL3 picks the first icon group as the
+// window / taskbar icon, and Explorer uses it for the file icon.
+// Regenerate astraxis.ico with tools/icon/make_icon.py after editing the SVGs.
+1 ICON "astraxis.ico"

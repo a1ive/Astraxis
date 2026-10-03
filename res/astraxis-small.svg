@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Simplified Astraxis mark for 16-32 px icon sizes: bolder shapes, no fine detail -->
+  <title>Astraxis (small)</title>
+  <defs>
+    <radialGradient id="bg" cx="0.5" cy="0.36" r="0.75">
+      <stop offset="0" stop-color="#22366a"/>
+      <stop offset="1" stop-color="#060a1c"/>
+    </radialGradient>
+    <linearGradient id="orbit" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ee4a2e"/>
+      <stop offset="0.5" stop-color="#ff9030"/>
+      <stop offset="1" stop-color="#ffd86c"/>
+    </linearGradient>
+    <clipPath id="orbitFront">
+      <rect x="0" y="150" width="256" height="106"/>
+    </clipPath>
+  </defs>
+
+  <rect x="0" y="0" width="256" height="256" rx="44" fill="url(#bg)"/>
+
+  <path d="M128,18 L224,236 L176,236 L128,118 Z" fill="#aabbe0"/>
+  <path d="M128,18 L128,118 L80,236 L32,236 Z" fill="#f4f7fd"/>
+
+  <g transform="rotate(-16 128 150)">
+    <path fill="url(#orbit)" fill-rule="evenodd" clip-path="url(#orbitFront)"
+          d="M8,150 a120,44 0 1,0 240,0 a120,44 0 1,0 -240,0 Z
+             M20,144 a108,26 0 1,0 216,0 a108,26 0 1,0 -216,0 Z"/>
+  </g>
+</svg>
