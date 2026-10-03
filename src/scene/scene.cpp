@@ -2,6 +2,7 @@
 
 #include "core/math.hpp"
 #include "core/time.hpp"
+#include "ephem/kepler.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -118,6 +119,26 @@ int Scene::star_index() const
         }
     }
     return -1;
+}
+
+glm::dvec3 belt_position(const SceneBelt& belt, size_t index, double t_tdb)
+{
+    const float* el = &belt.elements[index * SceneBelt::kStride];
+    const double a = el[0] * kAuKm;
+    const double e = el[1];
+    const double n = std::sqrt(kSunGmKm3S2 / (a * a * a)); // rad/s
+    KeplerElements k;
+    k.a = a;
+    k.e = e;
+    k.i = el[2];
+    k.node = el[3];
+    k.arg_peri = el[4];
+    k.mean_anomaly = wrap_two_pi(el[5] + n * (t_tdb - belt.epoch_tdb));
+    const glm::dvec3 ecliptic = kepler_state(k, n).position;
+    // J2000 ecliptic -> ICRF (SBDB uses the IAU 1976 obliquity, 84381.448").
+    const double eps = 84381.448 / 3600.0 * kDegToRad;
+    return {ecliptic.x, std::cos(eps) * ecliptic.y - std::sin(eps) * ecliptic.z,
+            std::sin(eps) * ecliptic.y + std::cos(eps) * ecliptic.z};
 }
 
 int Scene::satellite_host(int body) const

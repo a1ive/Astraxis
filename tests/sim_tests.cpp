@@ -588,6 +588,52 @@ void test_solar_system_missions()
           "Jupiter in 1973 comes from the baked table, not the fallback");
 }
 
+// Solar System scene: the asteroid and Kuiper belts (two-body orbits from SBDB).
+void test_solar_system_belts()
+{
+    Scene scene = load_scene_or_die("solar_system.toml");
+    check(scene.belts.size() == 2 && scene.belts[0].size() > 60000 && scene.belts[1].size() > 7000,
+          "main belt and Kuiper belt loaded", scene.belts.empty() ? 0.0 : static_cast<double>(scene.belts[0].size()));
+    if (scene.belts.size() != 2) {
+        return;
+    }
+    auto angle_deg = [](const glm::dvec3& a, const glm::dvec3& b) {
+        return std::acos(std::clamp(glm::dot(glm::normalize(a), glm::normalize(b)), -1.0, 1.0)) / kDegToRad;
+    };
+
+    // Sorted by H: the brightest are Vesta and Eris. Against the scene's own bodies
+    // (Horizons): exact at the epoch, then drifting as a two-body orbit does.
+    struct Probe {
+        const SceneBelt* belt;
+        const char* body;
+        double max_at_epoch;
+        double max_2000;
+    };
+    for (const Probe& p : {Probe{&scene.belts[0], "Vesta", 0.05, 3.0}, Probe{&scene.belts[1], "Eris", 0.03, 0.2}}) {
+        const int body = scene.find(p.body);
+        for (const double t : {p.belt->epoch_tdb, 0.0}) {
+            const double a = angle_deg(belt_position(*p.belt, 0, t), scene.icrf_state_at(body, t).position);
+            check(a < (t == 0.0 ? p.max_2000 : p.max_at_epoch), p.body, a);
+            std::printf("info: %s from the belt elements vs Horizons, %s: %.3f deg\n", p.body,
+                        t == 0.0 ? "2000" : "epoch", a);
+        }
+    }
+
+    // The 3:1 Kirkwood gap at 2.50 au (resonance with Jupiter) is well below its
+    // neighbourhood.
+    auto count = [&](double lo, double hi) {
+        size_t n = 0;
+        for (size_t k = 0; k < scene.belts[0].size(); ++k) {
+            const double a = scene.belts[0].elements[k * SceneBelt::kStride];
+            n += (a >= lo && a < hi) ? 1 : 0;
+        }
+        return static_cast<double>(n) / (hi - lo);
+    };
+    const double gap = count(2.49, 2.51);
+    const double around = 0.5 * (count(2.40, 2.47) + count(2.53, 2.60));
+    check(gap < 0.3 * around, "Kirkwood gap at the 3:1 resonance", gap / around);
+}
+
 void test_parker_scene()
 {
     Scene scene = load_scene_or_die("parker.toml");
@@ -1907,6 +1953,7 @@ int main()
     test_solar_system_scene();
     test_solar_system_bodies();
     test_solar_system_missions();
+    test_solar_system_belts();
     test_parker_scene();
     test_jupiter_missions();
     test_earth_moon_scene();

@@ -2,6 +2,7 @@
 
 #include "core/sim_clock.hpp"
 #include "platform/window.hpp"
+#include "render/belt_pass.hpp"
 #include "render/black_hole_pass.hpp"
 #include "render/body_pass.hpp"
 #include "render/orbit_line_pass.hpp"
@@ -50,6 +51,7 @@ private:
 
     void build_body_items();
     void build_orbit_lines();
+    void build_belt_items();
     void reset_to_now();
     void set_focus(int body);
 
@@ -80,6 +82,7 @@ private:
     BodyPass m_bodies;
     RingPass m_rings;
     OrbitLinePass m_orbits;
+    BeltPass m_belts;
     SunPass m_sun;
     BlackHolePass m_black_hole;
     SDL_GPUTexture* m_sky_cube = nullptr; // starfield cube map for lensing (created on demand)
@@ -112,6 +115,7 @@ private:
     // View options.
     bool m_show_ui = true;
     bool m_show_orbits = true;
+    bool m_show_belts = true;
     bool m_show_labels = true;
     bool m_show_demo = false;
     bool m_auto_tour = true;     // start the tour after kIdleSeconds without input
@@ -128,6 +132,10 @@ private:
     // Per-frame scratch.
     std::vector<BodyDrawItem> m_body_items;
     std::vector<RingDrawItem> m_ring_items;
+    std::vector<BeltDrawItem> m_belt_items;
+    std::vector<int> m_belt_ids;          // per scene belt: BeltPass index (-1: not uploaded)
+    std::vector<float> m_belt_reference_h; // per scene belt: median absolute magnitude
+    std::vector<double> m_belt_radius_km;  // per scene belt: median semi-major axis
     std::vector<glm::dvec3> m_trail_points;
     std::vector<float> m_trail_fades;
     std::vector<float> m_body_fades;  // per body: label/marker/orbit visibility (satellite_fades)

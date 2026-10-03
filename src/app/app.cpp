@@ -36,6 +36,9 @@ constexpr float kOrbitOpacity = 0.55f;
 // from kSatelliteShowPx to kSatelliteHidePx (points, not pixels).
 constexpr double kSatelliteHidePx = 10.0;
 constexpr double kSatelliteShowPx = 28.0;
+// Belts keep their configured point brightness while their median radius spans at
+// least this many points on screen.
+constexpr double kBeltFullRadiusPx = 250.0;
 constexpr float kAmbient = 0.012f;
 // Surface radiance of star spheres (linear HDR, times the blackbody color).
 constexpr float kStarSurface = 6.0f;
@@ -97,7 +100,8 @@ bool App::init(const LaunchOptions& options)
     const SceneTargetFormat& format = m_renderer.scene_format();
     if (!m_starfield.init(m_renderer.device(), format, catalog) || !m_bodies.init(m_renderer.device(), format) ||
         !m_rings.init(m_renderer.device(), format) ||
-        !m_orbits.init(m_renderer.device(), format) || !m_sun.init(m_renderer.device(), format) ||
+        !m_orbits.init(m_renderer.device(), format) || !m_belts.init(m_renderer.device(), format) ||
+        !m_sun.init(m_renderer.device(), format) ||
         !m_black_hole.init(m_renderer.device(), format) ||
         !m_post.init(m_renderer.device(), format.color, m_renderer.swapchain_format())) {
         return false;
@@ -212,6 +216,7 @@ void App::shutdown()
     m_post.shutdown();
     m_sun.shutdown();
     m_orbits.shutdown();
+    m_belts.shutdown();
     m_rings.shutdown();
     m_bodies.shutdown();
     m_starfield.shutdown();
@@ -368,6 +373,28 @@ bool App::load_scene(size_t index)
     m_scene_index = index;
 
     m_body_fades.assign(m_scene.bodies.size(), 1.0f); // until the next update()
+    m_belts.clear();
+    m_belt_ids.clear();
+    m_belt_reference_h.clear();
+    m_belt_radius_km.clear();
+    for (const SceneBelt& belt : m_scene.belts) {
+        m_belt_ids.push_back(m_belts.add_belt(belt.elements.data(), static_cast<uint32_t>(belt.size())));
+        // Weight 1 at the median H: the typical point keeps the configured brightness.
+        std::vector<float> h;
+        h.reserve(belt.size());
+        for (size_t k = 0; k < belt.size(); ++k) {
+            h.push_back(belt.elements[k * SceneBelt::kStride + 6]);
+        }
+        std::nth_element(h.begin(), h.begin() + static_cast<std::ptrdiff_t>(h.size() / 2), h.end());
+        m_belt_reference_h.push_back(h.empty() ? 0.0f : h[h.size() / 2]);
+        std::vector<float> a;
+        a.reserve(belt.size());
+        for (size_t k = 0; k < belt.size(); ++k) {
+            a.push_back(belt.elements[k * SceneBelt::kStride]);
+        }
+        std::nth_element(a.begin(), a.begin() + static_cast<std::ptrdiff_t>(a.size() / 2), a.end());
+        m_belt_radius_km.push_back(a.empty() ? 0.0 : a[a.size() / 2] * kAuKm);
+    }
     m_label_alpha.clear();
     m_body_textures.assign(m_scene.bodies.size(), nullptr);
     m_ring_textures.assign(m_scene.bodies.size(), nullptr);
@@ -822,6 +849,39 @@ void App::build_body_items()
     }
 }
 
+void App::build_belt_items()
+{
+    m_belt_items.clear();
+    if (!m_show_belts) {
+        return;
+    }
+    // J2000 ecliptic -> ICRF (SBDB elements use the IAU 1976 obliquity, 84381.448") -> display.
+    const double eps = 84381.448 / 3600.0 * kDegToRad;
+    const glm::dmat3 icrf_from_ecliptic(glm::dvec3(1.0, 0.0, 0.0), glm::dvec3(0.0, std::cos(eps), std::sin(eps)),
+                                        glm::dvec3(0.0, -std::sin(eps), std::cos(eps)));
+    const glm::dmat3 display_from_ecliptic = glm::transpose(m_scene.current_transform().axes) * icrf_from_ecliptic;
+    const glm::dvec3 sun = m_scene.sun_position() - m_view.position;
+    const double px_per_radian = 0.5 * m_view.viewport.y * m_view.focal_y;
+    for (size_t k = 0; k < m_scene.belts.size(); ++k) {
+        const SceneBelt& belt = m_scene.belts[k];
+        BeltDrawItem item;
+        item.belt = k < m_belt_ids.size() ? m_belt_ids[k] : -1;
+        item.sun_relative = glm::vec3(sun);
+        item.display_from_ecliptic = glm::mat3(display_from_ecliptic);
+        item.days_since_epoch = static_cast<float>((m_clock.t_tdb - belt.epoch_tdb) / kSecondsPerDay);
+        item.point_size_px = static_cast<float>(belt.point_size_px * m_window.content_scale());
+        item.color = belt.color;
+        // Once the belt shrinks below kBeltFullRadiusPx on screen, dim each point with
+        // the belt's apparent area: its surface brightness stays the same instead of
+        // tens of thousands of points piling up into a glare around the Sun.
+        const double radius_px = k < m_belt_radius_km.size() ? m_belt_radius_km[k] / glm::length(sun) * px_per_radian : 0.0;
+        const double area = std::min(1.0, radius_px / (kBeltFullRadiusPx * m_window.content_scale()));
+        item.brightness = static_cast<float>(belt.brightness * area * area);
+        item.reference_h = k < m_belt_reference_h.size() ? m_belt_reference_h[k] : 0.0f;
+        m_belt_items.push_back(item);
+    }
+}
+
 void App::build_orbit_lines()
 {
     m_orbits.begin();
@@ -925,6 +985,8 @@ void App::render()
         sun.ambient = kAmbient;
         m_bodies.draw(frame.cmd, pass, m_view, sun, m_body_items);
         m_rings.draw(frame.cmd, pass, m_view, m_ring_items);
+        build_belt_items();
+        m_belts.draw(frame.cmd, pass, m_view, m_belt_items);
         m_black_hole.composite(pass);
 
         // Stars: sprites at their real positions (depth-tested against bodies).

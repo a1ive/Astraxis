@@ -226,6 +226,10 @@ void App::build_control_panel()
     ImGui::Checkbox("Orbits", &m_show_orbits);
     ImGui::SameLine();
     ImGui::Checkbox("Labels", &m_show_labels);
+    if (!m_scene.belts.empty()) {
+        ImGui::SameLine();
+        ImGui::Checkbox("Belts", &m_show_belts);
+    }
     ImGui::SameLine();
     ImGui::Checkbox("ImGui demo", &m_show_demo);
     ImGui::SetNextItemWidth(160.0f * ImGui::GetStyle().FontScaleDpi);

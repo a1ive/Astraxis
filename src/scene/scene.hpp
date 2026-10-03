@@ -182,6 +182,27 @@ struct SceneSky {
     double milky_way_brightness = 1.0; // linear scale of the map's values
 };
 
+// A cloud of small bodies drawn as points (the main asteroid belt, the Kuiper
+// belt): two-body heliocentric orbits from one epoch, J2000 ecliptic elements
+// (tools/belts/make_belts.py). The renderer propagates them on the GPU;
+// belt_position() is the same computation on the CPU.
+struct SceneBelt {
+    std::string name;
+    glm::vec3 color{1.0f};   // sRGB
+    double brightness = 1.0; // artistic radiance scale of one point
+    double point_size_px = 1.5;
+    double epoch_tdb = 0.0;  // TDB seconds since J2000
+    // kStride floats per object: a (au), e, i, node, arg_peri, mean anomaly
+    // at the epoch (rad), absolute magnitude H.
+    static constexpr size_t kStride = 7;
+    std::vector<float> elements;
+
+    size_t size() const { return elements.size() / kStride; }
+};
+
+// Heliocentric ICRF position (km) of object `index` of a belt at t_tdb.
+glm::dvec3 belt_position(const SceneBelt& belt, size_t index, double t_tdb);
+
 // A moment worth jumping to (e.g. a flyby).
 struct SceneEvent {
     std::string name;
@@ -215,6 +236,7 @@ public:
     std::vector<SceneEvent> events;
     SceneView view;
     SceneSky sky;
+    std::vector<SceneBelt> belts;
 
     // Heliocentric motion of the scene origin, used for the sun position when
     // the scene has no Star body.

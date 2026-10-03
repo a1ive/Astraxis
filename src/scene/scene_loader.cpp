@@ -203,6 +203,7 @@ private:
     void parse_nbody(const toml::table& t, Scene& out);
     std::shared_ptr<const EphemerisTable> load_table(const std::string& file, const std::string& ctx);
     void load_ring_profile(const std::string& file, const std::string& ctx, RingSystem& rings) const;
+    void load_belt(const std::string& file, const std::string& ctx, SceneBelt& belt) const;
     int body_ref(const Scene& scene, const toml::table& t, std::string_view key, const std::string& ctx,
                  bool allow_sun) const;
 
@@ -224,6 +225,28 @@ std::shared_ptr<const EphemerisTable> Loader::load_table(const std::string& file
     }
     m_tables[file] = table;
     return table;
+}
+
+// Belt file (tools/belts/make_belts.py), little endian:
+//   char[8] "AXBELT1\0"; uint32 count; uint32 reserved; float64 epoch (JD TDB);
+//   float32 a (au), e, i, node, arg_peri, mean anomaly (rad), H per object.
+void Loader::load_belt(const std::string& file, const std::string& ctx, SceneBelt& belt) const
+{
+    std::ifstream in(m_asset_root / file, std::ios::binary);
+    char magic[8];
+    uint32_t counts[2];
+    double epoch_jd = 0.0;
+    if (!in || !in.read(magic, 8) || std::memcmp(magic, "AXBELT1", 8) != 0 ||
+        !in.read(reinterpret_cast<char*>(counts), sizeof(counts)) ||
+        !in.read(reinterpret_cast<char*>(&epoch_jd), sizeof(epoch_jd)) || counts[0] == 0) {
+        fail(ctx, "cannot read belt '" + file + "'");
+    }
+    belt.epoch_tdb = (epoch_jd - kJ2000Jd) * kSecondsPerDay;
+    belt.elements.resize(static_cast<size_t>(counts[0]) * SceneBelt::kStride);
+    if (!in.read(reinterpret_cast<char*>(belt.elements.data()),
+                 static_cast<std::streamsize>(belt.elements.size() * sizeof(float)))) {
+        fail(ctx, "truncated belt '" + file + "'");
+    }
 }
 
 // Ring profile file (tools/rings/make_saturn_rings.py), little endian:
@@ -735,6 +758,26 @@ void Loader::parse(const toml::table& root, Scene& out)
                 }
             }
             out.events.push_back(e);
+        }
+    }
+
+    if (const toml::array* belts = root["belts"].as_array()) {
+        for (size_t k = 0; k < belts->size(); ++k) {
+            const toml::table* t = (*belts)[k].as_table();
+            const std::string ctx = "belts[" + std::to_string(k) + "]";
+            if (!t) {
+                fail(ctx, "must be a table");
+            }
+            SceneBelt belt;
+            belt.name = get_string(*t, "name", ctx);
+            belt.color = parse_color(*t, "color", ctx, glm::vec3(1.0f));
+            belt.brightness = get_double_or(*t, "brightness", 1.0);
+            belt.point_size_px = get_double_or(*t, "point_size_px", 1.5);
+            if (belt.brightness < 0.0 || belt.point_size_px <= 0.0) {
+                fail(ctx, "brightness must not be negative, point_size_px must be positive");
+            }
+            load_belt(get_string(*t, "file", ctx), ctx, belt);
+            out.belts.push_back(std::move(belt));
         }
     }
 

@@ -40,6 +40,8 @@
 # [ARRO] Spencer et al. 2020, Science 367, eaay3999 (arXiv:2004.00727): Arrokoth's overall
 #        dimensions 36 x 20 x 10 km (two lobes), positive pole RA 317.5, Dec -24.9 deg
 #        (J2000), rotation period 15.92 h.
+# [BELT] JPL Small-Body Database Query API (https://ssd-api.jpl.nasa.gov/sbdb_query.api),
+#        osculating elements moved to the common epoch JD 2461200.5 TDB (2026-06-09).
 # [PDSR], [RSS]: Jupiter's and Saturn's rings, see jupiter.toml / saturn.toml.
 # [PDSU] PDS Ring-Moon Systems Node, "Vital Statistics for Uranus's Rings and Inner
 #        Satellites" (https://pds-rings.seti.org/uranus/uranus_tables.html), from French
@@ -1482,6 +1484,29 @@ trail = "history"                          # since launch
 type = "ephemeris"
 file = "ephem/new_horizons.eph"
 extrapolate = "linear"
+
+# --- Belts -------------------------------------------------------------------------
+# [BELT] Points on two-body heliocentric orbits from the JPL Small-Body Database
+# (tools/belts/make_belts.py; assets/belts/SOURCES.md): the main belt (classes MBA,
+# IMB, OMB) down to H = 15, i.e. diameters of ~2-5 km and up (~64,000 objects; the
+# Kirkwood gaps and the Hildas show), and all trans-Neptunian objects (~7,300: the
+# Plutinos in the 3:2 resonance with Neptune, the classical belt, the scattered
+# disk). Jupiter's Trojans are not included. Brightness and color are artistic;
+# brighter (larger) objects get somewhat brighter points.
+
+[[belts]]
+name = "Main belt"
+file = "belts/main_belt.bin"
+color = "#b4a690"
+brightness = 0.25
+point_size_px = 1.5
+
+[[belts]]
+name = "Kuiper belt"
+file = "belts/kuiper_belt.bin"
+color = "#a88c7c"
+brightness = 0.6
+point_size_px = 1.8
 
 # Planet-centered views show the flyby trajectories as hyperbolas.
 [[frames]]
