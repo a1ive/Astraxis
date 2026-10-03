@@ -18,12 +18,12 @@ constexpr double kObliquityJ2000 = 84381.412 / 3600.0 * kDegToRad;
 constexpr double kRotatingTrailDays = 30.0;
 // Default history length when a motion has no defined start.
 constexpr double kDefaultHistoryDays = 365.0;
-// History trails in moving frames: a segment is split while its midpoint lies
-// farther than this fraction of the chord from it (~4.6 deg of turn), at most
-// kTrailRefineDepth times, and the trail grows to at most kTrailRefineBudget
-// times the requested point count.
+// History trails: a segment is split while its midpoint lies farther than this
+// fraction of the chord from it (~4.6 deg of turn), at most kTrailRefineDepth
+// times, and the trail grows to at most kTrailRefineBudget times the requested
+// point count.
 constexpr double kTrailMaxSag = 0.01;
-constexpr int kTrailRefineDepth = 5;
+constexpr int kTrailRefineDepth = 6;
 constexpr size_t kTrailRefineBudget = 4;
 
 } // namespace
@@ -351,10 +351,10 @@ void Scene::trail(int body_index, double t_tdb, int max_points, std::vector<glm:
         fades.push_back(static_cast<float>((t_tdb - tk) / span));
     };
 
-    // The samples follow the curvature of the motion itself (ephemeris knots). A
-    // moving frame can bend the path between them, e.g. a rotating frame turns a
-    // gentle aphelion arc into a loop, so there a segment is split while its
-    // midpoint sags off the chord.
+    // The samples are ephemeris knots. Where they are sparse (Kepler-relative
+    // tables put only a few on each orbit) or a moving frame bends the path
+    // between them (a rotating frame turns a gentle aphelion arc into a loop),
+    // a segment is split while its midpoint sags off the chord.
     const size_t max_refined = static_cast<size_t>(std::max(max_points, 0)) * kTrailRefineBudget;
     auto refine = [&](auto&& self, double ta, const glm::dvec3& pa, double tb, const glm::dvec3& pb,
                       int depth) -> void {
@@ -376,7 +376,7 @@ void Scene::trail(int body_index, double t_tdb, int max_points, std::vector<glm:
     for (auto it = m_scratch_times.rbegin(); it != m_scratch_times.rend(); ++it) {
         const double tk = *it;
         const glm::dvec3 p = display_at(tk);
-        if (!fixed_frame && it != m_scratch_times.rbegin()) {
+        if (it != m_scratch_times.rbegin()) {
             refine(refine, prev_t, prev_p, tk, p, kTrailRefineDepth);
         }
         emit(tk, p);

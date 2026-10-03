@@ -7,6 +7,10 @@
 #   Voyager 1 (-31): 1977-Sep-05 .. 2100-Jan-01, launch 1977-Sep-06 12:56 UTC
 #   Voyager 2 (-32): 1977-Aug-20 15:32:32 TDB .. 2100-Jan-01
 #   JWST (-170):     2021-Dec-25 13:01:09 TDB .. 2031-Sep-27 23:59 TDB
+#   Galileo (-77):   1989-Oct-19 .. 2003-Sep-30 (navigation team fits to 2002-Aug-12, then
+#                    baseline predicts; impact into Jupiter 2003-Sep-21)
+#   Juno (-61):      2011-Aug-05 .. 2028-Sep-02 (reconstructed to 2026-Aug-24, then the
+#                    current prediction and the reference trajectory)
 #   Parker Solar Probe (-96): 2018-Aug-12 08:16:23 TDB .. 2030-Jan-01 (as flown to
 #                    2026-Sep-01, then the reference planning trajectory)
 # Tolerances are for display: heliocentric positions carry the Sun's reflex motion
@@ -158,3 +162,155 @@ center_naif_id = 399
 start = "2021-12-25 13:02"
 stop = "2031-09-27 23:00"
 base_step_minutes = 360
+
+# --- Jupiter-centered (center: Jupiter body center, 500@599) ---------------
+#
+# Galileo's and Juno's orbits around Jupiter, and the Galilean moons over the
+# same two spans so that the moon flybys line up (the mean-element moons of the
+# Jupiter scene drift by degrees). Outside these spans the scene falls back to
+# the mean elements.
+# Kepler-relative interpolation (AXEPH2) around the Jupiter system GM (DE440,
+# JPL SSD astrodynamic parameters): about 4-5x fewer knots for the moons. The GM
+# only shapes the interpolation; the knots are exact Horizons samples.
+
+[[target]]
+name = "io_gll"
+command = "501"
+naif_id = 501
+center = "500@599"
+kepler_gm_km3_s2 = 126712764.1
+center_naif_id = 599
+start = "1995-11-01"
+stop = "2003-09-22"
+base_step_minutes = 120
+tolerance_km = 10.0
+radius_km = 1821.49
+
+[[target]]
+name = "europa_gll"
+command = "502"
+naif_id = 502
+center = "500@599"
+kepler_gm_km3_s2 = 126712764.1
+center_naif_id = 599
+start = "1995-11-01"
+stop = "2003-09-22"
+base_step_minutes = 180
+tolerance_km = 10.0
+radius_km = 1560.8
+
+[[target]]
+name = "ganymede_gll"
+command = "503"
+naif_id = 503
+center = "500@599"
+kepler_gm_km3_s2 = 126712764.1
+center_naif_id = 599
+start = "1995-11-01"
+stop = "2003-09-22"
+base_step_minutes = 360
+tolerance_km = 10.0
+radius_km = 2631.2
+
+[[target]]
+name = "callisto_gll"
+command = "504"
+naif_id = 504
+center = "500@599"
+kepler_gm_km3_s2 = 126712764.1
+center_naif_id = 599
+start = "1995-11-01"
+stop = "2003-09-22"
+base_step_minutes = 720
+tolerance_km = 10.0
+radius_km = 2410.3
+
+[[target]]
+name = "io_juno"
+command = "501"
+naif_id = 501
+center = "500@599"
+kepler_gm_km3_s2 = 126712764.1
+center_naif_id = 599
+start = "2016-06-01"
+stop = "2028-09-01"
+base_step_minutes = 120
+tolerance_km = 10.0
+radius_km = 1821.49
+
+[[target]]
+name = "europa_juno"
+command = "502"
+naif_id = 502
+center = "500@599"
+kepler_gm_km3_s2 = 126712764.1
+center_naif_id = 599
+start = "2016-06-01"
+stop = "2028-09-01"
+base_step_minutes = 180
+tolerance_km = 10.0
+radius_km = 1560.8
+
+[[target]]
+name = "ganymede_juno"
+command = "503"
+naif_id = 503
+center = "500@599"
+kepler_gm_km3_s2 = 126712764.1
+center_naif_id = 599
+start = "2016-06-01"
+stop = "2028-09-01"
+base_step_minutes = 360
+tolerance_km = 10.0
+radius_km = 2631.2
+
+[[target]]
+name = "callisto_juno"
+command = "504"
+naif_id = 504
+center = "500@599"
+kepler_gm_km3_s2 = 126712764.1
+center_naif_id = 599
+start = "2016-06-01"
+stop = "2028-09-01"
+base_step_minutes = 720
+tolerance_km = 10.0
+radius_km = 2410.3
+
+# The spacecraft come after the moons: refine_near needs the moon tables.
+
+[[target]]
+name = "galileo_jup"
+command = "-77"
+naif_id = -77
+center = "500@599"
+kepler_gm_km3_s2 = 126712764.1
+center_naif_id = 599
+start = "1995-11-01"
+stop = "2003-09-21 18:58"   # entry into Jupiter (1 bar) at ~18:58:20 TDB
+base_step_minutes = 360    # 6 h
+tolerance_km = 5.0
+periapsides = true
+encounters = ["io_gll", "europa_gll", "ganymede_gll", "callisto_gll"]
+encounter_km = 100000.0
+encounter_step_minutes = 10
+refine_near = ["io_gll", "europa_gll", "ganymede_gll", "callisto_gll"]
+refine_near_km = 100000.0
+
+[[target]]
+name = "juno_jup"
+command = "-61"
+naif_id = -61
+center = "500@599"
+kepler_gm_km3_s2 = 126712764.1
+center_naif_id = 599
+start = "2016-06-01"
+stop = "2028-09-01"   # Horizons coverage ends at 2028-09-02 01:39
+base_step_minutes = 360
+tolerance_km = 5.0
+periapsides = true
+encounters = ["io_juno", "europa_juno", "ganymede_juno", "callisto_juno"]
+encounter_km = 100000.0
+encounter_step_minutes = 10
+refine_near = ["io_juno", "europa_juno", "ganymede_juno", "callisto_juno"]
+refine_near_km = 100000.0

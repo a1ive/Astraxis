@@ -290,7 +290,12 @@ std::unique_ptr<MotionSource> Loader::parse_motion(const toml::table& t, const s
         } else if (extrapolate != "none") {
             fail(ctx, "extrapolate must be \"none\" or \"linear\"");
         }
-        return std::make_unique<EphemerisMotion>(std::move(table), std::move(fallback), mode, parent_gm);
+        const double blend_days = get_double_or(t, "fallback_blend_days", 0.0);
+        if (blend_days < 0.0 || (blend_days > 0.0 && !fallback)) {
+            fail(ctx, "fallback_blend_days needs a fallback and must not be negative");
+        }
+        return std::make_unique<EphemerisMotion>(std::move(table), std::move(fallback), mode, parent_gm,
+                                                 blend_days * kSecondsPerDay);
     }
 
     if (type == "fixed") {
@@ -489,6 +494,41 @@ void Loader::parse(const toml::table& root, Scene& out)
             fail(ctx, "texture_lon_direction must be \"east\" or \"west\"");
         }
         body.texture_west_positive = direction == "west";
+
+        if (const toml::table* rings = (*t)["rings"].as_table()) {
+            const std::string rctx = ctx + " rings";
+            body.rings.color = parse_color(*rings, "color", rctx, glm::vec3(1.0f));
+            body.rings.gain = get_double_or(*rings, "gain", 1.0);
+            body.rings.phase_g = get_double_or(*rings, "phase_g", 0.0);
+            if (body.rings.gain < 0.0 || std::abs(body.rings.phase_g) >= 1.0) {
+                fail(rctx, "gain must not be negative and |phase_g| must be < 1");
+            }
+            const toml::array* bands = (*rings)["bands"].as_array();
+            if (!bands || bands->empty()) {
+                fail(rctx, "needs [[bodies.rings.bands]]");
+            }
+            for (const auto& node : *bands) {
+                const toml::table* b = node.as_table();
+                if (!b) {
+                    fail(rctx, "bands must be tables");
+                }
+                RingBand band;
+                band.name = get_string_or(*b, "name", "");
+                band.inner_km = get_double(*b, "inner_km", rctx);
+                band.outer_km = get_double(*b, "outer_km", rctx);
+                band.optical_depth = get_double(*b, "optical_depth", rctx);
+                band.thickness_km = get_double_or(*b, "thickness_km", 0.0);
+                if (!(band.inner_km >= body.equatorial_radius_km && band.outer_km > band.inner_km) ||
+                    band.optical_depth < 0.0 || band.thickness_km < 0.0) {
+                    fail(rctx, "band '" + band.name +
+                                   "' needs radius <= inner_km < outer_km and non-negative depth and thickness");
+                }
+                body.rings.bands.push_back(band);
+            }
+            if (body.rings.bands.size() > 8) {
+                fail(rctx, "at most 8 bands");
+            }
+        }
 
         if (const toml::table* orbit = (*t)["orbit"].as_table()) {
             if (body.parent < 0) {

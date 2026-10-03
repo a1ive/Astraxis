@@ -79,6 +79,8 @@ astraxis_add_shaders(astraxis_shaders
     shaders/fullscreen.vert.hlsl
     shaders/orbit_line.vert.hlsl
     shaders/orbit_line.frag.hlsl
+    shaders/ring.vert.hlsl
+    shaders/ring.frag.hlsl
     shaders/starfield.vert.hlsl
     shaders/starfield.frag.hlsl
     shaders/sun.vert.hlsl
@@ -108,6 +110,8 @@ add_executable(astraxis
     src/render/post_process.hpp
     src/render/renderer.cpp
     src/render/renderer.hpp
+    src/render/ring_pass.cpp
+    src/render/ring_pass.hpp
     src/render/shader.cpp
     src/render/shader.hpp
     src/render/texture.cpp

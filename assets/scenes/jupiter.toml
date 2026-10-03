@@ -1,11 +1,23 @@
-# Jupiter and the four Galilean satellites (mean-element model).
+# Jupiter, its rings, the Galilean and the four inner satellites, and the orbits
+# of Galileo (1995-2003) and Juno (2016-).
 #
 # Sources
 # [ELEM] JPL SSD, Planetary Satellite Mean Elements (https://ssd.jpl.nasa.gov/sats/elem/),
 #        ephemeris JUP365, Laplace-plane frame, epoch 2000-01-01.5 TDB.
 # [SPHY] JPL SSD, Planetary Satellite Physical Parameters (https://ssd.jpl.nasa.gov/sats/phys_par/).
 # [PCK]  NAIF pck00011.tpc (IAU WGCCRE 2015 report): pole, prime meridian, radii.
-#        Linear T terms and nutation/precession terms are ignored (< 0.01 deg over centuries).
+#        Linear T terms and nutation/precession terms are ignored (< 0.01 deg over centuries
+#        for the Galilean moons; < 1 deg for the inner moons).
+# [HZN]  JPL Horizons state vectors relative to Jupiter's center, baked by
+#        tools/bake/horizons_bake.py (tools/bake/ephem.toml, Kepler-relative AXEPH2 tables):
+#        Galileo 1995-11-01 .. 2003-09-21 (navigation fits to 2002-08-12, then the
+#        baseline prediction), Juno 2016-06-01 .. 2028-09-01 (reconstructed to 2026-08-24,
+#        then predictions), and the Galilean moons over both spans. Outside them the moons
+#        fade over one day into the mean-element model [ELEM], which drifts by degrees.
+# [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
+# [PDSR] PDS Ring-Moon Systems Node, "Vital Statistics for Jupiter's Rings and Inner
+#        Satellites" (https://pds-rings.seti.org/jupiter/jupiter_tables.html), from Murray &
+#        Dermott 1999 (Solar System Dynamics) and Burns et al. 1999 (Science 284, 1146).
 # [APX]  E. M. Standish, Approximate Positions of the Planets, Tables 2a/2b
 #        (https://ssd.jpl.nasa.gov/planets/approx_pos.html), 3000 BC - 3000 AD.
 #
@@ -42,6 +54,7 @@ f = 38.35125000
 [[bodies]]
 name = "Jupiter"
 radii_km = [71492.0, 66854.0]          # equatorial, polar [PCK]
+gm_km3_s2 = 126712764.1                # system [GM]; osculating orbits of the moons and spacecraft
 pole_ra_dec_deg = [268.056595, 64.495303] # [PCK]
 prime_meridian_deg = [284.95, 870.5360000] # W0, deg/day (System III) [PCK]
 color = "#e0cdb0"
@@ -49,6 +62,51 @@ style = "gas_giant"
 # Atmospheric features drift in longitude, so the map alignment is arbitrary.
 texture = "textures/jupiter.jpg"
 texture_left_lon_deg = -180.0
+
+# Faint dusty rings, single scattering (see shaders/ring.frag.hlsl). Radii, normal
+# optical depths and thicknesses [PDSR]. The real rings are about a millionth as
+# bright as Jupiter's disk, so `gain` is artistic; their relative brightness, the
+# brightening toward edge-on, the forward scattering and Jupiter's shadow are not.
+# Tint and phase asymmetry are illustrative (reddish dust, forward scattering).
+[bodies.rings]
+color = "#c9a487"
+gain = 5.0e4
+phase_g = 0.5
+
+[[bodies.rings.bands]]
+name = "Halo"
+inner_km = 89400.0
+outer_km = 123000.0
+optical_depth = 3.0e-6
+thickness_km = 10000.0
+
+[[bodies.rings.bands]]
+name = "Main ring"
+inner_km = 123000.0
+outer_km = 128940.0
+optical_depth = 5.0e-6
+thickness_km = 100.0
+
+[[bodies.rings.bands]]
+name = "Amalthea gossamer ring"
+inner_km = 128940.0
+outer_km = 181350.0
+optical_depth = 1.0e-7
+thickness_km = 2600.0
+
+[[bodies.rings.bands]]
+name = "Thebe gossamer ring"
+inner_km = 128940.0
+outer_km = 221900.0
+optical_depth = 1.0e-7
+thickness_km = 8800.0
+
+[[bodies.rings.bands]]
+name = "Thebe extension"
+inner_km = 221900.0
+outer_km = 280000.0
+optical_depth = 1.0e-8
+thickness_km = 8800.0
 
 [[bodies]]
 name = "Io"
@@ -61,7 +119,17 @@ orbit_color = "#f2cc66"
 texture = "textures/io.jpg"
 texture_left_lon_deg = -180.0
 
-[bodies.orbit]                         # [ELEM]
+[bodies.orbit]                         # [HZN] 501, Juno span
+type = "ephemeris"
+file = "ephem/io_juno.eph"
+fallback_blend_days = 1.0
+
+[bodies.orbit.fallback]                # [HZN] 501, Galileo span
+type = "ephemeris"
+file = "ephem/io_gll.eph"
+fallback_blend_days = 1.0
+
+[bodies.orbit.fallback.fallback]       # [ELEM]
 type = "mean_elements"
 a_km = 421800.0
 e = 0.004
@@ -85,7 +153,17 @@ orbit_color = "#bfd9f2"
 texture = "textures/europa.jpg"
 texture_left_lon_deg = 0.0
 
-[bodies.orbit]
+[bodies.orbit]                         # [HZN] 502, Juno span
+type = "ephemeris"
+file = "ephem/europa_juno.eph"
+fallback_blend_days = 1.0
+
+[bodies.orbit.fallback]                # [HZN] 502, Galileo span
+type = "ephemeris"
+file = "ephem/europa_gll.eph"
+fallback_blend_days = 1.0
+
+[bodies.orbit.fallback.fallback]       # [ELEM]
 type = "mean_elements"
 a_km = 671100.0
 e = 0.009
@@ -109,7 +187,17 @@ orbit_color = "#b3e6b3"
 texture = "textures/ganymede.jpg"
 texture_left_lon_deg = 0.0
 
-[bodies.orbit]
+[bodies.orbit]                         # [HZN] 503, Juno span
+type = "ephemeris"
+file = "ephem/ganymede_juno.eph"
+fallback_blend_days = 1.0
+
+[bodies.orbit.fallback]                # [HZN] 503, Galileo span
+type = "ephemeris"
+file = "ephem/ganymede_gll.eph"
+fallback_blend_days = 1.0
+
+[bodies.orbit.fallback.fallback]       # [ELEM]
 type = "mean_elements"
 a_km = 1070400.0
 e = 0.001
@@ -133,7 +221,17 @@ orbit_color = "#d9b3e6"
 texture = "textures/callisto.jpg"
 texture_left_lon_deg = 0.0
 
-[bodies.orbit]
+[bodies.orbit]                         # [HZN] 504, Juno span
+type = "ephemeris"
+file = "ephem/callisto_juno.eph"
+fallback_blend_days = 1.0
+
+[bodies.orbit.fallback]                # [HZN] 504, Galileo span
+type = "ephemeris"
+file = "ephem/callisto_gll.eph"
+fallback_blend_days = 1.0
+
+[bodies.orbit.fallback.fallback]       # [ELEM]
 type = "mean_elements"
 a_km = 1882700.0
 e = 0.007
@@ -145,3 +243,225 @@ period_days = 16.690440
 apsis_period_years = 277.921
 node_period_years = -577.264
 laplace_pole_ra_dec_deg = [268.7, 64.8]
+
+# Inner moons, inside Io's orbit [ELEM] [SPHY] [PCK]. They are irregular (Amalthea
+# 125 x 73 x 64 km [PCK]) but drawn as spheres of the mean radius. As for the
+# Galilean moons, the apsidal and nodal periods of [ELEM] are magnitudes: from
+# Jupiter's oblateness, apsides advance and nodes regress, and with these signs
+# d(node + arg_peri + M)/dt matches the synchronous rotation rates of [PCK].
+# The match is only to 0.001-0.007 deg/day because [ELEM] rounds the periods
+# (3 digits for the precession), which drifts by 8-70 deg by 2026 against
+# Horizons. So period_days (of M) is derived instead from the 10-digit PCK rate:
+# P = 360 / (W' - 360 / (365.25 apsis_period) - 360 / (365.25 node_period)),
+# which keeps them within ~2.5 deg of Horizons in 2026 (checked in
+# tests/sim_tests.cpp). Colors are artistic (dark, reddish).
+
+[[bodies]]
+name = "Amalthea"
+parent = "Jupiter"
+radii_km = [83.5]                      # mean radius [SPHY]
+pole_ra_dec_deg = [268.05, 64.49]      # [PCK]
+prime_meridian_deg = [231.67, 722.6314560]
+color = "#9c5a43"
+orbit_color = "#c9876b"
+
+[bodies.orbit]                         # [ELEM]
+type = "mean_elements"
+a_km = 181400.0
+e = 0.003
+arg_peri_deg = 180.1
+mean_anomaly_deg = 310.6
+i_deg = 0.4
+node_deg = 282.9
+period_days = 0.499923133                # from the PCK spin rate (see above); [ELEM]: 0.499918
+apsis_period_years = 0.196
+node_period_years = -0.393
+laplace_pole_ra_dec_deg = [268.1, 64.5]
+
+[[bodies]]
+name = "Thebe"
+parent = "Jupiter"
+radii_km = [49.3]
+pole_ra_dec_deg = [268.05, 64.49]
+prime_meridian_deg = [8.56, 533.7004100]
+color = "#7d6a5e"
+orbit_color = "#a8968a"
+
+[bodies.orbit]
+type = "mean_elements"
+a_km = 221900.0
+e = 0.018
+arg_peri_deg = 26.6
+mean_anomaly_deg = 182.1
+i_deg = 1.1
+node_deg = 340.4
+period_days = 0.676106322                # from the PCK spin rate (see above); [ELEM]: 0.676105
+apsis_period_years = 0.398
+node_period_years = -0.797
+laplace_pole_ra_dec_deg = [268.1, 64.5]
+
+[[bodies]]
+name = "Adrastea"
+parent = "Jupiter"
+radii_km = [8.2]
+pole_ra_dec_deg = [268.05, 64.49]
+prime_meridian_deg = [33.29, 1206.9986602]
+color = "#7a6d64"
+orbit_color = "#9e938b"
+
+[bodies.orbit]
+type = "mean_elements"
+a_km = 129000.0
+e = 0.0
+arg_peri_deg = 0.0
+mean_anomaly_deg = 214.5
+i_deg = 0.0
+node_deg = 0.0
+period_days = 0.298260480                # from the PCK spin rate (see above); [ELEM]: 0.298260
+apsis_period_years = 0.0
+node_period_years = 0.0
+laplace_pole_ra_dec_deg = [268.1, 64.5]
+
+[[bodies]]
+name = "Metis"
+parent = "Jupiter"
+radii_km = [21.5]
+pole_ra_dec_deg = [268.05, 64.49]
+prime_meridian_deg = [346.09, 1221.2547301]
+color = "#7a6d64"
+orbit_color = "#9e938b"
+
+[bodies.orbit]
+type = "mean_elements"
+a_km = 128000.0
+e = 0.0
+arg_peri_deg = 0.0
+mean_anomaly_deg = 166.0
+i_deg = 0.0
+node_deg = 0.0
+period_days = 0.294778797                # from the PCK spin rate (see above); [ELEM]: 0.294779
+apsis_period_years = 0.0
+node_period_years = 0.0
+laplace_pole_ra_dec_deg = [268.1, 64.5]
+
+# Spacecraft [HZN], visible while they are at Jupiter. The trails show a sliding
+# window of each tour (the whole of it is a dense tangle): Galileo's orbits reshaped
+# by moon flybys, Juno's polar orbits whose perijove drifts north (out of the
+# equatorial plane, unlike the moons).
+
+[[bodies]]
+name = "Galileo"
+parent = "Jupiter"
+kind = "spacecraft"
+radii_km = [0.0024]                    # 4.8 m high-gain antenna (it never fully opened)
+color = "#ffd27f"
+orbit_color = "#ffbf5c"
+trail = "history"
+trail_history_days = 365.0                # about 5 orbits
+
+[bodies.orbit]                         # [HZN] -77
+type = "ephemeris"
+file = "ephem/galileo_jup.eph"
+
+[[bodies]]
+name = "Juno"
+parent = "Jupiter"
+kind = "spacecraft"
+radii_km = [0.010]                     # ~20 m across the solar arrays
+color = "#9fe7ff"
+orbit_color = "#6fd3ff"
+trail = "history"
+trail_history_days = 200.0                # about 6 orbits (33 days each since 2023)
+
+[bodies.orbit]                         # [HZN] -61
+type = "ephemeris"
+file = "ephem/juno_jup.eph"
+
+# Events. Closest approaches (TDB at the spacecraft) and distances from the bake tool
+# (tools/bake/ephem.toml encounters; altitudes above the moons' mean radii [SPHY]).
+# Flybys start an hour before closest approach.
+
+[[events]]
+name = "Galileo arrives: Io flyby (1995-12-07, 898 km)"
+time_tdb = "1995-12-07 16:47"
+focus = "Io"
+distance_km = 30000.0
+warp = 60.0
+
+[[events]]
+name = "Galileo's tour, 1995-2003"
+time_tdb = "1995-12-07 12:00"
+focus = "Jupiter"
+from_orbit_normal = "Ganymede"
+distance_km = 4.5e7
+warp = 604800.0
+
+[[events]]
+name = "Galileo at Ganymede (1996-09-06, 267 km)"
+time_tdb = "1996-09-06 18:00"
+focus = "Ganymede"
+distance_km = 30000.0
+warp = 60.0
+
+[[events]]
+name = "Galileo at Europa (1997-12-16, 204 km)"
+time_tdb = "1997-12-16 11:04"
+focus = "Europa"
+distance_km = 30000.0
+warp = 60.0
+
+[[events]]
+name = "Galileo at Callisto (2001-05-25, 129 km)"
+time_tdb = "2001-05-25 10:25"
+focus = "Callisto"
+distance_km = 30000.0
+warp = 60.0
+
+[[events]]
+name = "Galileo at Io (2002-01-17, 100 km)"
+time_tdb = "2002-01-17 13:09"
+focus = "Io"
+distance_km = 30000.0
+warp = 60.0
+
+[[events]]
+name = "Galileo enters Jupiter (2003-09-21)"
+time_tdb = "2003-09-21 17:58"
+focus = "Jupiter"
+distance_km = 4.0e5
+warp = 60.0
+
+[[events]]
+name = "Juno arrives: orbit insertion (2016-07-05)"
+time_tdb = "2016-07-04 20:48"
+focus = "Jupiter"
+distance_km = 6.0e5
+warp = 600.0
+
+[[events]]
+name = "Juno's tour, 2016-2028"
+time_tdb = "2016-07-05 00:00"
+focus = "Jupiter"
+distance_km = 2.5e7
+warp = 604800.0
+
+[[events]]
+name = "Juno at Ganymede (2021-06-07, 1,035 km)"
+time_tdb = "2021-06-07 15:57"
+focus = "Ganymede"
+distance_km = 30000.0
+warp = 60.0
+
+[[events]]
+name = "Juno at Europa (2022-09-29, 347 km)"
+time_tdb = "2022-09-29 08:38"
+focus = "Europa"
+distance_km = 30000.0
+warp = 60.0
+
+[[events]]
+name = "Juno at Io (2023-12-30, 1,500 km)"
+time_tdb = "2023-12-30 07:37"
+focus = "Io"
+distance_km = 30000.0
+warp = 60.0

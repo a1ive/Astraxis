@@ -2,6 +2,7 @@
 
 #include "core/math.hpp"
 
+#include <algorithm>
 #include <cmath>
 
 namespace astraxis {
@@ -39,6 +40,80 @@ State kepler_state(const KeplerElements& el, double mean_motion)
 
     const glm::dmat3 r = perifocal_to_reference(el);
     return {r * pos, r * vel};
+}
+
+namespace {
+
+// Stumpff functions C(z) and S(z), with series near z = 0.
+double stumpff_c(double z)
+{
+    if (z > 1e-6) {
+        return (1.0 - std::cos(std::sqrt(z))) / z;
+    }
+    if (z < -1e-6) {
+        return (std::cosh(std::sqrt(-z)) - 1.0) / -z;
+    }
+    return 0.5 - z / 24.0 + z * z / 720.0;
+}
+
+double stumpff_s(double z)
+{
+    if (z > 1e-6) {
+        const double s = std::sqrt(z);
+        return (s - std::sin(s)) / (s * s * s);
+    }
+    if (z < -1e-6) {
+        const double s = std::sqrt(-z);
+        return (std::sinh(s) - s) / (s * s * s);
+    }
+    return 1.0 / 6.0 - z / 120.0 + z * z / 5040.0;
+}
+
+} // namespace
+
+State propagate_kepler(const State& s, double mu, double dt)
+{
+    const double r0 = glm::length(s.position);
+    if (dt == 0.0 || mu <= 0.0 || r0 <= 0.0) {
+        return s;
+    }
+    const double sqrt_mu = std::sqrt(mu);
+    const double vr0 = glm::dot(s.position, s.velocity) / r0;
+    const double alpha = 2.0 / r0 - glm::dot(s.velocity, s.velocity) / mu; // 1 / a
+
+    // Newton iteration for the universal anomaly x (Curtis Algorithm 3.3).
+    double x = sqrt_mu * std::abs(alpha) * dt;
+    if (std::abs(alpha) < 1e-12) {
+        x = sqrt_mu * dt / r0; // near-parabolic start
+    }
+    for (int iter = 0; iter < 50; ++iter) {
+        const double x2 = x * x;
+        const double z = alpha * x2;
+        const double c = stumpff_c(z);
+        const double sz = stumpff_s(z);
+        const double f = r0 * vr0 / sqrt_mu * x2 * c + (1.0 - alpha * r0) * x2 * x * sz + r0 * x - sqrt_mu * dt;
+        const double df = r0 * vr0 / sqrt_mu * x * (1.0 - z * sz) + (1.0 - alpha * r0) * x2 * c + r0;
+        const double dx = f / df;
+        x -= dx;
+        if (std::abs(dx) <= 1e-12 * std::max(1.0, std::abs(x))) {
+            break;
+        }
+    }
+
+    // Lagrange coefficients (Curtis Algorithm 3.4).
+    const double x2 = x * x;
+    const double z = alpha * x2;
+    const double c = stumpff_c(z);
+    const double sz = stumpff_s(z);
+    const double f = 1.0 - x2 / r0 * c;
+    const double g = dt - x2 * x / sqrt_mu * sz;
+    State out;
+    out.position = f * s.position + g * s.velocity;
+    const double r = glm::length(out.position);
+    const double fdot = sqrt_mu / (r * r0) * (z * x * sz - x);
+    const double gdot = 1.0 - x2 / r * c;
+    out.velocity = fdot * s.position + gdot * s.velocity;
+    return out;
 }
 
 bool sample_osculating_ellipse(const State& s, double mu, int count, std::vector<glm::dvec3>& out)

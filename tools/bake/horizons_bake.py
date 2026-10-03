@@ -15,15 +15,26 @@ TDB, then:
   2. Knot reduction: knots are dropped greedily as long as every original
      sample is still reproduced within the tolerance.
 
+With `kepler_gm_km3_s2` (the center's GM), the spline interpolates only the
+deviation from the two-body arc starting at the earlier knot (AXEPH2). For
+orbits around a planet this needs several times fewer knots; the GM only
+shapes the interpolation, the knots themselves are exact samples.
+
 Output format (little endian), see src/ephem/ephemeris.hpp:
-    char[8]  magic "AXEPH1\\0\\0"
+    char[8]  magic "AXEPH1\\0\\0" (plain Hermite) or "AXEPH2\\0\\0" (Kepler-relative)
     int32    target NAIF id, int32 center NAIF id
     uint32   knot count, uint32 reserved (0)
+    AXEPH2:  float64 reference GM (km^3/s^2)
     knots:   float64 t (TDB seconds since J2000), x, y, z (km), vx, vy, vz (km/s)
 
 The script also prints close approaches between each spacecraft and the
-targets listed in its `encounters`, and with `periapsides = true` the
+targets listed in its `encounters` (local distance minima below `encounter_km`,
+sampled every `encounter_step_minutes`), and with `periapsides = true` the
 periapsides around the center (for scene event lists).
+
+`refine_near = [targets]` re-fetches at 1 minute wherever the target comes
+within `refine_near_km` of those (already baked) targets, e.g. moon flybys that
+are too brief for the base step to notice.
 Only the Python standard library is used.
 """
 
@@ -124,15 +135,82 @@ def hermite(k0, k1, t):
     return tuple(h00 * p0[i] + h10 * h * v0[i] + h01 * p1[i] + h11 * h * v1[i] for i in range(3))
 
 
+def stumpff_c(z):
+    if z > 1e-6:
+        return (1.0 - math.cos(math.sqrt(z))) / z
+    if z < -1e-6:
+        return (math.cosh(math.sqrt(-z)) - 1.0) / -z
+    return 0.5 - z / 24.0 + z * z / 720.0
+
+
+def stumpff_s(z):
+    if z > 1e-6:
+        r = math.sqrt(z)
+        return (r - math.sin(r)) / (r * r * r)
+    if z < -1e-6:
+        r = math.sqrt(-z)
+        return (math.sinh(r) - r) / (r * r * r)
+    return 1.0 / 6.0 - z / 120.0 + z * z / 5040.0
+
+
+def kepler_propagate(p, v, gm, dt):
+    """Two-body state after dt (universal variables, Curtis Algorithms 3.3/3.4).
+    Mirrors propagate_kepler in src/ephem/kepler.cpp."""
+    r0 = math.sqrt(p[0] * p[0] + p[1] * p[1] + p[2] * p[2])
+    if dt == 0.0:
+        return p, v
+    sqrt_mu = math.sqrt(gm)
+    vr0 = (p[0] * v[0] + p[1] * v[1] + p[2] * v[2]) / r0
+    alpha = 2.0 / r0 - (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]) / gm
+    x = sqrt_mu * abs(alpha) * dt if abs(alpha) >= 1e-12 else sqrt_mu * dt / r0
+    for _ in range(50):
+        x2 = x * x
+        z = alpha * x2
+        c, sz = stumpff_c(z), stumpff_s(z)
+        f = r0 * vr0 / sqrt_mu * x2 * c + (1.0 - alpha * r0) * x2 * x * sz + r0 * x - sqrt_mu * dt
+        df = r0 * vr0 / sqrt_mu * x * (1.0 - z * sz) + (1.0 - alpha * r0) * x2 * c + r0
+        dx = f / df
+        x -= dx
+        if abs(dx) <= 1e-12 * max(1.0, abs(x)):
+            break
+    x2 = x * x
+    z = alpha * x2
+    c, sz = stumpff_c(z), stumpff_s(z)
+    f = 1.0 - x2 / r0 * c
+    g = dt - x2 * x / sqrt_mu * sz
+    r = tuple(f * p[i] + g * v[i] for i in range(3))
+    rn = math.sqrt(r[0] * r[0] + r[1] * r[1] + r[2] * r[2])
+    fdot = sqrt_mu / (rn * r0) * (z * x * sz - x)
+    gdot = 1.0 - x2 / rn * c
+    return r, tuple(fdot * p[i] + gdot * v[i] for i in range(3))
+
+
+def make_interp(gm):
+    """Position interpolator between two knots: plain Hermite, or Kepler-relative."""
+    if not gm:
+        return hermite
+
+    def kepler_hermite(k0, k1, t):
+        t0, p0, v0 = k0
+        t1, p1, v1 = k1
+        arc_t, _ = kepler_propagate(p0, v0, gm, t - t0)
+        arc_1p, arc_1v = kepler_propagate(p0, v0, gm, t1 - t0)
+        zero = (0.0, 0.0, 0.0)
+        d = hermite((t0, zero, zero),
+                    (t1, tuple(p1[i] - arc_1p[i] for i in range(3)), tuple(v1[i] - arc_1v[i] for i in range(3))), t)
+        return tuple(arc_t[i] + d[i] for i in range(3))
+    return kepler_hermite
+
+
 def dist(a, b):
     return math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2)
 
 
-def leave_one_out_errors(rows):
+def leave_one_out_errors(rows, interp):
     """Estimated interpolation error (km) of the interval around each knot."""
     err = [0.0] * len(rows)
     for i in range(1, len(rows) - 1):
-        e2h = dist(hermite(rows[i - 1], rows[i + 1], rows[i][0]), rows[i][1])
+        e2h = dist(interp(rows[i - 1], rows[i + 1], rows[i][0]), rows[i][1])
         err[i] = e2h / 16.0
     if len(rows) > 2:
         err[0] = err[1]
@@ -140,9 +218,9 @@ def leave_one_out_errors(rows):
     return err
 
 
-def refine(command, center, rows, tol_km, step_minutes, depth):
+def refine(command, center, rows, tol_km, step_minutes, depth, interp):
     for level in range(depth):
-        err = leave_one_out_errors(rows)
+        err = leave_one_out_errors(rows, interp)
         bad = [i for i, e in enumerate(err) if e > tol_km]
         if not bad or step_minutes <= MIN_STEP_MINUTES:
             break
@@ -173,11 +251,11 @@ def refine(command, center, rows, tol_km, step_minutes, depth):
     return rows
 
 
-def decimate(rows, tol_km):
+def decimate(rows, tol_km, interp):
     """Greedy knot reduction: keep a knot only when skipping it would break the tolerance."""
     def ok(a, b):
         for j in range(a + 1, b):
-            if dist(hermite(rows[a], rows[b], rows[j][0]), rows[j][1]) > tol_km:
+            if dist(interp(rows[a], rows[b], rows[j][0]), rows[j][1]) > tol_km:
                 return False
         return True
 
@@ -201,40 +279,63 @@ def decimate(rows, tol_km):
     return [rows[i] for i in kept]
 
 
-def max_error(rows, kept):
+def max_error(rows, kept, interp):
     """Max deviation of the reduced ephemeris from all fetched samples (km)."""
     worst = 0.0
     k = 0
     for t, p, _ in rows:
         while k < len(kept) - 2 and kept[k + 1][0] < t:
             k += 1
-        worst = max(worst, dist(hermite(kept[k], kept[k + 1], t), p))
+        worst = max(worst, dist(interp(kept[k], kept[k + 1], t), p))
     return worst
 
 
 # --- Output -------------------------------------------------------------------
 
-def write_eph(path, target_id, center_id, knots):
+def write_eph(path, target_id, center_id, knots, gm=0.0):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, 'wb') as f:
-        f.write(b'AXEPH1\0\0')
+        f.write(b'AXEPH2\0\0' if gm else b'AXEPH1\0\0')
         f.write(struct.pack('<iiII', target_id, center_id, len(knots), 0))
+        if gm:
+            f.write(struct.pack('<d', gm))
         for t, p, v in knots:
             f.write(struct.pack('<7d', t, *p, *v))
+
+
+class Table:
+    """Baked knots with their interpolator."""
+
+    def __init__(self, knots, gm=0.0):
+        self.knots = knots
+        self.gm = gm
+        self.interp = make_interp(gm)
+
+    def start(self):
+        return self.knots[0][0]
+
+    def end(self):
+        return self.knots[-1][0]
 
 
 def read_eph(path):
     with open(path, 'rb') as f:
         data = f.read()
     _, _, n, _ = struct.unpack_from('<iiII', data, 8)
+    offset = 24
+    gm = 0.0
+    if data[:6] == b'AXEPH2':
+        gm = struct.unpack_from('<d', data, offset)[0]
+        offset += 8
     knots = []
     for i in range(n):
-        vals = struct.unpack_from('<7d', data, 24 + i * 56)
+        vals = struct.unpack_from('<7d', data, offset + i * 56)
         knots.append((vals[0], vals[1:4], vals[4:7]))
-    return knots
+    return Table(knots, gm)
 
 
-def eval_eph(knots, t):
+def eval_eph(table, t):
+    knots = table.knots
     lo, hi = 0, len(knots) - 1
     if t <= knots[0][0] or t >= knots[-1][0]:
         return None
@@ -244,7 +345,7 @@ def eval_eph(knots, t):
             lo = mid
         else:
             hi = mid
-    return hermite(knots[lo], knots[hi], t)
+    return table.interp(knots[lo], knots[hi], t)
 
 
 def calendar(t):
@@ -252,51 +353,95 @@ def calendar(t):
     return time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime((jd - 2440587.5) * DAY)) + ' TDB'
 
 
-def report_encounters(name, knots, others, radii):
-    """Closest approaches to other baked bodies (same center), within 0.1 AU."""
-    for other_name, other in others.items():
-        t0 = max(knots[0][0], other[0][0])
-        t1 = min(knots[-1][0], other[-1][0])
-        t = t0 + DAY
-        prev = None
-        candidates = []
-        while t < t1 - DAY:
-            a, b = eval_eph(knots, t), eval_eph(other, t)
-            d = dist(a, b)
-            if prev is not None and d < 1.5e7:
-                candidates.append((d, t))
-            prev = d
-            t += 0.25 * DAY
-        if not candidates:
+def distance_samples(table, other, t0, t1, step):
+    """(t, distance) every `step` seconds over [t0, t1] (inf where either table has no data)."""
+    out = []
+    t = t0
+    while t <= t1:
+        a, b = eval_eph(table, t), eval_eph(other, t)
+        out.append((t, dist(a, b) if a is not None and b is not None else math.inf))
+        t += step
+    return out
+
+
+def close_windows(table, other, t0, t1, step, threshold):
+    """Intervals where the two bodies are closer than `threshold`, padded by one step."""
+    windows = []
+    inside = None
+    samples = distance_samples(table, other, t0, t1, step)
+    for t, d in samples:
+        if d < threshold and inside is None:
+            inside = t
+        elif d >= threshold and inside is not None:
+            windows.append((max(t0, inside - step), t))
+            inside = None
+    if inside is not None:
+        windows.append((max(t0, inside - step), t1))
+    return windows
+
+
+def closest_approaches(table, other, t0, t1, step, threshold):
+    """Local distance minima below `threshold`, refined by ternary search."""
+    samples = distance_samples(table, other, t0, t1, step)
+    out = []
+    for i in range(1, len(samples) - 1):
+        (ta, da), (_, db), (tc, dc) = samples[i - 1], samples[i], samples[i + 1]
+        if not (db <= da and db < dc and db < threshold):
             continue
-        # Refine the global minimum of each separate close-approach episode.
-        candidates.sort(key=lambda c: c[1])
-        episodes = []
-        for d, t in candidates:
-            if episodes and t - episodes[-1][-1][1] < 5 * DAY:
-                episodes[-1].append((d, t))
+        lo, hi = ta, tc
+        for _ in range(80):
+            m1, m2 = lo + (hi - lo) / 3, hi - (hi - lo) / 3
+            if dist(eval_eph(table, m1), eval_eph(other, m1)) < dist(eval_eph(table, m2), eval_eph(other, m2)):
+                hi = m2
             else:
-                episodes.append([(d, t)])
-        for ep in episodes:
-            d, tc = min(ep)
-            lo, hi = tc - 0.5 * DAY, tc + 0.5 * DAY
-            for _ in range(60):  # golden-section-like shrink
-                m1, m2 = lo + (hi - lo) / 3, hi - (hi - lo) / 3
-                f1 = dist(eval_eph(knots, m1), eval_eph(other, m1))
-                f2 = dist(eval_eph(knots, m2), eval_eph(other, m2))
-                if f1 < f2:
-                    hi = m2
-                else:
-                    lo = m1
-            tc = (lo + hi) / 2
-            dc = dist(eval_eph(knots, tc), eval_eph(other, tc))
+                lo = m1
+        tm = 0.5 * (lo + hi)
+        out.append((tm, dist(eval_eph(table, tm), eval_eph(other, tm))))
+    return out
+
+
+def refine_near(command, center, rows, gm, others, threshold, scan_step):
+    """Re-fetches at 1 minute wherever the target comes within `threshold` of
+    one of `others` (e.g. moon flybys): a flyby can bend the path within a few
+    minutes, which hours-apart samples never see."""
+    coarse = Table(rows, gm)
+    t0, t1 = coarse.start(), coarse.end()
+    windows = []
+    for other in others:
+        windows.extend(close_windows(coarse, other, max(t0, other.start()), min(t1, other.end()), scan_step,
+                                     threshold))
+    windows.sort()
+    merged = []
+    for a, b in windows:
+        if merged and a <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], b)
+        else:
+            merged.append([a, b])
+    if not merged:
+        return rows
+    fine = []
+    for a, b in merged:
+        fine.extend(fetch(command, center, a / DAY + J2000_JD, b / DAY + J2000_JD, MIN_STEP_MINUTES))
+    print(f'    near other bodies: {len(merged)} windows, {len(fine)} samples at {MIN_STEP_MINUTES} min')
+    kept = [r for r in rows if not any(a <= r[0] <= b for a, b in merged)]
+    return sorted(kept + fine, key=lambda r: r[0])
+
+
+def report_encounters(name, table, others, radii, step, threshold):
+    """Closest approaches to other baked bodies (same center)."""
+    for other_name, other in others.items():
+        t0 = max(table.start(), other.start())
+        t1 = min(table.end(), other.end())
+        for tc, dc in closest_approaches(table, other, t0, t1, step, threshold):
             r = radii.get(other_name)
             alt = f', altitude {dc - r:,.0f} km' if r else ''
             print(f'  encounter {name} - {other_name}: {calendar(tc)}  distance {dc:,.0f} km{alt}')
 
 
-def report_periapsides(name, knots):
+def report_periapsides(name, table):
     """Distance minima from the center: r.v changes sign from - to + between knots."""
+    knots = table.knots
+
     def radial(t):
         lo, hi = 0, len(knots) - 1
         while hi - lo > 1:
@@ -305,11 +450,11 @@ def report_periapsides(name, knots):
                 lo = mid
             else:
                 hi = mid
-        # Velocity of the Hermite segment, by central difference of positions.
-        p = hermite(knots[lo], knots[hi], t)
+        # Velocity of the segment, by central difference of positions.
+        p = table.interp(knots[lo], knots[hi], t)
         dt = 1.0
-        a = hermite(knots[lo], knots[hi], t - dt)
-        b = hermite(knots[lo], knots[hi], t + dt)
+        a = table.interp(knots[lo], knots[hi], t - dt)
+        b = table.interp(knots[lo], knots[hi], t + dt)
         return sum(p[i] * (b[i] - a[i]) for i in range(3))
 
     for k in range(len(knots) - 1):
@@ -323,7 +468,7 @@ def report_periapsides(name, knots):
                 else:
                     hi = mid
             tc = 0.5 * (lo + hi)
-            r = math.sqrt(sum(x * x for x in eval_eph(knots, tc) or knots[k][1]))
+            r = math.sqrt(sum(x * x for x in eval_eph(table, tc) or knots[k][1]))
             print(f'  periapsis {name}: {calendar(tc)}  distance {r:,.0f} km')
 
 
@@ -363,25 +508,37 @@ def main():
                 baked[name] = read_eph(out)
             continue
         tol = tgt.get('tolerance_km', default_tol)
+        gm = tgt.get('kepler_gm_km3_s2', 0.0)
+        interp = make_interp(gm)
         step = int(tgt['base_step_minutes'])
         start, stop = jd_from_text(tgt['start']), jd_from_text(tgt['stop'])
         print(f'{name}: {tgt["command"]} @ {tgt["center"]}, {tgt["start"]} .. {tgt["stop"]}, step {step} min, tol {tol} km')
         rows = fetch(tgt['command'], tgt['center'], start, stop, step)
         print(f'    fetched {len(rows)} samples')
-        rows = refine(tgt['command'], tgt['center'], rows, tol, step, tgt.get('max_refine', 4))
-        knots = decimate(rows, tol)
-        err = max_error(rows, knots)
-        print(f'    {len(rows)} samples -> {len(knots)} knots, max error {err:.3f} km')
-        write_eph(out, int(tgt['naif_id']), int(tgt['center_naif_id']), knots)
+        rows = refine(tgt['command'], tgt['center'], rows, tol, step, tgt.get('max_refine', 4), interp)
+        if tgt.get('refine_near'):
+            missing = [o for o in tgt['refine_near'] if o not in baked]
+            if missing:
+                sys.exit(f'{name}: refine_near needs {missing} baked first (earlier in the config)')
+            rows = refine_near(tgt['command'], tgt['center'], rows, gm, [baked[o] for o in tgt['refine_near']],
+                               tgt['refine_near_km'], tgt.get('refine_near_step_minutes', 20) * 60.0)
+        knots = decimate(rows, tol, interp)
+        err = max_error(rows, knots, interp)
+        kind = 'Kepler-relative' if gm else 'Hermite'
+        print(f'    {len(rows)} samples -> {len(knots)} knots ({kind}), max error {err:.3f} km')
+        write_eph(out, int(tgt['naif_id']), int(tgt['center_naif_id']), knots, gm)
         print(f'    wrote {out} ({os.path.getsize(out) // 1024} KB)')
-        baked[name] = knots
+        baked[name] = Table(knots, gm)
 
     radii = {t['name']: t.get('radius_km') for t in cfg['target']}
     for tgt in cfg['target']:
+        if only and tgt['name'] not in only:
+            continue
         enc = tgt.get('encounters')
         if enc and tgt['name'] in baked:
             others = {o: baked[o] for o in enc if o in baked}
-            report_encounters(tgt['name'], baked[tgt['name']], others, radii)
+            report_encounters(tgt['name'], baked[tgt['name']], others, radii,
+                              tgt.get('encounter_step_minutes', 360) * 60.0, tgt.get('encounter_km', 1.5e7))
         if tgt.get('periapsides') and tgt['name'] in baked:
             report_periapsides(tgt['name'], baked[tgt['name']])
 

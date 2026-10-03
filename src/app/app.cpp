@@ -92,6 +92,7 @@ bool App::init()
 
     const SceneTargetFormat& format = m_renderer.scene_format();
     if (!m_starfield.init(m_renderer.device(), format, catalog) || !m_bodies.init(m_renderer.device(), format) ||
+        !m_rings.init(m_renderer.device(), format) ||
         !m_orbits.init(m_renderer.device(), format) || !m_sun.init(m_renderer.device(), format) ||
         !m_black_hole.init(m_renderer.device(), format) ||
         !m_post.init(m_renderer.device(), format.color, m_renderer.swapchain_format())) {
@@ -196,6 +197,7 @@ void App::shutdown()
     m_post.shutdown();
     m_sun.shutdown();
     m_orbits.shutdown();
+    m_rings.shutdown();
     m_bodies.shutdown();
     m_starfield.shutdown();
     m_renderer.shutdown();
@@ -664,6 +666,7 @@ void App::update(double real_dt)
 void App::build_body_items()
 {
     m_body_items.clear();
+    m_ring_items.clear();
     const glm::dvec3& cam = m_view.position;
     const int star = m_scene.star_index();
     const double sun_radius = star >= 0 ? m_scene.bodies[static_cast<size_t>(star)].equatorial_radius_km : kSunRadiusKm;
@@ -740,6 +743,30 @@ void App::build_body_items()
         const double sun_distance = glm::length(to_sun);
         item.sun_direction = glm::vec3(to_sun / sun_distance);
         item.sun_angular_radius = static_cast<float>(light_radius / sun_distance);
+
+        if (!body.rings.bands.empty()) {
+            // Everything in the body-fixed frame; the ring plane is its equator.
+            const glm::dmat3 to_body = glm::transpose(body.orientation);
+            RingDrawItem ring;
+            ring.model = glm::translate(glm::mat4(1.0f), to_render(body.world_position, cam)) *
+                         glm::mat4(glm::mat3(body.orientation));
+            ring.sun_direction = glm::vec3(to_body * (to_sun / sun_distance));
+            ring.sun_angular_radius = item.sun_angular_radius;
+            ring.camera = glm::vec3(to_body * (cam - body.world_position));
+            ring.color = body.rings.color;
+            ring.gain = static_cast<float>(body.rings.gain);
+            ring.phase_g = static_cast<float>(body.rings.phase_g);
+            ring.equatorial_radius = static_cast<float>(body.equatorial_radius_km);
+            ring.polar_radius = static_cast<float>(body.polar_radius_km);
+            for (const RingBand& band : body.rings.bands) {
+                if (ring.band_count < kMaxRingBands) {
+                    ring.bands[ring.band_count++] =
+                        glm::vec4(static_cast<float>(band.inner_km), static_cast<float>(band.outer_km),
+                                  static_cast<float>(band.optical_depth), static_cast<float>(band.thickness_km));
+                }
+            }
+            m_ring_items.push_back(ring);
+        }
 
         // The nearest other bodies are the only plausible shadow casters.
         std::sort(casters.begin(), casters.end(), [&](int a, int b) {
@@ -851,6 +878,7 @@ void App::render()
         SunLight sun;
         sun.ambient = kAmbient;
         m_bodies.draw(frame.cmd, pass, m_view, sun, m_body_items);
+        m_rings.draw(frame.cmd, pass, m_view, m_ring_items);
         m_black_hole.composite(pass);
 
         // Stars: sprites at their real positions (depth-tested against bodies).

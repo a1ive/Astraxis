@@ -51,10 +51,25 @@ Scene load_jupiter()
     return scene;
 }
 
+// The mean-element orbit behind a motion's fallback chain (ephemeris -> ... -> mean elements).
+const MeanElementOrbit* mean_elements_of(const MotionSource* motion)
+{
+    while (motion) {
+        if (const auto* mean = dynamic_cast<const MeanElementOrbit*>(motion)) {
+            return mean;
+        }
+        const auto* eph = dynamic_cast<const EphemerisMotion*>(motion);
+        motion = eph ? eph->fallback() : nullptr;
+    }
+    return nullptr;
+}
+
 void test_scene_loader()
 {
     Scene scene = load_jupiter();
-    check(scene.bodies.size() == 5, "jupiter.toml has 5 bodies", static_cast<double>(scene.bodies.size()));
+    check(scene.bodies.size() == 11, "jupiter.toml has 11 bodies", static_cast<double>(scene.bodies.size()));
+    check(scene.bodies[0].rings.bands.size() == 5 && scene.bodies[0].rings.bands[1].name == "Main ring",
+          "Jupiter's ring bands");
     check(scene.bodies[0].name == "Jupiter" && scene.bodies[0].parent == -1, "root is Jupiter");
     check(scene.bodies[4].name == "Callisto" && scene.bodies[4].parent == 0, "Callisto orbits Jupiter");
     check(std::abs(scene.bodies[0].polar_radius_km - 66854.0) < 1e-9, "Jupiter polar radius");
@@ -153,8 +168,8 @@ void test_galilean_rates()
     double lambda0[4] = {};
 
     for (int m = 0; m < 4; ++m) {
-        const auto* orbit = dynamic_cast<const MeanElementOrbit*>(scene.bodies[m + 1].motion.get());
-        check(orbit != nullptr, "moon uses MeanElementOrbit");
+        const MeanElementOrbit* orbit = mean_elements_of(scene.bodies[m + 1].motion.get());
+        check(orbit != nullptr, "moon falls back to MeanElementOrbit");
         if (!orbit) {
             continue;
         }
@@ -177,6 +192,28 @@ void test_galilean_rates()
     // Laplace resonance: lambda_Io - 3 lambda_Europa + 2 lambda_Ganymede = 180 deg.
     const double laplace = wrap_pi(lambda0[0] - 3.0 * lambda0[1] + 2.0 * lambda0[2] - kPi) * kRadToDeg;
     check(std::abs(laplace) < 1.0, "Laplace resonance at J2000", laplace);
+
+    // Inner moons: with apsides advancing and nodes regressing (Jupiter's
+    // oblateness), the mean longitude rate matches the PCK synchronous rotation.
+    // The periods of [ELEM] have 3 significant digits for Amalthea, hence 0.01.
+    const char* inner[] = {"Amalthea", "Thebe", "Adrastea", "Metis"};
+    const double inner_pck[] = {722.6314560, 533.7004100, 1206.9986602, 1221.2547301};
+    for (int m = 0; m < 4; ++m) {
+        const int b = scene.find(inner[m]);
+        const MeanElementOrbit* orbit = b > 0 ? mean_elements_of(scene.bodies[static_cast<size_t>(b)].motion.get()) : nullptr;
+        check(orbit != nullptr, "inner moon uses MeanElementOrbit");
+        if (!orbit) {
+            continue;
+        }
+        const double span_days = 100.0;
+        const KeplerElements a = orbit->elements_at(0.0);
+        const KeplerElements c = orbit->elements_at(span_days * kSecondsPerDay);
+        const double revolutions = std::floor(inner_pck[m] * span_days / 360.0);
+        const double dl = wrap_two_pi((c.node + c.arg_peri + c.mean_anomaly) - (a.node + a.arg_peri + a.mean_anomaly)) +
+                          revolutions * kTwoPi;
+        check(std::abs(dl * kRadToDeg / span_days - inner_pck[m]) < 0.01, "inner moon longitude rate matches PCK",
+              dl * kRadToDeg / span_days);
+    }
 }
 
 void test_jupiter_heliocentric()
@@ -233,6 +270,9 @@ void test_tidal_locking()
         scene.update(t0 + day * kSecondsPerDay);
         for (size_t i = 1; i < scene.bodies.size(); ++i) {
             const Body& moon = scene.bodies[i];
+            if (moon.kind != BodyKind::Planet) {
+                continue; // spacecraft
+            }
             const glm::dvec3 to_jupiter = glm::normalize(scene.bodies[0].world_position - moon.world_position);
             const glm::dvec3 prime = moon.orientation[0];
             worst_deg = std::max(worst_deg, std::acos(std::clamp(glm::dot(prime, to_jupiter), -1.0, 1.0)) * kRadToDeg);
@@ -255,6 +295,30 @@ Scene load_scene_or_die(const char* file)
 double tdb_from_jd_tdb(double jd)
 {
     return (jd - kJ2000Jd) * kSecondsPerDay;
+}
+
+void test_kepler_propagation()
+{
+    // Circular orbit (mu = 1, r = 1): a quarter period turns the state by 90 deg.
+    const State circle{{1.0, 0.0, 0.0}, {0.0, 1.0, 0.0}};
+    const State q = propagate_kepler(circle, 1.0, kPi / 2.0);
+    check(glm::length(q.position - glm::dvec3(0.0, 1.0, 0.0)) < 1e-12 &&
+              glm::length(q.velocity - glm::dvec3(-1.0, 0.0, 0.0)) < 1e-12,
+          "Kepler quarter circle", glm::length(q.position - glm::dvec3(0.0, 1.0, 0.0)));
+
+    // Eccentric ellipse and hyperbola: energy and angular momentum conserved,
+    // and propagating back returns the start.
+    for (const double speed : {1.2, 1.6}) { // escape speed is sqrt(2) ~ 1.414
+        const State s0{{1.0, 0.0, 0.0}, {0.1, speed, 0.0}};
+        const State s1 = propagate_kepler(s0, 1.0, 3.7);
+        const State s2 = propagate_kepler(s1, 1.0, -3.7);
+        auto energy = [](const State& s) { return 0.5 * glm::dot(s.velocity, s.velocity) - 1.0 / glm::length(s.position); };
+        const double de = std::abs(energy(s1) - energy(s0));
+        const double dh = glm::length(glm::cross(s1.position, s1.velocity) - glm::cross(s0.position, s0.velocity));
+        check(de < 1e-12 && dh < 1e-12, "Kepler propagation conserves energy and momentum", std::max(de, dh));
+        check(glm::length(s2.position - s0.position) < 1e-10, "Kepler propagation round trip",
+              glm::length(s2.position - s0.position));
+    }
 }
 
 void test_ephemeris()
@@ -428,6 +492,94 @@ void test_parker_scene()
     }
     check(points.size() > 2048 && worst_turn_deg < 20.0, "rotating-frame trail is smooth (deg)", worst_turn_deg);
     std::printf("info: Parker rotating-frame trail %zu points, sharpest turn %.1f deg\n", points.size(), worst_turn_deg);
+}
+
+// Galileo and Juno in the Jupiter scene: Kepler-relative tables against
+// Horizons, moon flybys against the distances NASA/JPL published, and the
+// blend from the Galilean moon tables into the mean elements.
+void test_jupiter_missions()
+{
+    Scene scene = load_jupiter();
+    const int galileo = scene.find("Galileo");
+    const int juno = scene.find("Juno");
+    const int io = scene.find("Io");
+    const int europa = scene.find("Europa");
+    const int ganymede = scene.find("Ganymede");
+    check(galileo > 0 && juno > 0 && io > 0 && europa > 0 && ganymede > 0, "Jupiter mission bodies");
+    auto at = [&](int body, double t) { return scene.icrf_state_at(body, t).position; };
+
+    // Horizons, @ Jupiter center (500@599), 2021-Jun-07 16:57:18 TDB, ICRF km: Juno (-61)
+    // and Ganymede (503) at the closest approach, between two knots of the table.
+    const double t_g = tdb_from_jd_tdb(2459373.206458333);
+    const glm::dvec3 juno_hzn(1.222322619851438E+05, -9.572422614074555E+05, -4.555370342133188E+05);
+    const glm::dvec3 ganymede_hzn(1.197388830404732E+05, -9.586027392266861E+05, -4.578583386699203E+05);
+    check(glm::length(at(juno, t_g) - juno_hzn) < 5.0, "Juno matches Horizons at the Ganymede flyby (km)",
+          glm::length(at(juno, t_g) - juno_hzn));
+    check(glm::length(at(ganymede, t_g) - ganymede_hzn) < 10.0, "Ganymede matches Horizons (km)",
+          glm::length(at(ganymede, t_g) - ganymede_hzn));
+
+    // Closest-approach altitudes (mean radii [SPHY]) against NASA/JPL news releases:
+    // "Ride With Juno As It Flies Past the Solar System's Biggest Moon and Jupiter"
+    // (2021-07-14): 1,038 km from Ganymede on 2021-06-07; "NASA's Juno Shares First
+    // Image From Flyby of Jupiter's Moon Europa" (2022-09-29): Juno 352 km from Europa,
+    // and Galileo 351 km on 2000-01-03. The releases give Earth-received times (here
+    // ~39 min later than TDB at the spacecraft), so only the altitudes are compared.
+    auto altitude = [&](int craft, int moon, const CalendarDateTime& tdb) {
+        const double t0 = (jd_from_calendar(tdb) - kJ2000Jd) * kSecondsPerDay;
+        double best = 1e300;
+        for (double dt = -900.0; dt <= 900.0; dt += 1.0) {
+            best = std::min(best, glm::length(at(craft, t0 + dt) - at(moon, t0 + dt)));
+        }
+        return best - scene.bodies[static_cast<size_t>(moon)].equatorial_radius_km;
+    };
+    const double alt_g = altitude(juno, ganymede, {2021, 6, 7, 16, 57, 17});
+    const double alt_e = altitude(juno, europa, {2022, 9, 29, 9, 37, 37});
+    const double alt_ge = altitude(galileo, europa, {2000, 1, 3, 18, 0, 46});
+    check(std::abs(alt_g - 1038.0) < 15.0, "Juno-Ganymede flyby altitude (km)", alt_g);
+    check(std::abs(alt_e - 352.0) < 15.0, "Juno-Europa flyby altitude (km)", alt_e);
+    check(std::abs(alt_ge - 351.0) < 15.0, "Galileo-Europa flyby altitude (km)", alt_ge);
+
+    // Galileo is there from 1995-11 until it enters Jupiter (2003-09-21), Juno from 2016-06.
+    double t = 0.0;
+    parse_utc("2003-09-22", &t);
+    scene.update(t);
+    check(!scene.bodies[static_cast<size_t>(galileo)].visible, "Galileo gone after its impact");
+    parse_utc("2026-10-02", &t);
+    scene.update(t);
+    check(scene.bodies[static_cast<size_t>(juno)].visible, "Juno at Jupiter in 2026");
+
+    // Inner moons (mean elements, period from the PCK spin rate) against Horizons
+    // (@ 500@599, 2026-Oct-02 00:01:09 TDB): within a few degrees after 26 years.
+    const char* inner[] = {"Amalthea", "Thebe", "Adrastea", "Metis"};
+    const glm::dvec3 inner_hzn[] = {{-1.627599848191866E+05, -6.953652662401732E+04, -3.708388618213439E+04},
+                                    {-5.620351095369970E+04, 1.969718451580069E+05, 9.037534633891605E+04},
+                                    {9.314251567946289E+04, -8.105204208221256E+04, -3.714128408138068E+04},
+                                    {-7.473411994107516E+04, -9.321647784889850E+04, -4.566251549820685E+04}};
+    const double t_inner = t + 69.0; // TDB - UTC
+    double worst_inner = 0.0;
+    for (int m = 0; m < 4; ++m) {
+        const glm::dvec3 p = at(scene.find(inner[m]), t_inner);
+        const double c = glm::dot(p, inner_hzn[m]) / (glm::length(p) * glm::length(inner_hzn[m]));
+        worst_inner = std::max(worst_inner, std::acos(std::clamp(c, -1.0, 1.0)) * kRadToDeg);
+    }
+    check(worst_inner < 3.0, "inner moons near Horizons in 2026 (deg)", worst_inner);
+    std::printf("info: inner moons vs Horizons in 2026: worst %.2f deg\n", worst_inner);
+
+    // Io fades from the mean elements into the Galileo-span table over a day: no
+    // jump between one-minute steps beyond Io's own motion (~1,000 km/min).
+    const auto* eph = dynamic_cast<const EphemerisMotion*>(scene.bodies[static_cast<size_t>(io)].motion.get());
+    const auto* gll = eph ? dynamic_cast<const EphemerisMotion*>(eph->fallback()) : nullptr;
+    check(gll != nullptr, "Io: Juno-span table, then Galileo-span table");
+    if (gll) {
+        const double t_start = gll->table().start();
+        double worst_jump = 0.0;
+        for (double tk = t_start - 2.0 * kSecondsPerDay; tk < t_start + 2.0 * kSecondsPerDay; tk += 60.0) {
+            const State a = scene.icrf_state_at(io, tk);
+            const glm::dvec3 b = at(io, tk + 60.0);
+            worst_jump = std::max(worst_jump, glm::length(b - a.position - a.velocity * 60.0));
+        }
+        check(worst_jump < 50.0, "Io blends into the table without a jump (km/min)", worst_jump);
+    }
 }
 
 void test_jwst_scene()
@@ -1317,9 +1469,11 @@ int main()
     test_jupiter_heliocentric();
     test_io_shadow_transits();
     test_tidal_locking();
+    test_kepler_propagation();
     test_ephemeris();
     test_voyager_scene();
     test_parker_scene();
+    test_jupiter_missions();
     test_jwst_scene();
     test_galactic_frame();
     test_visual_orbit_convention();

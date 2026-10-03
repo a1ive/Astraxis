@@ -34,6 +34,24 @@ enum class TrailMode {
     History, // path actually travelled over the last trail_history_days
 };
 
+// One component of a faint planetary ring, in the planet's equatorial plane.
+struct RingBand {
+    std::string name;
+    double inner_km = 0.0; // from the planet's center
+    double outer_km = 0.0;
+    double optical_depth = 0.0; // normal optical depth
+    double thickness_km = 0.0;  // vertical extent: limits the brightening seen edge-on
+};
+
+// Optically thin (dusty) rings, drawn by single scattering. `gain` scales the
+// physical brightness (I/F), which is far too faint to see for Jupiter's rings.
+struct RingSystem {
+    std::vector<RingBand> bands;
+    glm::vec3 color{1.0f}; // sRGB tint (single-scattering albedo)
+    double gain = 1.0;
+    double phase_g = 0.0; // Henyey-Greenstein asymmetry (> 0: forward scattering)
+};
+
 struct Body {
     std::string name;
     int parent = -1; // index into Scene::bodies; must precede this body
@@ -78,6 +96,8 @@ struct Body {
     std::string texture;
     double texture_left_lon_deg = -180.0;
     bool texture_west_positive = false;
+
+    RingSystem rings; // no bands: no rings
 
     // Motion relative to the parent; null keeps the body at the scene origin.
     std::unique_ptr<MotionSource> motion;

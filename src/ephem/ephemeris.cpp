@@ -11,7 +11,8 @@ namespace astraxis {
 
 namespace {
 
-constexpr char kMagic[8] = {'A', 'X', 'E', 'P', 'H', '1', '\0', '\0'};
+constexpr char kMagic1[8] = {'A', 'X', 'E', 'P', 'H', '1', '\0', '\0'};
+constexpr char kMagic2[8] = {'A', 'X', 'E', 'P', 'H', '2', '\0', '\0'};
 
 State hermite(const EphemerisTable::Knot& k0, const EphemerisTable::Knot& k1, double t)
 {
@@ -35,6 +36,19 @@ State hermite(const EphemerisTable::Knot& k0, const EphemerisTable::Knot& k1, do
     return out;
 }
 
+// Hermite spline of the deviation from the two-body arc through k0: zero at
+// k0, (k1 - arc) at k1.
+State kepler_hermite(const EphemerisTable::Knot& k0, const EphemerisTable::Knot& k1, double gm, double t)
+{
+    const State k0_state{k0.position, k0.velocity};
+    const State arc_t = propagate_kepler(k0_state, gm, t - k0.t);
+    const State arc_1 = propagate_kepler(k0_state, gm, k1.t - k0.t);
+    const EphemerisTable::Knot r0{k0.t, glm::dvec3(0.0), glm::dvec3(0.0)};
+    const EphemerisTable::Knot r1{k1.t, k1.position - arc_1.position, k1.velocity - arc_1.velocity};
+    const State r = hermite(r0, r1, t);
+    return {arc_t.position + r.position, arc_t.velocity + r.velocity};
+}
+
 } // namespace
 
 bool EphemerisTable::load(const std::filesystem::path& path, std::string* error)
@@ -53,12 +67,17 @@ bool EphemerisTable::load(const std::filesystem::path& path, std::string* error)
     char magic[8];
     int32_t ids[2];
     uint32_t counts[2];
-    if (!file.read(magic, 8) || std::memcmp(magic, kMagic, 8) != 0) {
-        return fail("not an AXEPH1 file");
+    if (!file.read(magic, 8) || (std::memcmp(magic, kMagic1, 8) != 0 && std::memcmp(magic, kMagic2, 8) != 0)) {
+        return fail("not an AXEPH1/AXEPH2 file");
     }
     if (!file.read(reinterpret_cast<char*>(ids), sizeof(ids)) ||
         !file.read(reinterpret_cast<char*>(counts), sizeof(counts)) || counts[0] < 2) {
         return fail("truncated header");
+    }
+    double gm = 0.0;
+    if (std::memcmp(magic, kMagic2, 8) == 0 &&
+        (!file.read(reinterpret_cast<char*>(&gm), sizeof(gm)) || !(gm > 0.0))) {
+        return fail("bad reference GM");
     }
 
     std::vector<double> raw(static_cast<size_t>(counts[0]) * 7);
@@ -68,6 +87,7 @@ bool EphemerisTable::load(const std::filesystem::path& path, std::string* error)
 
     m_target_id = ids[0];
     m_center_id = ids[1];
+    m_reference_gm = gm;
     m_knots.resize(counts[0]);
     for (size_t i = 0; i < m_knots.size(); ++i) {
         const double* k = &raw[i * 7];
@@ -90,22 +110,36 @@ State EphemerisTable::eval(double t) const
     const auto it = std::upper_bound(m_knots.begin(), m_knots.end(), t,
                                      [](double value, const Knot& k) { return value < k.t; });
     const size_t i = static_cast<size_t>(it - m_knots.begin());
+    if (m_reference_gm > 0.0) {
+        return kepler_hermite(m_knots[i - 1], m_knots[i], m_reference_gm, t);
+    }
     return hermite(m_knots[i - 1], m_knots[i], t);
 }
 
 EphemerisMotion::EphemerisMotion(std::shared_ptr<const EphemerisTable> table, std::unique_ptr<MotionSource> fallback,
-                                 Extrapolation extrapolation, double parent_gm)
+                                 Extrapolation extrapolation, double parent_gm, double blend_s)
     : m_table(std::move(table))
     , m_fallback(std::move(fallback))
     , m_extrapolation(extrapolation)
     , m_parent_gm(parent_gm)
+    , m_blend_s(blend_s)
 {
 }
 
 State EphemerisMotion::eval(double t_tdb) const
 {
     if (m_table->covers(t_tdb)) {
-        return m_table->eval(t_tdb);
+        const State s = m_table->eval(t_tdb);
+        const double edge = std::min(t_tdb - m_table->start(), m_table->end() - t_tdb);
+        if (!m_fallback || edge >= m_blend_s) {
+            return s;
+        }
+        // Smoothstep from the fallback at the edge to the table at blend_s inside
+        // (the weight's own rate is left out of the velocity).
+        const double x = edge / m_blend_s;
+        const double w = x * x * (3.0 - 2.0 * x);
+        const State f = m_fallback->eval(t_tdb);
+        return {f.position + w * (s.position - f.position), f.velocity + w * (s.velocity - f.velocity)};
     }
     if (m_fallback) {
         return m_fallback->eval(t_tdb);

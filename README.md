@@ -6,7 +6,7 @@ A quiet, physically grounded astronomy visualizer meant to be left running in th
 
 | Scene | What you see | Motion source |
 |---|---|---|
-| Jupiter | Jupiter and the four Galilean moons | JPL mean orbital elements |
+| Jupiter | Jupiter, its faint rings, the Galilean and four inner moons, and the orbits of Galileo (1995–2003) and Juno (2016–) | JPL Horizons ephemerides, JPL mean orbital elements |
 | Voyager | The Sun, planets and both Voyager probes from 1977 on | JPL Horizons ephemerides |
 | JWST | JWST's halo orbit around Sun–Earth L2 | JPL Horizons ephemerides |
 | Parker Solar Probe | Seven Venus gravity assists step the perihelion down to 9.86 solar radii; petals in the Sun–Venus rotating frame | JPL Horizons ephemerides |

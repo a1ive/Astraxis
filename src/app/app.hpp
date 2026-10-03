@@ -7,6 +7,7 @@
 #include "render/orbit_line_pass.hpp"
 #include "render/post_process.hpp"
 #include "render/renderer.hpp"
+#include "render/ring_pass.hpp"
 #include "render/starfield_pass.hpp"
 #include "render/sun_pass.hpp"
 #include "scene/camera.hpp"
@@ -70,6 +71,7 @@ private:
     Renderer m_renderer;
     StarfieldPass m_starfield;
     BodyPass m_bodies;
+    RingPass m_rings;
     OrbitLinePass m_orbits;
     SunPass m_sun;
     BlackHolePass m_black_hole;
@@ -117,6 +119,7 @@ private:
 
     // Per-frame scratch.
     std::vector<BodyDrawItem> m_body_items;
+    std::vector<RingDrawItem> m_ring_items;
     std::vector<glm::dvec3> m_trail_points;
     std::vector<float> m_trail_fades;
     std::vector<glm::vec4> m_line_points;

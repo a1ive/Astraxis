@@ -28,6 +28,12 @@ glm::dmat3 perifocal_to_reference(const KeplerElements& el);
 // State in the reference frame of the elements; `mean_motion` in rad/s.
 State kepler_state(const KeplerElements& el, double mean_motion);
 
+// Two-body propagation of a state by dt seconds (either direction) around a
+// center with gravitational parameter `mu` (km^3/s^2). Universal-variable
+// formulation (H. D. Curtis, Orbital Mechanics for Engineering Students,
+// Algorithms 3.3 and 3.4): valid for elliptic, parabolic and hyperbolic orbits.
+State propagate_kepler(const State& s, double mu, double dt);
+
 // Ellipse points in the reference frame, starting at eccentric anomaly
 // `start_E` and going backwards one full revolution (`count` points, closed).
 void sample_ellipse(const KeplerElements& el, double start_E, int count, std::vector<glm::dvec3>& out);

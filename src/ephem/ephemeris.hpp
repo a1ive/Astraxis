@@ -13,9 +13,14 @@ namespace astraxis {
 // velocity) in ICRF, relative to a center body, interpolated with cubic
 // Hermite splines.
 //
+// With a reference GM (AXEPH2), the spline interpolates only the deviation
+// from the two-body arc that starts at the earlier knot. Orbits around a
+// planet (moons, orbiters) then need several times fewer knots.
+//
 // File format (little endian):
-//   char[8] "AXEPH1\0\0"; int32 target NAIF id; int32 center NAIF id;
+//   char[8] "AXEPH1\0\0" or "AXEPH2\0\0"; int32 target NAIF id; int32 center NAIF id;
 //   uint32 knot count; uint32 reserved;
+//   AXEPH2 only: float64 reference GM of the center (km^3/s^2)
 //   knots: float64 t (TDB s since J2000), x, y, z (km), vx, vy, vz (km/s)
 class EphemerisTable {
 public:
@@ -31,6 +36,7 @@ public:
     std::vector<Knot>& mutable_knots() { return m_knots; }
 
     int target_id() const { return m_target_id; }
+    double reference_gm() const { return m_reference_gm; } // 0: plain Hermite
     int center_id() const { return m_center_id; }
     double start() const { return m_knots.front().t; }
     double end() const { return m_knots.back().t; }
@@ -47,6 +53,7 @@ public:
 private:
     int m_target_id = 0;
     int m_center_id = 0;
+    double m_reference_gm = 0.0;
     std::vector<Knot> m_knots;
 };
 
@@ -59,10 +66,12 @@ enum class Extrapolation {
 class EphemerisMotion final : public MotionSource {
 public:
     // `fallback` (optional) is used outside the table span and takes precedence
-    // over `extrapolation`. `parent_gm` (km^3/s^2, optional) enables the
+    // over `extrapolation`; within `blend_s` of either end of the span the
+    // position fades between the two, so a less accurate fallback (e.g. mean
+    // elements) does not jump. `parent_gm` (km^3/s^2, optional) enables the
     // osculating-orbit trail.
     EphemerisMotion(std::shared_ptr<const EphemerisTable> table, std::unique_ptr<MotionSource> fallback,
-                    Extrapolation extrapolation, double parent_gm);
+                    Extrapolation extrapolation, double parent_gm, double blend_s = 0.0);
 
     State eval(double t_tdb) const override;
     bool valid_at(double t_tdb) const override;
@@ -70,12 +79,14 @@ public:
     void history_times(double t0, double t1, int max_points, std::vector<double>& out) const override;
 
     const EphemerisTable& table() const { return *m_table; }
+    const MotionSource* fallback() const { return m_fallback.get(); }
 
 private:
     std::shared_ptr<const EphemerisTable> m_table;
     std::unique_ptr<MotionSource> m_fallback;
     Extrapolation m_extrapolation;
     double m_parent_gm;
+    double m_blend_s;
 };
 
 } // namespace astraxis
