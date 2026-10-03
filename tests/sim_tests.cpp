@@ -531,6 +531,63 @@ void test_solar_system_bodies()
           "satellite hosts in the Solar System scene");
 }
 
+// Solar System scene: Pioneer 10/11 and New Horizons, and the planets baked
+// back to 1972 for the Pioneer flybys.
+void test_solar_system_missions()
+{
+    Scene scene = load_scene_or_die("solar_system.toml");
+    auto at = [&](const char* name, double t) { return scene.icrf_state_at(scene.find(name), t).position; };
+    auto min_distance = [&](const char* a, const char* b, double t_center, double half, double step) {
+        double best = 1e300;
+        for (double dt = -half; dt <= half; dt += step) {
+            best = std::min(best, glm::length(at(a, t_center + dt) - at(b, t_center + dt)));
+        }
+        return best;
+    };
+
+    // New Horizons' closest approaches against Horizons relative to the body centers
+    // (@ 500@999 and @ 500@2486958, 1-minute samples, parabolic minimum).
+    const double ca_pluto = tdb_from_jd_tdb(2457217.99279); // 2015-07-14 11:49:37 TDB
+    const double d_pluto = min_distance("New Horizons", "Pluto", ca_pluto, 300.0, 1.0);
+    check(std::abs(d_pluto - 13676.0) < 30.0, "New Horizons - Pluto closest approach (km)", d_pluto);
+    const double ca_arrokoth = tdb_from_jd_tdb(2458484.73230); // 2019-01-01 05:34:31 TDB
+    const double d_arrokoth = min_distance("New Horizons", "Arrokoth", ca_arrokoth, 300.0, 1.0);
+    check(std::abs(d_arrokoth - 3538.0) < 60.0, "New Horizons - Arrokoth closest approach (km)", d_arrokoth);
+
+    // Pioneer flybys agree with the bake tool's report (same data, independent code).
+    struct Flyby {
+        const char* craft;
+        const char* planet;
+        CalendarDateTime tdb;
+        double km;
+    };
+    for (const Flyby& f : {Flyby{"Pioneer 10", "Jupiter", {1973, 12, 4, 2, 25, 46}, 202870.0},
+                           Flyby{"Pioneer 11", "Jupiter", {1974, 12, 3, 5, 22, 11}, 113553.0},
+                           Flyby{"Pioneer 11", "Saturn", {1979, 9, 1, 16, 30, 19}, 80008.0}}) {
+        const double t = (jd_from_calendar(f.tdb) - kJ2000Jd) * kSecondsPerDay;
+        const double d = min_distance(f.craft, f.planet, t, 600.0, 2.0);
+        check(std::abs(d - f.km) < 100.0, f.craft, d);
+    }
+
+    // Lifetimes: not launched yet, then linearly extrapolated after the tables end (2050).
+    double t = 0.0;
+    parse_utc("1972-03-02", &t);
+    scene.update(t);
+    check(!scene.bodies[static_cast<size_t>(scene.find("Pioneer 10"))].visible, "Pioneer 10 before launch");
+    parse_utc("2060-01-01", &t);
+    scene.update(t);
+    check(scene.bodies[static_cast<size_t>(scene.find("Pioneer 10"))].visible &&
+              scene.bodies[static_cast<size_t>(scene.find("New Horizons"))].visible,
+          "Pioneer 10 and New Horizons extrapolated after 2050");
+
+    // The planets' tables now start in 1972, before the Pioneer 10 flyby.
+    const auto* jup = dynamic_cast<const EphemerisMotion*>(scene.bodies[static_cast<size_t>(scene.find("Jupiter"))].motion.get());
+    parse_utc("1973-12-01", &t);
+    check(jup != nullptr && jup->fallback() != nullptr &&
+              glm::length(jup->eval(t).position - jup->fallback()->eval(t).position) > 1000.0,
+          "Jupiter in 1973 comes from the baked table, not the fallback");
+}
+
 void test_parker_scene()
 {
     Scene scene = load_scene_or_die("parker.toml");
@@ -1849,6 +1906,7 @@ int main()
     test_ephemeris();
     test_solar_system_scene();
     test_solar_system_bodies();
+    test_solar_system_missions();
     test_parker_scene();
     test_jupiter_missions();
     test_earth_moon_scene();

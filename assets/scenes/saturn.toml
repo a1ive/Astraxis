@@ -17,7 +17,7 @@
 #        post-mission reconstruction), Huygens 2004-12-25 .. 2005-01-14 (landing), and the
 #        moons 2004-06-01 .. 2017-09-16. Outside that span the moons fade over one day
 #        into the mean elements [ELEM]. Saturn's heliocentric orbit (Sun direction): the
-#        Saturn system barycenter, 1977-2100 [HZN], else [APX].
+#        Saturn system barycenter, 1972-2100 [HZN], else [APX].
 # [RSS]  Rings: normal optical depth from the Cassini Radio Science occultation of
 #        2005-05-03 (Rev 7 egress, X band), PDS volume CORSS_8001 (Marouf et al.),
 #        averaged to 8.8 km bins by tools/rings/make_saturn_rings.py; see

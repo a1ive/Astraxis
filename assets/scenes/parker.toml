@@ -9,7 +9,7 @@
 # [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py (tools/bake/ephem.toml):
 #        heliocentric ICRF. Parker Solar Probe 2018-08-12 08:17 .. 2029-12-31 TDB (fit to
 #        tracking data through 2026-09-01, then the reference planning trajectory);
-#        Venus 2018-08-01 .. 2030-01-01; Earth-Moon barycenter 1977..2100.
+#        Venus 2018-08-01 .. 2030-01-01; Earth-Moon barycenter 1972..2100.
 # [APX]  E. M. Standish, Approximate Positions of the Planets, Table 2a, for Mercury and
 #        Mars, and for Venus and the Earth outside the baked span.
 # [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html

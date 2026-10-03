@@ -1,13 +1,17 @@
 # The Solar System: the Sun, the planets, the major moons, the dwarf planets and the
 # largest asteroids (radius > 400 km, plus Phobos, Deimos, Vesta, Pallas, Enceladus,
-# Mimas and Miranda), and the Voyager probes, 1977 onward.
+# Mimas and Miranda, and Arrokoth), and the Pioneer, Voyager and New Horizons probes,
+# 1972 onward.
 #
 # Sources
 # [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py (tools/bake/ephem.toml):
-#        - planets: heliocentric system barycenters, 1977..2100; Voyager trajectories before
+#        - planets: heliocentric system barycenters, 1972..2100; Voyager trajectories before
 #          1981-01-01 (V1) / 1989-08-29 (V2) are patched-conic reconstructions of "rough
 #          accuracy" (Horizons notes); e.g. the baked V2 Neptune closest approach is ~4,000
 #          km farther than the historical value.
+#        - Pioneer 10 (1972-03-03 .. 2050) and 11 (1973-04-06 .. 2050): JPL Navigation Team
+#          trajectories, "suitable for general historical purposes" (Horizons notes).
+#          New Horizons (2006-01-19 .. 2050): navigation reconstruction, then predictions.
 #        - the geocentric Moon, Charon relative to Pluto, the Pluto system barycenter and the
 #          small bodies, 1972..2100 (Kepler-relative tables).
 #        - Jupiter's and Saturn's moons relative to the planet's center (copied from
@@ -33,6 +37,9 @@
 #        c = 511.2 km, from 37 stellar occultations.
 # [SEDN] Pal et al. 2012, A&A 541, L6 (arXiv:1204.0899): diameter 995 +- 80 km.
 # [MARS] Marsset et al. 2020, Nature Astronomy 4, 569 (via [SBDB]): Pallas 568 x 532 x 448 km.
+# [ARRO] Spencer et al. 2020, Science 367, eaay3999 (arXiv:2004.00727): Arrokoth's overall
+#        dimensions 36 x 20 x 10 km (two lobes), positive pole RA 317.5, Dec -24.9 deg
+#        (J2000), rotation period 15.92 h.
 # [PDSR], [RSS]: Jupiter's and Saturn's rings, see jupiter.toml / saturn.toml.
 # [PDSU] PDS Ring-Moon Systems Node, "Vital Statistics for Uranus's Rings and Inner
 #        Satellites" (https://pds-rings.seti.org/uranus/uranus_tables.html), from French
@@ -1381,6 +1388,34 @@ node_deg = 144.506166
 period_days = 4630851.1836
 laplace_pole_ra_dec_deg = [270.0, 66.56070889]
 
+[[bodies]]
+name = "Arrokoth"
+parent = "Sun"
+radii_km = [18.0, 10.0, 5.0]               # [ARRO] an ellipsoid of the contact binary's overall size
+pole_ra_dec_deg = [317.5, -24.9]           # [ARRO]
+prime_meridian_deg = [0.0, 542.7136]       # [ARRO] P = 15.92 h; W0 arbitrary
+color = "#a8604a"
+orbit_color = "#a07868"
+[bodies.orbit]                             # [HZN] 2486958: New Horizons team trajectory, 1994-2034
+type = "ephemeris"
+file = "ephem/arrokoth_nh.eph"
+fallback_blend_days = 30.0
+[bodies.orbit.fallback]                    # [HZN] 486958: JPL ground-based orbit, 1972-2100
+type = "ephemeris"
+file = "ephem/arrokoth.eph"
+fallback_blend_days = 30.0
+[bodies.orbit.fallback.fallback]           # [SBDB] osculating elements, J2000 ecliptic
+type = "mean_elements"
+epoch_jd_tdb = 2461200.5
+a_km = 6590171921.5
+e = 0.03555718
+arg_peri_deg = 188.850746
+mean_anomaly_deg = 310.983931
+i_deg = 2.450614
+node_deg = 159.037727
+period_days = 106796.1079
+laplace_pole_ra_dec_deg = [270.0, 66.56070889]
+
 # --- Spacecraft --------------------------------------------------------------------
 
 [[bodies]]
@@ -1409,6 +1444,45 @@ type = "ephemeris"
 file = "ephem/voyager2.eph"
 extrapolate = "linear"
 
+[[bodies]]
+name = "Pioneer 10"
+parent = "Sun"
+kind = "spacecraft"
+radii_km = [0.0014]                        # 2.74 m high-gain antenna
+color = "#d9f28c"
+orbit_color = "#b8d96a"
+trail = "history"                          # since launch
+[bodies.orbit]                             # [HZN] -23
+type = "ephemeris"
+file = "ephem/pioneer10.eph"
+extrapolate = "linear"
+
+[[bodies]]
+name = "Pioneer 11"
+parent = "Sun"
+kind = "spacecraft"
+radii_km = [0.0014]                        # 2.74 m high-gain antenna
+color = "#f2a6d9"
+orbit_color = "#d987bf"
+trail = "history"                          # since launch
+[bodies.orbit]                             # [HZN] -24
+type = "ephemeris"
+file = "ephem/pioneer11.eph"
+extrapolate = "linear"
+
+[[bodies]]
+name = "New Horizons"
+parent = "Sun"
+kind = "spacecraft"
+radii_km = [0.0011]                        # 2.1 m high-gain antenna
+color = "#ffffff"
+orbit_color = "#e0e4ec"
+trail = "history"                          # since launch
+[bodies.orbit]                             # [HZN] -98
+type = "ephemeris"
+file = "ephem/new_horizons.eph"
+extrapolate = "linear"
+
 # Planet-centered views show the flyby trajectories as hyperbolas.
 [[frames]]
 name = "Jupiter-centered"
@@ -1430,8 +1504,42 @@ name = "Neptune-centered"
 type = "inertial"
 origin = "Neptune"
 
+# Around the Pluto-Charon barycenter rather than Pluto itself: Pluto circles it
+# (2,100 km, 6.4 days), which would put a wiggle on New Horizons' straight path.
+[[frames]]
+name = "Pluto-Charon barycentric"
+type = "inertial"
+origin = "Pluto system"
+
 # Flybys start about a day before closest approach (closest-approach times from the
-# bake tool, TDB; distances from the planet's system barycenter).
+# bake tool, TDB; distances from the planet's system barycenter; Pluto and Arrokoth:
+# from Horizons relative to the body's center, starting 6 h / 20 min before). The
+# Voyager and Pioneer distances come from the heliocentric trajectories, which Horizons
+# itself does not keep consistent with the planet-centered ones near the planets (see
+# assets/ephem/SOURCES.md): e.g. Voyager 2 passed 29,241 km from Neptune's center.
+[[events]]
+name = "Pioneer 10 launch (1972-03-03)"
+time = "1972-03-04 00:00"
+focus = "Earth"
+distance_km = 6.0e7
+warp = 86400.0
+
+[[events]]
+name = "Pioneer 10 at Jupiter (CA 1973-12-04 02:26, 202,870 km)"
+time_tdb = "1973-12-03 02:26"
+focus = "Jupiter"
+frame = "Jupiter-centered"
+distance_km = 6.0e6
+warp = 1200.0
+
+[[events]]
+name = "Pioneer 11 at Jupiter (CA 1974-12-03 05:22, 113,553 km)"
+time_tdb = "1974-12-02 05:22"
+focus = "Jupiter"
+frame = "Jupiter-centered"
+distance_km = 3.0e6
+warp = 1200.0
+
 [[events]]
 name = "Voyager 2 launch (1977-08-20)"
 time = "1977-08-21 00:00"
@@ -1453,6 +1561,14 @@ time_tdb = "1979-07-08 22:30"
 focus = "Jupiter"
 frame = "Jupiter-centered"
 distance_km = 6.0e6
+warp = 1200.0
+
+[[events]]
+name = "Pioneer 11 at Saturn (CA 1979-09-01 16:30, 80,008 km)"
+time_tdb = "1979-08-31 16:30"
+focus = "Saturn"
+frame = "Saturn-centered"
+distance_km = 2.5e6
 warp = 1200.0
 
 [[events]]
@@ -1488,6 +1604,21 @@ distance_km = 6.0e5
 warp = 600.0
 
 [[events]]
+name = "New Horizons launch (2006-01-19)"
+time = "2006-01-20 00:00"
+focus = "Earth"
+distance_km = 6.0e7
+warp = 86400.0
+
+[[events]]
+name = "New Horizons at Jupiter (CA 2007-02-28 05:45, 2,304,686 km)"
+time_tdb = "2007-02-27 05:45"
+focus = "Jupiter"
+frame = "Jupiter-centered"
+distance_km = 2.5e7
+warp = 3600.0
+
+[[events]]
 name = "Voyager 1 crosses the heliopause (2012-08-25)"
 time = "2012-08-25"
 focus = "Voyager 1"
@@ -1495,8 +1626,23 @@ distance_km = 5.0e9
 warp = 2629800.0
 
 [[events]]
+name = "New Horizons at Pluto (CA 2015-07-14 11:50, 13,676 km)"
+time_tdb = "2015-07-14 05:50"
+focus = "Pluto"
+frame = "Pluto-Charon barycentric"
+distance_km = 1.5e5
+warp = 120.0
+
+[[events]]
 name = "Voyager 2 crosses the heliopause (2018-11-15)"
 time = "2018-11-15"
 focus = "Voyager 2"
 distance_km = 5.0e9
 warp = 2629800.0
+
+[[events]]
+name = "New Horizons at Arrokoth (CA 2019-01-01 05:35, 3,538 km)"
+time_tdb = "2019-01-01 05:14"
+focus = "Arrokoth"
+distance_km = 3.0e4
+warp = 30.0

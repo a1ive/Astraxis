@@ -6,6 +6,11 @@
 # Data spans are limited by Horizons coverage (spacecraft notes printed by Horizons):
 #   Voyager 1 (-31): 1977-Sep-05 .. 2100-Jan-01, launch 1977-Sep-06 12:56 UTC
 #   Voyager 2 (-32): 1977-Aug-20 15:32:32 TDB .. 2100-Jan-01
+#   Pioneer 10 (-23): 1972-Mar-03 02:04:42 TDB .. 2050-Jan-01 00:10, Pioneer 11 (-24):
+#                    1973-Apr-06 02:25:44 TDB .. 2050-Jan-01 00:10 (JPL Navigation Team,
+#                    "suitable for general historical purposes", not for precise work)
+#   New Horizons (-98): 2006-Jan-19 19:51:18 TDB .. 2050-Jan-01 (navigation reconstruction
+#                    concatenated with predictions)
 #   JWST (-170):     2021-Dec-25 13:01:09 TDB .. 2031-Sep-27 23:59 TDB
 #   Galileo (-77):   1989-Oct-19 .. 2003-Sep-30 (navigation team fits to 2002-Aug-12, then
 #                    baseline predicts; impact into Jupiter 2003-Sep-21)
@@ -43,7 +48,7 @@ command = "3"
 naif_id = 3
 center = "500@10"
 center_naif_id = 10
-start = "1977-08-01"
+start = "1972-01-01"
 stop = "2100-01-01"
 base_step_minutes = 7200   # 5 d
 tolerance_km = 50.0
@@ -55,7 +60,7 @@ command = "5"
 naif_id = 5
 center = "500@10"
 center_naif_id = 10
-start = "1977-08-01"
+start = "1972-01-01"
 stop = "2100-01-01"
 base_step_minutes = 14400  # 10 d
 tolerance_km = 50.0
@@ -67,7 +72,7 @@ command = "6"
 naif_id = 6
 center = "500@10"
 center_naif_id = 10
-start = "1977-08-01"
+start = "1972-01-01"
 stop = "2100-01-01"
 base_step_minutes = 28800  # 20 d
 tolerance_km = 50.0
@@ -79,7 +84,7 @@ command = "7"
 naif_id = 7
 center = "500@10"
 center_naif_id = 10
-start = "1977-08-01"
+start = "1972-01-01"
 stop = "2100-01-01"
 base_step_minutes = 57600  # 40 d
 tolerance_km = 50.0
@@ -91,7 +96,7 @@ command = "8"
 naif_id = 8
 center = "500@10"
 center_naif_id = 10
-start = "1977-08-01"
+start = "1972-01-01"
 stop = "2100-01-01"
 base_step_minutes = 86400  # 60 d
 tolerance_km = 50.0
@@ -118,6 +123,59 @@ start = "1977-08-20 15:33"
 stop = "2099-12-31"   # Horizons coverage ends exactly at 2100-01-01
 base_step_minutes = 1440
 encounters = ["jupiter", "saturn", "uranus", "neptune"]
+
+[[target]]
+name = "pioneer10"
+command = "-23"
+naif_id = -23
+center = "500@10"
+center_naif_id = 10
+start = "1972-03-03 02:05"
+stop = "2049-12-31"   # Horizons coverage ends at 2050-01-01 00:10
+base_step_minutes = 1440
+encounters = ["jupiter"]
+
+[[target]]
+name = "pioneer11"
+command = "-24"
+naif_id = -24
+center = "500@10"
+center_naif_id = 10
+start = "1973-04-06 02:26"
+stop = "2049-12-31"
+base_step_minutes = 1440
+encounters = ["jupiter", "saturn"]
+
+# Arrokoth (486958; New Horizons' flyby target, 2019-01-01), heliocentric like the
+# other small bodies further down. "486958;" is JPL's ground-based orbit, integrated
+# over any span; "2486958" is the New Horizons team's trajectory (1993-12-25 ..
+# 2034-01-08), the one the spacecraft's flyby (3537.7 km) is consistent with. They
+# differ by ~21,700 km at the flyby, so the scene uses the mission table where it
+# exists and the ground-based one elsewhere.
+[[target]]
+name = "arrokoth_nh"
+command = "2486958"
+naif_id = 2486958
+center = "500@10"
+center_naif_id = 10
+start = "1994-01-01"
+stop = "2034-01-07"
+base_step_minutes = 14400
+tolerance_km = 5.0
+kepler_gm_km3_s2 = 1.32712440041279419e11
+
+[[target]]
+name = "arrokoth"
+command = "486958;"
+naif_id = 2486958
+center = "500@10"
+center_naif_id = 10
+start = "1972-01-01"
+stop = "2099-12-31"
+base_step_minutes = 14400
+tolerance_km = 50.0
+kepler_gm_km3_s2 = 1.32712440041279419e11
+
 
 # Parker Solar Probe and Venus (its seven gravity assists). Venus has no moon, so
 # its body center (299) is used; both are kept tighter than the planets above
@@ -555,7 +613,7 @@ center_naif_id = 10
 start = "1972-01-01"
 stop = "2099-12-31"
 base_step_minutes = 14400  # 10 d
-tolerance_km = 50.0
+tolerance_km = 5.0      # New Horizons passed 13,676 km from Pluto's center
 kepler_gm_km3_s2 = 1.32712440041279419e11
 radius_km = 1188.3
 
@@ -682,3 +740,20 @@ stop = "2099-12-31"
 base_step_minutes = 14400
 tolerance_km = 50.0
 kepler_gm_km3_s2 = 1.32712440041279419e11
+
+# New Horizons comes last: its refinement needs the Pluto and Arrokoth tables.
+[[target]]
+name = "new_horizons"
+command = "-98"
+naif_id = -98
+center = "500@10"
+center_naif_id = 10
+start = "2006-01-19 19:52"
+stop = "2049-12-31"
+base_step_minutes = 1440
+tolerance_km = 5.0         # Pluto and Arrokoth flybys at 13,676 / 3,538 km
+encounters = ["jupiter", "pluto", "arrokoth_nh"]   # Pluto: barycenter (body center: see assets/ephem/SOURCES.md)
+encounter_step_minutes = 60
+# The flybys fall between the daily samples, where the error check cannot see them.
+refine_near = ["pluto", "arrokoth_nh"]
+refine_near_km = 1.0e6
