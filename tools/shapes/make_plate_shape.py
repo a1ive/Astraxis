@@ -1,14 +1,17 @@
 """Convert a plate model (PDS SBN "Saturn Small Moon Shape Models", Thomas, Cassini
-ISS; e.g. hyperion_30k_plt.tab) into a body mesh for assets/shapes/.
+ISS; e.g. hyperion_30k_plt.tab) or a triangle mesh in Wavefront OBJ form (e.g. the
+VLT/SPHERE MPCD model of Pallas) into a body mesh for assets/shapes/.
 
 Sources and conventions are listed in assets/shapes/SOURCES.md. Download the
-table there first, then (from the repository root):
+file there first, then (from the repository root):
 
-    python tools/shapes/make_plate_shape.py <plates.tab> <output.mesh>
+    python tools/shapes/make_plate_shape.py <plates.tab | shape.obj> <output.mesh>
 
 Format of the table: a line with the vertex and plate counts, one line of x, y, z
 (km, body-fixed) per vertex, then one line of three vertex indices (from 0) per
-plate, counter-clockwise seen from outside (checked here: the signed volume must be
+plate. OBJ files: "v x y z" lines (km, body-fixed) and "f a b c" lines (indices
+from 1; texture and normal indices are ignored). Either way the plates must be
+counter-clockwise seen from outside (checked here: the signed volume must be
 positive). The mesh has a uniform albedo and no map coordinates.
 
 Output format: see axmesh.py. Only the Python standard library is used.
@@ -20,16 +23,39 @@ import sys
 from axmesh import volume, write_mesh
 
 
-def main():
-    if len(sys.argv) != 3:
-        sys.exit(__doc__)
-    with open(sys.argv[1]) as f:
+def read_plate_table(path):
+    with open(path) as f:
         lines = [line.split() for line in f if line.strip()]
     vertex_count, plate_count = int(lines[0][0]), int(lines[0][1])
     positions = [tuple(float(x) for x in line[:3]) for line in lines[1:1 + vertex_count]]
     triangles = [tuple(int(x) for x in line[:3]) for line in lines[1 + vertex_count:1 + vertex_count + plate_count]]
     if len(positions) != vertex_count or len(triangles) != plate_count:
         sys.exit('truncated table')
+    return positions, triangles
+
+
+def read_obj(path):
+    positions, triangles = [], []
+    with open(path) as f:
+        for line in f:
+            fields = line.split()
+            if not fields:
+                continue
+            if fields[0] == 'v':
+                positions.append(tuple(float(x) for x in fields[1:4]))
+            elif fields[0] == 'f':
+                if len(fields) != 4:
+                    sys.exit('only triangular faces are supported')
+                triangles.append(tuple(int(x.split('/')[0]) - 1 for x in fields[1:4]))
+    return positions, triangles
+
+
+def main():
+    if len(sys.argv) != 3:
+        sys.exit(__doc__)
+    read = read_obj if sys.argv[1].lower().endswith('.obj') else read_plate_table
+    positions, triangles = read(sys.argv[1])
+    vertex_count, plate_count = len(positions), len(triangles)
     if any(not 0 <= i < vertex_count for t in triangles for i in t):
         sys.exit('plate vertex index out of range (expected indices from 0)')
     v = volume(positions, triangles)

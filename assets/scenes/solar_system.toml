@@ -43,6 +43,14 @@
 #        c = 511.2 km, from 37 stellar occultations.
 # [SEDN] Pal et al. 2012, A&A 541, L6 (arXiv:1204.0899): diameter 995 +- 80 km.
 # [MARS] Marsset et al. 2020, Nature Astronomy 4, 569 (via [SBDB]): Pallas 568 x 532 x 448 km.
+# [PALM] Pallas: MPCD shape model from the VLT/SPHERE large programme (Marsset et al. 2020;
+#        Vernazza et al. 2021, A&A 654, A56), shared on Sketchfab by "marin" (@marin14) under
+#        CC BY 4.0 (assets/shapes/SOURCES.md); equal-volume diameter 508.2 km vs 511 +- 4 km
+#        (Vernazza et al. 2021, Table 1). It is in the body frame of the ADAM model of the
+#        same work, DAMIT model 4395: lambda 42, beta -15 deg (J2000 ecliptic), P 7.81322 h,
+#        phi0 = 0 at JD 2433827.77154. Converted to the IAU form here: pole RA 44.1136,
+#        Dec 1.1250 deg; W0 41.608 deg at J2000 with DAMIT's IAU rate 1105.818241 deg/day
+#        (DAMIT's own IAUspin file gives W0 41.7 for the pole rounded to RA 44, Dec 1).
 # [VDTM] Vesta: DLR Dawn FC HAMO global DTM (93 m, radii) and mosaic (60 m), both release
 #        2013-12-10, Claudia Double Prime longitudes (USGS Astrogeology); equal-volume
 #        diameter 523.1 km vs 522.77 +- 0.1 km in [SBDB] (Park et al. 2025).
@@ -1313,10 +1321,11 @@ laplace_pole_ra_dec_deg = [270.0, 66.56070889]
 [[bodies]]
 name = "Pallas"
 parent = "Sun"
-radii_km = [284.0, 266.0, 224.0]           # [MARS] 568 x 532 x 448 km
+shape = "shapes/pallas.mesh"               # [PALM]; assets/shapes/SOURCES.md
+radii_km = [284.0, 266.0, 224.0]           # [MARS] 568 x 532 x 448 km (shadows, camera distances)
 body_gm_km3_s2 = 13.6658781                # [GMB] (SB441-N16)
-pole_ra_dec_deg = [33.0, -3.0]             # [PCK]
-prime_meridian_deg = [38.0, 1105.8036]
+pole_ra_dec_deg = [44.1136, 1.1250]        # [PALM] (the frame of the shape model)
+prime_meridian_deg = [41.608, 1105.818241] # [PALM]
 color = "#8c8a86"
 orbit_color = "#a8a6a0"
 [bodies.orbit]                             # [HZN] 2

@@ -761,6 +761,47 @@ void test_vesta_shape()
           u_error);
 }
 
+// Pallas: the VLT/SPHERE MPCD shape model ([PALM] in solar_system.toml). Volume against
+// Vernazza et al. 2021 (Table 1: D = 511 +- 4 km); the scene's IAU rotation against the
+// spin solution of the ADAM model whose body frame the mesh shares (DAMIT model 4395,
+// Marsset et al. 2020): lambda 42, beta -15 deg, P 7.81322 h, phi0 = 0 at JD 2433827.77154,
+// body -> J2000 ecliptic = Rz(lambda) Ry(90 deg - beta) Rz(phi).
+void test_pallas_shape()
+{
+    Scene scene = load_scene_or_die("solar_system.toml");
+    scene.set_active_frame(0); // inertial (ICRF axes)
+    const int pallas = scene.find("Pallas");
+    const Body& body = scene.bodies[static_cast<size_t>(pallas)];
+    check(body.shape != nullptr && body.texture.empty(), "Pallas has a shape model (no texture)");
+    if (!body.shape) {
+        return;
+    }
+    const double d_equal = std::cbrt(6.0 * signed_volume(*body.shape) / kPi);
+    check(std::abs(d_equal - 511.0) < 4.0, "Pallas equal-volume diameter (km)", d_equal);
+
+    const double period_h = 360.0 * 24.0 / body.pm_rate_deg_per_day;
+    check(std::abs(period_h - 7.81322) < 1e-5, "Pallas sidereal period (h)", period_h);
+    // DAMIT's IAU conversion (from the pole rounded to RA 44, Dec 1): W0 = 41.7 deg.
+    check(std::abs(body.pm_w0_deg - 41.7) < 0.15, "Pallas W0 near DAMIT's IAU value (deg)", body.pm_w0_deg);
+
+    auto rotation_y = [](double a) {
+        glm::dmat3 m(1.0); // columns
+        m[0] = glm::dvec3(std::cos(a), 0.0, -std::sin(a));
+        m[2] = glm::dvec3(std::sin(a), 0.0, std::cos(a));
+        return m;
+    };
+    const double obliquity = 84381.448 / 3600.0 * kDegToRad; // IAU 1976
+    const glm::dmat3 expected =
+        rotation_x(obliquity) * rotation_z(42.0 * kDegToRad) * rotation_y((90.0 + 15.0) * kDegToRad);
+    scene.update(tdb_from_jd_tdb(2433827.77154)); // phi = 0
+    double worst = 0.0;
+    for (int k : {0, 2}) {
+        const double cos_angle = glm::dot(scene.bodies[static_cast<size_t>(pallas)].orientation[k], expected[k]);
+        worst = std::max(worst, std::acos(std::clamp(cos_angle, -1.0, 1.0)) / kDegToRad);
+    }
+    check(worst < 0.05, "Pallas body axes match the DAMIT spin solution at t0 (deg)", worst);
+}
+
 // Amalthea and Thebe (Stooke, Jupiter scene) and Hyperion (Thomas, Cassini; Saturn
 // scene): volumes against the mean radii in JPL SSD's satellite physical parameters
 // (within their uncertainties). The Jovian moons' long axes point at Jupiter (+x).
@@ -2801,6 +2842,7 @@ int main()
     test_arrokoth_shape();
     test_mars_moon_shapes();
     test_vesta_shape();
+    test_pallas_shape();
     test_jupiter_saturn_small_moon_shapes();
     test_parker_scene();
     test_jupiter_missions();
