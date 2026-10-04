@@ -1063,6 +1063,120 @@ void test_saturn_scene()
     }
 }
 
+// MESSENGER and BepiColombo: heliocentric cruise tables handed over to tables
+// relative to Mercury (relative_to), checked against the Horizons notes of the
+// two spacecraft and against NASA's MESSENGER Earth-flyby altitude.
+void test_mercury_scene()
+{
+    Scene scene = load_scene_or_die("mercury.toml");
+    const int mercury = scene.find("Mercury");
+    const int venus = scene.find("Venus");
+    const int earth = scene.find("Earth");
+    const int messenger = scene.find("MESSENGER");
+    const int bepi = scene.find("BepiColombo");
+    check(mercury > 0 && venus > 0 && earth > 0 && messenger > 0 && bepi > 0, "mercury.toml bodies");
+    auto at = [&](int body, double t) { return scene.icrf_state_at(body, t).position; };
+    auto tdb = [](const CalendarDateTime& c) { return (jd_from_calendar(c) - kJ2000Jd) * kSecondsPerDay; };
+
+    // Horizons, heliocentric (500@10), 2008-Jan-14 18:00 TDB, ICRF km: Mercury (199), Venus (299).
+    const double t_ref = tdb_from_jd_tdb(2454480.25);
+    const glm::dvec3 mercury_hzn(5.237913070701520E+07, 4.158221025197503E+06, -3.210073214907367E+06);
+    const glm::dvec3 venus_hzn(-9.743411097601077E+07, -4.448008071855614E+07, -1.384639758080466E+07);
+    check(glm::length(at(mercury, t_ref) - mercury_hzn) < 2.0, "Mercury matches Horizons (km)",
+          glm::length(at(mercury, t_ref) - mercury_hzn));
+    check(glm::length(at(venus, t_ref) - venus_hzn) < 5.0, "Venus matches Horizons (km)",
+          glm::length(at(venus, t_ref) - venus_hzn));
+
+    // Closest approach (+-1 h around the bake tool's time) minus a reference radius.
+    auto altitude = [&](int craft, int planet, const CalendarDateTime& c, double radius) {
+        const double t0 = tdb(c);
+        double best = 1e300;
+        for (double dt = -3600.0; dt <= 3600.0; dt += 1.0) {
+            best = std::min(best, glm::length(at(craft, t0 + dt) - at(planet, t0 + dt)));
+        }
+        return best - radius;
+    };
+    const double r_mercury = scene.bodies[static_cast<size_t>(mercury)].equatorial_radius_km;
+    const double r_earth = scene.bodies[static_cast<size_t>(earth)].equatorial_radius_km;
+
+    // Horizons notes for MESSENGER (-236): first Mercury flyby 2008-01-14 19:05 UTC at
+    // 200.6 km altitude, third 2009-09-29 21:56 UTC at 228 km; "2,347 kilometers over
+    // central Mongolia" at the Earth flyby (2005-08-02). The Earth flyby needs the
+    // Earth's center (scene: Earth around the Earth-Moon barycenter), not the barycenter.
+    const double m1 = altitude(messenger, mercury, {2008, 1, 14, 19, 5, 44}, r_mercury);
+    const double m3 = altitude(messenger, mercury, {2009, 9, 29, 21, 56, 0}, r_mercury);
+    const double me = altitude(messenger, earth, {2005, 8, 2, 19, 4, 17}, r_earth);
+    check(std::abs(m1 - 200.6) < 5.0, "MESSENGER first Mercury flyby altitude (km)", m1);
+    check(std::abs(m3 - 228.0) < 5.0, "MESSENGER third Mercury flyby altitude (km)", m3);
+    check(std::abs(me - 2347.0) < 30.0, "MESSENGER Earth flyby altitude (km)", me);
+    std::printf("info: MESSENGER flybys: Mercury 1 %.1f km, Mercury 3 %.1f km, Earth %.1f km\n", m1, m3, me);
+
+    // Horizons notes for BepiColombo (-121): Earth flyby 2020-04-10 04:24:58 UTC "@ 19066 km"
+    // (from the Earth's center; ESA quoted ~12,700 km above the surface).
+    const double be = altitude(bepi, earth, {2020, 4, 10, 4, 26, 7}, 0.0);
+    check(std::abs(be - 19066.0) < 30.0, "BepiColombo Earth flyby distance (km)", be);
+    std::printf("info: BepiColombo Earth flyby: %.0f km from the Earth's center\n", be);
+
+    // Hand-over from the heliocentric cruise table to the Mercury-relative one: no jump.
+    for (const auto& [craft, when] : {std::pair{messenger, CalendarDateTime{2011, 3, 12, 0, 0, 0}},
+                                     std::pair{bepi, CalendarDateTime{2026, 10, 20, 0, 0, 0}}}) {
+        const double t_switch = tdb(when);
+        double worst = 0.0;
+        for (double t = t_switch - 600.0; t < t_switch + 600.0; t += 60.0) {
+            const State a = scene.icrf_state_at(craft, t);
+            worst = std::max(worst, glm::length(at(craft, t + 60.0) - a.position - a.velocity * 60.0));
+        }
+        check(worst < 20.0, "spacecraft hand-over to the Mercury-relative table (km/min)", worst);
+    }
+
+    // MESSENGER ends at Mercury's surface (impact 2015-04-30 ~19:26 UTC).
+    double t_end = tdb({2015, 4, 30, 19, 27, 0});
+    scene.update(t_end);
+    const double impact = glm::length(at(messenger, t_end) - at(mercury, t_end)) - r_mercury;
+    check(scene.bodies[static_cast<size_t>(messenger)].visible && std::abs(impact) < 30.0, "MESSENGER impact altitude (km)", impact);
+    scene.update(t_end + 600.0);
+    check(!scene.bodies[static_cast<size_t>(messenger)].visible, "MESSENGER gone after the impact");
+    scene.update(tdb({2004, 1, 1, 0, 0, 0}));
+    check(!scene.bodies[static_cast<size_t>(messenger)].visible, "MESSENGER not there before its launch");
+
+    // BepiColombo's science orbit (Horizons notes: MPO 480 x 1500 km, 2.3 h).
+    double lowest = 1e300;
+    double highest = 0.0;
+    const double t_mpo = tdb({2027, 4, 9, 0, 0, 0});
+    for (double t = t_mpo; t < t_mpo + kSecondsPerDay; t += 30.0) {
+        const double h = glm::length(at(bepi, t) - at(mercury, t)) - r_mercury;
+        lowest = std::min(lowest, h);
+        highest = std::max(highest, h);
+    }
+    check(std::abs(lowest - 480.0) < 50.0 && std::abs(highest - 1500.0) < 100.0, "BepiColombo science orbit (km)", lowest);
+    std::printf("info: BepiColombo in April 2027: %.0f x %.0f km\n", lowest, highest);
+
+    // Trails: in the Sun-centered frame the 2013 trail reaches back into the cruise;
+    // in the Mercury-centered frame it is capped at one day.
+    const double t_orbit = tdb({2013, 1, 1, 0, 0, 0});
+    std::vector<glm::dvec3> points;
+    std::vector<float> fades;
+    scene.update(t_orbit);
+    scene.trail(messenger, t_orbit, 2048, points, fades);
+    double farthest = 0.0;
+    for (const glm::dvec3& q : points) {
+        farthest = std::max(farthest, glm::length(q - scene.bodies[static_cast<size_t>(mercury)].world_position));
+    }
+    check(farthest > 1.0e7, "MESSENGER trail reaches back into the cruise (km from Mercury)", farthest);
+    for (size_t f = 0; f < scene.frames.size(); ++f) {
+        if (scene.frames[f].name == "Mercury-centered") {
+            scene.set_active_frame(static_cast<int>(f));
+        }
+    }
+    scene.update(t_orbit);
+    scene.trail(messenger, t_orbit, 2048, points, fades);
+    double widest = 0.0;
+    for (const glm::dvec3& q : points) {
+        widest = std::max(widest, glm::length(q));
+    }
+    check(points.size() > 50 && widest < 2.0e4, "MESSENGER trail in the Mercury frame: a day of orbits (km)", widest);
+}
+
 void test_jwst_scene()
 {
     // Lagrange L2 of Sun / Earth-Moon: force balance in the rotating frame, ~1.5e6 km.
@@ -2426,6 +2540,7 @@ int main()
     test_jupiter_missions();
     test_earth_moon_scene();
     test_saturn_scene();
+    test_mercury_scene();
     test_jwst_scene();
     test_galactic_frame();
     test_visual_orbit_convention();

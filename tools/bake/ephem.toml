@@ -23,6 +23,10 @@
 #   Cassini (-82):   1997-Oct-15 09:28 .. 2017-Sep-15 11:58 TDB (navigation team, post-mission
 #                    reconstruction released 2018-06-29)
 #   Huygens (-150):  2004-Dec-25 02:01 .. 2005-Jan-14 12:06 TDB
+#   MESSENGER (-236): 2004-Aug-03 07:15 .. 2015-May-01 18:50 TDB (JHU/APL, delivered 2015-04-02;
+#                    impact on Mercury 2015-04-30)
+#   BepiColombo (-121): 2018-Oct-20 02:14 .. 2027-Apr-10 23:59 TDB (ESA MPO file; fit through
+#                    2026-09-28, prediction thereafter, Mercury orbit insertion late 2026)
 #   Parker Solar Probe (-96): 2018-Aug-12 08:16:23 TDB .. 2030-Jan-01 (as flown to
 #                    2026-Sep-01, then the reference planning trajectory)
 # Tolerances are for display: heliocentric positions carry the Sun's reflex motion
@@ -187,10 +191,11 @@ command = "299"
 naif_id = 299
 center = "500@10"
 center_naif_id = 10
-start = "2018-08-01"
+start = "2004-07-01"       # MESSENGER, BepiColombo and Parker
 stop = "2030-01-01"
 base_step_minutes = 2880   # 2 d
 tolerance_km = 5.0
+kepler_gm_km3_s2 = 1.32712440041279419e11   # the Sun (DE440)
 radius_km = 6051.8
 
 [[target]]
@@ -757,3 +762,84 @@ encounter_step_minutes = 60
 # The flybys fall between the daily samples, where the error check cannot see them.
 refine_near = ["pluto", "arrokoth_nh"]
 refine_near_km = 1.0e6
+
+# --- Mercury missions --------------------------------------------------------
+#
+# Heliocentric cruise tables (refined near Venus, Mercury and the Earth-Moon
+# barycenter, whose 4,700 km offset from the Earth does not matter for picking
+# windows), then Mercury-centered tables for the orbital phases; the scene joins
+# them with `relative_to = "Mercury"`. Reference GMs (DE440): Sun, Mercury
+# 22031.868551 km^3/s^2.
+
+[[target]]
+name = "mercury"
+command = "199"
+naif_id = 199
+center = "500@10"
+center_naif_id = 10
+kepler_gm_km3_s2 = 1.32712440041279419e11
+start = "2004-07-01"
+stop = "2027-04-12"
+base_step_minutes = 1440
+tolerance_km = 2.0
+radius_km = 2440.53
+
+[[target]]
+name = "messenger_helio"
+command = "-236"
+naif_id = -236
+center = "500@10"
+center_naif_id = 10
+kepler_gm_km3_s2 = 1.32712440041279419e11
+start = "2004-08-03 07:15"
+stop = "2011-03-12"           # handed over to messenger_merc (orbit insertion 2011-03-18)
+base_step_minutes = 360
+tolerance_km = 2.0
+encounters = ["venus", "mercury", "emb"]
+encounter_km = 1000000.0
+encounter_step_minutes = 30
+refine_near = ["venus", "mercury", "emb"]
+refine_near_km = 100000.0
+
+[[target]]
+name = "messenger_merc"
+command = "-236"
+naif_id = -236
+center = "500@199"
+center_naif_id = 199
+kepler_gm_km3_s2 = 22031.868551
+start = "2011-03-10"
+stop = "2015-04-30 19:28"     # impact (mean surface reached ~19:27:55 TDB, 19:26:50 UTC)
+base_step_minutes = 60
+tolerance_km = 2.0
+periapsides = true
+
+[[target]]
+name = "bepi_helio"
+command = "-121"
+naif_id = -121
+center = "500@10"
+center_naif_id = 10
+kepler_gm_km3_s2 = 1.32712440041279419e11
+start = "2018-10-20 02:15"
+stop = "2026-10-20"           # handed over to bepi_merc (capture late 2026-11)
+base_step_minutes = 360
+tolerance_km = 2.0
+encounters = ["venus", "mercury", "emb"]
+encounter_km = 1000000.0
+encounter_step_minutes = 30
+refine_near = ["venus", "mercury", "emb"]
+refine_near_km = 100000.0
+
+[[target]]
+name = "bepi_merc"
+command = "-121"
+naif_id = -121
+center = "500@199"
+center_naif_id = 199
+kepler_gm_km3_s2 = 22031.868551
+start = "2026-10-15"
+stop = "2027-04-10 23:58"     # Horizons coverage ends 2027-04-10 23:59
+base_step_minutes = 30
+tolerance_km = 2.0
+periapsides = true

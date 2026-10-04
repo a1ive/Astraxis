@@ -3,6 +3,7 @@
 #include "ephem/kepler.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <fstream>
@@ -192,8 +193,11 @@ State EphemerisMotion::eval(double t_tdb) const
 
 bool EphemerisMotion::valid_at(double t_tdb) const
 {
-    if (m_table->covers(t_tdb) || m_fallback) {
+    if (m_table->covers(t_tdb)) {
         return true;
+    }
+    if (m_fallback) {
+        return m_fallback->valid_at(t_tdb); // e.g. a table for the next mission phase
     }
     return m_extrapolation == Extrapolation::Linear && t_tdb > m_table->end();
 }
@@ -208,7 +212,35 @@ bool EphemerisMotion::sample_orbit(double t_tdb, int count, std::vector<glm::dve
 
 void EphemerisMotion::history_times(double t0, double t1, int max_points, std::vector<double>& out) const
 {
-    m_table->history_times(t0, t1, max_points, out);
+    if (!m_fallback || (t0 >= m_table->start() && t1 <= m_table->end())) {
+        m_table->history_times(t0, t1, max_points, out);
+        return;
+    }
+    // The parts outside the table come from the fallback (e.g. the next phase of
+    // a mission), each with a share of the points proportional to its length.
+    out.clear();
+    std::vector<double> part;
+    auto append = [&](const MotionSource& source, const EphemerisTable* table, double a, double b) {
+        if (!(b > a)) {
+            return;
+        }
+        const int points = std::max(2, static_cast<int>(max_points * (b - a) / (t1 - t0)));
+        if (table) {
+            table->history_times(a, b, points, part);
+        } else {
+            source.history_times(a, b, points, part);
+        }
+        for (double t : part) {
+            if (out.empty() || t > out.back()) {
+                out.push_back(t);
+            }
+        }
+    };
+    const double start = std::clamp(m_table->start(), t0, t1);
+    const double end = std::clamp(m_table->end(), t0, t1);
+    append(*m_fallback, nullptr, t0, start);
+    append(*m_fallback, m_table.get(), start, end);
+    append(*m_fallback, nullptr, end, t1);
 }
 
 void EphemerisTable::history_times(double t0, double t1, int max_points, std::vector<double>& out) const
@@ -242,6 +274,43 @@ void EphemerisTable::history_times(double t0, double t1, int max_points, std::ve
         }
     }
     out.push_back(t1);
+
+    // Kepler-relative knots can be a whole orbit (or more) apart, which no
+    // chord refinement would notice: split each interval to ~1/24 revolution of
+    // the osculating orbit, then thin evenly again if over budget.
+    if (m_reference_gm <= 0.0 || out.size() < 2) {
+        return;
+    }
+    constexpr double kStep = 6.283185307179586 / 24.0;
+    constexpr int kMaxPieces = 256;
+    std::vector<double> split{out.front()};
+    for (size_t i = 1; i < out.size(); ++i) {
+        const double a = out[i - 1];
+        const double b = out[i];
+        const State s = eval(a);
+        const double r = glm::length(s.position);
+        const double energy = 0.5 * glm::dot(s.velocity, s.velocity) - m_reference_gm / r;
+        int pieces = 1;
+        if (energy < 0.0) {
+            const double sma = -m_reference_gm / (2.0 * energy);
+            const double n = std::sqrt(m_reference_gm / (sma * sma * sma));
+            pieces = std::clamp(static_cast<int>(std::ceil(n * (b - a) / kStep)), 1, kMaxPieces);
+        }
+        for (int k = 1; k < pieces; ++k) {
+            split.push_back(a + (b - a) * k / pieces);
+        }
+        split.push_back(b);
+    }
+    if (split.size() <= static_cast<size_t>(std::max(max_points, 2))) {
+        out = std::move(split);
+        return;
+    }
+    out.clear();
+    const size_t n = split.size();
+    const size_t keep = static_cast<size_t>(std::max(max_points, 2));
+    for (size_t k = 0; k < keep; ++k) {
+        out.push_back(split[(n - 1) * k / (keep - 1)]); // includes both ends
+    }
 }
 
 } // namespace astraxis

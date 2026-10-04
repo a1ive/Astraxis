@@ -214,6 +214,7 @@ private:
                  bool allow_sun) const;
 
     std::filesystem::path m_asset_root;
+    Scene* m_scene = nullptr; // the scene being parsed
     std::map<std::string, std::shared_ptr<const EphemerisTable>> m_tables;
     std::vector<int> m_nbody_bodies; // bodies whose motion comes from [nbody]
     std::vector<std::pair<int, std::string>> m_pulsar_axes; // pulsar, body whose orbit normal is its spin axis
@@ -357,8 +358,20 @@ std::unique_ptr<MotionSource> Loader::parse_motion(const toml::table& t, const s
         if (blend_days < 0.0 || (blend_days > 0.0 && !fallback)) {
             fail(ctx, "fallback_blend_days needs a fallback and must not be negative");
         }
-        return std::make_unique<EphemerisMotion>(std::move(table), std::move(fallback), mode, parent_gm,
-                                                 blend_days * kSecondsPerDay);
+        std::unique_ptr<MotionSource> motion = std::make_unique<EphemerisMotion>(
+            std::move(table), std::move(fallback), mode, parent_gm, blend_days * kSecondsPerDay);
+        if (t.contains("relative_to")) {
+            // Data relative to a sibling defined earlier (e.g. Mercury for an orbiter).
+            const std::string anchor_name = get_string(t, "relative_to", ctx);
+            const int anchor = m_scene->find(anchor_name);
+            if (anchor < 0 || !m_scene->bodies[static_cast<size_t>(anchor)].motion ||
+                &m_scene->bodies[static_cast<size_t>(m_scene->bodies[static_cast<size_t>(anchor)].parent)] != parent) {
+                fail(ctx, "relative_to needs a body defined earlier with the same parent and an orbit");
+            }
+            motion = std::make_unique<OffsetMotion>(std::move(motion),
+                                                    m_scene->bodies[static_cast<size_t>(anchor)].motion.get());
+        }
+        return motion;
     }
 
     if (type == "fixed") {
@@ -438,6 +451,7 @@ int Loader::body_ref(const Scene& scene, const toml::table& t, std::string_view 
 void Loader::parse(const toml::table& root, Scene& out)
 {
     out = Scene{};
+    m_scene = &out;
     out.name = get_string(root, "name", "scene");
 
     if (const toml::table* helio = root["origin_heliocentric"].as_table()) {
@@ -759,6 +773,10 @@ void Loader::parse(const toml::table& root, Scene& out)
                 f.origin = t->contains("origin") ? body_ref(out, *t, "origin", ctx, false) : f.secondary;
             } else {
                 fail(ctx, "type must be \"inertial\" or \"rotating\"");
+            }
+            f.trail_history_days = get_double_or(*t, "trail_history_days", 0.0);
+            if (f.trail_history_days < 0.0) {
+                fail(ctx, "trail_history_days must not be negative");
             }
             out.frames.push_back(f);
         }

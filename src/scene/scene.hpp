@@ -175,6 +175,9 @@ struct DisplayFrame {
     int origin = 0;
     int primary = -1; // -1 = the sun
     int secondary = -1;
+    // Caps every history trail while this frame is active (0: no cap), e.g. a
+    // few days of orbits in a planet-centered view of a years-long tour.
+    double trail_history_days = 0.0;
 };
 
 // display = axes^T * (icrf - origin)

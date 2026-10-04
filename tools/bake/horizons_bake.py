@@ -487,9 +487,26 @@ def report_periapsides(name, table):
         b = table.interp(knots[lo], knots[hi], t + dt)
         return sum(p[i] * (b[i] - a[i]) for i in range(3))
 
+    def sub_steps(k):
+        """Knot interval k split to ~1/16 revolution (Kepler-relative knots can be
+        whole orbits apart, hiding periapsides between them)."""
+        (t0, p0, v0), (t1, _, _) = knots[k], knots[k + 1]
+        if not table.gm:
+            return [t0, t1]
+        r = math.sqrt(sum(x * x for x in p0))
+        energy = 0.5 * sum(x * x for x in v0) - table.gm / r
+        pieces = 1
+        if energy < 0.0:
+            sma = -table.gm / (2.0 * energy)
+            n = math.sqrt(table.gm / sma ** 3)
+            pieces = max(1, min(256, math.ceil(n * (t1 - t0) / (2.0 * math.pi / 16.0))))
+        return [t0 + (t1 - t0) * j / pieces for j in range(pieces + 1)]
+
     for k in range(len(knots) - 1):
-        (t0, p0, v0), (t1, p1, v1) = knots[k], knots[k + 1]
-        if sum(p0[i] * v0[i] for i in range(3)) < 0.0 <= sum(p1[i] * v1[i] for i in range(3)):
+        steps = sub_steps(k)
+        for t0, t1 in zip(steps, steps[1:]):
+            if not radial(t0) < 0.0 <= radial(t1):
+                continue
             lo, hi = t0, t1
             for _ in range(80):
                 mid = 0.5 * (lo + hi)

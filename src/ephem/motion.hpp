@@ -84,6 +84,34 @@ private:
     double m_scale;
 };
 
+// Another motion offset by a sibling's (both relative to the same parent):
+// for data given relative to that sibling, e.g. a spacecraft orbiting Mercury
+// that stays a child of the Sun for its cruise. `anchor` is not owned.
+class OffsetMotion final : public MotionSource {
+public:
+    OffsetMotion(std::unique_ptr<MotionSource> inner, const MotionSource* anchor)
+        : m_inner(std::move(inner))
+        , m_anchor(anchor)
+    {
+    }
+    State eval(double t_tdb) const override
+    {
+        const State s = m_inner->eval(t_tdb);
+        const State a = m_anchor->eval(t_tdb);
+        return {s.position + a.position, s.velocity + a.velocity};
+    }
+    bool valid_at(double t_tdb) const override { return m_inner->valid_at(t_tdb) && m_anchor->valid_at(t_tdb); }
+    void history_times(double t0, double t1, int max_points, std::vector<double>& out) const override
+    {
+        m_inner->history_times(t0, t1, max_points, out);
+    }
+    const MotionSource& inner() const { return *m_inner; }
+
+private:
+    std::unique_ptr<MotionSource> m_inner;
+    const MotionSource* m_anchor;
+};
+
 // A body at a fixed position relative to its parent (e.g. a distant star).
 class FixedMotion final : public MotionSource {
 public:

@@ -548,6 +548,9 @@ void Scene::trail(int body_index, double t_tdb, int max_points, std::vector<glm:
         mode = TrailMode::History;
         history_days = history_days > 0.0 ? history_days : kRotatingTrailDays;
     }
+    if (const double cap = frame().trail_history_days; cap > 0.0 && mode == TrailMode::History) {
+        history_days = history_days > 0.0 ? std::min(history_days, cap) : cap;
+    }
 
     if (mode == TrailMode::Orbit) {
         if (body.motion->sample_orbit(t_tdb, max_points, m_scratch_points)) {

@@ -1,0 +1,374 @@
+# Two ways into Mercury orbit: MESSENGER (2004-2015) and BepiColombo (2018-), each
+# shedding speed with gravity assists of the Earth, Venus and Mercury itself, so that
+# Mercury can capture it.
+#
+# MESSENGER: Earth, 2 Venus and 3 Mercury flybys, orbit insertion on 2011-03-18, four
+# years in a 12-hour (later 8-hour) polar orbit, impact on 2015-04-30. BepiColombo:
+# Earth, 2 Venus and 6 Mercury flybys under solar-electric thrust, capture in late
+# November 2026, then a 2.3-hour polar orbit (the MPO; the Japanese Mio, released on
+# the way down, is not in Horizons). The default view starts now: BepiColombo is
+# closing in on Mercury.
+#
+# Sources
+# [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py (tools/bake/ephem.toml):
+#        - MESSENGER (-236): JHU/APL trajectory delivered 2015-04-02; heliocentric from
+#          launch to 2011-03-12, then relative to Mercury until the impact.
+#        - BepiColombo (-121): ESA MPO trajectory, fit through 2026-09-28 and predicted
+#          thereafter; heliocentric to 2026-10-20, then relative to Mercury to 2027-04-10.
+#        - Mercury and Venus (body centers), heliocentric 2004-07-01 .. 2027-04-12 / 2030;
+#          the Earth-Moon barycenter 1972..2100 and the geocentric Moon (Earth and Moon
+#          around their barycenter, as in solar_system.toml).
+# [APX]  E. M. Standish, Approximate Positions of the Planets, Table 2a: Mars, and the
+#        others outside their baked spans.
+# [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
+# [SPHY] JPL SSD, Planetary Satellite Physical Parameters, "Planet and Pluto GM Values":
+#        the GM of Mars alone.
+# [ELEM] JPL SSD, Planetary Satellite Mean Elements (the Moon, outside its table).
+# [PCK]  NAIF pck00011.tpc (IAU 2015): radii, poles, prime meridians (T terms ignored
+#        unless given).
+# Flyby times (TDB at the spacecraft) and altitudes: computed from the baked data
+# (tools/bake/ephem.toml encounters); altitudes above the mean (Mercury, Venus) or
+# equatorial (Earth) radius.
+
+name = "Mercury: MESSENGER & BepiColombo"
+
+[view]
+focus = "Sun"
+distance_km = 3.2e8        # out to the Earth's orbit
+pitch_deg = 55.0
+start = "now"
+warp = 86400.0             # 1 day per second
+up = "ecliptic"
+
+[[bodies]]
+name = "Sun"
+kind = "star"
+radii_km = [695700.0]                      # [PCK]
+gm_km3_s2 = 1.32712440041279419e11         # [GM]
+pole_ra_dec_deg = [286.13, 63.87]          # [PCK]
+prime_meridian_deg = [84.176, 14.1844]
+color = "#fff4e0"
+
+[[bodies]]
+name = "Mercury"
+parent = "Sun"
+radii_km = [2440.53, 2438.26]              # [PCK]
+body_gm_km3_s2 = 22031.868551              # [GM]
+pole_ra_dec_deg = [281.0103, 61.4155]      # [PCK]
+prime_meridian_deg = [329.5988, 6.1385108]
+color = "#9c958e"
+orbit_color = "#a8a29b"
+texture = "textures/mercury.jpg"           # assets/textures/SOURCES.md
+texture_left_lon_deg = -180.0
+[bodies.orbit]                             # [HZN] 199
+type = "ephemeris"
+file = "ephem/mercury.eph"
+[bodies.orbit.fallback]                    # [APX] Table 2a
+type = "jpl_approx_planet"
+a_au = [0.38709843, 0.00000000]
+e = [0.20563661, 0.00002123]
+i_deg = [7.00559432, -0.00590158]
+mean_longitude_deg = [252.25166724, 149472.67486623]
+lon_peri_deg = [77.45771895, 0.15940013]
+node_deg = [48.33961819, -0.12214182]
+
+[[bodies]]
+name = "Venus"
+parent = "Sun"
+radii_km = [6051.8]                        # [PCK]
+body_gm_km3_s2 = 324858.592                # [GM]
+pole_ra_dec_deg = [272.76, 67.16]
+prime_meridian_deg = [160.20, -1.4813688]
+color = "#e8d6ae"
+orbit_color = "#d9c79f"
+[bodies.orbit]                             # [HZN] 299
+type = "ephemeris"
+file = "ephem/venus.eph"
+[bodies.orbit.fallback]                    # [APX] Table 2a
+type = "jpl_approx_planet"
+a_au = [0.72332102, -0.00000026]
+e = [0.00676399, -0.00005107]
+i_deg = [3.39777545, 0.00043494]
+mean_longitude_deg = [181.97970850, 58517.81560260]
+lon_peri_deg = [131.76755713, 0.05679648]
+node_deg = [76.67261496, -0.27274174]
+
+# Earth and Moon around their barycenter: Earth at -mu r, the Moon at (1 - mu) r, with
+# r the geocentric Moon and mu = 4902.800118 / (398600.435507 + 4902.800118) [GM]. The
+# Earth flybys need the Earth's own center: it is up to 4,700 km from the barycenter.
+
+[[bodies]]
+name = "Earth-Moon barycenter"
+parent = "Sun"
+kind = "barycenter"
+gm_km3_s2 = 403503.235625                  # Earth + Moon [GM]
+orbit_color = "#7fa6e0"
+[bodies.orbit]                             # [HZN] Earth-Moon barycenter
+type = "ephemeris"
+file = "ephem/emb.eph"
+[bodies.orbit.fallback]                    # [APX] Table 2a, EM Bary
+type = "jpl_approx_planet"
+a_au = [1.00000018, -0.00000003]
+e = [0.01673163, -0.00003661]
+i_deg = [-0.00054346, -0.01337178]
+mean_longitude_deg = [100.46691572, 35999.37306329]
+lon_peri_deg = [102.93005885, 0.31795260]
+node_deg = [-5.11260389, -0.24123856]
+
+[[bodies]]
+name = "Earth"
+parent = "Earth-Moon barycenter"
+radii_km = [6378.1366, 6356.7519]          # [PCK]
+body_gm_km3_s2 = 398600.435507             # [GM]
+pole_ra_dec_deg = [0.0, 90.0]
+prime_meridian_deg = [190.147, 360.9856235]
+color = "#5b86c9"
+trail = "none"                             # its heliocentric orbit is the barycenter's
+texture = "textures/earth.jpg"
+texture_left_lon_deg = -180.0
+[bodies.orbit]                             # [HZN] 301 (geocentric Moon), scaled by -mu
+scale = -0.0121505844
+type = "ephemeris"
+file = "ephem/moon.eph"
+fallback_blend_days = 1.0
+[bodies.orbit.fallback]                    # [ELEM] DE405/LE405, J2000 ecliptic (drifts by degrees)
+type = "mean_elements"
+a_km = 384400.0
+e = 0.0554
+arg_peri_deg = 318.15
+mean_anomaly_deg = 135.27
+i_deg = 5.16
+node_deg = 125.08
+period_days = 27.555032                    # of M; [ELEM] P = 27.322 (mean longitude)
+apsis_period_years = 5.997
+node_period_years = -18.600
+laplace_pole_ra_dec_deg = [270.0, 66.56070889]
+
+[[bodies]]
+name = "Moon"
+parent = "Earth-Moon barycenter"
+radii_km = [1737.4]                        # [PCK]
+body_gm_km3_s2 = 4902.800118               # [GM]
+pole_ra_dec_deg = [269.9949, 66.5392]      # [PCK] (libration terms ignored)
+prime_meridian_deg = [38.3213, 13.17635815]
+pole_rate_deg_per_century = [0.0031, 0.0130]
+color = "#a8a49c"
+orbit_color = "#b4b8c4"
+texture = "textures/moon.jpg"
+texture_left_lon_deg = -180.0
+[bodies.orbit]                             # [HZN] 301, scaled by 1 - mu
+scale = 0.9878494156
+type = "ephemeris"
+file = "ephem/moon.eph"
+fallback_blend_days = 1.0
+[bodies.orbit.fallback]                    # [ELEM] DE405/LE405, J2000 ecliptic (drifts by degrees)
+type = "mean_elements"
+a_km = 384400.0
+e = 0.0554
+arg_peri_deg = 318.15
+mean_anomaly_deg = 135.27
+i_deg = 5.16
+node_deg = 125.08
+period_days = 27.555032                    # of M; [ELEM] P = 27.322 (mean longitude)
+apsis_period_years = 5.997
+node_period_years = -18.600
+laplace_pole_ra_dec_deg = [270.0, 66.56070889]
+
+[[bodies]]
+name = "Mars"
+parent = "Sun"
+radii_km = [3396.19, 3376.20]              # [PCK]
+body_gm_km3_s2 = 42828.37362               # [SPHY] (MAR097)
+pole_ra_dec_deg = [317.269202, 54.432516]
+prime_meridian_deg = [176.049863, 350.891982443297]
+color = "#c1673e"
+orbit_color = "#c98a6e"
+texture = "textures/mars.jpg"
+texture_left_lon_deg = -180.0
+[bodies.orbit]                             # [APX] Table 2a
+type = "jpl_approx_planet"
+a_au = [1.52371243, 0.00000097]
+e = [0.09336511, 0.00009149]
+i_deg = [1.85181869, -0.00724757]
+mean_longitude_deg = [-4.56813164, 19140.29934243]
+lon_peri_deg = [-23.91744784, 0.45223625]
+node_deg = [49.71320984, -0.26852431]
+
+# --- Spacecraft ---------------------------------------------------------------------
+# Children of the Sun; the orbital phases are tables relative to Mercury, added to
+# Mercury's position (relative_to). The cruise trail stays (the whole tour since
+# launch); in the Mercury-centered frames trails are cut to the last day (or month).
+
+[[bodies]]
+name = "MESSENGER"
+parent = "Sun"
+kind = "spacecraft"
+radii_km = [0.003]                         # a few meters across (drawn as a marker)
+color = "#ffd27f"
+orbit_color = "#ffb347"
+trail = "history"
+trail_linger_days = 365.0                  # after the impact, fading
+[bodies.orbit]                             # [HZN] -236, heliocentric cruise
+type = "ephemeris"
+file = "ephem/messenger_helio.eph"
+[bodies.orbit.fallback]                    # [HZN] -236, relative to Mercury (orbit phase)
+type = "ephemeris"
+file = "ephem/messenger_merc.eph"
+relative_to = "Mercury"
+
+[[bodies]]
+name = "BepiColombo"
+parent = "Sun"
+kind = "spacecraft"
+radii_km = [0.015]                         # tens of meters across its solar arrays (drawn as a marker)
+color = "#9fe7ff"
+orbit_color = "#6fc8ff"
+trail = "history"
+trail_linger_days = 365.0
+[bodies.orbit]                             # [HZN] -121, heliocentric cruise
+type = "ephemeris"
+file = "ephem/bepi_helio.eph"
+[bodies.orbit.fallback]                    # [HZN] -121, relative to Mercury (capture and orbit)
+type = "ephemeris"
+file = "ephem/bepi_merc.eph"
+relative_to = "Mercury"
+
+[[frames]]
+name = "Mercury-centered"
+type = "inertial"
+origin = "Mercury"
+trail_history_days = 1.0                   # a day of orbits, not years of them
+
+[[frames]]
+name = "Mercury-centered, 30-day trails"   # for the weeks-long capture loops
+type = "inertial"
+origin = "Mercury"
+trail_history_days = 30.0
+
+[[frames]]
+name = "Sun-Mercury rotating"
+type = "rotating"
+primary = "Sun"
+secondary = "Mercury"
+origin = "Sun"
+
+# --- Events --------------------------------------------------------------------------
+# Flybys start two hours before closest approach (Mercury flybys one hour).
+
+[[events]]
+name = "MESSENGER: launch (2004-08-03)"
+time_tdb = "2004-08-03 07:16"
+focus = "Earth"
+distance_km = 6.0e5
+warp = 3600.0
+
+[[events]]
+name = "MESSENGER: Earth flyby (2005-08-02)"
+time_tdb = "2005-08-02 17:04"
+focus = "Earth"
+distance_km = 6.0e4
+warp = 120.0
+
+[[events]]
+name = "MESSENGER: Venus flyby 2 (2007-06-05, 336 km)"
+time_tdb = "2007-06-05 21:09"
+focus = "Venus"
+distance_km = 4.0e4
+warp = 120.0
+
+[[events]]
+name = "MESSENGER: first Mercury flyby (2008-01-14, 200 km)"
+time_tdb = "2008-01-14 18:05"
+focus = "Mercury"
+frame = "Mercury-centered"
+distance_km = 2.0e4
+warp = 60.0
+
+[[events]]
+name = "MESSENGER: the cruise, 2004-2011"
+time_tdb = "2004-08-03 07:16"
+focus = "Sun"
+from_orbit_normal = "Mercury"
+distance_km = 3.2e8
+warp = 604800.0
+
+# Orbit insertion: first periapsis 2011-03-18 00:51:44 TDB, 278 km above the surface.
+[[events]]
+name = "MESSENGER: orbit insertion (2011-03-18)"
+time_tdb = "2011-03-17 18:00"
+focus = "Mercury"
+frame = "Mercury-centered"
+distance_km = 4.0e4
+warp = 600.0
+
+[[events]]
+name = "MESSENGER: in orbit (2013)"
+time_tdb = "2013-01-01 00:00"
+focus = "Mercury"
+frame = "Mercury-centered"
+distance_km = 3.0e4
+warp = 1800.0
+
+# Impact: the mean surface is reached at ~2015-04-30 19:27:55 TDB.
+[[events]]
+name = "MESSENGER: impact (2015-04-30)"
+time_tdb = "2015-04-30 13:00"
+focus = "Mercury"
+frame = "Mercury-centered"
+distance_km = 1.2e4
+warp = 300.0
+
+[[events]]
+name = "BepiColombo: launch (2018-10-20)"
+time_tdb = "2018-10-20 02:16"
+focus = "Earth"
+distance_km = 6.0e5
+warp = 3600.0
+
+[[events]]
+name = "BepiColombo: Earth flyby (2020-04-10)"
+time_tdb = "2020-04-10 02:32"
+focus = "Earth"
+distance_km = 8.0e4
+warp = 120.0
+
+[[events]]
+name = "BepiColombo: Venus flyby 2 (2021-08-10, 549 km)"
+time_tdb = "2021-08-10 11:53"
+focus = "Venus"
+distance_km = 4.0e4
+warp = 120.0
+
+[[events]]
+name = "BepiColombo: first Mercury flyby (2021-10-01, 198 km)"
+time_tdb = "2021-10-01 22:35"
+focus = "Mercury"
+frame = "Mercury-centered"
+distance_km = 2.0e4
+warp = 60.0
+
+[[events]]
+name = "BepiColombo: the cruise, 2018-2026"
+time_tdb = "2018-10-20 02:16"
+focus = "Sun"
+from_orbit_normal = "Mercury"
+distance_km = 3.2e8
+warp = 604800.0
+
+# Capture: first periapsis in orbit 2026-11-21 18:49:11 TDB, ~630 km above the surface.
+[[events]]
+name = "BepiColombo: capture by Mercury (2026-11)"
+time_tdb = "2026-10-26 00:00"
+focus = "Mercury"
+frame = "Mercury-centered, 30-day trails"
+distance_km = 6.0e5
+warp = 7200.0
+
+# Science orbit (480 x 1500 km, 2.3 h, polar) from mid-February 2027.
+[[events]]
+name = "BepiColombo: science orbit (2027-03)"
+time_tdb = "2027-03-15 00:00"
+focus = "Mercury"
+frame = "Mercury-centered"
+distance_km = 1.5e4
+warp = 120.0
