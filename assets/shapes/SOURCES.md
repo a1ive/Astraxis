@@ -4,6 +4,7 @@
 
 | 文件 | 来源 | 许可 |
 |---|---|---|
+| `vesta.mesh` | USGS Astrogeology / DLR，Vesta Dawn FC HAMO Global DTM 93m（2013-12-10 发布，黎明号分幅相机 HAMO 立体图像），<https://astrogeology.usgs.gov/search/map/vesta_dawn_fc_hamo_global_dtm_93m>，文件 `Vesta_Dawn_HAMO_DTM_DLR_Global_48ppd.tif` | 公有领域（请引用作者） |
 | `phobos.mesh`、`deimos.mesh` | P. C. Thomas，“Small Body Optical Shape Models” V1.0（PDS SBN，`ast-sat.thomas.shape-models`，由 PDS3 数据集 EAR-A-5-DDR-SHAPE-MODELS-V2.1 迁移），<https://sbnarchive.psi.edu/pds4/non_mission/ast-sat.thomas.shape-models_V1_0/>，文件 `data/m1phobos.tab`、`data/m2deimos.tab`；Thomas 1993, Icarus 105, 326 | PDS 存档数据，公有领域（请引用数据集与作者） |
 | `arrokoth.mesh` | Porter, S. et al. 2024, “New Horizons Porter (2024) Arrokoth Shape Model Collection”，PDS Small Bodies Node，doi:[10.26007/97r3-1e19](https://doi.org/10.26007/97r3-1e19)，<https://pdssbn.astro.umd.edu/holdings/pds4-nh_derived-v3.0/arrokoth_shapemodel_porter2024/>；方法见同目录的 `porteretal2024b.pdf`（Porter et al. 2024, “The Shape of (486958) Arrokoth”） | NASA 新视野号项目的 PDS 数据，公有领域（请引用作者） |
 
@@ -40,3 +41,11 @@
 - 自转参数：Deimos 的标签给出极轴 RA 316.65°、Dec 53.53°，W = 79.41° + 285.1618970°/天，与场景所用 PCK 的值一致，所以本初子午线相同
 - 纹理是同一数据集的拼接图 `m1phobosm.fit`、`m2deimosm.fit`（见 `assets/textures/SOURCES.md`），拼接时的位置就是用这些形状模型控制的。Phobos 原先用的 Stooke 拼接图（USGS）基于 DLR 的另一套控制网，地貌比形状模型偏西约 5°（Limtoc 在 12°S 59°W，Thomas 图和 IAU 地名为 11°S 54°W 左右），偏差各处不同，贴在形状上会错开，所以换掉了
 - Deimos 的 5° 网格很粗，近看外形是多面体状的；两颗卫星的光照都没有自身阴影
+
+## Vesta（DLR HAMO DTM）
+
+- 原始文件：<https://asc-pds-services.s3.us-west-2.amazonaws.com/mosaic/Vesta_Dawn_HAMO_DTM_DLR_Global_48ppd.tif>（597 MB，17280 × 8640，32 位浮点，未压缩、每行一个条带）。像素值是从 Vesta 中心起算的半径（米），USGS 页面给出的平均交会误差为 ±8 m。简单圆柱投影、行星中心纬度、东经向右、左边缘 −180°E；经度是 Claudia″ 系统（Claudia 坑在 146°E），与纹理 `vesta.jpg` 和场景所用 PCK（W0 = 285.39°）相同。DTM 与纹理同属 DLR 2013-12-10 的发布（ProductId 20131210），控制网一致
+- USGS 页面说 HAMO 立体图像覆盖约 95% 的表面，但文件里没有无数据像素（半径 211.9–293.0 km），未覆盖的部分在产品里已经补上了
+- `tools/shapes/make_dtm_shape.py`（只用 Pillow 读 TIFF 的条带位置，数据用标准库按行读取）按 1.5° 的格子求平均，每个网格顶点取周围四格的平均，极点取整圈格子的平均：121 × 241 个点，29,161 个顶点、57,120 个三角形，1.2 MB。1.5° 约合 6.9 km，Rheasilvia 盆地（约 500 km）和它的中央峰都分辨得出，小坑的细节靠纹理
+- 交叉检查：体积 7.495 × 10⁷ km³，等体积直径 523.11 km，SBDB 为 522.77 ± 0.1 km（Park et al. 2025，Nature Astronomy）；差 0.34 km，来自 2013 年的 DTM 和网格的平滑（`test_vesta_shape`）。SBDB 的外形尺寸 569.24 × 554.48 × 452.66 km 应是拟合椭球的轴长，网格的包围盒是 574.5 × 554.0 × 467.5 km（包含地形起伏），不直接比较
+- 场景的 `radii_km` 仍用 PCK 的三轴椭球（影子、相机距离）；光照没有自身阴影

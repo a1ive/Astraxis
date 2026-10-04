@@ -43,6 +43,9 @@
 #        c = 511.2 km, from 37 stellar occultations.
 # [SEDN] Pal et al. 2012, A&A 541, L6 (arXiv:1204.0899): diameter 995 +- 80 km.
 # [MARS] Marsset et al. 2020, Nature Astronomy 4, 569 (via [SBDB]): Pallas 568 x 532 x 448 km.
+# [VDTM] Vesta: DLR Dawn FC HAMO global DTM (93 m, radii) and mosaic (60 m), both release
+#        2013-12-10, Claudia Double Prime longitudes (USGS Astrogeology); equal-volume
+#        diameter 523.1 km vs 522.77 +- 0.1 km in [SBDB] (Park et al. 2025).
 # [THOM] Phobos and Deimos: P. C. Thomas, shape models and Viking Orbiter image mosaics
 #        (PDS SBN, Small Body Optical Shape Models, ast-sat.thomas.shape-models V1.0;
 #        Thomas 1993, Icarus 105, 326); equal-volume radii 11.11 / 6.23 km vs
@@ -1249,13 +1252,14 @@ laplace_pole_ra_dec_deg = [270.0, 66.56070889]
 [[bodies]]
 name = "Vesta"
 parent = "Sun"
-radii_km = [289.0, 280.0, 229.0]           # [PCK]
+shape = "shapes/vesta.mesh"                 # [VDTM] 1.5-deg grid; assets/shapes/SOURCES.md
+radii_km = [289.0, 280.0, 229.0]           # [PCK] (shadows, camera distances)
 body_gm_km3_s2 = 17.2882329                # [GMB] (SB441-N16)
 pole_ra_dec_deg = [309.031, 42.235]        # [PCK]
 prime_meridian_deg = [285.39, 1617.3329428]
 color = "#a59e93"
 orbit_color = "#bab2a6"
-texture = "textures/vesta.jpg"             # assets/textures/SOURCES.md
+texture = "textures/vesta.jpg"             # [VDTM] same DLR release, assets/textures/SOURCES.md
 texture_left_lon_deg = -180.0
 [bodies.orbit]                             # [HZN] 4
 type = "ephemeris"

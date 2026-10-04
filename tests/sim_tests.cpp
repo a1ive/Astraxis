@@ -601,6 +601,22 @@ double signed_volume(const ShapeModel& shape)
     return volume;
 }
 
+// Largest difference (turns) between a mesh's map u and the east longitude of its
+// vertex directions (seam vertices may be 0 or 1; poles skipped).
+double map_u_error(const ShapeModel& shape)
+{
+    double worst = 0.0;
+    for (size_t k = 0; k < shape.positions.size() && k < shape.map_u.size(); ++k) {
+        const glm::vec3& p = shape.positions[k];
+        if (std::hypot(p.x, p.y) < 1e-3 * glm::length(p)) {
+            continue;
+        }
+        const double d = std::atan2(p.y, p.x) / (2.0 * kPi) - shape.map_u[k];
+        worst = std::max(worst, std::abs(d - std::round(d)));
+    }
+    return worst;
+}
+
 // Arrokoth's shape model and pole against independent numbers in Porter et al. 2024,
 // Table 2: the volume (equal-volume diameter 19.896 km) and the pole's inclination to
 // the heliocentric orbit (100.39 deg) and to New Horizons' approach direction (41.096 deg).
@@ -683,18 +699,8 @@ void test_mars_moon_shapes()
         check(std::abs(extent.x - body.equatorial_radius_km) < 1.0, (name + " long axis near the PCK radius (km)").c_str(),
               extent.x);
 
-        // Map u is the east longitude of the vertex direction (seam vertices: 0 or 1).
-        double worst = 0.0;
-        for (size_t k = 0; k < shape.positions.size(); ++k) {
-            const glm::vec3& p = shape.positions[k];
-            if (std::hypot(p.x, p.y) < 1e-3) {
-                continue; // poles
-            }
-            const double u = std::atan2(p.y, p.x) / (2.0 * kPi);
-            const double d = u - shape.map_u[k];
-            worst = std::max(worst, std::abs(d - std::round(d)));
-        }
-        check(worst < 1e-6, (name + " map u matches the vertex longitude").c_str(), worst);
+        const double u_error = map_u_error(shape);
+        check(u_error < 1e-6, (name + " map u matches the vertex longitude").c_str(), u_error);
     }
 
     // Stickney: the mean radius within 12 deg of its center is well below that of the
@@ -727,6 +733,32 @@ void test_mars_moon_shapes()
     check(depth_west > depth_east + 0.5, "no Stickney at the mirrored 50 E (km)", depth_east);
     std::printf("info: Phobos mean radius within 12 deg of 2 S 50 W is %.2f km below the ring (50 E: %.2f km)\n",
                 depth_west, depth_east);
+}
+
+// Vesta: the DLR Dawn HAMO DTM as a 1.5 deg grid, with the mosaic of the same release.
+// Its volume against SBDB's equivalent diameter (522.77 +- 0.1 km, Park et al. 2025);
+// the 2013 DTM and the grid's smoothing allow a few tenths of a km.
+void test_vesta_shape()
+{
+    Scene scene = load_scene_or_die("solar_system.toml");
+    const Body& body = scene.bodies[static_cast<size_t>(scene.find("Vesta"))];
+    check(body.shape != nullptr && !body.texture.empty(), "Vesta has a shape model and a texture");
+    if (!body.shape) {
+        return;
+    }
+    const ShapeModel& shape = *body.shape;
+    const double d_equal = 2.0 * std::cbrt(3.0 * signed_volume(shape) / (4.0 * kPi));
+    check(std::abs(d_equal - 522.77) < 0.6, "Vesta equal-volume diameter (km)", d_equal);
+    glm::dvec3 lo(1e300), hi(-1e300);
+    for (const glm::vec3& p : shape.positions) {
+        lo = glm::min(lo, glm::dvec3(p));
+        hi = glm::max(hi, glm::dvec3(p));
+    }
+    const glm::dvec3 size = hi - lo;
+    check(size.x > size.y && size.y > size.z, "Vesta axes ordered x > y > z", size.x);
+    const double u_error = map_u_error(shape);
+    check(shape.map_u.size() == shape.positions.size() && u_error < 1e-6, "Vesta map u matches the vertex longitude",
+          u_error);
 }
 
 // Solar System scene: the asteroid and Kuiper belts (two-body orbits from SBDB).
@@ -2623,6 +2655,7 @@ int main()
     test_solar_system_belts();
     test_arrokoth_shape();
     test_mars_moon_shapes();
+    test_vesta_shape();
     test_parker_scene();
     test_jupiter_missions();
     test_earth_moon_scene();
