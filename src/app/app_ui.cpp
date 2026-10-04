@@ -137,6 +137,51 @@ bool begin_info_table()
     return ImGui::BeginTable("##rows", 2, ImGuiTableFlags_SizingFixedFit);
 }
 
+enum class TransportIcon { Rewind, Play, PlayBackward, Pause, FastForward };
+
+// A square button with a drawn icon (the default font has no symbols);
+// `lit` shows it as selected.
+bool transport_button(const char* id, TransportIcon icon, float size, bool lit)
+{
+    const ImVec2 p = ImGui::GetCursorScreenPos();
+    const bool pressed = ImGui::InvisibleButton(id, ImVec2(size, size));
+    const ImGuiCol bg = ImGui::IsItemActive()    ? ImGuiCol_ButtonActive
+                        : ImGui::IsItemHovered() ? ImGuiCol_ButtonHovered
+                        : lit                    ? ImGuiCol_ButtonActive
+                                                 : ImGuiCol_Button;
+    ImDrawList* draw = ImGui::GetWindowDrawList();
+    draw->AddRectFilled(p, ImVec2(p.x + size, p.y + size), ImGui::GetColorU32(bg), ImGui::GetStyle().FrameRounding);
+
+    const ImU32 fg = ImGui::GetColorU32(ImGuiCol_Text);
+    const float cx = p.x + size * 0.5f;
+    const float cy = p.y + size * 0.5f;
+    const float r = size * 0.22f;
+    auto triangle = [&](float tip_x, float base_x) {
+        draw->AddTriangleFilled(ImVec2(base_x, cy - r), ImVec2(tip_x, cy), ImVec2(base_x, cy + r), fg);
+    };
+    switch (icon) {
+    case TransportIcon::Rewind:
+        triangle(cx - r, cx);
+        triangle(cx, cx + r);
+        break;
+    case TransportIcon::FastForward:
+        triangle(cx + r, cx);
+        triangle(cx, cx - r);
+        break;
+    case TransportIcon::Play:
+        triangle(cx + r, cx - r * 0.7f);
+        break;
+    case TransportIcon::PlayBackward:
+        triangle(cx - r, cx + r * 0.7f);
+        break;
+    case TransportIcon::Pause:
+        draw->AddRectFilled(ImVec2(cx - r * 0.7f, cy - r), ImVec2(cx - r * 0.2f, cy + r), fg);
+        draw->AddRectFilled(ImVec2(cx + r * 0.2f, cy - r), ImVec2(cx + r * 0.7f, cy + r), fg);
+        break;
+    }
+    return pressed;
+}
+
 } // namespace
 
 void App::build_ui()
@@ -150,6 +195,7 @@ void App::build_ui()
     }
     if (panel_visible()) {
         build_control_panel();
+        build_time_bar();
         if (m_show_info) {
             build_info_panel();
         }
@@ -185,27 +231,8 @@ void App::build_control_panel()
         ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.4f, 1.0f), "%s", m_scene_error.c_str());
     }
 
-    // --- Time ---
-    ImGui::TextUnformatted(format_utc(m_clock.t_tdb).c_str());
-
-    float warp = static_cast<float>(m_clock.warp);
-    char warp_label[64];
-    format_warp(m_clock.warp, m_clock.reverse, warp_label, sizeof(warp_label));
-    ImGui::SetNextItemWidth(260.0f * ImGui::GetStyle().FontScaleDpi);
-    if (ImGui::SliderFloat("##warp", &warp, 1.0f, 1e8f, warp_label, ImGuiSliderFlags_Logarithmic)) {
-        m_clock.warp = std::clamp(static_cast<double>(warp), 1.0, 1e8);
-    }
-
-    if (ImGui::Button(m_clock.paused ? "Resume" : "Pause")) {
-        m_clock.paused = !m_clock.paused;
-    }
-    ImGui::SameLine();
-    ImGui::Checkbox("Reverse", &m_clock.reverse);
-    ImGui::SameLine();
-    if (ImGui::Button("Now")) {
-        reset_to_now();
-    }
-
+    // --- Time (pause, direction and warp are on the time bar) ---
+    ImGui::SeparatorText("Time");
     struct Preset {
         const char* label;
         double warp;
@@ -325,6 +352,73 @@ void App::build_control_panel()
     ImGui::TextDisabled("%.0f FPS  |  %s", io.Framerate, m_renderer.driver_name());
     ImGui::TextDisabled("Drag: rotate   Wheel: zoom   Double-click label: focus");
     ImGui::TextDisabled("Space pause  R reverse  [ ] warp  N now  1-9 focus  A tour  O/L/I  H hide");
+
+    ImGui::End();
+}
+
+void App::build_time_bar()
+{
+    const ImGuiIO& io = ImGui::GetIO();
+    const ImGuiStyle& style = ImGui::GetStyle();
+    const float margin = 12.0f * style.FontScaleDpi;
+    const float width = std::min(640.0f * style.FontScaleDpi, io.DisplaySize.x - 2.0f * margin);
+
+    // Bottom center, like a video player's control bar.
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y - margin), ImGuiCond_Always,
+                            ImVec2(0.5f, 1.0f));
+    ImGui::SetNextWindowSizeConstraints(ImVec2(width, 0.0f), ImVec2(width, FLT_MAX));
+    ImGui::SetNextWindowBgAlpha(0.8f);
+    ImGui::Begin("##time_bar", nullptr,
+                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings |
+                     ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove);
+
+    // Backward / play-pause / forward, the date, and "Now" at the right.
+    const float size = ImGui::GetFrameHeight() * 1.8f;
+    const bool running = !m_clock.paused;
+    if (transport_button("##backward", TransportIcon::Rewind, size, running && m_clock.reverse)) {
+        m_clock.reverse = true;
+        m_clock.paused = false;
+    }
+    ImGui::SetItemTooltip("Run backward (R)");
+    ImGui::SameLine();
+    const TransportIcon play = running        ? TransportIcon::Pause
+                               : m_clock.reverse ? TransportIcon::PlayBackward
+                                                 : TransportIcon::Play;
+    if (transport_button("##play", play, size, false)) {
+        m_clock.paused = !m_clock.paused;
+    }
+    ImGui::SetItemTooltip(running ? "Pause (Space)" : "Resume (Space)");
+    ImGui::SameLine();
+    if (transport_button("##forward", TransportIcon::FastForward, size, running && !m_clock.reverse)) {
+        m_clock.reverse = false;
+        m_clock.paused = false;
+    }
+    ImGui::SetItemTooltip("Run forward (R)");
+
+    const float row_y = ImGui::GetCursorPosY() - size - style.ItemSpacing.y;
+    ImGui::SameLine(0.0f, style.ItemSpacing.x * 3.0f);
+    ImGui::SetCursorPosY(row_y + (size - ImGui::GetTextLineHeight()) * 0.5f);
+    ImGui::TextUnformatted(format_utc(m_clock.t_tdb).c_str());
+
+    const float now_width = ImGui::CalcTextSize("Now").x + style.FramePadding.x * 4.0f;
+    ImGui::SameLine(ImGui::GetContentRegionMax().x - now_width);
+    ImGui::SetCursorPosY(row_y);
+    if (ImGui::Button("Now", ImVec2(now_width, size))) {
+        reset_to_now();
+    }
+    ImGui::SetItemTooltip("Jump to the present (N)");
+
+    // Time warp across the whole width, taller than usual.
+    char warp_label[64];
+    format_warp(m_clock.warp, m_clock.reverse, warp_label, sizeof(warp_label));
+    float warp = static_cast<float>(m_clock.warp);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(style.FramePadding.x, style.FramePadding.y * 2.5f));
+    ImGui::PushStyleVar(ImGuiStyleVar_GrabMinSize, style.GrabMinSize * 2.0f);
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    if (ImGui::SliderFloat("##bar_warp", &warp, 1.0f, 1e8f, warp_label, ImGuiSliderFlags_Logarithmic)) {
+        m_clock.warp = std::clamp(static_cast<double>(warp), 1.0, 1e8);
+    }
+    ImGui::PopStyleVar(2);
 
     ImGui::End();
 }

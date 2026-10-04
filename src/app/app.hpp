@@ -47,6 +47,7 @@ private:
     void update(double real_dt);
     void build_ui();
     void build_control_panel();
+    void build_time_bar();   // playback controls at the bottom
     void build_info_panel(); // details of the focused body
     void build_labels();
     void render();
