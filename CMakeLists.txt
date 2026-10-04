@@ -71,6 +71,8 @@ astraxis_set_warnings(astraxis_sim)
 # --- Shaders ---------------------------------------------------------------
 
 astraxis_add_shaders(astraxis_shaders
+    shaders/beam.vert.hlsl
+    shaders/beam.frag.hlsl
     shaders/belt.vert.hlsl
     shaders/belt.frag.hlsl
     shaders/bloom_downsample.frag.hlsl
@@ -103,6 +105,8 @@ add_executable(astraxis
     src/platform/paths.hpp
     src/platform/window.cpp
     src/platform/window.hpp
+    src/render/beam_pass.cpp
+    src/render/beam_pass.hpp
     src/render/belt_pass.cpp
     src/render/belt_pass.hpp
     src/render/black_hole_pass.cpp

@@ -216,6 +216,7 @@ private:
     std::filesystem::path m_asset_root;
     std::map<std::string, std::shared_ptr<const EphemerisTable>> m_tables;
     std::vector<int> m_nbody_bodies; // bodies whose motion comes from [nbody]
+    std::vector<std::pair<int, std::string>> m_pulsar_axes; // pulsar, body whose orbit normal is its spin axis
     int m_current_body = -1;
 };
 
@@ -566,6 +567,23 @@ void Loader::parse(const toml::table& root, Scene& out)
         body.color = parse_color(*t, "color", ctx, glm::vec3(0.8f));
         body.orbit_color = parse_color(*t, "orbit_color", ctx, glm::vec3(0.6f));
 
+        if (const toml::table* p = (*t)["pulsar"].as_table()) {
+            if (body.kind != BodyKind::Star) {
+                fail(ctx, "only stars can be pulsars");
+            }
+            body.pulsar.enabled = true;
+            body.pulsar.display_period_s = get_double_or(*p, "display_period_s", body.pulsar.display_period_s);
+            body.pulsar.magnetic_inclination_deg =
+                get_double_or(*p, "magnetic_inclination_deg", body.pulsar.magnetic_inclination_deg);
+            body.pulsar.beam_half_angle_deg = get_double_or(*p, "beam_half_angle_deg", body.pulsar.beam_half_angle_deg);
+            body.pulsar.beam_color = parse_color(*p, "beam_color", ctx + " pulsar", body.pulsar.beam_color);
+            if (body.pulsar.display_period_s <= 0.0 || body.pulsar.beam_half_angle_deg <= 0.0) {
+                fail(ctx, "pulsar display_period_s and beam_half_angle_deg must be positive");
+            }
+            m_pulsar_axes.emplace_back(static_cast<int>(out.bodies.size()),
+                                       get_string(*p, "spin_axis_orbit_normal", ctx + " pulsar"));
+        }
+
         const std::string style = get_string_or(*t, "style", "solid");
         if (style == "solid") {
             body.style = SurfaceStyle::Solid;
@@ -696,6 +714,15 @@ void Loader::parse(const toml::table& root, Scene& out)
         out.bodies.push_back(std::move(body));
     }
 
+    for (const auto& [pulsar, axis_body] : m_pulsar_axes) {
+        const int k = out.find(axis_body);
+        if (k < 0 || !out.bodies[static_cast<size_t>(k)].motion) {
+            fail("body '" + out.bodies[static_cast<size_t>(pulsar)].name + "' pulsar",
+                 "spin_axis_orbit_normal needs a body with an orbit");
+        }
+        out.bodies[static_cast<size_t>(pulsar)].pulsar.spin_axis_orbit_of = k;
+    }
+
     if (const toml::table* nbody = root["nbody"].as_table()) {
         parse_nbody(*nbody, out);
     } else if (!m_nbody_bodies.empty()) {
@@ -821,6 +848,23 @@ void Loader::parse(const toml::table& root, Scene& out)
         out.sky.milky_way_brightness = get_double_or(*sky, "milky_way_brightness", 1.0);
         if (out.sky.milky_way_brightness < 0.0) {
             fail("sky", "milky_way_brightness must not be negative");
+        }
+        if (const toml::table* c = (*sky)["cluster"].as_table()) {
+            const std::string ctx = "sky.cluster";
+            ClusterView view;
+            double pair[2];
+            get_array(*c, "center_ra_dec_deg", ctx, pair, 2, 2);
+            view.center_ra_deg = pair[0];
+            view.center_dec_deg = pair[1];
+            get_array(*c, "viewer_ra_dec_deg", ctx, pair, 2, 2);
+            view.viewer_ra_deg = pair[0];
+            view.viewer_dec_deg = pair[1];
+            view.distance_pc = get_double(*c, "distance_pc", ctx);
+            view.viewer_depth_pc = get_double_or(*c, "viewer_depth_pc", 0.0);
+            std::string error;
+            if (!load_cluster_stars(m_asset_root / get_string(*c, "file", ctx), view, out.sky.stars, &error)) {
+                fail(ctx, error);
+            }
         }
     }
 

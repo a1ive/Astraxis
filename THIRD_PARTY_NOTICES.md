@@ -26,6 +26,7 @@ Per-file details, original download URLs and processing steps are in each direct
 | `assets/ephem/*.eph` | JPL Horizons (NASA/JPL-Caltech) state vectors | U.S. Government work, public domain |
 | `assets/belts/*.bin` | JPL Small-Body Database (NASA/JPL-Caltech) orbital elements | U.S. Government work, public domain |
 | `assets/stars/bsc5.csv` | Yale Bright Star Catalogue, 5th Revised Ed. (Hoffleit & Warren 1991), CDS catalogue V/50 | Freely distributed astronomical data (NASA/CDS) |
+| `assets/stars/m4.csv` | Gaia DR3 (ESA/Gaia/DPAC), CDS catalogue I/355, members of M4 selected and processed by `tools/stars/make_m4.py` | CC BY-NC 3.0 IGO; credit: ESA/Gaia/DPAC. Non-commercial use only |
 | `assets/textures/jupiter.jpg` | NASA/JPL/Space Science Institute, PIA07782 | Public domain |
 | `assets/textures/{io,europa,ganymede,callisto}.jpg` | USGS Astrogeology Science Center, Galileo/Voyager global mosaics | Public domain |
 | `assets/textures/{mimas,enceladus,tethys,dione,rhea,iapetus}.jpg` | USGS Astrogeology Science Center / DLR, Cassini ISS (and Voyager) global mosaics | Public domain |

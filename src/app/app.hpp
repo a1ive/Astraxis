@@ -2,6 +2,7 @@
 
 #include "core/sim_clock.hpp"
 #include "platform/window.hpp"
+#include "render/beam_pass.hpp"
 #include "render/belt_pass.hpp"
 #include "render/black_hole_pass.hpp"
 #include "render/body_pass.hpp"
@@ -84,6 +85,7 @@ private:
     OrbitLinePass m_orbits;
     BeltPass m_belts;
     SunPass m_sun;
+    BeamPass m_beams;
     BlackHolePass m_black_hole;
     SDL_GPUTexture* m_sky_cube = nullptr; // starfield cube map for lensing (created on demand)
     SDL_GPUTextureFormat m_sky_cube_format = SDL_GPU_TEXTUREFORMAT_INVALID;
@@ -92,6 +94,10 @@ private:
     double m_tour_warp = 0.0;  // warp currently imposed by the tour (0 = none)
     double m_saved_warp = 0.0; // the user's warp, restored afterwards
     double m_disk_time = 0.0;             // accretion-disk animation clock (units of M)
+    double m_pulsar_time = 0.0;           // real seconds the clock has run (pulsar beam sweep)
+    std::vector<CatalogStar> m_catalog;   // the catalog sky (seen from Earth)
+    bool m_scene_sky_stars = false;       // the starfield shows the scene's own stars
+    std::vector<BeamDrawItem> m_beam_items;
     PostProcess m_post;
     PostSettings m_post_settings;
 

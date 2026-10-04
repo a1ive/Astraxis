@@ -269,9 +269,18 @@ bool StarfieldPass::init(SDL_GPUDevice* device, const SceneTargetFormat& format,
         return false;
     }
 
+    return set_stars(catalog);
+}
+
+bool StarfieldPass::set_stars(std::span<const CatalogStar> catalog)
+{
+    if (m_instances) {
+        SDL_ReleaseGPUBuffer(m_device, m_instances);
+        m_instances = nullptr;
+    }
     const std::vector<StarInstance> stars = catalog.empty() ? generate_stars() : stars_from_catalog(catalog);
     m_count = static_cast<uint32_t>(stars.size());
-    m_instances = create_static_buffer(device, SDL_GPU_BUFFERUSAGE_VERTEX, stars.data(),
+    m_instances = create_static_buffer(m_device, SDL_GPU_BUFFERUSAGE_VERTEX, stars.data(),
                                        static_cast<uint32_t>(stars.size() * sizeof(StarInstance)));
     return m_instances != nullptr;
 }

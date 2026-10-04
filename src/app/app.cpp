@@ -54,6 +54,12 @@ constexpr float kRayIntegrationRadius = 150.0f; // M; weak-field deflection beyo
 constexpr float kRayMaxSteps = 400.0f;
 constexpr float kLensEdgeFade = 0.6f;     // fade the lensed region over its outer 40%
 constexpr double kDiskMaxWarp = 60.0;     // cap on the disk animation speed (ISCO period ~92 M)
+// Pulsar beams: drawn as long as the camera is far (shorter, and the far end
+// could pass behind the camera), and the star flashes when a beam sweeps over
+// the camera.
+constexpr double kBeamLengthPerDistance = 0.9;
+constexpr float kBeamIntensity = 0.6f;
+constexpr double kBeamFlashGain = 300.0;
 
 double apparent_magnitude(double luminosity_solar, double distance_km)
 {
@@ -66,6 +72,25 @@ constexpr bool kGpuDebug = false;
 #else
 constexpr bool kGpuDebug = true;
 #endif
+
+// The two beam directions (display frame) of a pulsar after `real_time`
+// seconds of running clock: the magnetic axis, inclined to the spin axis and
+// turning about it once per display period. Returns false if not a pulsar.
+bool pulsar_beams(const Scene& scene, const Body& body, double real_time, glm::dvec3 out[2])
+{
+    if (!body.pulsar.enabled || body.pulsar.spin_axis_orbit_of < 0) {
+        return false;
+    }
+    const glm::dvec3 spin = scene.orbit_normal(body.pulsar.spin_axis_orbit_of);
+    const glm::dvec3 ref = std::abs(spin.z) < 0.9 ? glm::dvec3(0.0, 0.0, 1.0) : glm::dvec3(1.0, 0.0, 0.0);
+    const glm::dvec3 e1 = glm::normalize(glm::cross(spin, ref));
+    const glm::dvec3 e2 = glm::cross(spin, e1);
+    const double phase = kTwoPi * real_time / body.pulsar.display_period_s;
+    const double tilt = body.pulsar.magnetic_inclination_deg * kDegToRad;
+    out[0] = std::cos(tilt) * spin + std::sin(tilt) * (std::cos(phase) * e1 + std::sin(phase) * e2);
+    out[1] = -out[0];
+    return true;
+}
 
 glm::vec3 to_render(const glm::dvec3& world, const glm::dvec3& camera)
 {
@@ -90,7 +115,7 @@ bool App::init(const LaunchOptions& options)
     m_asset_dir = asset_directory();
     SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Assets: %s", m_asset_dir.string().c_str());
 
-    std::vector<CatalogStar> catalog;
+    std::vector<CatalogStar>& catalog = m_catalog;
     std::string catalog_error;
     if (!load_star_catalog(m_asset_dir / "stars" / "bsc5.csv", catalog, &catalog_error)) {
         SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Star catalog unavailable (%s); using procedural stars",
@@ -101,7 +126,7 @@ bool App::init(const LaunchOptions& options)
     if (!m_starfield.init(m_renderer.device(), format, catalog) || !m_bodies.init(m_renderer.device(), format) ||
         !m_rings.init(m_renderer.device(), format) ||
         !m_orbits.init(m_renderer.device(), format) || !m_belts.init(m_renderer.device(), format) ||
-        !m_sun.init(m_renderer.device(), format) ||
+        !m_sun.init(m_renderer.device(), format) || !m_beams.init(m_renderer.device(), format) ||
         !m_black_hole.init(m_renderer.device(), format) ||
         !m_post.init(m_renderer.device(), format.color, m_renderer.swapchain_format())) {
         return false;
@@ -214,6 +239,7 @@ void App::shutdown()
     }
     m_black_hole.shutdown();
     m_post.shutdown();
+    m_beams.shutdown();
     m_sun.shutdown();
     m_orbits.shutdown();
     m_belts.shutdown();
@@ -418,6 +444,15 @@ bool App::load_scene(size_t index)
             SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Texture for %s unavailable: %s", body.name.c_str(),
                         error.c_str());
         }
+    }
+
+    // A scene may bring its own stars (e.g. a globular cluster seen from inside).
+    if (!m_scene.sky.stars.empty()) {
+        m_starfield.set_stars(m_scene.sky.stars);
+        m_scene_sky_stars = true;
+    } else if (m_scene_sky_stars) {
+        m_starfield.set_stars(m_catalog);
+        m_scene_sky_stars = false;
     }
 
     m_starfield.set_milky_way(nullptr, 0, 0.0f);
@@ -688,6 +723,10 @@ void App::update(double real_dt)
             m_disk_time = std::fmod(m_disk_time + real_dt * rate * (m_clock.reverse ? -1.0 : 1.0) / t_m, 1.0e6);
             break;
         }
+    }
+
+    if (!m_clock.paused) {
+        m_pulsar_time = std::fmod(m_pulsar_time + real_dt, 1.0e6);
     }
 
     m_idle_time += real_dt;
@@ -1018,6 +1057,7 @@ void App::render()
         // Without a star body, the sun is drawn as a direction at infinity.
         const float viewport_half = 0.5f * m_view.viewport.y * m_view.focal_y;
         bool any_star = false;
+        m_beam_items.clear();
         for (const Body& body : m_scene.bodies) {
             if (body.kind != BodyKind::Star || !body.visible) {
                 continue;
@@ -1032,6 +1072,25 @@ void App::render()
             s.color = glm::vec3(blackbody_linear_srgb(body.temperature_k));
             s.magnitude = static_cast<float>(apparent_magnitude(body.luminosity_solar, distance));
             s.draw_disk = s.angular_radius * viewport_half < 3.0f; // otherwise the sphere shows it
+            glm::dvec3 beams[2];
+            if (pulsar_beams(m_scene, body, m_pulsar_time, beams)) {
+                const glm::dvec3 to_camera = -to_star / distance;
+                const double half_angle = body.pulsar.beam_half_angle_deg * kDegToRad;
+                double flash = 0.0;
+                for (const glm::dvec3& axis : beams) {
+                    const double off = std::acos(std::clamp(glm::dot(axis, to_camera), -1.0, 1.0)) / half_angle;
+                    flash += std::exp(-off * off);
+                    BeamDrawItem beam;
+                    beam.apex = glm::vec3(to_star);
+                    beam.axis = glm::vec3(axis);
+                    beam.length_km = static_cast<float>(kBeamLengthPerDistance * distance);
+                    beam.half_angle_rad = static_cast<float>(half_angle);
+                    beam.color = body.pulsar.beam_color;
+                    beam.intensity = kBeamIntensity;
+                    m_beam_items.push_back(beam);
+                }
+                s.magnitude -= static_cast<float>(2.5 * std::log10(1.0 + kBeamFlashGain * flash));
+            }
             m_sun.draw(frame.cmd, pass, m_view, s);
         }
         if (!any_star) {
@@ -1046,6 +1105,7 @@ void App::render()
             m_sun.draw(frame.cmd, pass, m_view, s);
         }
 
+        m_beams.draw(frame.cmd, pass, m_view, m_beam_items);
         m_orbits.draw(frame.cmd, pass, m_view, m_line_width);
         SDL_EndGPURenderPass(pass);
 

@@ -2,6 +2,7 @@
 
 #include "ephem/motion.hpp"
 #include "scene/shape_model.hpp"
+#include "scene/star_catalog.hpp"
 
 #include <glm/mat3x3.hpp>
 #include <glm/vec3.hpp>
@@ -136,6 +137,19 @@ struct Body {
 
     RingSystem rings; // no bands: no rings
 
+    // Pulsars: two radio beams from the magnetic poles, inclined to the spin
+    // axis (the orbit normal of `spin_axis_orbit_of`) and sweeping around it.
+    // The true spin (milliseconds) cannot be shown; the beams turn once every
+    // display_period_s of real time while the clock runs.
+    struct Pulsar {
+        bool enabled = false;
+        int spin_axis_orbit_of = -1;
+        double display_period_s = 2.0;
+        double magnetic_inclination_deg = 45.0;
+        double beam_half_angle_deg = 8.0;
+        glm::vec3 beam_color{0.7f, 0.8f, 1.0f}; // sRGB
+    } pulsar;
+
     // Motion relative to the parent; null keeps the body at the scene origin.
     std::unique_ptr<MotionSource> motion;
 
@@ -185,6 +199,9 @@ struct Marker {
 struct SceneSky {
     std::string milky_way;
     double milky_way_brightness = 1.0; // linear scale of the map's values
+    // Stars that replace the catalog (e.g. a globular cluster seen from inside);
+    // empty: the catalog sky as seen from Earth.
+    std::vector<CatalogStar> stars;
 };
 
 // A cloud of small bodies drawn as points (the main asteroid belt, the Kuiper

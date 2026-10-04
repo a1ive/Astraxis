@@ -1708,6 +1708,78 @@ void test_kepler64_scene()
     }
 }
 
+// PSR B1620-26 [Thorsett et al. 1999]: the pulsar's line-of-sight motion
+// reproduces the Table 1 timing orbit (Roemer delay x (1 - e) sin omega at
+// periastron, semi-amplitude K), the inner binary moves 6.4 lt-s around the
+// triple's barycentre and recedes through its node at JD 2449104 (Table 2),
+// the two orbits are 40 deg apart [Sigurdsson & Thorsett 2005], and the sky is
+// M4 seen from inside.
+void test_psr_b1620_scene()
+{
+    Scene scene = load_scene_or_die("psr_b1620.toml");
+    const glm::dvec3 away = unit_toward(245.9092575, -26.5316025);
+    const int pulsar = scene.find("PSR B1620-26 A");
+    const int wd = scene.find("PSR B1620-26 B");
+    const int ab = scene.find("PSR B1620-26 AB");
+    const int planet = scene.find("PSR B1620-26 b");
+    check(pulsar > 0 && wd > 0 && ab > 0 && planet > 0, "PSR B1620-26 bodies");
+    if (pulsar <= 0 || wd <= 0 || ab <= 0 || planet <= 0) {
+        return;
+    }
+    const double lt_s = kSpeedOfLightKmS; // km per light-second
+    auto pulsar_depth = [&](double t) {
+        const State p = scene.icrf_state_at(pulsar, t);
+        const State c = scene.icrf_state_at(ab, t);
+        return std::make_pair(glm::dot(p.position - c.position, away), glm::dot(p.velocity - c.velocity, away));
+    };
+    const double x = 64.809460;
+    const double e = 0.02531545;
+    const double w = 117.1291 * kDegToRad;
+    const double t_peri = tdb_from_jd_tdb(2448728.76242);
+    const double depth_peri = pulsar_depth(t_peri).first / lt_s;
+    check(std::abs(depth_peri - x * (1.0 - e) * std::sin(w)) < 1e-4, "PSR B1620-26 Roemer delay at periastron (s)",
+          depth_peri);
+    double k_max = 0.0;
+    for (int i = 0; i < 2000; ++i) {
+        k_max = std::max(k_max, pulsar_depth(t_peri + 191.44281 * kSecondsPerDay * i / 2000.0).second);
+    }
+    // Maximum radial velocity K (1 + e cos omega), K = 2 pi x c / (P sqrt(1 - e^2)).
+    const double k = kTwoPi * x * lt_s / (191.44281 * kSecondsPerDay * std::sqrt(1.0 - e * e));
+    check(std::abs(k_max / (k * (1.0 + e * std::cos(w))) - 1.0) < 1e-4, "PSR B1620-26 pulsar velocity amplitude",
+          k_max);
+
+    // The binary around the triple's barycentre (the root): node at JD 2449104, 6.4 lt-s.
+    const double t_node = tdb_from_jd_tdb(2449104.0);
+    const double quarter = 61.8 * kDaysPerJulianYear * kSecondsPerDay / 4.0;
+    const State at_node = scene.icrf_state_at(ab, t_node);
+    const double depth_q = glm::dot(scene.icrf_state_at(ab, t_node + quarter).position, away) / lt_s;
+    check(std::abs(glm::dot(at_node.position, away)) / lt_s < 1e-6 && glm::dot(at_node.velocity, away) > 0.0,
+          "PSR B1620-26 binary recedes through its node in 1993");
+    check(std::abs(depth_q - 6.4) < 0.01, "PSR B1620-26 binary outer amplitude (lt-s)", depth_q);
+
+    scene.update(tdb_from_julian_year(2026.0));
+    const double tilt = std::acos(glm::dot(scene.orbit_normal(wd), scene.orbit_normal(planet))) * kRadToDeg;
+    check(std::abs(tilt - 40.0) < 0.05, "PSR B1620-26 relative inclination (deg)", tilt);
+
+    // The sky: ~13,500 members, many brighter than the naked-eye limit, the
+    // brightest far brighter than Sirius.
+    int naked_eye = 0;
+    double brightest = 99.0;
+    for (const CatalogStar& s : scene.sky.stars) {
+        naked_eye += s.vmag < 6.5 ? 1 : 0;
+        brightest = std::min(brightest, s.vmag);
+    }
+    std::printf("info: M4 from PSR B1620-26: %zu stars, %d brighter than V = 6.5, brightest V = %.2f\n",
+                scene.sky.stars.size(), naked_eye, brightest);
+    check(scene.sky.stars.size() > 13000, "M4 sky star count", static_cast<double>(scene.sky.stars.size()));
+    check(naked_eye > 5000 && brightest < -4.0, "M4 sky is bright", brightest);
+
+    // The pulsar's spin axis is the inner orbit's normal.
+    check(scene.bodies[static_cast<size_t>(pulsar)].pulsar.enabled &&
+              scene.bodies[static_cast<size_t>(pulsar)].pulsar.spin_axis_orbit_of == wd,
+          "PSR B1620-26 spin axis");
+}
+
 // TIC 168789840 [Powell et al. 2021]: nested Keplerian orbits. Each binary's
 // secondary passes in front of its primary at the Table 2 primary eclipses,
 // close enough on the sky to eclipse; B stands at the Table 4 speckle position
@@ -2276,6 +2348,7 @@ int main()
     test_kepler47_scene();
     test_tic168789840_scene();
     test_kepler64_scene();
+    test_psr_b1620_scene();
     test_earth_moon_rotation();
     test_kerr_null_geodesics();
     test_sgr_a_scene();

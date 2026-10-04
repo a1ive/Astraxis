@@ -19,6 +19,9 @@ public:
     bool init(SDL_GPUDevice* device, const SceneTargetFormat& format, std::span<const CatalogStar> catalog);
     void shutdown();
 
+    // Replaces the stars (empty: generated ones), e.g. for a scene with its own sky.
+    bool set_stars(std::span<const CatalogStar> catalog);
+
     // Equirectangular ICRF map with mipmaps (not owned), or null for none.
     void set_milky_way(SDL_GPUTexture* map, uint32_t map_width, float brightness);
 
