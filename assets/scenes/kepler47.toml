@@ -52,7 +52,6 @@ up = "orbit_normal:Kepler-47 B"
 [[bodies]]
 name = "Kepler-47"
 kind = "barycenter"
-gm_km3_s2 = 1.724102840e11     # all five bodies: osculating orbits of the planets
 
 [[bodies]]
 name = "Kepler-47 A"
@@ -88,6 +87,8 @@ parent = "Kepler-47"
 radii_km = [19431.6]           # 3.05 R_earth [OR19]
 color = "#c8bca8"
 orbit_color = "#ffb080"
+trail = "history"
+trail_history_days = 49.46     # one orbit
 [bodies.orbit]
 type = "nbody"
 
@@ -97,6 +98,8 @@ parent = "Kepler-47"
 radii_km = [44851.8]           # 7.04 R_earth [OR19]
 color = "#b8c8d8"
 orbit_color = "#f0e080"
+trail = "history"
+trail_history_days = 187.37    # one orbit
 [bodies.orbit]
 type = "nbody"
 
@@ -106,6 +109,8 @@ parent = "Kepler-47"
 radii_km = [29625.2]           # 4.65 R_earth [OR19]
 color = "#9fb8e0"
 orbit_color = "#90e0b0"
+trail = "history"
+trail_history_days = 303.23    # one orbit
 [bodies.orbit]
 type = "nbody"
 

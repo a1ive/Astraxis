@@ -1651,6 +1651,63 @@ void test_kepler47_scene()
     }
 }
 
+// Kepler-64 [Schwamb et al. 2013]: integrated from the Table 7 joint solution,
+// the binary eclipses and the planet transits Aa when they were measured
+// (Table 3, 1-sigma 0.9 and 7 min; Table 2, 6-9 min; BJD - 2455000), and Ba +
+// Bb stand where Gaia sees them.
+void test_kepler64_scene()
+{
+    Scene scene = load_scene_or_die("kepler64.toml");
+    const glm::dvec3 away = unit_toward(298.215070011, 39.955103210);
+    const int aa = scene.find("Kepler-64 Aa");
+    const int ab = scene.find("Kepler-64 Ab");
+    const int b = scene.find("Kepler-64 b");
+    check(aa > 0 && ab > 0 && b > 0, "Kepler-64 bodies");
+    if (aa <= 0 || ab <= 0 || b <= 0) {
+        return;
+    }
+    struct Event {
+        int body;
+        int center;
+        double time;
+    };
+    const Event primary[] = {{ab, aa, -32.18064}, {ab, aa, 447.82520}, {ab, aa, 927.83150}};
+    const Event secondary[] = {{aa, ab, -24.32048}, {aa, ab, 455.67885}, {aa, ab, 915.68830}};
+    const Event transits[] = {{b, aa, 70.80674}, {b, aa, 344.11218}, {b, aa, 613.17869}, {b, aa, 885.91042}};
+    auto worst = [&](const auto& events) {
+        double w = 0.0;
+        for (const Event& e : events) {
+            const double t_ref = tdb_from_jd_tdb(2455000.0 + e.time);
+            const double t = find_conjunction(scene, e.body, e.center, away, t_ref, 0.5 * kSecondsPerDay);
+            w = std::max(w, std::isnan(t) ? 1e9 : std::abs(t - t_ref) / 60.0);
+        }
+        return w;
+    };
+    const double w_primary = worst(primary);
+    const double w_secondary = worst(secondary);
+    const double w_transit = worst(transits);
+    std::printf("info: Kepler-64 vs Schwamb 2013: primary eclipses %.2f, secondary %.2f, transits %.2f min\n",
+                w_primary, w_secondary, w_transit);
+    check(w_primary < 3.0, "Kepler-64 primary eclipses (min)", w_primary);
+    check(w_secondary < 20.0, "Kepler-64 secondary eclipses (min)", w_secondary);
+    check(w_transit < 20.0, "Kepler-64 planet transits (min)", w_transit);
+
+    // Ba + Bb: 0.7043" at position angle 123.29 deg from the A system (J2016.0, 1906.58 pc).
+    const int bb = scene.find("Kepler-64 B");
+    check(bb > 0, "Kepler-64 B");
+    if (bb > 0) {
+        const glm::dvec3 r = scene.icrf_state_at(bb, tdb_from_julian_year(2016.0)).position;
+        const double ra = 298.215070011 * kDegToRad;
+        const double dec = 39.955103210 * kDegToRad;
+        const glm::dvec3 north(-std::sin(dec) * std::cos(ra), -std::sin(dec) * std::sin(ra), std::cos(dec));
+        const glm::dvec3 east(-std::sin(ra), std::cos(ra), 0.0);
+        const double pa = wrap_two_pi(std::atan2(glm::dot(r, east), glm::dot(r, north))) * kRadToDeg;
+        const double sep = std::hypot(glm::dot(r, east), glm::dot(r, north)) / (1906.58 * kAuKm);
+        check(std::abs(pa - 123.29) < 0.05, "Kepler-64 B position angle (deg)", pa);
+        check(std::abs(sep - 0.7043) < 0.001, "Kepler-64 B separation (arcsec)", sep);
+    }
+}
+
 // TIC 168789840 [Powell et al. 2021]: nested Keplerian orbits. Each binary's
 // secondary passes in front of its primary at the Table 2 primary eclipses,
 // close enough on the sky to eclipse; B stands at the Table 4 speckle position
@@ -2218,6 +2275,7 @@ int main()
     test_kepler223_scene();
     test_kepler47_scene();
     test_tic168789840_scene();
+    test_kepler64_scene();
     test_earth_moon_rotation();
     test_kerr_null_geodesics();
     test_sgr_a_scene();
