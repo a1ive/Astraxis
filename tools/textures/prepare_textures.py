@@ -27,6 +27,7 @@ Expected file names in <source_dir> (the default is 2048 px wide):
     Mercury_MESSENGER_mosaic_global_250m_2013.tif    -> mercury.jpg
     Mars_Viking_ClrMosaic_global_925m.tif            -> mars.jpg
     m1phobosm.fit (PDS SBN, Thomas shape models)     -> phobos.jpg
+    amalcyl.jpg (PDS SBN, Stooke small bodies maps)  -> amalthea.jpg (tinted)
     Vesta_Dawn_FC_HAMO_Mosaic_Global_74ppd.tif       -> vesta.jpg
     Ceres_Dawn_FC_DLR_global_20ppd_Oct2015.tif       -> ceres.jpg
     m2deimosm.fit (PDS SBN, Thomas shape models)     -> deimos.jpg
@@ -43,7 +44,7 @@ from PIL import Image, ImageChops, ImageFilter, ImageMath, ImageStat
 
 Image.MAX_IMAGE_PIXELS = None
 
-# (source, output, gap filling): False for complete maps (filling would mistake
+# (source, output, gap filling[, tint]): False for complete maps (filling would mistake
 # genuinely dark pixels, e.g. polar ocean on Earth, for missing data), 'polar' for
 # USGS mosaics with small polar gaps, 'unimaged' for maps with large unimaged
 # areas (the Uranian moons' and Triton's northern hemispheres, Pluto and Charon
@@ -78,6 +79,8 @@ MAPS = [
     ('Vesta_Dawn_FC_HAMO_Mosaic_Global_74ppd.tif', 'vesta.jpg', False),
     ('Ceres_Dawn_FC_DLR_global_20ppd_Oct2015.tif', 'ceres.jpg', 'polar'),
     ('m2deimosm.fit', 'deimos.jpg', 'unimaged'),
+    # Stooke's airbrushed shaded relief of Amalthea (gray): tinted with the scene color.
+    ('amalcyl.jpg', 'amalthea.jpg', False, '#9c5a43'),
 ]
 
 
@@ -168,7 +171,32 @@ def open_fits(path):
     return Image.frombytes('L', (w, h), data[offset:offset + w * h])
 
 
-def prepare(src, dst, width, fill_gaps):
+def srgb_to_linear(c):
+    return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+
+def linear_to_srgb(c):
+    c = min(max(c, 0.0), 1.0)
+    return 12.92 * c if c <= 0.0031308 else 1.055 * c ** (1.0 / 2.4) - 0.055
+
+
+def tint_gray(img, color):
+    """Colors a gray map: each pixel's linear value relative to the map's mean
+    linear value scales the (sRGB) color, in linear space, so the map keeps its
+    relative detail and takes the color's brightness and hue. As the result only
+    depends on the gray level, it is three 256-entry lookup tables."""
+    gray = img.convert('L')
+    hist = gray.histogram()
+    mean = sum(n * srgb_to_linear(v / 255.0) for v, n in enumerate(hist)) / sum(hist)
+    rgb = [srgb_to_linear(int(color[k:k + 2], 16) / 255.0) for k in (1, 3, 5)]
+    bands = []
+    for c in rgb:
+        lut = [round(255.0 * linear_to_srgb(srgb_to_linear(v / 255.0) / mean * c)) for v in range(256)]
+        bands.append(gray.point(lut))
+    return Image.merge('RGB', bands)
+
+
+def prepare(src, dst, width, fill_gaps, tint=None):
     height = width // 2
     with (open_fits(src) if src.endswith('.fit') else Image.open(src)) as img:
         print(f'{os.path.basename(src)}: {img.size[0]}x{img.size[1]} {img.mode}')
@@ -184,6 +212,8 @@ def prepare(src, dst, width, fill_gaps):
             mode, options = fill_gaps if isinstance(fill_gaps, tuple) else (fill_gaps, {})
             assert mode == 'unimaged', mode
             img, filled = fill_unimaged(img, **options)
+        if tint:
+            img = tint_gray(img, tint)
         img.save(dst, 'JPEG', quality=90, optimize=True)
     print(f'  -> {dst} ({os.path.getsize(dst) // 1024} KB, {filled} gap pixels filled)')
 
@@ -194,12 +224,12 @@ def main():
     src_dir, out_dir = sys.argv[1], sys.argv[2]
     width = int(sys.argv[3]) if len(sys.argv) == 4 else 2048
     os.makedirs(out_dir, exist_ok=True)
-    for src_name, dst_name, fill_gaps in MAPS:
+    for src_name, dst_name, fill_gaps, *tint in MAPS:
         src = os.path.join(src_dir, src_name)
         if not os.path.exists(src):
             print(f'skip {src_name} (not found)')
             continue
-        prepare(src, os.path.join(out_dir, dst_name), width, fill_gaps)
+        prepare(src, os.path.join(out_dir, dst_name), width, fill_gaps, *tint)
 
 
 if __name__ == '__main__':

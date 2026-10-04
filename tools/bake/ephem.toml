@@ -556,6 +556,19 @@ tolerance_km = 10.0
 radius_km = 734.3
 
 [[target]]
+name = "hyperion_cas"
+command = "607"
+naif_id = 607
+center = "500@699"
+center_naif_id = 699
+kepler_gm_km3_s2 = 37940584.8418
+start = "2004-06-01"
+stop = "2017-09-16"
+base_step_minutes = 720
+tolerance_km = 10.0
+radius_km = 135.0
+
+[[target]]
 name = "cassini_sat"
 command = "-82"
 naif_id = -82

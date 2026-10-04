@@ -761,6 +761,51 @@ void test_vesta_shape()
           u_error);
 }
 
+// Amalthea and Thebe (Stooke, Jupiter scene) and Hyperion (Thomas, Cassini; Saturn
+// scene): volumes against the mean radii in JPL SSD's satellite physical parameters
+// (within their uncertainties). The Jovian moons' long axes point at Jupiter (+x).
+void test_jupiter_saturn_small_moon_shapes()
+{
+    Scene jupiter = load_scene_or_die("jupiter.toml");
+    Scene saturn = load_scene_or_die("saturn.toml");
+    struct Moon {
+        const Scene* scene;
+        const char* name;
+        double mean_radius_km; // [SPHY]
+        double sigma_km;
+        bool long_axis_x;
+        bool textured;
+    };
+    for (const Moon& m : {Moon{&jupiter, "Amalthea", 83.5, 3.0, true, true}, Moon{&jupiter, "Thebe", 49.3, 4.0, true, false},
+                          Moon{&saturn, "Hyperion", 135.0, 4.0, false, false}}) {
+        const std::string name = m.name;
+        const Body& body = m.scene->bodies[static_cast<size_t>(m.scene->find(m.name))];
+        check(body.shape != nullptr, (name + " has a shape model").c_str());
+        if (!body.shape) {
+            continue;
+        }
+        const double r_equal = std::cbrt(3.0 * signed_volume(*body.shape) / (4.0 * kPi));
+        check(std::abs(r_equal - m.mean_radius_km) < m.sigma_km, (name + " equal-volume radius (km)").c_str(), r_equal);
+        check(body.texture.empty() != m.textured, (name + " texture as expected").c_str());
+        if (m.textured) {
+            check(map_u_error(*body.shape) < 1e-6, (name + " map u matches the vertex longitude").c_str());
+        }
+        if (m.long_axis_x) {
+            glm::dvec3 extent(0.0);
+            for (const glm::vec3& p : body.shape->positions) {
+                extent = glm::max(extent, glm::abs(glm::dvec3(p)));
+            }
+            check(extent.x > extent.y && extent.x > extent.z, (name + " long axis toward Jupiter").c_str(), extent.x);
+        }
+    }
+
+    // Hyperion spins at |omega|/n = 4.255 (Cassini, 2005-08-16 and 2005-09-25; Harbison et
+    // al. 2011), n from [ELEM]'s mean-longitude period 21.276658 d: about 72 deg/day.
+    const Body& hyperion = saturn.bodies[static_cast<size_t>(saturn.find("Hyperion"))];
+    const double spin_over_n = hyperion.pm_rate_deg_per_day / (360.0 / 21.276658);
+    check(std::abs(spin_over_n - 4.255) < 1e-4, "Hyperion spin rate / mean motion", spin_over_n);
+}
+
 // Solar System scene: the asteroid and Kuiper belts (two-body orbits from SBDB).
 void test_solar_system_belts()
 {
@@ -1075,8 +1120,9 @@ void test_saturn_scene()
     auto at = [&](int body, double t) { return scene.icrf_state_at(body, t).position; };
 
     // Mean elements (phases fitted by tools/bake/fit_moon_phase.py) against the
-    // Horizons tables wherever these have data. Mimas librates by +-44 deg.
-    const char* moons[] = {"Mimas", "Enceladus", "Tethys", "Dione", "Rhea", "Titan", "Iapetus"};
+    // Horizons tables wherever these have data. Mimas librates by +-44 deg; Hyperion,
+    // in the 4:3 resonance with Titan, strays by up to 15 deg (rms 7).
+    const char* moons[] = {"Mimas", "Enceladus", "Tethys", "Dione", "Rhea", "Titan", "Iapetus", "Hyperion"};
     for (const char* name : moons) {
         const int b = scene.find(name);
         const auto* eph = b > 0 ? dynamic_cast<const EphemerisMotion*>(scene.bodies[static_cast<size_t>(b)].motion.get()) : nullptr;
@@ -1093,8 +1139,9 @@ void test_saturn_scene()
             const glm::dvec3 m = eph->fallback()->eval(t).position;
             worst = std::max(worst, std::acos(std::clamp(glm::dot(a, m) / (glm::length(a) * glm::length(m)), -1.0, 1.0)) * kRadToDeg);
         }
-        const bool mimas = std::string(name) == "Mimas";
-        check(worst < (mimas ? 45.0 : 1.5), "Saturn moon mean elements near Horizons (deg)", worst);
+        const std::string moon = name;
+        const double limit = moon == "Mimas" ? 45.0 : moon == "Hyperion" ? 16.0 : 1.5;
+        check(worst < limit, (moon + " mean elements near Horizons (deg)").c_str(), worst);
     }
 
     // Windowed table (Enceladus near Cassini only): gaps fall back to the mean
@@ -2656,6 +2703,7 @@ int main()
     test_arrokoth_shape();
     test_mars_moon_shapes();
     test_vesta_shape();
+    test_jupiter_saturn_small_moon_shapes();
     test_parker_scene();
     test_jupiter_missions();
     test_earth_moon_scene();

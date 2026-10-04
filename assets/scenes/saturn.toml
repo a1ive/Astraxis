@@ -1,4 +1,4 @@
-# Saturn, its rings, the seven major moons, and Cassini's tour (2004-2017) with
+# Saturn, its rings, the seven major moons, Hyperion, and Cassini's tour (2004-2017) with
 # the Huygens probe's descent to Titan.
 #
 # Sources
@@ -20,6 +20,17 @@
 #        moons 2004-06-01 .. 2017-09-16. Outside that span the moons fade over one day
 #        into the mean elements [ELEM]. Saturn's heliocentric orbit (Sun direction): the
 #        Saturn system barycenter, 1972-2100 [HZN], else [APX].
+# [TCAS] P. C. Thomas, Saturn Small Moon Shape Models V1.0 (PDS SBN,
+#        saturn_satellite_shape_models; Cassini ISS): Hyperion plate model (14,636 vertices),
+#        equal-volume radius 136.3 km vs 135 +- 4 km in [SPHY]. The model's z axis is the
+#        spin axis seen at the 2005-09-26 flyby. See assets/shapes/SOURCES.md.
+# [HSPN] Hyperion's spin magnitude at the Cassini flybys, |omega|/n = 4.433 (2005-06-10),
+#        4.255 (2005-08-16), 4.255 (2005-09-25) (Harbison, Thomas & Nicholson 2011,
+#        Celest. Mech. Dyn. Astron. 110, 1; Goldberg & Batygin 2014; as summarized to us,
+#        not yet checked against the papers' tables). Hyperion rotates chaotically and has
+#        no IAU/PCK rotation model: it is drawn spinning about the model's z axis at the
+#        2005-09-25 rate, 4.255 n = 71.994 deg/day (n from [ELEM] P = 21.276658 d; period
+#        5.00 d). The spin axis direction is ILLUSTRATIVE (the [ELEM] Laplace pole), as is W0.
 # [RSS]  Rings: normal optical depth from the Cassini Radio Science occultation of
 #        2005-05-03 (Rev 7 egress, X band), PDS volume CORSS_8001 (Marouf et al.),
 #        averaged to 8.8 km bins by tools/rings/make_saturn_rings.py; see
@@ -278,6 +289,33 @@ period_days = 15.946442868                 # [ELEM] P = 15.945448
 apsis_period_years = 346.680
 node_period_years = -687.370
 laplace_pole_ra_dec_deg = [36.4, 84.0]
+
+[[bodies]]
+name = "Hyperion"
+parent = "Saturn"
+shape = "shapes/hyperion.mesh"             # [TCAS]
+radii_km = [180.1, 133.0, 102.7]           # [PCK] (shadows, camera distances)
+body_gm_km3_s2 = 0.37049                   # [SPHY] (SAT441)
+pole_ra_dec_deg = [40.2, 83.6]             # illustrative: the [ELEM] Laplace pole (chaotic rotation)
+prime_meridian_deg = [0.0, 71.994]         # [HSPN] 4.255 n; W0 arbitrary
+color = "#b0987e"                          # illustrative
+orbit_color = "#c0a88c"
+[bodies.orbit]                             # [HZN] 607
+type = "ephemeris"
+file = "ephem/hyperion_cas.eph"
+fallback_blend_days = 1.0
+[bodies.orbit.fallback]                    # [ELEM]
+type = "mean_elements"
+a_km = 1481500.0
+e = 0.105
+arg_peri_deg = 146.86                      # fitted; [ELEM] 214.0
+mean_anomaly_deg = 55.79                   # fitted; [ELEM] 122.9
+i_deg = 0.6
+node_deg = 87.10                           # fitted; [ELEM] 87.1
+period_days = 21.212576352                  # from [ELEM] P = 21.276658 (mean longitude)
+apsis_period_years = -20.843               # retrograde: fit rms 7.0 deg (prograde: 11.5)
+node_period_years = -257.625
+laplace_pole_ra_dec_deg = [40.2, 83.6]
 
 [[bodies]]
 name = "Iapetus"

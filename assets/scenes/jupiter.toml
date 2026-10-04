@@ -18,6 +18,13 @@
 #        then predictions), and the Galilean moons over both spans. Outside them the moons
 #        fade over one day into the mean-element model [ELEM], which drifts by degrees.
 # [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
+# [STKS] P. Stooke, Stooke Small Body Shape Models V2.0 (PDS SBN, small_bodies.stooke.shape-models;
+#        EAR-A-5-DDR-STOOKE-SHAPE-MODELS-V2.0): Amalthea (Voyager; Stooke 1994, EMP 64, 87) and
+#        Thebe (Galileo, preliminary), 5 deg grids; equal-volume radii 81.7 / 45.5 km vs
+#        83.5 +- 3 / 49.3 +- 4 km in [SPHY]. See assets/shapes/SOURCES.md.
+# [STKM] P. Stooke, Stooke Small Bodies Maps V3.0 (PDS SBN, small_bodies.stooke.maps;
+#        MULTI-SA-MULTI-6-STOOKEMAPS-V3.0): Amalthea airbrushed shaded relief from Voyager
+#        images, simple cylindrical, 0 deg at the center.
 # [PDSR] PDS Ring-Moon Systems Node, "Vital Statistics for Jupiter's Rings and Inner
 #        Satellites" (https://pds-rings.seti.org/jupiter/jupiter_tables.html), from Murray &
 #        Dermott 1999 (Solar System Dynamics) and Burns et al. 1999 (Science 284, 1146).
@@ -252,8 +259,10 @@ apsis_period_years = 277.921
 node_period_years = -577.264
 laplace_pole_ra_dec_deg = [268.7, 64.8]
 
-# Inner moons, inside Io's orbit [ELEM] [SPHY] [PCK]. They are irregular (Amalthea
-# 125 x 73 x 64 km [PCK]) but drawn as spheres of the mean radius. As for the
+# Inner moons, inside Io's orbit [ELEM] [SPHY] [PCK]. Amalthea and Thebe are drawn with
+# their shape models [STKS]; Metis and Adrastea, which have none, as the [PCK] triaxial
+# ellipsoids (long axis toward Jupiter). The radii of all four are [PCK]'s (shadows,
+# camera distances). As for the
 # Galilean moons, the apsidal and nodal periods of [ELEM] are magnitudes: from
 # Jupiter's oblateness, apsides advance and nodes regress, and with these signs
 # d(node + arg_peri + M)/dt matches the synchronous rotation rates of [PCK].
@@ -267,11 +276,14 @@ laplace_pole_ra_dec_deg = [268.7, 64.8]
 [[bodies]]
 name = "Amalthea"
 parent = "Jupiter"
-radii_km = [83.5]                      # mean radius [SPHY]
+shape = "shapes/amalthea.mesh"         # [STKS]
+radii_km = [125.0, 73.0, 64.0]         # [PCK]
 body_gm_km3_s2 = 0.16456               # [SPHY] (JUP365)
 pole_ra_dec_deg = [268.05, 64.49]      # [PCK]
 prime_meridian_deg = [231.67, 722.6314560]
-color = "#9c5a43"
+color = "#9c5a43"                      # also tints the texture (prepare_textures.py)
+texture = "textures/amalthea.jpg"      # [STKM] shaded relief, assets/textures/SOURCES.md
+texture_left_lon_deg = -180.0
 orbit_color = "#c9876b"
 
 [bodies.orbit]                         # [ELEM]
@@ -290,7 +302,8 @@ laplace_pole_ra_dec_deg = [268.1, 64.5]
 [[bodies]]
 name = "Thebe"
 parent = "Jupiter"
-radii_km = [49.3]
+shape = "shapes/thebe.mesh"            # [STKS]
+radii_km = [58.0, 49.0, 42.0]          # [PCK]
 pole_ra_dec_deg = [268.05, 64.49]
 prime_meridian_deg = [8.56, 533.7004100]
 color = "#7d6a5e"
@@ -312,7 +325,7 @@ laplace_pole_ra_dec_deg = [268.1, 64.5]
 [[bodies]]
 name = "Adrastea"
 parent = "Jupiter"
-radii_km = [8.2]
+radii_km = [10.0, 8.0, 7.0]            # [PCK]
 pole_ra_dec_deg = [268.05, 64.49]
 prime_meridian_deg = [33.29, 1206.9986602]
 color = "#7a6d64"
@@ -334,7 +347,7 @@ laplace_pole_ra_dec_deg = [268.1, 64.5]
 [[bodies]]
 name = "Metis"
 parent = "Jupiter"
-radii_km = [21.5]
+radii_km = [30.0, 20.0, 17.0]          # [PCK]
 pole_ra_dec_deg = [268.05, 64.49]
 prime_meridian_deg = [346.09, 1221.2547301]
 color = "#7a6d64"

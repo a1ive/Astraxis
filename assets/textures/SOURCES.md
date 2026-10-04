@@ -26,6 +26,7 @@
 | `phobos.jpg` | P. C. Thomas，Phobos 影像拼接图（海盗号轨道器图像，高通滤波，用形状模型控制位置；每度 16 像素，5760×2880），PDS SBN “Small Body Optical Shape Models” V1.0，`data/m1phobosm.fit`，<https://sbnarchive.psi.edu/pds4/non_mission/ast-sat.thomas.shape-models_V1_0/> | PDS 存档数据，公有领域（请引用数据集与作者） |
 | `vesta.jpg` | USGS Astrogeology / DLR，Vesta Dawn FC HAMO Global Mosaic 60m（黎明号分幅相机，约 2500 幅清晰滤镜图像），<https://astrogeology.usgs.gov/search/map/vesta_dawn_fc_hamo_global_mosaic_60m> | 公有领域（请引用作者） |
 | `deimos.jpg` | P. C. Thomas，Deimos 影像拼接图（海盗号轨道器图像，高通滤波，用形状模型控制位置；每度 4 像素，1440×720），PDS SBN “Small Body Optical Shape Models” V1.0，`data/m2deimosm.fit`，<https://sbnarchive.psi.edu/pds4/non_mission/ast-sat.thomas.shape-models_V1_0/> | PDS 存档数据，公有领域（请引用数据集与作者） |
+| `amalthea.jpg` | P. Stooke，Amalthea 晕渲图（根据旅行者 1、2 号图像手绘的喷笔图，位置控制由 Stooke 完成；简单圆柱投影，每度 10 像素），PDS SBN “Stooke Small Bodies Maps” V3.0（MULTI-SA-MULTI-6-STOOKEMAPS-V3.0），<https://sbnarchive.psi.edu/pds4/non_mission/small_bodies.stooke.maps/>，`miscellaneous/j5amalthea/amalcyl.jpg` | 公有领域（“should not be used without proper credit”：Stooke, P., Stooke Small Bodies Maps V3.0, NASA PDS, 2015） |
 | `ceres.jpg` | USGS Astrogeology / DLR，Ceres Dawn FC Global Mosaic 400m（2015-10，`Ceres_Dawn_FC_DLR_global_20ppd_Oct2015.tif`），<https://astrogeology.usgs.gov/search/map/ceres_dawn_fc_global_mosaic_400m> | 公有领域（请引用作者） |
 
 原始下载地址：
@@ -84,6 +85,7 @@
   - Vesta 的经度是 Claudia″（Claudia Double Prime）系统，Claudia 坑在 146°E（USGS 页面说明）；场景用的 PCK W0 = 285.39° 正是这个系统（Dawn 重力数据集的坐标系文档 `VESTA_COORDINATES_131018` 列出了四种 Vesta 坐标系的 W0）。“雪人”三坑（Marcia、Calpurnia、Minucia）在约 340°E。
   - Ceres：经度域 0..360，左边缘 0°E。Occator 坑（19.8°N 239.3°E，IAU 系统，即 Kait 坑在 0°）落在图中对应位置，与 PCK 的 W0 = 170.65° 一致。
 - Phobos、Deimos（Thomas 拼接图，FITS）以 0°N 0°E 为中心，东经向右增加，左边缘 −180°E。这两点用 Phobos 拼接图核对：Stickney 在中心偏左约 48°（49°W），与形状模型里凹陷的中心（2°S 50°W）重合；Limtoc 在 10°S 54°W（Gazetteer：11°S 54°W）。标签写的是“Line Bottom to Top”，但只有按文件顺序把第一行放在最上（北），Limtoc 坑才落在 Stickney 中心以南（实际为 11°S 与 1°S），凹槽系统的位置也才与 USGS 的 Phobos 图一致。Deimos 用同一批工具制作，沿用同样的约定；它的地名（Swift、Voltaire）是 1973 年的坐标，控制网未知，无法用于核对。Phobos 有少量无数据区（一个小方块和零星点），Deimos 约 4% 的无数据区（纯黑，集中在一个经度段和南半球高纬）用 `fill_unimaged` 填成平淡表面。两张图都有来自低分辨率图像的区域，放大后模糊、有马赛克块（Phobos 的 Stickney 内部、Deimos 约一半经度）；高通滤波使对比度偏低。Deimos 原图宽 1440 像素，生成时放大到 2048。
+- Amalthea（Stooke 晕渲图）：不是照片拼接图，而是画了固定光照阴影的喷笔图（地图索引里的类型 “S”），所以坑的明暗不随太阳方向变化。地图说明写“0 longitude at the center”，没有写经度方向。地名坐标（Pan 55°N 35°W、Gaea 80°S 90°W）在这张很模糊的图上认不出来，所以用 Stooke 自己的形状模型（同一作者）核对：从形状算出不同光照方向的晕渲，与原图做相关，“东经向右”最好（0.23，经度偏移 −5°，光从东边来），“西经向右”最好只有 0.16。相关不强，经度对齐只有中等把握。生成时乘上 Amalthea 的场景颜色 `#9c5a43`（`tint_gray`：灰度换算到线性值后除以全图平均，再乘颜色的线性值），否则这颗很暗、很红的卫星会显示成灰白色
 - Mercury 使用 2013 年的单色底图。备选的彩色拼接图（Global Color Mosaic 665m）将 1000/750/430 nm 映射到 RGB，属于增强假彩色，整体偏蓝，两极还有缺块和杂乱纹理，因此未选用。
 - Phobos 使用 Thomas 拼接图，因为它与所用的形状模型共用控制网（见 `assets/shapes/SOURCES.md`）。试过的备选：USGS 的 Stooke 海盗号拼接图（`Phobos_Viking_Mosaic_40ppd_DLRcontrol.tif`）画面更清晰，但基于 DLR 的另一套控制网，地貌偏西约 5° 且各处不一；Mars Express SRC 拼接图（`Phobos_ME_SRC_Mosaic_Global_16ppd.tif`）含有原始图像的阴影和缺块，两侧边缘也无法衔接。
 - Vesta 的 HAMO 拼接图中，北纬 60° 以上处于极夜，纹理保留了这些区域的低亮度。Ceres 南纬约 82° 以南缺少数据，按同纬度均值填补。

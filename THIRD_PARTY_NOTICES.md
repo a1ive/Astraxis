@@ -33,6 +33,9 @@ Per-file details, original download URLs and processing steps are in each direct
 | `assets/textures/{ariel,umbriel,titania,oberon,miranda}.jpg` | USGS Voyager 2 global mosaics, distributed by the JPL Solar System Simulator (Caltech/JPL/USGS) | Public domain (U.S. Government work) |
 | `assets/textures/{triton,pluto,charon}.jpg` | USGS Astrogeology Science Center, Voyager 2 (Triton) and New Horizons (Pluto, Charon) global mosaics | Public domain |
 | `assets/textures/{mercury,mars,vesta,ceres}.jpg` | USGS Astrogeology Science Center (Vesta, Ceres with DLR), MESSENGER, Viking and Dawn global mosaics | Public domain |
+| `assets/shapes/{amalthea,thebe}.mesh` | P. Stooke, Stooke Small Body Shape Models V2.0 (PDS Small Bodies Node) | Public domain (PDS data) |
+| `assets/textures/amalthea.jpg` | P. Stooke, Stooke Small Bodies Maps V3.0 (PDS Small Bodies Node), Amalthea shaded relief | Public domain; credit: Stooke, P., Stooke Small Bodies Maps V3.0, NASA PDS, 2015 |
+| `assets/shapes/hyperion.mesh` | P. C. Thomas, Saturn Small Moon Shape Models V1.0 (PDS Small Bodies Node, Cassini ISS) | Public domain (PDS data) |
 | `assets/shapes/vesta.mesh` | USGS Astrogeology Science Center / DLR, Vesta Dawn FC HAMO global DTM | Public domain |
 | `assets/textures/{phobos,deimos}.jpg`, `assets/shapes/{phobos,deimos}.mesh` | P. C. Thomas, Phobos and Deimos image mosaics and shape models, PDS Small Bodies Node “Small Body Optical Shape Models” (ast-sat.thomas.shape-models V1.0) | Public domain (PDS data) |
 | `assets/shapes/arrokoth.mesh` | NASA New Horizons project, Porter et al. 2024 Arrokoth shape model (PDS Small Bodies Node, doi:10.26007/97r3-1e19) | Public domain (PDS data) |

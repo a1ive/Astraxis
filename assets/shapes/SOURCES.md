@@ -4,6 +4,8 @@
 
 | 文件 | 来源 | 许可 |
 |---|---|---|
+| `amalthea.mesh`、`thebe.mesh` | P. Stooke，“Stooke Small Body Shape Models” V2.0（PDS SBN，`small_bodies.stooke.shape-models`；EAR-A-5-DDR-STOOKE-SHAPE-MODELS-V2.0），<https://sbnarchive.psi.edu/pds4/non_mission/small_bodies.stooke.shape-models/>，文件 `data/j5amalthea.tab`、`data/j14thebe.tab`；Amalthea：Stooke 1994, EMP 64, 87 | PDS 存档数据，公有领域（请引用：Stooke, P., Stooke Small Body Shape Models V2.0, NASA PDS, 2016） |
+| `hyperion.mesh` | P. C. Thomas，“Saturn Small Moon Shape Models” V1.0（PDS SBN，`saturn_satellite_shape_models`，卡西尼 ISS），<https://sbnarchive.psi.edu/pds4/cassini/saturn_satellite_shape_models_V1_0/>，文件 `data/hyperion_30k_plt.tab`；Thomas et al. 2007, Nature 448, 50 | PDS 存档数据，公有领域（请引用数据集与作者） |
 | `vesta.mesh` | USGS Astrogeology / DLR，Vesta Dawn FC HAMO Global DTM 93m（2013-12-10 发布，黎明号分幅相机 HAMO 立体图像），<https://astrogeology.usgs.gov/search/map/vesta_dawn_fc_hamo_global_dtm_93m>，文件 `Vesta_Dawn_HAMO_DTM_DLR_Global_48ppd.tif` | 公有领域（请引用作者） |
 | `phobos.mesh`、`deimos.mesh` | P. C. Thomas，“Small Body Optical Shape Models” V1.0（PDS SBN，`ast-sat.thomas.shape-models`，由 PDS3 数据集 EAR-A-5-DDR-SHAPE-MODELS-V2.1 迁移），<https://sbnarchive.psi.edu/pds4/non_mission/ast-sat.thomas.shape-models_V1_0/>，文件 `data/m1phobos.tab`、`data/m2deimos.tab`；Thomas 1993, Icarus 105, 326 | PDS 存档数据，公有领域（请引用数据集与作者） |
 | `arrokoth.mesh` | Porter, S. et al. 2024, “New Horizons Porter (2024) Arrokoth Shape Model Collection”，PDS Small Bodies Node，doi:[10.26007/97r3-1e19](https://doi.org/10.26007/97r3-1e19)，<https://pdssbn.astro.umd.edu/holdings/pds4-nh_derived-v3.0/arrokoth_shapemodel_porter2024/>；方法见同目录的 `porteretal2024b.pdf`（Porter et al. 2024, “The Shape of (486958) Arrokoth”） | NASA 新视野号项目的 PDS 数据，公有领域（请引用作者） |
@@ -30,7 +32,7 @@
 
 ## Phobos 与 Deimos（Thomas 形状模型）
 
-- 形状：Thomas 的数值形状模型，只用海盗号轨道器的图像，按行星中心纬度 / 经度的网格给出半径（0° 和 360° 两列都有）。`tools/shapes/make_thomas_shape.py`（只用标准库）把网格原样转成网格文件，去掉极点处退化的三角形
+- 形状：Thomas 的数值形状模型，只用海盗号轨道器的图像，按行星中心纬度 / 经度的网格给出半径（0° 和 360° 两列都有）。`tools/shapes/make_grid_table_shape.py`（只用标准库）把网格原样转成网格文件，去掉极点处退化的三角形
   - Phobos：2° 网格（91 × 181 个点），16,471 个顶点、32,040 个三角形，697 KB
   - Deimos：5° 网格（37 × 73 个点），2,701 个顶点、5,040 个三角形，111 KB。标签注明 200°–355° 经度（西经）一带的误差约 400 m
 - **经度方向**：表里的经度是**西经**。依据是 Phobos 表：减去拟合的三轴椭球后，49° 处有清楚的陨石坑特征（坑内低约 0.7 km、外圈高起），311° 处没有；Stickney 坑在 49°W。网格里换成东经（u = 东经 / 360°）。形状里 Stickney 凹陷的中心在 2°S 50°W；网格里该处 12° 以内的平均半径比外圈低 1.12 km，镜像位置 50°E 没有（`test_mars_moon_shapes`）
@@ -49,3 +51,19 @@
 - `tools/shapes/make_dtm_shape.py`（只用 Pillow 读 TIFF 的条带位置，数据用标准库按行读取）按 1.5° 的格子求平均，每个网格顶点取周围四格的平均，极点取整圈格子的平均：121 × 241 个点，29,161 个顶点、57,120 个三角形，1.2 MB。1.5° 约合 6.9 km，Rheasilvia 盆地（约 500 km）和它的中央峰都分辨得出，小坑的细节靠纹理
 - 交叉检查：体积 7.495 × 10⁷ km³，等体积直径 523.11 km，SBDB 为 522.77 ± 0.1 km（Park et al. 2025，Nature Astronomy）；差 0.34 km，来自 2013 年的 DTM 和网格的平滑（`test_vesta_shape`）。SBDB 的外形尺寸 569.24 × 554.48 × 452.66 km 应是拟合椭球的轴长，网格的包围盒是 574.5 × 554.0 × 467.5 km（包含地形起伏），不直接比较
 - 场景的 `radii_km` 仍用 PCK 的三轴椭球（影子、相机距离）；光照没有自身阴影
+
+## Amalthea 与 Thebe（Stooke 形状模型）
+
+- 表的列是经度、纬度、半径（与 Thomas 表的顺序不同，`make_grid_table_shape.py --lon-first`），5° 网格，行星中心坐标；标签写明卫星的经度**向西**增加，本初子午线正对木星。转换后各 2,701 个顶点、5,040 个三角形，111 KB
+- Amalthea 基于旅行者 1、2 号图像（修正了 Stooke 1994 里经度 315° 附近的一个“鼓包”，尚未用伽利略号的结果）；Thebe 基于伽利略号的低分辨率图像，标签说只是初步模型。坐标原点不一定是图形中心（标签说明），所以 Amalthea 的 x 范围是 −147..120 km
+- 交叉检查（`test_jupiter_saturn_small_moon_shapes`）：等体积半径 Amalthea 81.7 km、Thebe 45.5 km，JPL SSD 平均半径为 83.5 ± 3.0、49.3 ± 4.0 km；两者的最长轴都沿 x（指向木星），与 PCK 的三轴椭球（125 × 73 × 64、58 × 49 × 42 km）一致。场景的 `radii_km` 改用 PCK 三轴值（影子、相机距离）
+- Amalthea 贴 Stooke 的晕渲图（见 `assets/textures/SOURCES.md`），Thebe 没有图，按场景颜色均匀着色
+
+## Hyperion（Thomas 卡西尼形状模型）
+
+- 板块模型：首行是顶点数和板块数，之后每行一个顶点（km），再之后每行一个板块的三个顶点索引（从 0 开始，从外面看逆时针）。`tools/shapes/make_plate_shape.py`（只用标准库）原样转换：14,636 个顶点、29,268 个三角形，571 KB
+- 坐标系：Hyperion 是混沌自转，没有 IAU 自转模型。这个模型的坐标系按 2005-09-26 卡西尼最近一次飞掠时观测到的自转建立（z 轴是当时的自转轴），保留了 Davies et al. 1983 的经度参考（Bahloo 坑在 196°W）；各次飞掠测得的自转轴相差可达几十度。最佳飞掠覆盖的区域相对误差小于 1 km，对面一侧最多 6 km（数据集文档 `hyperion_document.pdf`）。最长轴沿 z（341 km）
+- 交叉检查：等体积半径 136.3 km，JPL SSD 平均半径 135 ± 4 km（`test_jupiter_saturn_small_moon_shapes`）
+- 自转：卡西尼三次飞掠测得的总角速度相当稳定，|ω|/n = 4.433（2005-06-10）、4.255（2005-08-16）、4.255（2005-09-25），约 75、72、72°/天；旅行者 2 号的数据约 71.5°/天（Harbison, Thomas & Nicholson 2011, Celest. Mech. Dyn. Astron. 110, 1；Goldberg & Batygin 2014。这些数值来自用户提供的摘要，尚未对照论文原表）。场景里 Hyperion 绕形状模型的 z 轴（2005-09-26 飞掠时的自转轴）以 2005-09-25 的速率自转：4.255 n = 71.994°/天，n 取 [ELEM] 平经度周期 21.276658 天，周期 5.00 天（`test_jupiter_saturn_small_moon_shapes` 检查这个比值）。**自转轴在天空中的指向没有资料，暂取 [ELEM] 的 Laplace 面极（RA 40.2°、Dec 83.6°），是示意性的**；本初子午线零点也是任意的。真实的混沌自转中，自转轴在体内和天空中都会移动
+- `radii_km` 用 PCK 的 180.1 × 133.0 × 102.7 km（影子、相机距离）
+- 没有纹理：Stooke 的 Hyperion 晕渲图基于旅行者 2 号，所用自转轴与卡西尼的相差 100° 以上，经纬度体系对不上这个形状模型；颜色是示意性的
