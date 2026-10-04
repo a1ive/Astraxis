@@ -24,6 +24,7 @@
 # [SPHY] JPL SSD, Planetary Satellite Physical Parameters, "Planet and Pluto GM Values":
 #        the GM of Mars alone.
 # [ELEM] JPL SSD, Planetary Satellite Mean Elements (the Moon, outside its table).
+# [ATM]  Atmospheres (single scattering): sources and choices in solar_system.toml.
 # [PCK]  NAIF pck00011.tpc (IAU 2015): radii, poles, prime meridians (T terms ignored
 #        unless given).
 # Flyby times (TDB at the spacecraft) and altitudes: computed from the baked data
@@ -81,6 +82,16 @@ pole_ra_dec_deg = [272.76, 67.16]
 prime_meridian_deg = [160.20, -1.4813688]
 color = "#e8d6ae"
 orbit_color = "#d9c79f"
+texture = "textures/venus.jpg"             # Magellan radar, shown without the atmosphere
+texture_left_lon_deg = -180.0
+[bodies.atmosphere]                        # [ATM]
+deck_altitude_km = 74.0
+height_km = 30.0
+haze_depth = 0.1
+haze_angstrom = 1.0
+haze_scale_height_km = 3.3
+haze_albedo = 0.99
+haze_g = 0.6
 [bodies.orbit]                             # [HZN] 299
 type = "ephemeris"
 file = "ephem/venus.eph"
@@ -126,6 +137,14 @@ color = "#5b86c9"
 trail = "none"                             # its heliocentric orbit is the barycenter's
 texture = "textures/earth.jpg"
 texture_left_lon_deg = -180.0
+[bodies.atmosphere]                        # [ATM]
+height_km = 60.0
+rayleigh_depth = 0.1085                    # 13.56e-6 m^-1 at 550 nm x 8 km
+rayleigh_scale_height_km = 8.0
+haze_depth = 0.005328
+haze_scale_height_km = 1.2
+haze_albedo = 0.9
+haze_g = 0.8
 [bodies.orbit]                             # [HZN] 301 (geocentric Moon), scaled by -mu
 scale = -0.0121505844
 type = "ephemeris"
@@ -185,6 +204,12 @@ color = "#c1673e"
 orbit_color = "#c98a6e"
 texture = "textures/mars.jpg"
 texture_left_lon_deg = -180.0
+[bodies.atmosphere]                        # [ATM]
+height_km = 100.0
+haze_depth = 0.5
+haze_scale_height_km = 11.9
+haze_albedo = [0.97, 0.93, 0.75]
+haze_g = 0.63
 [bodies.orbit]                             # [APX] Table 2a
 type = "jpl_approx_planet"
 a_au = [1.52371243, 0.00000097]

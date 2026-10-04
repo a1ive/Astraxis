@@ -64,6 +64,44 @@
 #        Satellites" (https://pds-rings.seti.org/neptune/neptune_tables.html).
 # [QRNG] Pereira et al. 2023, A&A (arXiv:2304.09237), Table 2 and Sect. 5:
 #        Quaoar's two rings and the Q1R pole, RA 17h19m16.8s, Dec +53 27' (ICRS).
+# [ATM]  Atmospheres, single scattering (Rayleigh gas + Henyey-Greenstein haze; optical
+#        depths vertical, at 550 nm, from the base of the shell). Colors (haze albedo),
+#        phase functions and depths marked "illustrative" are chosen by eye.
+#        Earth: E. Bruneton, Precomputed Atmospheric Scattering (2017 implementation,
+#          atmosphere/demo/demo.cc): Rayleigh 1.24062e-6 lambda^-4 m^-1 (lambda in um),
+#          scale height 8 km; aerosols with vertical extinction 5.328e-3 (Angstrom beta,
+#          alpha = 0), scale height 1.2 km, single-scattering albedo 0.9, g = 0.8; top at
+#          60 km. No ozone (it deepens the blue of twilight).
+#        Venus: the opaque deck is the cloud top, 74 +- 1 km at low and middle latitudes
+#          (Ignatiev et al. 2009, JGR 114, E00B43, Venus Express VIRTIS); upper haze above
+#          it with an aerosol scale height of 3.3 +- 0.7 km (Luginin et al. 2016, Icarus
+#          277, 154, SPICAV IR). Haze depth, color and g illustrative.
+#        Mars: dust only (the CO2 Rayleigh depth is ~0.004). Dust scale height 11.9 km,
+#          the model value adopted for Spirit (Lemmon et al. 2015, Icarus 251, 96, Sect.
+#          2); vertical optical depth 0.5, between the clear aphelion season (~0.3) and
+#          the dusty perihelion season (~0.9 and more) in the same record; g = 0.63
+#          (Ockert-Bell et al. 1997, JGR 102, 9039, near infrared); albedo illustrative
+#          (dust absorbs blue).
+#        Titan: the haze model of Tomasko et al. 2008 (PSS 56, 669, Huygens DISR): above
+#          80 km the aerosol density falls off with a scale height of 65 km and the
+#          opacity varies as lambda^-2.34 (350-1600 nm). Below 80 km the haze is drawn
+#          as an opaque deck; the depth above it, albedo and g are illustrative. The
+#          shell reaches 530 km (the detached haze layer, not modelled separately).
+#        Pluto: haze to above 200 km (Cheng et al. 2017, Icarus 290, 112,
+#          arXiv:1702.07771), vertical optical depth ~0.013 (Gladstone et al. 2016,
+#          Science 351, aad8866, as quoted by Cheng et al.), scale height 50 km (Cheng et
+#          al., Sect. 5); g = 0.5 matches the ratio of the haze I/F at 167 deg and 20 deg
+#          phase in their Table 4 (peak 15, at 45 km 37; Henyey-Greenstein gives 15 at
+#          g = 0.44, 37 at 0.56). Albedo and the blue color (Angstrom exponent 2)
+#          illustrative. N2 Rayleigh scattering is negligible.
+#        Triton: thin haze as summarized by Ohno et al. 2021 (ApJ, doi:10.3847/1538-4357/
+#          abee82, arXiv:2012.11932, Sect. 1 and Table 2), citing Voyager 2 results: seen
+#          to ~30 km (Smith et al. 1989; the shell goes to 60 km, 5.5 scale heights); scale
+#          height 11.0 +- 0.6 km (Rages & Pollack 1992); scattering optical depth ~0.003
+#          (Pollack et al. 1990), 0.001-0.01 and nearly proportional to lambda^-2;
+#          single-scattering albedo near unity (Hillier et al. 1990, 1991). g illustrative
+#          (forward scattering, 0.17 um particles). The discrete clouds below 4 km and the
+#          geyser plumes are not drawn.
 # Flyby times/distances: computed from the baked data by the bake tool (TDB).
 # Mission timeline events: Horizons spacecraft notes.
 #
@@ -114,8 +152,18 @@ radii_km = [6051.8]
 body_gm_km3_s2 = 324858.592 # [GM]
 pole_ra_dec_deg = [272.76, 67.16]
 prime_meridian_deg = [160.20, -1.4813688]
-color = "#e8d6ae"
+color = "#e8d6ae"                          # the cloud deck (illustrative)
 orbit_color = "#d9c79f"
+texture = "textures/venus.jpg"             # Magellan radar, shown without the atmosphere
+texture_left_lon_deg = -180.0
+[bodies.atmosphere]                        # [ATM]
+deck_altitude_km = 74.0
+height_km = 30.0
+haze_depth = 0.1
+haze_angstrom = 1.0
+haze_scale_height_km = 3.3
+haze_albedo = 0.99
+haze_g = 0.6
 [bodies.orbit]                             # [APX] Table 2a
 type = "jpl_approx_planet"
 a_au = [0.72332102, -0.00000026]
@@ -158,6 +206,14 @@ color = "#5b86c9"
 trail = "none"                             # its heliocentric orbit is the barycenter's
 texture = "textures/earth.jpg"
 texture_left_lon_deg = -180.0
+[bodies.atmosphere]                        # [ATM]
+height_km = 60.0
+rayleigh_depth = 0.1085                    # 13.56e-6 m^-1 at 550 nm x 8 km
+rayleigh_scale_height_km = 8.0
+haze_depth = 0.005328
+haze_scale_height_km = 1.2
+haze_albedo = 0.9
+haze_g = 0.8
 [bodies.orbit]                             # [HZN] 301 (geocentric Moon), scaled by -mu
 scale = -0.0121505844
 type = "ephemeris"
@@ -220,6 +276,12 @@ color = "#c1673e"
 orbit_color = "#c98a6e"
 texture = "textures/mars.jpg"              # assets/textures/SOURCES.md
 texture_left_lon_deg = -180.0
+[bodies.atmosphere]                        # [ATM]
+height_km = 100.0
+haze_depth = 0.5
+haze_scale_height_km = 11.9
+haze_albedo = [0.97, 0.93, 0.75]
+haze_g = 0.63
 [bodies.orbit]                             # [APX] Table 2a
 type = "jpl_approx_planet"
 a_au = [1.52371243, 0.00000097]
@@ -701,12 +763,22 @@ laplace_pole_ra_dec_deg = [40.6, 83.5]
 [[bodies]]
 name = "Titan"
 parent = "Saturn"
-radii_km = [2574.76]                       # [SPHY]; the haze top is ~600 km higher
+radii_km = [2574.76]                       # [SPHY]
 body_gm_km3_s2 = 8978.13710                # [SPHY] (SAT441)
 pole_ra_dec_deg = [39.4827, 83.4279]       # [PCK]
 prime_meridian_deg = [186.5855, 22.5769768]
-color = "#d39a4e"                          # the orange haze (illustrative)
+color = "#d39a4e"                          # the haze deck (illustrative)
 orbit_color = "#e0b070"
+texture = "textures/titan.jpg"             # Cassini ISS 938 nm, shown without the atmosphere
+texture_left_lon_deg = 0.0
+[bodies.atmosphere]                        # [ATM]
+deck_altitude_km = 80.0
+height_km = 450.0
+haze_depth = 1.0
+haze_angstrom = 2.34
+haze_scale_height_km = 65.0
+haze_albedo = [0.95, 0.85, 0.6]
+haze_g = 0.6
 [bodies.orbit]                             # [HZN] 606
 type = "ephemeris"
 file = "ephem/titan_cas.eph"
@@ -1096,6 +1168,13 @@ color = "#d9c8be"
 orbit_color = "#c8d4e0"
 texture = "textures/triton.jpg"
 texture_left_lon_deg = -180.0
+[bodies.atmosphere]                        # [ATM]
+height_km = 60.0
+haze_depth = 0.003
+haze_angstrom = 2.0
+haze_scale_height_km = 11.0
+haze_albedo = 1.0
+haze_g = 0.6
 [bodies.orbit]                             # [ELEM] + plane precession and phase fitted to [HZN]
 type = "mean_elements"
 a_km = 354759.0
@@ -1146,6 +1225,13 @@ color = "#d8b48c"
 orbit_color = "#c8aa88"                    # its small loop around the barycenter
 texture = "textures/pluto.jpg"
 texture_left_lon_deg = 0.0
+[bodies.atmosphere]                        # [ATM]
+height_km = 250.0
+haze_depth = 0.013
+haze_angstrom = 2.0
+haze_scale_height_km = 50.0
+haze_albedo = 0.9
+haze_g = 0.5
 [bodies.orbit]                             # [HZN] 901 (Charon relative to Pluto), scaled by -q
 scale = -0.1087647360
 type = "ephemeris"

@@ -38,6 +38,8 @@ struct FragmentUniforms {
     glm::vec4 ring_center;
     glm::vec4 ring_normal;
     glm::vec4 ring_radii;
+    glm::vec4 atmo_rayleigh;
+    glm::vec4 atmo_haze;
 };
 
 struct BodyVertex {
@@ -276,6 +278,11 @@ void BodyPass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const Ca
         fu.ring_center = glm::vec4(item.ring_center, item.ring_profile ? 1.0f : 0.0f);
         fu.ring_normal = glm::vec4(item.ring_normal, 0.0f);
         fu.ring_radii = glm::vec4(item.ring_inner_km, item.ring_outer_km, item.ring_samples, 0.0f);
+        if (item.atmosphere) {
+            const AtmosphereOptics& a = *item.atmosphere;
+            fu.atmo_rayleigh = glm::vec4(a.rayleigh_depth, a.rayleigh_scale_height);
+            fu.atmo_haze = glm::vec4(a.haze_attenuation, a.haze_scale_height);
+        }
         SDL_PushGPUFragmentUniformData(cmd, 0, &fu, sizeof(fu));
 
         SDL_GPUTextureSamplerBinding tex[2] = {

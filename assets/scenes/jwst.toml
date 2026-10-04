@@ -14,6 +14,7 @@
 #        L2 mass ratio = (GM_Earth + GM_Moon) / (GM_Sun + GM_Earth + GM_Moon)
 #                      = 403503.235625 / (1.32712440041279419e11 + 403503.235625)
 #                      = 3.04042340e-6  (Sun / Earth-Moon barycenter system).
+# [ATM]  Atmospheres (single scattering): sources and choices in solar_system.toml.
 # [PCK]  NAIF pck00011.tpc (IAU 2015).
 # [SPHY] JPL SSD satellite physical parameters (Moon mean radius).
 
@@ -50,6 +51,14 @@ color = "#5b86c9"
 texture = "textures/earth.jpg"             # NASA Blue Marble NG (see textures/SOURCES.md)
 texture_left_lon_deg = -180.0
 
+[bodies.atmosphere]                        # [ATM]
+height_km = 60.0
+rayleigh_depth = 0.1085                    # 13.56e-6 m^-1 at 550 nm x 8 km
+rayleigh_scale_height_km = 8.0
+haze_depth = 0.005328
+haze_scale_height_km = 1.2
+haze_albedo = 0.9
+haze_g = 0.8
 [[bodies]]
 name = "Moon"
 parent = "Earth"

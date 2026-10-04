@@ -27,6 +27,8 @@
 | `vesta.jpg` | USGS Astrogeology / DLR，Vesta Dawn FC HAMO Global Mosaic 60m（黎明号分幅相机，约 2500 幅清晰滤镜图像），<https://astrogeology.usgs.gov/search/map/vesta_dawn_fc_hamo_global_mosaic_60m> | 公有领域（请引用作者） |
 | `deimos.jpg` | P. C. Thomas，Deimos 影像拼接图（海盗号轨道器图像，高通滤波，用形状模型控制位置；每度 4 像素，1440×720），PDS SBN “Small Body Optical Shape Models” V1.0，`data/m2deimosm.fit`，<https://sbnarchive.psi.edu/pds4/non_mission/ast-sat.thomas.shape-models_V1_0/> | PDS 存档数据，公有领域（请引用数据集与作者） |
 | `amalthea.jpg` | P. Stooke，Amalthea 晕渲图（根据旅行者 1、2 号图像手绘的喷笔图，位置控制由 Stooke 完成；简单圆柱投影，每度 10 像素），PDS SBN “Stooke Small Bodies Maps” V3.0（MULTI-SA-MULTI-6-STOOKEMAPS-V3.0），<https://sbnarchive.psi.edu/pds4/non_mission/small_bodies.stooke.maps/>，`miscellaneous/j5amalthea/amalcyl.jpg` | 公有领域（“should not be used without proper credit”：Stooke, P., Stooke Small Bodies Maps V3.0, NASA PDS, 2015） |
+| `venus.jpg` | USGS Astrogeology，Venus Magellan Global C3-MDIR Synthetic Color Mosaic 4641m（麦哲伦号合成孔径雷达 C3-MIDR 拼接图的合成彩色版，颜色是模拟的地表色调；关闭大气层时显示），<https://astrogeology.usgs.gov/search/map/venus_magellan_global_c3_mdir_synthetic_color_mosaic_4641m> | 公有领域（Use Constraints: None） |
+| `titan.jpg` | USGS Astrogeology / Cassini ISS Team，Titan Cassini ISS Global Mosaic 4005m（2015-06，938 nm 甲烷窗口，数据截至 2014-04 的 T100 飞掠，灰度；关闭大气层时显示；有几块均匀灰色的填补区），<https://astrogeology.usgs.gov/search/map/titan_cassini_iss_global_mosaic_4005m> | 公有领域（请引用作者） |
 | `ceres.jpg` | USGS Astrogeology / DLR，Ceres Dawn FC Global Mosaic 400m（2015-10，`Ceres_Dawn_FC_DLR_global_20ppd_Oct2015.tif`），<https://astrogeology.usgs.gov/search/map/ceres_dawn_fc_global_mosaic_400m> | 公有领域（请引用作者） |
 
 原始下载地址：
@@ -50,6 +52,8 @@
   - `Mars_Viking_ClrMosaic_global_925m.tif`（798 MB）。
   - `Vesta_Dawn_FC_HAMO_Mosaic_Global_74ppd.tif`（357 MB）。
   - `Ceres_Dawn_FC_DLR_global_20ppd_Oct2015.tif`（27 MB）。
+- Venus：<https://planetarymaps.usgs.gov/mosaic/Venus_Magellan_C3-MDIR_Colorized_Global_Mosaic_4641m.tif>（96 MB）。
+- Titan：<https://planetarymaps.usgs.gov/mosaic/Titan_ISS_P19658_Mosaic_Global_4km.tif>（8 MB）。
 - Phobos、Deimos：<https://sbnarchive.psi.edu/pds4/non_mission/ast-sat.thomas.shape-models_V1_0/data/m1phobosm.fit>（17 MB）、`m2deimosm.fit`（1 MB），8 位 FITS。
 - 天王星卫星：<https://space.jpl.nasa.gov/tmaps/pix/ura1vuu2.tif> .. `ura5vuu2.tif`（各 0.2 至 0.4 MB；1 Ariel、2 Umbriel、3 Titania、4 Oberon、5 Miranda）。
 
@@ -119,3 +123,5 @@
 - 内容：Gaia DR2 的暗星和弥漫光。该图层排除了 Hipparcos/Tycho 亮星，因此与程序里的 BSC5 星点（到 6.5 等）没有重复。背景缺少 6.5 至 11.5 等的 Tycho 星，对显示影响较小。
 - 投影：ICRF（J2000）赤经赤纬的简单圆柱投影。赤经 0h 在图像中央、向左递增（从球内看），上边缘是 +90° 赤纬，即 u = 0.5 − α/360°，v = (90° − δ)/180°。用银心（α = 266.4°，图中最亮的核球）和大麦哲伦云（α ≈ 80°，δ ≈ −69°）的位置验证过。
 - 处理：`tools/sky/convert_milkyway.py` 依赖标准库和 Pillow，读取 ZIP 压缩的 half 浮点 EXR。原图存储线性值，最大值为 1.0（1% 分位 7.6e-4，99.99% 分位 0.72）。工具按 sRGB 编码存为 JPEG（质量 92，不做色度抽样），场景中的 `milky_way_brightness` 控制显示亮度。
+- Venus：标签为 PositiveEast、−180..180，左边缘 −180°E。用 Maxwell Montes（65°N 3°E，雷达很亮）和它西侧的 Lakshmi Planum 核对过。
+- Titan：标签为 PositiveWest、0..360、中心 180°W，但图像按东经向右递增排列（与其他 USGS 图相同），左边缘 0°E。用 Menrva 环形山（19°N 87°W，即 273°E，在图的 0.76 处）、亮的 Xanadu（10°S 100°W）和暗的 Shangri-La（10°S 165°W）核对过；按西经向右解释时 Menrva 会落在 87°E。

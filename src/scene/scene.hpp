@@ -72,6 +72,29 @@ struct RingSystem {
 // sample (e.g. Uranus' 2 km rings) keeps its equivalent width, tau x width.
 void rasterize_ring_bands(RingSystem& rings, int samples);
 
+// Effective wavelengths (nm) of the display channels R, G, B, at which
+// atmospheric optical depths are evaluated.
+inline constexpr double kChannelWavelengthsNm[3] = {680.0, 550.0, 440.0};
+
+// An atmosphere drawn by single scattering in a shell around the body: gas
+// (Rayleigh scattering, optical depth ~ lambda^-4) and haze or dust (Henyey-
+// Greenstein phase function), each with an exponential density profile. An
+// opaque cloud or haze deck (Venus, Titan) is drawn in the body's color instead
+// of its surface, and the shell starts on top of it. Optical depths are
+// vertical, from the base of the shell, per display channel.
+struct Atmosphere {
+    bool enabled = false;
+    double deck_altitude_km = 0.0; // > 0: the opaque deck, above the surface
+    double height_km = 0.0;        // top of the shell above its base
+    glm::dvec3 rayleigh_depth{0.0};
+    double rayleigh_scale_height_km = 1.0;
+    glm::dvec3 haze_depth{0.0}; // extinction
+    double haze_scale_height_km = 1.0;
+    glm::dvec3 haze_albedo{1.0}; // single-scattering albedo
+    double haze_g = 0.0;         // Henyey-Greenstein asymmetry (> 0: forward scattering)
+    double gain = 1.0;           // scales the scattered light (1 = physical)
+};
+
 struct Body {
     std::string name;
     int parent = -1; // index into Scene::bodies; must precede this body
@@ -140,6 +163,7 @@ struct Body {
     std::shared_ptr<const ShapeModel> shape;
 
     RingSystem rings; // no bands: no rings
+    Atmosphere atmosphere;
 
     // Pulsars: two radio beams from the magnetic poles, inclined to the spin
     // axis (the orbit normal of `spin_axis_orbit_of`) and sweeping around it.

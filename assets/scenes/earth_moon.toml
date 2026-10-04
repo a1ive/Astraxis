@@ -21,6 +21,7 @@
 #        4902.800118 / (398600.435507 + 4902.800118) = 0.0121505844.
 # [PCK]  NAIF pck00011.tpc (IAU 2015): radii, poles, prime meridians.
 # [SPHY] JPL SSD satellite physical parameters (Moon mean radius).
+# [ATM]  Atmospheres (single scattering): sources and choices in solar_system.toml.
 # Closest approaches (TDB at the spacecraft; altitude above the Moon's mean radius)
 # and the largest distances from the Earth (above its equatorial radius): computed
 # from the baked data. They agree with NASA's figures within a few km (checked in
@@ -60,6 +61,14 @@ prime_meridian_deg = [190.147, 360.9856235]
 color = "#5b86c9"
 texture = "textures/earth.jpg"             # NASA Blue Marble NG (see textures/SOURCES.md)
 texture_left_lon_deg = -180.0
+[bodies.atmosphere]                        # [ATM]
+height_km = 60.0
+rayleigh_depth = 0.1085                    # 13.56e-6 m^-1 at 550 nm x 8 km
+rayleigh_scale_height_km = 8.0
+haze_depth = 0.005328
+haze_scale_height_km = 1.2
+haze_albedo = 0.9
+haze_g = 0.8
 
 [[bodies]]
 name = "Moon"

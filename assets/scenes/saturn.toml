@@ -11,6 +11,7 @@
 #        drift and the periodic terms (Saturn's angles S1..S6, 2 S1, 2 S2): e.g. Mimas'
 #        prime meridian term of 44.85 deg follows its 71-year libration, and paired RA/W
 #        terms (Mimas 13.5, Tethys 9.6, Rhea 3.1 deg) move the pole.
+# [ATM]  Atmospheres (single scattering): sources and choices in solar_system.toml.
 # [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
 # [APX]  E. M. Standish, Approximate Positions of the Planets, Tables 2a + 2b.
 # [HZN]  JPL Horizons state vectors relative to Saturn's center, baked by
@@ -267,12 +268,22 @@ laplace_pole_ra_dec_deg = [40.6, 83.5]
 [[bodies]]
 name = "Titan"
 parent = "Saturn"
-radii_km = [2574.76]                       # [SPHY]; the haze top is ~600 km higher
+radii_km = [2574.76]                       # [SPHY]
 body_gm_km3_s2 = 8978.13710                # [SPHY] (SAT441)
 pole_ra_dec_deg = [39.4827, 83.4279]       # [PCK]
 prime_meridian_deg = [186.5855, 22.5769768]
-color = "#d39a4e"                          # the orange haze (illustrative)
+color = "#d39a4e"                          # the haze deck (illustrative)
 orbit_color = "#e0b070"
+texture = "textures/titan.jpg"             # Cassini ISS 938 nm, shown without the atmosphere
+texture_left_lon_deg = 0.0
+[bodies.atmosphere]                        # [ATM]
+deck_altitude_km = 80.0
+height_km = 450.0
+haze_depth = 1.0
+haze_angstrom = 2.34
+haze_scale_height_km = 65.0
+haze_albedo = [0.95, 0.85, 0.6]
+haze_g = 0.6
 [bodies.orbit]                             # [HZN] 606
 type = "ephemeris"
 file = "ephem/titan_cas.eph"

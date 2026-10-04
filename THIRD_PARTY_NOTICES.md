@@ -33,6 +33,8 @@ Per-file details, original download URLs and processing steps are in each direct
 | `assets/textures/{ariel,umbriel,titania,oberon,miranda}.jpg` | USGS Voyager 2 global mosaics, distributed by the JPL Solar System Simulator (Caltech/JPL/USGS) | Public domain (U.S. Government work) |
 | `assets/textures/{triton,pluto,charon}.jpg` | USGS Astrogeology Science Center, Voyager 2 (Triton) and New Horizons (Pluto, Charon) global mosaics | Public domain |
 | `assets/textures/{mercury,mars,vesta,ceres}.jpg` | USGS Astrogeology Science Center (Vesta, Ceres with DLR), MESSENGER, Viking and Dawn global mosaics | Public domain |
+| `assets/textures/venus.jpg` | USGS Astrogeology Science Center, Venus Magellan Global C3-MDIR Synthetic Color Mosaic 4641m | Public domain |
+| `assets/textures/titan.jpg` | USGS Astrogeology Science Center / Cassini ISS Team, Titan Cassini ISS Global Mosaic 4005m | Public domain; please cite the authors |
 | `assets/shapes/{amalthea,thebe}.mesh` | P. Stooke, Stooke Small Body Shape Models V2.0 (PDS Small Bodies Node) | Public domain (PDS data) |
 | `assets/textures/amalthea.jpg` | P. Stooke, Stooke Small Bodies Maps V3.0 (PDS Small Bodies Node), Amalthea shaded relief | Public domain; credit: Stooke, P., Stooke Small Bodies Maps V3.0, NASA PDS, 2015 |
 | `assets/shapes/hyperion.mesh` | P. C. Thomas, Saturn Small Moon Shape Models V1.0 (PDS Small Bodies Node, Cassini ISS) | Public domain (PDS data) |

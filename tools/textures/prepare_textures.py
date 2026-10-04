@@ -31,6 +31,8 @@ Expected file names in <source_dir> (the default is 2048 px wide):
     Vesta_Dawn_FC_HAMO_Mosaic_Global_74ppd.tif       -> vesta.jpg
     Ceres_Dawn_FC_DLR_global_20ppd_Oct2015.tif       -> ceres.jpg
     m2deimosm.fit (PDS SBN, Thomas shape models)     -> deimos.jpg
+    Venus_Magellan_C3-MDIR_Colorized_Global_Mosaic_4641m.tif -> venus.jpg
+    Titan_ISS_P19658_Mosaic_Global_4km.tif           -> titan.jpg
 
 Requires Pillow. The USGS mosaics are 100-200 MB GeoTIFFs (up to ~190 Mpx), so
 the decompression-bomb guard is disabled and images are pre-reduced by an
@@ -79,6 +81,8 @@ MAPS = [
     ('Vesta_Dawn_FC_HAMO_Mosaic_Global_74ppd.tif', 'vesta.jpg', False),
     ('Ceres_Dawn_FC_DLR_global_20ppd_Oct2015.tif', 'ceres.jpg', 'polar'),
     ('m2deimosm.fit', 'deimos.jpg', 'unimaged'),
+    ('Venus_Magellan_C3-MDIR_Colorized_Global_Mosaic_4641m.tif', 'venus.jpg', False),
+    ('Titan_ISS_P19658_Mosaic_Global_4km.tif', 'titan.jpg', False),
     # Stooke's airbrushed shaded relief of Amalthea (gray): tinted with the scene color.
     ('amalcyl.jpg', 'amalthea.jpg', False, '#9c5a43'),
 ]

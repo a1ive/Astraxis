@@ -9,6 +9,7 @@
 #include "ephem/nbody.hpp"
 #include "ephem/visual_orbit.hpp"
 
+#include <glm/vector_relational.hpp>
 #include <toml++/toml.hpp>
 
 #include <algorithm>
@@ -83,6 +84,52 @@ void get_array(const toml::table& t, std::string_view key, const std::string& ct
         }
         out[i] = *v;
     }
+}
+
+// A number (the same for all channels) or an [r, g, b] array.
+glm::dvec3 get_rgb_or(const toml::table& t, std::string_view key, const std::string& ctx, glm::dvec3 fallback)
+{
+    if (const auto v = t[key].value<double>()) {
+        return glm::dvec3(*v);
+    }
+    if (!t.contains(key)) {
+        return fallback;
+    }
+    double rgb[3];
+    get_array(t, key, ctx, rgb, 3, 3);
+    return glm::dvec3(rgb[0], rgb[1], rgb[2]);
+}
+
+// [bodies.atmosphere]: optical depths at 550 nm, scaled to the display
+// channels as lambda^-4 (gas) and lambda^-haze_angstrom (haze).
+Atmosphere parse_atmosphere(const toml::table& t, const std::string& ctx)
+{
+    Atmosphere a;
+    a.enabled = true;
+    a.height_km = get_double(t, "height_km", ctx);
+    a.deck_altitude_km = get_double_or(t, "deck_altitude_km", 0.0);
+    const double rayleigh = get_double_or(t, "rayleigh_depth", 0.0);
+    const double haze = get_double_or(t, "haze_depth", 0.0);
+    const double angstrom = get_double_or(t, "haze_angstrom", 0.0);
+    for (int c = 0; c < 3; ++c) {
+        const double x = kChannelWavelengthsNm[c] / 550.0;
+        a.rayleigh_depth[c] = rayleigh * std::pow(x, -4.0);
+        a.haze_depth[c] = haze * std::pow(x, -angstrom);
+    }
+    a.rayleigh_scale_height_km = rayleigh > 0.0 ? get_double(t, "rayleigh_scale_height_km", ctx) : 1.0;
+    a.haze_scale_height_km = haze > 0.0 ? get_double(t, "haze_scale_height_km", ctx) : 1.0;
+    a.haze_albedo = get_rgb_or(t, "haze_albedo", ctx, glm::dvec3(1.0));
+    a.haze_g = get_double_or(t, "haze_g", 0.0);
+    a.gain = get_double_or(t, "gain", 1.0);
+    if (!(a.height_km > 0.0) || a.deck_altitude_km < 0.0 || rayleigh < 0.0 || haze < 0.0 ||
+        !(a.rayleigh_scale_height_km > 0.0) || !(a.haze_scale_height_km > 0.0) || a.gain < 0.0) {
+        fail(ctx, "height_km and scale heights must be positive; depths, deck_altitude_km and gain non-negative");
+    }
+    if (std::abs(a.haze_g) >= 1.0 || glm::any(glm::lessThan(a.haze_albedo, glm::dvec3(0.0))) ||
+        glm::any(glm::greaterThan(a.haze_albedo, glm::dvec3(1.0)))) {
+        fail(ctx, "|haze_g| must be < 1 and haze_albedo within 0..1");
+    }
+    return a;
 }
 
 glm::vec3 parse_color(const toml::table& t, std::string_view key, const std::string& ctx, glm::vec3 fallback)
@@ -691,6 +738,13 @@ void Loader::parse(const toml::table& root, Scene& out)
             if (!body.rings.bands.empty()) {
                 rasterize_ring_bands(body.rings, kBandProfileSamples);
             }
+        }
+
+        if (const toml::table* atmosphere = (*t)["atmosphere"].as_table()) {
+            if (body.kind != BodyKind::Planet || body.shape) {
+                fail(ctx, "only ellipsoidal planets and moons can have an atmosphere");
+            }
+            body.atmosphere = parse_atmosphere(*atmosphere, ctx + " atmosphere");
         }
 
         if (const toml::table* orbit = (*t)["orbit"].as_table()) {

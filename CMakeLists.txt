@@ -71,6 +71,8 @@ astraxis_set_warnings(astraxis_sim)
 # --- Shaders ---------------------------------------------------------------
 
 astraxis_add_shaders(astraxis_shaders
+    shaders/atmosphere.vert.hlsl
+    shaders/atmosphere.frag.hlsl
     shaders/beam.vert.hlsl
     shaders/beam.frag.hlsl
     shaders/belt.vert.hlsl
@@ -105,6 +107,8 @@ add_executable(astraxis
     src/platform/paths.hpp
     src/platform/window.cpp
     src/platform/window.hpp
+    src/render/atmosphere_pass.cpp
+    src/render/atmosphere_pass.hpp
     src/render/beam_pass.cpp
     src/render/beam_pass.hpp
     src/render/belt_pass.cpp

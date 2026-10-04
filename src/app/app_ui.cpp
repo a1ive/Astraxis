@@ -337,6 +337,12 @@ void App::build_control_panel()
         ImGui::SameLine();
         ImGui::Checkbox("Belts", &m_show_belts);
     }
+    if (std::any_of(m_scene.bodies.begin(), m_scene.bodies.end(),
+                    [](const Body& b) { return b.atmosphere.enabled; })) {
+        ImGui::SameLine();
+        ImGui::Checkbox("Atmospheres", &m_show_atmospheres);
+        ImGui::SetItemTooltip("Off: the surface under the clouds (Venus: Magellan radar; Titan: Cassini ISS) (M)");
+    }
     ImGui::SameLine();
     ImGui::Checkbox("ImGui demo", &m_show_demo);
     ImGui::SetNextItemWidth(160.0f * ImGui::GetStyle().FontScaleDpi);

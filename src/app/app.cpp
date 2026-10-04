@@ -124,7 +124,7 @@ bool App::init(const LaunchOptions& options)
 
     const SceneTargetFormat& format = m_renderer.scene_format();
     if (!m_starfield.init(m_renderer.device(), format, catalog) || !m_bodies.init(m_renderer.device(), format) ||
-        !m_rings.init(m_renderer.device(), format) ||
+        !m_rings.init(m_renderer.device(), format) || !m_atmospheres.init(m_renderer.device(), format) ||
         !m_orbits.init(m_renderer.device(), format) || !m_belts.init(m_renderer.device(), format) ||
         !m_sun.init(m_renderer.device(), format) || !m_beams.init(m_renderer.device(), format) ||
         !m_black_hole.init(m_renderer.device(), format) ||
@@ -244,6 +244,7 @@ void App::shutdown()
     m_orbits.shutdown();
     m_belts.shutdown();
     m_rings.shutdown();
+    m_atmospheres.shutdown();
     m_bodies.shutdown();
     m_starfield.shutdown();
     m_renderer.shutdown();
@@ -353,6 +354,9 @@ void App::handle_key(const SDL_Event& event)
         break;
     case SDLK_I:
         m_show_info = !m_show_info;
+        break;
+    case SDLK_M:
+        m_show_atmospheres = !m_show_atmospheres;
         break;
     case SDLK_LEFTBRACKET:
         m_clock.warp = std::max(1.0, m_clock.warp / 2.0);
@@ -775,6 +779,8 @@ void App::build_body_items()
 {
     m_body_items.clear();
     m_ring_items.clear();
+    m_atmosphere_items.clear();
+    m_atmosphere_optics.resize(m_scene.bodies.size());
     const glm::dvec3& cam = m_view.position;
     const int star = m_scene.star_index();
     const double sun_radius = star >= 0 ? m_scene.bodies[static_cast<size_t>(star)].equatorial_radius_km : kSunRadiusKm;
@@ -795,12 +801,17 @@ void App::build_body_items()
         if (!body.visible || !drawable) {
             continue;
         }
-        const glm::vec3 radii(static_cast<float>(body.equatorial_radius_km),
-                              static_cast<float>(body.equatorial_radius_b_km),
-                              static_cast<float>(body.polar_radius_km));
+        // An atmosphere with an opaque deck shows the deck (in the body's
+        // color) instead of the surface.
+        const Atmosphere& atmosphere = body.atmosphere;
+        const bool show_atmosphere = m_show_atmospheres && atmosphere.enabled;
+        const double deck_km = show_atmosphere ? atmosphere.deck_altitude_km : 0.0;
+        const glm::dvec3 radii_km = glm::dvec3(body.equatorial_radius_km, body.equatorial_radius_b_km,
+                                               body.polar_radius_km) + deck_km;
+        const glm::vec3 radii(radii_km);
 
         BodyDrawItem item;
-        if (i < m_body_textures.size() && m_body_textures[i]) {
+        if (i < m_body_textures.size() && m_body_textures[i] && deck_km <= 0.0) {
             // East longitude of the map's left edge (a west-positive map is mirrored via flip_u).
             item.texture = m_body_textures[i];
             item.flip_u = body.texture_west_positive;
@@ -868,6 +879,36 @@ void App::build_body_items()
             item.light2_direction = glm::vec3(to_second / second_distance);
             item.light2_angular_radius = static_cast<float>(second.equatorial_radius_km / second_distance);
             item.light2_color = glm::vec3(tint * (stars[1].relative_flux / luminance));
+        }
+
+        if (show_atmosphere) {
+            // In units of the base radius (the shell's unit sphere).
+            const double base_km = radii_km.x;
+            AtmosphereOptics& optics = m_atmosphere_optics[i];
+            optics.rayleigh_depth = glm::vec3(atmosphere.rayleigh_depth);
+            optics.rayleigh_scale_height = static_cast<float>(atmosphere.rayleigh_scale_height_km / base_km);
+            optics.haze_attenuation =
+                glm::vec3(atmosphere.haze_depth * (1.0 - atmosphere.haze_albedo * atmosphere.haze_g));
+            optics.haze_scale_height = static_cast<float>(atmosphere.haze_scale_height_km / base_km);
+            optics.haze_scattering = glm::vec3(atmosphere.haze_depth * atmosphere.haze_albedo);
+            optics.haze_g = static_cast<float>(atmosphere.haze_g);
+            item.atmosphere = &optics;
+
+            const glm::dmat3 linear = body.orientation * glm::dmat3(glm::dvec3(radii_km.x, 0.0, 0.0),
+                                                                    glm::dvec3(0.0, radii_km.y, 0.0),
+                                                                    glm::dvec3(0.0, 0.0, radii_km.z));
+            const glm::dmat3 to_unit = glm::inverse(linear);
+            AtmosphereDrawItem shell;
+            shell.model = glm::translate(glm::mat4(1.0f), to_render(body.world_position, cam)) *
+                          glm::mat4(glm::mat3(linear));
+            shell.to_unit = glm::mat3(to_unit);
+            shell.camera_unit = glm::vec3(to_unit * (cam - body.world_position));
+            shell.top = static_cast<float>(1.0 + atmosphere.height_km / base_km);
+            shell.sun_direction = item.sun_direction;
+            shell.sun_angular_radius = item.sun_angular_radius;
+            shell.optics = optics;
+            shell.gain = static_cast<float>(atmosphere.gain);
+            m_atmosphere_items.push_back(shell);
         }
 
         SDL_GPUTexture* ring_texture = i < m_ring_textures.size() ? m_ring_textures[i] : nullptr;
@@ -1051,6 +1092,7 @@ void App::render()
         SunLight sun;
         sun.ambient = kAmbient;
         m_bodies.draw(frame.cmd, pass, m_view, sun, m_body_items);
+        m_atmospheres.draw(frame.cmd, pass, m_view, m_atmosphere_items);
         m_rings.draw(frame.cmd, pass, m_view, m_ring_items);
         build_belt_items();
         m_belts.draw(frame.cmd, pass, m_view, m_belt_items);

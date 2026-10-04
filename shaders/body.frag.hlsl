@@ -2,8 +2,10 @@
 // of a circumbinary planet), soft eclipse shadows from other bodies (each star
 // treated as a disk), the shadow of the planet's own rings,
 // procedural gas-giant bands (Jupiter-like, Saturn-like) and a procedural
-// battle station.
+// battle station. Under an atmosphere, sunlight is reddened by the column it
+// crosses (the twilight band at the terminator).
 
+#include "atmosphere.hlsli"
 #include "common.hlsli"
 
 #define MAX_OCCLUDERS 8
@@ -29,6 +31,8 @@ cbuffer Uniforms : register(b0, space3)
     float4 u_ring_center;              // xyz = camera-relative center of the ring plane, w = 1 if it has rings
     float4 u_ring_normal;              // xyz = ring plane normal (unit)
     float4 u_ring_radii;               // x = inner, y = outer radius of the profile (km), z = profile samples
+    float4 u_atmo_rayleigh;            // atmosphere: rgb = vertical optical depth, w = scale height (radii; 0 = none)
+    float4 u_atmo_haze;                // rgb = vertical attenuation optical depth, w = scale height
 };
 
 struct PSInput
@@ -141,6 +145,16 @@ float star_light(float3 p, float3 n, float3 L, float light_radius)
     float ndl = dot(n, L);
     float diffuse = saturate(ndl) * smoothstep(-0.05, 0.05, ndl);
     return diffuse * eclipse_factor(p, L, light_radius) * ring_t;
+}
+
+// Fraction of sunlight (per channel) that reaches the surface through the
+// atmosphere, with mu the cosine of the sun's zenith angle.
+float3 atmosphere_transmission(float mu)
+{
+    if (u_atmo_rayleigh.w <= 0.0) {
+        return 1.0;
+    }
+    return exp(-sun_optical_depth(1.0, mu, u_atmo_rayleigh, u_atmo_haze));
 }
 
 float hash21(float2 q)
@@ -273,9 +287,10 @@ float4 main(PSInput input) : SV_Target0
     albedo *= input.albedo;
     float limb = gas_giant || saturn ? lerp(0.65, 1.0, pow(saturate(dot(n, V)), 0.4)) : 1.0;
 
-    float3 lit = star_light(input.rel_pos, n, L, u_sun.w);
+    float3 lit = star_light(input.rel_pos, n, L, u_sun.w) * atmosphere_transmission(dot(n, L));
     if (any(u_light2_color.rgb > 0.0)) {
-        lit += u_light2_color.rgb * star_light(input.rel_pos, n, u_light2.xyz, u_light2.w);
+        lit += u_light2_color.rgb * star_light(input.rel_pos, n, u_light2.xyz, u_light2.w) *
+               atmosphere_transmission(dot(n, u_light2.xyz));
     }
 
     float3 color = albedo * (lit * limb + u_params.y);

@@ -2541,6 +2541,104 @@ void test_orbit_center()
 }
 
 // Masses shown in the info panel (body_gm_km3_s2).
+// Atmospheres: per-channel optical depths from the 550 nm values, Earth's
+// against Bruneton's Rayleigh formula, Pluto's haze phase function against
+// the New Horizons phase ratios, the same parameters in every scene, and the
+// loader's checks.
+void test_atmospheres()
+{
+    const Scene scene = load_scene_or_die("solar_system.toml");
+    auto atmosphere = [&](const char* name) -> const Atmosphere& {
+        return scene.bodies[static_cast<size_t>(scene.find(name))].atmosphere;
+    };
+    for (const char* name : {"Earth", "Venus", "Mars", "Titan", "Pluto", "Triton"}) {
+        check(atmosphere(name).enabled, name);
+    }
+    check(!atmosphere("Moon").enabled && !atmosphere("Jupiter").enabled, "no atmosphere on the Moon and Jupiter");
+
+    // Bruneton 2017 (demo.cc): beta_R = 1.24062e-6 lambda^-4 m^-1 (lambda in um), H_R = 8 km.
+    const Atmosphere& earth = atmosphere("Earth");
+    double worst = 0.0;
+    for (int c = 0; c < 3; ++c) {
+        const double um = kChannelWavelengthsNm[c] / 1000.0;
+        const double expected = 1.24062e-6 * std::pow(um, -4.0) * 8000.0;
+        worst = std::max(worst, std::abs(earth.rayleigh_depth[c] / expected - 1.0));
+    }
+    check(worst < 1e-3, "Earth Rayleigh depths match Bruneton's formula", worst);
+    check(std::abs(earth.haze_depth.r - earth.haze_depth.b) < 1e-12, "Earth aerosols are gray (alpha = 0)");
+
+    // Titan: opacity ~ lambda^-2.34 above 80 km (Tomasko et al. 2008).
+    const Atmosphere& titan = atmosphere("Titan");
+    const double ratio = titan.haze_depth.b / titan.haze_depth.r;
+    check(std::abs(ratio - std::pow(440.0 / 680.0, -2.34)) < 1e-9, "Titan haze Angstrom exponent", ratio);
+    // Triton: scattering optical depth ~ lambda^-2 (Ohno et al. 2021), haze to ~30 km inside the shell.
+    const Atmosphere& triton = atmosphere("Triton");
+    check(std::abs(triton.haze_depth.b / triton.haze_depth.r - std::pow(440.0 / 680.0, -2.0)) < 1e-9 &&
+              triton.height_km >= 30.0,
+          "Triton haze");
+    check(titan.deck_altitude_km == 80.0 && atmosphere("Venus").deck_altitude_km == 74.0, "deck altitudes");
+
+    // Pluto: Henyey-Greenstein ratio between 167 and 20 deg phase (scattering angles
+    // 13 and 160 deg) within the haze I/F ratios of Cheng et al. 2017, Table 4
+    // (peak: 0.3 / 0.02 = 15; at 45 km: 0.15 / 0.004 = 37).
+    const double g = atmosphere("Pluto").haze_g;
+    auto hg = [g](double theta_deg) {
+        const double d = 1.0 + g * g - 2.0 * g * std::cos(theta_deg * kDegToRad);
+        return (1.0 - g * g) / (d * std::sqrt(d));
+    };
+    const double pluto_ratio = hg(13.0) / hg(160.0);
+    check(pluto_ratio > 15.0 && pluto_ratio < 37.0, "Pluto haze forward/back ratio", pluto_ratio);
+
+    // Scenes that repeat a body carry the same atmosphere.
+    for (const char* file : {"earth_moon.toml", "jwst.toml", "mercury.toml", "parker.toml", "saturn.toml"}) {
+        const Scene other = load_scene_or_die(file);
+        for (const Body& b : other.bodies) {
+            const int k = scene.find(b.name);
+            if (k < 0 || !scene.bodies[static_cast<size_t>(k)].atmosphere.enabled) {
+                continue;
+            }
+            const Atmosphere& a = b.atmosphere;
+            const Atmosphere& ref = scene.bodies[static_cast<size_t>(k)].atmosphere;
+            check(a.enabled && a.height_km == ref.height_km && a.deck_altitude_km == ref.deck_altitude_km &&
+                      a.rayleigh_depth == ref.rayleigh_depth && a.haze_depth == ref.haze_depth &&
+                      a.haze_albedo == ref.haze_albedo && a.haze_g == ref.haze_g &&
+                      a.haze_scale_height_km == ref.haze_scale_height_km &&
+                      b.texture == scene.bodies[static_cast<size_t>(k)].texture,
+                  (std::string(file) + ": " + b.name + " atmosphere as in solar_system.toml").c_str());
+        }
+    }
+
+    std::string error;
+    Scene bad;
+    const char* head = R"(name = 'x'
+[[bodies]]
+)";
+    auto bad_scene = [&](const char* body) {
+        return !load_scene_string(std::string(head) + body, "bad_atmosphere", bad, &error);
+    };
+    check(bad_scene(R"(name = 'S'
+kind = 'star'
+radii_km = [1.0]
+[bodies.atmosphere]
+height_km = 1.0
+)"),
+          "rejects an atmosphere on a star");
+    check(bad_scene(R"(name = 'P'
+radii_km = [1.0]
+[bodies.atmosphere]
+height_km = 1.0
+haze_depth = 0.1
+)") && error.find("haze_scale_height_km") != std::string::npos,
+          "requires a haze scale height");
+    check(bad_scene(R"(name = 'P'
+radii_km = [1.0]
+[bodies.atmosphere]
+height_km = 1.0
+haze_albedo = [0.5, 1.5, 0.5]
+)"),
+          "rejects a haze albedo above 1");
+}
+
 void test_body_masses()
 {
     // The planets' own GM ([SPHY], from the satellite ephemerides) plus their
@@ -2730,6 +2828,7 @@ int main()
     test_satellite_fades();
     test_orbit_center();
     test_body_masses();
+    test_atmospheres();
     for (uint32_t seed : {42u, 7u, 2026u, 99u, 12345u}) {
         test_camera_director("jupiter.toml", 3600.0, 20.0, seed);
     }

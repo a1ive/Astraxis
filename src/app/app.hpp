@@ -2,6 +2,7 @@
 
 #include "core/sim_clock.hpp"
 #include "platform/window.hpp"
+#include "render/atmosphere_pass.hpp"
 #include "render/beam_pass.hpp"
 #include "render/belt_pass.hpp"
 #include "render/black_hole_pass.hpp"
@@ -83,6 +84,7 @@ private:
     Renderer m_renderer;
     StarfieldPass m_starfield;
     BodyPass m_bodies;
+    AtmospherePass m_atmospheres;
     RingPass m_rings;
     OrbitLinePass m_orbits;
     BeltPass m_belts;
@@ -125,6 +127,7 @@ private:
     bool m_show_ui = true;
     bool m_show_orbits = true;
     bool m_show_belts = true;
+    bool m_show_atmospheres = true; // otherwise the surface under Venus' and Titan's clouds
     bool m_show_labels = true;
     bool m_show_info = true;
     bool m_show_demo = false;
@@ -142,6 +145,8 @@ private:
     // Per-frame scratch.
     std::vector<BodyDrawItem> m_body_items;
     std::vector<RingDrawItem> m_ring_items;
+    std::vector<AtmosphereDrawItem> m_atmosphere_items;
+    std::vector<AtmosphereOptics> m_atmosphere_optics; // per body (BodyDrawItem::atmosphere points here)
     std::vector<BeltDrawItem> m_belt_items;
     std::vector<int> m_belt_ids;          // per scene belt: BeltPass index (-1: not uploaded)
     std::vector<float> m_belt_reference_h; // per scene belt: median absolute magnitude

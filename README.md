@@ -93,6 +93,7 @@ astraxis --scene sgr_a --event 1
 | `N` | Jump to the current time |
 | `A` | Toggle auto tour (starts by itself after 60 s idle) |
 | `O` / `L` | Toggle orbits / labels |
+| `M` | Toggle atmospheres |
 | `H` / `F1` | Toggle UI |
 | `Esc` | Quit |
 

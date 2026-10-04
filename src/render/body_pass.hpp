@@ -1,5 +1,6 @@
 #pragma once
 
+#include "render/atmosphere_pass.hpp"
 #include "render/renderer.hpp"
 #include "scene/camera.hpp"
 
@@ -43,6 +44,9 @@ struct BodyDrawItem {
     float ring_inner_km = 0.0f;
     float ring_outer_km = 0.0f;
     float ring_samples = 1.0f;
+    // The atmosphere above the surface (or deck), which reddens the sunlight
+    // reaching it (null: none).
+    const AtmosphereOptics* atmosphere = nullptr;
 };
 
 struct SunLight {
