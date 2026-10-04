@@ -23,8 +23,9 @@
 | `charon.jpg` | USGS Astrogeology，Charon New Horizons LORRI/MVIC Global Mosaic 300m（2017-07，`Charon_NewHorizons_Global_Mosaic_300m_Jul2017_8bit.tif`，灰度） | 公有领域 |
 | `mercury.jpg` | USGS Astrogeology，Mercury MESSENGER MDIS Global Mosaic 250m（2013-05，750 nm 单色，NAC/WAC，含两极平均拼接图），<https://astrogeology.usgs.gov/search/map/mercury_messenger_mdis_global_mosaic_250m> | 公有领域（请引用作者） |
 | `mars.jpg` | USGS Astrogeology，Mars Viking Global Color Mosaic 925m（约 1000 幅海盗号轨道器红、紫滤镜图像，Minnaert 光度归一化，扣除雾霾模型后着色），<https://astrogeology.usgs.gov/search/map/mars_viking_global_color_mosaic_925m> | 公有领域 |
-| `phobos.jpg` | USGS Astrogeology，Phobos Viking Global Mosaic 5m（Phil Stooke，以海盗号高分辨率图像为主，补充其他飞船的图像，DLR 控制网；`Phobos_Viking_Mosaic_40ppd_DLRcontrol.tif`），<https://astrogeology.usgs.gov/search/map/phobos_viking_global_mosaic_5m> | 公有领域（请引用作者） |
+| `phobos.jpg` | P. C. Thomas，Phobos 影像拼接图（海盗号轨道器图像，高通滤波，用形状模型控制位置；每度 16 像素，5760×2880），PDS SBN “Small Body Optical Shape Models” V1.0，`data/m1phobosm.fit`，<https://sbnarchive.psi.edu/pds4/non_mission/ast-sat.thomas.shape-models_V1_0/> | PDS 存档数据，公有领域（请引用数据集与作者） |
 | `vesta.jpg` | USGS Astrogeology / DLR，Vesta Dawn FC HAMO Global Mosaic 60m（黎明号分幅相机，约 2500 幅清晰滤镜图像），<https://astrogeology.usgs.gov/search/map/vesta_dawn_fc_hamo_global_mosaic_60m> | 公有领域（请引用作者） |
+| `deimos.jpg` | P. C. Thomas，Deimos 影像拼接图（海盗号轨道器图像，高通滤波，用形状模型控制位置；每度 4 像素，1440×720），PDS SBN “Small Body Optical Shape Models” V1.0，`data/m2deimosm.fit`，<https://sbnarchive.psi.edu/pds4/non_mission/ast-sat.thomas.shape-models_V1_0/> | PDS 存档数据，公有领域（请引用数据集与作者） |
 | `ceres.jpg` | USGS Astrogeology / DLR，Ceres Dawn FC Global Mosaic 400m（2015-10，`Ceres_Dawn_FC_DLR_global_20ppd_Oct2015.tif`），<https://astrogeology.usgs.gov/search/map/ceres_dawn_fc_global_mosaic_400m> | 公有领域（请引用作者） |
 
 原始下载地址：
@@ -46,9 +47,9 @@
   - `Charon_NewHorizons_Global_Mosaic_300m_Jul2017_8bit.tif`（77 MB）。
   - `Mercury_MESSENGER_mosaic_global_250m_2013.tif`（1.9 GB）。
   - `Mars_Viking_ClrMosaic_global_925m.tif`（798 MB）。
-  - `Phobos_Viking_Mosaic_40ppd_DLRcontrol.tif`（104 MB）。
   - `Vesta_Dawn_FC_HAMO_Mosaic_Global_74ppd.tif`（357 MB）。
   - `Ceres_Dawn_FC_DLR_global_20ppd_Oct2015.tif`（27 MB）。
+- Phobos、Deimos：<https://sbnarchive.psi.edu/pds4/non_mission/ast-sat.thomas.shape-models_V1_0/data/m1phobosm.fit>（17 MB）、`m2deimosm.fit`（1 MB），8 位 FITS。
 - 天王星卫星：<https://space.jpl.nasa.gov/tmaps/pix/ura1vuu2.tif> .. `ura5vuu2.tif`（各 0.2 至 0.4 MB；1 Ariel、2 Umbriel、3 Titania、4 Oberon、5 Miranda）。
 
 ## 经度约定
@@ -79,17 +80,18 @@
 - Triton 使用旅行者号滤镜合成图像的偏绿色调。
 
 - 类地行星与小天体（以下都是标签为 PositiveEast、行星中心纬度的图，经过地貌核对）：
-  - Mercury、Mars、Phobos、Vesta：经度域 −180..180，左边缘 −180°E。Mercury 用 Caloris 盆地（31.5°N 162.7°E）核对，图里约 14°W 处有一条竖带是 USGS 用高入射角图像补的缺口（阴影明显）。Mars 用 Olympus Mons（18°N 226°E）、Hellas（42°S 70°E）、Syrtis Major 核对。Phobos 的 Stickney 坑在约 55°W（Gazetteer 为 49°W 附近；不规则天体投影到球面，有几度出入）。
+  - Mercury、Mars、Vesta：经度域 −180..180，左边缘 −180°E。Mercury 用 Caloris 盆地（31.5°N 162.7°E）核对，图里约 14°W 处有一条竖带是 USGS 用高入射角图像补的缺口（阴影明显）。Mars 用 Olympus Mons（18°N 226°E）、Hellas（42°S 70°E）、Syrtis Major 核对。
   - Vesta 的经度是 Claudia″（Claudia Double Prime）系统，Claudia 坑在 146°E（USGS 页面说明）；场景用的 PCK W0 = 285.39° 正是这个系统（Dawn 重力数据集的坐标系文档 `VESTA_COORDINATES_131018` 列出了四种 Vesta 坐标系的 W0）。“雪人”三坑（Marcia、Calpurnia、Minucia）在约 340°E。
   - Ceres：经度域 0..360，左边缘 0°E。Occator 坑（19.8°N 239.3°E，IAU 系统，即 Kait 坑在 0°）落在图中对应位置，与 PCK 的 W0 = 170.65° 一致。
+- Phobos、Deimos（Thomas 拼接图，FITS）以 0°N 0°E 为中心，东经向右增加，左边缘 −180°E。这两点用 Phobos 拼接图核对：Stickney 在中心偏左约 48°（49°W），与形状模型里凹陷的中心（2°S 50°W）重合；Limtoc 在 10°S 54°W（Gazetteer：11°S 54°W）。标签写的是“Line Bottom to Top”，但只有按文件顺序把第一行放在最上（北），Limtoc 坑才落在 Stickney 中心以南（实际为 11°S 与 1°S），凹槽系统的位置也才与 USGS 的 Phobos 图一致。Deimos 用同一批工具制作，沿用同样的约定；它的地名（Swift、Voltaire）是 1973 年的坐标，控制网未知，无法用于核对。Phobos 有少量无数据区（一个小方块和零星点），Deimos 约 4% 的无数据区（纯黑，集中在一个经度段和南半球高纬）用 `fill_unimaged` 填成平淡表面。两张图都有来自低分辨率图像的区域，放大后模糊、有马赛克块（Phobos 的 Stickney 内部、Deimos 约一半经度）；高通滤波使对比度偏低。Deimos 原图宽 1440 像素，生成时放大到 2048。
 - Mercury 使用 2013 年的单色底图。备选的彩色拼接图（Global Color Mosaic 665m）将 1000/750/430 nm 映射到 RGB，属于增强假彩色，整体偏蓝，两极还有缺块和杂乱纹理，因此未选用。
-- Phobos 使用 Stooke 的海盗号拼接图。备选的 Mars Express SRC 拼接图（`Phobos_ME_SRC_Mosaic_Global_16ppd.tif`）含有原始图像的阴影和缺块，两侧边缘也无法衔接，因此未选用。
+- Phobos 使用 Thomas 拼接图，因为它与所用的形状模型共用控制网（见 `assets/shapes/SOURCES.md`）。试过的备选：USGS 的 Stooke 海盗号拼接图（`Phobos_Viking_Mosaic_40ppd_DLRcontrol.tif`）画面更清晰，但基于 DLR 的另一套控制网，地貌偏西约 5° 且各处不一；Mars Express SRC 拼接图（`Phobos_ME_SRC_Mosaic_Global_16ppd.tif`）含有原始图像的阴影和缺块，两侧边缘也无法衔接。
 - Vesta 的 HAMO 拼接图中，北纬 60° 以上处于极夜，纹理保留了这些区域的低亮度。Ceres 南纬约 82° 以南缺少数据，按同纬度均值填补。
-- Mercury、Phobos、Vesta、Ceres 的灰度图存为 JPEG，与其他卫星纹理一样用于反照率。这些图像的亮度经过拉伸，比实际反照率高得多，尤其是表面很暗的 Phobos 和 Ceres。
+- Mercury、Phobos、Deimos、Vesta、Ceres 的灰度图存为 JPEG，与其他卫星纹理一样用于反照率。这些图像的亮度经过拉伸，比实际反照率高得多，尤其是表面很暗的 Phobos 和 Ceres。
 
 场景文件用 `texture_left_lon_deg` 指定图像左边缘的东经。
 
-纹理坐标按行星中心经纬度计算，即从天体中心指向表面的方向。这能让三轴椭球（Phobos、Vesta、Miranda、Ariel）上的地貌落在对应经纬度。单位球网格的参数经纬度与行星中心经纬度在 Vesta 上最多相差约 7°。
+纹理坐标按行星中心经纬度计算，即从天体中心指向表面的方向。这能让三轴椭球（Vesta、Miranda、Ariel）上的地貌落在对应经纬度。单位球网格的参数经纬度与行星中心经纬度在 Vesta 上最多相差约 7°。有形状模型的天体（Phobos、Deimos）按网格顶点的经纬度贴图。
 
 极区无数据像素的填补适用于 USGS 拼接图。完整地图跳过这一步，因为地球极地海洋等区域本来就暗，按暗像素识别缺失数据会误填这些区域。
 

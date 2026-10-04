@@ -207,15 +207,17 @@ void BodyPass::clear_meshes()
 }
 
 int BodyPass::add_mesh(std::span<const glm::vec3> positions, std::span<const glm::vec3> normals,
-                       std::span<const float> albedo, std::span<const uint32_t> indices)
+                       std::span<const float> albedo, std::span<const float> map_u,
+                       std::span<const uint32_t> indices)
 {
     if (positions.empty() || normals.size() != positions.size() || albedo.size() != positions.size() ||
-        indices.empty()) {
+        (!map_u.empty() && map_u.size() != positions.size()) || indices.empty()) {
         return -1;
     }
+    // The shader takes the map latitude from the vertex direction (uv.y is unused).
     std::vector<BodyVertex> vertices(positions.size());
     for (size_t k = 0; k < positions.size(); ++k) {
-        vertices[k] = {positions[k], normals[k], glm::vec2(0.0f), albedo[k]};
+        vertices[k] = {positions[k], normals[k], glm::vec2(map_u.empty() ? 0.0f : map_u[k], 0.0f), albedo[k]};
     }
     Mesh mesh;
     mesh.index_count = static_cast<uint32_t>(indices.size());

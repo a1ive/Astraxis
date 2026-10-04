@@ -4,6 +4,7 @@
 
 | 文件 | 来源 | 许可 |
 |---|---|---|
+| `phobos.mesh`、`deimos.mesh` | P. C. Thomas，“Small Body Optical Shape Models” V1.0（PDS SBN，`ast-sat.thomas.shape-models`，由 PDS3 数据集 EAR-A-5-DDR-SHAPE-MODELS-V2.1 迁移），<https://sbnarchive.psi.edu/pds4/non_mission/ast-sat.thomas.shape-models_V1_0/>，文件 `data/m1phobos.tab`、`data/m2deimos.tab`；Thomas 1993, Icarus 105, 326 | PDS 存档数据，公有领域（请引用数据集与作者） |
 | `arrokoth.mesh` | Porter, S. et al. 2024, “New Horizons Porter (2024) Arrokoth Shape Model Collection”，PDS Small Bodies Node，doi:[10.26007/97r3-1e19](https://doi.org/10.26007/97r3-1e19)，<https://pdssbn.astro.umd.edu/holdings/pds4-nh_derived-v3.0/arrokoth_shapemodel_porter2024/>；方法见同目录的 `porteretal2024b.pdf`（Porter et al. 2024, “The Shape of (486958) Arrokoth”） | NASA 新视野号项目的 PDS 数据，公有领域（请引用作者） |
 
 原始文件（同一目录下）：
@@ -11,7 +12,9 @@
 - `arrokoth_porter_2024_v01.obj`（3.7 MB）：20,484 个顶点、40,960 个三角面，原点为质心，轴为惯量主轴。
 - `albedo_arrokoth4_fp36h2_masked1.png`（0.2 MB）：反照率图，OBJ 的纹理坐标指向它。
 
-`tools/shapes/make_arrokoth.py` 将原始模型转换为 800 KB 的网格文件，依赖 Pillow。文件格式（小端）：`char[8] "AXMESH1\0"`、`uint32` 顶点数、`uint32` 三角形数，之后是每个顶点的 `float32` x、y、z（km），每个顶点的 `float32` 相对反照率，每个三角形 3 个 `uint32` 顶点索引（从外面看逆时针）。法线在加载时按面积加权平均算出。
+`tools/shapes/make_arrokoth.py` 将原始模型转换为 800 KB 的网格文件，依赖 Pillow。
+
+文件格式见 `tools/shapes/axmesh.py`（小端）：`char[8] "AXMESH2\0"`、`uint32` 顶点数、`uint32` 三角形数、`uint32` 标志（第 0 位：带地图坐标），之后是每个顶点的 `float32` x、y、z（km），每个顶点的 `float32` 相对反照率，（有标志时）每个顶点的 `float32` 地图 u（东经 / 360°，接缝处的顶点重复，取 0 和 1），每个三角形 3 个 `uint32` 顶点索引（从外面看逆时针）。法线在加载时按面积加权平均算出，位置完全相同的顶点（接缝、极点）共用一个法线。带地图坐标的网格可以在场景里同时写 `texture`：u 取自文件，纬度取自顶点方向（行星中心纬度）。
 
 ## Arrokoth
 
@@ -23,3 +26,17 @@
 - 反照率：PNG 是 FITS 数组上下翻转后的图像，按显示方向存储。OBJ 纹理坐标 v = 0 对应图像最下一行，符合 OBJ 的惯例。按这个方向采样，亮的“颈部”落在两瓣连接处。像素换算为 albedo = 像素 / 1361975.975 + 0.03188（标签）。新视野号拍到的部分约占 40% 的顶点，主要在南半球。其余顶点对应固定的掩膜值，转换工具从相邻已知顶点沿网格扩散填充，远处渐变到平均值。因此背面显示为平淡的表面。文件存储反照率与已知部分平均值（0.0438）的比值，范围为 0.74 至 1.83。
 - 颜色：场景使用示意颜色 `#a8604a`。Arrokoth 偏红，LORRI 是全色相机，图像本身无法给出这里使用的颜色。
 - 光照采用 Lambert 漫反射，自阴影尚未实现。太阳很低时，颈部的凹处也会被照亮。
+
+## Phobos 与 Deimos（Thomas 形状模型）
+
+- 形状：Thomas 的数值形状模型，只用海盗号轨道器的图像，按行星中心纬度 / 经度的网格给出半径（0° 和 360° 两列都有）。`tools/shapes/make_thomas_shape.py`（只用标准库）把网格原样转成网格文件，去掉极点处退化的三角形
+  - Phobos：2° 网格（91 × 181 个点），16,471 个顶点、32,040 个三角形，697 KB
+  - Deimos：5° 网格（37 × 73 个点），2,701 个顶点、5,040 个三角形，111 KB。标签注明 200°–355° 经度（西经）一带的误差约 400 m
+- **经度方向**：表里的经度是**西经**。依据是 Phobos 表：减去拟合的三轴椭球后，49° 处有清楚的陨石坑特征（坑内低约 0.7 km、外圈高起），311° 处没有；Stickney 坑在 49°W。网格里换成东经（u = 东经 / 360°）。形状里 Stickney 凹陷的中心在 2°S 50°W；网格里该处 12° 以内的平均半径比外圈低 1.12 km，镜像位置 50°E 没有（`test_mars_moon_shapes`）
+- 体积与 JPL SSD 卫星物理参数表的平均半径（Archinal et al. 2018）对照（`test_mars_moon_shapes`）：
+  - Phobos：5748.7 km³，等体积半径 11.11 km，表中为 11.08 ± 0.04 km
+  - Deimos：1013.5 km³，等体积半径 6.23 km，表中为 6.2 ± 0.24 km
+- 两颗卫星的最长轴都指向火星（本初子午线），各轴的范围接近场景里 PCK 的三轴椭球（Deimos 沿 x / y / z 离中心最远约 8.4 / 6.7 / 5.8 km，PCK 为 7.8 × 6.0 × 5.1 km）。场景的 `radii_km` 仍用 PCK 值（影子、相机距离）
+- 自转参数：Deimos 的标签给出极轴 RA 316.65°、Dec 53.53°，W = 79.41° + 285.1618970°/天，与场景所用 PCK 的值一致，所以本初子午线相同
+- 纹理是同一数据集的拼接图 `m1phobosm.fit`、`m2deimosm.fit`（见 `assets/textures/SOURCES.md`），拼接时的位置就是用这些形状模型控制的。Phobos 原先用的 Stooke 拼接图（USGS）基于 DLR 的另一套控制网，地貌比形状模型偏西约 5°（Limtoc 在 12°S 59°W，Thomas 图和 IAU 地名为 11°S 54°W 左右），偏差各处不同，贴在形状上会错开，所以换掉了
+- Deimos 的 5° 网格很粗，近看外形是多面体状的；两颗卫星的光照都没有自身阴影

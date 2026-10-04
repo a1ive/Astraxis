@@ -15,7 +15,7 @@ struct VSInput
 {
     float3 position : TEXCOORD0; // unit sphere (ellipsoids) or km (meshes), body-fixed
     float3 normal   : TEXCOORD1; // before scaling
-    float2 uv       : TEXCOORD2; // unit sphere: east longitude / 360 deg, colatitude / 180 deg
+    float2 uv       : TEXCOORD2; // x = east longitude / 360 deg (y: colatitude / 180 deg, unused)
     float  albedo   : TEXCOORD3; // relative to the body color
 };
 
@@ -44,7 +44,8 @@ VSOutput main(VSInput input)
     // Maps are in planetocentric longitude and latitude: the direction of the
     // scaled point from the center, not the unit-sphere parameters (they differ
     // on a triaxial body by up to 7 deg for Vesta). The longitude correction is
-    // small and wrapped, so u stays continuous across the seam column.
+    // small and wrapped, so u stays continuous across the seam column. A mesh is
+    // unscaled, so its map u (that of its vertex direction) passes through.
     float3 q = input.position / u_inv_scale.xyz;
     float dlon = atan2(q.y, q.x) - atan2(input.position.y, input.position.x);
     dlon -= 2.0 * kPi * round(dlon / (2.0 * kPi));

@@ -26,9 +26,10 @@ Expected file names in <source_dir> (the default is 2048 px wide):
     Charon_NewHorizons_Global_Mosaic_300m_Jul2017_8bit.tif -> charon.jpg
     Mercury_MESSENGER_mosaic_global_250m_2013.tif    -> mercury.jpg
     Mars_Viking_ClrMosaic_global_925m.tif            -> mars.jpg
-    Phobos_Viking_Mosaic_40ppd_DLRcontrol.tif        -> phobos.jpg
+    m1phobosm.fit (PDS SBN, Thomas shape models)     -> phobos.jpg
     Vesta_Dawn_FC_HAMO_Mosaic_Global_74ppd.tif       -> vesta.jpg
     Ceres_Dawn_FC_DLR_global_20ppd_Oct2015.tif       -> ceres.jpg
+    m2deimosm.fit (PDS SBN, Thomas shape models)     -> deimos.jpg
 
 Requires Pillow. The USGS mosaics are 100-200 MB GeoTIFFs (up to ~190 Mpx), so
 the decompression-bomb guard is disabled and images are pre-reduced by an
@@ -73,9 +74,10 @@ MAPS = [
     ('Charon_NewHorizons_Global_Mosaic_300m_Jul2017_8bit.tif', 'charon.jpg', 'unimaged'),
     ('Mercury_MESSENGER_mosaic_global_250m_2013.tif', 'mercury.jpg', 'polar'),
     ('Mars_Viking_ClrMosaic_global_925m.tif', 'mars.jpg', False),
-    ('Phobos_Viking_Mosaic_40ppd_DLRcontrol.tif', 'phobos.jpg', 'polar'),
+    ('m1phobosm.fit', 'phobos.jpg', 'unimaged'),
     ('Vesta_Dawn_FC_HAMO_Mosaic_Global_74ppd.tif', 'vesta.jpg', False),
     ('Ceres_Dawn_FC_DLR_global_20ppd_Oct2015.tif', 'ceres.jpg', 'polar'),
+    ('m2deimosm.fit', 'deimos.jpg', 'unimaged'),
 ]
 
 
@@ -142,9 +144,33 @@ def fill_unimaged(img, max_value=2, rim=15, radius_fraction=0.02, blend=0.3):
     return Image.composite(img, fill, seam), filled
 
 
+def open_fits(path):
+    """An 8-bit, 2-D FITS image (Thomas' mosaics). Their labels say "Line Bottom to
+    Top", but the first row is the north edge: on the Phobos mosaic of the same set
+    the Limtoc crater only lies south of Stickney's center (as it does, 11 S vs
+    1 S) when the rows are kept in file order."""
+    with open(path, 'rb') as f:
+        data = f.read()
+    cards = {}
+    offset = 0
+    while True:
+        block = data[offset:offset + 2880].decode('ascii')
+        offset += 2880
+        for k in range(0, 2880, 80):
+            card = block[k:k + 80]
+            if '=' in card[:10]:
+                cards[card[:8].strip()] = card[10:].split('/')[0].strip()
+        if any(block[k:k + 80].startswith('END ') for k in range(0, 2880, 80)):
+            break
+    if cards.get('BITPIX') != '8' or cards.get('NAXIS') != '2':
+        sys.exit(f'{path}: expected an 8-bit 2-D FITS image')
+    w, h = int(cards['NAXIS1']), int(cards['NAXIS2'])
+    return Image.frombytes('L', (w, h), data[offset:offset + w * h])
+
+
 def prepare(src, dst, width, fill_gaps):
     height = width // 2
-    with Image.open(src) as img:
+    with (open_fits(src) if src.endswith('.fit') else Image.open(src)) as img:
         print(f'{os.path.basename(src)}: {img.size[0]}x{img.size[1]} {img.mode}')
         img = img.convert('RGB') if img.mode not in ('RGB', 'L') else img
         factor = max(1, min(img.size[0] // (width * 2), img.size[1] // (height * 2)))

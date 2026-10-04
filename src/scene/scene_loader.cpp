@@ -644,8 +644,8 @@ void Loader::parse(const toml::table& root, Scene& out)
             if (!load_shape_model(m_asset_root / shape, *model, &error)) {
                 fail(ctx, error);
             }
-            if (!body.texture.empty()) {
-                fail(ctx, "a body with a shape model takes its albedo from the model, not a texture");
+            if (!body.texture.empty() && model->map_u.empty()) {
+                fail(ctx, "this shape model has no map coordinates for a texture");
             }
             body.shape = std::move(model);
         }

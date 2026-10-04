@@ -433,7 +433,7 @@ bool App::load_scene(size_t index)
         const Body& body = m_scene.bodies[i];
         if (body.shape) {
             m_body_meshes[i] = m_bodies.add_mesh(body.shape->positions, body.shape->normals, body.shape->albedo,
-                                                 body.shape->indices);
+                                                 body.shape->map_u, body.shape->indices);
         }
         if (!body.rings.profile.empty()) {
             m_ring_textures[i] = create_profile_texture(m_renderer.device(), body.rings.profile);

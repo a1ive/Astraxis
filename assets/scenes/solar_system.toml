@@ -43,6 +43,10 @@
 #        c = 511.2 km, from 37 stellar occultations.
 # [SEDN] Pal et al. 2012, A&A 541, L6 (arXiv:1204.0899): diameter 995 +- 80 km.
 # [MARS] Marsset et al. 2020, Nature Astronomy 4, 569 (via [SBDB]): Pallas 568 x 532 x 448 km.
+# [THOM] Phobos and Deimos: P. C. Thomas, shape models and Viking Orbiter image mosaics
+#        (PDS SBN, Small Body Optical Shape Models, ast-sat.thomas.shape-models V1.0;
+#        Thomas 1993, Icarus 105, 326); equal-volume radii 11.11 / 6.23 km vs
+#        11.08 +- 0.04 / 6.2 +- 0.24 km in [SPHY].
 # [ARRO] Arrokoth: shape model of Porter et al. 2024 (PDS SBN, doi:10.26007/97r3-1e19;
 #        assets/shapes/SOURCES.md), 34.546 x 19.838 x 13.822 km (Table 2 of the paper);
 #        pole and prime meridian from the New Horizons PCK nh_arrokoth_002.tpc, which
@@ -233,14 +237,15 @@ node_deg = [49.71320984, -0.26852431]
 [[bodies]]
 name = "Phobos"
 parent = "Mars"
-radii_km = [13.0, 11.4, 9.1]               # [PCK], long axis toward Mars
+shape = "shapes/phobos.mesh"                # [THOM] 2-deg grid; assets/shapes/SOURCES.md
+radii_km = [13.0, 11.4, 9.1]               # [PCK], long axis toward Mars (shadows, camera distances)
 body_gm_km3_s2 = 0.0007087                 # [SPHY] (MAR097)
 pole_ra_dec_deg = [317.67071657, 52.88627266]  # [PCK]
 prime_meridian_deg = [35.18774440, 1128.84475928]
 pole_rate_deg_per_century = [-0.10844326, -0.06134706]
 color = "#7d746b"
 orbit_color = "#a0968c"
-texture = "textures/phobos.jpg"            # assets/textures/SOURCES.md
+texture = "textures/phobos.jpg"            # [THOM] Viking mosaic, assets/textures/SOURCES.md
 texture_left_lon_deg = -180.0
 [bodies.orbit]                             # [ELEM]
 type = "mean_elements"
@@ -259,13 +264,16 @@ laplace_pole_ra_dec_deg = [317.7, 52.9]
 [[bodies]]
 name = "Deimos"
 parent = "Mars"
-radii_km = [7.8, 6.0, 5.1]                 # [PCK]
+shape = "shapes/deimos.mesh"                # [THOM] 5-deg grid; assets/shapes/SOURCES.md
+radii_km = [7.8, 6.0, 5.1]                 # [PCK] (shadows, camera distances)
 body_gm_km3_s2 = 0.0000962                 # [SPHY] (MAR097)
 pole_ra_dec_deg = [316.65705808, 53.50992033]  # [PCK]
 prime_meridian_deg = [79.39932954, 285.16188899]
 pole_rate_deg_per_century = [-0.10518014, -0.05979094]
 color = "#8f857a"
 orbit_color = "#b0a698"
+texture = "textures/deimos.jpg"            # [THOM] Viking mosaic, assets/textures/SOURCES.md
+texture_left_lon_deg = -180.0
 [bodies.orbit]                             # [ELEM]
 type = "mean_elements"
 a_km = 23457.0

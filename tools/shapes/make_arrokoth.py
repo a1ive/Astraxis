@@ -18,22 +18,17 @@ away, so the unseen side renders as a plain surface. The albedo is stored
 relative to the mean of the imaged part (the scene's color sets the tint and
 overall brightness).
 
-Output format (little endian), see src/scene/shape_model.cpp:
-    char[8]  magic "AXMESH1\\0"
-    uint32   vertex count
-    uint32   triangle count
-    float32  positions (x, y, z km) per vertex
-    float32  relative albedo per vertex
-    uint32   vertex indices (3 per triangle, counter-clockwise seen from outside)
+Output format: see axmesh.py (no map coordinates).
 
 Requires Pillow.
 """
 
 import os
-import struct
 import sys
 
 from PIL import Image
+
+from axmesh import write_mesh
 
 OBJ = 'arrokoth_porter_2024_v01.obj'
 ALBEDO = 'albedo_arrokoth4_fp36h2_masked1.png'
@@ -129,14 +124,7 @@ def main():
     print(f'imaged vertices: {imaged} ({100.0 * imaged / len(positions):.1f}%), mean albedo {mean:.5f}; '
           f'relative albedo {min(relative):.2f} .. {max(relative):.2f}')
 
-    os.makedirs(os.path.dirname(output) or '.', exist_ok=True)
-    with open(output, 'wb') as f:
-        f.write(b'AXMESH1\0')
-        f.write(struct.pack('<II', len(positions), len(triangles)))
-        f.write(struct.pack(f'<{3 * len(positions)}f', *(c for p in positions for c in p)))
-        f.write(struct.pack(f'<{len(relative)}f', *relative))
-        f.write(struct.pack(f'<{3 * len(triangles)}I', *(i for t in triangles for i in t)))
-    print(f'-> {output} ({os.path.getsize(output) // 1024} KB)')
+    write_mesh(output, positions, relative, triangles)
 
 
 if __name__ == '__main__':

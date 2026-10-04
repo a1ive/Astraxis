@@ -588,7 +588,19 @@ void test_solar_system_missions()
           "Jupiter in 1973 comes from the baked table, not the fallback");
 }
 
-// Solar System scene: the asteroid and Kuiper belts (two-body orbits from SBDB).
+// Signed volume of a closed mesh (positive: counter-clockwise seen from outside).
+double signed_volume(const ShapeModel& shape)
+{
+    double volume = 0.0;
+    for (size_t k = 0; k < shape.indices.size(); k += 3) {
+        const glm::dvec3 a(shape.positions[shape.indices[k]]);
+        const glm::dvec3 b(shape.positions[shape.indices[k + 1]]);
+        const glm::dvec3 c(shape.positions[shape.indices[k + 2]]);
+        volume += glm::dot(a, glm::cross(b, c)) / 6.0;
+    }
+    return volume;
+}
+
 // Arrokoth's shape model and pole against independent numbers in Porter et al. 2024,
 // Table 2: the volume (equal-volume diameter 19.896 km) and the pole's inclination to
 // the heliocentric orbit (100.39 deg) and to New Horizons' approach direction (41.096 deg).
@@ -614,18 +626,11 @@ void test_arrokoth_shape()
               std::abs(size.z - 2.0 * body.polar_radius_km) < 0.01,
           "Arrokoth radii are half its dimensions", body.equatorial_radius_km);
 
-    // Signed volume (positive: counter-clockwise seen from outside, a closed surface).
-    double volume = 0.0;
-    for (size_t k = 0; k < shape.indices.size(); k += 3) {
-        const glm::dvec3 a(shape.positions[shape.indices[k]]);
-        const glm::dvec3 b(shape.positions[shape.indices[k + 1]]);
-        const glm::dvec3 c(shape.positions[shape.indices[k + 2]]);
-        volume += glm::dot(a, glm::cross(b, c)) / 6.0;
-    }
-    const double d_equal = std::cbrt(6.0 * volume / kPi);
+    const double d_equal = std::cbrt(6.0 * signed_volume(shape) / kPi);
     check(std::abs(d_equal - 19.896) < 0.01, "Arrokoth equal-volume diameter (km)", d_equal);
     const auto [min_albedo, max_albedo] = std::minmax_element(shape.albedo.begin(), shape.albedo.end());
     check(*min_albedo > 0.5f && *max_albedo < 2.5f, "Arrokoth relative albedo range", *max_albedo);
+    check(shape.map_u.empty(), "Arrokoth's albedo is per vertex (no map coordinates)");
 
     auto angle_deg = [](const glm::dvec3& a, const glm::dvec3& b) {
         return std::acos(std::clamp(glm::dot(glm::normalize(a), glm::normalize(b)), -1.0, 1.0)) / kDegToRad;
@@ -644,6 +649,87 @@ void test_arrokoth_shape()
                 to_approach);
 }
 
+// Phobos and Deimos: Thomas' shape models (west longitudes in the tables, east in the
+// meshes) with map coordinates for their textures. Volumes against the mean radii in
+// JPL SSD's satellite physical parameters (Archinal et al. 2018), and Stickney (49 W)
+// as the check that the longitudes were turned around.
+void test_mars_moon_shapes()
+{
+    Scene scene = load_scene_or_die("solar_system.toml");
+    struct Moon {
+        const char* name;
+        double mean_radius_km; // [SPHY]
+        double tolerance_km;
+    };
+    for (const Moon& moon : {Moon{"Phobos", 11.08, 0.05}, Moon{"Deimos", 6.2, 0.1}}) {
+        const Body& body = scene.bodies[static_cast<size_t>(scene.find(moon.name))];
+        const std::string name = moon.name;
+        check(body.shape != nullptr && !body.texture.empty(), (name + " has a shape model and a texture").c_str());
+        if (!body.shape) {
+            continue;
+        }
+        const ShapeModel& shape = *body.shape;
+        check(shape.map_u.size() == shape.positions.size(), (name + " mesh has map coordinates").c_str());
+        const double r_equal = std::cbrt(3.0 * signed_volume(shape) / (4.0 * kPi));
+        check(std::abs(r_equal - moon.mean_radius_km) < moon.tolerance_km, (name + " equal-volume radius (km)").c_str(),
+              r_equal);
+
+        // Long axis toward Mars (the prime meridian), shortest along the pole, like the PCK ellipsoid.
+        glm::dvec3 extent(0.0);
+        for (const glm::vec3& p : shape.positions) {
+            extent = glm::max(extent, glm::abs(glm::dvec3(p)));
+        }
+        check(extent.x > extent.y && extent.y > extent.z, (name + " axes ordered x > y > z").c_str(), extent.x);
+        check(std::abs(extent.x - body.equatorial_radius_km) < 1.0, (name + " long axis near the PCK radius (km)").c_str(),
+              extent.x);
+
+        // Map u is the east longitude of the vertex direction (seam vertices: 0 or 1).
+        double worst = 0.0;
+        for (size_t k = 0; k < shape.positions.size(); ++k) {
+            const glm::vec3& p = shape.positions[k];
+            if (std::hypot(p.x, p.y) < 1e-3) {
+                continue; // poles
+            }
+            const double u = std::atan2(p.y, p.x) / (2.0 * kPi);
+            const double d = u - shape.map_u[k];
+            worst = std::max(worst, std::abs(d - std::round(d)));
+        }
+        check(worst < 1e-6, (name + " map u matches the vertex longitude").c_str(), worst);
+    }
+
+    // Stickney: the mean radius within 12 deg of its center is well below that of the
+    // surrounding ring at 2 S 50 W, and not at the mirrored 2 S 50 E.
+    const ShapeModel* phobos = scene.bodies[static_cast<size_t>(scene.find("Phobos"))].shape.get();
+    if (!phobos) {
+        return;
+    }
+    auto crater_depth = [&](double lon_east_deg) {
+        const double lat = -2.0 * kDegToRad, lon = lon_east_deg * kDegToRad;
+        const glm::dvec3 center(std::cos(lat) * std::cos(lon), std::cos(lat) * std::sin(lon), std::sin(lat));
+        double inner = 0.0, ring = 0.0;
+        int n_inner = 0, n_ring = 0;
+        for (const glm::vec3& p : phobos->positions) {
+            const double r = glm::length(glm::dvec3(p));
+            const double angle = std::acos(std::clamp(glm::dot(glm::dvec3(p) / r, center), -1.0, 1.0)) / kDegToRad;
+            if (angle < 12.0) {
+                inner += r;
+                ++n_inner;
+            } else if (angle > 16.0 && angle < 24.0) {
+                ring += r;
+                ++n_ring;
+            }
+        }
+        return ring / n_ring - inner / n_inner;
+    };
+    const double depth_west = crater_depth(-50.0);
+    const double depth_east = crater_depth(50.0);
+    check(depth_west > 0.5, "Stickney is a depression at 50 W (km)", depth_west);
+    check(depth_west > depth_east + 0.5, "no Stickney at the mirrored 50 E (km)", depth_east);
+    std::printf("info: Phobos mean radius within 12 deg of 2 S 50 W is %.2f km below the ring (50 E: %.2f km)\n",
+                depth_west, depth_east);
+}
+
+// Solar System scene: the asteroid and Kuiper belts (two-body orbits from SBDB).
 void test_solar_system_belts()
 {
     Scene scene = load_scene_or_die("solar_system.toml");
@@ -2536,6 +2622,7 @@ int main()
     test_solar_system_missions();
     test_solar_system_belts();
     test_arrokoth_shape();
+    test_mars_moon_shapes();
     test_parker_scene();
     test_jupiter_missions();
     test_earth_moon_scene();
