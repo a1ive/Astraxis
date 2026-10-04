@@ -2680,6 +2680,134 @@ haze_albedo = [0.5, 1.5, 0.5]
           "rejects a haze albedo above 1");
 }
 
+// Plumes: vents from the IAU Gazetteer (west longitudes converted to east),
+// the tiger stripes 30-36 km apart and perpendicular to the line through their
+// centers, surface points on the ellipsoid, the same plumes in every scene,
+// and the loader's checks.
+void test_plumes()
+{
+    const Scene scene = load_scene_or_die("solar_system.toml");
+    auto body = [&](const char* name) -> const Body& { return scene.bodies[static_cast<size_t>(scene.find(name))]; };
+    auto plume = [&](const Body& b, const char* name) -> const Plume* {
+        for (const Plume& p : b.plumes) {
+            if (p.name == name) {
+                return &p;
+            }
+        }
+        return nullptr;
+    };
+
+    const Plume* pele = plume(body("Io"), "Pele");
+    const Plume* tvashtar = plume(body("Io"), "Tvashtar");
+    check(pele && pele->type == Plume::Type::Umbrella && std::abs(pele->lat_lon_deg.y - (360.0 - 255.28)) < 1e-9 &&
+              pele->height_km == 300.0 && pele->radius_km == 600.0,
+          "Pele: 255.28 W, 300 km high, 1,200 km across");
+    check(tvashtar && std::abs(tvashtar->lat_lon_deg.y - (360.0 - 123.53)) < 1e-9 &&
+              tvashtar->radius_km == 2.0 * tvashtar->height_km,
+          "Tvashtar: 123.53 W, ballistic reach 2 H");
+
+    // Tiger stripes: midpoints near the Gazetteer centers, lengths, spacing and orientation.
+    const Body& enceladus = body("Enceladus");
+    const char* stripes[4] = {"Alexandria Sulcus", "Cairo Sulcus", "Baghdad Sulcus", "Damascus Sulcus"};
+    const double centers[4][2] = {{-75.63, 360.0 - 137.56}, {-81.62, 360.0 - 154.48},
+                                  {-86.91, 360.0 - 230.54}, {-80.59, 360.0 - 285.87}};
+    const double lengths[4] = {111.0, 165.0, 176.0, 125.0};
+    glm::dvec3 mid[4];
+    glm::dvec3 along[4];
+    bool ok = true;
+    for (int k = 0; k < 4; ++k) {
+        const Plume* p = plume(enceladus, stripes[k]);
+        if (!p || p->type != Plume::Type::Jets) {
+            ok = false;
+            continue;
+        }
+        const glm::dvec3 a = body_surface_point(enceladus, p->lat_lon_deg.x, p->lat_lon_deg.y);
+        const glm::dvec3 b = body_surface_point(enceladus, p->end_lat_lon_deg.x, p->end_lat_lon_deg.y);
+        // The chord's midpoint, raised to the surface (the sagitta is up to 15 km).
+        mid[k] = glm::normalize(a + b) * glm::length(body_surface_point(enceladus, centers[k][0], centers[k][1]));
+        along[k] = glm::normalize(b - a);
+        const glm::dvec3 c = body_surface_point(enceladus, centers[k][0], centers[k][1]);
+        ok = ok && glm::length(mid[k] - c) < 3.0 && std::abs(glm::length(b - a) / lengths[k] - 1.0) < 0.1;
+    }
+    check(ok, "tiger stripes centered on the Gazetteer centers, with their lengths");
+    double worst_spacing = 0.0;
+    double worst_angle = 0.0;
+    for (int k = 0; k + 1 < 4; ++k) {
+        const glm::dvec3 step = mid[k + 1] - mid[k];
+        worst_spacing = std::max(worst_spacing, std::abs(glm::length(step) - 33.0));
+        worst_angle = std::max(worst_angle, std::abs(glm::dot(glm::normalize(step), along[k])));
+    }
+    check(worst_spacing < 5.0, "tiger stripes ~35 km apart (km off)", worst_spacing);
+    check(worst_angle < 0.2, "tiger stripes perpendicular to the line of centers (cos)", worst_angle);
+
+    const Body& triton = body("Triton");
+    const Plume* hili = plume(triton, "Hili");
+    const Plume* mahilani = plume(triton, "Mahilani");
+    check(hili && mahilani && hili->type == Plume::Type::Geyser && hili->height_km == 8.0 &&
+              hili->tail_azimuth_deg == 270.0 && mahilani->lat_lon_deg == glm::dvec2(-50.5, 359.5),
+          "Triton's geysers: 8 km, tails to the west");
+
+    // Surface points lie on the ellipsoid; normals are unit and outward.
+    double worst_surface = 0.0;
+    for (const Body* b : {&body("Io"), &enceladus, &triton}) {
+        for (double lat = -80.0; lat <= 80.0; lat += 40.0) {
+            for (double lon = 0.0; lon < 360.0; lon += 60.0) {
+                const glm::dvec3 p = body_surface_point(*b, lat, lon);
+                const glm::dvec3 q = p / glm::dvec3(b->equatorial_radius_km, b->equatorial_radius_b_km, b->polar_radius_km);
+                const glm::dvec3 n = body_surface_normal(*b, p);
+                worst_surface = std::max({worst_surface, std::abs(glm::dot(q, q) - 1.0),
+                                          std::abs(glm::length(n) - 1.0), glm::dot(n, glm::normalize(p)) > 0.99 ? 0.0 : 1.0});
+            }
+        }
+    }
+    check(worst_surface < 1e-12, "surface points and normals", worst_surface);
+
+    for (const char* file : {"jupiter.toml", "saturn.toml"}) {
+        const Scene other = load_scene_or_die(file);
+        for (const Body& b : other.bodies) {
+            const int k = scene.find(b.name);
+            if (k < 0 || scene.bodies[static_cast<size_t>(k)].plumes.empty()) {
+                continue;
+            }
+            const std::vector<Plume>& ref = scene.bodies[static_cast<size_t>(k)].plumes;
+            bool same = b.plumes.size() == ref.size();
+            for (size_t i = 0; same && i < ref.size(); ++i) {
+                const Plume& x = b.plumes[i];
+                const Plume& y = ref[i];
+                same = x.name == y.name && x.type == y.type && x.lat_lon_deg == y.lat_lon_deg &&
+                       x.end_lat_lon_deg == y.end_lat_lon_deg && x.count == y.count && x.height_km == y.height_km &&
+                       x.radius_km == y.radius_km && x.spread_deg == y.spread_deg &&
+                       x.optical_depth == y.optical_depth && x.albedo == y.albedo && x.g == y.g;
+            }
+            check(same, (std::string(file) + ": " + b.name + " plumes as in solar_system.toml").c_str());
+        }
+    }
+
+    std::string error;
+    Scene bad;
+    const char* head = R"(name = 'x'
+[[bodies]]
+name = 'P'
+radii_km = [100.0]
+[[bodies.plumes]]
+name = 'v'
+lat_lon_deg = [0.0, 0.0]
+height_km = 10.0
+optical_depth = 0.1
+)";
+    auto bad_scene = [&](const char* rest) {
+        return !load_scene_string(std::string(head) + rest, "bad_plume", bad, &error);
+    };
+    check(bad_scene("type = 'fountain'\n"), "rejects an unknown plume type");
+    check(bad_scene("type = 'jets'\nend_lat_lon_deg = [1.0, 1.0]\ncount = 13\nspread_deg = 5.0\n"),
+          "rejects too many jets");
+    check(bad_scene("type = 'geyser'\nradius_km = 0.5\ntail_km = 10.0\n") &&
+              error.find("tail_azimuth_deg") != std::string::npos,
+          "requires a geyser's tail azimuth");
+    check(!bad_scene("type = 'umbrella'\n") && bad.bodies[0].plumes[0].radius_km == 20.0,
+          "umbrella radius defaults to 2 H");
+}
+
 void test_body_masses()
 {
     // The planets' own GM ([SPHY], from the satellite ephemerides) plus their
@@ -2871,6 +2999,7 @@ int main()
     test_orbit_center();
     test_body_masses();
     test_atmospheres();
+    test_plumes();
     for (uint32_t seed : {42u, 7u, 2026u, 99u, 12345u}) {
         test_camera_director("jupiter.toml", 3600.0, 20.0, seed);
     }

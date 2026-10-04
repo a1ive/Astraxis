@@ -17,6 +17,7 @@
 #        baseline prediction), Juno 2016-06-01 .. 2028-09-01 (reconstructed to 2026-08-24,
 #        then predictions), and the Galilean moons over both spans. Outside them the moons
 #        fade over one day into the mean-element model [ELEM], which drifts by degrees.
+# [PLM]  Plumes (always erupting): sources and choices in solar_system.toml.
 # [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
 # [STKS] P. Stooke, Stooke Small Body Shape Models V2.0 (PDS SBN, small_bodies.stooke.shape-models;
 #        EAR-A-5-DDR-STOOKE-SHAPE-MODELS-V2.0): Amalthea (Voyager; Stooke 1994, EMP 64, 87) and
@@ -131,6 +132,23 @@ orbit_color = "#f2cc66"
 texture = "textures/io.jpg"
 texture_left_lon_deg = -180.0
 
+[[bodies.plumes]]                          # [PLM]
+name = "Pele"
+type = "umbrella"
+lat_lon_deg = [-18.71, 104.72]             # 255.28 W
+height_km = 300.0
+radius_km = 600.0
+optical_depth = 0.02
+albedo = [0.85, 0.9, 1.0]
+g = 0.4
+[[bodies.plumes]]                          # [PLM]
+name = "Tvashtar"
+type = "umbrella"
+lat_lon_deg = [62.76, 236.47]              # 123.53 W
+height_km = 330.0
+optical_depth = 0.02
+albedo = [0.85, 0.9, 1.0]
+g = 0.4
 [bodies.orbit]                         # [HZN] 501, Juno span
 type = "ephemeris"
 file = "ephem/io_juno.eph"

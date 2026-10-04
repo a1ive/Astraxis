@@ -86,6 +86,8 @@ astraxis_add_shaders(astraxis_shaders
     shaders/body.frag.hlsl
     shaders/composite.frag.hlsl
     shaders/fullscreen.vert.hlsl
+    shaders/plume.vert.hlsl
+    shaders/plume.frag.hlsl
     shaders/orbit_line.vert.hlsl
     shaders/orbit_line.frag.hlsl
     shaders/ring.vert.hlsl
@@ -121,6 +123,8 @@ add_executable(astraxis
     src/render/gpu_buffer.hpp
     src/render/orbit_line_pass.cpp
     src/render/orbit_line_pass.hpp
+    src/render/plume_pass.cpp
+    src/render/plume_pass.hpp
     src/render/post_process.cpp
     src/render/post_process.hpp
     src/render/renderer.cpp

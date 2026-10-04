@@ -97,6 +97,156 @@ glm::vec3 to_render(const glm::dvec3& world, const glm::dvec3& camera)
     return glm::vec3(world - camera);
 }
 
+// Plumes (illustrative): base width of a jet, width of an umbrella's canopy
+// shell (in the ballistic parameter q, see plume.frag.hlsl), a geyser tail's
+// width at its e-folding length, and how far the boxes reach (in scale
+// heights / tail lengths).
+constexpr double kJetBaseKm = 2.0;
+constexpr double kUmbrellaShell = 0.25;
+constexpr double kTailWidthKm = 6.0;
+constexpr double kJetReach = 4.0;
+constexpr double kTailReach = 3.0;
+
+glm::dvec3 lat_lon_direction(const glm::dvec2& lat_lon_deg)
+{
+    const double lat = lat_lon_deg.x * kDegToRad;
+    const double lon = lat_lon_deg.y * kDegToRad;
+    return glm::dvec3(std::cos(lat) * std::cos(lon), std::cos(lat) * std::sin(lon), std::sin(lat));
+}
+
+glm::dvec3 surface_point_toward(const Body& body, const glm::dvec3& dir)
+{
+    const double lat = std::asin(std::clamp(dir.z, -1.0, 1.0)) / kDegToRad;
+    const double lon = std::atan2(dir.y, dir.x) / kDegToRad;
+    return body_surface_point(body, lat, lon);
+}
+
+// A plume's local frame in the body-fixed frame: origin at the surface point
+// in direction `dir`, z along the surface normal, x horizontal toward
+// azimuth `x_azimuth_deg` (from north through east; 90 = east), y = z cross x.
+struct PlumeFrame {
+    glm::dvec3 origin{0.0};
+    glm::dmat3 axes{1.0}; // columns x, y, z
+};
+
+PlumeFrame plume_frame(const Body& body, const glm::dvec3& dir, double x_azimuth_deg)
+{
+    PlumeFrame f;
+    f.origin = surface_point_toward(body, dir);
+    const glm::dvec3 up = body_surface_normal(body, f.origin);
+    glm::dvec3 east = glm::cross(glm::dvec3(0.0, 0.0, 1.0), up);
+    east = glm::length(east) > 1e-9 ? glm::normalize(east) : glm::dvec3(0.0, 1.0, 0.0);
+    const glm::dvec3 north = glm::cross(up, east);
+    const double a = x_azimuth_deg * kDegToRad;
+    const glm::dvec3 x = std::sin(a) * east + std::cos(a) * north;
+    f.axes = glm::dmat3(x, glm::cross(up, x), up);
+    return f;
+}
+
+// Grows an item's box (local frame) to hold a point widened by `radius`.
+void enclose(PlumeDrawItem& item, const glm::dvec3& p, double radius, bool first)
+{
+    const glm::vec3 lo(p - radius);
+    const glm::vec3 hi(p + radius);
+    item.box_min = first ? lo : glm::min(item.box_min, lo);
+    item.box_max = first ? hi : glm::max(item.box_max, hi);
+}
+
+// The draw items of one plume (a geyser has two: column and tail).
+// `occluders`: camera-relative centers (xyz) and radii (w).
+void add_plume_items(const Body& body, const Plume& plume, const glm::dvec3& camera, const glm::dvec3& sun_body,
+                     float sun_angular_radius, const glm::vec4* occluders, int occluder_count,
+                     std::vector<PlumeDrawItem>& out)
+{
+    auto make = [&](PlumeDrawItem::Type type, const PlumeFrame& f) {
+        const glm::dmat3 rot = body.orientation * f.axes; // local -> display
+        const glm::dmat3 to_local = glm::transpose(rot);
+        const glm::dvec3 vent = body.world_position + body.orientation * f.origin;
+        PlumeDrawItem item;
+        item.type = type;
+        item.model = glm::translate(glm::mat4(1.0f), glm::vec3(vent - camera)) * glm::mat4(glm::mat3(rot));
+        item.to_local = glm::mat3(to_local);
+        item.camera_local = glm::vec3(to_local * (camera - vent));
+        item.planet_center = glm::vec3(glm::transpose(f.axes) * -f.origin);
+        item.planet_radius = static_cast<float>(glm::length(f.origin));
+        item.sun_direction = glm::vec3(glm::transpose(f.axes) * sun_body);
+        item.sun_angular_radius = sun_angular_radius;
+        for (int k = 0; k < occluder_count && item.occluder_count < kMaxPlumeOccluders; ++k) {
+            const glm::dvec3 center = glm::dvec3(glm::vec3(occluders[k])) + camera;
+            item.occluders[item.occluder_count++] = glm::vec4(glm::vec3(to_local * (center - vent)), occluders[k].w);
+        }
+        item.albedo = glm::vec3(plume.albedo);
+        item.g = static_cast<float>(plume.g);
+        return item;
+    };
+    const glm::dvec3 dir = lat_lon_direction(plume.lat_lon_deg);
+    const double r_planet = glm::length(surface_point_toward(body, dir));
+    const double height = plume.height_km;
+    const double tau = plume.optical_depth;
+    switch (plume.type) {
+    case Plume::Type::Umbrella: {
+        PlumeDrawItem item = make(PlumeDrawItem::Umbrella, plume_frame(body, dir, 90.0));
+        const double rc = plume.radius_km;
+        item.shape = glm::vec4(static_cast<float>(height), static_cast<float>(rc), static_cast<float>(kUmbrellaShell), 0.0f);
+        // Vertical optical depth through the canopy above the vent: alt = H (1 - q^2)
+        // there, so the integral of exp(-q / w) d(alt) is 2 H w^2 (w << 1).
+        item.density = static_cast<float>(tau / (2.0 * height * kUmbrellaShell * kUmbrellaShell));
+        item.box_min = glm::vec3(-1.05 * rc, -1.05 * rc, -rc * rc / (2.0 * r_planet) - 0.05 * height);
+        item.box_max = glm::vec3(1.05 * rc, 1.05 * rc, 1.1 * height);
+        out.push_back(item);
+        break;
+    }
+    case Plume::Type::Jets: {
+        const glm::dvec3 end = lat_lon_direction(plume.end_lat_lon_deg);
+        const PlumeFrame f = plume_frame(body, glm::normalize(dir + end), 90.0);
+        PlumeDrawItem item = make(PlumeDrawItem::Jets, f);
+        const double spread = std::tan(plume.spread_deg * kDegToRad);
+        const double top = kJetReach * height;
+        const double top_width = 2.0 * (kJetBaseKm + top * spread);
+        item.shape = glm::vec4(static_cast<float>(height), static_cast<float>(spread), static_cast<float>(kJetBaseKm), 0.0f);
+        item.density = static_cast<float>(tau / (std::sqrt(kPi) * kJetBaseKm)); // across a jet at its base
+        item.jet_count = std::min(plume.count, kMaxPlumeDrawJets);
+        for (int k = 0; k < item.jet_count; ++k) {
+            const double t = item.jet_count > 1 ? static_cast<double>(k) / (item.jet_count - 1) : 0.5;
+            const glm::dvec3 vent = surface_point_toward(body, glm::normalize(glm::mix(dir, end, t)));
+            const glm::dvec3 pos = glm::transpose(f.axes) * (vent - f.origin);
+            const glm::dvec3 axis = glm::transpose(f.axes) * body_surface_normal(body, vent);
+            item.jet_positions[k] = glm::vec4(glm::vec3(pos), 0.0f);
+            item.jet_axes[k] = glm::vec4(glm::vec3(axis), 0.0f);
+            enclose(item, pos, 2.0 * kJetBaseKm, k == 0);
+            enclose(item, pos + top * axis, top_width, false);
+        }
+        out.push_back(item);
+        break;
+    }
+    case Plume::Type::Geyser: {
+        const double rc = plume.radius_km;
+        const double density = tau / (std::sqrt(kPi) * rc); // across the column
+        PlumeDrawItem column = make(PlumeDrawItem::Column, plume_frame(body, dir, 90.0));
+        column.shape = glm::vec4(static_cast<float>(height), static_cast<float>(rc), 0.0f, 0.0f);
+        column.density = static_cast<float>(density);
+        column.box_min = glm::vec3(-3.0 * rc, -3.0 * rc, -rc);
+        column.box_max = glm::vec3(3.0 * rc, 3.0 * rc, height + rc);
+        out.push_back(column);
+        if (plume.tail_km > 0.0) {
+            // Along +x, toward the tail's azimuth.
+            PlumeDrawItem tail = make(PlumeDrawItem::Tail, plume_frame(body, dir, plume.tail_azimuth_deg));
+            const double length = plume.tail_km;
+            const double widening = std::max(kTailWidthKm - rc, 0.0) / length;
+            const double reach = kTailReach * length;
+            const double end_width = 3.0 * (rc + reach * widening);
+            tail.shape = glm::vec4(static_cast<float>(height), static_cast<float>(rc), static_cast<float>(length),
+                                   static_cast<float>(widening));
+            tail.density = static_cast<float>(density);
+            tail.box_min = glm::vec3(-rc, -end_width, height - end_width - reach * reach / (2.0 * r_planet));
+            tail.box_max = glm::vec3(reach, end_width, height + end_width);
+            out.push_back(tail);
+        }
+        break;
+    }
+    }
+}
+
 } // namespace
 
 bool App::init(const LaunchOptions& options)
@@ -125,6 +275,7 @@ bool App::init(const LaunchOptions& options)
     const SceneTargetFormat& format = m_renderer.scene_format();
     if (!m_starfield.init(m_renderer.device(), format, catalog) || !m_bodies.init(m_renderer.device(), format) ||
         !m_rings.init(m_renderer.device(), format) || !m_atmospheres.init(m_renderer.device(), format) ||
+        !m_plumes.init(m_renderer.device(), format) ||
         !m_orbits.init(m_renderer.device(), format) || !m_belts.init(m_renderer.device(), format) ||
         !m_sun.init(m_renderer.device(), format) || !m_beams.init(m_renderer.device(), format) ||
         !m_black_hole.init(m_renderer.device(), format) ||
@@ -245,6 +396,7 @@ void App::shutdown()
     m_belts.shutdown();
     m_rings.shutdown();
     m_atmospheres.shutdown();
+    m_plumes.shutdown();
     m_bodies.shutdown();
     m_starfield.shutdown();
     m_renderer.shutdown();
@@ -357,6 +509,9 @@ void App::handle_key(const SDL_Event& event)
         break;
     case SDLK_M:
         m_show_atmospheres = !m_show_atmospheres;
+        break;
+    case SDLK_P:
+        m_show_plumes = !m_show_plumes;
         break;
     case SDLK_LEFTBRACKET:
         m_clock.warp = std::max(1.0, m_clock.warp / 2.0);
@@ -781,6 +936,7 @@ void App::build_body_items()
     m_ring_items.clear();
     m_atmosphere_items.clear();
     m_atmosphere_optics.resize(m_scene.bodies.size());
+    m_plume_items.clear();
     const glm::dvec3& cam = m_view.position;
     const int star = m_scene.star_index();
     const double sun_radius = star >= 0 ? m_scene.bodies[static_cast<size_t>(star)].equatorial_radius_km : kSunRadiusKm;
@@ -953,6 +1109,13 @@ void App::build_body_items()
             item.occluders[item.occluder_count++] = glm::vec4(to_render(other.world_position, cam),
                                                               static_cast<float>(other.equatorial_radius_km));
         }
+        if (m_show_plumes) {
+            const glm::dvec3 sun_body = glm::transpose(body.orientation) * glm::dvec3(item.sun_direction);
+            for (const Plume& plume : body.plumes) {
+                add_plume_items(body, plume, cam, sun_body, item.sun_angular_radius, item.occluders,
+                                item.occluder_count, m_plume_items);
+            }
+        }
         m_body_items.push_back(item);
     }
 }
@@ -1093,6 +1256,7 @@ void App::render()
         sun.ambient = kAmbient;
         m_bodies.draw(frame.cmd, pass, m_view, sun, m_body_items);
         m_atmospheres.draw(frame.cmd, pass, m_view, m_atmosphere_items);
+        m_plumes.draw(frame.cmd, pass, m_view, static_cast<float>(m_pulsar_time), m_plume_items);
         m_rings.draw(frame.cmd, pass, m_view, m_ring_items);
         build_belt_items();
         m_belts.draw(frame.cmd, pass, m_view, m_belt_items);

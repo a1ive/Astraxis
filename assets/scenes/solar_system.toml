@@ -110,6 +110,28 @@
 #          single-scattering albedo near unity (Hillier et al. 1990, 1991). g illustrative
 #          (forward scattering, 0.17 um particles). The discrete clouds below 4 km and the
 #          geyser plumes are not drawn.
+# [PLM]  Plumes, always erupting (single scattering; optical depths, colors and phase
+#        functions are illustrative, chosen to be visible; real plumes are faint).
+#        Vent coordinates: IAU Gazetteer of Planetary Nomenclature (planetographic,
+#        used as planetocentric; Io's and Enceladus' longitudes there are west-positive).
+#        Io: Pele, eruptive center at 18.71 S 255.28 W; the plume was 300 km high and
+#          1,200 km across (Voyager 1, Strom et al. 1979, Nature 280, 733). Tvashtar at
+#          62.76 N 123.53 W (the former Tvashtar Catena); 330 km high in New Horizons'
+#          2007 images (NASA PIA10101); canopy radius 2 H (the ballistic reach).
+#        Enceladus: jets along the four tiger stripes. Stripe centers and lengths from
+#          the Gazetteer (Alexandria 75.63 S 137.56 W, 111 km; Cairo 81.62 S 154.48 W,
+#          165 km; Baghdad 86.91 S 230.54 W, 176 km; Damascus 80.59 S 285.87 W, 125 km);
+#          the centers lie on a line (spacing 30-36 km) and the stripes are drawn
+#          perpendicular to it, which matches the stripes in the Cassini mosaic. Porco
+#          et al. 2014 (AJ 148, 45) located ~100 jets on the stripes; here 8 per stripe,
+#          vertical, half-width 8 deg, density scale height 100 km (illustrative; the
+#          plume's ice grains were measured from 50 to 300 km, Hedman et al. 2009, ApJ
+#          693, 1749).
+#        Triton: Hili (57 S 35 E) and Mahilani (50.5 S 359.5 E), dark columns rising to
+#          ~8 km with radii of tens of meters to a kilometer, whose clouds drift downwind
+#          over 100 km (Soderblom et al. 1990, Science 250, 410), toward the west: winds
+#          above 8 km blow west (Hansen et al. 1990, Science 250, 421). The tail's
+#          e-folding length is 50 km.
 # Flyby times/distances: computed from the baked data by the bake tool (TDB).
 # Mission timeline events: Horizons spacecraft notes.
 #
@@ -448,6 +470,23 @@ orbit_color = "#f2cc66"
 texture = "textures/io.jpg"
 texture_left_lon_deg = -180.0
 
+[[bodies.plumes]]                          # [PLM]
+name = "Pele"
+type = "umbrella"
+lat_lon_deg = [-18.71, 104.72]             # 255.28 W
+height_km = 300.0
+radius_km = 600.0
+optical_depth = 0.02
+albedo = [0.85, 0.9, 1.0]
+g = 0.4
+[[bodies.plumes]]                          # [PLM]
+name = "Tvashtar"
+type = "umbrella"
+lat_lon_deg = [62.76, 236.47]              # 123.53 W
+height_km = 330.0
+optical_depth = 0.02
+albedo = [0.85, 0.9, 1.0]
+g = 0.4
 [bodies.orbit]                         # [HZN] 501, Juno span
 type = "ephemeris"
 file = "ephem/io_juno.eph"
@@ -658,6 +697,50 @@ color = "#f2f2f0"
 orbit_color = "#d8e4ee"
 texture = "textures/enceladus.jpg"
 texture_left_lon_deg = 0.0
+[[bodies.plumes]]                          # [PLM]
+name = "Alexandria Sulcus"
+type = "jets"
+lat_lon_deg = [-72.87, 268.64]
+end_lat_lon_deg = [-69.07, 186.24]
+count = 8
+spread_deg = 8.0
+height_km = 100.0
+optical_depth = 0.08
+albedo = 1.0
+g = 0.8
+[[bodies.plumes]]                          # [PLM]
+name = "Cairo Sulcus"
+type = "jets"
+lat_lon_deg = [-73.50, 297.42]
+end_lat_lon_deg = [-66.10, 161.90]
+count = 8
+spread_deg = 8.0
+height_km = 100.0
+optical_depth = 0.08
+albedo = 1.0
+g = 0.8
+[[bodies.plumes]]                          # [PLM]
+name = "Baghdad Sulcus"
+type = "jets"
+lat_lon_deg = [-72.97, 326.55]
+end_lat_lon_deg = [-67.00, 142.02]
+count = 8
+spread_deg = 8.0
+height_km = 100.0
+optical_depth = 0.08
+albedo = 1.0
+g = 0.8
+[[bodies.plumes]]                          # [PLM]
+name = "Damascus Sulcus"
+type = "jets"
+lat_lon_deg = [-75.93, 2.82]
+end_lat_lon_deg = [-70.44, 117.10]
+count = 8
+spread_deg = 8.0
+height_km = 100.0
+optical_depth = 0.08
+albedo = 1.0
+g = 0.8
 [bodies.orbit]                             # [HZN] 602
 type = "ephemeris"
 file = "ephem/enceladus_cas.eph"
@@ -1183,6 +1266,28 @@ haze_angstrom = 2.0
 haze_scale_height_km = 11.0
 haze_albedo = 1.0
 haze_g = 0.6
+[[bodies.plumes]]                          # [PLM]
+name = "Hili"
+type = "geyser"
+lat_lon_deg = [-57.0, 35.0]
+height_km = 8.0
+radius_km = 0.5
+tail_km = 50.0
+tail_azimuth_deg = 270.0
+optical_depth = 0.5
+albedo = 0.1
+g = 0.5
+[[bodies.plumes]]                          # [PLM]
+name = "Mahilani"
+type = "geyser"
+lat_lon_deg = [-50.5, 359.5]
+height_km = 8.0
+radius_km = 0.5
+tail_km = 50.0
+tail_azimuth_deg = 270.0
+optical_depth = 0.5
+albedo = 0.1
+g = 0.5
 [bodies.orbit]                             # [ELEM] + plane precession and phase fitted to [HZN]
 type = "mean_elements"
 a_km = 354759.0

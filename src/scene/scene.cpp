@@ -101,6 +101,23 @@ glm::dvec3 ecliptic_pole_icrf()
     return rotation_x(kObliquityJ2000) * glm::dvec3(0.0, 0.0, 1.0);
 }
 
+glm::dvec3 body_surface_point(const Body& body, double lat_deg, double lon_deg)
+{
+    const double lat = lat_deg * kDegToRad;
+    const double lon = lon_deg * kDegToRad;
+    const glm::dvec3 d(std::cos(lat) * std::cos(lon), std::cos(lat) * std::sin(lon), std::sin(lat));
+    const glm::dvec3 q = d / glm::dvec3(body.equatorial_radius_km, body.equatorial_radius_b_km, body.polar_radius_km);
+    return d / glm::length(q);
+}
+
+glm::dvec3 body_surface_normal(const Body& body, const glm::dvec3& point)
+{
+    const glm::dvec3 r2(body.equatorial_radius_km * body.equatorial_radius_km,
+                        body.equatorial_radius_b_km * body.equatorial_radius_b_km,
+                        body.polar_radius_km * body.polar_radius_km);
+    return glm::normalize(point / r2);
+}
+
 int Scene::find(std::string_view body_name) const
 {
     for (size_t i = 0; i < bodies.size(); ++i) {

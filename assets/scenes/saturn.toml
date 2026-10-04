@@ -12,6 +12,7 @@
 #        prime meridian term of 44.85 deg follows its 71-year libration, and paired RA/W
 #        terms (Mimas 13.5, Tethys 9.6, Rhea 3.1 deg) move the pole.
 # [ATM]  Atmospheres (single scattering): sources and choices in solar_system.toml.
+# [PLM]  Plumes (always erupting): sources and choices in solar_system.toml.
 # [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
 # [APX]  E. M. Standish, Approximate Positions of the Planets, Tables 2a + 2b.
 # [HZN]  JPL Horizons state vectors relative to Saturn's center, baked by
@@ -155,6 +156,50 @@ color = "#f2f2f0"
 orbit_color = "#d8e4ee"
 texture = "textures/enceladus.jpg"
 texture_left_lon_deg = 0.0
+[[bodies.plumes]]                          # [PLM]
+name = "Alexandria Sulcus"
+type = "jets"
+lat_lon_deg = [-72.87, 268.64]
+end_lat_lon_deg = [-69.07, 186.24]
+count = 8
+spread_deg = 8.0
+height_km = 100.0
+optical_depth = 0.08
+albedo = 1.0
+g = 0.8
+[[bodies.plumes]]                          # [PLM]
+name = "Cairo Sulcus"
+type = "jets"
+lat_lon_deg = [-73.50, 297.42]
+end_lat_lon_deg = [-66.10, 161.90]
+count = 8
+spread_deg = 8.0
+height_km = 100.0
+optical_depth = 0.08
+albedo = 1.0
+g = 0.8
+[[bodies.plumes]]                          # [PLM]
+name = "Baghdad Sulcus"
+type = "jets"
+lat_lon_deg = [-72.97, 326.55]
+end_lat_lon_deg = [-67.00, 142.02]
+count = 8
+spread_deg = 8.0
+height_km = 100.0
+optical_depth = 0.08
+albedo = 1.0
+g = 0.8
+[[bodies.plumes]]                          # [PLM]
+name = "Damascus Sulcus"
+type = "jets"
+lat_lon_deg = [-75.93, 2.82]
+end_lat_lon_deg = [-70.44, 117.10]
+count = 8
+spread_deg = 8.0
+height_km = 100.0
+optical_depth = 0.08
+albedo = 1.0
+g = 0.8
 [bodies.orbit]                             # [HZN] 602
 type = "ephemeris"
 file = "ephem/enceladus_cas.eph"

@@ -343,6 +343,11 @@ void App::build_control_panel()
         ImGui::Checkbox("Atmospheres", &m_show_atmospheres);
         ImGui::SetItemTooltip("Off: the surface under the clouds (Venus: Magellan radar; Titan: Cassini ISS) (M)");
     }
+    if (std::any_of(m_scene.bodies.begin(), m_scene.bodies.end(), [](const Body& b) { return !b.plumes.empty(); })) {
+        ImGui::SameLine();
+        ImGui::Checkbox("Plumes", &m_show_plumes);
+        ImGui::SetItemTooltip("Volcanic and cryovolcanic plumes, always erupting (P)");
+    }
     ImGui::SameLine();
     ImGui::Checkbox("ImGui demo", &m_show_demo);
     ImGui::SetNextItemWidth(160.0f * ImGui::GetStyle().FontScaleDpi);
@@ -357,7 +362,7 @@ void App::build_control_panel()
     ImGui::Separator();
     ImGui::TextDisabled("%.0f FPS  |  %s", io.Framerate, m_renderer.driver_name());
     ImGui::TextDisabled("Drag: rotate   Wheel: zoom   Double-click label: focus");
-    ImGui::TextDisabled("Space pause  R reverse  [ ] warp  N now  1-9 focus  A tour  O/L/I  H hide");
+    ImGui::TextDisabled("Space pause  R reverse  [ ] warp  N now  1-9 focus  A tour  O/L/I/M/P  H hide");
 
     ImGui::End();
 }

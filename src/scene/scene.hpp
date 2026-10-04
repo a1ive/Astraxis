@@ -95,6 +95,35 @@ struct Atmosphere {
     double gain = 1.0;           // scales the scattered light (1 = physical)
 };
 
+// A plume of particles above a vent (or a row of vents), always erupting,
+// drawn by single scattering. Positions are planetocentric (east longitude).
+//   umbrella: Io's volcanic plumes. Particles on ballistic paths fill the
+//     canopy, altitude < H (1 - (d / R)^2) at surface distance d from the
+//     vent, concentrated in a shell under it;
+//   jets: `count` cones evenly spaced from `lat_lon_deg` to `end_lat_lon_deg`
+//     (Enceladus' tiger stripes), their density falling off as exp(-z / H);
+//   geyser: a narrow column up to height H, whose material drifts downwind
+//     in a tail at that height (Triton).
+struct Plume {
+    enum class Type { Umbrella, Jets, Geyser };
+    std::string name;
+    Type type = Type::Umbrella;
+    glm::dvec2 lat_lon_deg{0.0};
+    glm::dvec2 end_lat_lon_deg{0.0}; // jets: the other end of the row
+    int count = 1;                   // jets
+    double height_km = 1.0;          // umbrella: canopy top; jets: scale height; geyser: column top
+    double radius_km = 1.0;          // umbrella: canopy radius at the ground; geyser: column radius
+    double spread_deg = 10.0;        // jets: half-width of each cone
+    double tail_km = 0.0;            // geyser
+    double tail_azimuth_deg = 0.0;   // geyser: direction of the tail, from north through east
+    // Umbrella: vertical, through the canopy above the vent; jets: across a
+    // jet at its base; geyser: across the column.
+    double optical_depth = 0.0;
+    glm::dvec3 albedo{1.0}; // single-scattering albedo
+    double g = 0.0;         // Henyey-Greenstein asymmetry
+};
+inline constexpr int kMaxPlumeJets = 12;
+
 struct Body {
     std::string name;
     int parent = -1; // index into Scene::bodies; must precede this body
@@ -164,6 +193,7 @@ struct Body {
 
     RingSystem rings; // no bands: no rings
     Atmosphere atmosphere;
+    std::vector<Plume> plumes;
 
     // Pulsars: two radio beams from the magnetic poles, inclined to the spin
     // axis (the orbit normal of `spin_axis_orbit_of`) and sweeping around it.
@@ -411,5 +441,10 @@ void satellite_fades(const Scene& scene, const glm::dvec3& camera, double px_per
 
 // Ecliptic north pole (J2000, IAU 2006 obliquity) in ICRF.
 glm::dvec3 ecliptic_pole_icrf();
+
+// Point of a body's ellipsoid (body-fixed frame, km) in the planetocentric
+// direction (latitude, east longitude), and the outward unit normal there.
+glm::dvec3 body_surface_point(const Body& body, double lat_deg, double lon_deg);
+glm::dvec3 body_surface_normal(const Body& body, const glm::dvec3& point);
 
 } // namespace astraxis

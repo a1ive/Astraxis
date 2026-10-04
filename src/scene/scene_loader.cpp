@@ -132,6 +132,57 @@ Atmosphere parse_atmosphere(const toml::table& t, const std::string& ctx)
     return a;
 }
 
+// [[bodies.plumes]]
+Plume parse_plume(const toml::table& t, const std::string& ctx)
+{
+    Plume p;
+    p.name = get_string(t, "name", ctx);
+    const std::string c = ctx + " plume '" + p.name + "'";
+    const std::string type = get_string(t, "type", c);
+    if (type == "umbrella") {
+        p.type = Plume::Type::Umbrella;
+    } else if (type == "jets") {
+        p.type = Plume::Type::Jets;
+    } else if (type == "geyser") {
+        p.type = Plume::Type::Geyser;
+    } else {
+        fail(c, "type must be \"umbrella\", \"jets\" or \"geyser\"");
+    }
+    double ll[2];
+    get_array(t, "lat_lon_deg", c, ll, 2, 2);
+    p.lat_lon_deg = glm::dvec2(ll[0], ll[1]);
+    p.height_km = get_double(t, "height_km", c);
+    p.optical_depth = get_double(t, "optical_depth", c);
+    p.albedo = get_rgb_or(t, "albedo", c, glm::dvec3(1.0));
+    p.g = get_double_or(t, "g", 0.0);
+    switch (p.type) {
+    case Plume::Type::Umbrella:
+        p.radius_km = get_double_or(t, "radius_km", 2.0 * p.height_km); // ballistic reach
+        break;
+    case Plume::Type::Jets:
+        get_array(t, "end_lat_lon_deg", c, ll, 2, 2);
+        p.end_lat_lon_deg = glm::dvec2(ll[0], ll[1]);
+        p.count = static_cast<int>(get_double(t, "count", c));
+        p.spread_deg = get_double(t, "spread_deg", c);
+        if (p.count < 1 || p.count > kMaxPlumeJets || !(p.spread_deg > 0.0 && p.spread_deg < 60.0)) {
+            fail(c, "count must be 1.." + std::to_string(kMaxPlumeJets) + " and spread_deg within (0, 60)");
+        }
+        break;
+    case Plume::Type::Geyser:
+        p.radius_km = get_double(t, "radius_km", c);
+        p.tail_km = get_double(t, "tail_km", c);
+        p.tail_azimuth_deg = get_double(t, "tail_azimuth_deg", c);
+        break;
+    }
+    if (!(p.height_km > 0.0) || !(p.radius_km > 0.0) || p.optical_depth < 0.0 || p.tail_km < 0.0 ||
+        std::abs(p.g) >= 1.0 || glm::any(glm::lessThan(p.albedo, glm::dvec3(0.0))) ||
+        glm::any(glm::greaterThan(p.albedo, glm::dvec3(1.0)))) {
+        fail(c, "height and radius must be positive, optical_depth and tail_km non-negative, |g| < 1 and "
+                "albedo within 0..1");
+    }
+    return p;
+}
+
 glm::vec3 parse_color(const toml::table& t, std::string_view key, const std::string& ctx, glm::vec3 fallback)
 {
     const auto v = t[key].value<std::string>();
@@ -745,6 +796,18 @@ void Loader::parse(const toml::table& root, Scene& out)
                 fail(ctx, "only ellipsoidal planets and moons can have an atmosphere");
             }
             body.atmosphere = parse_atmosphere(*atmosphere, ctx + " atmosphere");
+        }
+        if (const toml::array* plumes = (*t)["plumes"].as_array()) {
+            if (body.kind != BodyKind::Planet || body.shape) {
+                fail(ctx, "only ellipsoidal planets and moons can have plumes");
+            }
+            for (const toml::node& node : *plumes) {
+                const toml::table* p = node.as_table();
+                if (!p) {
+                    fail(ctx, "plumes must be tables");
+                }
+                body.plumes.push_back(parse_plume(*p, ctx));
+            }
         }
 
         if (const toml::table* orbit = (*t)["orbit"].as_table()) {
