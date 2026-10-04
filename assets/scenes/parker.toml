@@ -13,6 +13,8 @@
 # [APX]  E. M. Standish, Approximate Positions of the Planets, Table 2a, for Mercury and
 #        Mars, and for Venus and the Earth outside the baked span.
 # [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
+# [SPHY] JPL SSD, Planetary Satellite Physical Parameters (https://ssd.jpl.nasa.gov/sats/phys_par/),
+#        "Planet and Pluto GM Values" table: the GM of Mars alone.
 # [PCK]  NAIF pck00011.tpc (IAU 2015): radii, poles, prime meridians (T terms ignored).
 # Flyby and perihelion times/distances: computed from the baked data by the bake tool
 # (TDB; flyby distances from the center of Venus, perihelion distances from the center
@@ -42,6 +44,7 @@ color = "#fff4e0"
 name = "Mercury"
 parent = "Sun"
 radii_km = [2440.53, 2438.26]              # [PCK]
+body_gm_km3_s2 = 22031.868551              # [GM]
 pole_ra_dec_deg = [281.0103, 61.4155]
 prime_meridian_deg = [329.5988, 6.1385108]
 color = "#9c958e"
@@ -61,6 +64,7 @@ node_deg = [48.33961819, -0.12214182]
 name = "Venus"
 parent = "Sun"
 radii_km = [6051.8]                        # [PCK]
+body_gm_km3_s2 = 324858.592                # [GM]
 pole_ra_dec_deg = [272.76, 67.16]
 prime_meridian_deg = [160.20, -1.4813688]
 color = "#e8d6ae"
@@ -81,6 +85,7 @@ node_deg = [76.67261496, -0.27274174]
 name = "Earth"
 parent = "Sun"
 radii_km = [6378.1366, 6356.7519]          # [PCK]
+body_gm_km3_s2 = 398600.435507             # [GM]
 pole_ra_dec_deg = [0.0, 90.0]
 prime_meridian_deg = [190.147, 360.9856235]
 color = "#5b86c9"
@@ -103,6 +108,7 @@ node_deg = [-5.11260389, -0.24123856]
 name = "Mars"
 parent = "Sun"
 radii_km = [3396.19, 3376.20]              # [PCK]
+body_gm_km3_s2 = 42828.37362               # [SPHY] (MAR097)
 pole_ra_dec_deg = [317.269202, 54.432516]
 prime_meridian_deg = [176.049863, 350.891982443297]
 color = "#c1673e"

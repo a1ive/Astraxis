@@ -47,6 +47,7 @@ private:
     void update(double real_dt);
     void build_ui();
     void build_control_panel();
+    void build_info_panel(); // details of the focused body
     void build_labels();
     void render();
 
@@ -124,6 +125,7 @@ private:
     bool m_show_orbits = true;
     bool m_show_belts = true;
     bool m_show_labels = true;
+    bool m_show_info = true;
     bool m_show_demo = false;
     bool m_auto_tour = true;     // start the tour after kIdleSeconds without input
     double m_idle_time = 0.0;    // seconds since the last input

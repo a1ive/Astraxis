@@ -408,26 +408,87 @@ glm::dvec3 Scene::orbit_normal(int body) const
     return len > 0.0 ? m_transform.direction_to_display(h / len) : up_axis();
 }
 
+bool osculating_elements(const State& relative, double gm, OrbitElements* out)
+{
+    const double r = glm::length(relative.position);
+    if (gm <= 0.0 || r <= 0.0) {
+        return false;
+    }
+    const glm::dvec3 h = glm::cross(relative.position, relative.velocity);
+    const double h2 = glm::dot(h, h);
+    const double energy = 0.5 * glm::dot(relative.velocity, relative.velocity) - gm / r;
+    const double e = std::sqrt(std::max(0.0, 1.0 + 2.0 * energy * h2 / (gm * gm)));
+    *out = OrbitElements{};
+    out->eccentricity = e;
+    out->periapsis_km = h2 / (gm * (1.0 + e)); // = a (1 - e), also for unbound orbits
+    if (energy < 0.0) {
+        const double a = -gm / (2.0 * energy);
+        out->apoapsis_km = a * (1.0 + e);
+        out->period_s = kTwoPi * std::sqrt(a * a * a / gm);
+    }
+    return true;
+}
+
 bool Scene::osculating_apsides(int body, double* periapsis_km, double* apoapsis_km, double* period_s) const
 {
     const Body& b = bodies[static_cast<size_t>(body)];
     if (!b.motion || b.parent < 0) {
         return false;
     }
-    const double gm = bodies[static_cast<size_t>(b.parent)].gm_km3_s2;
-    const State s = b.motion->eval(m_time);
-    const double r = glm::length(s.position);
-    const double energy = 0.5 * glm::dot(s.velocity, s.velocity) - gm / r;
-    if (gm <= 0.0 || r <= 0.0 || energy >= 0.0) {
+    OrbitElements el;
+    if (!osculating_elements(b.motion->eval(m_time), bodies[static_cast<size_t>(b.parent)].gm_km3_s2, &el) ||
+        el.period_s <= 0.0) {
         return false;
     }
-    const double a = -gm / (2.0 * energy);
-    const double h = glm::length(glm::cross(s.position, s.velocity));
-    const double e = std::sqrt(std::max(0.0, 1.0 - h * h / (gm * a)));
-    *periapsis_km = a * (1.0 - e);
-    *apoapsis_km = a * (1.0 + e);
-    *period_s = kTwoPi * std::sqrt(a * a * a / gm);
+    *periapsis_km = el.periapsis_km;
+    *apoapsis_km = el.apoapsis_km;
+    *period_s = el.period_s;
     return true;
+}
+
+Scene::OrbitCenter Scene::orbit_center(int body) const
+{
+    const int host = satellite_host(body);
+    if (host < 0) {
+        return {};
+    }
+    const Body& b = bodies[static_cast<size_t>(body)];
+    const double own = b.body_gm_km3_s2;
+    const double host_gm = bodies[static_cast<size_t>(host)].body_gm_km3_s2;
+    const int bary = b.parent;
+    if (bodies[static_cast<size_t>(bary)].kind != BodyKind::Barycenter) {
+        return {host, host_gm > 0.0 ? host_gm + own : 0.0};
+    }
+    const double system_gm = bodies[static_cast<size_t>(bary)].body_gm_km3_s2;
+    if (bodies[static_cast<size_t>(host)].parent != bary) {
+        // The primary: the whole system orbits the barycenter's host.
+        return {host, host_gm > 0.0 ? host_gm + (system_gm > 0.0 ? system_gm : own) : 0.0};
+    }
+
+    // Beside the primary: a circumbinary orbit if another massive member is
+    // closer to the barycenter; its GM is then that of everything inside.
+    const glm::dvec3& center = bodies[static_cast<size_t>(bary)].icrf_position;
+    const double r = glm::length(b.icrf_position - center);
+    double inner_gm = own;
+    bool circumbinary = false;
+    for (size_t k = static_cast<size_t>(bary) + 1; k < bodies.size(); ++k) {
+        const Body& s = bodies[k];
+        if (s.parent != bary || static_cast<int>(k) == body || !s.visible ||
+            glm::length(s.icrf_position - center) >= r) {
+            continue;
+        }
+        inner_gm += s.body_gm_km3_s2;
+        if (static_cast<int>(k) != host && s.body_gm_km3_s2 > 0.0 && s.body_gm_km3_s2 >= 0.01 * host_gm) {
+            circumbinary = true;
+        }
+    }
+    if (circumbinary) {
+        return {bary, inner_gm};
+    }
+    if (host_gm > 0.0 && own > 0.0) {
+        return {host, host_gm + own};
+    }
+    return {host, system_gm > 0.0 ? system_gm : host_gm};
 }
 
 glm::dvec3 Scene::up_axis() const

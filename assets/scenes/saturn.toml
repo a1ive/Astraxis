@@ -5,6 +5,8 @@
 # [ELEM] JPL SSD, Planetary Satellite Mean Elements (https://ssd.jpl.nasa.gov/sats/elem/),
 #        ephemeris SAT441, Laplace-plane frame, epoch 2000-01-01.5 TDB.
 # [SPHY] JPL SSD, Planetary Satellite Physical Parameters (https://ssd.jpl.nasa.gov/sats/phys_par/).
+#        Also the GM of Saturn alone (body_gm_km3_s2), from its "Planet and Pluto GM
+#        Values" table.
 # [PCK]  NAIF pck00011.tpc (IAU 2015): poles, prime meridians, radii, the linear pole
 #        drift and the periodic terms (Saturn's angles S1..S6, 2 S1, 2 S2): e.g. Mimas'
 #        prime meridian term of 44.85 deg follows its 71-year libration, and paired RA/W
@@ -80,6 +82,7 @@ f = 38.35125000
 name = "Saturn"
 radii_km = [60268.0, 54364.0]              # equatorial, polar [PCK]
 gm_km3_s2 = 37940584.8418                  # system [GM]
+body_gm_km3_s2 = 37931206.23               # [SPHY] (SAT441)
 pole_ra_dec_deg = [40.589, 83.537]         # [PCK]
 prime_meridian_deg = [38.90, 810.7939024]  # System III [PCK]
 pole_rate_deg_per_century = [-0.036, -0.004]
@@ -100,6 +103,7 @@ phase_g = -0.3
 name = "Mimas"
 parent = "Saturn"
 radii_km = [198.2]                         # mean radius [SPHY]
+body_gm_km3_s2 = 2.50349                   # [SPHY] (SAT441)
 pole_ra_dec_deg = [40.66, 83.52]           # [PCK]
 prime_meridian_deg = [333.46, 381.9945550]
 pole_rate_deg_per_century = [-0.036, -0.004]
@@ -131,6 +135,7 @@ laplace_pole_ra_dec_deg = [40.6, 83.5]
 name = "Enceladus"
 parent = "Saturn"
 radii_km = [252.1]
+body_gm_km3_s2 = 7.21037 # [SPHY] (SAT441)
 pole_ra_dec_deg = [40.66, 83.52]
 prime_meridian_deg = [6.32, 262.7318996]
 pole_rate_deg_per_century = [-0.036, -0.004]
@@ -159,6 +164,7 @@ laplace_pole_ra_dec_deg = [40.6, 83.5]
 name = "Tethys"
 parent = "Saturn"
 radii_km = [531.1]
+body_gm_km3_s2 = 41.21353 # [SPHY] (SAT441)
 pole_ra_dec_deg = [40.66, 83.52]
 prime_meridian_deg = [8.95, 190.6979085]
 pole_rate_deg_per_century = [-0.036, -0.004]
@@ -190,6 +196,7 @@ laplace_pole_ra_dec_deg = [40.6, 83.5]
 name = "Dione"
 parent = "Saturn"
 radii_km = [561.4]
+body_gm_km3_s2 = 73.11607 # [SPHY] (SAT441)
 pole_ra_dec_deg = [40.66, 83.52]
 prime_meridian_deg = [357.6, 131.5349316]
 pole_rate_deg_per_century = [-0.036, -0.004]
@@ -218,6 +225,7 @@ laplace_pole_ra_dec_deg = [40.6, 83.5]
 name = "Rhea"
 parent = "Saturn"
 radii_km = [763.5]
+body_gm_km3_s2 = 153.94175 # [SPHY] (SAT441)
 pole_ra_dec_deg = [40.38, 83.55]
 prime_meridian_deg = [235.16, 79.6900478]
 pole_rate_deg_per_century = [-0.036, -0.004]
@@ -249,6 +257,7 @@ laplace_pole_ra_dec_deg = [40.6, 83.5]
 name = "Titan"
 parent = "Saturn"
 radii_km = [2574.76]                       # [SPHY]; the haze top is ~600 km higher
+body_gm_km3_s2 = 8978.13710                # [SPHY] (SAT441)
 pole_ra_dec_deg = [39.4827, 83.4279]       # [PCK]
 prime_meridian_deg = [186.5855, 22.5769768]
 color = "#d39a4e"                          # the orange haze (illustrative)
@@ -274,6 +283,7 @@ laplace_pole_ra_dec_deg = [36.4, 84.0]
 name = "Iapetus"
 parent = "Saturn"
 radii_km = [734.3]
+body_gm_km3_s2 = 120.51511                 # [SPHY] (SAT441)
 pole_ra_dec_deg = [318.16, 75.03]          # [PCK]
 prime_meridian_deg = [355.2, 4.5379572]
 pole_rate_deg_per_century = [-3.949, -1.143]

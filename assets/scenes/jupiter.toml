@@ -5,6 +5,9 @@
 # [ELEM] JPL SSD, Planetary Satellite Mean Elements (https://ssd.jpl.nasa.gov/sats/elem/),
 #        ephemeris JUP365, Laplace-plane frame, epoch 2000-01-01.5 TDB.
 # [SPHY] JPL SSD, Planetary Satellite Physical Parameters (https://ssd.jpl.nasa.gov/sats/phys_par/).
+#        Also the GM of Jupiter alone (body_gm_km3_s2), from its "Planet and Pluto GM
+#        Values" table. Thebe, Adrastea and Metis are given no mass: their JUP365 GMs are
+#        uncertain by 40-140% (and all imply a density of 0.90 g/cm^3).
 # [PCK]  NAIF pck00011.tpc (IAU WGCCRE 2015 report): pole, prime meridian, radii.
 #        Linear T terms and nutation/precession terms are ignored (< 0.01 deg over centuries
 #        for the Galilean moons; < 1 deg for the inner moons).
@@ -55,6 +58,7 @@ f = 38.35125000
 name = "Jupiter"
 radii_km = [71492.0, 66854.0]          # equatorial, polar [PCK]
 gm_km3_s2 = 126712764.1                # system [GM]; osculating orbits of the moons and spacecraft
+body_gm_km3_s2 = 126686531.9           # [SPHY] (JUP365)
 pole_ra_dec_deg = [268.056595, 64.495303] # [PCK]
 prime_meridian_deg = [284.95, 870.5360000] # W0, deg/day (System III) [PCK]
 color = "#e0cdb0"
@@ -112,6 +116,7 @@ thickness_km = 8800.0
 name = "Io"
 parent = "Jupiter"
 radii_km = [1821.49]                   # mean radius [SPHY]
+body_gm_km3_s2 = 5959.91547            # [SPHY] (JUP365)
 pole_ra_dec_deg = [268.05, 64.50]      # [PCK]
 prime_meridian_deg = [200.39, 203.4889538]
 color = "#edd173"
@@ -146,6 +151,7 @@ laplace_pole_ra_dec_deg = [268.1, 64.5]
 name = "Europa"
 parent = "Jupiter"
 radii_km = [1560.80]
+body_gm_km3_s2 = 3202.71210 # [SPHY] (JUP365)
 pole_ra_dec_deg = [268.08, 64.51]
 prime_meridian_deg = [36.022, 101.3747235]
 color = "#dbccb3"
@@ -180,6 +186,7 @@ laplace_pole_ra_dec_deg = [268.1, 64.5]
 name = "Ganymede"
 parent = "Jupiter"
 radii_km = [2631.20]
+body_gm_km3_s2 = 9887.83275 # [SPHY] (JUP365)
 pole_ra_dec_deg = [268.20, 64.57]
 prime_meridian_deg = [44.064, 50.3176081]
 color = "#9e9485"
@@ -214,6 +221,7 @@ laplace_pole_ra_dec_deg = [268.2, 64.6]
 name = "Callisto"
 parent = "Jupiter"
 radii_km = [2410.30]
+body_gm_km3_s2 = 7179.28340 # [SPHY] (JUP365)
 pole_ra_dec_deg = [268.72, 64.83]
 prime_meridian_deg = [259.51, 21.5710715]
 color = "#73695c"
@@ -260,6 +268,7 @@ laplace_pole_ra_dec_deg = [268.7, 64.8]
 name = "Amalthea"
 parent = "Jupiter"
 radii_km = [83.5]                      # mean radius [SPHY]
+body_gm_km3_s2 = 0.16456               # [SPHY] (JUP365)
 pole_ra_dec_deg = [268.05, 64.49]      # [PCK]
 prime_meridian_deg = [231.67, 722.6314560]
 color = "#9c5a43"

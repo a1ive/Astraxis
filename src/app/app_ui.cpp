@@ -2,6 +2,7 @@
 
 #include "app/app.hpp"
 
+#include "core/math.hpp"
 #include "core/time.hpp"
 
 #include <glm/glm.hpp>
@@ -10,8 +11,11 @@
 #include <imgui_impl_sdlgpu3.h>
 
 #include <algorithm>
+#include <cfloat>
 #include <cmath>
+#include <cstdarg>
 #include <cstdio>
+#include <cstring>
 #include <iterator>
 
 namespace astraxis {
@@ -62,6 +66,77 @@ bool occluded(const glm::dvec3& target, const glm::dvec3& center, double radius)
     return perp2 < radius * radius;
 }
 
+// Integer with thousands separators ("384,400").
+void format_grouped(double value, char* buf, size_t size)
+{
+    char digits[32];
+    std::snprintf(digits, sizeof(digits), "%.0f", std::fabs(value));
+    const size_t n = std::strlen(digits);
+    size_t out = 0;
+    if (value < 0.0 && out + 1 < size) {
+        buf[out++] = '-';
+    }
+    for (size_t i = 0; i < n && out + 1 < size; ++i) {
+        if (i > 0 && (n - i) % 3 == 0 && out + 2 < size) {
+            buf[out++] = ',';
+        }
+        buf[out++] = digits[i];
+    }
+    buf[out] = '\0';
+}
+
+// km below 0.1 au, then au, then light years.
+void format_distance(double km, char* buf, size_t size)
+{
+    const double light_year_km = kSpeedOfLightKmS * kDaysPerJulianYear * kSecondsPerDay;
+    if (km < 10.0) {
+        std::snprintf(buf, size, "%.3g km", km);
+    } else if (km < 0.1 * kAuKm) {
+        char grouped[32];
+        format_grouped(km, grouped, sizeof(grouped));
+        std::snprintf(buf, size, "%s km", grouped);
+    } else if (km < 0.1 * light_year_km) {
+        std::snprintf(buf, size, "%.4g au", km / kAuKm);
+    } else {
+        std::snprintf(buf, size, "%.4g ly", km / light_year_km);
+    }
+}
+
+void format_duration(double seconds, char* buf, size_t size)
+{
+    const double year = kDaysPerJulianYear * kSecondsPerDay;
+    if (seconds < 60.0) {
+        std::snprintf(buf, size, "%.3g s", seconds);
+    } else if (seconds < 3600.0) {
+        std::snprintf(buf, size, "%.3g min", seconds / 60.0);
+    } else if (seconds < 2.0 * kSecondsPerDay) {
+        std::snprintf(buf, size, "%.3g h", seconds / 3600.0);
+    } else if (seconds < 2.0 * year) {
+        std::snprintf(buf, size, "%.4g d", seconds / kSecondsPerDay);
+    } else {
+        std::snprintf(buf, size, "%.4g yr", seconds / year);
+    }
+}
+
+// One "label  value" row of an info panel table.
+void info_row(const char* label, const char* fmt, ...) IM_FMTARGS(2);
+void info_row(const char* label, const char* fmt, ...)
+{
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    ImGui::TextDisabled("%s", label);
+    ImGui::TableNextColumn();
+    va_list args;
+    va_start(args, fmt);
+    ImGui::TextV(fmt, args);
+    va_end(args);
+}
+
+bool begin_info_table()
+{
+    return ImGui::BeginTable("##rows", 2, ImGuiTableFlags_SizingFixedFit);
+}
+
 } // namespace
 
 void App::build_ui()
@@ -75,6 +150,9 @@ void App::build_ui()
     }
     if (panel_visible()) {
         build_control_panel();
+        if (m_show_info) {
+            build_info_panel();
+        }
     }
     if (m_show_demo) {
         ImGui::ShowDemoWindow(&m_show_demo);
@@ -226,6 +304,8 @@ void App::build_control_panel()
     ImGui::Checkbox("Orbits", &m_show_orbits);
     ImGui::SameLine();
     ImGui::Checkbox("Labels", &m_show_labels);
+    ImGui::SameLine();
+    ImGui::Checkbox("Info", &m_show_info);
     if (!m_scene.belts.empty()) {
         ImGui::SameLine();
         ImGui::Checkbox("Belts", &m_show_belts);
@@ -244,7 +324,178 @@ void App::build_control_panel()
     ImGui::Separator();
     ImGui::TextDisabled("%.0f FPS  |  %s", io.Framerate, m_renderer.driver_name());
     ImGui::TextDisabled("Drag: rotate   Wheel: zoom   Double-click label: focus");
-    ImGui::TextDisabled("Space pause  R reverse  [ ] warp  N now  1-9 focus  A tour  O/L  H hide");
+    ImGui::TextDisabled("Space pause  R reverse  [ ] warp  N now  1-9 focus  A tour  O/L/I  H hide");
+
+    ImGui::End();
+}
+
+void App::build_info_panel()
+{
+    const int focus = m_camera.target();
+    if (focus < 0 || focus >= static_cast<int>(m_scene.bodies.size())) {
+        return;
+    }
+    const Body& body = m_scene.bodies[static_cast<size_t>(focus)];
+    const ImGuiIO& io = ImGui::GetIO();
+    const float scale = ImGui::GetStyle().FontScaleDpi;
+
+    // Anchored at the middle of the right edge; purely informational, so it
+    // never takes the mouse from the camera.
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - 12.0f * scale, io.DisplaySize.y * 0.5f), ImGuiCond_Always,
+                            ImVec2(1.0f, 0.5f));
+    ImGui::SetNextWindowSizeConstraints(ImVec2(240.0f * scale, 0.0f), ImVec2(FLT_MAX, FLT_MAX));
+    ImGui::SetNextWindowBgAlpha(0.8f); // labels are drawn behind it
+    ImGui::Begin("##info", nullptr,
+                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings |
+                     ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove |
+                     ImGuiWindowFlags_NoMouseInputs);
+
+    ImGui::TextUnformatted(body.name.c_str());
+
+    // What it orbits; bodies at rest (e.g. the Sun far from an exoplanet system) orbit nothing.
+    const Scene::OrbitCenter center = body.visible ? m_scene.orbit_center(focus) : Scene::OrbitCenter{};
+    State relative;
+    if (center.body >= 0) {
+        const State s = m_scene.icrf_state_at(focus, m_scene.time());
+        const State c = m_scene.icrf_state_at(center.body, m_scene.time());
+        relative = {s.position - c.position, s.velocity - c.velocity};
+    }
+    const bool orbiting = center.body >= 0 && glm::length(relative.velocity) > 1e-6;
+    const char* kind = nullptr;
+    switch (body.kind) {
+    case BodyKind::Star:
+        kind = body.pulsar.enabled ? "Pulsar" : "Star";
+        break;
+    case BodyKind::Spacecraft:
+        kind = "Spacecraft";
+        break;
+    case BodyKind::BlackHole:
+        kind = "Black hole";
+        break;
+    case BodyKind::Barycenter:
+        kind = "Barycenter";
+        break;
+    case BodyKind::Planet:
+        break;
+    }
+    const char* host_name = orbiting ? m_scene.bodies[static_cast<size_t>(center.body)].name.c_str() : "";
+    if (kind && orbiting) {
+        ImGui::TextDisabled("%s, orbiting %s", kind, host_name);
+    } else if (kind) {
+        ImGui::TextDisabled("%s", kind);
+    } else if (orbiting) {
+        ImGui::TextDisabled("Orbiting %s", host_name);
+    }
+    if (!body.visible) {
+        ImGui::TextDisabled("Not present at this time");
+    }
+
+    char buf[64];
+    char buf2[64];
+
+    // --- Physical ---
+    const double gm = body.body_gm_km3_s2;
+    const double a = body.equatorial_radius_km;
+    const double b = body.equatorial_radius_b_km;
+    const double c = body.polar_radius_km;
+    const double mean_radius = std::cbrt(a * b * c);
+    const bool has_surface = body.kind == BodyKind::Planet || body.kind == BodyKind::Star;
+    if (has_surface || gm > 0.0) {
+        ImGui::SeparatorText("Physical");
+        if (begin_info_table()) {
+            if (has_surface) {
+                if (body.kind == BodyKind::Star) {
+                    std::snprintf(buf2, sizeof(buf2), "%#.3g R_sun", mean_radius / kSunRadiusKm);
+                } else {
+                    std::snprintf(buf2, sizeof(buf2), "%#.3g R_earth", mean_radius / kEarthRadiusKm);
+                }
+                if (a != b) {
+                    info_row("Radii", "%.4g x %.4g x %.4g km", a, b, c);
+                    info_row("", "%s (mean)", buf2);
+                } else if (a != c) {
+                    format_grouped(a, buf, sizeof(buf));
+                    info_row("Radius", "%s km equatorial", buf);
+                    format_grouped(c, buf, sizeof(buf));
+                    info_row("", "%s km polar", buf);
+                    info_row("", "%s (mean)", buf2);
+                } else {
+                    format_grouped(a, buf, sizeof(buf));
+                    info_row("Radius", "%s km", buf);
+                    info_row("", "%s", buf2);
+                }
+            }
+            if (body.kind == BodyKind::BlackHole) {
+                format_distance(a, buf, sizeof(buf));
+                info_row("Horizon", "%s", buf);
+                info_row("Spin a/M", "%.3g", body.spin);
+                if (body.spin > 0.0) {
+                    format_distance(2.0 * gm / (kSpeedOfLightKmS * kSpeedOfLightKmS), buf, sizeof(buf));
+                    info_row("Schwarzschild r", "%s", buf);
+                }
+            }
+            if (gm > 0.0) {
+                const char* label = body.kind == BodyKind::Barycenter ? "Total mass" : "Mass";
+                if (gm >= 1e-3 * kSunGmKm3S2) {
+                    info_row(label, "%.4g M_sun", gm / kSunGmKm3S2);
+                } else {
+                    info_row(label, "%.4g M_earth", gm / kEarthGmKm3S2);
+                }
+                const double kg = gm / kGravitationalConstantKm3KgS2;
+                info_row("", "%.4g kg", kg);
+                if (has_surface) {
+                    const double volume_cm3 = 4.0 / 3.0 * kPi * a * b * c * 1e15;
+                    info_row("Density", "%.3g g/cm^3", kg * 1e3 / volume_cm3);
+                    info_row("Surface gravity", "%.3g m/s^2", gm / (mean_radius * mean_radius) * 1e3);
+                }
+            }
+            if (has_surface && body.pm_rate_deg_per_day != 0.0 && !body.pulsar.enabled) {
+                format_duration(360.0 / std::fabs(body.pm_rate_deg_per_day) * kSecondsPerDay, buf, sizeof(buf));
+                info_row("Rotation", "%s%s", buf, body.pm_rate_deg_per_day < 0.0 ? " (retrograde)" : "");
+            }
+            if (body.kind == BodyKind::Star) {
+                info_row("Temperature", "%.0f K", body.temperature_k);
+                info_row("Luminosity", "%.3g L_sun", body.luminosity_solar);
+            }
+            ImGui::EndTable();
+        }
+    }
+
+    // --- Orbit (osculating two-body orbit around the center) ---
+    if (orbiting) {
+        std::snprintf(buf, sizeof(buf), "Orbit around %s", host_name);
+        ImGui::SeparatorText(buf);
+        if (begin_info_table()) {
+            format_distance(glm::length(relative.position), buf, sizeof(buf));
+            info_row("Distance", "%s", buf);
+            info_row("Speed", "%.3g km/s", glm::length(relative.velocity));
+            OrbitElements el;
+            if (osculating_elements(relative, center.gm, &el)) {
+                info_row("Eccentricity", "%.3g%s", el.eccentricity, el.period_s > 0.0 ? "" : " (unbound)");
+                format_distance(el.periapsis_km, buf, sizeof(buf));
+                info_row("Periapsis", "%s", buf);
+                if (el.period_s > 0.0) {
+                    format_distance(el.apoapsis_km, buf, sizeof(buf));
+                    info_row("Apoapsis", "%s", buf);
+                    format_duration(el.period_s, buf, sizeof(buf));
+                    info_row("Period", "%s", buf);
+                }
+            }
+            ImGui::EndTable();
+        }
+    }
+
+    // --- Camera ---
+    if (body.visible) {
+        ImGui::SeparatorText("From camera");
+        if (begin_info_table()) {
+            const double d = glm::length(body.world_position - m_view.position);
+            format_distance(d, buf, sizeof(buf));
+            info_row("Distance", "%s", buf);
+            format_duration(d / kSpeedOfLightKmS, buf, sizeof(buf));
+            info_row("Light time", "%s", buf);
+            ImGui::EndTable();
+        }
+    }
 
     ImGui::End();
 }

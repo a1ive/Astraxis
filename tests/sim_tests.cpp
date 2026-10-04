@@ -2214,6 +2214,97 @@ void test_camera_director(const char* scene_file, double base_warp, double minut
     check(distinct >= 3, "director uses at least 3 shot kinds", distinct);
 }
 
+// What the info panel describes a body as orbiting, and its osculating orbit.
+void test_orbit_center()
+{
+    std::printf("orbit center\n");
+    auto period_days = [](const Scene& scene, int body) {
+        const Scene::OrbitCenter c = scene.orbit_center(body);
+        const State s = scene.icrf_state_at(body, scene.time());
+        const State h = scene.icrf_state_at(c.body, scene.time());
+        OrbitElements el;
+        osculating_elements({s.position - h.position, s.velocity - h.velocity}, c.gm, &el);
+        return el.period_s / kSecondsPerDay;
+    };
+
+    // Around a barycenter: the Moon orbits Earth with the pair's GM, Earth the Sun.
+    Scene solar = load_scene_or_die("solar_system.toml");
+    solar.update(tdb_from_jd_tdb(2461000.5));
+    const int earth = solar.find("Earth");
+    const int moon = solar.find("Moon");
+    check(solar.orbit_center(moon).body == earth, "the Moon orbits Earth");
+    check(std::abs(solar.orbit_center(moon).gm - 403503.235625) < 1e-6, "Earth-Moon GM");
+    check(solar.orbit_center(earth).body == solar.find("Sun"), "Earth orbits the Sun");
+    const double moon_days = period_days(solar, moon);
+    const double earth_days = period_days(solar, earth);
+    check(moon_days > 26.5 && moon_days < 28.5, "osculating lunar period (days)", moon_days);
+    check(std::abs(earth_days - 365.25) < 3.0, "osculating Earth period (days)", earth_days);
+
+    // Circumbinary planets orbit the barycenter; the secondary star its primary.
+    // Periods as in kepler47.toml [OR19]: binary 7.448 d, planet b 49.46 d.
+    Scene k47 = load_scene_or_die("kepler47.toml");
+    k47.update(tdb_from_jd_tdb(2460000.5));
+    const int b = k47.find("Kepler-47 b");
+    const int star_b = k47.find("Kepler-47 B");
+    check(k47.orbit_center(b).body == k47.find("Kepler-47"), "Kepler-47 b orbits the barycenter");
+    check(k47.orbit_center(star_b).body == k47.find("Kepler-47 A"), "Kepler-47 B orbits A");
+    const double binary_days = period_days(k47, star_b);
+    const double b_days = period_days(k47, b);
+    check(std::abs(binary_days - 7.448) < 0.05, "Kepler-47 binary period (days)", binary_days);
+    check(std::abs(b_days - 49.5) < 2.0, "Kepler-47 b period (days)", b_days);
+
+    // Unbound: no apoapsis or period; the periapsis is where the state started.
+    OrbitElements el;
+    check(osculating_elements({glm::dvec3(7000.0, 0.0, 0.0), glm::dvec3(0.0, 12.0, 0.0)}, 398600.0, &el),
+          "hyperbolic elements");
+    check(el.eccentricity > 1.0 && el.period_s == 0.0 && el.apoapsis_km == 0.0, "hyperbolic orbit", el.eccentricity);
+    check(std::abs(el.periapsis_km - 7000.0) < 1e-6, "hyperbolic periapsis (km)", el.periapsis_km);
+}
+
+// Masses shown in the info panel (body_gm_km3_s2).
+void test_body_masses()
+{
+    // The planets' own GM ([SPHY], from the satellite ephemerides) plus their
+    // moons add up to the DE440 system GM: Jupiter and Saturn leave out small
+    // moons (2-2.5 km^3/s^2), Pluto and Charon (PLU060) differ from DE440 within
+    // their uncertainties (0.4, 0.3).
+    Scene solar = load_scene_or_die("solar_system.toml");
+    struct System {
+        const char* holder; // body whose gm_km3_s2 is the system GM
+        std::vector<const char*> members;
+        double tolerance;
+    };
+    const System systems[] = {
+        {"Earth-Moon barycenter", {"Earth", "Moon"}, 1e-6},
+        {"Mars", {"Mars", "Phobos", "Deimos"}, 0.003},
+        {"Jupiter", {"Jupiter", "Io", "Europa", "Ganymede", "Callisto"}, 3.0},
+        {"Saturn", {"Saturn", "Mimas", "Enceladus", "Tethys", "Dione", "Rhea", "Titan", "Iapetus"}, 3.0},
+        {"Uranus", {"Uranus", "Miranda", "Ariel", "Umbriel", "Titania", "Oberon"}, 5.0},
+        {"Neptune", {"Neptune", "Triton"}, 10.0},
+        {"Pluto system", {"Pluto", "Charon"}, 0.5},
+    };
+    for (const System& s : systems) {
+        double sum = 0.0;
+        for (const char* m : s.members) {
+            sum += solar.bodies[static_cast<size_t>(solar.find(m))].body_gm_km3_s2;
+        }
+        const double system_gm = solar.bodies[static_cast<size_t>(solar.find(s.holder))].gm_km3_s2;
+        check(std::abs(sum - system_gm) < s.tolerance, s.holder, sum - system_gm);
+    }
+
+    // Split pairs: the body's share of the orbit's total GM.
+    Scene tic = load_scene_or_die("tic168789840.toml");
+    const double a1 = tic.bodies[static_cast<size_t>(tic.find("TIC 168789840 A1"))].body_gm_km3_s2 / kSunGmKm3S2;
+    check(std::abs(a1 - 1.25) < 1e-6, "TIC 168789840 A1 mass (M_sun) [PO21 Table 7]", a1);
+    Scene psr = load_scene_or_die("psr_b1620.toml");
+    const double planet = psr.bodies[static_cast<size_t>(psr.find("PSR B1620-26 b"))].body_gm_km3_s2 / kSunGmKm3S2;
+    check(std::abs(planet - 2.3865e-3) < 1e-6, "PSR B1620-26 b mass (M_sun) [SI03]", planet);
+    // N-body members take their N-body GM.
+    Scene k47 = load_scene_or_die("kepler47.toml");
+    const double k47a = k47.bodies[static_cast<size_t>(k47.find("Kepler-47 A"))].body_gm_km3_s2 / kSunGmKm3S2;
+    check(std::abs(k47a - 0.9573912601) < 1e-6, "Kepler-47 A mass (M_sun) [OR19 Table 7]", k47a);
+}
+
 // Moons orbit their planet, and the primary of a barycenter stands for its
 // system; satellites fade out as their orbits shrink on screen.
 void test_satellite_fades()
@@ -2354,6 +2445,8 @@ int main()
     test_sgr_a_scene();
     test_death_star_precession();
     test_satellite_fades();
+    test_orbit_center();
+    test_body_masses();
     for (uint32_t seed : {42u, 7u, 2026u, 99u, 12345u}) {
         test_camera_director("jupiter.toml", 3600.0, 20.0, seed);
     }

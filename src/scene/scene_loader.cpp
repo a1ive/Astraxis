@@ -488,6 +488,7 @@ void Loader::parse(const toml::table& root, Scene& out)
         }
 
         body.gm_km3_s2 = get_double_or(*t, "gm_km3_s2", 0.0);
+        body.body_gm_km3_s2 = get_double_or(*t, "body_gm_km3_s2", body.gm_km3_s2);
         body.spin = get_double_or(*t, "spin", 0.0);
         body.temperature_k = get_double_or(*t, "temperature_k", body.temperature_k);
         body.disk_outer_m = get_double_or(*t, "disk_outer_m", 0.0);
@@ -686,7 +687,14 @@ void Loader::parse(const toml::table& root, Scene& out)
             body.motion = parse_motion(*orbit, ctx + " orbit", &out.bodies[static_cast<size_t>(body.parent)]);
             // `scale` applies to the whole motion (fallback included).
             if (orbit->contains("scale")) {
-                body.motion = std::make_unique<ScaledMotion>(std::move(body.motion), get_double(*orbit, "scale", ctx));
+                const double scale = get_double(*orbit, "scale", ctx);
+                body.motion = std::make_unique<ScaledMotion>(std::move(body.motion), scale);
+                // A pair split around its barycenter: the scale is -m_other / m_total
+                // (or m_other / m_total), so the orbit's total GM gives the body's own.
+                const double pair_gm = get_double_or(*orbit, "gm_km3_s2", 0.0);
+                if (body.body_gm_km3_s2 <= 0.0 && pair_gm > 0.0 && std::abs(scale) < 1.0) {
+                    body.body_gm_km3_s2 = pair_gm * (1.0 - std::abs(scale));
+                }
             }
         } else if (body.parent >= 0) {
             fail(ctx, "bodies with a parent need an [orbit]");
@@ -969,6 +977,9 @@ void Loader::parse_nbody(const toml::table& t, Scene& out)
         NBodyParticle p;
         const double body_gm = out.bodies[static_cast<size_t>(b)].gm_km3_s2;
         p.gm = m->contains("gm_km3_s2") || body_gm <= 0.0 ? get_double(*m, "gm_km3_s2", mctx) : body_gm;
+        if (out.bodies[static_cast<size_t>(b)].body_gm_km3_s2 <= 0.0) {
+            out.bodies[static_cast<size_t>(b)].body_gm_km3_s2 = p.gm;
+        }
         double period = 0.0;
         auto osculating_period = [](const State& relative, double gm_pair) {
             const double energy =

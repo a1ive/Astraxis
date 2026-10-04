@@ -113,6 +113,7 @@ name = "Sun"
 parent = "TRAPPIST-1"
 kind = "star"
 radii_km = [695700.0]
+body_gm_km3_s2 = 1.32712440041279419e11 # JPL DE440
 temperature_k = 5772.0
 luminosity_solar = 1.0
 trail = "none"

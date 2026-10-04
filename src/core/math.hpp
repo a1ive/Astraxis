@@ -28,6 +28,15 @@ inline constexpr double kParsecKm = 648000.0 / 3.14159265358979323846 * kAuKm;
 // Heliocentric gravitational constant in km^3/s^2 (JPL DE440, https://ssd.jpl.nasa.gov/astro_par.html).
 inline constexpr double kSunGmKm3S2 = 1.32712440041279419e11;
 
+// Geocentric gravitational constant in km^3/s^2 (JPL DE440, https://ssd.jpl.nasa.gov/astro_par.html).
+inline constexpr double kEarthGmKm3S2 = 398600.435507;
+
+// Nominal equatorial Earth radius in km (IAU 2015 Resolution B3).
+inline constexpr double kEarthRadiusKm = 6378.1;
+
+// Newtonian constant of gravitation in km^3/(kg s^2) (CODATA 2018: 6.67430e-11 m^3/(kg s^2)).
+inline constexpr double kGravitationalConstantKm3KgS2 = 6.67430e-20;
+
 // Wraps an angle to [0, 2*pi).
 inline double wrap_two_pi(double a)
 {

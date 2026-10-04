@@ -81,6 +81,10 @@ struct Body {
     double equatorial_radius_b_km = 1.0; // second equatorial semi-axis (b); = a for spheroids
     double polar_radius_km = 1.0;
     double gm_km3_s2 = 0.0; // enables osculating-orbit trails of its children
+    // GM of the body alone (its mass, shown in the info panel): body_gm_km3_s2
+    // in the scene file, else gm_km3_s2 (which may include the satellites) or
+    // the body's N-body GM. 0 = unknown.
+    double body_gm_km3_s2 = 0.0;
     double spin = 0.0;      // black holes: a / M
 
     // Black holes: illustrative thin accretion disk in the equatorial plane
@@ -238,6 +242,18 @@ struct SceneEvent {
     double phase_deg = 0.0;     // with from_body: turned this far around the up axis (180 = from behind)
 };
 
+// Osculating two-body orbit.
+struct OrbitElements {
+    double eccentricity = 0.0;
+    double periapsis_km = 0.0;
+    double apoapsis_km = 0.0; // 0 if unbound
+    double period_s = 0.0;    // 0 if unbound
+};
+
+// Elements of the orbit with state `relative` (to the central body) and `gm`
+// (of the central body plus the orbiting one); false if gm or r is not positive.
+bool osculating_elements(const State& relative, double gm, OrbitElements* out);
+
 // A star lighting a body, with its irradiance relative to the brightest one.
 struct StarLight {
     int star = -1;
@@ -284,6 +300,16 @@ public:
     // barycenter, where the first child is the primary (shown orbiting the
     // barycenter's own host) and later children orbit that primary. -1 if none.
     int satellite_host(int body) const;
+
+    // What a body is described as orbiting (info panel): its satellite_host,
+    // except that a body farther from its barycenter than a massive sibling of
+    // the host (a circumbinary planet) orbits the barycenter. `gm` is that of
+    // the two-body problem (central mass plus the body's), 0 if unknown.
+    struct OrbitCenter {
+        int body = -1;
+        double gm = 0.0;
+    };
+    OrbitCenter orbit_center(int body) const;
 
     void set_active_frame(int index);
     int active_frame() const { return m_active_frame; }

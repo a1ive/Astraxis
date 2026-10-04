@@ -351,6 +351,9 @@ void App::handle_key(const SDL_Event& event)
     case SDLK_L:
         m_show_labels = !m_show_labels;
         break;
+    case SDLK_I:
+        m_show_info = !m_show_info;
+        break;
     case SDLK_LEFTBRACKET:
         m_clock.warp = std::max(1.0, m_clock.warp / 2.0);
         break;
