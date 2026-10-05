@@ -353,6 +353,14 @@ void App::build_control_panel()
         ImGui::SetItemTooltip("Volcanic and cryovolcanic plumes, always erupting (P)");
         row_started = true;
     }
+    if (std::any_of(m_scene.bodies.begin(), m_scene.bodies.end(), [](const Body& b) { return b.comet.enabled; })) {
+        if (row_started) {
+            ImGui::SameLine();
+        }
+        ImGui::Checkbox("Comets", &m_show_comets);
+        ImGui::SetItemTooltip("Comae (C2) and ion tails (C)");
+        row_started = true;
+    }
     if (row_started) {
         ImGui::SameLine();
     }
@@ -371,7 +379,7 @@ void App::build_control_panel()
     ImGui::TextDisabled("Drag: rotate   Wheel: zoom");
     ImGui::TextDisabled("Double-click label: focus");
     ImGui::TextDisabled("Space pause  R reverse  [ ] warp  N now");
-    ImGui::TextDisabled("1-9 focus  A tour  O/L/I/M/P  H hide");
+    ImGui::TextDisabled("1-9 focus  A tour  O/L/I/M/P/C  H hide");
 
     ImGui::End();
 }

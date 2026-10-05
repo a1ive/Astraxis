@@ -12,6 +12,7 @@
 #include "ephem/mean_element_orbit.hpp"
 #include "scene/camera.hpp"
 #include "scene/camera_director.hpp"
+#include "scene/comet.hpp"
 #include "scene/scene_loader.hpp"
 #include "scene/star_catalog.hpp"
 
@@ -898,6 +899,51 @@ void test_halley_shape()
         }
     }
     check(worst_nutation < 1e-6, "Halley long axis stays 66 deg from M (deg)", worst_nutation);
+}
+
+// Comets in the ISEE-3 scene ([SBDB], [SLV], [ESO] in isee3.toml). The ion tail points
+// along the solar wind as the comet sees it: a few degrees off the anti-sun direction,
+// toward where the comet came from. ICE flew through Giacobini-Zinner's tail 7,800 km
+// behind the nucleus (Bame et al. 1986, Science 232, 356): at closest approach it should
+// be downstream and within the tail's radius (1.2e4 km across, [SLV]) of the axis.
+void test_comet_tails()
+{
+    Scene scene = load_scene_or_die("isee3.toml");
+    const int gz = scene.find("Giacobini-Zinner");
+    const int halley = scene.find("Halley");
+    const int craft = scene.find("ISEE-3");
+    const Body::Comet& gz_comet = scene.bodies[static_cast<size_t>(gz)].comet;
+    const Body::Comet& halley_comet = scene.bodies[static_cast<size_t>(halley)].comet;
+    check(gz_comet.enabled && halley_comet.enabled, "isee3.toml comets");
+    check(gz_comet.m1 == 13.2 && gz_comet.k1 == 8.25 && halley_comet.m1 == 5.5 && halley_comet.k1 == 8.0,
+          "comet magnitude laws [SBDB]");
+    check(std::abs(comet_total_magnitude(5.5, 8.0, 0.1) - (5.5 - 8.0)) < 1e-12, "total magnitude law");
+
+    auto utc = [](const CalendarDateTime& c) { return tdb_from_utc_jd(jd_from_calendar(c)); };
+    const double t_ca = utc({1985, 9, 11, 11, 2, 43});
+    const State sun = scene.sun_icrf_state_at(t_ca);
+    const State comet = scene.icrf_state_at(gz, t_ca);
+    const glm::dvec3 r = comet.position - sun.position;
+    const glm::dvec3 v = comet.velocity - sun.velocity;
+    const glm::dvec3 axis = ion_tail_direction(r, v, gz_comet.solar_wind_km_s);
+
+    // Aberration: atan(v_perp / v_wind) away from the anti-sun direction, against the motion.
+    const glm::dvec3 out = glm::normalize(r);
+    const glm::dvec3 v_perp = v - glm::dot(v, out) * out;
+    const double expected = std::atan2(glm::length(v_perp), gz_comet.solar_wind_km_s - glm::dot(v, out));
+    const double aberration = std::acos(std::clamp(glm::dot(axis, out), -1.0, 1.0));
+    check(std::abs(aberration - expected) < 1e-9, "ion tail aberration angle", aberration / kDegToRad);
+    check(glm::dot(axis, v_perp) < 0.0, "ion tail lags behind the motion");
+
+    const glm::dvec3 rel = scene.icrf_state_at(craft, t_ca).position - comet.position;
+    const double downstream = glm::dot(rel, axis);
+    const double off_axis = glm::length(rel - downstream * axis);
+    check(downstream > 0.0, "ICE passed on the tail side (km)", downstream);
+    check(off_axis < 0.5 * gz_comet.ion_tail_diameter_km, "ICE within the ion tail's radius (km)", off_axis);
+    const double off_anti_sun = glm::length(rel - glm::dot(rel, out) * out);
+    std::printf("info: G-Z tail %.2f deg from anti-sun; ICE %.0f km downstream, %.0f km off its axis (%.0f km off the "
+                "anti-sun line)\n",
+                aberration / kDegToRad, downstream, off_axis, off_anti_sun);
 }
 
 // Solar System scene: the asteroid and Kuiper belts (two-body orbits from SBDB).
@@ -3192,6 +3238,7 @@ int main()
     test_pallas_shape();
     test_jupiter_saturn_small_moon_shapes();
     test_halley_shape();
+    test_comet_tails();
     test_parker_scene();
     test_jupiter_missions();
     test_earth_moon_scene();

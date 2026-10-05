@@ -212,6 +212,20 @@ struct Body {
     Atmosphere atmosphere;
     std::vector<Plume> plumes;
 
+    // Comets: a gas coma (C2, Haser model) and an ion tail, both glowing in
+    // proportion to the comet's total brightness law. The tail's width and
+    // length are near the nucleus and along the tail (see comet.hpp).
+    struct Comet {
+        bool enabled = false;
+        double m1 = 0.0; // total magnitude law (comet_total_magnitude)
+        double k1 = 0.0;
+        double ion_tail_diameter_km = 0.0;  // near the nucleus
+        double ion_tail_length_km = 0.0;    // brightness e-folding length along the tail
+        double solar_wind_km_s = 400.0;     // aberration of the tail
+        glm::vec3 coma_color{0.49f, 1.0f, 0.69f};     // sRGB (C2 Swan bands)
+        glm::vec3 ion_tail_color{0.31f, 0.48f, 1.0f}; // sRGB (CO+)
+    } comet;
+
     // Pulsars: two radio beams from the magnetic poles, inclined to the spin
     // axis (the orbit normal of `spin_axis_orbit_of`) and sweeping around it.
     // The true spin (milliseconds) cannot be shown; the beams turn once every

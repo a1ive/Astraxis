@@ -55,6 +55,8 @@ add_library(astraxis_sim STATIC
     src/scene/camera.hpp
     src/scene/camera_director.cpp
     src/scene/camera_director.hpp
+    src/scene/comet.cpp
+    src/scene/comet.hpp
     src/scene/scene.cpp
     src/scene/scene.hpp
     src/scene/scene_loader.cpp
@@ -84,6 +86,7 @@ astraxis_add_shaders(astraxis_shaders
     shaders/bloom_upsample.frag.hlsl
     shaders/body.vert.hlsl
     shaders/body.frag.hlsl
+    shaders/comet.frag.hlsl
     shaders/composite.frag.hlsl
     shaders/fullscreen.vert.hlsl
     shaders/plume.vert.hlsl
@@ -119,6 +122,8 @@ add_executable(astraxis
     src/render/black_hole_pass.hpp
     src/render/body_pass.cpp
     src/render/body_pass.hpp
+    src/render/comet_pass.cpp
+    src/render/comet_pass.hpp
     src/render/gpu_buffer.cpp
     src/render/gpu_buffer.hpp
     src/render/orbit_line_pass.cpp

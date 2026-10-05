@@ -6,6 +6,7 @@
 #include "ephem/kerr_null.hpp"
 #include "platform/paths.hpp"
 #include "render/texture.hpp"
+#include "scene/comet.hpp"
 #include "scene/scene_loader.hpp"
 #include "scene/star_catalog.hpp"
 
@@ -106,6 +107,29 @@ constexpr double kUmbrellaShell = 0.25;
 constexpr double kTailWidthKm = 6.0;
 constexpr double kJetReach = 4.0;
 constexpr double kTailReach = 3.0;
+
+// Comets (illustrative brightness). The total magnitude law gives each coma's
+// apparent flux, which is compressed like the catalog stars' (flux^gamma, see
+// starfield_pass.cpp) by scaling the luminosity with distance: brightness
+// relative to a comet of kCometReferenceMag. Seen from closer than
+// kComaNearScales daughter scale lengths, the brightness stays as it is there.
+// The ion tail's luminosity is a share of the coma's, raised for tails much
+// larger than the coma (and lowered for smaller ones) so that their surface
+// brightness relative to the coma is compressed with the same gamma: Halley's
+// tail is 10^4 times the area of Giacobini-Zinner's for its light. Comae and
+// tails smaller than a few pixels are widened (at the same total flux) so
+// that distant comets show as soft spots rather than flickering sub-pixel
+// cores.
+constexpr double kCometMagnitudeGamma = 0.56;
+constexpr double kCometReferenceMag = 5.0;
+constexpr double kComaGain = 3.0e-5;  // radiance x solid angle of a reference comet
+constexpr double kIonTailShare = 3.0; // tail luminosity / coma luminosity, for a tail of the coma's size
+constexpr double kComaNearScales = 10.0;
+constexpr double kComaReach = 8.0;    // box half-size, daughter scale lengths
+constexpr double kIonTailReach = 3.0; // box length, e-folding lengths
+constexpr double kIonTailOpening = 0.03; // tan of the tail's half-opening angle
+constexpr double kComaMinPx = 2.0;    // daughter scale length on screen, at least
+constexpr double kIonTailMinPx = 1.0; // tail radius on screen, at least
 
 glm::dvec3 lat_lon_direction(const glm::dvec2& lat_lon_deg)
 {
@@ -275,7 +299,7 @@ bool App::init(const LaunchOptions& options)
     const SceneTargetFormat& format = m_renderer.scene_format();
     if (!m_starfield.init(m_renderer.device(), format, catalog) || !m_bodies.init(m_renderer.device(), format) ||
         !m_rings.init(m_renderer.device(), format) || !m_atmospheres.init(m_renderer.device(), format) ||
-        !m_plumes.init(m_renderer.device(), format) ||
+        !m_plumes.init(m_renderer.device(), format) || !m_comets.init(m_renderer.device(), format) ||
         !m_orbits.init(m_renderer.device(), format) || !m_belts.init(m_renderer.device(), format) ||
         !m_sun.init(m_renderer.device(), format) || !m_beams.init(m_renderer.device(), format) ||
         !m_black_hole.init(m_renderer.device(), format) ||
@@ -397,6 +421,7 @@ void App::shutdown()
     m_rings.shutdown();
     m_atmospheres.shutdown();
     m_plumes.shutdown();
+    m_comets.shutdown();
     m_bodies.shutdown();
     m_starfield.shutdown();
     m_renderer.shutdown();
@@ -512,6 +537,9 @@ void App::handle_key(const SDL_Event& event)
         break;
     case SDLK_P:
         m_show_plumes = !m_show_plumes;
+        break;
+    case SDLK_C:
+        m_show_comets = !m_show_comets;
         break;
     case SDLK_LEFTBRACKET:
         m_clock.warp = std::max(1.0, m_clock.warp / 2.0);
@@ -1153,6 +1181,100 @@ void App::build_belt_items()
     }
 }
 
+void App::build_comet_items()
+{
+    m_comet_items.clear();
+    if (!m_show_comets) {
+        return;
+    }
+    const glm::dvec3& cam = m_view.position;
+    const double px_per_radian = 0.5 * m_view.viewport.y * m_view.focal_y;
+    const FrameTransform& transform = m_scene.current_transform();
+    const State sun = m_scene.sun_icrf_state_at(m_clock.t_tdb);
+    for (size_t i = 0; i < m_scene.bodies.size(); ++i) {
+        const Body& body = m_scene.bodies[i];
+        const Body::Comet& comet = body.comet;
+        if (!comet.enabled || !body.visible) {
+            continue;
+        }
+        const State state = m_scene.icrf_state_at(static_cast<int>(i), m_clock.t_tdb);
+        const glm::dvec3 helio = state.position - sun.position;
+        const double r_au = glm::length(helio) / kAuKm;
+        const glm::dvec3 tail_axis = glm::normalize(
+            transform.direction_to_display(ion_tail_direction(helio, state.velocity - sun.velocity, comet.solar_wind_km_s)));
+
+        // Local frame: x along the tail.
+        const glm::dvec3 helper = std::abs(tail_axis.z) < 0.9 ? glm::dvec3(0.0, 0.0, 1.0) : glm::dvec3(1.0, 0.0, 0.0);
+        const glm::dvec3 y = glm::normalize(glm::cross(helper, tail_axis));
+        const glm::dmat3 rot(tail_axis, y, glm::cross(tail_axis, y)); // local -> display
+        const glm::dmat3 to_local = glm::transpose(rot);
+        const glm::dvec3 rel = cam - body.world_position;
+        const double distance = glm::length(rel);
+
+        // Scale lengths grow as r_h^2 (comet.hpp).
+        double lp = kC2ParentScaleKm * r_au * r_au;
+        double ld = kC2DaughterScaleKm * r_au * r_au;
+        const double widen = std::max(1.0, kComaMinPx / (ld / distance * px_per_radian));
+        lp *= widen;
+        ld *= widen;
+
+        const double seen_from_km = std::max(distance, kComaNearScales * ld);
+        const double magnitude =
+            comet_total_magnitude(comet.m1, comet.k1, r_au) + 5.0 * std::log10(seen_from_km / kAuKm);
+        const double flux = std::pow(10.0, -0.4 * kCometMagnitudeGamma * (magnitude - kCometReferenceMag));
+        const double luminosity = kComaGain * flux * seen_from_km * seen_from_km;
+
+        CometDrawItem base;
+        base.model = glm::translate(glm::mat4(1.0f), to_render(body.world_position, cam)) * glm::mat4(glm::mat3(rot));
+        base.to_local = glm::mat3(to_local);
+        base.camera_local = glm::vec3(to_local * rel);
+        // Rays stop at the nucleus and the bodies nearest the camera.
+        const double nucleus = std::cbrt(body.equatorial_radius_km * body.equatorial_radius_b_km * body.polar_radius_km);
+        base.occluders[base.occluder_count++] = glm::vec4(0.0f, 0.0f, 0.0f, static_cast<float>(nucleus));
+        std::vector<std::pair<double, size_t>> near;
+        for (size_t k = 0; k < m_scene.bodies.size(); ++k) {
+            const Body& other = m_scene.bodies[k];
+            if (k != i && other.visible && other.kind == BodyKind::Planet) {
+                near.emplace_back(glm::length(other.world_position - cam), k);
+            }
+        }
+        std::sort(near.begin(), near.end());
+        for (const auto& entry : near) {
+            if (base.occluder_count >= kMaxCometOccluders) {
+                break;
+            }
+            const Body& other = m_scene.bodies[entry.second];
+            base.occluders[base.occluder_count++] =
+                glm::vec4(glm::vec3(to_local * (other.world_position - body.world_position)),
+                          static_cast<float>(other.equatorial_radius_km));
+        }
+
+        CometDrawItem coma = base;
+        coma.type = CometDrawItem::Coma;
+        coma.shape = glm::vec3(static_cast<float>(lp), static_cast<float>(ld), static_cast<float>(nucleus));
+        coma.color = comet.coma_color;
+        coma.brightness = static_cast<float>(luminosity);
+        coma.box_min = glm::vec3(static_cast<float>(-kComaReach * ld));
+        coma.box_max = glm::vec3(static_cast<float>(kComaReach * ld));
+        m_comet_items.push_back(coma);
+
+        const double length = comet.ion_tail_length_km;
+        const double tail_area = 0.5 * comet.ion_tail_diameter_km * length / (ld * ld / (widen * widen));
+        const double tail_share = kIonTailShare * std::pow(tail_area, 1.0 - kCometMagnitudeGamma);
+        const double w0 = std::max(0.5 * comet.ion_tail_diameter_km, kIonTailMinPx * distance / px_per_radian);
+        const double reach = kIonTailReach * length;
+        const double end_width = 3.0 * (w0 + reach * kIonTailOpening);
+        CometDrawItem tail = base;
+        tail.type = CometDrawItem::IonTail;
+        tail.shape = glm::vec3(static_cast<float>(w0), static_cast<float>(kIonTailOpening), static_cast<float>(length));
+        tail.color = comet.ion_tail_color;
+        tail.brightness = static_cast<float>(tail_share * luminosity);
+        tail.box_min = glm::vec3(static_cast<float>(-2.0 * w0), static_cast<float>(-end_width), static_cast<float>(-end_width));
+        tail.box_max = glm::vec3(static_cast<float>(reach), static_cast<float>(end_width), static_cast<float>(end_width));
+        m_comet_items.push_back(tail);
+    }
+}
+
 void App::build_orbit_lines()
 {
     m_orbits.begin();
@@ -1257,6 +1379,8 @@ void App::render()
         m_bodies.draw(frame.cmd, pass, m_view, sun, m_body_items);
         m_atmospheres.draw(frame.cmd, pass, m_view, m_atmosphere_items);
         m_plumes.draw(frame.cmd, pass, m_view, static_cast<float>(m_pulsar_time), m_plume_items);
+        build_comet_items();
+        m_comets.draw(frame.cmd, pass, m_view, static_cast<float>(m_pulsar_time), m_comet_items);
         m_rings.draw(frame.cmd, pass, m_view, m_ring_items);
         build_belt_items();
         m_belts.draw(frame.cmd, pass, m_view, m_belt_items);

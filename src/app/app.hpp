@@ -7,6 +7,7 @@
 #include "render/belt_pass.hpp"
 #include "render/black_hole_pass.hpp"
 #include "render/body_pass.hpp"
+#include "render/comet_pass.hpp"
 #include "render/orbit_line_pass.hpp"
 #include "render/plume_pass.hpp"
 #include "render/post_process.hpp"
@@ -57,6 +58,7 @@ private:
     void build_body_items();
     void build_orbit_lines();
     void build_belt_items();
+    void build_comet_items();
     void reset_to_now();
     void set_focus(int body);
 
@@ -87,6 +89,7 @@ private:
     BodyPass m_bodies;
     AtmospherePass m_atmospheres;
     PlumePass m_plumes;
+    CometPass m_comets;
     RingPass m_rings;
     OrbitLinePass m_orbits;
     BeltPass m_belts;
@@ -100,7 +103,7 @@ private:
     double m_tour_warp = 0.0;  // warp currently imposed by the tour (0 = none)
     double m_saved_warp = 0.0; // the user's warp, restored afterwards
     double m_disk_time = 0.0;             // accretion-disk animation clock (units of M)
-    double m_pulsar_time = 0.0;           // real seconds the clock has run (pulsar beams, plume animation)
+    double m_pulsar_time = 0.0;           // real seconds the clock has run (pulsar beams, plume and comet animation)
     std::vector<CatalogStar> m_catalog;   // the catalog sky (seen from Earth)
     bool m_scene_sky_stars = false;       // the starfield shows the scene's own stars
     std::vector<BeamDrawItem> m_beam_items;
@@ -131,6 +134,7 @@ private:
     bool m_show_belts = true;
     bool m_show_atmospheres = true; // otherwise the surface under Venus' and Titan's clouds
     bool m_show_plumes = true;
+    bool m_show_comets = true; // comae and ion tails
     bool m_show_labels = true;
     bool m_show_info = true;
     bool m_show_demo = false;
@@ -150,6 +154,7 @@ private:
     std::vector<RingDrawItem> m_ring_items;
     std::vector<AtmosphereDrawItem> m_atmosphere_items;
     std::vector<PlumeDrawItem> m_plume_items;
+    std::vector<CometDrawItem> m_comet_items;
     std::vector<AtmosphereOptics> m_atmosphere_optics; // per body (BodyDrawItem::atmosphere points here)
     std::vector<BeltDrawItem> m_belt_items;
     std::vector<int> m_belt_ids;          // per scene belt: BeltPass index (-1: not uploaded)

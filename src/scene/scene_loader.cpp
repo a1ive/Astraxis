@@ -837,6 +837,26 @@ void Loader::parse(const toml::table& root, Scene& out)
                 body.plumes.push_back(parse_plume(*p, ctx));
             }
         }
+        if (const toml::table* c = (*t)["comet"].as_table()) {
+            const std::string comet_ctx = ctx + " comet";
+            if (body.kind != BodyKind::Planet || body.parent != 0) {
+                fail(comet_ctx, "a comet must be a body orbiting the root (the sun)");
+            }
+            Body::Comet& comet = body.comet;
+            comet.enabled = true;
+            double magnitude[2];
+            get_array(*c, "magnitude_m1_k1", comet_ctx, magnitude, 2, 2);
+            comet.m1 = magnitude[0];
+            comet.k1 = magnitude[1];
+            comet.ion_tail_diameter_km = get_double(*c, "ion_tail_diameter_km", comet_ctx);
+            comet.ion_tail_length_km = get_double(*c, "ion_tail_length_km", comet_ctx);
+            comet.solar_wind_km_s = get_double_or(*c, "solar_wind_km_s", comet.solar_wind_km_s);
+            if (comet.ion_tail_diameter_km <= 0.0 || comet.ion_tail_length_km <= 0.0 || comet.solar_wind_km_s <= 0.0) {
+                fail(comet_ctx, "ion tail sizes and the solar wind speed must be positive");
+            }
+            comet.coma_color = parse_color(*c, "coma_color", comet_ctx, comet.coma_color);
+            comet.ion_tail_color = parse_color(*c, "ion_tail_color", comet_ctx, comet.ion_tail_color);
+        }
 
         if (const toml::table* orbit = (*t)["orbit"].as_table()) {
             if (body.parent < 0) {

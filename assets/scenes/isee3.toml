@@ -45,6 +45,15 @@
 #        RA, Dec (B1950) = 6.2, -60.7 deg = 6.785, -60.423 deg (J2000; SPICE FK4 -> J2000 rotation).
 #        The shape model's frame assumes this rotation state [STKS]. The phases of the two angles
 #        are not in the abstract, so the orientation at any moment is illustrative.
+# [SBDB] JPL Small-Body Database, comet magnitude parameters M1, K1 (total magnitude
+#        M1 + 5 log delta + K1 log r): 1P 5.5, 8.0 (ICQ 2005 Handbook); 21P 13.2, 8.25 (fit to
+#        638 observations). The coma's color and the ion tail's share of the light are
+#        illustrative (app.cpp); the coma is C2 in the Haser model (src/scene/comet.hpp).
+# [SLV]  J. A. Slavin et al. 1986, GRL 13, 1085 (abstract): on 1985-09-11 the H2O+ ion tail of
+#        Giacobini-Zinner was 1.2e4 km across (Lick slit spectrum, 0.5 h after ICE's pass), the
+#        magnetotail ICE crossed 9.6e3 km; CFHT saw a central ion tail ~2e4 km long.
+# [ESO]  ESO press release eso8607 (1986-03-06): Halley's ion tail at least 22 million km long
+#        on 1986-02-22, at least 50 million km on 02-27. Its width is illustrative.
 # [L]    Sun / Earth-Moon barycenter mass ratio 403503.235625 / (1.32712440041279419e11 +
 #        403503.235625) = 3.04042340e-6 [GM], as in jwst.toml.
 # Flyby times and distances: computed from the tables (tools/isee3/isee3_reconstruct.py
@@ -198,8 +207,11 @@ mean_longitude_deg = [-4.56813164, 19140.29934243]
 lon_peri_deg = [-23.91744784, 0.45223625]
 node_deg = [49.71320984, -0.26852431]
 
-# --- Comets (nuclei; no comae or tails are drawn yet) ------------------------------------
+# --- Comets ------------------------------------------------------------------------------
+# Comae and ion tails glow by the comets' brightness laws; dust tails are not drawn yet.
 # Giacobini-Zinner's nucleus was never imaged (ICE carried no camera), so it stays a sphere.
+# The tails point along the solar wind as each comet sees it (aberration); the wind speed
+# is a typical slow-wind value, not measured.
 
 [[bodies]]
 name = "Giacobini-Zinner"
@@ -209,6 +221,11 @@ color = "#cfe8ff"
 orbit_color = "#9cc8ff"
 trail = "history"
 trail_history_days = 200.0
+[bodies.comet]
+magnitude_m1_k1 = [13.2, 8.25]             # [SBDB]
+ion_tail_diameter_km = 1.2e4               # [SLV]
+ion_tail_length_km = 2.0e4                 # [SLV] CFHT length, used as the e-folding length
+solar_wind_km_s = 400.0
 [bodies.orbit]                             # [REC] 21P, 1985-01 .. 1986-07
 type = "ephemeris"
 file = "ephem/gz.eph"
@@ -229,6 +246,11 @@ precession_period_days = 3.69              # long axis around M
 spin_period_days = 7.1                     # about the long axis
 epoch = "1986-03-14 00:00"                 # Giotto's encounter; phases unknown, set to zero
 phases_deg = [0.0, 0.0]
+[bodies.comet]
+magnitude_m1_k1 = [5.5, 8.0]               # [SBDB]
+ion_tail_diameter_km = 1.0e5               # illustrative
+ion_tail_length_km = 2.2e7                 # [ESO] 1986-02-22, used as the e-folding length
+solar_wind_km_s = 400.0
 [bodies.orbit]                             # [HZN] 1P, 1985 .. 1986
 type = "ephemeris"
 file = "ephem/halley.eph"
