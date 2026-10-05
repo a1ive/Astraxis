@@ -8,6 +8,7 @@
 #include "render/black_hole_pass.hpp"
 #include "render/body_pass.hpp"
 #include "render/comet_pass.hpp"
+#include "render/dust_pass.hpp"
 #include "render/orbit_line_pass.hpp"
 #include "render/plume_pass.hpp"
 #include "render/post_process.hpp"
@@ -17,6 +18,7 @@
 #include "render/sun_pass.hpp"
 #include "scene/camera.hpp"
 #include "scene/camera_director.hpp"
+#include "scene/comet.hpp"
 #include "scene/scene.hpp"
 
 #include <glm/vec3.hpp>
@@ -90,6 +92,7 @@ private:
     AtmospherePass m_atmospheres;
     PlumePass m_plumes;
     CometPass m_comets;
+    DustPass m_dust;
     RingPass m_rings;
     OrbitLinePass m_orbits;
     BeltPass m_belts;
@@ -134,7 +137,7 @@ private:
     bool m_show_belts = true;
     bool m_show_atmospheres = true; // otherwise the surface under Venus' and Titan's clouds
     bool m_show_plumes = true;
-    bool m_show_comets = true; // comae and ion tails
+    bool m_show_comets = true; // comae, ion and dust tails
     bool m_show_labels = true;
     bool m_show_info = true;
     bool m_show_demo = false;
@@ -155,6 +158,7 @@ private:
     std::vector<AtmosphereDrawItem> m_atmosphere_items;
     std::vector<PlumeDrawItem> m_plume_items;
     std::vector<CometDrawItem> m_comet_items;
+    std::vector<DustTail> m_dust_tails; // per body (comets only are updated)
     std::vector<AtmosphereOptics> m_atmosphere_optics; // per body (BodyDrawItem::atmosphere points here)
     std::vector<BeltDrawItem> m_belt_items;
     std::vector<int> m_belt_ids;          // per scene belt: BeltPass index (-1: not uploaded)

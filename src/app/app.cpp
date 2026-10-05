@@ -130,6 +130,35 @@ constexpr double kIonTailReach = 3.0; // box length, e-folding lengths
 constexpr double kIonTailOpening = 0.03; // tan of the tail's half-opening angle
 constexpr double kComaMinPx = 2.0;    // daughter scale length on screen, at least
 constexpr double kIonTailMinPx = 1.0; // tail radius on screen, at least
+// Dust (illustrative): shares of the coma's luminosity (each tail grain's raised
+// with its distance d from the nucleus, by (d / Ld)^(2 (1 - gamma)) beyond the
+// gas coma's daughter scale length Ld: the tail's surface brightness falls off
+// with distance as compressed as the star magnitudes are), the
+// Henyey-Greenstein asymmetry of the scattering (forward-throwing), and the
+// splats' growth: the spread of ejection speeds and sizes each grain stands
+// for (its own ejection speed x age).
+constexpr double kDustComaShare = 0.7;
+constexpr double kDustTailShare = 1.0;
+constexpr double kDustAsymmetry = 0.5;
+constexpr double kDustSpread = 1.0; // splat sigma growth / (ejection speed x age)
+constexpr double kDustMinPx = 1.0;  // splat sigma on screen, at least
+// Splats near the camera grow to cover the screen, and thousands of them cost
+// far too much fill rate. Beyond kDustThinPx (sigma on screen) a grain is kept
+// with probability (kDustThinPx / sigma)^2, by its fixed random number, and
+// brightened by the inverse, which keeps the light on average; between
+// kDustFadePx and kDustMaxPx they fade out (a faint haze; the analytic dust
+// coma still shows the cloud).
+constexpr double kDustThinPx = 8.0;
+constexpr double kDustFadePx = 150.0;
+constexpr double kDustMaxPx = 300.0;
+
+// Henyey-Greenstein phase function (mean 1 over the sphere); `cos_angle` between
+// the incoming sunlight and the direction toward the camera (1 = forward).
+double dust_phase(double cos_angle)
+{
+    const double g = kDustAsymmetry;
+    return (1.0 - g * g) / std::pow(1.0 + g * g - 2.0 * g * cos_angle, 1.5);
+}
 
 glm::dvec3 lat_lon_direction(const glm::dvec2& lat_lon_deg)
 {
@@ -300,6 +329,7 @@ bool App::init(const LaunchOptions& options)
     if (!m_starfield.init(m_renderer.device(), format, catalog) || !m_bodies.init(m_renderer.device(), format) ||
         !m_rings.init(m_renderer.device(), format) || !m_atmospheres.init(m_renderer.device(), format) ||
         !m_plumes.init(m_renderer.device(), format) || !m_comets.init(m_renderer.device(), format) ||
+        !m_dust.init(m_renderer.device(), format) ||
         !m_orbits.init(m_renderer.device(), format) || !m_belts.init(m_renderer.device(), format) ||
         !m_sun.init(m_renderer.device(), format) || !m_beams.init(m_renderer.device(), format) ||
         !m_black_hole.init(m_renderer.device(), format) ||
@@ -422,6 +452,7 @@ void App::shutdown()
     m_atmospheres.shutdown();
     m_plumes.shutdown();
     m_comets.shutdown();
+    m_dust.shutdown();
     m_bodies.shutdown();
     m_starfield.shutdown();
     m_renderer.shutdown();
@@ -589,6 +620,7 @@ bool App::load_scene(size_t index)
     m_scene_index = index;
 
     m_body_fades.assign(m_scene.bodies.size(), 1.0f); // until the next update()
+    m_dust_tails.assign(m_scene.bodies.size(), DustTail{});
     m_belts.clear();
     m_belt_ids.clear();
     m_belt_reference_h.clear();
@@ -1184,6 +1216,8 @@ void App::build_belt_items()
 void App::build_comet_items()
 {
     m_comet_items.clear();
+    std::vector<DustSplat>& splats = m_dust.splats();
+    splats.clear();
     if (!m_show_comets) {
         return;
     }
@@ -1272,6 +1306,56 @@ void App::build_comet_items()
         tail.box_min = glm::vec3(static_cast<float>(-2.0 * w0), static_cast<float>(-end_width), static_cast<float>(-end_width));
         tail.box_max = glm::vec3(static_cast<float>(reach), static_cast<float>(end_width), static_cast<float>(end_width));
         m_comet_items.push_back(tail);
+
+        // Dust coma: grains ejected sunward at v0 sqrt(beta / r_h) turn back at
+        // v^2 / (2 beta g) = v0^2 r_h au^2 / (2 GM), whatever beta (fountain model).
+        const double gm_sun = m_scene.bodies[static_cast<size_t>(body.parent)].gm_km3_s2;
+        const double v0 = comet.dust_speed_km_s;
+        const double dust_scale = std::max(v0 * v0 * r_au * kAuKm * kAuKm / (2.0 * gm_sun),
+                                           kComaMinPx * distance / px_per_radian);
+        const glm::dvec3 sun_display = m_scene.sun_position();
+        const double cos_nucleus =
+            glm::dot(glm::normalize(body.world_position - sun_display), glm::normalize(cam - body.world_position));
+        CometDrawItem dust_coma = base;
+        dust_coma.type = CometDrawItem::Coma;
+        dust_coma.shape = glm::vec3(static_cast<float>(1e-3 * dust_scale), static_cast<float>(dust_scale),
+                                    static_cast<float>(nucleus));
+        dust_coma.color = comet.dust_color;
+        dust_coma.brightness = static_cast<float>(kDustComaShare * luminosity * dust_phase(cos_nucleus));
+        dust_coma.box_min = glm::vec3(static_cast<float>(-kComaReach * dust_scale));
+        dust_coma.box_max = glm::vec3(static_cast<float>(kComaReach * dust_scale));
+        m_comet_items.push_back(dust_coma);
+
+        // Dust tail: Finson-Probstein grains (comet.hpp).
+        DustTail& dust = m_dust_tails[i];
+        dust.update(m_scene, static_cast<int>(i), m_clock.t_tdb);
+        const double ld_physical = ld / widen;
+        const double tail_luminosity = kDustTailShare * luminosity;
+        for (const DustGrain& g : dust.grains()) {
+            const glm::dvec3 d = g.position - state.position;
+            const double boost =
+                std::pow(std::max(glm::dot(d, d) / (ld_physical * ld_physical), 1.0), 1.0 - kCometMagnitudeGamma);
+            const glm::dvec3 world = transform.to_display(g.position);
+            const double cos_angle = glm::dot(glm::normalize(world - sun_display), glm::normalize(cam - world));
+            const double sigma = dust_scale + kDustSpread * g.ejection_km_s * g.age_s;
+            const double sigma_px = sigma / glm::length(world - cam) * px_per_radian;
+            if (sigma_px >= kDustMaxPx) {
+                continue;
+            }
+            const double keep = std::min(1.0, kDustThinPx * kDustThinPx / (sigma_px * sigma_px));
+            if (g.random >= keep) {
+                continue;
+            }
+            const double near_fade =
+                (1.0 - std::clamp((sigma_px - kDustFadePx) / (kDustMaxPx - kDustFadePx), 0.0, 1.0)) / keep;
+            DustSplat splat;
+            splat.position = to_render(world, cam);
+            splat.sigma_km = static_cast<float>(sigma);
+            splat.color = comet.dust_color;
+            splat.luminosity =
+                static_cast<float>(tail_luminosity * boost * near_fade * g.weight * dust_phase(cos_angle));
+            splats.push_back(splat);
+        }
     }
 }
 
@@ -1365,9 +1449,11 @@ void App::render()
     if (frame.swapchain && frame.width > 0 && frame.height > 0) {
         build_body_items();
         build_orbit_lines();
+        build_comet_items();
 
         // Uploads (copy passes) must precede the render passes.
         m_orbits.upload(frame.cmd);
+        m_dust.upload(frame.cmd);
         ImGui_ImplSDLGPU3_PrepareDrawData(draw_data, frame.cmd);
         trace_black_hole(frame.cmd, frame.width, frame.height);
 
@@ -1379,8 +1465,8 @@ void App::render()
         m_bodies.draw(frame.cmd, pass, m_view, sun, m_body_items);
         m_atmospheres.draw(frame.cmd, pass, m_view, m_atmosphere_items);
         m_plumes.draw(frame.cmd, pass, m_view, static_cast<float>(m_pulsar_time), m_plume_items);
-        build_comet_items();
         m_comets.draw(frame.cmd, pass, m_view, static_cast<float>(m_pulsar_time), m_comet_items);
+        m_dust.draw(frame.cmd, pass, m_view, static_cast<float>(kDustMinPx));
         m_rings.draw(frame.cmd, pass, m_view, m_ring_items);
         build_belt_items();
         m_belts.draw(frame.cmd, pass, m_view, m_belt_items);

@@ -32,7 +32,10 @@ State kepler_state(const KeplerElements& el, double mean_motion);
 // center with gravitational parameter `mu` (km^3/s^2). Universal-variable
 // formulation (H. D. Curtis, Orbital Mechanics for Engineering Students,
 // Algorithms 3.3 and 3.4): valid for elliptic, parabolic and hyperbolic orbits.
-State propagate_kepler(const State& s, double mu, double dt);
+// `universal_anomaly`, if given and nonzero, starts the Newton iteration (e.g.
+// the previous frame's value for the same orbit) and receives the solution.
+// mu <= 0 (no net attraction): straight-line motion.
+State propagate_kepler(const State& s, double mu, double dt, double* universal_anomaly = nullptr);
 
 // Ellipse points in the reference frame, starting at eccentric anomaly
 // `start_E` and going backwards one full revolution (`count` points, closed).

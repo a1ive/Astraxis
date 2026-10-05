@@ -87,6 +87,8 @@ astraxis_add_shaders(astraxis_shaders
     shaders/body.vert.hlsl
     shaders/body.frag.hlsl
     shaders/comet.frag.hlsl
+    shaders/dust.vert.hlsl
+    shaders/dust.frag.hlsl
     shaders/composite.frag.hlsl
     shaders/fullscreen.vert.hlsl
     shaders/plume.vert.hlsl
@@ -124,6 +126,8 @@ add_executable(astraxis
     src/render/body_pass.hpp
     src/render/comet_pass.cpp
     src/render/comet_pass.hpp
+    src/render/dust_pass.cpp
+    src/render/dust_pass.hpp
     src/render/gpu_buffer.cpp
     src/render/gpu_buffer.hpp
     src/render/orbit_line_pass.cpp

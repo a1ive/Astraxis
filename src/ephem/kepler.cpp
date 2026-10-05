@@ -71,11 +71,14 @@ double stumpff_s(double z)
 
 } // namespace
 
-State propagate_kepler(const State& s, double mu, double dt)
+State propagate_kepler(const State& s, double mu, double dt, double* universal_anomaly)
 {
     const double r0 = glm::length(s.position);
-    if (dt == 0.0 || mu <= 0.0 || r0 <= 0.0) {
+    if (dt == 0.0 || r0 <= 0.0) {
         return s;
+    }
+    if (mu <= 0.0) {
+        return {s.position + s.velocity * dt, s.velocity};
     }
     const double sqrt_mu = std::sqrt(mu);
     const double vr0 = glm::dot(s.position, s.velocity) / r0;
@@ -85,6 +88,9 @@ State propagate_kepler(const State& s, double mu, double dt)
     double x = sqrt_mu * std::abs(alpha) * dt;
     if (std::abs(alpha) < 1e-12) {
         x = sqrt_mu * dt / r0; // near-parabolic start
+    }
+    if (universal_anomaly && *universal_anomaly != 0.0) {
+        x = *universal_anomaly;
     }
     for (int iter = 0; iter < 50; ++iter) {
         const double x2 = x * x;
@@ -98,6 +104,10 @@ State propagate_kepler(const State& s, double mu, double dt)
         if (std::abs(dx) <= 1e-12 * std::max(1.0, std::abs(x))) {
             break;
         }
+    }
+
+    if (universal_anomaly) {
+        *universal_anomaly = x;
     }
 
     // Lagrange coefficients (Curtis Algorithm 3.4).

@@ -19,6 +19,7 @@
 #include <glm/glm.hpp>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -944,6 +945,81 @@ void test_comet_tails()
     std::printf("info: G-Z tail %.2f deg from anti-sun; ICE %.0f km downstream, %.0f km off its axis (%.0f km off the "
                 "anti-sun line)\n",
                 aberration / kDegToRad, downstream, off_axis, off_anti_sun);
+}
+
+// Finson-Probstein dust (comet.hpp). A grain of radiation pressure ratio beta, released
+// without ejection speed, drifts from the beta = 0 one by the radiation pressure
+// acceleration: beta GM / r^2 outward, 1/2 a t^2 after a short time. Halley's tail on
+// 1986-03-10: grains on the anti-sun side, curving back along the orbit (lagging the
+// ion tail, which only aberrates by v / 400 km/s).
+void test_dust_tail()
+{
+    const double gm = 1.32712440041279419e11; // [GM] in isee3.toml
+    const State comet{glm::dvec3(0.6 * kAuKm, 0.0, 0.0), glm::dvec3(0.0, 50.0, 5.0)};
+    const double dt = 6.0 * 3600.0;
+    const glm::dvec3 drift = dust_grain_state(comet, glm::dvec3(0.0), 0.5, gm, dt).position -
+                             dust_grain_state(comet, glm::dvec3(0.0), 0.0, gm, dt).position;
+    const double expected = 0.5 * 0.5 * gm / (0.6 * kAuKm * 0.6 * kAuKm) * dt * dt;
+    check(std::abs(glm::length(drift) / expected - 1.0) < 1e-3, "dust drift by radiation pressure (km)",
+          glm::length(drift));
+    check(glm::dot(glm::normalize(drift), glm::dvec3(1.0, 0.0, 0.0)) > 0.9999, "dust drift away from the sun");
+
+    Scene scene = load_scene_or_die("isee3.toml");
+    const int halley = scene.find("Halley");
+    const double t = tdb_from_utc_jd(jd_from_calendar({1986, 3, 10, 0, 0, 0}));
+    DustTail tail;
+    tail.update(scene, halley, t);
+    const auto& grains = tail.grains();
+    const State sun = scene.sun_icrf_state_at(t);
+    const State c = scene.icrf_state_at(halley, t);
+    const glm::dvec3 out = glm::normalize(c.position - sun.position);
+    const glm::dvec3 v = c.velocity - sun.velocity;
+    const glm::dvec3 v_perp = glm::normalize(v - glm::dot(v, out) * out);
+    glm::dvec3 mean(0.0);
+    double total = 0.0;
+    double far = 0.0;
+    for (const DustGrain& g : grains) {
+        mean += g.weight * (g.position - c.position);
+        total += g.weight;
+        far = std::max(far, glm::length(g.position - c.position));
+    }
+    mean /= total;
+    const double anti_sun = glm::dot(mean, out);
+    const double lag = glm::dot(mean, v_perp);
+    const glm::dvec3 ion = ion_tail_direction(c.position - sun.position, v, 400.0);
+    check(grains.size() > DustTail::kSlots * DustTail::kBetas * DustTail::kDirections * 9 / 10, "Halley dust grains",
+          static_cast<double>(grains.size()));
+    check(anti_sun > 0.0, "Halley dust tail on the anti-sun side (km)", anti_sun);
+    check(lag / anti_sun < glm::dot(ion, v_perp) / glm::dot(ion, out), "Halley dust tail lags the ion tail");
+    // Cost of a frame: the next update a minute later (cached slots, warm-started anomalies).
+    const auto clock_start = std::chrono::steady_clock::now();
+    for (int k = 1; k <= 20; ++k) {
+        tail.update(scene, halley, t + 60.0 * k);
+    }
+    const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - clock_start).count();
+    std::printf("info: dust tail update %.2f ms per frame\n", ms / 20.0);
+    // Giacobini-Zinner at ICE's pass: also a tail on the anti-sun side.
+    {
+        const int gz = scene.find("Giacobini-Zinner");
+        const double t_gz = tdb_from_utc_jd(jd_from_calendar({1985, 9, 11, 11, 0, 0}));
+        DustTail gz_tail;
+        gz_tail.update(scene, gz, t_gz);
+        const State gs = scene.sun_icrf_state_at(t_gz);
+        const State gc = scene.icrf_state_at(gz, t_gz);
+        glm::dvec3 gz_mean(0.0);
+        double gz_total = 0.0;
+        for (const DustGrain& g : gz_tail.grains()) {
+            gz_mean += g.weight * (g.position - gc.position);
+            gz_total += g.weight;
+        }
+        gz_mean /= gz_total;
+        const double gz_anti_sun = glm::dot(gz_mean, glm::normalize(gc.position - gs.position));
+        check(gz_anti_sun > 0.8 * glm::length(gz_mean), "Giacobini-Zinner dust tail on the anti-sun side (km)",
+              gz_anti_sun);
+    }
+    std::printf("info: Halley dust 1986-03-10: %zu grains, weighted center %.3g km anti-sun, %.3g km along -v "
+                "(%.1f deg behind the anti-sun line), farthest %.3g km\n",
+                grains.size(), anti_sun, -lag, std::atan2(-lag, anti_sun) / kDegToRad, far);
 }
 
 // Solar System scene: the asteroid and Kuiper belts (two-body orbits from SBDB).
@@ -3239,6 +3315,7 @@ int main()
     test_jupiter_saturn_small_moon_shapes();
     test_halley_shape();
     test_comet_tails();
+    test_dust_tail();
     test_parker_scene();
     test_jupiter_missions();
     test_earth_moon_scene();

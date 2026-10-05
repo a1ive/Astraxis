@@ -854,7 +854,20 @@ void Loader::parse(const toml::table& root, Scene& out)
             if (comet.ion_tail_diameter_km <= 0.0 || comet.ion_tail_length_km <= 0.0 || comet.solar_wind_km_s <= 0.0) {
                 fail(comet_ctx, "ion tail sizes and the solar wind speed must be positive");
             }
+            comet.dust_tail_days = get_double_or(*c, "dust_tail_days", comet.dust_tail_days);
+            comet.dust_speed_km_s = get_double_or(*c, "dust_speed_km_s", comet.dust_speed_km_s);
+            if (c->contains("dust_beta_range")) {
+                double range[2];
+                get_array(*c, "dust_beta_range", comet_ctx, range, 2, 2);
+                comet.dust_beta_min = range[0];
+                comet.dust_beta_max = range[1];
+            }
+            if (comet.dust_tail_days <= 0.0 || comet.dust_speed_km_s < 0.0 || comet.dust_beta_min <= 0.0 ||
+                comet.dust_beta_max <= comet.dust_beta_min || comet.dust_beta_max >= 1.0) {
+                fail(comet_ctx, "dust: positive span and speed, 0 < beta min < beta max < 1");
+            }
             comet.coma_color = parse_color(*c, "coma_color", comet_ctx, comet.coma_color);
+            comet.dust_color = parse_color(*c, "dust_color", comet_ctx, comet.dust_color);
             comet.ion_tail_color = parse_color(*c, "ion_tail_color", comet_ctx, comet.ion_tail_color);
         }
 

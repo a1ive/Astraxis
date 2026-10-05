@@ -208,7 +208,9 @@ lon_peri_deg = [-23.91744784, 0.45223625]
 node_deg = [49.71320984, -0.26852431]
 
 # --- Comets ------------------------------------------------------------------------------
-# Comae and ion tails glow by the comets' brightness laws; dust tails are not drawn yet.
+# Comae, ion tails and dust glow by the comets' brightness laws. Dust tails follow
+# Finson & Probstein (src/scene/comet.hpp); their grain speeds, sizes, ages and light shares
+# are illustrative defaults.
 # Giacobini-Zinner's nucleus was never imaged (ICE carried no camera), so it stays a sphere.
 # The tails point along the solar wind as each comet sees it (aberration); the wind speed
 # is a typical slow-wind value, not measured.
