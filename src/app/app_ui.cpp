@@ -337,18 +337,25 @@ void App::build_control_panel()
         ImGui::SameLine();
         ImGui::Checkbox("Belts", &m_show_belts);
     }
+    // Second row, so the panel stays narrow.
+    bool row_started = false;
     if (std::any_of(m_scene.bodies.begin(), m_scene.bodies.end(),
                     [](const Body& b) { return b.atmosphere.enabled; })) {
-        ImGui::SameLine();
         ImGui::Checkbox("Atmospheres", &m_show_atmospheres);
         ImGui::SetItemTooltip("Off: the surface under the clouds (Venus: Magellan radar; Titan: Cassini ISS) (M)");
+        row_started = true;
     }
     if (std::any_of(m_scene.bodies.begin(), m_scene.bodies.end(), [](const Body& b) { return !b.plumes.empty(); })) {
-        ImGui::SameLine();
+        if (row_started) {
+            ImGui::SameLine();
+        }
         ImGui::Checkbox("Plumes", &m_show_plumes);
         ImGui::SetItemTooltip("Volcanic and cryovolcanic plumes, always erupting (P)");
+        row_started = true;
     }
-    ImGui::SameLine();
+    if (row_started) {
+        ImGui::SameLine();
+    }
     ImGui::Checkbox("ImGui demo", &m_show_demo);
     ImGui::SetNextItemWidth(160.0f * ImGui::GetStyle().FontScaleDpi);
     ImGui::SliderFloat("Stars", &m_star_brightness, 0.0f, 2.0f, "%.2f");
@@ -361,8 +368,10 @@ void App::build_control_panel()
 
     ImGui::Separator();
     ImGui::TextDisabled("%.0f FPS  |  %s", io.Framerate, m_renderer.driver_name());
-    ImGui::TextDisabled("Drag: rotate   Wheel: zoom   Double-click label: focus");
-    ImGui::TextDisabled("Space pause  R reverse  [ ] warp  N now  1-9 focus  A tour  O/L/I/M/P  H hide");
+    ImGui::TextDisabled("Drag: rotate   Wheel: zoom");
+    ImGui::TextDisabled("Double-click label: focus");
+    ImGui::TextDisabled("Space pause  R reverse  [ ] warp  N now");
+    ImGui::TextDisabled("1-9 focus  A tour  O/L/I/M/P  H hide");
 
     ImGui::End();
 }
