@@ -13,12 +13,14 @@
 # past the Moon on 2014-08-10. The Sun-Earth rotating frame (the default) shows the halo loops
 # around L1, the petals of the geotail passes, and the yearly loops of the long way round.
 #
-# ICE was the far scout of the Halley Armada. Four more of its ships are here for 1985-1986:
-# Vega 1 (by way of Venus; 8,890 km from the nucleus on 1986-03-06), Suisei (151,000 km on the
-# sunward side, 03-08), Sakigake (7 million km upstream, 03-11) and Giotto (596 km, 03-14).
-# Each is shown only while its sources cover it. Vega 2, Pioneer 7 and the Pioneer Venus
-# Orbiter are not included: no 1986 trajectory of the first two was found in the public
-# archives (NSSDC on Vega 2: "no source"), and the third stayed in orbit around Venus.
+# ICE was the far scout of the Halley Armada. The others are here for 1985-1986: Vega 1 and
+# Vega 2 (by way of Venus; 8,890 and 8,030 km from the nucleus on 1986-03-06 and 03-09),
+# Suisei (151,000 km on the sunward side, 03-08), Sakigake (7 million km upstream, 03-11) and
+# Giotto (596 km, 03-14), and the Pioneer Venus Orbiter, which watched the comet from Venus
+# while it was too close to the Sun to be seen from the Earth. Each is shown only while its
+# sources cover it; Vega 2 has none (NSSDC: "no source"), so its path is built from its dates.
+# Pioneer 7, launched in 1966 and never maneuvered since, crossed the comet's wake 12 million
+# km downstream on 03-20; its 1986 position is integrated from its launch and published orbit.
 #
 # Sources
 # [REC]  tools/isee3/isee3_reconstruct.py (assets/ephem/SOURCES.md). Horizons only has ISEE-3
@@ -72,8 +74,36 @@
 #        1986-12-31; Sakigake: NASA SPDF HelioWeb, 1985-01-21 .. 1986-12-31. Near the comet
 #        each is placed on Halley [HZN] plus its offset from its own source's comet, moved to
 #        the published closest approach (Giotto, Vega 1).
-# [VEGA] PDS SBN, Vega 1 mission catalog ("Key data of the Vega mission"): launch 1984-12-15;
-#        closest approach 1986-03-06 07:20:06 UT, 8,890 km, 79.2 km/s.
+#        Vega 2 (no positions published): patched conics from the launch to the lander's entry
+#        at Venus and on to the published encounter point, then ballistic legs with an impulse
+#        2 days before the entry (the lander's release) and one 2 weeks after the flyby. The
+#        same method on Vega 1 stays within 0.6 million km of its data. The miss vector at
+#        Halley is turned from the Sun direction like Vega 1's.
+#        PVO: positions relative to Venus (PDS PPI, PVO-V-POS-5--VSOCOORDS-12SEC-V1.0, from the
+#        project's SEDR), arcs around Venus fitted to them (residuals ~1 km).
+#        Pioneer 7 (no positions after 1968): the escape hyperbola from a 200 km perigee 30 min
+#        after the launch, its excess velocity solved so that the heliocentric orbit 150 days
+#        on has the published eccentricity and inclination [P7], then ballistic (the Sun, the
+#        planets, the Moon; no radiation pressure: ~1e5 km by 1986) to 1987. With the published
+#        periods (402.9, 402.95 d) the closest approach to Halley comes out 4-10 hours early at
+#        12.0-12.1 million km; the period is fitted to NASA's time (402.98 d 150 days on). Which
+#        osculating period is meant is not stated, and it still grows as the Earth recedes:
+#        402.79 d 60 days after the launch, 402.92 at 100, 403.02 at 365 (past 402.9 at ~95
+#        days, 402.95 at ~125). Northbound at the departure (the inclination's sign is not
+#        published; southbound gives 12.5 million km).
+# [P7]   Pioneer 7: launch 1966-08-17 15:20:17 UT; closest to Halley at 23:36 UT on 1986-03-20,
+#        12.1 million km (NASA, science.nasa.gov/mission/pioneer-7); orbit 1.01 x 1.125 au,
+#        402.95 d (ditto); 402.9 d, inclination 0.09767 deg (NSSDC, Data Catalog of Satellite and
+#        Rocket Particles and Fields Data 1966-1973, NSSDC/WDC-A-R&S 75-05, NTRS 19750016140).
+# [VEGA] PDS SBN, Vega 1 and Vega 2 mission catalogs ("Key data of the Vega mission"): launches
+#        1984-12-15 and 12-21; closest approaches 1986-03-06 07:20:06 UT, 8,890 km, 79.2 km/s
+#        and 1986-03-09 07:20:00 UT, 8,030 km, 76.8 km/s.
+# [WIKI] Wikipedia, Vega 1 and Vega 2: launch times 09:16:24 and 09:13:52 UTC (Siddiqi 2018,
+#        Beyond Earth); entries at Venus 1985-06-11 02:06:10 and 06-15 02:06:04 UT; Vega 1's
+#        bus passed Venus at ~39,000 km.
+# [PVUV] W. H. Smyth, M. L. Marconi, M. R. Combi 1995, Icarus 113 (abstract, NASA NTRS): the PVO
+#        ultraviolet spectrometer observed Halley's hydrogen coma 1985-12-28 .. 1986-01-06 and
+#        1986-01-31 .. 03-06.
 # [GIO]  Giotto: closest approach 1986-03-14 00:03:01.84 UTC, 596 km (Curdt et al., A&A 191,
 #        L1, from the HMC images; quoted in the PDS SBN ESOC file's notes).
 # [JAXA] ISAS/JAXA mission pages: Sakigake launched 1985-01-08 04:26 JST, Suisei 1985-08-19
@@ -330,6 +360,19 @@ type = "ephemeris"
 file = "ephem/vega1.eph"
 
 [[bodies]]
+name = "Vega 2"
+parent = "Sun"
+kind = "spacecraft"
+radii_km = [0.005]                         # wingspan ~10 m [SP1066] (drawn as a marker)
+color = "#ff86c8"
+orbit_color = "#e06aa8"
+trail = "history"
+trail_history_days = 600.0
+[bodies.orbit]                             # [ARM] reconstructed, 1984-12-21 .. 1986-04-30
+type = "ephemeris"
+file = "ephem/vega2.eph"
+
+[[bodies]]
 name = "Sakigake"
 parent = "Sun"
 kind = "spacecraft"
@@ -367,6 +410,33 @@ trail_history_days = 12.0
 [bodies.orbit]                             # [ARM] 1986-03-05 .. 03-17 only
 type = "ephemeris"
 file = "ephem/giotto.eph"
+
+[[bodies]]
+name = "Pioneer 7"
+parent = "Sun"
+kind = "spacecraft"
+radii_km = [0.0005]                        # drawn as a marker
+color = "#e4e4e4"
+orbit_color = "#b4b4b4"
+trail = "history"
+trail_history_days = 400.0                 # about one orbit
+[bodies.orbit]                             # [ARM] integrated from 1966, shown 1985 .. 1986
+type = "ephemeris"
+file = "ephem/pioneer7.eph"
+
+# A day-long orbit, periapsis ~2,200 km above Venus in 1985-1986, apoapsis ~65,000 km.
+[[bodies]]
+name = "Pioneer Venus Orbiter"
+parent = "Venus"
+kind = "spacecraft"
+radii_km = [0.001]                         # drawn as a marker
+color = "#e2f07a"
+orbit_color = "#c4d45e"
+trail = "history"
+trail_history_days = 1.5
+[bodies.orbit]                             # [ARM] 1985-01-01 .. 1987-01-01, Venus-centered
+type = "ephemeris"
+file = "ephem/pvo.eph"
 
 [[frames]]
 name = "Sun-Earth rotating"
@@ -531,6 +601,19 @@ phase_deg = 90.0
 distance_km = 3.0e5
 warp = 1800.0
 
+# Vega 2's balloon entered on 1985-06-15 02:06 UT [WIKI]; its bus's flyby is reconstructed
+# [ARM] (26,600 km from the center, 21:16 UTC on 06-14). The Pioneer Venus Orbiter goes round
+# once a day.
+[[events]]
+name = "Vega 2 at Venus (1985-06-15)"
+time = "1985-06-14 12:00"
+focus = "Venus"
+frame = "Venus-centered"
+from_body = "Sun"
+phase_deg = 90.0
+distance_km = 3.0e5
+warp = 1800.0
+
 # Closest approach 1985-09-11 11:02:43 UTC, 7,800 km on the tail side, at 20.7 km/s.
 [[events]]
 name = "Through the tail of Giacobini-Zinner (1985-09-11)"
@@ -549,8 +632,21 @@ from_orbit_normal = "Earth-Moon barycenter"
 distance_km = 4.0e8
 warp = 172800.0
 
-# Ten days in the comet's frame: Vega 1 (03-06), Suisei (03-08), Sakigake (03-11), Giotto
-# (03-14) pass; ICE is 3e7 km away on the sunward side.
+# Halley passed perihelion on 1986-02-09 behind the Sun as seen from the Earth; the Pioneer
+# Venus Orbiter's ultraviolet spectrometer watched its hydrogen coma from 01-31 to 03-06
+# [PVUV]. The camera on Venus' side of the comet, a little farther from it than Venus (5.0e7 km
+# on 02-01): the comet's two tails as the orbiter saw them, Venus nearby.
+[[events]]
+name = "Halley seen from Venus (1986-02)"
+time = "1986-02-01 00:00"
+focus = "Halley"
+frame = "Venus-centered"
+from_body = "Venus"
+distance_km = 5.6e7
+warp = 3600.0
+
+# Ten days in the comet's frame: Vega 1 (03-06), Suisei (03-08), Vega 2 (03-09), Sakigake
+# (03-11), Giotto (03-14) pass; ICE is 3e7 km away on the sunward side.
 [[events]]
 name = "The Armada around Halley (1986-03)"
 time = "1986-03-05 00:00"
@@ -582,6 +678,18 @@ from_body = "Sun"
 phase_deg = 90.0
 distance_km = 6.0e5
 warp = 120.0
+
+# Closest approach 1986-03-09 07:20:00 UT, 8,030 km, at 76.8 km/s [VEGA] (the reconstruction
+# [ARM] is aimed at it).
+[[events]]
+name = "Vega 2: 8,030 km from the nucleus (1986-03-09)"
+time = "1986-03-09 07:18:30"
+focus = "Halley"
+frame = "Halley-centered"
+from_body = "Sun"
+phase_deg = 90.0
+distance_km = 4.0e4
+warp = 10.0
 
 # "6.99 million km" on 03-11 (Wikipedia, Sakigake); HelioWeb's positions [ARM] give 6.7
 # million km at 00:34 UTC.
@@ -617,6 +725,19 @@ from_body = "Sun"
 phase_deg = 60.0
 distance_km = 4000.0
 warp = 2.0
+
+# Closest at 23:36 UT on 03-20, 12.1 million km [P7] (the reconstruction [ARM] is timed to it
+# and passes at 12.0 million km), on the far side from the Sun: Halley is 10 million km south
+# of the ecliptic, Pioneer 7 in it, a little farther out from the Sun.
+[[events]]
+name = "Pioneer 7: 12 million km downstream (1986-03-20)"
+time = "1986-03-20 06:00"
+focus = "Halley"
+frame = "Halley-centered"
+from_body = "Sun"
+phase_deg = 90.0
+distance_km = 4.0e7
+warp = 3600.0
 
 # 1986-1987: two maneuvers (dates assumed, see the sources) aim ICE at the Moon in 2014.
 [[events]]

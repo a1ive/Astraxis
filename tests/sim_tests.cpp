@@ -1807,6 +1807,58 @@ void test_halley_armada()
               !visible(giotto, utc({1986, 3, 18, 0, 0, 0})),
           "Giotto shown only within ESOC's file");
 
+    // Vega 2: no positions are published; reconstructed from its launch (1984-12-21), the
+    // lander's entry at Venus (1985-06-15 02:06 UT) and the encounter: 1986-03-09 07:20:00 UT,
+    // 8,030 km, 76.8 km/s [VEGA]. The speed is not imposed: it follows from the path.
+    const int vega2 = scene.find("Vega 2");
+    check(vega2 > 0, "isee3.toml: Vega 2");
+    check(!visible(vega2, utc({1984, 12, 21, 9, 0, 0})) && visible(vega2, utc({1984, 12, 21, 18, 0, 0})),
+          "Vega 2 appears on its launch day");
+    const auto [d_v2, t_v2] = closest(vega2, halley, utc({1986, 3, 9, 7, 20, 0}), 600.0, 10.0);
+    check(std::abs(d_v2 - 8030.0) < 5.0, "Vega 2 closest approach (km)", d_v2);
+    check(std::abs(t_v2 - utc({1986, 3, 9, 7, 20, 0})) < 1.0, "Vega 2 closest approach time (s)",
+          t_v2 - utc({1986, 3, 9, 7, 20, 0}));
+    check(std::abs(speed(vega2, halley, t_v2) - 76.8) < 0.1, "Vega 2 flyby speed (km/s)", speed(vega2, halley, t_v2));
+    const auto [d_venus2, t_venus2] = closest(vega2, venus, utc({1985, 6, 15, 2, 6, 0}), 86400.0, 600.0);
+    check(d_venus2 > 7000.0 && d_venus2 < 6.0e4 && std::abs(t_venus2 - utc({1985, 6, 15, 2, 6, 0})) < 12 * 3600.0,
+          "Vega 2 passes Venus at its lander's arrival (km)", d_venus2);
+    check(!visible(vega2, utc({1986, 5, 15, 0, 0, 0})), "Vega 2 gone after the mission (1986-04)");
+
+    // Pioneer Venus Orbiter around Venus: the periapses and an apoapsis of its VSO position
+    // files (PDS PPI; distances = ALT + 6050 km): 1985-07-01 22:41:07 UTC 8,235.8 km,
+    // 1986-04-27 23:25:26 UTC 8,300.3 km; 1985-07-02 10:41 UTC 70,682 km.
+    const int pvo = scene.find("Pioneer Venus Orbiter");
+    check(pvo > 0 && scene.bodies[static_cast<size_t>(pvo)].parent == venus, "isee3.toml: PVO around Venus");
+    const auto [peri1, t_peri1] = closest(pvo, venus, utc({1985, 7, 1, 22, 41, 7}), 1800.0, 20.0);
+    const auto [peri2, t_peri2] = closest(pvo, venus, utc({1986, 4, 27, 23, 25, 26}), 1800.0, 20.0);
+    check(std::abs(peri1 - 8235.8) < 5.0 && std::abs(t_peri1 - utc({1985, 7, 1, 22, 41, 7})) < 30.0,
+          "PVO periapsis 1985-07-01 (km)", peri1);
+    check(std::abs(peri2 - 8300.3) < 5.0 && std::abs(t_peri2 - utc({1986, 4, 27, 23, 25, 26})) < 30.0,
+          "PVO periapsis 1986-04-27 (km)", peri2);
+    const double apo = glm::length(at(pvo, utc({1985, 7, 2, 10, 41, 6})) - at(venus, utc({1985, 7, 2, 10, 41, 6})));
+    check(std::abs(apo - 70682.0) < 20.0, "PVO apoapsis 1985-07-02 (km)", apo);
+    check(visible(pvo, utc({1986, 1, 20, 0, 0, 0})) && !visible(pvo, utc({1987, 2, 1, 0, 0, 0})),
+          "PVO shown through 1986 (its data gaps bridged), not after");
+
+    // Pioneer 7: integrated from its 1966 launch and published orbit, the period fitted to
+    // NASA's time of closest approach, 23:36 UT on 1986-03-20; the distance is not imposed
+    // (NASA: 12.1 million km). Downstream: on the comet's far side from the Sun [P7].
+    const int pioneer7 = scene.find("Pioneer 7");
+    check(pioneer7 > 0, "isee3.toml: Pioneer 7");
+    const double t_p7_pub = utc({1986, 3, 20, 23, 36, 0});
+    const auto [d_p7, t_p7] = closest(pioneer7, halley, t_p7_pub, 2 * 86400.0, 600.0);
+    check(std::abs(t_p7 - t_p7_pub) < 120.0, "Pioneer 7 closest approach time (s)", t_p7 - t_p7_pub);
+    check(std::abs(d_p7 / 12.1e6 - 1.0) < 0.02, "Pioneer 7 closest approach (km)", d_p7);
+    const double p7_sunward = glm::dot(glm::normalize(at(pioneer7, t_p7) - at(halley, t_p7)),
+                                       glm::normalize(at(sun, t_p7) - at(halley, t_p7)));
+    check(p7_sunward < -0.3, "Pioneer 7 passes on the far side from the Sun (cosine)", p7_sunward);
+    check(!visible(pioneer7, utc({1984, 12, 31, 0, 0, 0})) && visible(pioneer7, utc({1985, 1, 2, 0, 0, 0})) &&
+              !visible(pioneer7, utc({1987, 1, 2, 0, 0, 0})),
+          "Pioneer 7 shown in 1985-1986 only");
+    std::printf("info: Pioneer 7 at Halley %.3f million km %s\n", d_p7 / 1e6, format_utc(t_p7).c_str());
+
+    std::printf("info: Vega 2 at Halley %.0f km %s, at Venus %.0f km %s; PVO periapses %.1f, %.1f km\n", d_v2,
+                format_utc(t_v2).c_str(), d_venus2, format_utc(t_venus2).c_str(), peri1, peri2);
     std::printf("info: Armada at Halley: Vega 1 %.0f km %s, Suisei %.0f km %s, Sakigake %.3g km %s, Giotto %.1f km "
                 "%s; Vega 1 at Venus %.0f km %s\n",
                 d_v1, format_utc(t_v1).c_str(), d_su, format_utc(t_su).c_str(), d_sk, format_utc(t_sk).c_str(), d_g,
