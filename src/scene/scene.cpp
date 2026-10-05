@@ -164,10 +164,12 @@ int Scene::satellite_host(int body) const
     if (parent < 0 || bodies[static_cast<size_t>(parent)].kind != BodyKind::Barycenter) {
         return parent;
     }
+    const bool ghost = bodies[static_cast<size_t>(body)].kind == BodyKind::Ghost;
     for (int k = parent + 1; k < body; ++k) {
         const Body& sibling = bodies[static_cast<size_t>(k)];
-        if (sibling.parent == parent && sibling.kind != BodyKind::Barycenter) {
-            return k; // the primary
+        if (sibling.parent == parent && sibling.kind != BodyKind::Barycenter &&
+            (sibling.kind == BodyKind::Ghost) == ghost) {
+            return k; // the primary (a ghost's is the first ghost)
         }
     }
     return satellite_host(parent); // this is the primary
@@ -499,7 +501,7 @@ Scene::OrbitCenter Scene::orbit_center(int body) const
     bool circumbinary = false;
     for (size_t k = static_cast<size_t>(bary) + 1; k < bodies.size(); ++k) {
         const Body& s = bodies[k];
-        if (s.parent != bary || static_cast<int>(k) == body || !s.visible ||
+        if (s.parent != bary || static_cast<int>(k) == body || !s.visible || s.kind == BodyKind::Ghost ||
             glm::length(s.icrf_position - center) >= r) {
             continue;
         }

@@ -28,7 +28,9 @@ Astraxis is an astronomy visualizer that uses orbital data and physical simulati
 | Kepler-47 | Three planets orbiting an eclipsing binary: a Sun-like star and a red dwarf | Newtonian N-body integration from a photodynamical fit |
 | Kepler-64 / PH1 | A Neptune-sized planet orbiting an eclipsing binary, with another pair of stars about 1,300 au away | Newtonian N-body integration for the inner binary and planet; assumed Keplerian orbits for the distant pair |
 | TIC 168789840 | Six stars in three eclipsing binaries. Two pairs orbit each other, with the third pair about 250 au away | Nested Keplerian orbits from eclipse observations, with an assumed outer orbit |
-| PSR B1620-26 | A pulsar, a white dwarf and a planet in the globular cluster M4. The sky shows M4's stars; the pulsar's radio beams are drawn in blue and slowed down | Nested Keplerian orbits from pulsar timing |
+| PSR B1620-26 | A pulsar, a white dwarf and a planet in the globular cluster M4 | Nested Keplerian orbits from pulsar timing |
+| PSR B1913+16 (Hulse-Taylor) | Two neutron stars on a 7.75-hour orbit whose periastron has turned about 220° since its discovery in 1974. Grey ellipses show the orbit Newtonian gravity predicts from 1974 | Relativistic pulsar-timing orbit (periastron advance, orbital decay) |
+| PSR J1141-6545 | A young pulsar and a massive white dwarf on a 4.7-hour orbit. The periastron advances 5.3° a year; grey ellipses show the Newtonian orbit from 1999 | Relativistic pulsar-timing orbit (periastron advance, orbital decay) |
 
 Define scenes in `assets/scenes/*.toml`. You can add a scene by writing a TOML file. The scene files cite sources for physical constants and orbital elements. Each `assets/*/SOURCES.md` lists the data licenses.
 

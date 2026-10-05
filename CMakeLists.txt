@@ -42,6 +42,8 @@ add_library(astraxis_sim STATIC
     src/ephem/kerr_orbit.hpp
     src/ephem/nbody.cpp
     src/ephem/nbody.hpp
+    src/ephem/post_keplerian.cpp
+    src/ephem/post_keplerian.hpp
     src/ephem/visual_orbit.cpp
     src/ephem/visual_orbit.hpp
     src/ephem/jpl_approx_planet.cpp

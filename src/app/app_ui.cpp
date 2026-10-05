@@ -497,6 +497,9 @@ void App::build_info_panel()
     case BodyKind::Barycenter:
         kind = "Barycenter";
         break;
+    case BodyKind::Ghost:
+        kind = "Comparison orbit";
+        break;
     case BodyKind::Planet:
         break;
     }
@@ -663,7 +666,7 @@ void App::build_labels()
     }
 
     // Body labels are placed by priority: the focus, stars, bodies orbiting a
-    // star, spacecraft, then moons, larger bodies first. A label that would
+    // star, spacecraft, moons, then ghosts, larger bodies first. A label that would
     // overlap one already placed is left out; labels ease in and out so that
     // they do not flicker as bodies pass each other.
     struct Candidate {
@@ -687,7 +690,7 @@ void App::build_labels()
         for (size_t k = 0; k < m_scene.bodies.size() && !hidden; ++k) {
             const Body& other = m_scene.bodies[k];
             if (k != i && other.visible && other.kind != BodyKind::Spacecraft &&
-                other.kind != BodyKind::Barycenter) {
+                other.kind != BodyKind::Barycenter && other.kind != BodyKind::Ghost) {
                 hidden = occluded(rel, other.world_position - cam, other.equatorial_radius_km);
             }
         }
@@ -707,6 +710,8 @@ void App::build_labels()
             rank = 1;
         } else if (body.kind == BodyKind::Spacecraft) {
             rank = 3;
+        } else if (body.kind == BodyKind::Ghost) {
+            rank = 5;
         } else if (host < 0 || m_scene.bodies[static_cast<size_t>(host)].kind == BodyKind::Star) {
             rank = 2;
         }
@@ -746,8 +751,11 @@ void App::build_labels()
         eased = std::clamp(eased + (overlaps ? -step : step), 0.0f, 1.0f);
         const float alpha = eased * fade;
 
-        // Spacecraft are never drawn as bodies, so they always get a marker.
-        if (c.radius_px < kMarkerRadius || body.kind == BodyKind::Spacecraft) {
+        // Spacecraft and ghosts are never drawn as bodies, so they always get a
+        // marker; a ghost's is hollow.
+        if (body.kind == BodyKind::Ghost) {
+            draw->AddCircle(c.screen, kMarkerRadius + 1.0f, to_imgui_color(body.orbit_color, 0.95f * fade), 0, 1.5f);
+        } else if (c.radius_px < kMarkerRadius || body.kind == BodyKind::Spacecraft) {
             draw->AddCircleFilled(c.screen, kMarkerRadius,
                                   to_imgui_color(glm::mix(body.color, glm::vec3(1.0f), 0.3f), 0.95f * fade));
         }

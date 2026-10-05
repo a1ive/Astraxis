@@ -1,0 +1,189 @@
+# PSR B1913+16, the Hulse-Taylor binary pulsar: two neutron stars on a 7.75-hour
+# orbit whose periastron advances by 4.2 deg a year - 35,000 times Mercury's rate -
+# and whose period shrinks as gravitational waves carry energy away (the 1993 Nobel
+# Prize in Physics). Only one of the two is seen as a pulsar.
+#
+# Relativity vs Newton: the two stars move on the orbit of the relativistic timing
+# model (orbit type "post_keplerian", src/ephem/post_keplerian.hpp: the periastron
+# turns as omega = omega0 + k A_e, the period changes by Pb_dot). The two hollow
+# "(Newton)" markers and their grey ellipses are what Newtonian gravity predicts from
+# the orbit as it was on the day of discovery: a fixed ellipse, the same forever.
+# Since 1974 the real one has turned some 220 deg away from it. The period decay
+# shifts the stars along the orbit by only about two minutes over those decades.
+#
+# [WH16] Weisberg & Huang 2016, ApJ 829, 55 (arXiv:1606.02744), DD timing model:
+#        Table 1: position RA 19h15m27.99942s, Dec +16d06'27.3868" (J2000).
+#        Table 2: T0 = MJD 52144.90097849, x = a_p sin i = 2.341776 lt-s,
+#        e = 0.6171340, Pb = 0.322997448918 d, omega0 (the pulsar's) = 292.54450 deg,
+#        <omega_dot> = 4.226585 deg/yr, Pb_dot(obs) = -2.423e-12.
+#        Sec. 6.1 (from omega_dot and gamma, assuming GR): pulsar 1.438 M_sun,
+#        companion 1.390 M_sun, sin i = 0.7327 +- 0.0004.
+#        Sec. 7: Pb_dot(GR) = -2.40263e-12, against an intrinsic (galaxy-corrected)
+#        -2.398e-12. The pulsar's spin frequency f = 16.9405 Hz (59 ms).
+#        Sec. 6.2: geodetic precession of the pulsar's spin axis changes its pulse
+#        profile, but published fits of the spin geometry disagree.
+# [DA15] Damour 2015, Class. Quantum Grav. 32, 124009 (arXiv:1411.3930): discovered
+#        at Arecibo on 1974 July 2 (the binary nature found that September).
+# Derived (GM = mass * GM_sun, 1.32712440041279419e11 km^3/s^2, JPL DE440):
+#   a = 1.949e6 km (2.8 R_sun) from Kepler's third law for 2.828 M_sun; the stars are
+#   746,000 km apart at periastron and 3.15e6 km at apastron, 902 km/s relative speed
+#   at periastron (~450 km/s each).
+#   sin i = x c / (a m_c / M) = 0.73284, i = 47.125 deg (within 1 sigma of [WH16]).
+#   The GR (1PN) periastron advance for these masses is 4.2262 deg/yr, 0.0037 deg
+#   per orbit; 1974-07 to 2026-10 adds up to ~221 deg.
+# Assumed: the node on the sky (0) and the sense of the inclination (i < 90 deg; it
+# only mirrors the orbit); neutron stars 12 km in radius at 1e5 K (L = 2.7e-5 L_sun).
+# The pulsar's spin axis is taken along the orbit normal, magnetic axis 45 deg from it,
+# beams 10 deg wide. In reality the spin axis is tilted to the orbit and precesses
+# (see [WH16] Sec. 6.2) - which may soon turn the beam away from Earth; that is not
+# shown. The beams are radio and invisible; they are drawn bluish and turn once every
+# 2 s of real time (the true 59 ms cannot be shown), stopping when the clock is paused.
+# Times are those of the timing model, i.e. as seen from the solar system barycentre
+# (light travel time not removed). The background sky is the one seen from Earth.
+# Check (tests/sim_tests.cpp): the Roemer delay and velocity amplitude, the periastron
+# advance and period decay against the GR formulas, the 1974 Newtonian orbit.
+
+name = "PSR B1913+16 (Hulse-Taylor)"
+
+[view]
+focus = "PSR B1913+16 system"
+distance_km = 8.0e6
+start = "now"
+warp = 1800.0                  # one orbit in 15 s
+up = "orbit_normal:B1913+16 companion"
+
+[[bodies]]
+name = "PSR B1913+16 system"
+kind = "barycenter"
+body_gm_km3_s2 = 3.7531078044e11 # 1.438 + 1.390 M_sun [WH16]
+
+# Both stars from the companion's orbit relative to the pulsar [WH16 Table 2], split
+# by the masses; its omega is the pulsar's + 180 deg.
+[[bodies]]
+name = "PSR B1913+16"
+parent = "PSR B1913+16 system"
+kind = "star"
+radii_km = [12.0]              # assumed
+temperature_k = 100000.0       # assumed
+luminosity_solar = 2.7e-5
+orbit_color = "#a0b8ff"
+[bodies.pulsar]
+spin_axis_orbit_normal = "B1913+16 companion"
+magnetic_inclination_deg = 45.0
+beam_half_angle_deg = 10.0
+display_period_s = 2.0
+beam_color = "#b8c8ff"
+[bodies.orbit]
+scale = -0.491513437058        # -m_c / (m_p + m_c)
+type = "post_keplerian"
+gm_km3_s2 = 3.7531078044e11
+period_days = 0.322997448918
+e = 0.6171340
+i_deg = 47.1254
+node_deg = 0.0                 # assumed
+arg_peri_deg = 112.54450       # the companion's at T0
+t_peri_jd_tdb = 2452145.40097849 # T0 = MJD 52144.90097849
+omega_dot_deg_per_year = 4.226585
+pb_dot = -2.423e-12
+sky_ra_dec_deg = [288.86666425, 16.10760744]
+
+[[bodies]]
+name = "B1913+16 companion"
+parent = "PSR B1913+16 system"
+kind = "star"
+radii_km = [12.0]              # assumed
+temperature_k = 100000.0       # assumed
+luminosity_solar = 2.7e-5
+orbit_color = "#ffc890"
+[bodies.orbit]
+scale = 0.508486562942         # m_p / (m_p + m_c)
+type = "post_keplerian"
+gm_km3_s2 = 3.7531078044e11
+period_days = 0.322997448918
+e = 0.6171340
+i_deg = 47.1254
+node_deg = 0.0
+arg_peri_deg = 112.54450
+t_peri_jd_tdb = 2452145.40097849
+omega_dot_deg_per_year = 4.226585
+pb_dot = -2.423e-12
+sky_ra_dec_deg = [288.86666425, 16.10760744]
+
+# The Newtonian prediction from the day of discovery [DA15].
+[[bodies]]
+name = "PSR B1913+16 (Newton)"
+parent = "PSR B1913+16 system"
+kind = "ghost"
+orbit_color = "#687086"
+[bodies.orbit]
+scale = -0.491513437058
+type = "post_keplerian"
+newtonian_from = "1974-07-02"
+gm_km3_s2 = 3.7531078044e11
+period_days = 0.322997448918
+e = 0.6171340
+i_deg = 47.1254
+node_deg = 0.0
+arg_peri_deg = 112.54450
+t_peri_jd_tdb = 2452145.40097849
+omega_dot_deg_per_year = 4.226585
+pb_dot = -2.423e-12
+sky_ra_dec_deg = [288.86666425, 16.10760744]
+
+[[bodies]]
+name = "Companion (Newton)"
+parent = "PSR B1913+16 system"
+kind = "ghost"
+orbit_color = "#86786a"
+[bodies.orbit]
+scale = 0.508486562942
+type = "post_keplerian"
+newtonian_from = "1974-07-02"
+gm_km3_s2 = 3.7531078044e11
+period_days = 0.322997448918
+e = 0.6171340
+i_deg = 47.1254
+node_deg = 0.0
+arg_peri_deg = 112.54450
+t_peri_jd_tdb = 2452145.40097849
+omega_dot_deg_per_year = 4.226585
+pb_dot = -2.423e-12
+sky_ra_dec_deg = [288.86666425, 16.10760744]
+
+[[events]]
+name = "Two neutron stars, 7.75 hours per orbit (grey: Newton's orbit from 1974)"
+time = "2026-01-01"
+focus = "PSR B1913+16 system"
+from_orbit_normal = "B1913+16 companion"
+distance_km = 8.0e6
+warp = 1800.0
+
+[[events]]
+name = "1974 to today: the periastron turns 220 deg, Newton's orbit stays put"
+time = "1974-07-02"
+focus = "PSR B1913+16 system"
+from_orbit_normal = "B1913+16 companion"
+distance_km = 8.0e6
+warp = 15778800.0              # half a year per second: 4.2 deg in 2 s
+
+[[events]]
+name = "Periastron: 746,000 km apart, 450 km/s each"
+time_tdb = "2026-01-01 12:41"  # 20 min before periastron [WH16]
+focus = "PSR B1913+16 system"
+distance_km = 2.5e6
+warp = 60.0
+
+[[events]]
+name = "Pulsar beams (drawn slowed down: really 17 turns a second)"
+time = "2026-01-01"
+focus = "PSR B1913+16"
+distance_km = 3.0e5
+warp = 30.0
+
+[[events]]
+name = "A full turn every 85 years (3 years per second): back on Newton's ellipse in 2059"
+time = "2026-01-01"
+focus = "PSR B1913+16 system"
+from_orbit_normal = "B1913+16 companion"
+distance_km = 8.0e6
+warp = 1.0e8

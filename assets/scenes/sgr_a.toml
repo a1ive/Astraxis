@@ -31,6 +31,11 @@
 # the orbit precesses. Its radius is exaggerated ~30,000x (the fictional DS-I is
 # ~160 km across) so it shows as a sphere in the orbit view; this does not affect
 # its motion. It is lit by the accretion disk.
+# Relativity vs Newton: the hollow "(Newton)" markers and their grey ellipses follow
+# the Keplerian orbits of the same elements - where each star would go without
+# relativity. S2's leaves its ghost from the 2010 apocentre, where its elements are
+# osculating (the ellipses part by ~12 arcmin per orbit); the Death Star's from
+# wherever its rolling integration last (re)started from the elements (~18 deg per orbit).
 # The background sky (catalog stars and the Milky Way) is the one seen from Earth,
 # not from the Galactic Centre.
 # [SVS20] Milky Way: NASA/Goddard Space Flight Center Scientific Visualization Studio,
@@ -99,6 +104,40 @@ type = "kerr_geodesic"
 rolling_window_days = 30.0     # integrated around the current time
 step_eta = 0.004
 [bodies.orbit.elements]        # hypothetical: r_p = 40 M = 2.52e8 km, e = 0.7
+a_au = 5.607833
+e = 0.7
+i_deg = 134.567
+node_deg = 300.0
+arg_peri_deg = 0.0
+t_peri_year = 2026.0
+sky_ra_dec_deg = [266.41683333, -29.00781611]
+
+# Without relativity: the same elements as Keplerian ellipses (see the header).
+[[bodies]]
+name = "S2 (Newton)"
+parent = "Sgr A*"
+kind = "ghost"
+orbit_color = "#687086"
+[bodies.orbit]
+type = "visual_orbit"
+gm_km3_s2 = 5.65487707e17
+a_mas = 125.058
+distance_pc = 8246.7
+e = 0.884649
+i_deg = 134.567
+node_deg = 228.171
+arg_peri_deg = 66.263
+t_peri_year = 2018.37900
+sky_ra_dec_deg = [266.41683333, -29.00781611]
+
+[[bodies]]
+name = "Death Star (Newton)"
+parent = "Sgr A*"
+kind = "ghost"
+orbit_color = "#86826a"
+[bodies.orbit]
+type = "visual_orbit"
+gm_km3_s2 = 5.65487707e17
 a_au = 5.607833
 e = 0.7
 i_deg = 134.567

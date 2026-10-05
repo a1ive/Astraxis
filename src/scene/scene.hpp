@@ -29,6 +29,10 @@ enum class BodyKind {
     Spacecraft, // drawn as a marker only
     BlackHole,  // drawn as its (black) event horizon
     Barycenter, // invisible reference point
+    // A comparison point (e.g. where a star would be without relativity):
+    // drawn as a hollow marker with its orbit line; no mass, light or surface.
+    // Ghosts pair up among themselves (satellite_host), not with real bodies.
+    Ghost,
 };
 
 enum class TrailMode {

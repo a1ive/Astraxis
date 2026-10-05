@@ -7,6 +7,7 @@
 #include "ephem/kerr_orbit.hpp"
 #include "ephem/mean_element_orbit.hpp"
 #include "ephem/nbody.hpp"
+#include "ephem/post_keplerian.hpp"
 #include "ephem/visual_orbit.hpp"
 
 #include <glm/vector_relational.hpp>
@@ -532,6 +533,27 @@ std::unique_ptr<MotionSource> Loader::parse_motion(const toml::table& t, const s
         return std::make_unique<VisualOrbitMotion>(orbit, gm);
     }
 
+    // A binary pulsar's timing orbit (the companion relative to the pulsar, for
+    // the total gm_km3_s2): visual-orbit elements at T0 (period_days is Pb there,
+    // t_peri_jd_tdb is T0), plus the advance of periastron and the period
+    // derivative. With `newtonian_from` (UTC), the Keplerian orbit Newtonian
+    // gravity predicts from that moment on instead (a ghost to compare with).
+    if (type == "post_keplerian") {
+        const double gm = get_double(t, "gm_km3_s2", ctx);
+        if (gm <= 0.0 || !t.contains("period_days")) {
+            fail(ctx, "post_keplerian needs a positive gm_km3_s2 and period_days");
+        }
+        const PostKeplerianOrbit orbit = make_post_keplerian(
+            parse_visual_orbit(t, ctx, gm), get_double(t, "period_days", ctx) * kSecondsPerDay,
+            get_double(t, "omega_dot_deg_per_year", ctx) * kDegToRad / (kDaysPerJulianYear * kSecondsPerDay),
+            get_double(t, "pb_dot", ctx), gm);
+        if (t.contains("newtonian_from")) {
+            return std::make_unique<VisualOrbitMotion>(
+                newtonian_continuation(orbit, gm, parse_time(t, "newtonian_from", ctx)), gm);
+        }
+        return std::make_unique<PostKeplerianMotion>(orbit, gm);
+    }
+
     if (type == "nbody") {
         m_nbody_bodies.push_back(m_current_body);
         return nullptr; // filled in by parse_nbody
@@ -604,8 +626,10 @@ void Loader::parse(const toml::table& root, Scene& out)
             body.kind = BodyKind::BlackHole;
         } else if (kind == "barycenter") {
             body.kind = BodyKind::Barycenter;
+        } else if (kind == "ghost") {
+            body.kind = BodyKind::Ghost;
         } else {
-            fail(ctx, "kind must be planet, star, spacecraft, black_hole or barycenter");
+            fail(ctx, "kind must be planet, star, spacecraft, black_hole, barycenter or ghost");
         }
 
         body.gm_km3_s2 = get_double_or(*t, "gm_km3_s2", 0.0);
@@ -628,7 +652,7 @@ void Loader::parse(const toml::table& root, Scene& out)
             const double m = body.gm_km3_s2 / (kSpeedOfLightKmS * kSpeedOfLightKmS);
             body.equatorial_radius_km = body.polar_radius_km = m + m * std::sqrt(1.0 - body.spin * body.spin);
             body.equatorial_radius_b_km = body.equatorial_radius_km;
-        } else if (body.kind == BodyKind::Barycenter) {
+        } else if (body.kind == BodyKind::Barycenter || body.kind == BodyKind::Ghost) {
             body.equatorial_radius_km = body.equatorial_radius_b_km = body.polar_radius_km = 1.0;
         } else {
             // [mean], [equatorial, polar] or [a, b, c] (a along the prime meridian).
@@ -884,7 +908,8 @@ void Loader::parse(const toml::table& root, Scene& out)
                 // A pair split around its barycenter: the scale is -m_other / m_total
                 // (or m_other / m_total), so the orbit's total GM gives the body's own.
                 const double pair_gm = get_double_or(*orbit, "gm_km3_s2", 0.0);
-                if (body.body_gm_km3_s2 <= 0.0 && pair_gm > 0.0 && std::abs(scale) < 1.0) {
+                if (body.body_gm_km3_s2 <= 0.0 && pair_gm > 0.0 && std::abs(scale) < 1.0 &&
+                    body.kind != BodyKind::Ghost) {
                     body.body_gm_km3_s2 = pair_gm * (1.0 - std::abs(scale));
                 }
             }

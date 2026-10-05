@@ -33,6 +33,12 @@ constexpr double kPointerHideSeconds = 3.0; // during the tour, hide panel and c
 constexpr int kTrailPoints = 2048;
 constexpr double kMaxWarp = 1e8; // ~3.2 years per second
 constexpr float kOrbitOpacity = 0.55f;
+// An orbit the clock runs through in under kEvenOrbitFastS of real time would
+// flicker as its fading tail chases the body around: it is drawn evenly (at
+// kEvenOrbitFade), blending back to the fading tail by kEvenOrbitSlowS.
+constexpr double kEvenOrbitFastS = 1.0;
+constexpr double kEvenOrbitSlowS = 4.0;
+constexpr float kEvenOrbitFade = 0.5f;
 // A moon's label, marker and orbit fade out as its orbit shrinks on screen
 // from kSatelliteShowPx to kSatelliteHidePx (points, not pixels).
 constexpr double kSatelliteHidePx = 10.0;
@@ -1386,6 +1392,23 @@ void App::build_orbit_lines()
         m_scene.trail(static_cast<int>(i), m_clock.t_tdb, kTrailPoints, m_trail_points, m_trail_fades);
         if (m_trail_points.size() < 2) {
             continue;
+        }
+        if (m_scene.bodies[i].trail == TrailMode::Orbit && !m_scene.frame_is_rotating()) {
+            // Real time per orbit, from its length and the current speed (within a
+            // factor of a few on eccentric orbits, which is enough here).
+            double length = 0.0;
+            for (size_t k = 1; k < m_trail_points.size(); ++k) {
+                length += glm::length(m_trail_points[k] - m_trail_points[k - 1]);
+            }
+            const int parent = m_scene.bodies[i].parent;
+            const double speed = glm::length(m_scene.icrf_state_at(static_cast<int>(i), m_clock.t_tdb).velocity -
+                                             m_scene.icrf_state_at(parent, m_clock.t_tdb).velocity);
+            const double real_period = speed > 0.0 ? length / (speed * m_clock.warp) : 1e30;
+            const float even = static_cast<float>(
+                std::clamp((kEvenOrbitSlowS - real_period) / (kEvenOrbitSlowS - kEvenOrbitFastS), 0.0, 1.0));
+            for (float& f : m_trail_fades) {
+                f += (kEvenOrbitFade - f) * even;
+            }
         }
         m_line_points.clear();
         for (size_t k = 0; k < m_trail_points.size(); ++k) {

@@ -1,0 +1,198 @@
+# PSR J1141-6545: a young pulsar and a massive white dwarf on a 4.7-hour orbit.
+# Unusually, the white dwarf formed first: the pulsar was never spun up by accretion
+# and still spins slowly (0.39 s), while the white dwarf, spun up by matter from the
+# pulsar's progenitor, turns in minutes - fast enough for its frame dragging
+# (Lense-Thirring precession) to tilt the orbit measurably [VK20].
+#
+# Relativity vs Newton: the stars move on the orbit of the relativistic timing model
+# (orbit type "post_keplerian", src/ephem/post_keplerian.hpp): the periastron advances
+# by 5.3 deg a year. The hollow "(Newton)" markers and their grey ellipses are what
+# Newtonian gravity predicts from the orbit at the first timing epoch (1999 July):
+# the same ellipse forever. The orbit is less eccentric than Hulse-Taylor's (0.17),
+# so watch the gap between the stars at closest approach swing around. The white
+# dwarf's spin adds to the periastron advance less than its measurement error [VK20],
+# so the advance shown is that of general relativity. The orbit's tilt by frame
+# dragging (~1.7"/yr in inclination) is far too small to show and is left out.
+#
+# [VK20] Venkatraman Krishnan et al. 2020, Science 367, 577 (arXiv:2001.11405):
+#        Table 1 (DDGR timing model): position RA 11h41m07.007s, Dec -65d45'19.14";
+#        spin frequency 2.5387 Hz; Pb = 0.19765096149 d, T0 = MJD 53999.9960283,
+#        x = a_p sin i = 1.858915 lt-s, omega0 (the pulsar's) = 80.6911 deg,
+#        e = 0.171876; companion 1.02 M_sun, total 2.28967 M_sun, pulsar 1.27 M_sun;
+#        i = 71 +- 2 deg (or 109). Supplement: white dwarf radius ~5400 km; spin-orbit
+#        contributions to omega_dot below the measurement precision; white dwarf spin
+#        period < 200 s (99%, with binary-evolution priors).
+# [BBV08] Bhat, Bailes & Verbiest 2008, Phys. Rev. D 77, 124017 (arXiv:0804.0956),
+#        Table I: omega_dot = 5.3096(4) deg/yr, Pb_dot = -0.403(25)e-12; omega =
+#        42.4561 deg at T0 = MJD 51369.8545515 (1999 July 10), the first timing epoch.
+# [RE19] Reardon et al. 2019, MNRAS 485, 4389 (arXiv:1903.01990): from the pulsar's
+#        scintillation, i < 90 deg (not 109) and the ascending node Omega = 24.8 +- 1.8
+#        deg, east of north.
+# [AN11] Antoniadis et al. 2011, MNRAS 412, 580 (arXiv:1011.0926): the white dwarf's
+#        optical counterpart (V = 25.08); its colour fits no cooling track, so no
+#        temperature or age was derived.
+# Derived (GM = mass * GM_sun, 1.32712440041279419e11 km^3/s^2, JPL DE440):
+#   a = 1.309e6 km from Kepler's third law for 2.28967 M_sun: the stars are 1.08e6 km
+#   apart at periastron, 1.53e6 km at apastron, 573 km/s relative speed at periastron.
+#   sin i = x c / (a m_c / M) = 0.95544, i = 72.83 deg (within 1 sigma of [VK20]).
+#   The GR (1PN) periastron advance for the [VK20] masses is 5.3104 deg/yr; [BBV08]'s
+#   omega0 carried forward at 5.3096 deg/yr gives [VK20]'s to 0.001 deg.
+#   1999-07 to 2026-10 adds up to ~145 deg.
+# Assumed: neutron star radius 12 km at 5e5 K (L = 0.017 L_sun; a young neutron star);
+# white dwarf at 20,000 K (L = 8.7e-3 L_sun from its radius) - see [AN11]. The
+# pulsar's spin axis along the orbit normal, magnetic axis 45 deg from it, beams 10 deg
+# wide; the real spin axis is tilted and precesses (its pulse profile changes), which
+# is not shown. The beams are radio and invisible; they are drawn bluish and turn once
+# every 2 s of real time (the true 0.39 s cannot be shown). The [RE19] node and sense
+# of inclination are assumed to follow the convention of visual orbits used here.
+# Times are those of the timing model, i.e. as seen from the solar system barycentre.
+# The background sky is the one seen from Earth.
+# Check (tests/sim_tests.cpp): the Roemer delay, the omega_dot of GR for the [VK20]
+# masses, [BBV08]'s omega in 1999, the 1999 Newtonian orbit.
+
+name = "PSR J1141-6545"
+
+[view]
+focus = "PSR J1141-6545 system"
+distance_km = 5.5e6
+start = "now"
+warp = 1200.0                  # one orbit in 14 s
+up = "orbit_normal:J1141-6545 white dwarf"
+
+[[bodies]]
+name = "PSR J1141-6545 system"
+kind = "barycenter"
+body_gm_km3_s2 = 3.03867692589e11 # 2.28967 M_sun [VK20]
+
+# Both stars from the white dwarf's orbit relative to the pulsar [VK20 Table 1], split
+# by the masses; its omega is the pulsar's + 180 deg.
+[[bodies]]
+name = "PSR J1141-6545"
+parent = "PSR J1141-6545 system"
+kind = "star"
+radii_km = [12.0]              # assumed
+temperature_k = 500000.0       # assumed
+luminosity_solar = 0.0168
+orbit_color = "#a0b8ff"
+[bodies.pulsar]
+spin_axis_orbit_normal = "J1141-6545 white dwarf"
+magnetic_inclination_deg = 45.0
+beam_half_angle_deg = 10.0
+display_period_s = 2.0
+beam_color = "#b8c8ff"
+[bodies.orbit]
+scale = -0.445479042831        # -m_c / (m_p + m_c)
+type = "post_keplerian"
+gm_km3_s2 = 3.03867692589e11
+period_days = 0.19765096149
+e = 0.171876
+i_deg = 72.831
+node_deg = 24.8                # [RE19]
+arg_peri_deg = 260.6911        # the white dwarf's at T0
+t_peri_jd_tdb = 2454000.4960283 # T0 = MJD 53999.9960283
+omega_dot_deg_per_year = 5.3096 # [BBV08]
+pb_dot = -0.403e-12            # [BBV08]
+sky_ra_dec_deg = [175.27919583, -65.75531667]
+
+[[bodies]]
+name = "J1141-6545 white dwarf"
+parent = "PSR J1141-6545 system"
+kind = "star"
+radii_km = [5400.0]            # [VK20] supplement
+temperature_k = 20000.0        # assumed
+luminosity_solar = 8.7e-3
+orbit_color = "#fff0d0"
+[bodies.orbit]
+scale = 0.554520957169         # m_p / (m_p + m_c)
+type = "post_keplerian"
+gm_km3_s2 = 3.03867692589e11
+period_days = 0.19765096149
+e = 0.171876
+i_deg = 72.831
+node_deg = 24.8
+arg_peri_deg = 260.6911
+t_peri_jd_tdb = 2454000.4960283
+omega_dot_deg_per_year = 5.3096
+pb_dot = -0.403e-12
+sky_ra_dec_deg = [175.27919583, -65.75531667]
+
+# The Newtonian prediction from the first timing epoch [BBV08].
+[[bodies]]
+name = "PSR J1141-6545 (Newton)"
+parent = "PSR J1141-6545 system"
+kind = "ghost"
+orbit_color = "#687086"
+[bodies.orbit]
+scale = -0.445479042831
+type = "post_keplerian"
+newtonian_from = "1999-07-10 20:30"
+gm_km3_s2 = 3.03867692589e11
+period_days = 0.19765096149
+e = 0.171876
+i_deg = 72.831
+node_deg = 24.8
+arg_peri_deg = 260.6911
+t_peri_jd_tdb = 2454000.4960283
+omega_dot_deg_per_year = 5.3096
+pb_dot = -0.403e-12
+sky_ra_dec_deg = [175.27919583, -65.75531667]
+
+[[bodies]]
+name = "White dwarf (Newton)"
+parent = "PSR J1141-6545 system"
+kind = "ghost"
+orbit_color = "#86826a"
+[bodies.orbit]
+scale = 0.554520957169
+type = "post_keplerian"
+newtonian_from = "1999-07-10 20:30"
+gm_km3_s2 = 3.03867692589e11
+period_days = 0.19765096149
+e = 0.171876
+i_deg = 72.831
+node_deg = 24.8
+arg_peri_deg = 260.6911
+t_peri_jd_tdb = 2454000.4960283
+omega_dot_deg_per_year = 5.3096
+pb_dot = -0.403e-12
+sky_ra_dec_deg = [175.27919583, -65.75531667]
+
+[[events]]
+name = "A pulsar and a white dwarf, 4.7 hours per orbit (grey: Newton's orbit from 1999)"
+time = "2026-01-01"
+focus = "PSR J1141-6545 system"
+from_orbit_normal = "J1141-6545 white dwarf"
+distance_km = 5.5e6
+warp = 1200.0
+
+[[events]]
+name = "1999 to today: the periastron turns 145 deg, Newton's orbit stays put"
+time = "1999-07-10 20:30"
+focus = "PSR J1141-6545 system"
+from_orbit_normal = "J1141-6545 white dwarf"
+distance_km = 5.5e6
+warp = 15778800.0              # half a year per second
+
+[[events]]
+name = "The white dwarf: 1.02 solar masses in 5,400 km, the pulsar beyond"
+time_tdb = "2026-01-01 11:53"  # 20 min before periastron [VK20]
+focus = "J1141-6545 white dwarf"
+from_body = "PSR J1141-6545"
+phase_deg = 172.0              # from behind the white dwarf, the pulsar just off to the side
+distance_km = 4.0e4
+warp = 60.0
+
+[[events]]
+name = "Pulsar beams (drawn slowed down: really 2.5 turns a second)"
+time = "2026-01-01"
+focus = "PSR J1141-6545"
+distance_km = 3.0e5
+warp = 30.0
+
+[[events]]
+name = "Centuries at 3 years per second: the orbit spins, Newton's does not"
+time = "2026-01-01"
+focus = "PSR J1141-6545 system"
+from_orbit_normal = "J1141-6545 white dwarf"
+distance_km = 5.5e6
+warp = 1.0e8
