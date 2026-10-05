@@ -847,6 +847,59 @@ void test_jupiter_saturn_small_moon_shapes()
     check(std::abs(spin_over_n - 4.255) < 1e-4, "Hyperion spin rate / mean motion", spin_over_n);
 }
 
+// Halley (ISEE-3 scene): Stooke's shape model ([STKS]) against Szego 1991's independent
+// Vega/Giotto model ([SZG]: a 15.3 x 7.2 x 7.22 km box, 365 km^3), and the long-axis mode
+// of Belton et al. 1991 ([BLT]): from the long axis at 66.0 deg to M, 3.69 d around it and
+// 7.1 d about itself, the abstract derives a total spin of 2.84 d at 21.4 deg from M.
+void test_halley_shape()
+{
+    Scene scene = load_scene_or_die("isee3.toml");
+    scene.set_active_frame(0); // inertial (ICRF axes)
+    const int halley = scene.find("Halley");
+    const Body& body = scene.bodies[static_cast<size_t>(halley)];
+    check(body.shape != nullptr && body.texture.empty(), "Halley has a shape model (no texture)");
+    check(body.free_precession.enabled && body.pm_rate_deg_per_day == 0.0, "Halley precesses freely");
+    if (!body.shape) {
+        return;
+    }
+    glm::dvec3 lo(1e300), hi(-1e300);
+    for (const glm::vec3& p : body.shape->positions) {
+        lo = glm::min(lo, glm::dvec3(p));
+        hi = glm::max(hi, glm::dvec3(p));
+    }
+    const glm::dvec3 size = hi - lo;
+    check(std::abs(size.z - 15.3) < 0.5, "Halley long axis along z (km)", size.z);
+    check(std::abs(size.x - 7.2) < 0.5 && std::abs(size.y - 7.2) < 0.5, "Halley short axes (km)",
+          std::max(size.x, size.y));
+    const double volume = signed_volume(*body.shape);
+    check(std::abs(volume / 365.0 - 1.0) < 0.15, "Halley volume near Szego's model (km^3)", volume);
+
+    // Angular velocity from the orientation a minute apart: R' R^T = [omega]x.
+    const double t0 = tdb_from_utc_jd(jd_from_calendar({1986, 3, 14, 0, 0, 0}));
+    const double dt = 60.0;
+    double worst_nutation = 0.0;
+    for (double days : {0.0, 1.3, 2.9}) {
+        const double t = t0 + days * kSecondsPerDay;
+        scene.update(t);
+        const glm::dmat3 r0 = scene.bodies[static_cast<size_t>(halley)].orientation;
+        scene.update(t + dt);
+        const glm::dmat3 r1 = scene.bodies[static_cast<size_t>(halley)].orientation;
+        const glm::dmat3 w = (r1 - r0) * glm::transpose(r0) / dt;
+        const glm::dvec3 omega(w[1][2], w[2][0], w[0][1]);
+        const double period_d = kTwoPi / glm::length(omega) / kSecondsPerDay;
+        const double spin_to_m = std::acos(glm::dot(glm::normalize(omega), body.pole)) / kDegToRad;
+        const double nutation = std::acos(glm::dot(r0[2], body.pole)) / kDegToRad;
+        worst_nutation = std::max(worst_nutation, std::abs(nutation - 66.0));
+        check(std::abs(period_d - 2.84) < 0.01, "Halley total spin period (d)", period_d);
+        check(std::abs(spin_to_m - 21.4) < 0.1, "Halley spin vector to M (deg)", spin_to_m);
+        if (days == 0.0) {
+            std::printf("info: Halley mesh %.2f x %.2f x %.2f km, %.1f km^3; total spin %.3f d at %.2f deg from M\n",
+                        size.x, size.y, size.z, volume, period_d, spin_to_m);
+        }
+    }
+    check(worst_nutation < 1e-6, "Halley long axis stays 66 deg from M (deg)", worst_nutation);
+}
+
 // Solar System scene: the asteroid and Kuiper belts (two-body orbits from SBDB).
 void test_solar_system_belts()
 {
@@ -3138,6 +3191,7 @@ int main()
     test_vesta_shape();
     test_pallas_shape();
     test_jupiter_saturn_small_moon_shapes();
+    test_halley_shape();
     test_parker_scene();
     test_jupiter_missions();
     test_earth_moon_scene();

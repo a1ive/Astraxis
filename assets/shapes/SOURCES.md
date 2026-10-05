@@ -5,6 +5,7 @@
 | 文件 | 来源 | 许可 |
 |---|---|---|
 | `amalthea.mesh`、`thebe.mesh` | P. Stooke，“Stooke Small Body Shape Models” V2.0（PDS SBN，`small_bodies.stooke.shape-models`；EAR-A-5-DDR-STOOKE-SHAPE-MODELS-V2.0），<https://sbnarchive.psi.edu/pds4/non_mission/small_bodies.stooke.shape-models/>，文件 `data/j5amalthea.tab`、`data/j14thebe.tab`；Amalthea：Stooke 1994, EMP 64, 87 | PDS 存档数据，公有领域（请引用：Stooke, P., Stooke Small Body Shape Models V2.0, NASA PDS, 2016） |
+| `halley.mesh` | 同上 Stooke 数据集，文件 `data/1682q1halley.tab`（SHA-256 `e9437ac850060a4c527d1045e028ac28f58bfe0386fc1da0bf50405b8128b824`）；1P/Halley，Giotto HMC 与 Vega 1/2 TVS 图像的边缘和明暗界线拟合，指向由 A. Abergel 计算；自转状态按 Belton et al. 1991, Icarus 93, 183 | PDS 存档数据，公有领域（标签要求同时署名 Abergel 与 Stooke） |
 | `hyperion.mesh` | P. C. Thomas，“Saturn Small Moon Shape Models” V1.0（PDS SBN，`saturn_satellite_shape_models`，卡西尼 ISS），<https://sbnarchive.psi.edu/pds4/cassini/saturn_satellite_shape_models_V1_0/>，文件 `data/hyperion_30k_plt.tab`；Thomas et al. 2007, Nature 448, 50 | PDS 存档数据，公有领域（请引用数据集与作者） |
 | `pallas.mesh` | VLT/SPHERE 大型观测计划的 MPCD 形状模型（Marsset et al. 2020, Nature Astronomy 4, 569；Vernazza et al. 2021, A&A 654, A56），Sketchfab 用户 “marin”（@marin14）上传的 “(2) Pallas - MPCD model”，<https://sketchfab.com/3d-models/2-pallas-mpcd-model-59c1ec418b2f4f13bc182633a2cddc66>，文件 `2_Pallas_mpcd.obj`（2022-06-13） | CC BY 4.0（Sketchfab 页面标注；署名：marin (@marin14) / Marsset et al. 2020, Vernazza et al. 2021） |
 | `vesta.mesh` | USGS Astrogeology / DLR，Vesta Dawn FC HAMO Global DTM 93m（2013-12-10 发布，黎明号分幅相机 HAMO 立体图像），<https://astrogeology.usgs.gov/search/map/vesta_dawn_fc_hamo_global_dtm_93m>，文件 `Vesta_Dawn_HAMO_DTM_DLR_Global_48ppd.tif` | 公有领域（请引用作者） |
@@ -59,6 +60,15 @@
 - Amalthea 基于旅行者 1、2 号图像（修正了 Stooke 1994 里经度 315° 附近的一个“鼓包”，尚未用伽利略号的结果）；Thebe 基于伽利略号的低分辨率图像，标签说只是初步模型。坐标原点不一定是图形中心（标签说明），所以 Amalthea 的 x 范围是 −147..120 km
 - 交叉检查（`test_jupiter_saturn_small_moon_shapes`）：等体积半径 Amalthea 81.7 km、Thebe 45.5 km，JPL SSD 平均半径为 83.5 ± 3.0、49.3 ± 4.0 km；两者的最长轴都沿 x（指向木星），与 PCK 的三轴椭球（125 × 73 × 64、58 × 49 × 42 km）一致。场景的 `radii_km` 改用 PCK 三轴值（影子、相机距离）
 - Amalthea 贴 Stooke 的晕渲图（见 `assets/textures/SOURCES.md`），Thebe 没有图，按场景颜色均匀着色
+
+## Halley（Stooke / Abergel 形状模型）
+
+- 表的列是经度、纬度、半径，5° 网格，行星中心坐标。和卫星不同，彗星的经度**向东**增加（V2.0 按 IAU 2009 的约定把小行星和彗星的经度反过来了），所以转换时加 `--lon-first --east`。表里只有 360° 列，没有 0° 列，转换工具按 360° 取模后当作 0°。转换后 2,701 个顶点、5,040 个三角形，111 KB
+- 坐标系（标签）：参考轴是**长轴**，北极指向“大头”；经度零点的定义是 Vega 2 第一张高分辨率图像（2:00:30）拍摄时星下点经度为 270°。所以网格的 z 轴就是彗核长轴，x、y 在短轴平面内
+- 误差（标签）：图像很差，边缘和明暗界线的位置本身就不确定，每个点的绝对误差估计为 0.5–1 km，相邻点之间约 100 m；凸包大概和模型本身一样可靠。Stooke 自己的比较认为他的模型偏多棱角、凹陷偏深
+- 交叉检查：Szegő 1991（Comets in the Post-Halley Era 2, 723，第 2 节）的 Vega/Giotto 独立模型装在 15.3 × 7.2 × 7.22 km 的盒子里，体积 365 km³。本网格沿 z 长 15.14 km，x、y 方向 7.53、7.59 km，体积 402.2 km³（等体积半径 4.58 km），差约 10%（`test_halley_shape`）。场景的 `radii_km` 用 Szegő 的盒子尺寸的一半（3.61、3.6、7.65 km，长轴沿 z），只用于影子和相机距离
+- 自转：Belton et al. 1991 的摘要给出长轴模式（对称陀螺的自由进动）：长轴与角动量 M 夹角 66.0°，绕 M 进动周期 3.69 天，绕长轴自转周期 7.1 天，合成的总自转周期 2.84 天，总角速度与 M 夹角 21.4°（这两个数可以由前三个算出，`test_halley_shape` 检查）；M 指向 B1950 赤经 6.2°、赤纬 −60.7°，用 SPICE 的 FK4 → J2000 旋转换算为 J2000 的 6.785°、−60.423°。场景用 `[bodies.free_precession]` 按 z-x-z 欧拉角计算朝向。摘要里没有两个角的相位，论文正文需要付费获取，所以相位取 0（历元 1986-03-14 00:00 UTC），**任一时刻的具体朝向是示意性的**；也不知道 Belton 的长轴方向与 Stooke 的“大头”是否一致，这里假定 +z 与 M 成 66°
+- 没有纹理：没有 Halley 的全球反照率图；Giotto HMC 只拍到一侧，那张著名的彗核合成照片由 ESA 和 HMC 团队发布，许可证不明确，不当作公有领域。按场景颜色（示意性的暗灰色）均匀着色
 
 ## Hyperion（Thomas 卡西尼形状模型）
 

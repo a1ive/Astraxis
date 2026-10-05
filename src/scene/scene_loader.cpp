@@ -658,6 +658,25 @@ void Loader::parse(const toml::table& root, Scene& out)
         }
         body.pm_w0_deg = pm[0];
         body.pm_rate_deg_per_day = pm[1];
+        // pole_ra_dec_deg is then the angular momentum direction.
+        if (const toml::table* fp = (*t)["free_precession"].as_table()) {
+            const std::string fp_ctx = ctx + ".free_precession";
+            if (t->contains("prime_meridian_deg")) {
+                fail(fp_ctx, "free precession replaces prime_meridian_deg");
+            }
+            Body::FreePrecession& motion = body.free_precession;
+            motion.enabled = true;
+            motion.nutation_deg = get_double(*fp, "nutation_deg", fp_ctx);
+            motion.precession_deg_per_day = 360.0 / get_double(*fp, "precession_period_days", fp_ctx);
+            motion.spin_deg_per_day = 360.0 / get_double(*fp, "spin_period_days", fp_ctx);
+            motion.epoch_tdb = parse_time(*fp, "epoch", fp_ctx);
+            double phases[2] = {0.0, 0.0};
+            if (fp->contains("phases_deg")) {
+                get_array(*fp, "phases_deg", fp_ctx, phases, 2, 2);
+            }
+            motion.phi0_deg = phases[0];
+            motion.psi0_deg = phases[1];
+        }
         if (t->contains("pole_rate_deg_per_century")) {
             double rate[2];
             get_array(*t, "pole_rate_deg_per_century", ctx, rate, 2, 2);

@@ -169,6 +169,23 @@ struct Body {
     std::vector<double> nut_prec_pm;
     int nut_prec_source = -1; // body whose nut_prec_angles apply (-1: none)
 
+    // Instead of the IAU model: torque-free precession of an axially symmetric
+    // body (comet Halley's long-axis mode). The angular momentum M is fixed
+    // along `pole`; the body z axis is inclined to it by `nutation` and turns
+    // around it at precession_rate while the body rotates about z at spin_rate
+    // (z-x-z Euler angles phi, theta, psi):
+    //   body -> ICRF = iau_pole_frame(M) * Rz(phi) * Rx(theta) * Rz(psi),
+    //   phi = phi0 + precession_rate (t - epoch), psi = psi0 + spin_rate (t - epoch).
+    struct FreePrecession {
+        bool enabled = false;
+        double nutation_deg = 0.0;
+        double precession_deg_per_day = 0.0;
+        double spin_deg_per_day = 0.0;
+        double epoch_tdb = 0.0;
+        double phi0_deg = 0.0;
+        double psi0_deg = 0.0;
+    } free_precession;
+
     glm::vec3 color{1.0f}; // sRGB
     SurfaceStyle style = SurfaceStyle::Solid;
     glm::vec3 orbit_color{0.5f}; // sRGB

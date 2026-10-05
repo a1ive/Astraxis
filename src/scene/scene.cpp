@@ -335,8 +335,17 @@ void Scene::update(double t_tdb)
                 }
             }
         }
-        const double w = wrap_two_pi(w_deg * kDegToRad);
-        body.orientation = glm::transpose(m_transform.axes) * iau_pole_frame(ra, dec) * rotation_z(w);
+        glm::dmat3 body_to_icrf;
+        if (const Body::FreePrecession& fp = body.free_precession; fp.enabled) {
+            const double since = (t_tdb - fp.epoch_tdb) / kSecondsPerDay;
+            const double phi = wrap_two_pi((fp.phi0_deg + fp.precession_deg_per_day * since) * kDegToRad);
+            const double psi = wrap_two_pi((fp.psi0_deg + fp.spin_deg_per_day * since) * kDegToRad);
+            body_to_icrf = iau_pole_frame(ra, dec) * rotation_z(phi) * rotation_x(fp.nutation_deg * kDegToRad) *
+                           rotation_z(psi);
+        } else {
+            body_to_icrf = iau_pole_frame(ra, dec) * rotation_z(wrap_two_pi(w_deg * kDegToRad));
+        }
+        body.orientation = glm::transpose(m_transform.axes) * body_to_icrf;
 
         if (visible && body.kind != BodyKind::Star) {
             extent = std::max(extent, glm::length(pos) + body.equatorial_radius_km);

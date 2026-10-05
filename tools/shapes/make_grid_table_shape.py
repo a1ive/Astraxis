@@ -9,15 +9,16 @@ radius on a regular grid into a body mesh for assets/shapes/:
 Sources and conventions are listed in assets/shapes/SOURCES.md. Download the
 table there first, then (from the repository root):
 
-    python tools/shapes/make_grid_table_shape.py [--lon-first] <table.tab> <output.mesh>
+    python tools/shapes/make_grid_table_shape.py [--lon-first] [--east] <table.tab> <output.mesh>
 
 e.g. m1phobos.tab -> phobos.mesh, m2deimos.tab -> deimos.mesh,
-     --lon-first j5amalthea.tab -> amalthea.mesh, --lon-first j14thebe.tab -> thebe.mesh
+     --lon-first j5amalthea.tab -> amalthea.mesh, --lon-first j14thebe.tab -> thebe.mesh,
+     --lon-first --east 1682q1halley.tab -> halley.mesh
 
-Both sets list 0 and 360 deg longitude rows, and for satellites their longitudes
-are WEST-positive: on Thomas' Phobos table the Stickney crater (49 deg W) shows as
+Both sets list 0 and 360 deg longitude rows (Halley's table only 360), and for
+satellites their longitudes are WEST-positive: on Thomas' Phobos table the Stickney crater (49 deg W) shows as
 a depression at 49, not at 311 (checked against the IAU coordinates); Stooke's
-labels state it. The mesh keeps the grid (see axmesh.grid_mesh) with east
+labels state it (and that asteroids and comets are east-positive, V2.0). The mesh keeps the grid (see axmesh.grid_mesh) with east
 longitude increasing with the column. The albedo is uniform (a surface map, if
 any, is a separate texture in the same planetocentric coordinates).
 
@@ -31,14 +32,15 @@ import sys
 from axmesh import grid_mesh, volume, write_mesh
 
 
-def read_table(path, lon_first):
+def read_table(path, lon_first, east):
     radius = {}
     with open(path) as f:
         for line in f:
             parts = line.split()
             if len(parts) == 3:
                 a, b, r = (float(x) for x in parts)
-                lat, lon_west = (b, a) if lon_first else (a, b)
+                lat, lon = (b, a) if lon_first else (a, b)
+                lon_west = -lon if east else lon
                 radius[(round(lat, 6), round(lon_west % 360.0, 6))] = r
     lats = sorted({lat for lat, _ in radius})
     lons = sorted({lon for _, lon in radius})
@@ -46,10 +48,11 @@ def read_table(path, lon_first):
 
 
 def main():
-    args = [a for a in sys.argv[1:] if a != '--lon-first']
+    flags = {'--lon-first', '--east'}
+    args = [a for a in sys.argv[1:] if a not in flags]
     if len(args) != 2:
         sys.exit(__doc__)
-    radius, lats, lons = read_table(args[0], '--lon-first' in sys.argv[1:])
+    radius, lats, lons = read_table(args[0], '--lon-first' in sys.argv[1:], '--east' in sys.argv[1:])
     step = lons[1] - lons[0]
     columns = round(360.0 / step)
     if any(abs(lons[k] - k * step) > 1e-6 for k in range(len(lons))) or len(lons) != columns:

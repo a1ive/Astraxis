@@ -31,6 +31,20 @@
 # [ELEM] JPL SSD, Planetary Satellite Mean Elements (the Moon, outside its tables).
 # [ATM]  Atmospheres (single scattering): sources and choices in solar_system.toml.
 # [PCK]  NAIF pck00011.tpc (IAU 2015).
+# [STKS] P. Stooke, Stooke Small Body Shape Models V2.0 (PDS SBN, small_bodies.stooke.shape-models;
+#        EAR-A-5-DDR-STOOKE-SHAPE-MODELS-V2.0), 1P/Halley (1682q1halley.tab): limb and terminator
+#        fits to the Giotto HMC and Vega 1/2 images, pointing by A. Abergel. Body z = the long axis,
+#        toward the "big end"; uncertain by 0.5-1 km (assets/shapes/SOURCES.md).
+# [SZG]  K. Szego 1991, "P/Halley, the model comet, in view of the imaging experiment aboard the
+#        Vega spacecraft", Comets in the Post-Halley Era 2, 723 (sec. 2): the Vega/Giotto model
+#        fits in a 15.3 x 7.2 x 7.22 km box, volume 365 km^3.
+# [BLT]  M. J. S. Belton, W. H. Julian, A. J. Anderson, B. E. A. Mueller 1991, Icarus 93, 183
+#        (abstract): Halley's nucleus is an excited symmetric rotator (long-axis mode). The long
+#        axis is inclined by 66.0 deg to the angular momentum M and turns around it in 3.69 d;
+#        the spin about the long axis is 7.1 d (total spin 2.84 d, 21.4 deg from M). M points to
+#        RA, Dec (B1950) = 6.2, -60.7 deg = 6.785, -60.423 deg (J2000; SPICE FK4 -> J2000 rotation).
+#        The shape model's frame assumes this rotation state [STKS]. The phases of the two angles
+#        are not in the abstract, so the orientation at any moment is illustrative.
 # [L]    Sun / Earth-Moon barycenter mass ratio 403503.235625 / (1.32712440041279419e11 +
 #        403503.235625) = 3.04042340e-6 [GM], as in jwst.toml.
 # Flyby times and distances: computed from the tables (tools/isee3/isee3_reconstruct.py
@@ -184,7 +198,8 @@ mean_longitude_deg = [-4.56813164, 19140.29934243]
 lon_peri_deg = [-23.91744784, 0.45223625]
 node_deg = [49.71320984, -0.26852431]
 
-# --- Comets (nuclei; no tails are drawn) ------------------------------------------------
+# --- Comets (nuclei; no comae or tails are drawn yet) ------------------------------------
+# Giacobini-Zinner's nucleus was never imaged (ICE carried no camera), so it stays a sphere.
 
 [[bodies]]
 name = "Giacobini-Zinner"
@@ -201,11 +216,19 @@ file = "ephem/gz.eph"
 [[bodies]]
 name = "Halley"
 parent = "Sun"
-radii_km = [5.5]                           # Horizons 1P: RAD = 5.5 km (mean)
-color = "#e6f0ff"
+shape = "shapes/halley.mesh"               # [STKS]
+radii_km = [3.61, 3.6, 7.65]               # [SZG] half the box, long axis along body z
+pole_ra_dec_deg = [6.785, -60.423]         # [BLT] angular momentum M (J2000)
+color = "#76726e"                          # dark (illustrative tone; no albedo map exists)
 orbit_color = "#b8c8e8"
 trail = "history"
 trail_history_days = 300.0
+[bodies.free_precession]                   # [BLT] long-axis mode
+nutation_deg = 66.0                        # long axis (body z) to M
+precession_period_days = 3.69              # long axis around M
+spin_period_days = 7.1                     # about the long axis
+epoch = "1986-03-14 00:00"                 # Giotto's encounter; phases unknown, set to zero
+phases_deg = [0.0, 0.0]
 [bodies.orbit]                             # [HZN] 1P, 1985 .. 1986
 type = "ephemeris"
 file = "ephem/halley.eph"
@@ -382,6 +405,18 @@ frame = "Heliocentric"
 from_orbit_normal = "Earth-Moon barycenter"
 distance_km = 4.0e8
 warp = 172800.0
+
+# The nucleus in the week of the Vega and Giotto flybys [STKS]. It tumbles in a long-axis
+# mode [BLT]; its phase on the day is illustrative.
+[[events]]
+name = "Halley's nucleus (1986-03-14)"
+time = "1986-03-13 12:00"
+focus = "Halley"
+frame = "Heliocentric"
+from_body = "Sun"
+phase_deg = 60.0
+distance_km = 60.0
+warp = 3600.0              # an hour per second: the 3.69-day precession in a minute and a half
 
 # 1986-1987: two maneuvers (dates assumed, see the sources) aim ICE at the Moon in 2014.
 [[events]]

@@ -37,9 +37,13 @@ int moon_host(const Scene& scene, int body)
     return host >= 0 && is_planet(scene.bodies[static_cast<size_t>(host)]) ? host : -1;
 }
 
-// Rotation period of a body (s), or 0 if it has no rotation model.
+// Rotation period of a body (s), or 0 if it has no rotation model. A freely
+// precessing body: its precession period (the long axis sweeping round).
 double spin_period(const Body& b)
 {
+    if (b.free_precession.enabled) {
+        return 360.0 / std::abs(b.free_precession.precession_deg_per_day) * kSecondsPerDay;
+    }
     return b.pm_rate_deg_per_day != 0.0 ? 360.0 / std::abs(b.pm_rate_deg_per_day) * kSecondsPerDay : 0.0;
 }
 

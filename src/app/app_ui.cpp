@@ -566,6 +566,13 @@ void App::build_info_panel()
                 format_duration(360.0 / std::fabs(body.pm_rate_deg_per_day) * kSecondsPerDay, buf, sizeof(buf));
                 info_row("Rotation", "%s%s", buf, body.pm_rate_deg_per_day < 0.0 ? " (retrograde)" : "");
             }
+            if (has_surface && body.free_precession.enabled) {
+                const Body::FreePrecession& fp = body.free_precession;
+                format_duration(360.0 / fp.precession_deg_per_day * kSecondsPerDay, buf, sizeof(buf));
+                info_row("Precession", "%s, at %.1f deg", buf, fp.nutation_deg);
+                format_duration(360.0 / fp.spin_deg_per_day * kSecondsPerDay, buf, sizeof(buf));
+                info_row("Spin (long axis)", "%s", buf);
+            }
             if (body.kind == BodyKind::Star) {
                 info_row("Temperature", "%.0f K", body.temperature_k);
                 info_row("Luminosity", "%.3g L_sun", body.luminosity_solar);
