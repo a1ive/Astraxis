@@ -13,6 +13,13 @@
 # past the Moon on 2014-08-10. The Sun-Earth rotating frame (the default) shows the halo loops
 # around L1, the petals of the geotail passes, and the yearly loops of the long way round.
 #
+# ICE was the far scout of the Halley Armada. Four more of its ships are here for 1985-1986:
+# Vega 1 (by way of Venus; 8,890 km from the nucleus on 1986-03-06), Suisei (151,000 km on the
+# sunward side, 03-08), Sakigake (7 million km upstream, 03-11) and Giotto (596 km, 03-14).
+# Each is shown only while its sources cover it. Vega 2, Pioneer 7 and the Pioneer Venus
+# Orbiter are not included: no 1986 trajectory of the first two was found in the public
+# archives (NSSDC on Vega 2: "no source"), and the third stayed in orbit around Venus.
+#
 # Sources
 # [REC]  tools/isee3/isee3_reconstruct.py (assets/ephem/SOURCES.md). Horizons only has ISEE-3
 #        in 2014, so 1978-1983 are ballistic arcs fitted to NASA GSFC SSCWeb positions and
@@ -24,7 +31,8 @@
 #        Comet Giacobini-Zinner: Horizons (SAO/1985), moved onto the navigation file's comet
 #        (~270 km) near the encounter.
 # [HZN]  JPL Horizons state vectors (tools/bake/ephem.toml): the Earth-Moon barycenter, the
-#        geocentric Moon (moon_isee3 for 1982-06 .. 1984-01, 0.5 km), comet Halley (JPL#75),
+#        geocentric Moon (moon_isee3 for 1982-06 .. 1984-01, 0.5 km), Venus (1984-12 .. 1986, for
+#        Vega 1's flyby; [APX] outside it), comet Halley (JPL#75),
 #        ISEE-3 in 2014 (-111, JPL solution s45, fitted after the lunar flyby).
 # [APX]  E. M. Standish, Approximate Positions of the Planets, Table 2a: Venus, Mars.
 # [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
@@ -56,6 +64,23 @@
 #        on 1986-02-22, at least 50 million km on 02-27. Its width is illustrative.
 # [L]    Sun / Earth-Moon barycenter mass ratio 403503.235625 / (1.32712440041279419e11 +
 #        403503.235625) = 3.04042340e-6 [GM], as in jwst.toml.
+# [ARM]  tools/armada/armada_reconstruct.py (assets/ephem/SOURCES.md): ballistic arcs fitted to
+#        Giotto: ESOC's encounter file (PDS SBN, GIO-C-DID-3-RDR-HALLEY-V1.0), 1986-03-05 .. 17
+#        only; Vega 1: positions in its MISCHA magnetometer tables (PDS SBN), launch ..
+#        1986-06-28, Venus flyby bridged with two assumed impulses; Suisei: ISAS ephemeris (PDS
+#        SBN, SUISEI-C-ESP-3-RDR-HALLEY-V1.0), first arc propagated back to the launch day ..
+#        1986-12-31; Sakigake: NASA SPDF HelioWeb, 1985-01-21 .. 1986-12-31. Near the comet
+#        each is placed on Halley [HZN] plus its offset from its own source's comet, moved to
+#        the published closest approach (Giotto, Vega 1).
+# [VEGA] PDS SBN, Vega 1 mission catalog ("Key data of the Vega mission"): launch 1984-12-15;
+#        closest approach 1986-03-06 07:20:06 UT, 8,890 km, 79.2 km/s.
+# [GIO]  Giotto: closest approach 1986-03-14 00:03:01.84 UTC, 596 km (Curdt et al., A&A 191,
+#        L1, from the HMC images; quoted in the PDS SBN ESOC file's notes).
+# [JAXA] ISAS/JAXA mission pages: Sakigake launched 1985-01-08 04:26 JST, Suisei 1985-08-19
+#        08:33 JST; Suisei passed 151,000 km from Halley "on the side facing the Sun".
+# [SP1066] ESA SP-1066 (1986), Space Missions to Halley's Comet (PDS SBN, DOCUMENT/ESA_1066):
+#        Vega's wingspan "of the order of 10 m"; Suisei's and Sakigake's body a cylinder 140 cm
+#        across and 70 cm high.
 # Flyby times and distances: computed from the tables (tools/isee3/isee3_reconstruct.py
 # prints them; tests/sim_tests.cpp checks them against the published values).
 
@@ -90,7 +115,11 @@ color = "#e8d6ae"
 orbit_color = "#d9c79f"
 texture = "textures/venus.jpg"
 texture_left_lon_deg = -180.0
-[bodies.orbit]                             # [APX] Table 2a
+[bodies.orbit]                             # [HZN] 299, 1984-12 .. 1986 (Vega 1's flyby)
+type = "ephemeris"
+file = "ephem/venus_1985.eph"
+fallback_blend_days = 5.0
+[bodies.orbit.fallback]                    # [APX] Table 2a
 type = "jpl_approx_planet"
 a_au = [0.72332102, -0.00000026]
 e = [0.00676399, -0.00005107]
@@ -284,6 +313,61 @@ type = "ephemeris"
 file = "ephem/isee3_geo.eph"
 relative_to = "Earth"
 
+# --- The Halley Armada ------------------------------------------------------------------
+# All heliocentric [ARM]; outside each table the spacecraft is not shown.
+
+[[bodies]]
+name = "Vega 1"
+parent = "Sun"
+kind = "spacecraft"
+radii_km = [0.005]                         # wingspan ~10 m [SP1066] (drawn as a marker)
+color = "#ff8a7a"
+orbit_color = "#e8705f"
+trail = "history"
+trail_history_days = 600.0
+[bodies.orbit]                             # [ARM] 1984-12-15 .. 1986-06-28
+type = "ephemeris"
+file = "ephem/vega1.eph"
+
+[[bodies]]
+name = "Sakigake"
+parent = "Sun"
+kind = "spacecraft"
+radii_km = [0.0007]                        # body 1.4 m across [SP1066]
+color = "#c8a6ff"
+orbit_color = "#a98ae0"
+trail = "history"
+trail_history_days = 700.0
+[bodies.orbit]                             # [ARM] 1985-01-21 .. 1986-12-31
+type = "ephemeris"
+file = "ephem/sakigake.eph"
+
+[[bodies]]
+name = "Suisei"
+parent = "Sun"
+kind = "spacecraft"
+radii_km = [0.0007]                        # body 1.4 m across [SP1066]
+color = "#9fe58a"
+orbit_color = "#7cc86a"
+trail = "history"
+trail_history_days = 500.0
+[bodies.orbit]                             # [ARM] 1985-08-19 .. 1986-12-31
+type = "ephemeris"
+file = "ephem/suisei.eph"
+
+[[bodies]]
+name = "Giotto"
+parent = "Sun"
+kind = "spacecraft"
+radii_km = [0.001]                         # drawn as a marker
+color = "#7fe0e8"
+orbit_color = "#5cc4cf"
+trail = "history"
+trail_history_days = 12.0
+[bodies.orbit]                             # [ARM] 1986-03-05 .. 03-17 only
+type = "ephemeris"
+file = "ephem/giotto.eph"
+
 [[frames]]
 name = "Sun-Earth rotating"
 type = "rotating"
@@ -322,6 +406,18 @@ name = "Giacobini-Zinner-centered"
 type = "inertial"
 origin = "Giacobini-Zinner"
 trail_history_days = 0.5
+
+[[frames]]
+name = "Venus-centered"
+type = "inertial"
+origin = "Venus"
+trail_history_days = 3.0
+
+[[frames]]
+name = "Halley-centered"
+type = "inertial"
+origin = "Halley"
+trail_history_days = 1.0
 
 [[markers]]
 name = "L1"
@@ -412,6 +508,29 @@ from_orbit_normal = "Earth-Moon barycenter"
 distance_km = 4.0e8
 warp = 604800.0
 
+# Launches: Vega 1 1984-12-15 [VEGA], Sakigake 1985-01-08 and Suisei 1985-08-19 JST [JAXA];
+# Giotto (1985-07-02) appears with its table on 1986-03-05.
+[[events]]
+name = "The Halley Armada sets out (1984-1986)"
+time = "1984-12-15 00:00"
+focus = "Sun"
+frame = "Heliocentric"
+from_orbit_normal = "Earth-Moon barycenter"
+distance_km = 4.0e8
+warp = 432000.0            # 5 days per second: launch to Halley in 90 seconds
+
+# The Vega 1 lander arrived on 1985-06-11; the bus flew past (published 39,000 km; the
+# bridged path [ARM] passes 45,800 km from the center at 02:55 UTC).
+[[events]]
+name = "Vega 1 at Venus (1985-06-11)"
+time = "1985-06-10 18:00"
+focus = "Venus"
+frame = "Venus-centered"
+from_body = "Sun"
+phase_deg = 90.0
+distance_km = 3.0e5
+warp = 1800.0
+
 # Closest approach 1985-09-11 11:02:43 UTC, 7,800 km on the tail side, at 20.7 km/s.
 [[events]]
 name = "Through the tail of Giacobini-Zinner (1985-09-11)"
@@ -430,6 +549,52 @@ from_orbit_normal = "Earth-Moon barycenter"
 distance_km = 4.0e8
 warp = 172800.0
 
+# Ten days in the comet's frame: Vega 1 (03-06), Suisei (03-08), Sakigake (03-11), Giotto
+# (03-14) pass; ICE is 3e7 km away on the sunward side.
+[[events]]
+name = "The Armada around Halley (1986-03)"
+time = "1986-03-05 00:00"
+focus = "Halley"
+frame = "Halley-centered"
+from_body = "Sun"
+phase_deg = 90.0
+distance_km = 2.0e7
+warp = 7200.0              # 2 hours per second
+
+# Closest approach 1986-03-06 07:20:06 UT, 8,890 km, at 79.2 km/s [VEGA].
+[[events]]
+name = "Vega 1: 8,890 km from the nucleus (1986-03-06)"
+time = "1986-03-06 07:18:30"
+focus = "Halley"
+frame = "Halley-centered"
+from_body = "Sun"
+phase_deg = 90.0
+distance_km = 4.0e4
+warp = 10.0
+
+# 151,000 km on the sunward side [JAXA]; 13:05:48 UTC at 73 km/s in the ISAS ephemeris [ARM].
+[[events]]
+name = "Suisei: 151,000 km on the sunward side (1986-03-08)"
+time = "1986-03-08 12:40"
+focus = "Halley"
+frame = "Halley-centered"
+from_body = "Sun"
+phase_deg = 90.0
+distance_km = 6.0e5
+warp = 120.0
+
+# "6.99 million km" on 03-11 (Wikipedia, Sakigake); HelioWeb's positions [ARM] give 6.7
+# million km at 00:34 UTC.
+[[events]]
+name = "Sakigake: 7 million km upstream (1986-03-11)"
+time = "1986-03-10 12:00"
+focus = "Halley"
+frame = "Halley-centered"
+from_body = "Sun"
+phase_deg = 90.0
+distance_km = 2.5e7
+warp = 1800.0
+
 # The nucleus in the week of the Vega and Giotto flybys [STKS]. It tumbles in a long-axis
 # mode [BLT]; its phase on the day is illustrative.
 [[events]]
@@ -441,6 +606,17 @@ from_body = "Sun"
 phase_deg = 60.0
 distance_km = 60.0
 warp = 3600.0              # an hour per second: the 3.69-day precession in a minute and a half
+
+# Closest approach 1986-03-14 00:03:01.84 UTC, 596 km [GIO], at 68.4 km/s [ARM].
+[[events]]
+name = "Giotto: 596 km from the nucleus (1986-03-14)"
+time = "1986-03-14 00:02:20"
+focus = "Halley"
+frame = "Halley-centered"
+from_body = "Sun"
+phase_deg = 60.0
+distance_km = 4000.0
+warp = 2.0
 
 # 1986-1987: two maneuvers (dates assumed, see the sources) aim ICE at the Moon in 2014.
 [[events]]

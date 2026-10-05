@@ -1724,6 +1724,95 @@ void test_isee3_scene()
     check(!scene.bodies[static_cast<size_t>(craft)].visible, "ISEE-3 gone after the 2014 table ends");
 }
 
+// The Halley Armada in the ISEE-3 scene, reconstructed by tools/armada/armada_reconstruct.py
+// from mission archives. The encounters of Giotto and Vega 1 are moved onto the published
+// ones; Suisei's, Sakigake's and the Venus flyby are not, and are checked against figures
+// published independently of the data.
+void test_halley_armada()
+{
+    Scene scene = load_scene_or_die("isee3.toml");
+    const int sun = scene.find("Sun");
+    const int earth = scene.find("Earth");
+    const int venus = scene.find("Venus");
+    const int halley = scene.find("Halley");
+    const int vega1 = scene.find("Vega 1");
+    const int suisei = scene.find("Suisei");
+    const int sakigake = scene.find("Sakigake");
+    const int giotto = scene.find("Giotto");
+    check(vega1 > 0 && suisei > 0 && sakigake > 0 && giotto > 0, "isee3.toml: the Armada");
+    auto at = [&](int body, double t) { return scene.icrf_state_at(body, t).position; };
+    auto utc = [](const CalendarDateTime& c) { return tdb_from_utc_jd(jd_from_calendar(c)); };
+    auto closest = [&](int a, int b, double t0, double half, double step) {
+        std::pair<double, double> best{1e300, t0};
+        for (int pass = 0; pass < 3; ++pass, half = 2 * step, step /= 100.0) {
+            const double center = best.first < 1e300 ? best.second : t0;
+            for (double t = center - half; t <= center + half; t += step) {
+                const double d = glm::length(at(a, t) - at(b, t));
+                if (d < best.first) {
+                    best = {d, t};
+                }
+            }
+        }
+        return best;
+    };
+    auto speed = [&](int a, int b, double t) {
+        return glm::length(scene.icrf_state_at(a, t).velocity - scene.icrf_state_at(b, t).velocity);
+    };
+    auto visible = [&](int body, double t) {
+        scene.update(t);
+        return scene.bodies[static_cast<size_t>(body)].visible;
+    };
+
+    // Vega 1: launched 1984-12-15 [VEGA in isee3.toml]; its table starts near the Earth.
+    check(!visible(vega1, utc({1984, 12, 15, 0, 0, 0})) && visible(vega1, utc({1984, 12, 15, 12, 0, 0})),
+          "Vega 1 appears on its launch day");
+    const auto [d_launch, t_launch] = closest(vega1, earth, utc({1984, 12, 15, 11, 0, 0}), 3600.0, 60.0);
+    check(d_launch < 7000.0, "Vega 1 starts at the Earth (km from the center)", d_launch);
+    // Venus: the lander arrived on 1985-06-11; the bus flew past at 39,000 km (Wikipedia,
+    // Vega 1; NSSDC). The bridge across the data gap is not aimed at it.
+    const auto [d_venus, t_venus] = closest(vega1, venus, utc({1985, 6, 11, 3, 0, 0}), 86400.0, 600.0);
+    check(d_venus > 3.0e4 && d_venus < 5.0e4 && std::abs(t_venus - utc({1985, 6, 11, 3, 0, 0})) < 6 * 3600.0,
+          "Vega 1 Venus flyby near the published 39,000 km (km)", d_venus);
+    // Halley 1986-03-06 07:20:06 UT, 8,890 km, 79.2 km/s [VEGA].
+    const auto [d_v1, t_v1] = closest(vega1, halley, utc({1986, 3, 6, 7, 20, 6}), 600.0, 10.0);
+    check(std::abs(d_v1 - 8890.0) < 5.0, "Vega 1 closest approach (km)", d_v1);
+    check(std::abs(t_v1 - utc({1986, 3, 6, 7, 20, 6})) < 1.0, "Vega 1 closest approach time (s)",
+          t_v1 - utc({1986, 3, 6, 7, 20, 6}));
+    check(std::abs(speed(vega1, halley, t_v1) - 79.2) < 0.1, "Vega 1 flyby speed (km/s)", speed(vega1, halley, t_v1));
+    check(!visible(vega1, utc({1986, 7, 15, 0, 0, 0})), "Vega 1 gone after its positions end");
+
+    // Suisei: 151,000 km "on the side facing the Sun" [JAXA], from the ISAS ephemeris unchanged.
+    const auto [d_su, t_su] = closest(suisei, halley, utc({1986, 3, 8, 13, 6, 0}), 3 * 3600.0, 30.0);
+    const glm::dvec3 to_sun = glm::normalize(at(sun, t_su) - at(halley, t_su));
+    const double sunward = glm::dot(glm::normalize(at(suisei, t_su) - at(halley, t_su)), to_sun);
+    check(std::abs(d_su / 151000.0 - 1.0) < 0.01, "Suisei closest approach (km)", d_su);
+    check(sunward > 0.7, "Suisei passes on the sunward side (cosine)", sunward);
+    check(visible(suisei, utc({1985, 8, 19, 6, 0, 0})) && !visible(suisei, utc({1985, 8, 18, 23, 0, 0})),
+          "Suisei appears on its launch day");
+
+    // Sakigake: "6.99 million km" on 1986-03-11 (Wikipedia); HelioWeb's rounded positions
+    // give a few percent less.
+    const auto [d_sk, t_sk] = closest(sakigake, halley, utc({1986, 3, 11, 0, 0, 0}), 2 * 86400.0, 600.0);
+    check(std::abs(d_sk / 6.99e6 - 1.0) < 0.06 && std::abs(t_sk - utc({1986, 3, 11, 4, 0, 0})) < 12 * 3600.0,
+          "Sakigake closest approach (km)", d_sk);
+
+    // Giotto: 1986-03-14 00:03:01.84 UTC, 596 km [GIO]; "68 km/s" (ESA SP-1066). Only the
+    // twelve days of ESOC's encounter file.
+    const auto [d_g, t_g] = closest(giotto, halley, utc({1986, 3, 14, 0, 3, 2}), 600.0, 10.0);
+    const double t_g_pub = utc({1986, 3, 14, 0, 3, 1}) + 0.84;
+    check(std::abs(d_g - 596.0) < 2.0, "Giotto closest approach (km)", d_g);
+    check(std::abs(t_g - t_g_pub) < 0.5, "Giotto closest approach time (s)", t_g - t_g_pub);
+    check(std::abs(speed(giotto, halley, t_g) - 68.0) < 0.5, "Giotto flyby speed (km/s)", speed(giotto, halley, t_g));
+    check(!visible(giotto, utc({1986, 3, 4, 0, 0, 0})) && visible(giotto, utc({1986, 3, 10, 0, 0, 0})) &&
+              !visible(giotto, utc({1986, 3, 18, 0, 0, 0})),
+          "Giotto shown only within ESOC's file");
+
+    std::printf("info: Armada at Halley: Vega 1 %.0f km %s, Suisei %.0f km %s, Sakigake %.3g km %s, Giotto %.1f km "
+                "%s; Vega 1 at Venus %.0f km %s\n",
+                d_v1, format_utc(t_v1).c_str(), d_su, format_utc(t_su).c_str(), d_sk, format_utc(t_sk).c_str(), d_g,
+                format_utc(t_g).c_str(), d_venus, format_utc(t_venus).c_str());
+}
+
 void test_jwst_scene()
 {
     // Lagrange L2 of Sun / Earth-Moon: force balance in the rotating frame, ~1.5e6 km.
@@ -3322,6 +3411,7 @@ int main()
     test_saturn_scene();
     test_mercury_scene();
     test_isee3_scene();
+    test_halley_armada();
     test_jwst_scene();
     test_galactic_frame();
     test_visual_orbit_convention();

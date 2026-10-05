@@ -1252,11 +1252,17 @@ void App::build_comet_items()
         lp *= widen;
         ld *= widen;
 
-        const double seen_from_km = std::max(distance, kComaNearScales * ld);
+        const double near_km = kComaNearScales * ld;
+        const double seen_from_km = std::max(distance, near_km);
         const double magnitude =
             comet_total_magnitude(comet.m1, comet.k1, r_au) + 5.0 * std::log10(seen_from_km / kAuKm);
         const double flux = std::pow(10.0, -0.4 * kCometMagnitudeGamma * (magnitude - kCometReferenceMag));
         const double luminosity = kComaGain * flux * seen_from_km * seen_from_km;
+        // Closer in, a coma's column density at a given angle from the nucleus grows as
+        // 1 / distance (the density falls as 1 / r^2 inside the scale lengths) and would fill
+        // the screen with white near the nucleus: dim the comae (not the tails, which are
+        // extended) so that they look as they do from near_km.
+        const double coma_luminosity = luminosity * std::min(1.0, distance / near_km);
 
         CometDrawItem base;
         base.model = glm::translate(glm::mat4(1.0f), to_render(body.world_position, cam)) * glm::mat4(glm::mat3(rot));
@@ -1287,7 +1293,7 @@ void App::build_comet_items()
         coma.type = CometDrawItem::Coma;
         coma.shape = glm::vec3(static_cast<float>(lp), static_cast<float>(ld), static_cast<float>(nucleus));
         coma.color = comet.coma_color;
-        coma.brightness = static_cast<float>(luminosity);
+        coma.brightness = static_cast<float>(coma_luminosity);
         coma.box_min = glm::vec3(static_cast<float>(-kComaReach * ld));
         coma.box_max = glm::vec3(static_cast<float>(kComaReach * ld));
         m_comet_items.push_back(coma);
@@ -1321,7 +1327,7 @@ void App::build_comet_items()
         dust_coma.shape = glm::vec3(static_cast<float>(1e-3 * dust_scale), static_cast<float>(dust_scale),
                                     static_cast<float>(nucleus));
         dust_coma.color = comet.dust_color;
-        dust_coma.brightness = static_cast<float>(kDustComaShare * luminosity * dust_phase(cos_nucleus));
+        dust_coma.brightness = static_cast<float>(kDustComaShare * coma_luminosity * dust_phase(cos_nucleus));
         dust_coma.box_min = glm::vec3(static_cast<float>(-kComaReach * dust_scale));
         dust_coma.box_max = glm::vec3(static_cast<float>(kComaReach * dust_scale));
         m_comet_items.push_back(dust_coma);

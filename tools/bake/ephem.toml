@@ -890,6 +890,19 @@ base_step_minutes = 1440
 tolerance_km = 5.0
 kepler_gm_km3_s2 = 1.32712440041279419e11
 
+[[target]]
+name = "venus_1985"          # Vega 1's flyby (ISEE-3 scene); the approximate elements are
+command = "299"              # thousands of km off
+naif_id = 299
+center = "500@10"
+center_naif_id = 10
+start = "1984-12-01"
+stop = "1987-01-01"
+base_step_minutes = 2880
+tolerance_km = 5.0
+kepler_gm_km3_s2 = 1.32712440041279419e11
+radius_km = 6051.8
+
 # ISEE-3 / ICE in 2014 (Horizons -111, JPL solution s45, fitted after the 2014-08-10 lunar
 # flyby): the return to the Earth, flown by the ISEE-3 Reboot Project. 1-minute samples
 # within 2 million km of the Earth-Moon barycenter resolve the Earth and Moon passes.
