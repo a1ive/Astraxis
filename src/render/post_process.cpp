@@ -97,7 +97,6 @@ void PostProcess::shutdown()
     if (!m_device) {
         return;
     }
-    release_chain();
     SDL_ReleaseGPUGraphicsPipeline(m_device, m_downsample);
     SDL_ReleaseGPUGraphicsPipeline(m_device, m_upsample);
     SDL_ReleaseGPUGraphicsPipeline(m_device, m_composite);
@@ -107,12 +106,12 @@ void PostProcess::shutdown()
     m_device = nullptr;
 }
 
-bool PostProcess::ensure_chain(uint32_t width, uint32_t height)
+bool PostProcess::ensure_chain(BloomChain& chain, uint32_t width, uint32_t height)
 {
-    if (!m_levels.empty() && width == m_chain_width && height == m_chain_height) {
+    if (!chain.levels.empty() && width == chain.width && height == chain.height) {
         return true;
     }
-    release_chain();
+    release_chain(chain);
 
     uint32_t w = std::max(width / 2, 1u);
     uint32_t h = std::max(height / 2, 1u);
@@ -129,26 +128,25 @@ bool PostProcess::ensure_chain(uint32_t width, uint32_t height)
         SDL_GPUTexture* texture = SDL_CreateGPUTexture(m_device, &info);
         if (!texture) {
             SDL_LogError(SDL_LOG_CATEGORY_GPU, "Bloom texture creation failed: %s", SDL_GetError());
-            release_chain();
+            release_chain(chain);
             return false;
         }
-        m_levels.push_back({texture, w, h});
+        chain.levels.push_back({texture, w, h});
         w = std::max(w / 2, 1u);
         h = std::max(h / 2, 1u);
     }
 
-    m_chain_width = width;
-    m_chain_height = height;
-    return !m_levels.empty();
+    chain.width = width;
+    chain.height = height;
+    return !chain.levels.empty();
 }
 
-void PostProcess::release_chain()
+void PostProcess::release_chain(BloomChain& chain)
 {
-    for (Level& level : m_levels) {
+    for (BloomChain::Level& level : chain.levels) {
         SDL_ReleaseGPUTexture(m_device, level.texture);
     }
-    m_levels.clear();
-    m_chain_width = m_chain_height = 0;
+    chain = {};
 }
 
 void PostProcess::fullscreen_pass(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, SDL_GPULoadOp load,
@@ -169,31 +167,33 @@ void PostProcess::fullscreen_pass(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* tar
     SDL_EndGPURenderPass(pass);
 }
 
-void PostProcess::run(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* hdr, uint32_t width, uint32_t height,
+void PostProcess::run(SDL_GPUCommandBuffer* cmd, SceneTargets& targets, uint32_t width, uint32_t height,
                       SDL_GPUTexture* output, const PostSettings& settings)
 {
-    const bool bloom = settings.bloom_strength > 0.0f && ensure_chain(width, height);
+    SDL_GPUTexture* hdr = targets.hdr();
+    std::vector<BloomChain::Level>& levels = targets.bloom.levels;
+    const bool bloom = settings.bloom_strength > 0.0f && ensure_chain(targets.bloom, width, height);
 
     if (bloom) {
         // Downsample chain: hdr -> level 0 -> level 1 -> ...
         uint32_t src_w = width;
         uint32_t src_h = height;
         SDL_GPUTexture* src = hdr;
-        for (size_t i = 0; i < m_levels.size(); ++i) {
+        for (size_t i = 0; i < levels.size(); ++i) {
             const glm::vec4 params(1.0f / static_cast<float>(src_w), 1.0f / static_cast<float>(src_h),
                                    (i == 0 && kKarisAverage) ? 1.0f : 0.0f,
                                    i == 0 ? settings.bloom_threshold : 0.0f);
-            fullscreen_pass(cmd, m_levels[i].texture, SDL_GPU_LOADOP_DONT_CARE, m_downsample, src, &params,
+            fullscreen_pass(cmd, levels[i].texture, SDL_GPU_LOADOP_DONT_CARE, m_downsample, src, &params,
                             sizeof(params));
-            src = m_levels[i].texture;
-            src_w = m_levels[i].width;
-            src_h = m_levels[i].height;
+            src = levels[i].texture;
+            src_w = levels[i].width;
+            src_h = levels[i].height;
         }
         // Upsample chain: accumulate each level into the next larger one.
-        for (size_t i = m_levels.size() - 1; i > 0; --i) {
-            const glm::vec4 params(1.0f / static_cast<float>(m_levels[i].width),
-                                   1.0f / static_cast<float>(m_levels[i].height), 0.0f, 0.0f);
-            fullscreen_pass(cmd, m_levels[i - 1].texture, SDL_GPU_LOADOP_LOAD, m_upsample, m_levels[i].texture,
+        for (size_t i = levels.size() - 1; i > 0; --i) {
+            const glm::vec4 params(1.0f / static_cast<float>(levels[i].width),
+                                   1.0f / static_cast<float>(levels[i].height), 0.0f, 0.0f);
+            fullscreen_pass(cmd, levels[i - 1].texture, SDL_GPU_LOADOP_LOAD, m_upsample, levels[i].texture,
                             &params, sizeof(params));
         }
     }
@@ -208,7 +208,7 @@ void PostProcess::run(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* hdr, uint32_t w
     SDL_BindGPUGraphicsPipeline(pass, m_composite);
     SDL_GPUTextureSamplerBinding bindings[2] = {
         {.texture = hdr, .sampler = m_linear_clamp},
-        {.texture = bloom ? m_levels[0].texture : hdr, .sampler = m_linear_clamp},
+        {.texture = bloom ? levels[0].texture : hdr, .sampler = m_linear_clamp},
     };
     SDL_BindGPUFragmentSamplers(pass, 0, bindings, 2);
     const glm::vec4 params(settings.exposure, bloom ? settings.bloom_strength : 0.0f, 0.0f, 0.0f);

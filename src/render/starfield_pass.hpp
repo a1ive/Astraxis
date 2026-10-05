@@ -1,6 +1,6 @@
 #pragma once
 
-#include "render/renderer.hpp"
+#include "render/gpu_device.hpp"
 #include "scene/camera.hpp"
 #include "scene/star_catalog.hpp"
 

@@ -1,9 +1,10 @@
 #pragma once
 
+#include "render/scene_targets.hpp"
+
 #include <SDL3/SDL_gpu.h>
 
 #include <cstdint>
-#include <vector>
 
 namespace astraxis {
 
@@ -14,24 +15,19 @@ struct PostSettings {
 };
 
 // HDR -> bloom (downsample/upsample chain) -> ACES tonemap -> swapchain.
+// The bloom chain belongs to the output (SceneTargets::bloom).
 class PostProcess {
 public:
     bool init(SDL_GPUDevice* device, SDL_GPUTextureFormat hdr_format, SDL_GPUTextureFormat output_format);
     void shutdown();
 
-    // Records all post passes; `output` is fully overwritten.
-    void run(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* hdr, uint32_t width, uint32_t height,
+    // Records all post passes from `targets.hdr()`; `output` is fully overwritten.
+    void run(SDL_GPUCommandBuffer* cmd, SceneTargets& targets, uint32_t width, uint32_t height,
              SDL_GPUTexture* output, const PostSettings& settings);
 
 private:
-    struct Level {
-        SDL_GPUTexture* texture = nullptr;
-        uint32_t width = 0;
-        uint32_t height = 0;
-    };
-
-    bool ensure_chain(uint32_t width, uint32_t height);
-    void release_chain();
+    bool ensure_chain(BloomChain& chain, uint32_t width, uint32_t height);
+    void release_chain(BloomChain& chain);
     void fullscreen_pass(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, SDL_GPULoadOp load,
                          SDL_GPUGraphicsPipeline* pipeline, SDL_GPUTexture* source, const void* uniforms,
                          uint32_t uniforms_size);
@@ -42,10 +38,6 @@ private:
     SDL_GPUGraphicsPipeline* m_upsample = nullptr;
     SDL_GPUGraphicsPipeline* m_composite = nullptr;
     SDL_GPUSampler* m_linear_clamp = nullptr;
-
-    std::vector<Level> m_levels;
-    uint32_t m_chain_width = 0;
-    uint32_t m_chain_height = 0;
 };
 
 } // namespace astraxis

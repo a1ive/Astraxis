@@ -14,7 +14,9 @@
 #include "scene/camera.hpp"
 #include "scene/camera_director.hpp"
 #include "scene/comet.hpp"
+#include "scene/label_layout.hpp"
 #include "scene/scene_loader.hpp"
+#include "scene/simulation.hpp"
 #include "scene/star_catalog.hpp"
 
 #include <glm/glm.hpp>
@@ -3643,6 +3645,129 @@ void test_satellite_fades()
           "fades far out");
 }
 
+// Simulation: scene loading, events, the clock and the tour's warp, as a host drives them.
+void test_simulation()
+{
+    Simulation sim;
+    std::string error;
+    check(sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/jupiter.toml", &error), "simulation loads jupiter.toml");
+    const size_t bodies = sim.scene().bodies.size();
+    check(bodies > 0 && !sim.scene().events.empty(), "jupiter scene has bodies and events");
+    check(sim.clock().warp == sim.scene().view.warp, "load sets the scene's warp", sim.clock().warp);
+    check(!sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/no_such_scene.toml", &error) && !error.empty() &&
+              sim.scene().bodies.size() == bodies,
+          "failed load keeps the scene");
+
+    sim.jump_to_event(0);
+    const SceneEvent& event = sim.scene().events[0];
+    check(sim.clock().t_tdb == event.t_tdb, "jump_to_event sets the time", sim.clock().t_tdb - event.t_tdb);
+    check(sim.scene().time() == event.t_tdb, "jump_to_event updates the scene");
+
+    SimClock& clock = sim.clock();
+    clock.paused = false;
+    clock.reverse = false;
+    clock.warp = 1000.0;
+    const double t0 = clock.t_tdb;
+    const double anim0 = sim.animation_time();
+    sim.update(0.05);
+    check(std::fabs(clock.t_tdb - t0 - 50.0) < 1e-6, "update advances by real dt x warp", clock.t_tdb - t0);
+    check(sim.scene().time() == clock.t_tdb, "update moves the scene to the clock");
+    check(std::fabs(sim.animation_time() - anim0 - 0.05) < 1e-9, "animation time runs with the clock");
+    clock.paused = true;
+    sim.update(0.05);
+    check(sim.animation_time() == anim0 + 0.05, "animation time stops while paused");
+    clock.paused = false;
+
+    OutputView view;
+    sim.compute_view(1920, 1080, 1.0, view);
+    check(view.body_fades.size() == bodies, "a fade per body");
+    check(view.body_fades[static_cast<size_t>(sim.camera().target())] == 1.0f, "the focus always shows");
+    check(view.camera.viewport.x == 1920.0f && view.camera.viewport.y == 1080.0f, "view has the output size");
+    // Each output has its own view: a narrow one sees the same camera with another projection.
+    OutputView narrow;
+    sim.compute_view(400, 1080, 2.0, narrow);
+    check(narrow.camera.position == view.camera.position && narrow.camera.viewport.x == 400.0f &&
+              narrow.content_scale == 2.0,
+          "per-output views");
+
+    // The tour may impose its own warp; stopping it restores the user's.
+    sim.start_tour();
+    check(sim.touring(), "tour starts");
+    bool tour_warped = false;
+    for (int k = 0; k < 20 * 60 * 10; ++k) {
+        sim.update(0.1);
+        tour_warped = tour_warped || clock.warp != 1000.0;
+    }
+    check(tour_warped, "the jupiter tour sets a shot warp in 20 minutes");
+    check(sim.touring(), "tour keeps running");
+    sim.stop_tour();
+    check(!sim.touring() && clock.warp == 1000.0, "stopping the tour restores the warp", clock.warp);
+
+    // A running tour goes on in the next scene; a focus change ends it.
+    sim.start_tour();
+    check(sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/saturn.toml", &error) && sim.touring(),
+          "tour survives a scene change");
+    sim.compute_view(1920, 1080, 1.0, view);
+    check(view.body_fades.size() == sim.scene().bodies.size(), "fades resized with the scene");
+    sim.set_focus(0);
+    check(!sim.touring(), "set_focus stops the tour");
+}
+
+// Label layout: priority order, easing, no overlapping labels once settled, picking.
+void test_label_layout()
+{
+    Simulation sim;
+    std::string error;
+    if (!sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/jupiter.toml", &error)) {
+        check(false, "label test loads jupiter.toml");
+        return;
+    }
+    OutputView view;
+    sim.compute_view(1280, 720, 1.0, view);
+    const glm::vec2 screen(1280.0f, 720.0f);
+    const float font = 13.0f;
+    auto measure = [&](const std::string& text) { return glm::vec2(7.0f * static_cast<float>(text.size()), font); };
+    const int focus = sim.camera().target();
+
+    LabelLayout labels;
+    labels.update(sim.scene(), view, focus, screen, font, measure, 0.0f);
+    check(!labels.bodies().empty() && labels.bodies().front().body == focus, "the focus is placed first");
+    bool all_hidden = true;
+    for (const LabelLayout::BodyMark& mark : labels.bodies()) {
+        all_hidden = all_hidden && mark.text_alpha == 0.0f;
+    }
+    check(all_hidden, "labels start transparent and ease in");
+
+    for (int k = 0; k < 30; ++k) {
+        labels.update(sim.scene(), view, focus, screen, font, measure, 1.0f / 30.0f);
+    }
+    const LabelLayout::BodyMark& first = labels.bodies().front();
+    check(std::fabs(first.text_alpha - first.fade) < 1e-5f, "the focus label is fully shown after 1 s",
+          first.text_alpha);
+    std::vector<glm::vec4> shown;
+    bool overlap = false;
+    for (const LabelLayout::BodyMark& mark : labels.bodies()) {
+        if (mark.text_alpha < 0.99f * mark.fade || mark.fade <= 0.05f) {
+            continue;
+        }
+        const glm::vec2 size = measure(sim.scene().bodies[static_cast<size_t>(mark.body)].name);
+        const glm::vec4 r(mark.text_position, mark.text_position + size);
+        for (const glm::vec4& o : shown) {
+            overlap = overlap || (r.x < o.z && o.x < r.z && r.y < o.w && o.y < r.w);
+        }
+        shown.push_back(r);
+    }
+    check(shown.size() > 1 && !overlap, "settled labels do not overlap", static_cast<double>(shown.size()));
+
+    // (A moon over the focus's disk may win: the last mark under the point does.)
+    check(labels.pick(first.position, 10.0f) >= 0, "picking at the focus finds a body");
+    check(labels.pick(glm::vec2(-1000.0f, -1000.0f), 10.0f) == -1, "picking off screen finds nothing");
+
+    labels.reset();
+    labels.update(sim.scene(), view, focus, screen, font, measure, 0.0f);
+    check(labels.bodies().front().text_alpha == 0.0f, "reset forgets the eased opacities");
+}
+
 // Auto tour around Sgr A*: black hole close-ups happen, and no shot or transition
 // takes the camera into the hole's strong-field region.
 void test_camera_director_black_hole()
@@ -3754,6 +3879,8 @@ int main()
     test_death_star_precession();
     test_sgr_a_ghosts();
     test_satellite_fades();
+    test_simulation();
+    test_label_layout();
     test_orbit_center();
     test_body_masses();
     test_atmospheres();

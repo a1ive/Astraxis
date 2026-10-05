@@ -141,7 +141,6 @@ void BlackHolePass::shutdown()
     if (!m_device) {
         return;
     }
-    release_targets();
     SDL_ReleaseGPUGraphicsPipeline(m_device, m_trace_pipeline);
     SDL_ReleaseGPUGraphicsPipeline(m_device, m_composite_pipeline);
     SDL_ReleaseGPUSampler(m_device, m_linear);
@@ -155,12 +154,14 @@ void BlackHolePass::shutdown()
     m_device = nullptr;
 }
 
-bool BlackHolePass::ensure_targets(uint32_t width, uint32_t height)
+bool BlackHolePass::ensure_targets(BlackHoleTargets& targets, uint32_t width, uint32_t height)
 {
-    if (m_color && m_width == width && m_height == height) {
+    if (targets.color && targets.width == width && targets.height == height) {
         return true;
     }
-    release_targets();
+    SDL_ReleaseGPUTexture(m_device, targets.color);
+    SDL_ReleaseGPUTexture(m_device, targets.depth);
+    targets = {};
 
     SDL_GPUTextureCreateInfo info = {};
     info.type = SDL_GPU_TEXTURETYPE_2D;
@@ -170,46 +171,39 @@ bool BlackHolePass::ensure_targets(uint32_t width, uint32_t height)
     info.num_levels = 1;
     info.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
     info.format = kTraceColorFormat;
-    m_color = SDL_CreateGPUTexture(m_device, &info);
+    targets.color = SDL_CreateGPUTexture(m_device, &info);
     info.format = kTraceDepthFormat;
-    m_depth = SDL_CreateGPUTexture(m_device, &info);
-    if (!m_color || !m_depth) {
+    targets.depth = SDL_CreateGPUTexture(m_device, &info);
+    if (!targets.color || !targets.depth) {
         SDL_LogError(SDL_LOG_CATEGORY_GPU, "Black hole trace targets: %s", SDL_GetError());
-        release_targets();
+        SDL_ReleaseGPUTexture(m_device, targets.color);
+        SDL_ReleaseGPUTexture(m_device, targets.depth);
+        targets = {};
         return false;
     }
-    m_width = width;
-    m_height = height;
+    targets.width = width;
+    targets.height = height;
     return true;
 }
 
-void BlackHolePass::release_targets()
+void BlackHolePass::trace(SDL_GPUCommandBuffer* cmd, uint32_t width, uint32_t height, const BlackHoleUniforms& u,
+                          BlackHoleTargets& targets)
 {
-    SDL_ReleaseGPUTexture(m_device, m_color);
-    SDL_ReleaseGPUTexture(m_device, m_depth);
-    m_color = nullptr;
-    m_depth = nullptr;
-    m_width = 0;
-    m_height = 0;
-}
-
-void BlackHolePass::trace(SDL_GPUCommandBuffer* cmd, uint32_t width, uint32_t height, const BlackHoleUniforms& u)
-{
-    m_traced = false;
+    targets.traced = false;
     const uint32_t w = std::max(1u, (width + kTraceDivisor - 1) / kTraceDivisor);
     const uint32_t h = std::max(1u, (height + kTraceDivisor - 1) / kTraceDivisor);
-    if (!m_sky || !ensure_targets(w, h)) {
+    if (!m_sky || !ensure_targets(targets, w, h)) {
         return;
     }
 
-    SDL_GPUColorTargetInfo targets[2] = {};
-    targets[0].texture = m_color;
-    targets[0].load_op = SDL_GPU_LOADOP_CLEAR; // transparent where the shader discards
-    targets[0].store_op = SDL_GPU_STOREOP_STORE;
-    targets[1].texture = m_depth;
-    targets[1].load_op = SDL_GPU_LOADOP_CLEAR;
-    targets[1].store_op = SDL_GPU_STOREOP_STORE;
-    SDL_GPURenderPass* pass = SDL_BeginGPURenderPass(cmd, targets, 2, nullptr);
+    SDL_GPUColorTargetInfo color[2] = {};
+    color[0].texture = targets.color;
+    color[0].load_op = SDL_GPU_LOADOP_CLEAR; // transparent where the shader discards
+    color[0].store_op = SDL_GPU_STOREOP_STORE;
+    color[1].texture = targets.depth;
+    color[1].load_op = SDL_GPU_LOADOP_CLEAR;
+    color[1].store_op = SDL_GPU_STOREOP_STORE;
+    SDL_GPURenderPass* pass = SDL_BeginGPURenderPass(cmd, color, 2, nullptr);
     if (!pass) {
         return;
     }
@@ -222,22 +216,22 @@ void BlackHolePass::trace(SDL_GPUCommandBuffer* cmd, uint32_t width, uint32_t he
     SDL_PushGPUFragmentUniformData(cmd, 0, &u, sizeof(u));
     SDL_DrawGPUPrimitives(pass, 3, 1, 0, 0);
     SDL_EndGPURenderPass(pass);
-    m_traced = true;
+    targets.traced = true;
 }
 
-void BlackHolePass::composite(SDL_GPURenderPass* pass)
+void BlackHolePass::composite(SDL_GPURenderPass* pass, BlackHoleTargets& targets)
 {
-    if (!m_traced) {
+    if (!targets.traced) {
         return;
     }
     SDL_BindGPUGraphicsPipeline(pass, m_composite_pipeline);
     const SDL_GPUTextureSamplerBinding bindings[2] = {
-        {.texture = m_color, .sampler = m_linear},
-        {.texture = m_depth, .sampler = m_point},
+        {.texture = targets.color, .sampler = m_linear},
+        {.texture = targets.depth, .sampler = m_point},
     };
     SDL_BindGPUFragmentSamplers(pass, 0, bindings, 2);
     SDL_DrawGPUPrimitives(pass, 3, 1, 0, 0);
-    m_traced = false; // one composite per trace
+    targets.traced = false; // one composite per trace
 }
 
 } // namespace astraxis

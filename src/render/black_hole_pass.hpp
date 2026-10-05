@@ -1,6 +1,6 @@
 #pragma once
 
-#include "render/renderer.hpp"
+#include "render/scene_targets.hpp"
 
 #include <SDL3/SDL_gpu.h>
 #include <glm/mat4x4.hpp>
@@ -24,9 +24,10 @@ struct BlackHoleUniforms {
 };
 
 // Ray-traced black hole: shadow, lensed sky and thin accretion disk.
-// trace() runs before the scene pass, into off-screen targets at a reduced
-// resolution (rays are expensive); composite() then draws the result into the
-// scene pass with the depth the trace asked for.
+// trace() runs before the scene pass, into the output's off-screen targets
+// (SceneTargets::black_hole) at a reduced resolution (rays are expensive);
+// composite() then draws the result into the scene pass with the depth the
+// trace asked for.
 class BlackHolePass {
 public:
     bool init(SDL_GPUDevice* device, const SceneTargetFormat& format);
@@ -37,13 +38,13 @@ public:
     bool ready() const { return m_sky != nullptr; }
 
     // Outside any render pass. width/height: scene size in pixels.
-    void trace(SDL_GPUCommandBuffer* cmd, uint32_t width, uint32_t height, const BlackHoleUniforms& u);
+    void trace(SDL_GPUCommandBuffer* cmd, uint32_t width, uint32_t height, const BlackHoleUniforms& u,
+               BlackHoleTargets& targets);
     // Inside the scene pass; draws the last trace (no-op if none this frame).
-    void composite(SDL_GPURenderPass* pass);
+    void composite(SDL_GPURenderPass* pass, BlackHoleTargets& targets);
 
 private:
-    bool ensure_targets(uint32_t width, uint32_t height);
-    void release_targets();
+    bool ensure_targets(BlackHoleTargets& targets, uint32_t width, uint32_t height);
 
     SDL_GPUDevice* m_device = nullptr;
     SDL_GPUGraphicsPipeline* m_trace_pipeline = nullptr;
@@ -52,12 +53,6 @@ private:
     SDL_GPUSampler* m_point = nullptr;
     SDL_GPUTexture* m_blackbody = nullptr; // temperature -> color lookup
     SDL_GPUTexture* m_sky = nullptr;
-
-    SDL_GPUTexture* m_color = nullptr; // premultiplied color + coverage
-    SDL_GPUTexture* m_depth = nullptr; // R32F scene depth to write
-    uint32_t m_width = 0;
-    uint32_t m_height = 0;
-    bool m_traced = false;
 };
 
 } // namespace astraxis

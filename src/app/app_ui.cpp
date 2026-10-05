@@ -22,10 +22,7 @@ namespace astraxis {
 
 namespace {
 
-constexpr float kMarkerRadius = 2.5f;     // points; drawn when the body is smaller than this on screen
 constexpr float kLabelPickRadius = 10.0f; // points
-constexpr float kLabelPadding = 2.0f;     // points around each label when checking overlaps
-constexpr float kLabelFadeSeconds = 0.3f; // labels ease in/out over this long
 
 // "1 s = 2.5 h" style description of a time warp.
 void format_warp(double warp, bool reverse, char* buf, size_t size)
@@ -51,19 +48,6 @@ void format_warp(double warp, bool reverse, char* buf, size_t size)
 ImU32 to_imgui_color(const glm::vec3& c, float alpha)
 {
     return ImGui::ColorConvertFloat4ToU32(ImVec4(c.r, c.g, c.b, alpha));
-}
-
-// True if the segment from the camera (origin) to `target` passes through a sphere.
-bool occluded(const glm::dvec3& target, const glm::dvec3& center, double radius)
-{
-    const double dist = glm::length(target);
-    const glm::dvec3 dir = target / dist;
-    const double along = glm::dot(center, dir);
-    if (along <= 0.0 || along >= dist) {
-        return false;
-    }
-    const double perp2 = glm::dot(center, center) - along * along;
-    return perp2 < radius * radius;
 }
 
 // Integer with thousands separators ("384,400").
@@ -209,6 +193,7 @@ void App::build_ui()
 
 void App::build_control_panel()
 {
+    const Scene& scene = m_sim.scene();
     const ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(12.0f, 12.0f), ImGuiCond_FirstUseEver);
     ImGui::Begin("Astraxis", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
@@ -246,7 +231,7 @@ void App::build_control_panel()
             ImGui::SameLine();
         }
         if (ImGui::Button(kPresets[i].label)) {
-            m_clock.warp = kPresets[i].warp;
+            m_sim.clock().warp = kPresets[i].warp;
         }
     }
 
@@ -258,7 +243,7 @@ void App::build_control_panel()
         double t = 0.0;
         m_goto_error = !parse_utc(m_goto_text, &t);
         if (!m_goto_error) {
-            m_clock.t_tdb = t;
+            m_sim.clock().t_tdb = t;
         }
     }
     if (m_goto_error) {
@@ -270,56 +255,52 @@ void App::build_control_panel()
     ImGui::SeparatorText("View");
     const float combo_width = 200.0f * ImGui::GetStyle().FontScaleDpi;
     ImGui::SetNextItemWidth(combo_width);
-    if (ImGui::BeginCombo("Focus", m_scene.bodies[static_cast<size_t>(m_camera.target())].name.c_str())) {
-        for (size_t i = 0; i < m_scene.bodies.size(); ++i) {
-            const Body& b = m_scene.bodies[i];
+    if (ImGui::BeginCombo("Focus", scene.bodies[static_cast<size_t>(m_sim.camera().target())].name.c_str())) {
+        for (size_t i = 0; i < scene.bodies.size(); ++i) {
+            const Body& b = scene.bodies[i];
             ImGui::BeginDisabled(!b.visible);
             char label[96];
             std::snprintf(label, sizeof(label), "%zu  %s", i + 1, b.name.c_str());
-            if (ImGui::Selectable(label, m_camera.target() == static_cast<int>(i))) {
-                set_focus(static_cast<int>(i));
+            if (ImGui::Selectable(label, m_sim.camera().target() == static_cast<int>(i))) {
+                m_sim.set_focus(static_cast<int>(i));
             }
             ImGui::EndDisabled();
         }
         ImGui::EndCombo();
     }
-    if (m_scene.frames.size() > 1) {
+    if (scene.frames.size() > 1) {
         ImGui::SetNextItemWidth(combo_width);
-        if (ImGui::BeginCombo("Frame", m_scene.frame().name.c_str())) {
-            for (size_t i = 0; i < m_scene.frames.size(); ++i) {
-                if (ImGui::Selectable(m_scene.frames[i].name.c_str(), m_scene.active_frame() == static_cast<int>(i))) {
-                    set_frame(static_cast<int>(i));
+        if (ImGui::BeginCombo("Frame", scene.frame().name.c_str())) {
+            for (size_t i = 0; i < scene.frames.size(); ++i) {
+                if (ImGui::Selectable(scene.frames[i].name.c_str(), scene.active_frame() == static_cast<int>(i))) {
+                    m_sim.set_frame(static_cast<int>(i));
                 }
             }
             ImGui::EndCombo();
         }
     }
-    if (!m_scene.events.empty()) {
+    if (!scene.events.empty()) {
         ImGui::SetNextItemWidth(combo_width);
         if (ImGui::BeginCombo("Events", "Jump to...")) {
-            for (size_t i = 0; i < m_scene.events.size(); ++i) {
-                if (ImGui::Selectable(m_scene.events[i].name.c_str())) {
-                    jump_to_event(i);
+            for (size_t i = 0; i < scene.events.size(); ++i) {
+                if (ImGui::Selectable(scene.events[i].name.c_str())) {
+                    m_sim.jump_to_event(i);
                 }
             }
             ImGui::EndCombo();
         }
     }
     if (ImGui::Button("View from sun side")) {
-        stop_tour();
-        // Slightly off the sun line, so moon shadows on the planet are not hidden behind the moons.
-        const glm::dvec3 target = m_scene.bodies[static_cast<size_t>(m_camera.target())].world_position;
-        m_camera.look_from(m_scene.sun_position() - target);
-        m_camera.rotate(0.35, 0.1);
+        m_sim.look_from_sun_side();
     }
 
     ImGui::SeparatorText("Auto tour");
-    if (m_director.active()) {
-        ImGui::Text("%s  (next in %.0f s)", CameraDirector::shot_name(m_director.current_shot()),
-                    std::max(0.0, m_director.time_left()));
+    if (m_sim.director().active()) {
+        ImGui::Text("%s  (next in %.0f s)", CameraDirector::shot_name(m_sim.director().current_shot()),
+                    std::max(0.0, m_sim.director().time_left()));
         ImGui::SameLine();
         if (ImGui::Button("Stop")) {
-            stop_tour();
+            m_sim.stop_tour();
         }
     } else if (ImGui::Button("Start tour")) {
         start_tour();
@@ -328,36 +309,36 @@ void App::build_control_panel()
     ImGui::Checkbox("Start when idle (60 s)", &m_auto_tour);
 
     ImGui::SeparatorText("Display");
-    ImGui::Checkbox("Orbits", &m_show_orbits);
+    ImGui::Checkbox("Orbits", &m_view_options.orbits);
     ImGui::SameLine();
     ImGui::Checkbox("Labels", &m_show_labels);
     ImGui::SameLine();
     ImGui::Checkbox("Info", &m_show_info);
-    if (!m_scene.belts.empty()) {
+    if (!scene.belts.empty()) {
         ImGui::SameLine();
-        ImGui::Checkbox("Belts", &m_show_belts);
+        ImGui::Checkbox("Belts", &m_view_options.belts);
     }
     // Second row, so the panel stays narrow.
     bool row_started = false;
-    if (std::any_of(m_scene.bodies.begin(), m_scene.bodies.end(),
+    if (std::any_of(scene.bodies.begin(), scene.bodies.end(),
                     [](const Body& b) { return b.atmosphere.enabled; })) {
-        ImGui::Checkbox("Atmospheres", &m_show_atmospheres);
+        ImGui::Checkbox("Atmospheres", &m_view_options.atmospheres);
         ImGui::SetItemTooltip("Off: the surface under the clouds (Venus: Magellan radar; Titan: Cassini ISS) (M)");
         row_started = true;
     }
-    if (std::any_of(m_scene.bodies.begin(), m_scene.bodies.end(), [](const Body& b) { return !b.plumes.empty(); })) {
+    if (std::any_of(scene.bodies.begin(), scene.bodies.end(), [](const Body& b) { return !b.plumes.empty(); })) {
         if (row_started) {
             ImGui::SameLine();
         }
-        ImGui::Checkbox("Plumes", &m_show_plumes);
+        ImGui::Checkbox("Plumes", &m_view_options.plumes);
         ImGui::SetItemTooltip("Volcanic and cryovolcanic plumes, always erupting (P)");
         row_started = true;
     }
-    if (std::any_of(m_scene.bodies.begin(), m_scene.bodies.end(), [](const Body& b) { return b.comet.enabled; })) {
+    if (std::any_of(scene.bodies.begin(), scene.bodies.end(), [](const Body& b) { return b.comet.enabled; })) {
         if (row_started) {
             ImGui::SameLine();
         }
-        ImGui::Checkbox("Comets", &m_show_comets);
+        ImGui::Checkbox("Comets", &m_view_options.comets);
         ImGui::SetItemTooltip("Comae (C2) and ion tails (C)");
         row_started = true;
     }
@@ -366,16 +347,16 @@ void App::build_control_panel()
     }
     ImGui::Checkbox("ImGui demo", &m_show_demo);
     ImGui::SetNextItemWidth(160.0f * ImGui::GetStyle().FontScaleDpi);
-    ImGui::SliderFloat("Stars", &m_star_brightness, 0.0f, 2.0f, "%.2f");
+    ImGui::SliderFloat("Stars", &m_view_options.star_brightness, 0.0f, 2.0f, "%.2f");
     ImGui::SetNextItemWidth(160.0f * ImGui::GetStyle().FontScaleDpi);
-    ImGui::SliderFloat("Line width", &m_line_width, 0.5f, 4.0f, "%.1f px");
+    ImGui::SliderFloat("Line width", &m_view_options.line_width, 0.5f, 4.0f, "%.1f px");
     ImGui::SetNextItemWidth(160.0f * ImGui::GetStyle().FontScaleDpi);
-    ImGui::SliderFloat("Exposure", &m_post_settings.exposure, 0.1f, 8.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
+    ImGui::SliderFloat("Exposure", &m_view_options.post.exposure, 0.1f, 8.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
     ImGui::SetNextItemWidth(160.0f * ImGui::GetStyle().FontScaleDpi);
-    ImGui::SliderFloat("Bloom", &m_post_settings.bloom_strength, 0.0f, 0.2f, "%.3f");
+    ImGui::SliderFloat("Bloom", &m_view_options.post.bloom_strength, 0.0f, 0.2f, "%.3f");
 
     ImGui::Separator();
-    ImGui::TextDisabled("%.0f FPS  |  %s", io.Framerate, m_renderer.driver_name());
+    ImGui::TextDisabled("%.0f FPS  |  %s", io.Framerate, m_gpu.driver_name());
     ImGui::TextDisabled("Drag: rotate   Wheel: zoom");
     ImGui::TextDisabled("Double-click label: focus");
     ImGui::TextDisabled("Space pause  R reverse  [ ] warp  N now");
@@ -386,6 +367,7 @@ void App::build_control_panel()
 
 void App::build_time_bar()
 {
+    SimClock& clock = m_sim.clock();
     const ImGuiIO& io = ImGui::GetIO();
     const ImGuiStyle& style = ImGui::GetStyle();
     const float margin = 12.0f * style.FontScaleDpi;
@@ -402,49 +384,49 @@ void App::build_time_bar()
 
     // Backward / play-pause / forward, the date, and "Now" at the right.
     const float size = ImGui::GetFrameHeight() * 1.8f;
-    const bool running = !m_clock.paused;
-    if (transport_button("##backward", TransportIcon::Rewind, size, running && m_clock.reverse)) {
-        m_clock.reverse = true;
-        m_clock.paused = false;
+    const bool running = !clock.paused;
+    if (transport_button("##backward", TransportIcon::Rewind, size, running && clock.reverse)) {
+        clock.reverse = true;
+        clock.paused = false;
     }
     ImGui::SetItemTooltip("Run backward (R)");
     ImGui::SameLine();
-    const TransportIcon play = running        ? TransportIcon::Pause
-                               : m_clock.reverse ? TransportIcon::PlayBackward
-                                                 : TransportIcon::Play;
+    const TransportIcon play = running         ? TransportIcon::Pause
+                               : clock.reverse ? TransportIcon::PlayBackward
+                                               : TransportIcon::Play;
     if (transport_button("##play", play, size, false)) {
-        m_clock.paused = !m_clock.paused;
+        clock.paused = !clock.paused;
     }
     ImGui::SetItemTooltip(running ? "Pause (Space)" : "Resume (Space)");
     ImGui::SameLine();
-    if (transport_button("##forward", TransportIcon::FastForward, size, running && !m_clock.reverse)) {
-        m_clock.reverse = false;
-        m_clock.paused = false;
+    if (transport_button("##forward", TransportIcon::FastForward, size, running && !clock.reverse)) {
+        clock.reverse = false;
+        clock.paused = false;
     }
     ImGui::SetItemTooltip("Run forward (R)");
 
     const float row_y = ImGui::GetCursorPosY() - size - style.ItemSpacing.y;
     ImGui::SameLine(0.0f, style.ItemSpacing.x * 3.0f);
     ImGui::SetCursorPosY(row_y + (size - ImGui::GetTextLineHeight()) * 0.5f);
-    ImGui::TextUnformatted(format_utc(m_clock.t_tdb).c_str());
+    ImGui::TextUnformatted(format_utc(clock.t_tdb).c_str());
 
     const float now_width = ImGui::CalcTextSize("Now").x + style.FramePadding.x * 4.0f;
     ImGui::SameLine(ImGui::GetContentRegionMax().x - now_width);
     ImGui::SetCursorPosY(row_y);
     if (ImGui::Button("Now", ImVec2(now_width, size))) {
-        reset_to_now();
+        m_sim.reset_to_now();
     }
     ImGui::SetItemTooltip("Jump to the present (N)");
 
     // Time warp across the whole width, taller than usual.
     char warp_label[64];
-    format_warp(m_clock.warp, m_clock.reverse, warp_label, sizeof(warp_label));
-    float warp = static_cast<float>(m_clock.warp);
+    format_warp(clock.warp, clock.reverse, warp_label, sizeof(warp_label));
+    float warp = static_cast<float>(clock.warp);
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(style.FramePadding.x, style.FramePadding.y * 2.5f));
     ImGui::PushStyleVar(ImGuiStyleVar_GrabMinSize, style.GrabMinSize * 2.0f);
     ImGui::SetNextItemWidth(-FLT_MIN);
     if (ImGui::SliderFloat("##bar_warp", &warp, 1.0f, 1e8f, warp_label, ImGuiSliderFlags_Logarithmic)) {
-        m_clock.warp = std::clamp(static_cast<double>(warp), 1.0, 1e8);
+        clock.warp = std::clamp(static_cast<double>(warp), 1.0, 1e8);
     }
     ImGui::PopStyleVar(2);
 
@@ -453,11 +435,12 @@ void App::build_time_bar()
 
 void App::build_info_panel()
 {
-    const int focus = m_camera.target();
-    if (focus < 0 || focus >= static_cast<int>(m_scene.bodies.size())) {
+    const Scene& scene = m_sim.scene();
+    const int focus = m_sim.camera().target();
+    if (focus < 0 || focus >= static_cast<int>(scene.bodies.size())) {
         return;
     }
-    const Body& body = m_scene.bodies[static_cast<size_t>(focus)];
+    const Body& body = scene.bodies[static_cast<size_t>(focus)];
     const ImGuiIO& io = ImGui::GetIO();
     const float scale = ImGui::GetStyle().FontScaleDpi;
 
@@ -475,11 +458,11 @@ void App::build_info_panel()
     ImGui::TextUnformatted(body.name.c_str());
 
     // What it orbits; bodies at rest (e.g. the Sun far from an exoplanet system) orbit nothing.
-    const Scene::OrbitCenter center = body.visible ? m_scene.orbit_center(focus) : Scene::OrbitCenter{};
+    const Scene::OrbitCenter center = body.visible ? scene.orbit_center(focus) : Scene::OrbitCenter{};
     State relative;
     if (center.body >= 0) {
-        const State s = m_scene.icrf_state_at(focus, m_scene.time());
-        const State c = m_scene.icrf_state_at(center.body, m_scene.time());
+        const State s = scene.icrf_state_at(focus, scene.time());
+        const State c = scene.icrf_state_at(center.body, scene.time());
         relative = {s.position - c.position, s.velocity - c.velocity};
     }
     const bool orbiting = center.body >= 0 && glm::length(relative.velocity) > 1e-6;
@@ -503,7 +486,7 @@ void App::build_info_panel()
     case BodyKind::Planet:
         break;
     }
-    const char* host_name = orbiting ? m_scene.bodies[static_cast<size_t>(center.body)].name.c_str() : "";
+    const char* host_name = orbiting ? scene.bodies[static_cast<size_t>(center.body)].name.c_str() : "";
     if (kind && orbiting) {
         ImGui::TextDisabled("%s, orbiting %s", kind, host_name);
     } else if (kind) {
@@ -620,7 +603,7 @@ void App::build_info_panel()
     if (body.visible) {
         ImGui::SeparatorText("From camera");
         if (begin_info_table()) {
-            const double d = glm::length(body.world_position - m_view.position);
+            const double d = glm::length(body.world_position - m_view.camera.position);
             format_distance(d, buf, sizeof(buf));
             info_row("Distance", "%s", buf);
             format_duration(d / kSpeedOfLightKmS, buf, sizeof(buf));
@@ -634,141 +617,49 @@ void App::build_info_panel()
 
 void App::build_labels()
 {
+    const Scene& scene = m_sim.scene();
     const ImGuiIO& io = ImGui::GetIO();
-    ImDrawList* draw = ImGui::GetBackgroundDrawList();
-    const glm::dvec3& cam = m_view.position;
     const float font_size = ImGui::GetFontSize();
-    const bool want_pick = ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && !io.WantCaptureMouse;
+    m_labels.update(scene, m_view, m_sim.camera().target(), glm::vec2(io.DisplaySize.x, io.DisplaySize.y),
+                    font_size,
+                    [](const std::string& text) {
+                        const ImVec2 size = ImGui::CalcTextSize(text.c_str());
+                        return glm::vec2(size.x, size.y);
+                    },
+                    io.DeltaTime);
 
-    auto project = [&](const glm::dvec3& rel, ImVec2* screen, float* w) {
-        const glm::vec4 clip = m_view.view_proj * glm::vec4(glm::vec3(rel), 1.0f);
-        if (clip.w <= 0.0f) {
-            return false;
-        }
-        *screen = ImVec2((clip.x / clip.w * 0.5f + 0.5f) * io.DisplaySize.x,
-                         (0.5f - clip.y / clip.w * 0.5f) * io.DisplaySize.y);
-        *w = clip.w;
-        return true;
-    };
+    ImDrawList* draw = ImGui::GetBackgroundDrawList();
 
     // Lagrange points and other markers: a small diamond and a name.
-    for (const Marker& marker : m_scene.markers) {
-        ImVec2 s;
-        float w = 0.0f;
-        if (!project(marker.world_position - cam, &s, &w)) {
-            continue;
-        }
+    for (const LabelLayout::SceneMarker& marker : m_labels.markers()) {
+        const ImVec2 s(marker.position.x, marker.position.y);
         const float r = 4.0f;
         draw->AddQuad(ImVec2(s.x, s.y - r), ImVec2(s.x + r, s.y), ImVec2(s.x, s.y + r), ImVec2(s.x - r, s.y),
                       IM_COL32(180, 200, 255, 170), 1.2f);
         draw->AddText(ImVec2(s.x + r + 3.0f, s.y - font_size * 0.5f), IM_COL32(180, 200, 255, 170),
-                      marker.name.c_str());
+                      scene.markers[static_cast<size_t>(marker.marker)].name.c_str());
     }
 
-    // Body labels are placed by priority: the focus, stars, bodies orbiting a
-    // star, spacecraft, moons, then ghosts, larger bodies first. A label that would
-    // overlap one already placed is left out; labels ease in and out so that
-    // they do not flicker as bodies pass each other.
-    struct Candidate {
-        int body;
-        int rank;
-        ImVec2 screen;
-        float radius_px;
-    };
-    std::vector<Candidate> candidates;
-    const int focus = m_camera.target();
-    m_label_alpha.resize(m_scene.bodies.size(), 0.0f);
-    for (size_t i = 0; i < m_scene.bodies.size(); ++i) {
-        const Body& body = m_scene.bodies[i];
-        if (!body.visible || body.kind == BodyKind::Barycenter || m_body_fades[i] <= 0.0f) {
-            m_label_alpha[i] = 0.0f;
-            continue;
+    const float dot_radius = LabelLayout::kMarkerRadius;
+    for (const LabelLayout::BodyMark& mark : m_labels.bodies()) {
+        const Body& body = scene.bodies[static_cast<size_t>(mark.body)];
+        const ImVec2 center(mark.position.x, mark.position.y);
+        if (mark.dot == LabelLayout::Dot::Hollow) {
+            draw->AddCircle(center, dot_radius + 1.0f, to_imgui_color(body.orbit_color, 0.95f * mark.fade), 0, 1.5f);
+        } else if (mark.dot == LabelLayout::Dot::Filled) {
+            draw->AddCircleFilled(center, dot_radius,
+                                  to_imgui_color(glm::mix(body.color, glm::vec3(1.0f), 0.3f), 0.95f * mark.fade));
         }
-        const glm::dvec3 rel = body.world_position - cam;
-
-        bool hidden = false;
-        for (size_t k = 0; k < m_scene.bodies.size() && !hidden; ++k) {
-            const Body& other = m_scene.bodies[k];
-            if (k != i && other.visible && other.kind != BodyKind::Spacecraft &&
-                other.kind != BodyKind::Barycenter && other.kind != BodyKind::Ghost) {
-                hidden = occluded(rel, other.world_position - cam, other.equatorial_radius_km);
-            }
+        if (mark.text_alpha > 0.0f) {
+            draw->AddText(ImVec2(mark.text_position.x, mark.text_position.y),
+                          IM_COL32(220, 225, 235, static_cast<int>(190.0f * mark.text_alpha)), body.name.c_str());
         }
-        ImVec2 screen;
-        float w = 0.0f;
-        if (hidden || !project(rel, &screen, &w)) {
-            m_label_alpha[i] = 0.0f;
-            continue;
-        }
-        const float radius_px = static_cast<float>(body.equatorial_radius_km) / w * m_view.focal_y * 0.5f *
-                                io.DisplaySize.y;
-        const int host = m_scene.satellite_host(static_cast<int>(i));
-        int rank = 4; // moons
-        if (static_cast<int>(i) == focus) {
-            rank = 0;
-        } else if (body.kind == BodyKind::Star) {
-            rank = 1;
-        } else if (body.kind == BodyKind::Spacecraft) {
-            rank = 3;
-        } else if (body.kind == BodyKind::Ghost) {
-            rank = 5;
-        } else if (host < 0 || m_scene.bodies[static_cast<size_t>(host)].kind == BodyKind::Star) {
-            rank = 2;
-        }
-        candidates.push_back({static_cast<int>(i), rank, screen, radius_px});
     }
-    std::sort(candidates.begin(), candidates.end(), [&](const Candidate& a, const Candidate& b) {
-        if (a.rank != b.rank) {
-            return a.rank < b.rank;
-        }
-        return m_scene.bodies[static_cast<size_t>(a.body)].equatorial_radius_km >
-               m_scene.bodies[static_cast<size_t>(b.body)].equatorial_radius_km;
-    });
 
-    std::vector<ImVec4> placed; // label rectangles: min x, min y, max x, max y
-    const float step = io.DeltaTime / kLabelFadeSeconds;
-    for (const Candidate& c : candidates) {
-        const size_t i = static_cast<size_t>(c.body);
-        const Body& body = m_scene.bodies[i];
-        const float fade = m_body_fades[i];
-
-        const float offset = std::max(c.radius_px, kMarkerRadius) * 0.7071f + 4.0f;
-        const ImVec2 text_pos(c.screen.x + offset, c.screen.y - offset - font_size * 0.5f);
-        const ImVec2 text_size = ImGui::CalcTextSize(body.name.c_str());
-        const ImVec4 rect(text_pos.x - kLabelPadding, text_pos.y - kLabelPadding,
-                          text_pos.x + text_size.x + kLabelPadding, text_pos.y + text_size.y + kLabelPadding);
-        bool overlaps = false;
-        for (const ImVec4& r : placed) {
-            if (rect.x < r.z && r.x < rect.z && rect.y < r.w && r.y < rect.w) {
-                overlaps = true;
-                break;
-            }
-        }
-        if (!overlaps && fade > 0.05f) {
-            placed.push_back(rect);
-        }
-        float& eased = m_label_alpha[i];
-        eased = std::clamp(eased + (overlaps ? -step : step), 0.0f, 1.0f);
-        const float alpha = eased * fade;
-
-        // Spacecraft and ghosts are never drawn as bodies, so they always get a
-        // marker; a ghost's is hollow.
-        if (body.kind == BodyKind::Ghost) {
-            draw->AddCircle(c.screen, kMarkerRadius + 1.0f, to_imgui_color(body.orbit_color, 0.95f * fade), 0, 1.5f);
-        } else if (c.radius_px < kMarkerRadius || body.kind == BodyKind::Spacecraft) {
-            draw->AddCircleFilled(c.screen, kMarkerRadius,
-                                  to_imgui_color(glm::mix(body.color, glm::vec3(1.0f), 0.3f), 0.95f * fade));
-        }
-        if (alpha > 0.0f) {
-            draw->AddText(text_pos, IM_COL32(220, 225, 235, static_cast<int>(190.0f * alpha)), body.name.c_str());
-        }
-
-        if (want_pick && alpha > 0.3f) {
-            const float dx = io.MousePos.x - c.screen.x;
-            const float dy = io.MousePos.y - c.screen.y;
-            if (std::sqrt(dx * dx + dy * dy) < std::max(c.radius_px, kLabelPickRadius)) {
-                set_focus(c.body);
-            }
+    if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && !io.WantCaptureMouse) {
+        const int picked = m_labels.pick(glm::vec2(io.MousePos.x, io.MousePos.y), kLabelPickRadius);
+        if (picked >= 0) {
+            m_sim.set_focus(picked);
         }
     }
 }

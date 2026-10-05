@@ -59,12 +59,16 @@ add_library(astraxis_sim STATIC
     src/scene/camera_director.hpp
     src/scene/comet.cpp
     src/scene/comet.hpp
+    src/scene/label_layout.cpp
+    src/scene/label_layout.hpp
     src/scene/scene.cpp
     src/scene/scene.hpp
     src/scene/scene_loader.cpp
     src/scene/scene_loader.hpp
     src/scene/shape_model.cpp
     src/scene/shape_model.hpp
+    src/scene/simulation.cpp
+    src/scene/simulation.hpp
     src/scene/star_catalog.cpp
     src/scene/star_catalog.hpp
 )
@@ -132,14 +136,18 @@ add_executable(astraxis
     src/render/dust_pass.hpp
     src/render/gpu_buffer.cpp
     src/render/gpu_buffer.hpp
+    src/render/gpu_device.cpp
+    src/render/gpu_device.hpp
     src/render/orbit_line_pass.cpp
     src/render/orbit_line_pass.hpp
     src/render/plume_pass.cpp
     src/render/plume_pass.hpp
     src/render/post_process.cpp
     src/render/post_process.hpp
-    src/render/renderer.cpp
-    src/render/renderer.hpp
+    src/render/render_output.cpp
+    src/render/render_output.hpp
+    src/render/scene_targets.cpp
+    src/render/scene_targets.hpp
     src/render/ring_pass.cpp
     src/render/ring_pass.hpp
     src/render/shader.cpp
@@ -150,6 +158,8 @@ add_executable(astraxis
     src/render/starfield_pass.hpp
     src/render/sun_pass.cpp
     src/render/sun_pass.hpp
+    src/view/scene_renderer.cpp
+    src/view/scene_renderer.hpp
 )
 
 target_link_libraries(astraxis PRIVATE

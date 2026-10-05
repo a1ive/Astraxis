@@ -1,7 +1,7 @@
 #pragma once
 
 #include "render/gpu_buffer.hpp"
-#include "render/renderer.hpp"
+#include "render/gpu_device.hpp"
 #include "scene/camera.hpp"
 
 #include <SDL3/SDL_gpu.h>
