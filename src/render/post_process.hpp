@@ -1,5 +1,6 @@
 #pragma once
 
+#include "render/post_settings.hpp"
 #include "render/scene_targets.hpp"
 
 #include <SDL3/SDL_gpu.h>
@@ -7,12 +8,6 @@
 #include <cstdint>
 
 namespace astraxis {
-
-struct PostSettings {
-    float exposure = 1.0f;
-    float bloom_strength = 0.04f;
-    float bloom_threshold = 1.5f; // linear HDR; only brighter light blooms
-};
 
 // HDR -> bloom (downsample/upsample chain) -> ACES tonemap -> swapchain.
 // The bloom chain belongs to the output (SceneTargets::bloom).

@@ -15,6 +15,7 @@
 #include "render/sun_pass.hpp"
 #include "scene/comet.hpp"
 #include "scene/star_catalog.hpp"
+#include "view/view_options.hpp"
 
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
@@ -30,18 +31,6 @@ class Scene;
 class Simulation;
 struct Frame;
 struct OutputView;
-
-// What to draw and how, chosen by the host.
-struct ViewOptions {
-    bool orbits = true;
-    bool belts = true;
-    bool atmospheres = true; // otherwise the surface under Venus' and Titan's clouds
-    bool plumes = true;
-    bool comets = true;      // comae, ion and dust tails
-    float star_brightness = 1.0f;
-    float line_width = 1.6f;    // pixels
-    PostSettings post;
-};
 
 // Draws a Simulation: turns its scene into the passes' draw items, renders
 // them into the frame's scene targets and tonemaps the result into its

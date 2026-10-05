@@ -38,7 +38,23 @@ bool App::init(const LaunchOptions& options)
         return false;
     }
 
-    if (!m_window.create("Astraxis", 1280, 720)) {
+    m_config_path = options.config.empty() ? config_path() : options.config;
+    std::string config_error;
+    m_config_ok = load_settings(m_config_path, SettingsSection::Window, m_settings, &config_error);
+    if (!m_config_ok) {
+        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Settings not read (and will not be saved): %s",
+                    config_error.c_str());
+    }
+    m_view_options = m_settings.view;
+    m_show_labels = m_settings.labels;
+    m_show_info = m_settings.info;
+    m_auto_tour = m_settings.auto_tour;
+    m_fps_limit = options.fps.value_or(m_settings.fps);
+
+    m_start_display = options.display ? find_display(*options.display, "")
+                                      : find_display(m_settings.display, m_settings.display_name);
+    m_start_fullscreen = options.fullscreen.value_or(m_settings.fullscreen);
+    if (!m_window.create("Astraxis", 1280, 720, m_start_display, m_start_fullscreen)) {
         return false;
     }
     if (!m_gpu.init(kGpuDebug) || !m_output.init(m_gpu, m_window.handle())) {
@@ -80,15 +96,16 @@ bool App::init(const LaunchOptions& options)
         }
     }
     std::sort(m_scene_files.begin(), m_scene_files.end());
+    const std::string scene = options.scene.value_or(m_settings.scene);
     bool found = false;
     for (size_t i = 0; i < m_scene_files.size(); ++i) {
-        if (m_scene_files[i].stem() == options.scene) {
+        if (m_scene_files[i].stem() == scene) {
             m_scene_index = i;
             found = true;
         }
     }
     if (!found) {
-        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Scene '%s' not found", options.scene.c_str());
+        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Scene '%s' not found", scene.c_str());
     }
 
     if (m_scene_files.empty() || !load_scene(m_scene_index)) {
@@ -107,8 +124,11 @@ bool App::init(const LaunchOptions& options)
         }
     }
 
+    m_start_scene = m_scene_files[m_scene_index].stem().string();
     m_last_counter = SDL_GetPerformanceCounter();
+    m_frame_start_ns = SDL_GetTicksNS();
     m_running = true;
+    m_initialized = true;
     return true;
 }
 
@@ -132,11 +152,24 @@ void App::run()
         update(std::min(real_dt, kMaxRealDt));
         build_ui();
         render();
+
+        if (m_fps_limit > 0) {
+            const uint64_t period = SDL_NS_PER_SECOND / static_cast<uint64_t>(m_fps_limit);
+            const uint64_t elapsed = SDL_GetTicksNS() - m_frame_start_ns;
+            if (elapsed < period) {
+                SDL_DelayPrecise(period - elapsed);
+            }
+        }
+        m_frame_start_ns = SDL_GetTicksNS();
     }
 }
 
 void App::shutdown()
 {
+    if (m_initialized) {
+        save_settings();
+        m_initialized = false;
+    }
     if (m_gpu.device()) {
         SDL_WaitForGPUIdle(m_gpu.device());
     }
@@ -244,6 +277,9 @@ void App::handle_key(const SDL_Event& event)
     case SDLK_N:
         m_sim.reset_to_now();
         break;
+    case SDLK_F11:
+        m_window.set_fullscreen(!m_window.is_fullscreen());
+        break;
     case SDLK_H:
     case SDLK_F1:
         m_show_ui = !m_show_ui;
@@ -301,6 +337,36 @@ bool App::load_scene(size_t index)
     m_sim.compute_view(width, height, m_window.content_scale(), m_view);
     m_scene_renderer.load_scene(m_sim.scene(), m_view_options, static_cast<uint32_t>(std::max(height, 0)));
     return true;
+}
+
+void App::save_settings()
+{
+    if (!m_config_ok) {
+        return;
+    }
+    Settings settings = m_settings;
+    settings.view = m_view_options;
+    settings.labels = m_show_labels;
+    settings.info = m_show_info;
+    settings.auto_tour = m_auto_tour;
+    // The command line's overrides stay out of the file unless changed in the app.
+    const std::string scene = m_scene_files[m_scene_index].stem().string();
+    if (scene != m_start_scene) {
+        settings.scene = scene;
+    }
+    const uint32_t display = m_window.display();
+    if (display != m_start_display) {
+        settings.display = display_index(display);
+        settings.display_name = display_name(display);
+    }
+    if (m_window.is_fullscreen() != m_start_fullscreen) {
+        settings.fullscreen = m_window.is_fullscreen();
+    }
+
+    std::string error;
+    if (!astraxis::save_settings(m_config_path, SettingsSection::Window, settings, &error)) {
+        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Settings not saved: %s", error.c_str());
+    }
 }
 
 void App::start_tour()

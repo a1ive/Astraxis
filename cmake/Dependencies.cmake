@@ -63,6 +63,14 @@ FetchContent_Declare(stb
 
 FetchContent_MakeAvailable(SDL3 glm imgui tomlplusplus stb)
 
+# toml++ prints floats through std::to_chars (shortest round trip: 0.04, not
+# 0.040000000000000001) only on MSVC by default; GCC >= 11 and Clang with
+# libstdc++ support it too. Set for every user of toml++, so that its inline
+# functions are the same in all targets.
+if(NOT MSVC AND NOT APPLE)
+    target_compile_definitions(tomlplusplus_tomlplusplus INTERFACE TOML_FLOAT_CHARCONV=1)
+endif()
+
 add_library(stb INTERFACE)
 target_include_directories(stb SYSTEM INTERFACE ${stb_SOURCE_DIR})
 

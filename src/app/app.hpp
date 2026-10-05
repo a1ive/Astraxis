@@ -1,5 +1,6 @@
 #pragma once
 
+#include "app/settings.hpp"
 #include "platform/window.hpp"
 #include "render/gpu_device.hpp"
 #include "render/render_output.hpp"
@@ -9,6 +10,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -16,11 +18,14 @@ union SDL_Event;
 
 namespace astraxis {
 
-// Command line: --scene <file stem> (default solar_system), --event <n> (1-based,
-// in the order of the Events list) to start at that event.
+// Command line; each option overrides config.toml for this run only.
 struct LaunchOptions {
-    std::string scene = "solar_system";
-    int event = 0; // 0 = none
+    std::filesystem::path config; // empty: config.toml next to the executable
+    std::optional<std::string> scene; // file stem
+    int event = 0; // 1-based, in the order of the Events list; 0 = none
+    std::optional<bool> fullscreen;
+    std::optional<int> display; // 0 = primary, n = the n-th display
+    std::optional<int> fps;     // frame rate cap, 0 = none
 };
 
 // The windowed host: an SDL window with mouse/keyboard camera control and the
@@ -43,6 +48,7 @@ private:
     void render();
 
     bool load_scene(size_t index);
+    void save_settings();
 
     // Auto tour (idle mode).
     void start_tour();
@@ -59,11 +65,24 @@ private:
     ViewOptions m_view_options;
     LabelLayout m_labels;
 
+    // config.toml: the [window] settings as read, and what this run started
+    // with after the command line. Only what the user changes in the app is
+    // saved, not the command line's overrides.
+    std::filesystem::path m_config_path;
+    Settings m_settings;
+    bool m_config_ok = false; // false: the file could not be parsed; never overwrite it
+    std::string m_start_scene;
+    uint32_t m_start_display = 0;
+    bool m_start_fullscreen = false;
+    int m_fps_limit = 0;
+    uint64_t m_frame_start_ns = 0;
+
     std::filesystem::path m_asset_dir;
     std::vector<std::filesystem::path> m_scene_files;
     size_t m_scene_index = 0;
     std::string m_scene_error;
 
+    bool m_initialized = false; // init succeeded: save the settings on shutdown
     bool m_running = false;
     bool m_imgui_ready = false;
     bool m_dragging = false;

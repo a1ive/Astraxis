@@ -1,5 +1,7 @@
-// Minimal self-checking tests for core / ephem / scene (no framework).
+// Minimal self-checking tests for core / ephem / scene and the settings file
+// (no framework).
 
+#include "app/settings.hpp"
 #include "core/color.hpp"
 #include "core/math.hpp"
 #include "core/time.hpp"
@@ -28,6 +30,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <map>
 #include <memory>
 #include <string>
@@ -3972,10 +3975,82 @@ void test_camera_director_black_hole()
     check(min_distance > 11.0 * m_km, "camera stays beyond 11 M of the hole", min_distance / m_km);
 }
 
+// config.toml: [view] shared, mode sections override it, saving keeps the rest.
+void test_settings()
+{
+    const std::filesystem::path dir = std::filesystem::temp_directory_path() / "astraxis_settings_test";
+    std::error_code ec;
+    std::filesystem::remove_all(dir, ec);
+    std::filesystem::create_directories(dir);
+    const std::filesystem::path path = dir / "config.toml";
+
+    Settings s;
+    s.scene = "jupiter";
+    check(load_settings(path, SettingsSection::Window, s) && s.scene == "solar_system" && s.view.orbits,
+          "missing config gives the defaults");
+
+    {
+        std::ofstream file(path, std::ios::binary);
+        file << "# by hand\n"
+                "[view]\nexposure = 2\nlabels = false\nstars = 9.0\nunknown = 1\n"
+                "[wallpaper]\nlabels = true\nscene = \"sgr_a\"\nfps = 30\n"
+                "[window]\nscene = \"jupiter\"\nfullscreen = true\nexposure = 0.5\n";
+    }
+    Settings window;
+    Settings wallpaper;
+    check(load_settings(path, SettingsSection::Window, window), "config loads");
+    check(load_settings(path, SettingsSection::Wallpaper, wallpaper), "config loads (wallpaper)");
+    check(window.scene == "jupiter" && window.fullscreen && !window.labels, "[window] keys over [view]");
+    check(window.view.post.exposure == 0.5f, "[window] overrides [view] exposure", window.view.post.exposure);
+    check(window.view.star_brightness == 2.0f, "out-of-range value is clamped", window.view.star_brightness);
+    check(wallpaper.scene == "sgr_a" && wallpaper.fps == 30 && wallpaper.labels, "[wallpaper] keys");
+    check(wallpaper.view.post.exposure == 2.0f, "[wallpaper] inherits [view]", wallpaper.view.post.exposure);
+    check(!wallpaper.fullscreen, "[wallpaper] ignores window-only keys");
+
+    // Saving [window] writes the view keys to [view] and drops its overrides there.
+    window.view.post.exposure = 1.25f;
+    window.view.post.bloom_strength = 0.04f;
+    window.view.orbits = false;
+    window.display = 2;
+    window.display_name = "Test Monitor";
+    check(save_settings(path, SettingsSection::Window, window), "config saves");
+    Settings again;
+    Settings wallpaper_again;
+    load_settings(path, SettingsSection::Window, again);
+    load_settings(path, SettingsSection::Wallpaper, wallpaper_again);
+    check(again.view.post.exposure == 1.25f && !again.view.orbits && again.display == 2 &&
+              again.display_name == "Test Monitor" && again.scene == "jupiter" && again.fullscreen,
+          "saved [window] settings read back");
+    check(wallpaper_again.scene == "sgr_a" && wallpaper_again.fps == 30 && wallpaper_again.labels &&
+              wallpaper_again.view.post.exposure == 1.25f,
+          "saving [window] keeps [wallpaper]");
+    {
+        std::ifstream file(path, std::ios::binary);
+        const std::string text((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+        check(text.find("unknown = 1") != std::string::npos, "saving keeps unknown keys");
+        check(text.find("bloom = 0.04\n") != std::string::npos, "floats are written tidily");
+    }
+
+    // A file that does not parse is neither read nor overwritten.
+    {
+        std::ofstream file(path, std::ios::binary);
+        file << "[view\nexposure = 3\n";
+    }
+    Settings broken;
+    std::string error;
+    check(!load_settings(path, SettingsSection::Window, broken, &error) && !error.empty() &&
+              broken.view.post.exposure == 1.0f,
+          "unparsable config is reported, defaults used");
+    check(!save_settings(path, SettingsSection::Window, window), "unparsable config is not overwritten");
+
+    std::filesystem::remove_all(dir, ec);
+}
+
 } // namespace
 
 int main()
 {
+    test_settings();
     test_scene_loader();
     test_star_catalog_and_color();
     test_kepler();

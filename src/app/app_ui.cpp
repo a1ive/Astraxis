@@ -361,6 +361,7 @@ void App::build_control_panel()
     ImGui::TextDisabled("Double-click label: focus");
     ImGui::TextDisabled("Space pause  R reverse  [ ] warp  N now");
     ImGui::TextDisabled("1-9 focus  A tour  O/L/I/M/P/C  H hide");
+    ImGui::TextDisabled("F11 fullscreen  Esc quit");
 
     ImGui::End();
 }

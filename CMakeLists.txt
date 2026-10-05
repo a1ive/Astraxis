@@ -76,6 +76,18 @@ target_include_directories(astraxis_sim PUBLIC src)
 target_link_libraries(astraxis_sim PUBLIC glm::glm-header-only PRIVATE tomlplusplus::tomlplusplus)
 astraxis_set_warnings(astraxis_sim)
 
+# --- Settings (config.toml): no SDL or GPU, shared with the launchers -------
+
+add_library(astraxis_settings STATIC
+    src/app/settings.cpp
+    src/app/settings.hpp
+    src/render/post_settings.hpp
+    src/view/view_options.hpp
+)
+target_include_directories(astraxis_settings PUBLIC src)
+target_link_libraries(astraxis_settings PRIVATE tomlplusplus::tomlplusplus)
+astraxis_set_warnings(astraxis_settings)
+
 # --- Shaders ---------------------------------------------------------------
 
 astraxis_add_shaders(astraxis_shaders
@@ -164,6 +176,7 @@ add_executable(astraxis
 
 target_link_libraries(astraxis PRIVATE
     astraxis_sim
+    astraxis_settings
     SDL3::SDL3
     imgui
     stb
@@ -196,7 +209,7 @@ endif()
 enable_testing()
 
 add_executable(astraxis_tests tests/sim_tests.cpp)
-target_link_libraries(astraxis_tests PRIVATE astraxis_sim)
+target_link_libraries(astraxis_tests PRIVATE astraxis_sim astraxis_settings)
 target_compile_definitions(astraxis_tests PRIVATE ASTRAXIS_ASSET_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets")
 astraxis_set_warnings(astraxis_tests)
 add_test(NAME astraxis_tests COMMAND astraxis_tests)
