@@ -89,18 +89,35 @@ private:
 // that stays a child of the Sun for its cruise. `anchor` is not owned.
 class OffsetMotion final : public MotionSource {
 public:
-    OffsetMotion(std::unique_ptr<MotionSource> inner, const MotionSource* anchor)
+    // `anchors`: the anchor's motion, then those of its ancestors up to (not including) the
+    // body's parent; their sum is the anchor relative to the parent.
+    OffsetMotion(std::unique_ptr<MotionSource> inner, std::vector<const MotionSource*> anchors)
         : m_inner(std::move(inner))
-        , m_anchor(anchor)
+        , m_anchors(std::move(anchors))
     {
     }
     State eval(double t_tdb) const override
     {
-        const State s = m_inner->eval(t_tdb);
-        const State a = m_anchor->eval(t_tdb);
-        return {s.position + a.position, s.velocity + a.velocity};
+        State s = m_inner->eval(t_tdb);
+        for (const MotionSource* anchor : m_anchors) {
+            const State a = anchor->eval(t_tdb);
+            s.position += a.position;
+            s.velocity += a.velocity;
+        }
+        return s;
     }
-    bool valid_at(double t_tdb) const override { return m_inner->valid_at(t_tdb) && m_anchor->valid_at(t_tdb); }
+    bool valid_at(double t_tdb) const override
+    {
+        if (!m_inner->valid_at(t_tdb)) {
+            return false;
+        }
+        for (const MotionSource* anchor : m_anchors) {
+            if (!anchor->valid_at(t_tdb)) {
+                return false;
+            }
+        }
+        return true;
+    }
     void history_times(double t0, double t1, int max_points, std::vector<double>& out) const override
     {
         m_inner->history_times(t0, t1, max_points, out);
@@ -109,7 +126,7 @@ public:
 
 private:
     std::unique_ptr<MotionSource> m_inner;
-    const MotionSource* m_anchor;
+    std::vector<const MotionSource*> m_anchors;
 };
 
 // A body at a fixed position relative to its parent (e.g. a distant star).

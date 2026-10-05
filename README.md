@@ -19,6 +19,7 @@ Astraxis is an astronomy visualizer that uses orbital data and physical simulati
 | Earth-Moon | Artemis II's free-return flight, Artemis I's distant retrograde orbit and CAPSTONE's near-rectilinear halo orbit, in the Earth-Moon rotating frame | JPL Horizons ephemerides |
 | Saturn | Saturn's rings (Cassini radio-occultation optical depths), the seven major moons, Cassini's tour and Huygens' descent to Titan | JPL Horizons ephemerides, JPL mean orbital elements (phases fitted to Horizons) |
 | Mercury: MESSENGER & BepiColombo | Both spacecraft's cruises down to Mercury with Earth, Venus and Mercury gravity assists, MESSENGER's four years in orbit and impact, BepiColombo's capture (Nov 2026) and science orbit | JPL Horizons ephemerides |
+| ISEE-3 / ICE | The first halo orbit around Sun-Earth L1 (1978-1982), the geotail passes and five lunar flybys of 1983, the first comet flyby (Giacobini-Zinner, 1985), the pass between the Sun and Halley (1986), and 28 years around the Sun back to the Earth and Moon (2014) | Reconstructed from NASA SSCWeb positions and the JPL navigation trajectory (PDS); JPL Horizons for 2014 |
 | Parker Solar Probe | Seven Venus gravity assists lower the perihelion to 9.86 solar radii. The trajectory forms petals in the Sun-Venus rotating frame | JPL Horizons ephemerides |
 | Alpha Centauri | A, B and Proxima | Newtonian N-body integration |
 | Sgr A* | The Galactic Centre black hole and the star S2 | Kerr geodesics + GPU ray-traced black hole |

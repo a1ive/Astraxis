@@ -170,8 +170,16 @@ State EphemerisMotion::eval(double t_tdb) const
         double seg_start = 0.0;
         double seg_end = 0.0;
         m_table->segment(t_tdb, &seg_start, &seg_end);
-        const double edge = std::min(t_tdb - seg_start, seg_end - t_tdb);
+        double edge = std::min(t_tdb - seg_start, seg_end - t_tdb);
         if (!m_fallback || edge >= m_blend_s) {
+            return s;
+        }
+        // Only blend towards an edge where the fallback takes over (a fallback for an
+        // earlier mission phase ends before the table does).
+        const bool from_start = t_tdb - seg_start < m_blend_s && m_fallback->valid_at(seg_start);
+        const bool from_end = seg_end - t_tdb < m_blend_s && m_fallback->valid_at(seg_end);
+        edge = std::min(from_start ? t_tdb - seg_start : m_blend_s, from_end ? seg_end - t_tdb : m_blend_s);
+        if (edge >= m_blend_s) {
             return s;
         }
         // Smoothstep from the fallback at the edge to the table at blend_s inside

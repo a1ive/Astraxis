@@ -1383,6 +1383,172 @@ void test_mercury_scene()
     check(points.size() > 50 && widest < 2.0e4, "MESSENGER trail in the Mercury frame: a day of orbits (km)", widest);
 }
 
+// ISEE-3 / ICE, reconstructed by tools/isee3/isee3_reconstruct.py from SSCWeb positions
+// (1978-1983), the JPL navigation trajectory of the comet encounter and Horizons' 2014
+// solution. Checked against figures published independently of those data.
+void test_isee3_scene()
+{
+    Scene scene = load_scene_or_die("isee3.toml");
+    const int sun = scene.find("Sun");
+    const int earth = scene.find("Earth");
+    const int moon = scene.find("Moon");
+    const int craft = scene.find("ISEE-3");
+    const int gz = scene.find("Giacobini-Zinner");
+    const int halley = scene.find("Halley");
+    check(sun >= 0 && earth > 0 && moon > 0 && craft > 0 && gz > 0 && halley > 0, "isee3.toml bodies");
+    auto at = [&](int body, double t) { return scene.icrf_state_at(body, t).position; };
+    auto utc = [](const CalendarDateTime& c) { return tdb_from_utc_jd(jd_from_calendar(c)); };
+    auto closest = [&](int a, int b, double t0, double half, double step) {
+        std::pair<double, double> best{1e300, t0};
+        for (double t = t0 - half; t <= t0 + half; t += step) {
+            const double d = glm::length(at(a, t) - at(b, t));
+            if (d < best.first) {
+                best = {d, t};
+            }
+        }
+        return best;
+    };
+
+    // Launch 1978-08-12 15:12 UTC: the reconstruction begins at perigee an hour later.
+    scene.update(utc({1978, 8, 12, 15, 0, 0}));
+    check(!scene.bodies[static_cast<size_t>(craft)].visible, "ISEE-3 not there before the launch");
+    const auto [perigee, t_perigee] = closest(craft, earth, utc({1978, 8, 12, 17, 0, 0}), 3600.0, 10.0);
+    const double r_earth = scene.bodies[static_cast<size_t>(earth)].equatorial_radius_km;
+    check(perigee - r_earth < 1000.0 && t_perigee - utc({1978, 8, 12, 15, 12, 0}) < 2 * 3600.0,
+          "the transfer starts at a low perigee right after the launch (km)", perigee - r_earth);
+
+    // Halo orbit "about 240 Earth radii upstream" (ESA/eoportal; L1 is 1.49 million km out).
+    double sunward_sum = 0.0;
+    int n = 0;
+    for (double t = utc({1979, 1, 1, 0, 0, 0}); t < utc({1982, 1, 1, 0, 0, 0}); t += 5 * kSecondsPerDay, ++n) {
+        const glm::dvec3 to_sun = glm::normalize(at(sun, t) - at(earth, t));
+        sunward_sum += glm::dot(at(craft, t) - at(earth, t), to_sun);
+    }
+    const double sunward = sunward_sum / n / 6378.1366;
+    check(std::abs(sunward - 240.0) < 20.0, "halo orbit around L1: mean sunward distance (Earth radii)", sunward);
+
+    // Geotail passes: "distances as great as 237 Earth radii in the tail" (ICE summary in the
+    // PDS Halley archive, DOCUMENT/ESA_1066/ICE.TXT).
+    double tail = 0.0;
+    for (double t = utc({1982, 6, 10, 0, 0, 0}); t < utc({1983, 12, 20, 0, 0, 0}); t += 3600.0) {
+        const glm::dvec3 to_sun = glm::normalize(at(sun, t) - at(earth, t));
+        tail = std::max(tail, -glm::dot(at(craft, t) - at(earth, t), to_sun));
+    }
+    tail /= 6378.1366;
+    check(std::abs(tail - 237.0) < 5.0, "deepest geotail pass (Earth radii)", tail);
+
+    // Lunar flybys: 1983-10-21 at 17,440 km (Wikipedia, "1983 in spaceflight"); the last one
+    // 119.4 km above the surface (Horizons notes for -111; NASA/ESA mission summaries).
+    const double r_moon = scene.bodies[static_cast<size_t>(moon)].equatorial_radius_km;
+    const double flyby4 = closest(craft, moon, utc({1983, 10, 21, 16, 25, 0}), 3600.0, 2.0).first - r_moon;
+    const auto [d5, t5] = closest(craft, moon, utc({1983, 12, 22, 18, 44, 0}), 3600.0, 1.0);
+    check(std::abs(flyby4 - 17440.0) < 100.0, "lunar flyby 1983-10-21 (km)", flyby4);
+    check(std::abs(d5 - r_moon - 119.4) < 5.0, "last lunar flyby 1983-12-22 (km above the surface)", d5 - r_moon);
+    // "spent more than 30 minutes in its shadow" (TDA Progress Report 42-84, p. 178).
+    double shadow_s = 0.0;
+    for (double t = t5 - 7200.0; t < t5 + 7200.0; t += 10.0) {
+        const glm::dvec3 p = at(craft, t);
+        const glm::dvec3 to_moon = at(moon, t) - p;
+        const glm::dvec3 to_sun = at(sun, t) - p;
+        const double angle = std::acos(glm::dot(glm::normalize(to_moon), glm::normalize(to_sun)));
+        if (angle < std::asin(r_moon / glm::length(to_moon)) + std::asin(695700.0 / glm::length(to_sun))) {
+            shadow_s += 10.0;
+        }
+    }
+    check(shadow_s > 25.0 * 60.0, "minutes in the Moon's shadow at the last flyby", shadow_s / 60.0);
+    std::printf("info: ISEE-3 last lunar flyby %.1f km at %s, %.0f min in the Moon's shadow\n", d5 - r_moon,
+                format_utc(t5).c_str(), shadow_s / 60.0);
+
+    // Heliocentric table from 1983-12-31: no jump at the hand-over.
+    {
+        const double t_switch = utc({1983, 12, 31, 0, 0, 0});
+        double worst = 0.0;
+        for (double t = t_switch - 2 * kSecondsPerDay; t < t_switch + 2 * kSecondsPerDay; t += 600.0) {
+            const State a = scene.icrf_state_at(craft, t);
+            worst = std::max(worst, glm::length(at(craft, t + 600.0) - a.position - a.velocity * 600.0));
+        }
+        check(worst < 20.0, "ISEE-3 hand-over to the heliocentric table (km per 10 min)", worst);
+    }
+
+    // Giacobini-Zinner, 1985-09-11 11:02 UTC: 7,862 km from the nucleus at 20.7 km/s
+    // (Horizons notes for -111; NASA).
+    const auto [d_gz, t_gz] = closest(craft, gz, utc({1985, 9, 11, 11, 2, 0}), 600.0, 0.5);
+    const double v_gz = glm::length(scene.icrf_state_at(craft, t_gz).velocity - scene.icrf_state_at(gz, t_gz).velocity);
+    check(std::abs(d_gz - 7862.0) < 100.0, "Giacobini-Zinner closest approach (km)", d_gz);
+    check(std::abs(t_gz - utc({1985, 9, 11, 11, 2, 0})) < 120.0, "Giacobini-Zinner closest approach time (s)",
+          t_gz - utc({1985, 9, 11, 11, 2, 0}));
+    check(std::abs(v_gz - 20.7) < 0.1, "Giacobini-Zinner flyby speed (km/s)", v_gz);
+
+    // Halley: "flew between the Sun and comet Halley on 1986-Mar-28, 31 million km from the
+    // comet" (Horizons notes for -111). Find when ICE is closest to the Sun-Halley line.
+    double best_angle = 0.0;
+    double t_align = 0.0;
+    for (double t = utc({1986, 3, 1, 0, 0, 0}); t < utc({1986, 4, 30, 0, 0, 0}); t += 3600.0) {
+        const glm::dvec3 p = at(craft, t);
+        const double angle = std::acos(glm::dot(glm::normalize(at(sun, t) - p), glm::normalize(at(halley, t) - p)));
+        if (angle > best_angle) {
+            best_angle = angle;
+            t_align = t;
+        }
+    }
+    const double d_halley = glm::length(at(halley, t_align) - at(craft, t_align));
+    check(std::abs(t_align - utc({1986, 3, 28, 12, 0, 0})) < 1.5 * kSecondsPerDay && std::abs(d_halley - 3.1e7) < 1.0e6,
+          "between the Sun and Halley: distance (km)", d_halley);
+    std::printf("info: ICE closest to the Sun-Halley line %s, %.1f million km from Halley\n",
+                format_utc(t_align).c_str(), d_halley / 1e6);
+    // Closest to Halley "28 x 10^6 km" (Wikipedia, International Cometary Explorer).
+    const double halley_min =
+        closest(craft, halley, utc({1986, 3, 25, 0, 0, 0}), 10 * kSecondsPerDay, 3600.0).first;
+    check(std::abs(halley_min - 2.8e7) < 1.0e6, "closest to Halley (km)", halley_min);
+
+    // 1987-2013, between the 1986-1987 maneuvers and the 2014 return: "an aphelion of 1.03 AU,
+    // a perihelion of 0.93 AU and an inclination of 0.1 deg" (Wikipedia, International
+    // Cometary Explorer) and a "355-day orbit" (Dunham, Farquhar et al., IAC-14.B6.3.4).
+    {
+        const double t95 = utc({1995, 1, 1, 0, 0, 0});
+        const State s = scene.icrf_state_at(craft, t95);
+        const double gm = scene.bodies[static_cast<size_t>(sun)].gm_km3_s2;
+        const double r = glm::length(s.position);
+        const double a = 1.0 / (2.0 / r - glm::dot(s.velocity, s.velocity) / gm);
+        const glm::dvec3 h = glm::cross(s.position, s.velocity);
+        const double e = glm::length(glm::cross(s.velocity, h) / gm - s.position / r);
+        const double inc = std::acos(glm::dot(glm::normalize(h), ecliptic_pole_icrf())) * kRadToDeg;
+        const double period = 2.0 * kPi * std::sqrt(a * a * a / gm) / kSecondsPerDay;
+        check(std::abs(a * (1 - e) / kAuKm - 0.93) < 0.01 && std::abs(a * (1 + e) / kAuKm - 1.03) < 0.01,
+              "ICE perihelion and aphelion in 1995 (au)", a * (1 - e) / kAuKm);
+        check(inc < 0.3 && std::abs(period - 355.0) < 2.0, "ICE orbital period in 1995 (days)", period);
+        std::printf("info: ICE in 1995: %.3f x %.3f au, i = %.2f deg, %.1f days\n", a * (1 - e) / kAuKm,
+                    a * (1 + e) / kAuKm, inc, period);
+    }
+
+    // 2014 (Horizons -111, solution s45): Earth closest approach 2014-08-09.12355 TDB at
+    // 0.001238 au; lunar flyby 2014-08-10 19:18:27 UTC, 18,401 km from the Moon's center
+    // (Horizons notes).
+    const auto [d_earth14, t_earth14] = closest(craft, earth, tdb_from_jd_tdb(2456878.62355), 3600.0, 10.0);
+    check(std::abs(d_earth14 - 0.001238 * kAuKm) < 300.0, "Earth closest approach 2014 (km)", d_earth14);
+    const auto [d_moon14, t_moon14] = closest(craft, moon, utc({2014, 8, 10, 19, 18, 27}), 3600.0, 2.0);
+    check(std::abs(d_moon14 - 18401.0) < 50.0 && std::abs(t_moon14 - utc({2014, 8, 10, 19, 18, 27})) < 180.0,
+          "lunar flyby 2014-08-10 (km from the center)", d_moon14);
+    // Hand-over from the reconstruction to the Horizons table (2014-01-01): no jump.
+    {
+        const double t_switch = utc({2014, 1, 1, 0, 0, 0});
+        double worst = 0.0;
+        for (double t = t_switch - 2 * kSecondsPerDay; t < t_switch + 2 * kSecondsPerDay; t += 600.0) {
+            const State a = scene.icrf_state_at(craft, t);
+            worst = std::max(worst, glm::length(at(craft, t + 600.0) - a.position - a.velocity * 600.0));
+        }
+        check(worst < 20.0, "ISEE-3 hand-over to the 2014 table (km per 10 min)", worst);
+    }
+    // The last day of the 2014 table is not blended towards its fallback, which ended in
+    // January (that would pull the end of the trail away). Horizons, 2014-12-31 18:00 TDB.
+    const double t_last = tdb_from_jd_tdb(2457023.25);
+    const glm::dvec3 last_hzn(2.452466292458899E+07, 1.580746653259222E+08, 7.169687407992832E+07);
+    check(glm::length(at(craft, t_last) - at(sun, t_last) - last_hzn) < 5.0, "ISEE-3 at the end of its table (km)",
+          glm::length(at(craft, t_last) - at(sun, t_last) - last_hzn));
+    scene.update(utc({2015, 2, 1, 0, 0, 0}));
+    check(!scene.bodies[static_cast<size_t>(craft)].visible, "ISEE-3 gone after the 2014 table ends");
+}
+
 void test_jwst_scene()
 {
     // Lagrange L2 of Sun / Earth-Moon: force balance in the rotating frame, ~1.5e6 km.
@@ -2977,6 +3143,7 @@ int main()
     test_earth_moon_scene();
     test_saturn_scene();
     test_mercury_scene();
+    test_isee3_scene();
     test_jwst_scene();
     test_galactic_frame();
     test_visual_orbit_convention();

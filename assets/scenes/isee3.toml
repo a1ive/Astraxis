@@ -1,0 +1,424 @@
+# ISEE-3 / ICE, 1978-2014: the first spacecraft around a libration point, then the first
+# one to a comet, then 28 years around the Sun and back to the Earth.
+#
+# Launched 1978-08-12 into a halo orbit around Sun-Earth L1 (from 1978-11-20), it watched
+# the solar wind for four years. In June 1982 it left L1 for passes through the Earth's
+# magnetic tail out towards L2, and five lunar flybys in 1983 (the last on 1983-12-22,
+# 119 km above the Moon) threw it out of the Earth-Moon system. Renamed the International
+# Cometary Explorer, it flew through the tail of comet Giacobini-Zinner on 1985-09-11 and
+# passed between the Sun and comet Halley in March 1986. Maneuvers in 1986-1987 aimed it at a
+# lunar flyby in August 2014; on a 355-day orbit it fell behind the Earth, went once around
+# the Sun relative to it, and caught up in 2014, when the ISEE-3 Reboot Project brought it
+# back to life (the thrusters fired on 2014-07-02, then the pressurant was gone) and it flew
+# past the Moon on 2014-08-10. The Sun-Earth rotating frame (the default) shows the halo loops
+# around L1, the petals of the geotail passes, and the yearly loops of the long way round.
+#
+# Sources
+# [REC]  tools/isee3/isee3_reconstruct.py (assets/ephem/SOURCES.md). Horizons only has ISEE-3
+#        in 2014, so 1978-1983 are ballistic arcs fitted to NASA GSFC SSCWeb positions and
+#        joined at the maneuvers; 1984-1985 are ballistic from the last lunar flyby with the
+#        two documented maneuvers (TDA Progress Report 42-84) solved to meet the JPL navigation
+#        trajectory of the comet encounter (PDS SBN, TRAJ_ICE.TBL); 1986-2013 joins it with two
+#        impulses (1986-10-08, 1987-05-01: dates assumed) to a ballistic arc through Horizons'
+#        2014 states, with the radiation pressure fitted to SSCWeb's 2008-2013 track.
+#        Comet Giacobini-Zinner: Horizons (SAO/1985), moved onto the navigation file's comet
+#        (~270 km) near the encounter.
+# [HZN]  JPL Horizons state vectors (tools/bake/ephem.toml): the Earth-Moon barycenter, the
+#        geocentric Moon (moon_isee3 for 1982-06 .. 1984-01, 0.5 km), comet Halley (JPL#75),
+#        ISEE-3 in 2014 (-111, JPL solution s45, fitted after the lunar flyby).
+# [APX]  E. M. Standish, Approximate Positions of the Planets, Table 2a: Venus, Mars.
+# [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
+# [ELEM] JPL SSD, Planetary Satellite Mean Elements (the Moon, outside its tables).
+# [ATM]  Atmospheres (single scattering): sources and choices in solar_system.toml.
+# [PCK]  NAIF pck00011.tpc (IAU 2015).
+# [L]    Sun / Earth-Moon barycenter mass ratio 403503.235625 / (1.32712440041279419e11 +
+#        403503.235625) = 3.04042340e-6 [GM], as in jwst.toml.
+# Flyby times and distances: computed from the tables (tools/isee3/isee3_reconstruct.py
+# prints them; tests/sim_tests.cpp checks them against the published values).
+
+name = "ISEE-3 / ICE"
+
+[view]
+focus = "Earth"
+frame = "Sun-Earth rotating"
+distance_km = 3.5e6
+pitch_deg = 25.0
+yaw_deg = 90.0
+start = "1979-01-01 00:00"
+warp = 604800.0            # a week per second: a halo loop (~178 days) in half a minute
+
+[[bodies]]
+name = "Sun"
+kind = "star"
+radii_km = [695700.0]                      # [PCK]
+gm_km3_s2 = 1.32712440041279419e11         # [GM]
+pole_ra_dec_deg = [286.13, 63.87]          # [PCK]
+prime_meridian_deg = [84.176, 14.1844]
+color = "#fff4e0"
+
+[[bodies]]
+name = "Venus"
+parent = "Sun"
+radii_km = [6051.8]                        # [PCK]
+body_gm_km3_s2 = 324858.592                # [GM]
+pole_ra_dec_deg = [272.76, 67.16]
+prime_meridian_deg = [160.20, -1.4813688]
+color = "#e8d6ae"
+orbit_color = "#d9c79f"
+texture = "textures/venus.jpg"
+texture_left_lon_deg = -180.0
+[bodies.orbit]                             # [APX] Table 2a
+type = "jpl_approx_planet"
+a_au = [0.72332102, -0.00000026]
+e = [0.00676399, -0.00005107]
+i_deg = [3.39777545, 0.00043494]
+mean_longitude_deg = [181.97970850, 58517.81560260]
+lon_peri_deg = [131.76755713, 0.05679648]
+node_deg = [76.67261496, -0.27274174]
+
+# Earth and Moon around their barycenter, as in solar_system.toml: Earth at -mu r, the Moon
+# at (1 - mu) r, r the geocentric Moon, mu = 4902.800118 / (398600.435507 + 4902.800118) [GM].
+
+[[bodies]]
+name = "Earth-Moon barycenter"
+parent = "Sun"
+kind = "barycenter"
+gm_km3_s2 = 403503.235625                  # Earth + Moon [GM]
+orbit_color = "#7fa6e0"
+[bodies.orbit]                             # [HZN] Earth-Moon barycenter
+type = "ephemeris"
+file = "ephem/emb.eph"
+
+[[bodies]]
+name = "Earth"
+parent = "Earth-Moon barycenter"
+radii_km = [6378.1366, 6356.7519]          # [PCK]
+body_gm_km3_s2 = 398600.435507             # [GM]
+pole_ra_dec_deg = [0.0, 90.0]
+prime_meridian_deg = [190.147, 360.9856235]
+color = "#5b86c9"
+trail = "none"
+texture = "textures/earth.jpg"
+texture_left_lon_deg = -180.0
+[bodies.atmosphere]                        # [ATM]
+height_km = 60.0
+rayleigh_depth = 0.1085
+rayleigh_scale_height_km = 8.0
+haze_depth = 0.005328
+haze_scale_height_km = 1.2
+haze_albedo = 0.9
+haze_g = 0.8
+[bodies.orbit]                             # [HZN] 301 (geocentric Moon), scaled by -mu
+scale = -0.0121505844
+type = "ephemeris"
+file = "ephem/moon_isee3.eph"
+fallback_blend_days = 1.0
+[bodies.orbit.fallback]
+type = "ephemeris"
+file = "ephem/moon.eph"
+fallback_blend_days = 1.0
+[bodies.orbit.fallback.fallback]           # [ELEM] DE405/LE405, J2000 ecliptic
+type = "mean_elements"
+a_km = 384400.0
+e = 0.0554
+arg_peri_deg = 318.15
+mean_anomaly_deg = 135.27
+i_deg = 5.16
+node_deg = 125.08
+period_days = 27.555032                    # of M; [ELEM] P = 27.322 (mean longitude)
+apsis_period_years = 5.997
+node_period_years = -18.600
+laplace_pole_ra_dec_deg = [270.0, 66.56070889]
+
+[[bodies]]
+name = "Moon"
+parent = "Earth-Moon barycenter"
+radii_km = [1737.4]                        # [PCK]
+body_gm_km3_s2 = 4902.800118               # [GM]
+pole_ra_dec_deg = [269.9949, 66.5392]      # [PCK] (libration terms ignored)
+prime_meridian_deg = [38.3213, 13.17635815]
+pole_rate_deg_per_century = [0.0031, 0.0130]
+color = "#a8a49c"
+orbit_color = "#b4b8c4"
+texture = "textures/moon.jpg"
+texture_left_lon_deg = -180.0
+[bodies.orbit]                             # [HZN] 301, scaled by 1 - mu
+scale = 0.9878494156
+type = "ephemeris"
+file = "ephem/moon_isee3.eph"
+fallback_blend_days = 1.0
+[bodies.orbit.fallback]
+type = "ephemeris"
+file = "ephem/moon.eph"
+fallback_blend_days = 1.0
+[bodies.orbit.fallback.fallback]           # [ELEM]
+type = "mean_elements"
+a_km = 384400.0
+e = 0.0554
+arg_peri_deg = 318.15
+mean_anomaly_deg = 135.27
+i_deg = 5.16
+node_deg = 125.08
+period_days = 27.555032
+apsis_period_years = 5.997
+node_period_years = -18.600
+laplace_pole_ra_dec_deg = [270.0, 66.56070889]
+
+[[bodies]]
+name = "Mars"
+parent = "Sun"
+radii_km = [3396.19, 3376.20]              # [PCK]
+body_gm_km3_s2 = 42828.37362
+pole_ra_dec_deg = [317.269202, 54.432516]
+prime_meridian_deg = [176.049863, 350.891982443297]
+color = "#c1673e"
+orbit_color = "#c98a6e"
+texture = "textures/mars.jpg"
+texture_left_lon_deg = -180.0
+[bodies.orbit]                             # [APX] Table 2a
+type = "jpl_approx_planet"
+a_au = [1.52371243, 0.00000097]
+e = [0.09336511, 0.00009149]
+i_deg = [1.85181869, -0.00724757]
+mean_longitude_deg = [-4.56813164, 19140.29934243]
+lon_peri_deg = [-23.91744784, 0.45223625]
+node_deg = [49.71320984, -0.26852431]
+
+# --- Comets (nuclei; no tails are drawn) ------------------------------------------------
+
+[[bodies]]
+name = "Giacobini-Zinner"
+parent = "Sun"
+radii_km = [1.0]                           # Horizons 21P: RAD = 1 km
+color = "#cfe8ff"
+orbit_color = "#9cc8ff"
+trail = "history"
+trail_history_days = 200.0
+[bodies.orbit]                             # [REC] 21P, 1985-01 .. 1986-07
+type = "ephemeris"
+file = "ephem/gz.eph"
+
+[[bodies]]
+name = "Halley"
+parent = "Sun"
+radii_km = [5.5]                           # Horizons 1P: RAD = 5.5 km (mean)
+color = "#e6f0ff"
+orbit_color = "#b8c8e8"
+trail = "history"
+trail_history_days = 300.0
+[bodies.orbit]                             # [HZN] 1P, 1985 .. 1986
+type = "ephemeris"
+file = "ephem/halley.eph"
+
+# --- ISEE-3 / ICE -----------------------------------------------------------------------
+# A child of the Sun: heliocentric from 1983-12-31, before that a geocentric table added to
+# the Earth (relative_to).
+
+[[bodies]]
+name = "ISEE-3"
+parent = "Sun"
+kind = "spacecraft"
+radii_km = [0.0009]                        # drum 1.74 m x 1.61 m (TDA PR 42-84; drawn as a marker)
+color = "#ffd27f"
+orbit_color = "#ffb347"
+trail = "history"
+trail_history_days = 13300.0               # the whole mission (frames cut it shorter)
+trail_linger_days = 365.0
+[bodies.orbit]                             # [HZN] -111, 2014
+type = "ephemeris"
+file = "ephem/isee3_2014.eph"
+fallback_blend_days = 1.0
+[bodies.orbit.fallback]                    # [REC] heliocentric, 1983-12-31 .. 2014-01-03
+type = "ephemeris"
+file = "ephem/isee3_helio.eph"
+fallback_blend_days = 1.0
+[bodies.orbit.fallback.fallback]           # [REC] geocentric, launch .. 1984-01-02
+type = "ephemeris"
+file = "ephem/isee3_geo.eph"
+relative_to = "Earth"
+
+[[frames]]
+name = "Sun-Earth rotating"
+type = "rotating"
+primary = "Sun"
+secondary = "Earth-Moon barycenter"
+origin = "Earth"
+trail_history_days = 365.0                 # two halo loops
+
+[[frames]]
+name = "Sun-Earth rotating, whole mission"
+type = "rotating"
+primary = "Sun"
+secondary = "Earth-Moon barycenter"
+origin = "Earth"
+
+[[frames]]
+name = "Heliocentric"
+type = "inertial"
+origin = "Sun"
+trail_history_days = 400.0
+
+[[frames]]
+name = "Earth-centered"
+type = "inertial"
+origin = "Earth"
+trail_history_days = 60.0
+
+[[frames]]
+name = "Moon-centered"
+type = "inertial"
+origin = "Moon"
+trail_history_days = 2.0
+
+[[frames]]
+name = "Giacobini-Zinner-centered"
+type = "inertial"
+origin = "Giacobini-Zinner"
+trail_history_days = 0.5
+
+[[markers]]
+name = "L1"
+type = "lagrange"
+point = 1
+primary = "Sun"
+secondary = "Earth-Moon barycenter"
+mass_ratio = 3.04042340e-6                 # [L]
+
+[[markers]]
+name = "L2"
+type = "lagrange"
+point = 2
+primary = "Sun"
+secondary = "Earth-Moon barycenter"
+mass_ratio = 3.04042340e-6                 # [L]
+
+# --- Events -------------------------------------------------------------------------------
+# Times UTC unless marked TDB.
+
+# Launch 1978-08-12 15:12 UTC; the reconstruction starts at the perigee an hour later.
+[[events]]
+name = "Launch and transfer to L1 (1978-08-12)"
+time = "1978-08-12 16:20"
+focus = "Earth"
+frame = "Sun-Earth rotating"
+distance_km = 4.0e6
+warp = 86400.0
+
+[[events]]
+name = "Halo orbit around L1 (1978-1982)"
+time = "1978-11-20 00:00"
+focus = "Earth"
+frame = "Sun-Earth rotating"
+distance_km = 5.0e6
+warp = 604800.0
+
+[[events]]
+name = "Leaving L1 for the geomagnetic tail (1982-06)"
+time = "1982-05-20 00:00"
+focus = "Earth"
+frame = "Sun-Earth rotating"
+distance_km = 6.0e6
+warp = 172800.0
+
+[[events]]
+name = "Geotail passes and lunar flybys (1982-1983)"
+time = "1982-09-01 00:00"
+focus = "Earth"
+frame = "Sun-Earth rotating"
+distance_km = 5.0e6
+warp = 172800.0
+
+[[events]]
+name = "Lunar flyby 4 (1983-10-21)"
+time = "1983-10-21 12:00"
+focus = "Moon"
+frame = "Moon-centered"
+distance_km = 1.2e5
+warp = 300.0
+
+# Closest approach 1983-12-22 18:44 UTC, 119 km above the far side; more than 30 minutes in
+# the Moon's shadow (TDA PR 42-84).
+[[events]]
+name = "Last lunar flyby: 119 km (1983-12-22)"
+time = "1983-12-22 18:10"
+focus = "Moon"
+frame = "Moon-centered"
+from_body = "Sun"
+phase_deg = 90.0           # side-on: the pass behind the Moon, through its shadow
+distance_km = 1.5e4
+warp = 30.0
+
+[[events]]
+name = "Escape from the Earth-Moon system (1983-12)"
+time = "1983-12-20 00:00"
+focus = "Earth"
+frame = "Earth-centered"
+distance_km = 3.0e6
+warp = 21600.0
+
+[[events]]
+name = "Cruise to Giacobini-Zinner (1984-1985)"
+time = "1984-01-01 00:00"
+focus = "Sun"
+frame = "Heliocentric"
+from_orbit_normal = "Earth-Moon barycenter"
+distance_km = 4.0e8
+warp = 604800.0
+
+# Closest approach 1985-09-11 11:02:43 UTC, 7,800 km on the tail side, at 20.7 km/s.
+[[events]]
+name = "Through the tail of Giacobini-Zinner (1985-09-11)"
+time = "1985-09-11 10:55"
+focus = "Giacobini-Zinner"
+frame = "Giacobini-Zinner-centered"
+distance_km = 4.0e4
+warp = 10.0
+
+[[events]]
+name = "Between the Sun and Halley (1986-03)"
+time = "1986-02-01 00:00"
+focus = "Sun"
+frame = "Heliocentric"
+from_orbit_normal = "Earth-Moon barycenter"
+distance_km = 4.0e8
+warp = 172800.0
+
+# 1986-1987: two maneuvers (dates assumed, see the sources) aim ICE at the Moon in 2014.
+[[events]]
+name = "The long way back to the Earth (1986-2014)"
+time = "1986-06-01 00:00"
+focus = "Sun"
+frame = "Sun-Earth rotating, whole mission"
+from_orbit_normal = "Earth-Moon barycenter"
+distance_km = 4.0e8
+warp = 5184000.0           # 60 days per second: 28 years in under 3 minutes
+
+# The ISEE-3 Reboot Project took control in late May 2014; the thrusters fired on 2014-07-02
+# and failed on 2014-07-08 (no pressurant left).
+[[events]]
+name = "Back at the Earth (2014-07)"
+time = "2014-07-01 00:00"
+focus = "Earth"
+frame = "Earth-centered"
+distance_km = 3.0e6
+warp = 21600.0
+
+# Closest approach 2014-08-10 19:18 UTC, 18,400 km from the Moon's center (Horizons notes).
+[[events]]
+name = "Lunar flyby (2014-08-10)"
+time = "2014-08-10 16:30"
+focus = "Moon"
+frame = "Moon-centered"
+from_body = "Sun"
+phase_deg = 30.0           # from the day side: it was a full Moon
+distance_km = 8.0e4
+warp = 120.0
+
+[[events]]
+name = "The whole journey, Earth fixed (1978-2014)"
+time = "2014-12-31 00:00"
+focus = "Sun"
+frame = "Sun-Earth rotating, whole mission"
+from_orbit_normal = "Earth-Moon barycenter"
+distance_km = 4.0e8
+warp = 86400.0

@@ -459,15 +459,24 @@ std::unique_ptr<MotionSource> Loader::parse_motion(const toml::table& t, const s
         std::unique_ptr<MotionSource> motion = std::make_unique<EphemerisMotion>(
             std::move(table), std::move(fallback), mode, parent_gm, blend_days * kSecondsPerDay);
         if (t.contains("relative_to")) {
-            // Data relative to a sibling defined earlier (e.g. Mercury for an orbiter).
+            // Data relative to a body defined earlier under the same parent, possibly further
+            // down (e.g. Mercury for an orbiter, or the Earth under the Earth-Moon barycenter).
             const std::string anchor_name = get_string(t, "relative_to", ctx);
-            const int anchor = m_scene->find(anchor_name);
-            if (anchor < 0 || !m_scene->bodies[static_cast<size_t>(anchor)].motion ||
-                &m_scene->bodies[static_cast<size_t>(m_scene->bodies[static_cast<size_t>(anchor)].parent)] != parent) {
-                fail(ctx, "relative_to needs a body defined earlier with the same parent and an orbit");
+            std::vector<const MotionSource*> chain;
+            int b = m_scene->find(anchor_name);
+            while (b >= 0 && &m_scene->bodies[static_cast<size_t>(b)] != parent) {
+                const Body& body = m_scene->bodies[static_cast<size_t>(b)];
+                if (!body.motion) {
+                    b = -1;
+                    break;
+                }
+                chain.push_back(body.motion.get());
+                b = body.parent;
             }
-            motion = std::make_unique<OffsetMotion>(std::move(motion),
-                                                    m_scene->bodies[static_cast<size_t>(anchor)].motion.get());
+            if (b < 0 || chain.empty()) {
+                fail(ctx, "relative_to needs a body defined earlier below the same parent, with orbits up to it");
+            }
+            motion = std::make_unique<OffsetMotion>(std::move(motion), std::move(chain));
         }
         return motion;
     }

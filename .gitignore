@@ -397,3 +397,6 @@ FodyWeavers.xsd
 *.sln.iml
 
 *.pdf
+
+# ISEE-3 reconstruction downloads and fits (tools/isee3/isee3_reconstruct.py)
+tools/isee3/cache/

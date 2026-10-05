@@ -27,6 +27,7 @@
 #                    impact on Mercury 2015-04-30)
 #   BepiColombo (-121): 2018-Oct-20 02:14 .. 2027-Apr-10 23:59 TDB (ESA MPO file; fit through
 #                    2026-09-28, prediction thereafter, Mercury orbit insertion late 2026)
+#   ISEE-3 / ICE (-111): 2014 only; 1978-1986 is reconstructed by tools/isee3/
 #   Parker Solar Probe (-96): 2018-Aug-12 08:16:23 TDB .. 2030-Jan-01 (as flown to
 #                    2026-Sep-01, then the reference planning trajectory)
 # Tolerances are for display: heliocentric positions carry the Sun's reflex motion
@@ -856,3 +857,52 @@ stop = "2027-04-10 23:58"     # Horizons coverage ends 2027-04-10 23:59
 base_step_minutes = 30
 tolerance_km = 2.0
 periapsides = true
+
+# --- ISEE-3 / ICE (assets/scenes/isee3.toml) ----------------------------------
+# The spacecraft itself is reconstructed by tools/isee3/isee3_reconstruct.py (Horizons
+# only has its 2014 return). Here: the Moon for the 1983 lunar flybys (the last one
+# 119 km above the surface) and comet Halley, which ICE watched from 0.2 au in 1986.
+# Horizons picks the comet orbit solution by "CAP<year": 1P is JPL#75 (data arc
+# 1835-1994).
+
+[[target]]
+name = "moon_isee3"
+command = "301"
+naif_id = 301
+center = "500@399"
+center_naif_id = 399
+start = "1982-06-01"
+stop = "1984-01-10"
+base_step_minutes = 360
+tolerance_km = 0.5
+kepler_gm_km3_s2 = 403503.235625   # Earth + Moon (DE440)
+radius_km = 1737.4
+
+[[target]]
+name = "halley"
+command = "DES=1P;CAP<1987"
+naif_id = 90000030          # Horizons record number
+center = "500@10"
+center_naif_id = 10
+start = "1985-01-01"
+stop = "1987-01-01"
+base_step_minutes = 1440
+tolerance_km = 5.0
+kepler_gm_km3_s2 = 1.32712440041279419e11
+
+# ISEE-3 / ICE in 2014 (Horizons -111, JPL solution s45, fitted after the 2014-08-10 lunar
+# flyby): the return to the Earth, flown by the ISEE-3 Reboot Project. 1-minute samples
+# within 2 million km of the Earth-Moon barycenter resolve the Earth and Moon passes.
+[[target]]
+name = "isee3_2014"
+command = "-111"
+naif_id = -111
+center = "500@10"
+center_naif_id = 10
+start = "2014-01-01"
+stop = "2014-12-31 23:00"
+base_step_minutes = 720
+tolerance_km = 1.0
+kepler_gm_km3_s2 = 1.32712440041279419e11
+refine_near = ["emb"]
+refine_near_km = 2000000.0

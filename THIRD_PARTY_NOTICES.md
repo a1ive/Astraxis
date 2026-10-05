@@ -24,6 +24,7 @@ Per-file details, original download URLs and processing steps are in each direct
 | Files | Source | License / attribution |
 |---|---|---|
 | `assets/ephem/*.eph` | JPL Horizons (NASA/JPL-Caltech) state vectors | U.S. Government work, public domain |
+| `assets/ephem/{isee3_geo,isee3_helio,gz}.eph` | Reconstructed from NASA GSFC SSCWeb positions of ISEE-3 and the JPL Navigation ICE trajectory (PDS Small Bodies Node, ICE-C-PLAWAV-3-RDR-ESP-GIACOBIN-ZIN-V1.0) | U.S. Government works / PDS data, public domain |
 | `assets/belts/*.bin` | JPL Small-Body Database (NASA/JPL-Caltech) orbital elements | U.S. Government work, public domain |
 | `assets/stars/bsc5.csv` | Yale Bright Star Catalogue, 5th Revised Ed. (Hoffleit & Warren 1991), CDS catalogue V/50 | Freely distributed astronomical data (NASA/CDS) |
 | `assets/stars/m4.csv` | Gaia DR3 (ESA/Gaia/DPAC), CDS catalogue I/355, members of M4 selected and processed by `tools/stars/make_m4.py` | CC BY-NC 3.0 IGO; credit: ESA/Gaia/DPAC. Non-commercial use only |
