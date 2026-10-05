@@ -149,7 +149,7 @@ haze_g = 0.8
 scale = -0.0121505844
 type = "ephemeris"
 file = "ephem/moon.eph"
-fallback_blend_days = 1.0
+fallback_blend_days = 30.0                 # the elements are ~10 deg off at the ends: spread over a month
 [bodies.orbit.fallback]                    # [ELEM] DE405/LE405, J2000 ecliptic (drifts by degrees)
 type = "mean_elements"
 a_km = 384400.0
@@ -179,7 +179,7 @@ texture_left_lon_deg = -180.0
 scale = 0.9878494156
 type = "ephemeris"
 file = "ephem/moon.eph"
-fallback_blend_days = 1.0
+fallback_blend_days = 30.0                 # the elements are ~10 deg off at the ends: spread over a month
 [bodies.orbit.fallback]                    # [ELEM] DE405/LE405, J2000 ecliptic (drifts by degrees)
 type = "mean_elements"
 a_km = 384400.0

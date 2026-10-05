@@ -198,7 +198,7 @@ fallback_blend_days = 1.0
 [bodies.orbit.fallback]
 type = "ephemeris"
 file = "ephem/moon.eph"
-fallback_blend_days = 1.0
+fallback_blend_days = 30.0                 # the elements are ~10 deg off at the ends: spread over a month
 [bodies.orbit.fallback.fallback]           # [ELEM] DE405/LE405, J2000 ecliptic
 type = "mean_elements"
 a_km = 384400.0
@@ -232,7 +232,7 @@ fallback_blend_days = 1.0
 [bodies.orbit.fallback]
 type = "ephemeris"
 file = "ephem/moon.eph"
-fallback_blend_days = 1.0
+fallback_blend_days = 30.0                 # the elements are ~10 deg off at the ends: spread over a month
 [bodies.orbit.fallback.fallback]           # [ELEM]
 type = "mean_elements"
 a_km = 384400.0

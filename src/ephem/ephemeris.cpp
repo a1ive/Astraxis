@@ -182,8 +182,14 @@ State EphemerisMotion::eval(double t_tdb) const
         if (edge >= m_blend_s) {
             return s;
         }
-        // Smoothstep from the fallback at the edge to the table at blend_s inside
-        // (the weight's own rate is left out of the velocity).
+        // Smoothstep from the fallback at the edge to the table at blend_s inside.
+        // The velocity blends the two velocities and leaves out the weight's own
+        // rate, w' (S - F) (up to 1.5 |S - F| / blend_s): it stays the body's
+        // orbital velocity, as the osculating-orbit trail and the info panel read
+        // it, not the rate of this cosmetic fade. Both are only good while the
+        // fallback is close to the table here (test_ephemeris_blends); a body
+        // whose fallback cannot be (e.g. elements of another epoch) should use
+        // Kepler extrapolation instead.
         const double x = edge / m_blend_s;
         const double w = x * x * (3.0 - 2.0 * x);
         const State f = m_fallback->eval(t_tdb);
@@ -191,6 +197,12 @@ State EphemerisMotion::eval(double t_tdb) const
     }
     if (m_fallback) {
         return m_fallback->eval(t_tdb);
+    }
+    if (m_extrapolation == Extrapolation::Kepler && (t_tdb < m_table->start() || t_tdb > m_table->end())) {
+        // Continuous in position and velocity at the end (unlike a fallback from
+        // elements of another epoch, which would have to be faded in).
+        const EphemerisTable::Knot& k = t_tdb > m_table->end() ? m_table->knots().back() : m_table->knots().front();
+        return propagate_kepler({k.position, k.velocity}, m_table->reference_gm(), t_tdb - k.t);
     }
     if (m_extrapolation == Extrapolation::Linear && t_tdb > m_table->end()) {
         const EphemerisTable::Knot& k = m_table->knots().back();
@@ -206,6 +218,9 @@ bool EphemerisMotion::valid_at(double t_tdb) const
     }
     if (m_fallback) {
         return m_fallback->valid_at(t_tdb); // e.g. a table for the next mission phase
+    }
+    if (m_extrapolation == Extrapolation::Kepler) {
+        return t_tdb < m_table->start() || t_tdb > m_table->end(); // not in gaps
     }
     return m_extrapolation == Extrapolation::Linear && t_tdb > m_table->end();
 }

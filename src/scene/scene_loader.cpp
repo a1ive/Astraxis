@@ -450,8 +450,13 @@ std::unique_ptr<MotionSource> Loader::parse_motion(const toml::table& t, const s
         Extrapolation mode = Extrapolation::None;
         if (extrapolate == "linear") {
             mode = Extrapolation::Linear;
+        } else if (extrapolate == "kepler") {
+            mode = Extrapolation::Kepler;
+            if (!(table->reference_gm() > 0.0) || fallback) {
+                fail(ctx, "extrapolate = \"kepler\" needs a table with a reference GM (AXEPH2) and no fallback");
+            }
         } else if (extrapolate != "none") {
-            fail(ctx, "extrapolate must be \"none\" or \"linear\"");
+            fail(ctx, "extrapolate must be \"none\", \"linear\" or \"kepler\"");
         }
         const double blend_days = get_double_or(t, "fallback_blend_days", 0.0);
         if (blend_days < 0.0 || (blend_days > 0.0 && !fallback)) {

@@ -73,12 +73,13 @@ private:
 enum class Extrapolation {
     None,   // not present (e.g. a spacecraft before launch)
     Linear, // continue along the end velocity (e.g. cruising spacecraft)
+    Kepler, // two-body orbit from the nearer end of the table (its reference GM), both ways
 };
 
 class EphemerisMotion final : public MotionSource {
 public:
     // `fallback` (optional) is used outside the table span and takes precedence
-    // over `extrapolation`; within `blend_s` of either end of the span (or of a
+    // over `extrapolation` (Kepler extrapolation needs a table with a reference GM); within `blend_s` of either end of the span (or of a
     // stretch between gaps) the position fades between the two, so a less accurate fallback (e.g. mean
     // elements) does not jump. `parent_gm` (km^3/s^2, optional) enables the
     // osculating-orbit trail.

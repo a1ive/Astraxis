@@ -28,6 +28,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -475,15 +477,13 @@ void test_solar_system_bodies()
     check(e_geo < 25.0, "geocentric Moon agrees between scenes (km)", e_geo);
 
     // Fallbacks at the end of the baked tables (faded in over fallback_blend_days):
-    // osculating elements from 2026 (Pluto: 2016) drift, most for Ceres, which Jupiter
-    // perturbs; the Moon's mean elements are off by degrees.
+    // the Moon's mean elements are off by degrees, Charon's by little.
     const double t_end = tdb_from_jd_tdb(2488067.5); // 2099-12-30, within the tables
     struct Join {
         const char* body;
         double max_deg;
     };
-    for (const Join& j : {Join{"Ceres", 6.0}, Join{"Eris", 0.1}, Join{"Sedna", 0.2}, Join{"Pluto system", 0.6},
-                          Join{"Charon", 0.1}, Join{"Moon", 12.0}}) {
+    for (const Join& j : {Join{"Charon", 0.1}, Join{"Moon", 12.0}}) {
         const int i = scene.find(j.body);
         const int parent = scene.bodies[static_cast<size_t>(i)].parent;
         const auto* scaled = dynamic_cast<const ScaledMotion*>(scene.bodies[static_cast<size_t>(i)].motion.get());
@@ -493,9 +493,45 @@ void test_solar_system_bodies()
         if (!eph || !eph->fallback()) {
             continue;
         }
-        const double a = angle_deg(m.eval(t_end).position, eph->fallback()->eval(t_end).position);
+        const double a = angle_deg(eph->table().eval(t_end).position, eph->fallback()->eval(t_end).position);
         check(a < j.max_deg, j.body, a);
         std::printf("info: %s fallback at the end of its table: %.3f deg\n", j.body, a);
+    }
+
+    // The Pluto system and the small bodies continue on the two-body orbit from the
+    // nearer end of their tables: continuous there in position and velocity. How
+    // fast it drifts from the real (perturbed) orbit shows by running it back over
+    // the table, from the 2100 end to 2026.
+    const double t_2026 = tdb_from_jd_tdb(2461200.5);
+    for (const Join& j : {Join{"Pluto system", 0.2}, Join{"Ceres", 2.5}, Join{"Pallas", 6.0}, Join{"Vesta", 1.0},
+                          Join{"Eris", 0.2}, Join{"Haumea", 0.4}, Join{"Makemake", 0.3}, Join{"Gonggong", 0.2},
+                          Join{"Quaoar", 0.1}, Join{"Sedna", 0.2}, Join{"Arrokoth", 0.1}}) {
+        const MotionSource* m = scene.bodies[static_cast<size_t>(scene.find(j.body))].motion.get();
+        const auto* eph = dynamic_cast<const EphemerisMotion*>(m);
+        if (eph && eph->fallback()) {
+            eph = dynamic_cast<const EphemerisMotion*>(eph->fallback()); // Arrokoth: the NH table first
+        }
+        check(eph != nullptr && eph->fallback() == nullptr && eph->table().reference_gm() > 0.0,
+              (std::string(j.body) + ": Kepler-relative table, no fallback").c_str());
+        if (!eph) {
+            continue;
+        }
+        const EphemerisTable& table = eph->table();
+        double worst_jump = 0.0;
+        for (const bool at_end : {false, true}) {
+            const EphemerisTable::Knot& k = at_end ? table.knots().back() : table.knots().front();
+            const double outward = at_end ? 1.0 : -1.0; // 1 s outside the table
+            const State outside = eph->eval(k.t + outward);
+            worst_jump = std::max({worst_jump, glm::length(outside.position - (k.position + outward * k.velocity)),
+                                   1e2 * glm::length(outside.velocity - k.velocity)}); // km, ~10 m/s
+        }
+        check(worst_jump < 1e-3 && eph->valid_at(table.start() - 1e9) && eph->valid_at(table.end() + 1e9),
+              (std::string(j.body) + ": extrapolation continuous at both ends and valid beyond").c_str(), worst_jump);
+        const EphemerisTable::Knot& last = table.knots().back();
+        const State back = propagate_kepler({last.position, last.velocity}, table.reference_gm(), t_2026 - last.t);
+        const double drift = angle_deg(back.position, table.eval(t_2026).position);
+        check(drift < j.max_deg, (std::string(j.body) + ": two-body drift over 74 years (deg)").c_str(), drift);
+        std::printf("info: %s two-body orbit from the 2100 end, run back to 2026: %.3f deg\n", j.body, drift);
     }
 
     // Shapes: triaxial Haumea, Quaoar's oblate spheroid.
@@ -3713,6 +3749,119 @@ void test_simulation()
     check(!sim.touring(), "set_focus stops the tour");
 }
 
+// Every scene file, loaded once (by file stem).
+const std::vector<std::pair<std::string, std::shared_ptr<const Scene>>>& all_scenes()
+{
+    static std::vector<std::pair<std::string, std::shared_ptr<const Scene>>> scenes;
+    if (scenes.empty()) {
+        for (const auto& file : std::filesystem::directory_iterator(ASTRAXIS_ASSET_DIR "/scenes")) {
+            scenes.emplace_back(file.path().stem().string(),
+                                std::make_shared<const Scene>(load_scene_or_die(file.path().filename().string().c_str())));
+        }
+    }
+    return scenes;
+}
+
+// A body defined in several scenes (orbits are copied between scene files) moves
+// the same way in each, relative to the same parent: inside its tables and in
+// the fallbacks outside them.
+void test_cross_scene_orbits()
+{
+    struct Entry {
+        std::string scene;
+        std::shared_ptr<const Scene> data;
+        int body;
+    };
+    std::map<std::string, std::vector<Entry>> by_name; // "name / parent" -> entries
+    for (const auto& [name, scene] : all_scenes()) {
+        for (size_t i = 0; i < scene->bodies.size(); ++i) {
+            const Body& b = scene->bodies[i];
+            if (!b.motion || b.parent < 0) {
+                continue;
+            }
+            const std::string key = b.name + " / " + scene->bodies[static_cast<size_t>(b.parent)].name;
+            by_name[key].push_back({name, scene, static_cast<int>(i)});
+        }
+    }
+    for (const auto& [key, entries] : by_name) {
+        for (size_t k = 1; k < entries.size(); ++k) {
+            const MotionSource& a = *entries[0].data->bodies[static_cast<size_t>(entries[0].body)].motion;
+            const MotionSource& b = *entries[k].data->bodies[static_cast<size_t>(entries[k].body)].motion;
+            double worst = 0.0;
+            for (int year = 1900; year <= 2150; ++year) {
+                for (int month = 0; month < 12; month += 5) {
+                    const double t = tdb_from_unix_utc(0.0) + ((year - 1970) * 365.25 + month * 30.44) * kSecondsPerDay;
+                    if (!a.valid_at(t) || !b.valid_at(t)) {
+                        continue;
+                    }
+                    const glm::dvec3 pa = a.eval(t).position;
+                    worst = std::max(worst, glm::length(b.eval(t).position - pa) / glm::length(pa));
+                }
+            }
+            if (worst > 1e-3) {
+                std::printf("  %s: %s vs %s differ by %.3g of the distance\n", key.c_str(), entries[0].scene.c_str(),
+                            entries[k].scene.c_str(), worst);
+            }
+            check(worst <= 1e-3, ("same orbit in every scene: " + key).c_str(), worst);
+        }
+    }
+}
+
+// Where a table hands over to its fallback, the position fades between the two
+// over fallback_blend_days, and the velocity leaves out the fade's own rate
+// (EphemerisMotion::eval). Both are only good while the fallback stays close to
+// the table there: the left-out rate, |dP/dt - V|, must stay a small part of
+// the body's speed.
+void test_ephemeris_blends()
+{
+    constexpr double kMaxShare = 0.1;
+    for (const auto& [name, scene] : all_scenes()) {
+        for (const Body& body : scene->bodies) {
+            const MotionSource* m = body.motion.get();
+            if (const auto* scaled = dynamic_cast<const ScaledMotion*>(m)) {
+                m = &scaled->inner();
+            }
+            for (const auto* eph = dynamic_cast<const EphemerisMotion*>(m); eph && eph->fallback();
+                 eph = dynamic_cast<const EphemerisMotion*>(eph->fallback())) {
+                const EphemerisTable& table = eph->table();
+                std::vector<double> edges;
+                for (const EphemerisTable::Knot& k : table.knots()) {
+                    double a = 0.0;
+                    double b = 0.0;
+                    table.segment(k.t, &a, &b);
+                    if (edges.empty() || edges.back() != b) {
+                        edges.push_back(a);
+                        edges.push_back(b);
+                    }
+                }
+                double worst = 0.0;
+                for (double edge : edges) {
+                    for (double t = edge - 31.0 * kSecondsPerDay; t <= edge + 31.0 * kSecondsPerDay; t += 3600.0) {
+                        double a0 = 0.0, b0 = 0.0, a1 = 0.0, b1 = 0.0;
+                        if (!table.covers(t - 60.0) || !table.covers(t + 60.0)) {
+                            continue;
+                        }
+                        table.segment(t - 60.0, &a0, &b0);
+                        table.segment(t + 60.0, &a1, &b1);
+                        if (a0 != a1 || b0 != b1) {
+                            continue;
+                        }
+                        const State s = eph->eval(t);
+                        const glm::dvec3 rate = (eph->eval(t + 60.0).position - eph->eval(t - 60.0).position) / 120.0;
+                        worst = std::max(worst, glm::length(rate - s.velocity) / glm::length(s.velocity));
+                    }
+                }
+                if (worst > 0.02) {
+                    std::printf("info: %s / %s: fallback blend leaves out %.1f%% of the speed\n", name.c_str(),
+                                body.name.c_str(), 100.0 * worst);
+                }
+                check(worst < kMaxShare, (name + " / " + body.name + ": fallback close to the table at its edges").c_str(),
+                      worst);
+            }
+        }
+    }
+}
+
 // Label layout: priority order, easing, no overlapping labels once settled, picking.
 void test_label_layout()
 {
@@ -3879,6 +4028,8 @@ int main()
     test_death_star_precession();
     test_sgr_a_ghosts();
     test_satellite_fades();
+    test_cross_scene_orbits();
+    test_ephemeris_blends();
     test_simulation();
     test_label_layout();
     test_orbit_center();

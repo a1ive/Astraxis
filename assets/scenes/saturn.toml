@@ -359,7 +359,7 @@ orbit_color = "#c0a88c"
 [bodies.orbit]                             # [HZN] 607
 type = "ephemeris"
 file = "ephem/hyperion_cas.eph"
-fallback_blend_days = 1.0
+fallback_blend_days = 10.0                 # the elements are 2.4e5 km off at the ends
 [bodies.orbit.fallback]                    # [ELEM]
 type = "mean_elements"
 a_km = 1481500.0
