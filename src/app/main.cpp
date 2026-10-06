@@ -1,6 +1,7 @@
 #include "app/app.hpp"
 #include "app/screensaver.hpp"
 #ifdef _WIN32
+#include "app/settings_dialog.hpp"
 #include "app/wallpaper.hpp"
 #endif
 #include "platform/paths.hpp"
@@ -85,12 +86,18 @@ int run_screensaver(const astraxis::ScreensaverOptions& options)
     return ok ? 0 : 1;
 }
 
-void show_screensaver_settings()
+// /c: the settings dialog, modal to the Screen Saver Settings dialog if given.
+void show_screensaver_settings(uint64_t parent)
 {
-    const std::string text = "Astraxis has no screensaver settings dialog yet.\n\n"
-                             "The screensaver reads the [view] and [screensaver] sections of\n" +
-                             astraxis::config_path().string();
-    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Astraxis", text.c_str(), nullptr);
+#ifdef _WIN32
+    astraxis::SettingsDialogContext context;
+    context.kind = astraxis::SettingsDialogKind::Screensaver;
+    context.config = astraxis::config_path();
+    context.asset_dir = astraxis::asset_directory();
+    astraxis::run_settings_dialog(context, reinterpret_cast<void*>(static_cast<uintptr_t>(parent)));
+#else
+    (void)parent;
+#endif
 }
 
 // ASTRAXIS_LOG=<file> appends the log to that file: the Release build and a
@@ -136,14 +143,14 @@ int main(int argc, char* argv[])
             return run_screensaver(options);
         }
         case 'c':
-            show_screensaver_settings();
+            show_screensaver_settings(command.hwnd);
             return 0;
         default:
             return 0; // 'a': no passwords
         }
     }
     if (argc < 2 && running_as_scr(argv[0])) {
-        show_screensaver_settings();
+        show_screensaver_settings(0);
         return 0;
     }
 

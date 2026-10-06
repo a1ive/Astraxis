@@ -2,12 +2,12 @@
 
 namespace astraxis {
 
-// A notification area icon with a context menu (Pause / Resume, Exit).
+// A notification area icon with a context menu (Settings, Pause / Resume, Exit).
 // Windows only. Its messages are dispatched by the thread's message loop
 // (SDL_PumpEvents).
 class TrayIcon {
 public:
-    enum class Command { None, TogglePause, Exit };
+    enum class Command { None, Settings, TogglePause, Exit };
 
     bool create(const char* tooltip);
     void destroy();

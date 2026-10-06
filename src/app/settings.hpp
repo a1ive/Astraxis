@@ -4,6 +4,7 @@
 
 #include <filesystem>
 #include <string>
+#include <vector>
 
 namespace astraxis {
 
@@ -35,10 +36,24 @@ struct Settings {
 bool load_settings(const std::filesystem::path& path, SettingsSection section, Settings& out,
                    std::string* error = nullptr);
 
-// Writes the view keys to [view] (dropping the section's overrides of them)
-// and the mode keys to `section`, keeping the file's other sections and keys.
-// Refuses to overwrite a file that cannot be parsed.
+// Where save_settings puts the view keys.
+enum class ViewScope {
+    Shared,    // in [view], dropping the section's overrides (the window's panel)
+    Overrides, // in the section, only those that differ from [view] (the settings dialog)
+};
+
+// Writes the mode keys to `section` and the view keys as `scope` says,
+// keeping the file's other sections and keys. Refuses to overwrite a file
+// that cannot be parsed.
 bool save_settings(const std::filesystem::path& path, SettingsSection section, const Settings& settings,
-                   std::string* error = nullptr);
+                   std::string* error = nullptr, ViewScope scope = ViewScope::Shared);
+
+// Scene files in <asset_dir>/scenes with the name each gives itself (its
+// top-level `name`; the file stem if it has none), sorted by file name.
+struct SceneEntry {
+    std::string stem;
+    std::string name;
+};
+std::vector<SceneEntry> list_scenes(const std::filesystem::path& asset_dir);
 
 } // namespace astraxis

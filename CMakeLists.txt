@@ -198,8 +198,11 @@ if(WIN32)
     # The manifest declares Windows 8-11 support: the wallpaper's layered child
     # windows need it.
     target_sources(astraxis PRIVATE res/astraxis.rc res/astraxis.manifest)
-    # The live wallpaper (Windows only).
+    # The live wallpaper and the settings dialog (/c) (Windows only).
     target_sources(astraxis PRIVATE
+        res/settings_dialog.rc
+        src/app/settings_dialog.cpp
+        src/app/settings_dialog.hpp
         src/app/wallpaper.cpp
         src/app/wallpaper.hpp
         src/platform/tray_icon.cpp
@@ -207,6 +210,27 @@ if(WIN32)
         src/platform/wallpaper_layer.cpp
         src/platform/wallpaper_layer.hpp
     )
+    target_include_directories(astraxis PRIVATE res)
+    target_link_libraries(astraxis PRIVATE comctl32)
+
+    # astraxis_wallpaper.exe: the wallpaper's settings dialog and launcher.
+    add_executable(astraxis_wallpaper WIN32
+        src/app/settings_dialog.cpp
+        src/app/settings_dialog.hpp
+        src/app/wallpaper_launcher.cpp
+        src/platform/paths.cpp
+        src/platform/paths.hpp
+        src/platform/window.cpp
+        src/platform/window.hpp
+        res/astraxis.rc
+        res/astraxis.manifest
+        res/settings_dialog.rc
+    )
+    target_include_directories(astraxis_wallpaper PRIVATE res)
+    target_link_libraries(astraxis_wallpaper PRIVATE astraxis_settings SDL3::SDL3 comctl32)
+    astraxis_set_warnings(astraxis_wallpaper)
+    # Built with astraxis, into the same directory (it starts astraxis.exe next to it).
+    add_dependencies(astraxis astraxis_wallpaper)
 endif()
 
 # Runtime assets (scenes, star catalog, textures) live next to the executable.

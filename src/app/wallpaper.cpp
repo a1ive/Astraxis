@@ -4,6 +4,11 @@
 
 #include <SDL3/SDL.h>
 
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#include <shellapi.h>
+
 namespace astraxis {
 
 namespace {
@@ -125,6 +130,16 @@ void Wallpaper::run()
         handle_events();
 
         switch (m_tray.take_command()) {
+        case TrayIcon::Command::Settings: {
+            // The launcher, next to us: its Apply restarts this process.
+            const std::filesystem::path launcher = config_path().parent_path() / "astraxis_wallpaper.exe";
+            if (reinterpret_cast<INT_PTR>(ShellExecuteW(nullptr, L"open", launcher.c_str(), nullptr, nullptr,
+                                                        SW_SHOWNORMAL)) <= 32) {
+                SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Astraxis",
+                                         "astraxis_wallpaper.exe was not found next to astraxis.exe.", nullptr);
+            }
+            break;
+        }
         case TrayIcon::Command::TogglePause:
             m_paused = !m_paused;
             m_tray.set_paused(m_paused);

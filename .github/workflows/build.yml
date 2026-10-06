@@ -57,7 +57,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $package = 'build/package/Astraxis-windows-x64'
           New-Item -ItemType Directory -Path $package -Force | Out-Null
-          Copy-Item 'build/ci/Release/astraxis.exe', 'build/ci/Release/astraxis.scr' $package
+          Copy-Item 'build/ci/Release/astraxis.exe', 'build/ci/Release/astraxis.scr', 'build/ci/Release/astraxis_wallpaper.exe' $package
           Copy-Item 'build/ci/Release/assets' $package -Recurse
           Copy-Item 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'README.md' $package
           Compress-Archive -Path $package -DestinationPath 'build/Astraxis-windows-x64.zip'

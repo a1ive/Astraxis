@@ -4043,6 +4043,47 @@ void test_settings()
           "unparsable config is reported, defaults used");
     check(!save_settings(path, SettingsSection::Window, window), "unparsable config is not overwritten");
 
+    // The settings dialog: view keys go to the section, only where they differ from [view].
+    {
+        std::ofstream file(path, std::ios::binary);
+        file << "[view]\nexposure = 2\nlabels = false\n[screensaver]\nstars = 0.5\norbits = false\n";
+    }
+    Settings saver;
+    load_settings(path, SettingsSection::Screensaver, saver);
+    saver.view.post.exposure = 2.0f;     // as in [view]: no override
+    saver.view.star_brightness = 1.0f;   // back to [view] (the default): the override goes
+    saver.view.post.bloom_strength = 0.1f; // differs: an override
+    saver.view.orbits = false;            // still differs: stays
+    saver.scene = "saturn";
+    check(save_settings(path, SettingsSection::Screensaver, saver, nullptr, ViewScope::Overrides),
+          "dialog settings save");
+    {
+        std::ifstream file(path, std::ios::binary);
+        const std::string text((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+        const size_t at = text.find("\n[screensaver]"); // not the header comment's mention
+        const size_t end = at == std::string::npos ? at : text.find("\n[", at + 1);
+        const std::string section = at == std::string::npos ? "" : text.substr(at, end - at);
+        check(section.find("exposure") == std::string::npos && section.find("stars") == std::string::npos &&
+                  section.find("labels") == std::string::npos,
+              "no overrides where the dialog matches [view]");
+        check(section.find("bloom = 0.1") != std::string::npos && section.find("orbits = false") != std::string::npos,
+              "overrides where the dialog differs from [view]");
+        check(text.find("exposure = 2") != std::string::npos, "[view] untouched by the dialog");
+    }
+    Settings saver_again;
+    load_settings(path, SettingsSection::Screensaver, saver_again);
+    check(saver_again.scene == "saturn" && saver_again.view.post.bloom_strength == 0.1f &&
+              saver_again.view.post.exposure == 2.0f && !saver_again.labels && !saver_again.view.orbits &&
+              saver_again.view.star_brightness == 1.0f,
+          "dialog settings read back");
+
+    // Scene names for the dialog.
+    const std::vector<SceneEntry> scenes = list_scenes(ASTRAXIS_ASSET_DIR);
+    const auto earth_moon = std::find_if(scenes.begin(), scenes.end(),
+                                         [](const SceneEntry& s) { return s.stem == "earth_moon"; });
+    check(scenes.size() > 10 && earth_moon != scenes.end() && earth_moon->name == "Earth-Moon",
+          "scene list with names");
+
     std::filesystem::remove_all(dir, ec);
 }
 

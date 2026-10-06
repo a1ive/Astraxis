@@ -19,6 +19,7 @@ constexpr UINT kCallbackMessage = WM_APP + 1;
 constexpr UINT kIconId = 1;
 constexpr UINT kMenuPause = 1;
 constexpr UINT kMenuExit = 2;
+constexpr UINT kMenuSettings = 3;
 
 LRESULT CALLBACK tray_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
@@ -127,6 +128,8 @@ bool TrayIcon::handle_message(unsigned msg, long long lparam)
 void TrayIcon::show_menu()
 {
     const HMENU menu = CreatePopupMenu();
+    AppendMenuW(menu, MF_STRING, kMenuSettings, L"Settings...");
+    SetMenuDefaultItem(menu, kMenuSettings, FALSE);
     AppendMenuW(menu, MF_STRING, kMenuPause, m_paused ? L"Resume" : L"Pause");
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(menu, MF_STRING, kMenuExit, L"Exit");
@@ -141,7 +144,9 @@ void TrayIcon::show_menu()
     PostMessageW(hwnd, WM_NULL, 0, 0);
     DestroyMenu(menu);
 
-    if (chosen == kMenuPause) {
+    if (chosen == kMenuSettings) {
+        m_command = Command::Settings;
+    } else if (chosen == kMenuPause) {
         m_command = Command::TogglePause;
     } else if (chosen == kMenuExit) {
         m_command = Command::Exit;
