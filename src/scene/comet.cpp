@@ -91,7 +91,11 @@ DustTail::Slot DustTail::make_slot(const Scene& scene, int body, int64_t index, 
 
 void DustTail::update(const Scene& scene, int body, double t_tdb)
 {
+    if (body == m_body && t_tdb == m_last_tdb) {
+        return;
+    }
     m_grains.clear();
+    m_last_tdb = t_tdb;
     const Body& comet_body = scene.bodies[static_cast<size_t>(body)];
     const Body::Comet& comet = comet_body.comet;
     if (body != m_body) {

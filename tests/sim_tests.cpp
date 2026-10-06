@@ -1040,6 +1040,14 @@ void test_dust_tail()
     }
     const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - clock_start).count();
     std::printf("info: dust tail update %.2f ms per frame\n", ms / 20.0);
+    // Another output in the same frame: the grains are kept, not propagated again.
+    const size_t kept = tail.grains().size();
+    const auto repeat_start = std::chrono::steady_clock::now();
+    tail.update(scene, halley, t + 60.0 * 20);
+    const double repeat_ms =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - repeat_start).count();
+    check(tail.grains().size() == kept, "dust tail kept at the same time");
+    std::printf("info: dust tail update at the same time %.4f ms\n", repeat_ms);
     // Giacobini-Zinner at ICE's pass: also a tail on the anti-sun side.
     {
         const int gz = scene.find("Giacobini-Zinner");

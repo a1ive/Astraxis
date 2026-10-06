@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <deque>
+#include <limits>
 #include <vector>
 
 namespace astraxis {
@@ -66,7 +67,9 @@ public:
     // r_h^-(0.4 K1 - 2)) times the grain size distribution (scattering cross
     // section per log beta ~ beta^0.5 for n(a) ~ a^-3.5, Dohnanyi 1969, JGR 74,
     // 2531), normalized to a sum of 1, then times (r_comet / r_grain)^2 for the
-    // sunlight where each grain is. The oldest tenth fades out.
+    // sunlight where each grain is. The oldest tenth fades out. Grains are ICRF,
+    // so they depend on t alone: a second update at the same t (another output
+    // in the same frame, or paused time) keeps them.
     void update(const Scene& scene, int body, double t_tdb);
     const std::vector<DustGrain>& grains() const { return m_grains; }
 
@@ -88,6 +91,7 @@ private:
     Slot make_slot(const Scene& scene, int body, int64_t index, double slot_s) const;
 
     int m_body = -1;
+    double m_last_tdb = std::numeric_limits<double>::quiet_NaN(); // of m_grains
     std::deque<Slot> m_slots; // consecutive indices
     std::vector<DustGrain> m_grains;
 };
