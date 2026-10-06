@@ -59,7 +59,7 @@ jobs:
           New-Item -ItemType Directory -Path $package -Force | Out-Null
           Copy-Item 'build/ci/Release/astraxis.exe', 'build/ci/Release/astraxis.scr', 'build/ci/Release/astraxis_wallpaper.exe' $package
           Copy-Item 'build/ci/Release/assets' $package -Recurse
-          Copy-Item 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'README.md' $package
+          Copy-Item 'LICENSE', 'THIRD_PARTY_NOTICES.md' $package
           Compress-Archive -Path $package -DestinationPath 'build/Astraxis-windows-x64.zip'
           $hash = (Get-FileHash 'build/Astraxis-windows-x64.zip' -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  Astraxis-windows-x64.zip" | Set-Content 'build/Astraxis-windows-x64.sha256' -Encoding ascii
@@ -110,7 +110,7 @@ jobs:
           mkdir -p "$package"
           cp build/linux/Release/astraxis "$package/"
           cp -r build/linux/Release/assets "$package/"
-          cp LICENSE THIRD_PARTY_NOTICES.md README.md "$package/"
+          cp LICENSE THIRD_PARTY_NOTICES.md "$package/"
           tar -C build/package -czf build/Astraxis-linux-x64.tar.gz Astraxis-linux-x64
           (cd build && sha256sum Astraxis-linux-x64.tar.gz > Astraxis-linux-x64.sha256)
 

@@ -38,7 +38,9 @@ bool register_holder_class()
     return registered;
 }
 
-// Classic layout: the top-level WorkerW right behind the one holding the icons.
+// Classic layout: the visible top-level WorkerW behind the WorkerW that holds
+// the icons. Until Explorer has split the desktop the icons are in Progman,
+// and the WorkerW windows after it are unrelated hidden ones: no layer then.
 struct ClassicSearch {
     HWND icons = nullptr;
     HWND workerw = nullptr;
@@ -47,12 +49,23 @@ struct ClassicSearch {
 BOOL CALLBACK find_classic(HWND top, LPARAM param)
 {
     auto* search = reinterpret_cast<ClassicSearch*>(param);
-    if (HWND icons = FindWindowExW(top, nullptr, L"SHELLDLL_DefView", nullptr)) {
-        search->icons = icons;
-        search->workerw = FindWindowExW(nullptr, top, L"WorkerW", nullptr);
-        return FALSE;
+    HWND icons = FindWindowExW(top, nullptr, L"SHELLDLL_DefView", nullptr);
+    if (!icons) {
+        return TRUE;
     }
-    return TRUE;
+    wchar_t cls[32] = {};
+    GetClassNameW(top, cls, 32);
+    if (wcscmp(cls, L"WorkerW") == 0) {
+        search->icons = icons;
+        for (HWND w = FindWindowExW(nullptr, top, L"WorkerW", nullptr); w;
+             w = FindWindowExW(nullptr, w, L"WorkerW", nullptr)) {
+            if (IsWindowVisible(w)) {
+                search->workerw = w;
+                break;
+            }
+        }
+    }
+    return FALSE;
 }
 
 bool find_layer(HWND progman, bool raised, HWND& icons, HWND& workerw)
@@ -152,9 +165,15 @@ bool WallpaperLayer::prepare()
 
     HWND icons = nullptr;
     HWND workerw = nullptr;
-    if (!find_layer(progman, raised, icons, workerw)) {
-        // 0xD, 1: what Lively and others send; with 0, 0 Windows 11 24H2 no longer splits.
+    // The classic split is asked for every time, as others do (it is
+    // idempotent); the raised one only when the WorkerW is missing.
+    if (!raised || !find_layer(progman, raised, icons, workerw)) {
+        // 0xD, 1: what Lively and others send; with 0, 0 Windows 11 24H2 no
+        // longer splits. 0, 0 is the long-documented form for the classic one.
         SendMessageTimeoutW(progman, kSpawnWorkerW, 0xD, 1, SMTO_NORMAL, 1000, nullptr);
+        if (!raised) {
+            SendMessageTimeoutW(progman, kSpawnWorkerW, 0, 0, SMTO_NORMAL, 1000, nullptr);
+        }
         for (int waited = 0; waited < kSpawnWaitMs && !find_layer(progman, raised, icons, workerw); waited += 50) {
             SDL_Delay(50);
         }

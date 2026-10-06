@@ -269,3 +269,17 @@ target_link_libraries(astraxis_tests PRIVATE astraxis_sim astraxis_settings)
 target_compile_definitions(astraxis_tests PRIVATE ASTRAXIS_ASSET_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets")
 astraxis_set_warnings(astraxis_tests)
 add_test(NAME astraxis_tests COMMAND astraxis_tests)
+
+if(WIN32)
+    # Checks the wallpaper layer without a GPU (e.g. in a virtual machine with
+    # an older Windows): GDI windows in place of the wallpaper's.
+    add_executable(astraxis_layer_probe
+        tests/layer_probe.cpp
+        src/platform/wallpaper_layer.cpp
+        src/platform/wallpaper_layer.hpp
+        res/astraxis.manifest
+    )
+    target_include_directories(astraxis_layer_probe PRIVATE src)
+    target_link_libraries(astraxis_layer_probe PRIVATE SDL3::SDL3 dwmapi)
+    astraxis_set_warnings(astraxis_layer_probe)
+endif()

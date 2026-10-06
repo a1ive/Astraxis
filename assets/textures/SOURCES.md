@@ -33,7 +33,7 @@
 
 原始下载地址：
 
-- <https://assets.science.nasa.gov/content/dam/science/psd/photojournal/pia/pia07/pia07782/PIA07782.jpg>
+- <https://assets.science.nasa.gov/content/dam/science/psd/photojournal/pia/pia07/pia07782/PIA07782.jpg>。
 - <https://planetarymaps.usgs.gov/mosaic/Io_GalileoSSI-Voyager_Global_Mosaic_ClrMerge_1km.tif>（189 MB）。
 - <https://planetarymaps.usgs.gov/mosaic/Europa_Voyager_GalileoSSI_global_mosaic_500m.tif>（184 MB）。
 - <https://planetarymaps.usgs.gov/mosaic/Ganymede_Voyager_GalileoSSI_global_mosaic_1km.tif>（131 MB）。
@@ -88,12 +88,15 @@
   - Mercury、Mars、Vesta：经度域 −180..180，左边缘 −180°E。Mercury 用 Caloris 盆地（31.5°N 162.7°E）核对，图里约 14°W 处有一条竖带是 USGS 用高入射角图像补的缺口（阴影明显）。Mars 用 Olympus Mons（18°N 226°E）、Hellas（42°S 70°E）、Syrtis Major 核对。
   - Vesta 的经度是 Claudia″（Claudia Double Prime）系统，Claudia 坑在 146°E（USGS 页面说明）；场景用的 PCK W0 = 285.39° 正是这个系统（Dawn 重力数据集的坐标系文档 `VESTA_COORDINATES_131018` 列出了四种 Vesta 坐标系的 W0）。“雪人”三坑（Marcia、Calpurnia、Minucia）在约 340°E。
   - Ceres：经度域 0..360，左边缘 0°E。Occator 坑（19.8°N 239.3°E，IAU 系统，即 Kait 坑在 0°）落在图中对应位置，与 PCK 的 W0 = 170.65° 一致。
-- Phobos、Deimos（Thomas 拼接图，FITS）以 0°N 0°E 为中心，东经向右增加，左边缘 −180°E。这两点用 Phobos 拼接图核对：Stickney 在中心偏左约 48°（49°W），与形状模型里凹陷的中心（2°S 50°W）重合；Limtoc 在 10°S 54°W（Gazetteer：11°S 54°W）。标签写的是“Line Bottom to Top”，但只有按文件顺序把第一行放在最上（北），Limtoc 坑才落在 Stickney 中心以南（实际为 11°S 与 1°S），凹槽系统的位置也才与 USGS 的 Phobos 图一致。Deimos 用同一批工具制作，沿用同样的约定；它的地名（Swift、Voltaire）是 1973 年的坐标，控制网未知，无法用于核对。Phobos 有少量无数据区（一个小方块和零星点），Deimos 约 4% 的无数据区（纯黑，集中在一个经度段和南半球高纬）用 `fill_unimaged` 填成平淡表面。两张图都有来自低分辨率图像的区域，放大后模糊、有马赛克块（Phobos 的 Stickney 内部、Deimos 约一半经度）；高通滤波使对比度偏低。Deimos 原图宽 1440 像素，生成时放大到 2048。
-- Amalthea（Stooke 晕渲图）：不是照片拼接图，而是画了固定光照阴影的喷笔图（地图索引里的类型 “S”），所以坑的明暗不随太阳方向变化。地图说明写“0 longitude at the center”，没有写经度方向。地名坐标（Pan 55°N 35°W、Gaea 80°S 90°W）在这张很模糊的图上认不出来，所以用 Stooke 自己的形状模型（同一作者）核对：从形状算出不同光照方向的晕渲，与原图做相关，“东经向右”最好（0.23，经度偏移 −5°，光从东边来），“西经向右”最好只有 0.16。相关不强，经度对齐只有中等把握。生成时乘上 Amalthea 的场景颜色 `#9c5a43`（`tint_gray`：灰度换算到线性值后除以全图平均，再乘颜色的线性值），否则这颗很暗、很红的卫星会显示成灰白色
+- Phobos、Deimos（Thomas 拼接图，FITS）以 0°N 0°E 为中心，东经向右增加，左边缘 −180°E。这些约定用 Phobos 拼接图核对：Stickney 在中心偏左约 48°（49°W），与形状模型里凹陷的中心（2°S 50°W）重合；Limtoc 在 10°S 54°W（Gazetteer：11°S 54°W）。标签写的是“Line Bottom to Top”，但只有按文件顺序把第一行放在最上（北），Limtoc 坑才落在 Stickney 中心以南（实际为 11°S 与 1°S），凹槽系统的位置也才与 USGS 的 Phobos 图一致。Deimos 用同一批工具制作，采用同样的约定；它的地名（Swift、Voltaire）是 1973 年的坐标，控制网未知，无法用于核对。Phobos 有少量无数据区（一个小方块和零星点），Deimos 约 4% 的无数据区（纯黑，集中在一个经度段和南半球高纬）用 `fill_unimaged` 填成平淡表面。两张图都有来自低分辨率图像的区域，放大后模糊、有马赛克块（Phobos 的 Stickney 内部、Deimos 约一半经度）；高通滤波使对比度偏低。Deimos 原图宽 1440 像素，生成时放大到 2048。
+- Amalthea（Stooke 晕渲图）：是带有固定光照阴影的手绘喷笔图（地图索引里的类型 “S”），所以坑的明暗不随太阳方向变化。地图说明写“0 longitude at the center”，没有写经度方向。地名坐标（Pan 55°N 35°W、Gaea 80°S 90°W）在这张模糊的图上无法辨认，所以用 Stooke 自己的形状模型（同一作者）核对：根据形状模型计算不同光照方向的晕渲图，再与原图计算相关系数，“东经向右”的最高相关系数为 0.23（经度偏移 −5°，光从东边来），“西经向右”的最高相关系数为 0.16。相关系数较低，经度对齐的可信度为中等。生成时乘上 Amalthea 的场景颜色 `#9c5a43`（`tint_gray`：灰度换算到线性值后除以全图平均，再乘颜色的线性值），否则这颗很暗、很红的卫星会显示成灰白色。
 - Mercury 使用 2013 年的单色底图。备选的彩色拼接图（Global Color Mosaic 665m）将 1000/750/430 nm 映射到 RGB，属于增强假彩色，整体偏蓝，两极还有缺块和杂乱纹理，因此未选用。
-- Phobos 使用 Thomas 拼接图，因为它与所用的形状模型共用控制网（见 `assets/shapes/SOURCES.md`）。试过的备选：USGS 的 Stooke 海盗号拼接图（`Phobos_Viking_Mosaic_40ppd_DLRcontrol.tif`）画面更清晰，但基于 DLR 的另一套控制网，地貌偏西约 5° 且各处不一；Mars Express SRC 拼接图（`Phobos_ME_SRC_Mosaic_Global_16ppd.tif`）含有原始图像的阴影和缺块，两侧边缘也无法衔接。
+- Phobos 使用 Thomas 拼接图，因为它与所用的形状模型共用控制网（见 `assets/shapes/SOURCES.md`）。备选纹理：USGS 的 Stooke 海盗号拼接图（`Phobos_Viking_Mosaic_40ppd_DLRcontrol.tif`）画面更清晰，但基于 DLR 的另一套控制网，地貌偏西约 5° 且各处不一；Mars Express SRC 拼接图（`Phobos_ME_SRC_Mosaic_Global_16ppd.tif`）含有原始图像的阴影和缺块，两侧边缘也无法衔接。
 - Vesta 的 HAMO 拼接图中，北纬 60° 以上处于极夜，纹理保留了这些区域的低亮度。Ceres 南纬约 82° 以南缺少数据，按同纬度均值填补。
 - Mercury、Phobos、Deimos、Vesta、Ceres 的灰度图存为 JPEG，与其他卫星纹理一样用于反照率。这些图像的亮度经过拉伸，比实际反照率高得多，尤其是表面很暗的 Phobos 和 Ceres。
+
+- Venus：标签为 PositiveEast、−180..180，左边缘 −180°E。用 Maxwell Montes（65°N 3°E，雷达很亮）和它西侧的 Lakshmi Planum 核对过。
+- Titan：标签为 PositiveWest、0..360、中心 180°W，但图像按东经向右递增排列（与其他 USGS 图相同），左边缘 0°E。用 Menrva 环形山（19°N 87°W，即 273°E，在图的 0.76 处）、亮的 Xanadu（10°S 100°W）和暗的 Shangri-La（10°S 165°W）核对过；按西经向右解释时 Menrva 会落在 87°E。
 
 场景文件用 `texture_left_lon_deg` 指定图像左边缘的东经。
 
@@ -108,7 +111,7 @@
 3. 将已知区域的边界向内腐蚀 15 像素，去掉毛刺。
 4. 在缺失区域靠近边界的位置，按附近已知像素的平均值填补。计算使用归一化卷积，高斯半径为图宽的 2%；远处渐变到整幅图的平均亮度。
 
-填补区域显示为平淡的表面，表面亮度来自上述填补，无法表示当地的实际地貌。2020 年代，太阳照亮天王星卫星的北半球，画面中朝阳的区域因此多为填补结果。
+填补区域的亮度由上述方法估算，显示为缺少地貌细节的表面。当地的实际地貌仍未知。2020 年代，太阳照亮天王星卫星的北半球，画面中朝阳的区域因此多为填补结果。
 
 木星的大气特征会在经度上漂移，所以 `jupiter.jpg` 的经度对齐没有物理意义。
 
@@ -123,5 +126,3 @@
 - 内容：Gaia DR2 的暗星和弥漫光。该图层排除了 Hipparcos/Tycho 亮星，因此与程序里的 BSC5 星点（到 6.5 等）没有重复。背景缺少 6.5 至 11.5 等的 Tycho 星，对显示影响较小。
 - 投影：ICRF（J2000）赤经赤纬的简单圆柱投影。赤经 0h 在图像中央、向左递增（从球内看），上边缘是 +90° 赤纬，即 u = 0.5 − α/360°，v = (90° − δ)/180°。用银心（α = 266.4°，图中最亮的核球）和大麦哲伦云（α ≈ 80°，δ ≈ −69°）的位置验证过。
 - 处理：`tools/sky/convert_milkyway.py` 依赖标准库和 Pillow，读取 ZIP 压缩的 half 浮点 EXR。原图存储线性值，最大值为 1.0（1% 分位 7.6e-4，99.99% 分位 0.72）。工具按 sRGB 编码存为 JPEG（质量 92，不做色度抽样），场景中的 `milky_way_brightness` 控制显示亮度。
-- Venus：标签为 PositiveEast、−180..180，左边缘 −180°E。用 Maxwell Montes（65°N 3°E，雷达很亮）和它西侧的 Lakshmi Planum 核对过。
-- Titan：标签为 PositiveWest、0..360、中心 180°W，但图像按东经向右递增排列（与其他 USGS 图相同），左边缘 0°E。用 Menrva 环形山（19°N 87°W，即 273°E，在图的 0.76 处）、亮的 Xanadu（10°S 100°W）和暗的 Shangri-La（10°S 165°W）核对过；按西经向右解释时 Menrva 会落在 87°E。
