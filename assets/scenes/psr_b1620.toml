@@ -47,7 +47,7 @@
 # of sight are statistical). The
 # Earth's sky (BSC5) is not shown; the Milky Way and field stars are missing.
 # GM = mass * GM_sun (1.32712440041279419e11 km^3/s^2, JPL DE440).
-# Check (tests/sim_tests.cpp): the pulsar's Roemer delay and the inner orbit,
+# Check (tests/stellar_system_tests.cpp): the pulsar's Roemer delay and the inner orbit,
 # the binary's 6.4 lt-s outer motion with its 1993 node, the 40 deg tilt, the sky.
 
 name = "PSR B1620-26"

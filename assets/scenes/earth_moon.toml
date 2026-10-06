@@ -25,7 +25,7 @@
 # Closest approaches (TDB at the spacecraft; altitude above the Moon's mean radius)
 # and the largest distances from the Earth (above its equatorial radius): computed
 # from the baked data. They agree with NASA's figures within a few km (checked in
-# tests/sim_tests.cpp).
+# tests/mission_tests.cpp).
 
 name = "Earth-Moon"
 

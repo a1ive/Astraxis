@@ -42,7 +42,7 @@
 #        (Jorda & Vincent): pole (51.80, 10.83) deg (Sierks et al. 2011), W = 289.50 deg +
 #        1057.751519 deg/d (period 8.168270 h, Carry et al. 2010); shape 48k plates.
 # Flyby times and distances: computed from the tables (tools/bake/ephem.toml encounters);
-# tests/sim_tests.cpp checks them against the Horizons notes for -226.
+# tests/mission_tests.cpp checks them against the Horizons notes for -226.
 
 name = "Rosetta & 67P"
 

@@ -34,7 +34,7 @@
 # position angle is the node), inclined 60 deg. [PO21] estimate ~2000 yr.
 # Primary eclipse: the cooler secondary in front of its primary.
 # GM = mass * GM_sun (1.32712440041279419e11 km^3/s^2, JPL DE440).
-# Check (tests/sim_tests.cpp): the binaries eclipse on the [PO21] ephemerides
+# Check (tests/stellar_system_tests.cpp): the binaries eclipse on the [PO21] ephemerides
 # and B stands at the speckle position.
 # The background sky is the one seen from Earth (BSC5); from 584 pc it would differ.
 

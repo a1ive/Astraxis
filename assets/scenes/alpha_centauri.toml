@@ -9,7 +9,7 @@
 #        masses m_A = 1.0788, m_B = 0.9092 M_sun, radii R_A = 1.2175, R_B = 0.8591 R_sun,
 #        luminosities L_A = 1.5059, L_B = 0.4981 L_sun; barycentre position (Table 9,
 #        J2019.5): RA 14:39:26.1413 = 219.85892215 deg, Dec -60:49:53.875 = -60.83163195 deg.
-#        Check (tests/sim_tests.cpp): the elements reproduce their ALMA relative astrometry.
+#        Check (tests/ephem_tests.cpp): the elements reproduce their ALMA relative astrometry.
 # [KE17] Kervella, Thevenin & Lovis 2017, A&A 598, L7 (arXiv:1611.03495):
 #        Table B.1, Proxima - alpha Cen position and velocity in Galactic axes (Hipparcos
 #        epoch 1991.25); Table 1, m_Prox = 0.1221 M_sun, R_Prox = 0.1542 R_sun (Mann et al.).
@@ -50,7 +50,7 @@
 # from us, so the plane's x axis (node on the ICRF equator) is east and the
 # mean_elements node is Omega - 90 deg. At inferior conjunction the planet is in
 # front of the star, i.e. argument of latitude 270 deg (omega = 0, M = 270 deg).
-# Check (tests/sim_tests.cpp): Proxima's reflex velocity is -K sin(2 pi (t - T0) / P).
+# Check (tests/stellar_system_tests.cpp): Proxima's reflex velocity is -K sin(2 pi (t - T0) / P).
 
 name = "Alpha Centauri"
 

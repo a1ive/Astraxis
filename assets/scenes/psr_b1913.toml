@@ -40,7 +40,7 @@
 # 2 s of real time (the true 59 ms cannot be shown), stopping when the clock is paused.
 # Times are those of the timing model, i.e. as seen from the solar system barycentre
 # (light travel time not removed). The background sky is the one seen from Earth.
-# Check (tests/sim_tests.cpp): the Roemer delay and velocity amplitude, the periastron
+# Check (tests/relativity_tests.cpp): the Roemer delay and velocity amplitude, the periastron
 # advance and period decay against the GR formulas, the 1974 Newtonian orbit.
 
 name = "PSR B1913+16 (Hulse-Taylor)"

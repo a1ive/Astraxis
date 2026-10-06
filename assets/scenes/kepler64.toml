@@ -48,7 +48,7 @@
 # Colours of the planet are artistic.
 # GM = mass * GM_sun (1.32712440041279419e11 km^3/s^2, JPL DE440); R_earth = 6371.0 km.
 # Times are BJD_TDB; light-travel time across the system is ignored.
-# Check (tests/sim_tests.cpp): the measured eclipses ([SC13] Table 3) come within
+# Check (tests/stellar_system_tests.cpp): the measured eclipses ([SC13] Table 3) come within
 # 0.6 min (primary) and 8 min (secondary, 1-sigma ~7 min), the planet transits
 # (Table 2) within 13 min (1-sigma 6-9 min; the medians of Table 7 are not a
 # single best-fit model).

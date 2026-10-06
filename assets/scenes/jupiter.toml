@@ -36,7 +36,7 @@
 # Io's and Europa's apsides are locked to the Laplace resonance and regress; Ganymede's
 # and Callisto's advance. With these signs, d(node + arg_peri + M)/dt reproduces the
 # synchronous rotation rates of [PCK] (203.4889538, 101.3747235, 50.3176081,
-# 21.5710715 deg/day) to within 0.001 deg/day (checked in tests/sim_tests.cpp).
+# 21.5710715 deg/day) to within 0.001 deg/day (checked in tests/planet_scene_tests.cpp).
 #
 # Colors are sRGB and artistic (used when a texture is missing).
 # Textures: see assets/textures/SOURCES.md. texture_left_lon_deg is the longitude of the
@@ -289,7 +289,7 @@ laplace_pole_ra_dec_deg = [268.7, 64.8]
 # Horizons. So period_days (of M) is derived instead from the 10-digit PCK rate:
 # P = 360 / (W' - 360 / (365.25 apsis_period) - 360 / (365.25 node_period)),
 # which keeps them within ~2.5 deg of Horizons in 2026 (checked in
-# tests/sim_tests.cpp). Colors are artistic (dark, reddish).
+# tests/planet_scene_tests.cpp). Colors are artistic (dark, reddish).
 
 [[bodies]]
 name = "Amalthea"

@@ -24,7 +24,7 @@
 # GM = mass * GM_sun (1.32712440041279419e11 km^3/s^2, JPL DE440).
 # Times are BJD_TDB (as seen from the solar-system barycentre).
 # Planet colours are artistic; the star colour comes from T_eff.
-# Check (tests/sim_tests.cpp): the integration reproduces the linear transit
+# Check (tests/stellar_system_tests.cpp): the integration reproduces the linear transit
 # ephemerides that [MI16] Extended Data Table 1 fits to the Kepler data.
 # The background sky is the one seen from Earth (BSC5); from 2 kpc it would differ.
 

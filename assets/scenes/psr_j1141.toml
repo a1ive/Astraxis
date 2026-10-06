@@ -47,7 +47,7 @@
 # of inclination are assumed to follow the convention of visual orbits used here.
 # Times are those of the timing model, i.e. as seen from the solar system barycentre.
 # The background sky is the one seen from Earth.
-# Check (tests/sim_tests.cpp): the Roemer delay, the omega_dot of GR for the [VK20]
+# Check (tests/relativity_tests.cpp): the Roemer delay, the omega_dot of GR for the [VK20]
 # masses, [BBV08]'s omega in 1999, the 1999 Newtonian orbit.
 
 name = "PSR J1141-6545"

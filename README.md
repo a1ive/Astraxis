@@ -41,6 +41,11 @@ Add scenes by writing TOML files in `assets/scenes/`. The scene files cite sourc
     <img src="screenshots/demo_saturn.jpg" width="768"/>
 </a>
 
+## Download
+
+- [Latest Release](https://github.com/a1ive/Astraxis/releases/latest)
+- [Nightly Builds](https://github.com/a1ive/Astraxis/actions/workflows/build.yml)
+
 ## Building
 
 CMake downloads pinned versions of SDL3, glm, Dear ImGui, toml++, stb_image and Microsoft's DirectX Shader Compiler. The shader compiler builds HLSL shaders as DXIL and SPIR-V.

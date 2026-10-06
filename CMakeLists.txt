@@ -264,7 +264,21 @@ endif()
 
 enable_testing()
 
-add_executable(astraxis_tests tests/sim_tests.cpp)
+add_executable(astraxis_tests
+    tests/test_main.cpp
+    tests/test_util.cpp
+    tests/test_util.hpp
+    tests/appearance_tests.cpp
+    tests/core_tests.cpp
+    tests/ephem_tests.cpp
+    tests/mission_tests.cpp
+    tests/planet_scene_tests.cpp
+    tests/relativity_tests.cpp
+    tests/scene_tests.cpp
+    tests/settings_tests.cpp
+    tests/shape_tests.cpp
+    tests/stellar_system_tests.cpp
+)
 target_link_libraries(astraxis_tests PRIVATE astraxis_sim astraxis_settings)
 target_compile_definitions(astraxis_tests PRIVATE ASTRAXIS_ASSET_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets")
 astraxis_set_warnings(astraxis_tests)

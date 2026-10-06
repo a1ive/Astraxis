@@ -112,7 +112,7 @@
 #        Vega's wingspan "of the order of 10 m"; Suisei's and Sakigake's body a cylinder 140 cm
 #        across and 70 cm high.
 # Flyby times and distances: computed from the tables (tools/isee3/isee3_reconstruct.py
-# prints them; tests/sim_tests.cpp checks them against the published values).
+# prints them; tests/mission_tests.cpp checks them against the published values).
 
 name = "ISEE-3 / ICE"
 

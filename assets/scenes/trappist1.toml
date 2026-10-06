@@ -25,7 +25,7 @@
 # transits happen in the scene when they are seen from Earth.
 # The node on the sky is not measured; 0 is used for all planets (as in the fit).
 # Planet colours are artistic; the star colour comes from T_eff.
-# Check (tests/sim_tests.cpp): the integration reproduces the transit times that
+# Check (tests/stellar_system_tests.cpp): the integration reproduces the transit times that
 # AG21's posterior predicts over 2015-2019 and their impact parameters.
 
 name = "TRAPPIST-1"

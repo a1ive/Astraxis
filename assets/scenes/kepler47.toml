@@ -32,7 +32,7 @@
 # solar-system barycentre); light-travel time across the system is ignored.
 # Assumed: the orientation of the orbits on the sky (Table 7's x axis points
 # north; transits do not constrain it). Planet colours are artistic.
-# Check (tests/sim_tests.cpp): in 2009-2013 the planets transit within 6 min of
+# Check (tests/stellar_system_tests.cpp): in 2009-2013 the planets transit within 6 min of
 # the [OR19] model (Table 2; ELC also corrects for light-travel time, worth
 # 2-8 min); the model's 2019-2026 predictions (Table 10) fall within 0.21
 # transit durations (c runs ~0.2 stellar radii ahead of ELC, cause unknown).
