@@ -27,7 +27,8 @@ public:
         RenderOutput output;       // a window with a swapchain
         OffscreenOutput offscreen; // or: read back and drawn with GDI (window is a native child)
         bool gdi = false;
-        bool scene = true; // false: drawn black
+        bool scene = true;  // false: drawn black
+        bool active = true; // false: not drawn at all (e.g. covered); the window keeps its last frame
         OutputView view;
         LabelLayout labels;
         uint64_t frames = 0; // frames presented, for the frame rate log
@@ -44,10 +45,13 @@ public:
     // starts the tour. `labels` draws them; `error` gets the message on failure.
     bool start(const Settings& settings, const std::optional<std::string>& scene, bool labels, std::string* error);
     void set_fps_limit(int fps) { m_fps_limit = fps; }
+    // The scene's resolution relative to each output's (window outputs only).
+    void set_render_scale(float scale);
 
     // Advances the simulation by the real time since the last frame, draws
-    // every output and waits out the frame rate cap.
+    // every active output and waits out the frame rate cap.
     void frame();
+    bool any_active() const;
     // Restarts the real-time clock (after a pause, so the next frame does not jump).
     void reset_clock();
     void shutdown();
@@ -69,6 +73,7 @@ private:
     bool m_show_labels = false;
     bool m_imgui_ready = false;
     int m_fps_limit = 0;
+    float m_render_scale = 1.0f;
 
     uint64_t m_last_counter = 0;
     uint64_t m_frame_start_ns = 0;

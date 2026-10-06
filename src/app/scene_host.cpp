@@ -38,8 +38,27 @@ bool SceneHost::add_output(std::unique_ptr<Output> out)
         out->window.destroy();
         return false;
     }
+    out->output.set_render_scale(m_render_scale);
     m_outputs.push_back(std::move(out));
     return true;
+}
+
+void SceneHost::set_render_scale(float scale)
+{
+    m_render_scale = scale;
+    for (auto& out : m_outputs) {
+        out->output.set_render_scale(scale);
+    }
+}
+
+bool SceneHost::any_active() const
+{
+    for (const auto& out : m_outputs) {
+        if (out->active) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void SceneHost::remove_outputs()
@@ -96,7 +115,9 @@ bool SceneHost::start(const Settings& settings, const std::optional<std::string>
         }
         max_height = std::max(max_height, height);
     }
-    m_scene_renderer.load_scene(m_sim.scene(), m_view_options, static_cast<uint32_t>(max_height));
+    // The lensing sky's stars are sized for the scene's height.
+    m_scene_renderer.load_scene(m_sim.scene(), m_view_options,
+                                static_cast<uint32_t>(static_cast<float>(max_height) * m_render_scale));
     m_sim.start_tour();
 
     // ImGui only draws the labels: no platform backend (there is no input to
@@ -137,7 +158,9 @@ void SceneHost::frame()
     // skipped a third of the frames of a slower one (4K next to 1080p: 60 and
     // 40 FPS, against 56 and 56); the outputs then run at the slowest's pace.
     for (auto& out : m_outputs) {
-        render_output(*out);
+        if (out->active) {
+            render_output(*out);
+        }
     }
     log_frame_rates();
 
@@ -207,21 +230,24 @@ void SceneHost::render_output(Output& out)
 
 void SceneHost::draw_scene(Output& out, const Frame& frame)
 {
+    // The scene's pixels per point: the display's, times the render scale.
     const float scale = out.window.content_scale();
-    m_sim.compute_view(static_cast<int>(frame.width), static_cast<int>(frame.height), scale, out.view);
+    const double scene_scale = static_cast<double>(scale) * frame.width / std::max(frame.output_width, 1u);
+    m_sim.compute_view(static_cast<int>(frame.width), static_cast<int>(frame.height), scene_scale, out.view);
 
     ImDrawData* draw_data = nullptr;
     if (m_show_labels) {
-        // As imgui_impl_sdl3 would set it up for this window.
-        int w = static_cast<int>(frame.width);
-        int h = static_cast<int>(frame.height);
+        // As imgui_impl_sdl3 would set it up for this window; the labels are
+        // drawn at the output's full resolution.
+        int w = static_cast<int>(frame.output_width);
+        int h = static_cast<int>(frame.output_height);
         if (out.window.handle()) {
             SDL_GetWindowSize(out.window.handle(), &w, &h);
         }
         ImGuiIO& io = ImGui::GetIO();
         io.DisplaySize = ImVec2(static_cast<float>(w), static_cast<float>(h));
-        io.DisplayFramebufferScale = ImVec2(w > 0 ? static_cast<float>(frame.width) / w : 1.0f,
-                                            h > 0 ? static_cast<float>(frame.height) / h : 1.0f);
+        io.DisplayFramebufferScale = ImVec2(w > 0 ? static_cast<float>(frame.output_width) / w : 1.0f,
+                                            h > 0 ? static_cast<float>(frame.output_height) / h : 1.0f);
         io.DeltaTime = static_cast<float>(std::max(m_real_dt, 1e-4));
         ImGui::GetStyle().FontScaleDpi = scale;
         ImGui_ImplSDLGPU3_NewFrame(); // creates the samplers on first use

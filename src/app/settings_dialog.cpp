@@ -28,6 +28,8 @@ constexpr const wchar_t* kRunValue = L"Astraxis Wallpaper";
 constexpr const wchar_t* kTrayClass = L"AstraxisTray"; // the running wallpaper's tray window
 constexpr UINT_PTR kStatusTimer = 1;
 constexpr int kFpsChoices[] = {0, 60, 30, 24, 15};
+constexpr float kScaleChoices[] = {1.0f, 0.75f, 0.5f};
+constexpr const wchar_t* kBatteryLabels[] = {L"Keep running", L"At most 30 FPS", L"Pause"}; // BatteryPolicy order
 
 std::wstring widen(const std::string& utf8)
 {
@@ -117,7 +119,8 @@ struct DialogState {
     bool config_ok = true;
     std::vector<SceneEntry> scenes;
     std::vector<DisplayEntry> displays;
-    std::vector<int> fps_values; // per FPS combo item
+    std::vector<int> fps_values;     // per FPS combo item
+    std::vector<float> scale_values; // per resolution combo item
     // Slider positions as set up: an untouched slider keeps its exact value
     // (positions are rounded: exposure 1.0 would come back as 1.02).
     int slider_start[std::size(kSliders)] = {};
@@ -294,6 +297,32 @@ void init_dialog(HWND dialog, DialogState& state)
     const auto fps_item = std::find(state.fps_values.begin(), state.fps_values.end(), s.fps);
     SendMessageW(fps, CB_SETCURSEL, static_cast<WPARAM>(fps_item - state.fps_values.begin()), 0);
 
+    // Resolution (render scale).
+    const HWND scale = GetDlgItem(dialog, IDC_RENDER_SCALE);
+    state.scale_values.assign(std::begin(kScaleChoices), std::end(kScaleChoices));
+    if (std::find(state.scale_values.begin(), state.scale_values.end(), s.render_scale) == state.scale_values.end()) {
+        state.scale_values.push_back(s.render_scale);
+    }
+    for (float value : state.scale_values) {
+        wchar_t text[64];
+        if (value >= 1.0f) {
+            std::swprintf(text, 64, L"Full (the display's)");
+        } else {
+            std::swprintf(text, 64, L"%.0f%% (faster, softer)", static_cast<double>(value) * 100.0);
+        }
+        SendMessageW(scale, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(text));
+    }
+    const auto scale_item = std::find(state.scale_values.begin(), state.scale_values.end(), s.render_scale);
+    SendMessageW(scale, CB_SETCURSEL, static_cast<WPARAM>(scale_item - state.scale_values.begin()), 0);
+
+    // On battery.
+    const HWND battery = GetDlgItem(dialog, IDC_BATTERY);
+    for (const wchar_t* label : kBatteryLabels) {
+        SendMessageW(battery, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(label));
+    }
+    SendMessageW(battery, CB_SETCURSEL, static_cast<WPARAM>(s.battery), 0);
+    CheckDlgButton(dialog, IDC_PAUSE_COVERED, s.pause_covered ? BST_CHECKED : BST_UNCHECKED);
+
     Settings& editable = state.settings;
     for (const Check& c : kChecks) {
         CheckDlgButton(dialog, c.id, check_field(editable, c) ? BST_CHECKED : BST_UNCHECKED);
@@ -314,6 +343,7 @@ void init_dialog(HWND dialog, DialogState& state)
         SetTimer(dialog, kStatusTimer, 1000, nullptr);
     } else {
         ShowWindow(GetDlgItem(dialog, IDC_AUTOSTART), SW_HIDE);
+        ShowWindow(GetDlgItem(dialog, IDC_PAUSE_COVERED), SW_HIDE);
         ShowWindow(GetDlgItem(dialog, IDC_STATUS), SW_HIDE);
         ShowWindow(GetDlgItem(dialog, IDC_STOP), SW_HIDE);
     }
@@ -340,6 +370,15 @@ void read_dialog(HWND dialog, DialogState& state)
     if (fps >= 0 && static_cast<size_t>(fps) < state.fps_values.size()) {
         s.fps = state.fps_values[static_cast<size_t>(fps)];
     }
+    const LRESULT scale = SendDlgItemMessageW(dialog, IDC_RENDER_SCALE, CB_GETCURSEL, 0, 0);
+    if (scale >= 0 && static_cast<size_t>(scale) < state.scale_values.size()) {
+        s.render_scale = state.scale_values[static_cast<size_t>(scale)];
+    }
+    const LRESULT battery = SendDlgItemMessageW(dialog, IDC_BATTERY, CB_GETCURSEL, 0, 0);
+    if (battery >= 0 && static_cast<size_t>(battery) < std::size(kBatteryLabels)) {
+        s.battery = static_cast<BatteryPolicy>(battery);
+    }
+    s.pause_covered = IsDlgButtonChecked(dialog, IDC_PAUSE_COVERED) == BST_CHECKED;
     for (const Check& c : kChecks) {
         check_field(s, c) = IsDlgButtonChecked(dialog, c.id) == BST_CHECKED;
     }

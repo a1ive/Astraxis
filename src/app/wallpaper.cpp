@@ -4,6 +4,8 @@
 
 #include <SDL3/SDL.h>
 
+#include <algorithm>
+
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
@@ -13,7 +15,7 @@ namespace astraxis {
 
 namespace {
 
-constexpr uint64_t kCheckPeriodNs = 1'000'000'000; // how often the layer is checked
+constexpr uint64_t kCheckPeriodNs = 500'000'000; // how often the layer and the activity are checked
 constexpr int kPausedWaitMs = 200;
 
 } // namespace
@@ -44,7 +46,9 @@ bool Wallpaper::init(const WallpaperOptions& options)
     if (!load_settings(config, SettingsSection::Wallpaper, m_settings, &error)) {
         SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Settings not read: %s", error.c_str());
     }
-    m_host.set_fps_limit(options.fps.value_or(m_settings.fps));
+    m_fps = options.fps.value_or(m_settings.fps);
+    m_host.set_fps_limit(m_fps);
+    m_host.set_render_scale(m_settings.render_scale);
     m_display = options.display.value_or(0);
     if (!options.display && m_settings.display > 0) {
         m_display = display_index(find_display(m_settings.display, m_settings.display_name));
@@ -61,6 +65,8 @@ bool Wallpaper::init(const WallpaperOptions& options)
         return false;
     }
     m_tray.create("Astraxis wallpaper");
+    m_power.start();
+    update_activity();
 
     m_last_check_ns = SDL_GetTicksNS();
     m_running = true;
@@ -99,7 +105,9 @@ bool Wallpaper::build_outputs()
         if (sdl_width != width || sdl_height != height) {
             SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "SDL has another size for the window than the monitor");
         }
-        m_host.add_output(std::move(out));
+        if (m_host.add_output(std::move(out))) {
+            m_monitors.push_back(monitor);
+        }
     }
     SDL_free(displays);
     if (m_host.outputs().empty()) {
@@ -113,6 +121,7 @@ void Wallpaper::rebuild(const char* reason)
 {
     SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Rebuilding the wallpaper: %s", reason);
     m_host.remove_outputs();
+    m_monitors.clear();
     m_layer.release();
     if (!build_outputs()) {
         // Explorer may still be starting: try again at the next check.
@@ -121,7 +130,40 @@ void Wallpaper::rebuild(const char* reason)
         return;
     }
     m_rebuild = false;
+    update_activity();
     m_host.reset_clock();
+}
+
+void Wallpaper::update_activity()
+{
+    const bool battery = m_power.on_battery();
+    const char* idle = m_paused                                                   ? "paused from the tray"
+                       : m_power.locked()                                         ? "the session is locked"
+                       : m_power.display_off()                                    ? "the display is off"
+                       : battery && m_settings.battery == BatteryPolicy::Pause ? "on battery"
+                                                                                  : nullptr;
+    m_idle = idle != nullptr;
+
+    std::string activity = idle ? std::string("idle: ") + idle : std::string("drawing");
+    auto& outputs = m_host.outputs();
+    for (size_t i = 0; i < outputs.size() && i < m_monitors.size(); ++i) {
+        outputs[i]->active = !(m_settings.pause_covered && WallpaperLayer::monitor_covered(m_monitors[i]));
+        if (!idle && !outputs[i]->active) {
+            activity += ", output " + std::to_string(i) + " covered";
+        }
+    }
+
+    int fps = m_fps;
+    if (battery && m_settings.battery == BatteryPolicy::Limit) {
+        fps = fps == 0 ? kBatteryFps : std::min(fps, kBatteryFps);
+        activity += ", on battery";
+    }
+    m_host.set_fps_limit(fps);
+
+    if (activity != m_activity) {
+        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Wallpaper: %s", activity.c_str());
+        m_activity = activity;
+    }
 }
 
 void Wallpaper::run()
@@ -143,6 +185,7 @@ void Wallpaper::run()
         case TrayIcon::Command::TogglePause:
             m_paused = !m_paused;
             m_tray.set_paused(m_paused);
+            update_activity();
             m_host.reset_clock();
             break;
         case TrayIcon::Command::Exit:
@@ -159,12 +202,16 @@ void Wallpaper::run()
         const uint64_t now = SDL_GetTicksNS();
         if (now - m_last_check_ns >= kCheckPeriodNs) {
             m_last_check_ns = now;
+            m_power.poll();
             if (m_rebuild || !m_layer.check()) {
                 rebuild(m_rebuild ? "the displays changed (or retrying)" : "the desktop changed");
+            } else {
+                update_activity();
             }
         }
 
-        if (m_paused || m_host.outputs().empty()) {
+        // Nothing to draw: the simulation waits too (no jump when drawing resumes).
+        if (m_idle || !m_host.any_active()) {
             SDL_WaitEventTimeout(nullptr, kPausedWaitMs);
             m_host.reset_clock();
         } else {
@@ -175,6 +222,7 @@ void Wallpaper::run()
 
 void Wallpaper::shutdown()
 {
+    m_power.stop();
     m_host.shutdown();
     m_layer.release();
     m_tray.destroy();

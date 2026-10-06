@@ -6,6 +6,10 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#include <dwmapi.h>
+
+#include <cwchar>
+#include <initializer_list>
 
 namespace astraxis {
 
@@ -65,7 +69,65 @@ bool find_layer(HWND progman, bool raised, HWND& icons, HWND& workerw)
     return icons && workerw;
 }
 
+struct CoverSearch {
+    RECT work;
+    DWORD own_process;
+    bool covered = false;
+};
+
+BOOL CALLBACK find_cover(HWND top, LPARAM param)
+{
+    auto* search = reinterpret_cast<CoverSearch*>(param);
+    if (!IsWindowVisible(top) || IsIconic(top)) {
+        return TRUE;
+    }
+    DWORD process = 0;
+    GetWindowThreadProcessId(top, &process);
+    if (process == search->own_process) {
+        return TRUE;
+    }
+    // Click-through overlays and tool windows do not hide the desktop; nor do
+    // windows on another virtual desktop (cloaked).
+    const LONG_PTR ex = GetWindowLongPtrW(top, GWL_EXSTYLE);
+    if (ex & (WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE)) {
+        return TRUE;
+    }
+    DWORD cloaked = 0;
+    if (SUCCEEDED(DwmGetWindowAttribute(top, DWMWA_CLOAKED, &cloaked, sizeof(cloaked))) && cloaked) {
+        return TRUE;
+    }
+    wchar_t cls[64] = {};
+    GetClassNameW(top, cls, 64);
+    for (const wchar_t* shell : {L"Progman", L"WorkerW", L"Shell_TrayWnd", L"Shell_SecondaryTrayWnd"}) {
+        if (wcscmp(cls, shell) == 0) {
+            return TRUE;
+        }
+    }
+    RECT r = {};
+    GetWindowRect(top, &r);
+    const RECT& w = search->work;
+    if (r.left <= w.left && r.top <= w.top && r.right >= w.right && r.bottom >= w.bottom) {
+        search->covered = true;
+        return FALSE;
+    }
+    return TRUE;
+}
+
 } // namespace
+
+bool WallpaperLayer::monitor_covered(void* monitor)
+{
+    MONITORINFO info = {};
+    info.cbSize = sizeof(info);
+    if (!GetMonitorInfoW(static_cast<HMONITOR>(monitor), &info)) {
+        return false;
+    }
+    CoverSearch search;
+    search.work = info.rcWork;
+    search.own_process = GetCurrentProcessId();
+    EnumWindows(find_cover, reinterpret_cast<LPARAM>(&search));
+    return search.covered;
+}
 
 bool WallpaperLayer::monitor_size(void* monitor, int& width, int& height)
 {

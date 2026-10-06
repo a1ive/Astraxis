@@ -3,7 +3,16 @@
 #include <SDL3/SDL_log.h>
 #include <SDL3/SDL_video.h>
 
+#include <algorithm>
+#include <cmath>
+
 namespace astraxis {
+
+void scale_scene_size(uint32_t output_width, uint32_t output_height, float scale, uint32_t& width, uint32_t& height)
+{
+    width = std::max(1u, static_cast<uint32_t>(std::lround(static_cast<float>(output_width) * scale)));
+    height = std::max(1u, static_cast<uint32_t>(std::lround(static_cast<float>(output_height) * scale)));
+}
 
 bool RenderOutput::init(const GpuDevice& device, SDL_Window* window)
 {
@@ -47,9 +56,13 @@ bool RenderOutput::begin_frame(Frame& frame)
         SDL_LogError(SDL_LOG_CATEGORY_GPU, "SDL_WaitAndAcquireGPUSwapchainTexture failed: %s", SDL_GetError());
         frame.swapchain = nullptr;
     }
-    if (frame.swapchain &&
-        !m_targets.ensure(m_device->device(), m_device->scene_format(), frame.width, frame.height)) {
-        frame.swapchain = nullptr;
+    if (frame.swapchain) {
+        frame.output_width = frame.width;
+        frame.output_height = frame.height;
+        scale_scene_size(frame.output_width, frame.output_height, m_render_scale, frame.width, frame.height);
+        if (!m_targets.ensure(m_device->device(), m_device->scene_format(), frame.width, frame.height)) {
+            frame.swapchain = nullptr;
+        }
     }
     frame.targets = &m_targets;
     return true;

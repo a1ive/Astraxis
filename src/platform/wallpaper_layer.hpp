@@ -20,6 +20,9 @@ class WallpaperLayer {
 public:
     // Size of a monitor (HMONITOR) in physical pixels.
     static bool monitor_size(void* monitor, int& width, int& height);
+    // Another program's visible window covers the monitor's work area (a
+    // maximized or full-screen application): the wallpaper is out of sight.
+    static bool monitor_covered(void* monitor);
 
     // Finds the layer, asking Explorer to create it if needed (waits up to 2 s).
     bool prepare();

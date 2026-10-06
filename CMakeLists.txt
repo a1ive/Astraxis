@@ -138,6 +138,8 @@ add_executable(astraxis
     src/app/screensaver.hpp
     src/platform/paths.cpp
     src/platform/paths.hpp
+    src/platform/power_monitor.cpp
+    src/platform/power_monitor.hpp
     src/platform/window.cpp
     src/platform/window.hpp
     src/render/atmosphere_pass.cpp
@@ -211,7 +213,7 @@ if(WIN32)
         src/platform/wallpaper_layer.hpp
     )
     target_include_directories(astraxis PRIVATE res)
-    target_link_libraries(astraxis PRIVATE comctl32)
+    target_link_libraries(astraxis PRIVATE comctl32 dwmapi wtsapi32)
 
     # astraxis_wallpaper.exe: the wallpaper's settings dialog and launcher.
     add_executable(astraxis_wallpaper WIN32

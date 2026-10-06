@@ -11,6 +11,15 @@ namespace astraxis {
 // The section of config.toml that a host reads on top of the shared [view].
 enum class SettingsSection { Window, Wallpaper, Screensaver };
 
+// What the wallpaper and the screensaver do on battery power (or with the
+// battery saver on).
+enum class BatteryPolicy {
+    Run,   // as on AC power
+    Limit, // at most kBatteryFps
+    Pause, // stop drawing
+};
+constexpr int kBatteryFps = 30;
+
 // Settings kept in config.toml next to the executable. [view] holds the
 // display options shared by all modes; each mode's section ([window],
 // [wallpaper], [screensaver]) holds that mode's own keys and may override
@@ -24,6 +33,10 @@ struct Settings {
     bool fullscreen = false;  // [window] only
     bool auto_tour = true;    // [window] only: "Start when idle"
     bool info = true;         // [window] only: the focused body's info panel
+    // [wallpaper] and [screensaver] only:
+    float render_scale = 1.0f; // the scene's resolution relative to the display's (0.25-1)
+    BatteryPolicy battery = BatteryPolicy::Limit;
+    bool pause_covered = true; // [wallpaper]: stop drawing a display a maximized or full-screen window covers
 
     // View keys.
     bool labels = true;

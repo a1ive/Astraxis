@@ -4077,6 +4077,30 @@ void test_settings()
               saver_again.view.star_brightness == 1.0f,
           "dialog settings read back");
 
+    // Power keys: [wallpaper] / [screensaver] only; unknown battery names are ignored.
+    {
+        std::ofstream file(path, std::ios::binary);
+        file << "[wallpaper]\nrender_scale = 0.1\nbattery = \"pause\"\npause_covered = false\n"
+                "[screensaver]\nbattery = \"sometimes\"\n[window]\nrender_scale = 0.5\n";
+    }
+    Settings wall;
+    Settings saver2;
+    Settings win;
+    load_settings(path, SettingsSection::Wallpaper, wall);
+    load_settings(path, SettingsSection::Screensaver, saver2);
+    load_settings(path, SettingsSection::Window, win);
+    check(wall.render_scale == 0.25f && wall.battery == BatteryPolicy::Pause && !wall.pause_covered,
+          "power keys read (render scale clamped)");
+    check(saver2.battery == BatteryPolicy::Limit, "unknown battery policy keeps the default");
+    check(win.render_scale == 1.0f, "[window] ignores render_scale");
+    wall.battery = BatteryPolicy::Run;
+    wall.render_scale = 0.5f;
+    save_settings(path, SettingsSection::Wallpaper, wall, nullptr, ViewScope::Overrides);
+    Settings wall_again;
+    load_settings(path, SettingsSection::Wallpaper, wall_again);
+    check(wall_again.battery == BatteryPolicy::Run && wall_again.render_scale == 0.5f && !wall_again.pause_covered,
+          "power keys saved");
+
     // Scene names for the dialog.
     const std::vector<SceneEntry> scenes = list_scenes(ASTRAXIS_ASSET_DIR);
     const auto earth_moon = std::find_if(scenes.begin(), scenes.end(),

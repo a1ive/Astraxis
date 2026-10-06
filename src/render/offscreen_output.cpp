@@ -88,6 +88,8 @@ bool OffscreenOutput::begin_frame(Frame& frame, uint32_t width, uint32_t height)
         frame.swapchain = m_texture;
         frame.width = width;
         frame.height = height;
+        frame.output_width = width;
+        frame.output_height = height;
     }
     frame.targets = &m_targets;
     return true;

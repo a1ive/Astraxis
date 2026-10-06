@@ -1,6 +1,7 @@
 #pragma once
 
 #include "app/scene_host.hpp"
+#include "platform/power_monitor.hpp"
 #include "platform/tray_icon.hpp"
 #include "platform/wallpaper_layer.hpp"
 
@@ -8,6 +9,7 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace astraxis {
 
@@ -23,6 +25,12 @@ struct WallpaperOptions {
 // behind the desktop icons (WallpaperLayer), running the auto tour. A tray
 // icon pauses it or ends it. Re-attaches when Explorer restarts or the
 // displays change; repaints Explorer's wallpaper on exit.
+//
+// Power: nothing is drawn while the session is locked or the display is
+// off; a display covered by a maximized or full-screen window is not drawn
+// ([wallpaper] pause_covered); on battery the frame rate is capped or
+// drawing stops ([wallpaper] battery); [wallpaper] render_scale lowers the
+// scene's resolution.
 class Wallpaper {
 public:
     bool init(const WallpaperOptions& options);
@@ -33,6 +41,9 @@ private:
     bool build_outputs();
     void rebuild(const char* reason);
     void handle_events();
+    // Decides what is drawn, and at what frame rate, from the tray, the
+    // power state and the windows covering the displays.
+    void update_activity();
 
     WallpaperOptions m_options;
     Settings m_settings;
@@ -41,6 +52,11 @@ private:
     SceneHost m_host;
     WallpaperLayer m_layer;
     TrayIcon m_tray;
+    PowerMonitor m_power;
+    std::vector<void*> m_monitors; // HMONITOR per output
+    int m_fps = 0;                 // the cap on AC power
+    bool m_idle = false;           // nothing is drawn
+    std::string m_activity;        // the last logged state
     bool m_sdl_ready = false;
     bool m_running = false;
     bool m_paused = false;

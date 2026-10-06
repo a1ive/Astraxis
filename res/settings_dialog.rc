@@ -5,7 +5,7 @@
 #include <commctrl.h>
 #include "settings_dialog.h"
 
-IDD_SETTINGS DIALOGEX 0, 0, 280, 236
+IDD_SETTINGS DIALOGEX 0, 0, 280, 298
 STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Astraxis"
 FONT 9, "Segoe UI", 400, 0, 0x1
@@ -14,35 +14,43 @@ BEGIN
     COMBOBOX        IDC_SCENE, 75, 10, 195, 200, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     LTEXT           "Display:", -1, 10, 30, 60, 8
     COMBOBOX        IDC_DISPLAY, 75, 28, 195, 100, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    LTEXT           "Frame rate:", -1, 10, 48, 60, 8
-    COMBOBOX        IDC_FPS, 75, 46, 195, 100, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
 
-    GROUPBOX        "Show", -1, 10, 66, 260, 40
-    AUTOCHECKBOX    "Labels", IDC_LABELS, 18, 78, 75, 10
-    AUTOCHECKBOX    "Orbits", IDC_ORBITS, 98, 78, 75, 10
-    AUTOCHECKBOX    "Belts", IDC_BELTS, 178, 78, 75, 10
-    AUTOCHECKBOX    "Atmospheres", IDC_ATMOSPHERES, 18, 90, 75, 10
-    AUTOCHECKBOX    "Plumes", IDC_PLUMES, 98, 90, 75, 10
-    AUTOCHECKBOX    "Comets", IDC_COMETS, 178, 90, 75, 10
+    GROUPBOX        "Performance", -1, 10, 46, 260, 80
+    LTEXT           "Frame rate:", -1, 18, 60, 55, 8
+    COMBOBOX        IDC_FPS, 75, 58, 187, 100, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Resolution:", -1, 18, 78, 55, 8
+    COMBOBOX        IDC_RENDER_SCALE, 75, 76, 187, 100, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "On battery:", -1, 18, 96, 55, 8
+    COMBOBOX        IDC_BATTERY, 75, 94, 187, 100, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    AUTOCHECKBOX    "Pause where a maximized or full-screen window covers the display", IDC_PAUSE_COVERED,
+                    18, 111, 245, 10
 
-    GROUPBOX        "Image", -1, 10, 110, 260, 76
-    LTEXT           "Stars", -1, 18, 124, 50, 8
-    CONTROL         "", IDC_STARS, TRACKBAR_CLASS, TBS_NOTICKS | TBS_BOTH | WS_TABSTOP, 70, 121, 160, 14
-    LTEXT           "", IDC_STARS_VALUE, 234, 124, 32, 8
-    LTEXT           "Line width", -1, 18, 140, 50, 8
-    CONTROL         "", IDC_LINE_WIDTH, TRACKBAR_CLASS, TBS_NOTICKS | TBS_BOTH | WS_TABSTOP, 70, 137, 160, 14
-    LTEXT           "", IDC_LINE_WIDTH_VALUE, 234, 140, 32, 8
-    LTEXT           "Exposure", -1, 18, 156, 50, 8
-    CONTROL         "", IDC_EXPOSURE, TRACKBAR_CLASS, TBS_NOTICKS | TBS_BOTH | WS_TABSTOP, 70, 153, 160, 14
-    LTEXT           "", IDC_EXPOSURE_VALUE, 234, 156, 32, 8
-    LTEXT           "Bloom", -1, 18, 172, 50, 8
-    CONTROL         "", IDC_BLOOM, TRACKBAR_CLASS, TBS_NOTICKS | TBS_BOTH | WS_TABSTOP, 70, 169, 160, 14
-    LTEXT           "", IDC_BLOOM_VALUE, 234, 172, 32, 8
+    GROUPBOX        "Show", -1, 10, 132, 260, 40
+    AUTOCHECKBOX    "Labels", IDC_LABELS, 18, 144, 75, 10
+    AUTOCHECKBOX    "Orbits", IDC_ORBITS, 98, 144, 75, 10
+    AUTOCHECKBOX    "Belts", IDC_BELTS, 178, 144, 75, 10
+    AUTOCHECKBOX    "Atmospheres", IDC_ATMOSPHERES, 18, 156, 75, 10
+    AUTOCHECKBOX    "Plumes", IDC_PLUMES, 98, 156, 75, 10
+    AUTOCHECKBOX    "Comets", IDC_COMETS, 178, 156, 75, 10
 
-    AUTOCHECKBOX    "Start with Windows", IDC_AUTOSTART, 10, 194, 120, 10
-    LTEXT           "", IDC_STATUS, 135, 195, 135, 8, SS_RIGHT
+    GROUPBOX        "Image", -1, 10, 176, 260, 76
+    LTEXT           "Stars", -1, 18, 190, 50, 8
+    CONTROL         "", IDC_STARS, TRACKBAR_CLASS, TBS_NOTICKS | TBS_BOTH | WS_TABSTOP, 70, 187, 160, 14
+    LTEXT           "", IDC_STARS_VALUE, 234, 190, 32, 8
+    LTEXT           "Line width", -1, 18, 206, 50, 8
+    CONTROL         "", IDC_LINE_WIDTH, TRACKBAR_CLASS, TBS_NOTICKS | TBS_BOTH | WS_TABSTOP, 70, 203, 160, 14
+    LTEXT           "", IDC_LINE_WIDTH_VALUE, 234, 206, 32, 8
+    LTEXT           "Exposure", -1, 18, 222, 50, 8
+    CONTROL         "", IDC_EXPOSURE, TRACKBAR_CLASS, TBS_NOTICKS | TBS_BOTH | WS_TABSTOP, 70, 219, 160, 14
+    LTEXT           "", IDC_EXPOSURE_VALUE, 234, 222, 32, 8
+    LTEXT           "Bloom", -1, 18, 238, 50, 8
+    CONTROL         "", IDC_BLOOM, TRACKBAR_CLASS, TBS_NOTICKS | TBS_BOTH | WS_TABSTOP, 70, 235, 160, 14
+    LTEXT           "", IDC_BLOOM_VALUE, 234, 238, 32, 8
 
-    PUSHBUTTON      "Stop", IDC_STOP, 10, 214, 55, 14
-    DEFPUSHBUTTON   "OK", IDOK, 155, 214, 55, 14
-    PUSHBUTTON      "Cancel", IDCANCEL, 215, 214, 55, 14
+    AUTOCHECKBOX    "Start with Windows", IDC_AUTOSTART, 10, 258, 120, 10
+    LTEXT           "", IDC_STATUS, 135, 259, 135, 8, SS_RIGHT
+
+    PUSHBUTTON      "Stop", IDC_STOP, 10, 276, 55, 14
+    DEFPUSHBUTTON   "OK", IDOK, 155, 276, 55, 14
+    PUSHBUTTON      "Cancel", IDCANCEL, 215, 276, 55, 14
 END

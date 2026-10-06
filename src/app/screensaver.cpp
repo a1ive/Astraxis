@@ -4,6 +4,7 @@
 
 #include <SDL3/SDL.h>
 
+#include <algorithm>
 #include <cmath>
 
 namespace astraxis {
@@ -13,6 +14,8 @@ namespace {
 constexpr uint64_t kGraceNs = 300'000'000; // input right after the start is ignored
 constexpr float kMouseSlack = 8.0f;        // pixels the mouse may drift before it counts
 constexpr int kPreviewFps = 30;            // the preview is tiny; spare the GPU
+constexpr uint64_t kCheckPeriodNs = 500'000'000; // how often the power state is checked
+constexpr int kIdleWaitMs = 200;
 
 } // namespace
 
@@ -37,7 +40,12 @@ bool Screensaver::init(const ScreensaverOptions& options)
     if (!load_settings(config, SettingsSection::Screensaver, settings, &error)) {
         SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Settings not read: %s", error.c_str());
     }
-    m_host.set_fps_limit(options.preview ? kPreviewFps : options.fps.value_or(settings.fps));
+    m_fps = options.preview ? kPreviewFps : options.fps.value_or(settings.fps);
+    m_battery = settings.battery;
+    m_host.set_fps_limit(m_fps);
+    if (!options.preview) {
+        m_host.set_render_scale(settings.render_scale);
+    }
 
     if (!m_host.init_gpu()) {
         return false;
@@ -59,8 +67,11 @@ bool Screensaver::init(const ScreensaverOptions& options)
 
     if (!options.preview) {
         SDL_HideCursor();
+        m_power.start();
+        update_activity();
     }
     m_start_ns = SDL_GetTicksNS();
+    m_last_check_ns = m_start_ns;
     m_running = true;
     return true;
 }
@@ -101,14 +112,41 @@ void Screensaver::run()
         if (m_options.preview && !m_host.outputs().front()->window.parent_alive()) {
             quit("preview window gone");
         }
-        if (m_running) {
+        if (!m_options.preview && SDL_GetTicksNS() - m_last_check_ns >= kCheckPeriodNs) {
+            m_last_check_ns = SDL_GetTicksNS();
+            m_power.poll();
+            update_activity();
+        }
+        if (!m_running) {
+            break;
+        }
+        if (m_idle) {
+            SDL_WaitEventTimeout(nullptr, kIdleWaitMs);
+            m_host.reset_clock();
+        } else {
             m_host.frame();
         }
     }
 }
 
+void Screensaver::update_activity()
+{
+    const bool battery = m_power.on_battery();
+    const bool idle = m_power.display_off() || (battery && m_battery == BatteryPolicy::Pause);
+    if (idle != m_idle) {
+        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Screensaver: %s", idle ? "idle" : "drawing");
+        m_idle = idle;
+    }
+    int fps = m_fps;
+    if (battery && m_battery == BatteryPolicy::Limit) {
+        fps = fps == 0 ? kBatteryFps : std::min(fps, kBatteryFps);
+    }
+    m_host.set_fps_limit(fps);
+}
+
 void Screensaver::shutdown()
 {
+    m_power.stop();
     m_host.shutdown();
     if (m_sdl_ready) {
         SDL_ShowCursor();

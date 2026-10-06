@@ -1,6 +1,7 @@
 #pragma once
 
 #include "app/scene_host.hpp"
+#include "platform/power_monitor.hpp"
 
 #include <cstdint>
 #include <filesystem>
@@ -24,6 +25,10 @@ struct ScreensaverOptions {
 // others, runs the auto tour, and quits on any key, click or mouse movement.
 // /p draws a small view into the preview window of the Screen Saver Settings
 // dialog until that window is destroyed.
+//
+// Power (/s): nothing is drawn while the display is off; on battery the frame
+// rate is capped or drawing stops ([screensaver] battery); [screensaver]
+// render_scale lowers the scene's resolution.
 class Screensaver {
 public:
     bool init(const ScreensaverOptions& options);
@@ -34,9 +39,16 @@ private:
     bool create_outputs(int display);
     void handle_events();
     void quit(const char* reason);
+    // From the power state: whether to draw, and at what frame rate.
+    void update_activity();
 
     ScreensaverOptions m_options;
     SceneHost m_host;
+    PowerMonitor m_power;
+    BatteryPolicy m_battery = BatteryPolicy::Limit;
+    int m_fps = 0;       // the cap on AC power
+    bool m_idle = false; // nothing is drawn
+    uint64_t m_last_check_ns = 0;
     bool m_sdl_ready = false;
     bool m_running = false;
     uint64_t m_start_ns = 0;

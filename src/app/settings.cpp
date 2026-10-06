@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
+#include <iterator>
 #include <sstream>
 #include <system_error>
 
@@ -61,8 +62,16 @@ void visit_mode_keys(S& s, SettingsSection section, F&& f)
         f("fullscreen", s.fullscreen);
         f("auto_tour", s.auto_tour);
         f("info", s.info);
+    } else {
+        f("render_scale", s.render_scale, 0.25f, 1.0f);
+        f("battery", s.battery);
+        if (section == SettingsSection::Wallpaper) {
+            f("pause_covered", s.pause_covered);
+        }
     }
 }
+
+constexpr const char* kBatteryNames[] = {"run", "limit", "pause"};
 
 // Reads the keys present in a table; values of the wrong type are ignored.
 struct Reader {
@@ -92,6 +101,16 @@ struct Reader {
             value = *v;
         }
     }
+    void operator()(const char* key, BatteryPolicy& value) const
+    {
+        if (const auto v = table[key].value<std::string>()) {
+            for (size_t i = 0; i < std::size(kBatteryNames); ++i) {
+                if (*v == kBatteryNames[i]) {
+                    value = static_cast<BatteryPolicy>(i);
+                }
+            }
+        }
+    }
 };
 
 struct Writer {
@@ -116,6 +135,10 @@ struct Writer {
         } else {
             table.insert_or_assign(key, value);
         }
+    }
+    void operator()(const char* key, BatteryPolicy value) const
+    {
+        table.insert_or_assign(key, kBatteryNames[static_cast<size_t>(value)]);
     }
 };
 
