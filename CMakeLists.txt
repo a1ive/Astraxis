@@ -128,6 +128,12 @@ add_executable(astraxis
     src/app/app.cpp
     src/app/app.hpp
     src/app/app_ui.cpp
+    src/app/label_overlay.cpp
+    src/app/label_overlay.hpp
+    src/app/scene_list.cpp
+    src/app/scene_list.hpp
+    src/app/screensaver.cpp
+    src/app/screensaver.hpp
     src/platform/paths.cpp
     src/platform/paths.hpp
     src/platform/window.cpp
@@ -150,6 +156,8 @@ add_executable(astraxis
     src/render/gpu_buffer.hpp
     src/render/gpu_device.cpp
     src/render/gpu_device.hpp
+    src/render/offscreen_output.cpp
+    src/render/offscreen_output.hpp
     src/render/orbit_line_pass.cpp
     src/render/orbit_line_pass.hpp
     src/render/plume_pass.cpp
@@ -194,6 +202,15 @@ add_custom_command(TARGET astraxis POST_BUILD
             "${CMAKE_CURRENT_SOURCE_DIR}/assets" "$<TARGET_FILE_DIR:astraxis>/assets"
     COMMENT "Copying assets"
 )
+
+if(WIN32)
+    # The screensaver is the same program: Windows runs .scr files with /s, /p or /c.
+    add_custom_command(TARGET astraxis POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "$<TARGET_FILE:astraxis>" "$<TARGET_FILE_DIR:astraxis>/astraxis.scr"
+        COMMENT "Copying astraxis.scr"
+    )
+endif()
 
 if(MSVC)
     # No console window in Release; keep it in Debug for log output.

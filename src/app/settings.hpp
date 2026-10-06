@@ -17,7 +17,7 @@ enum class SettingsSection { Window, Wallpaper, Screensaver };
 struct Settings {
     // Mode keys.
     std::string scene = "solar_system";
-    int display = 0;          // 0 = primary, n = the n-th display (1-based)
+    int display = 0;          // n = the n-th display (1-based); 0 = primary ([window]) or all displays
     std::string display_name; // finds the display again if the order changes
     int fps = 0;              // frame rate cap, 0 = none (the display's refresh rate)
     bool fullscreen = false;  // [window] only

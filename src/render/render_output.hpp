@@ -34,7 +34,9 @@ public:
 
     // Acquires a command buffer and the swapchain texture, and sizes the scene
     // targets to it. False only if no command buffer could be acquired.
-    bool begin_frame(Frame& frame);
+    // `wait` = false does not block when the swapchain has no texture free (the
+    // frame then has none): with several outputs, only one of them should wait.
+    bool begin_frame(Frame& frame, bool wait = true);
     void end_frame(Frame& frame);
 
     // Begins a pass that draws on top of the swapchain texture (e.g. ImGui).

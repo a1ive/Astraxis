@@ -34,7 +34,7 @@ SDL_GPUTextureFormat RenderOutput::swapchain_format() const
     return SDL_GetGPUSwapchainTextureFormat(m_device->device(), m_window);
 }
 
-bool RenderOutput::begin_frame(Frame& frame)
+bool RenderOutput::begin_frame(Frame& frame, bool wait)
 {
     frame = {};
     frame.cmd = SDL_AcquireGPUCommandBuffer(m_device->device());
@@ -43,8 +43,11 @@ bool RenderOutput::begin_frame(Frame& frame)
         return false;
     }
 
-    if (!SDL_WaitAndAcquireGPUSwapchainTexture(frame.cmd, m_window, &frame.swapchain, &frame.width, &frame.height)) {
-        SDL_LogError(SDL_LOG_CATEGORY_GPU, "SDL_WaitAndAcquireGPUSwapchainTexture failed: %s", SDL_GetError());
+    const bool acquired =
+        wait ? SDL_WaitAndAcquireGPUSwapchainTexture(frame.cmd, m_window, &frame.swapchain, &frame.width, &frame.height)
+             : SDL_AcquireGPUSwapchainTexture(frame.cmd, m_window, &frame.swapchain, &frame.width, &frame.height);
+    if (!acquired) {
+        SDL_LogError(SDL_LOG_CATEGORY_GPU, "Acquiring the swapchain texture failed: %s", SDL_GetError());
         frame.swapchain = nullptr;
     }
     if (frame.swapchain &&

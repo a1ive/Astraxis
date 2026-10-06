@@ -1,5 +1,6 @@
 #include "app/app.hpp"
 
+#include "app/scene_list.hpp"
 #include "platform/paths.hpp"
 
 #include <SDL3/SDL.h>
@@ -8,7 +9,6 @@
 #include <imgui_impl_sdlgpu3.h>
 
 #include <algorithm>
-#include <system_error>
 
 namespace astraxis {
 
@@ -89,22 +89,12 @@ bool App::init(const LaunchOptions& options)
     ImGui_ImplSDLGPU3_Init(&init_info);
     m_imgui_ready = true;
 
-    std::error_code ec;
-    for (const auto& entry : std::filesystem::directory_iterator(m_asset_dir / "scenes", ec)) {
-        if (entry.path().extension() == ".toml") {
-            m_scene_files.push_back(entry.path());
-        }
-    }
-    std::sort(m_scene_files.begin(), m_scene_files.end());
+    m_scene_files = list_scene_files(m_asset_dir);
     const std::string scene = options.scene.value_or(m_settings.scene);
-    bool found = false;
-    for (size_t i = 0; i < m_scene_files.size(); ++i) {
-        if (m_scene_files[i].stem() == scene) {
-            m_scene_index = i;
-            found = true;
-        }
-    }
-    if (!found) {
+    const int found = find_scene(m_scene_files, scene);
+    if (found >= 0) {
+        m_scene_index = static_cast<size_t>(found);
+    } else {
         SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Scene '%s' not found", scene.c_str());
     }
 
