@@ -4,6 +4,9 @@
 
 | 文件 | 来源 | 许可 |
 |---|---|---|
+| `67p.mesh` | SHAP5 SPC 形状模型（R. Gaskell、L. Jorda；Jorda et al. 2016, Icarus 277, 257），PDS SBN `RO-C-MULTI-5-67P-SHAPE-V2.0`，<https://pdssbn.astro.umd.edu/holdings/ro-c-multi-5-67p-shape-v2.0/>，文件 `data/triplate/spc_lam_psi/shap5/cg_spc_shap5_050k_cart.wrl`（SHA-256 `3304263aaae23de3a82cdf13f754b3c075a57ccd1bdbe4c80117e01a02859a68`） | PDS 存档数据（ESA Rosetta / OSIRIS），公开使用，请引用数据集与作者 |
+| `steins.mesh` | Jorda et al. 2012, Icarus 221, 1089（OSIRIS），PDS SBN `RO-A-OSINAC_OSIWAC-5-STEINS-SHAPE-V1.0`，文件 `data/steins_cart.wrl`（SHA-256 `4ef16c6d805336dc4dd878835e900b62c8ba4f0f8056da1ae18189cb6dc67aff`） | 同上 |
+| `lutetia.mesh` | Sierks et al. 2011, Science 334, 487；Jorda & Vincent（LAM，OSIRIS），PDS SBN `RO-A-OSINAC_OSIWAC-5-LUTETIA-SHAPE-V1.0`，文件 `data/lutetia_048k_cart.wrl`（SHA-256 `b7185983fba3aa67f342894c7d4e5f1edfed8b2fae74b3e4a7efc6d595016337`） | 同上 |
 | `amalthea.mesh`、`thebe.mesh` | P. Stooke，“Stooke Small Body Shape Models” V2.0（PDS SBN，`small_bodies.stooke.shape-models`；EAR-A-5-DDR-STOOKE-SHAPE-MODELS-V2.0），<https://sbnarchive.psi.edu/pds4/non_mission/small_bodies.stooke.shape-models/>，文件 `data/j5amalthea.tab`、`data/j14thebe.tab`；Amalthea：Stooke 1994, EMP 64, 87 | PDS 存档数据，公有领域（请引用：Stooke, P., Stooke Small Body Shape Models V2.0, NASA PDS, 2016） |
 | `halley.mesh` | 同上 Stooke 数据集，文件 `data/1682q1halley.tab`（SHA-256 `e9437ac850060a4c527d1045e028ac28f58bfe0386fc1da0bf50405b8128b824`）；1P/Halley，Giotto HMC 与 Vega 1/2 TVS 图像的边缘和明暗界线拟合，指向由 A. Abergel 计算；自转状态按 Belton et al. 1991, Icarus 93, 183 | PDS 存档数据，公有领域（标签要求同时署名 Abergel 与 Stooke） |
 | `hyperion.mesh` | P. C. Thomas，“Saturn Small Moon Shape Models” V1.0（PDS SBN，`saturn_satellite_shape_models`，卡西尼 ISS），<https://sbnarchive.psi.edu/pds4/cassini/saturn_satellite_shape_models_V1_0/>，文件 `data/hyperion_30k_plt.tab`；Thomas et al. 2007, Nature 448, 50 | PDS 存档数据，公有领域（请引用数据集与作者） |
@@ -88,3 +91,18 @@
   - PCK（IAU 2015）给出的极轴为 RA 33°、Dec −3°，W = 38° + 1105.8036°/天。这组参数与形状模型的坐标系无关，场景因此使用上述 DAMIT 参数。
 - 交叉检查：等体积直径 508.2 km，Vernazza et al. 2021 表 1 为 511 ± 4 km（ADAM 模型为 513 km）；外形尺寸 562 × 529 × 429 km，表 A.1 的三轴椭球为 568 × 530 × 450（± 12）km。`radii_km` 使用 [MARS] 的 568 × 532 × 448 km（影子、相机距离）。
 - 局限：SPHERE/ZIMPOL 的角分辨率约 20 mas（600 nm），能探测到的撞击坑直径至少约 25至70 km（随观测时的地心距离而变，Vernazza et al. 2021），模型里只保留了其中最显著的；SPHERE 图像覆盖不到的部分主要由光变曲线约束，较平滑。没有反照率信息，按场景颜色均匀着色。
+
+## 67P、Steins、Lutetia（Rosetta 的 OSIRIS 形状模型）
+
+- **格式**：VRML 2.0 的 IndexedFaceSet：`point [...]` 是顶点（km，天体固连），`coordIndex [a b c -1 ...]` 是三角形（从 0 开始）。`tools/shapes/make_plate_shape.py` 新增了 `.wrl` 读取，原样转换。
+- **67P**：
+  - 模型：SHAP5 的 5 万面版本，24,877 个顶点、49,748 个三角形，971 KB。
+  - 体积 18.74 km³，等体积半径 1.65 km；范围 5.0 × 3.7 × 3.3 km。
+  - 坐标系：SHAP5 相对 Cheops 参考系只转了 0.28°、平移了约 17 m（数据集 `USER_GUIDE.ASC`），这里直接当作 Cheops 系使用。
+  - 自转：按 Cheops 参考系文档（Scholten et al. 2015，同一数据集 `DOCUMENT/CHEOPS_REF_FRAME_V1.PDF`）：极 RA 69.54°、Dec 64.11°，W = 114.69° + 696.543884683°/天（12.4041 h），只对 2014 年 8–9 月有效。0.14° 的进动没有加；过近日点后自转周期缩短到约 12.06 h，也没有建模。所以 2015 年以后彗核的自转相位不准（轨道不受影响）。
+- **Steins**：
+  - 模型：10,242 个顶点、20,480 个三角形，400 KB；等体积半径 2.63 km，范围 6.8 × 5.6 × 4.2 km。
+  - 自转：数据集说明（`catalog/dataset.cat`）给出极 RA 91°、Dec −62°（±5°），周期 6.04681 h。本初子午线过 Spinel 坑，但没有给出某一时刻的相位，场景里取 0，是任意的。
+- **Lutetia**：
+  - 模型：48k 版本，23,894 个顶点、47,784 个三角形，933 KB；等体积半径 49.2 km，范围 111.7 × 120.8 × 84.8 km。
+  - 自转：数据集文档 `LUTETIA_ROTATION.PDF`（Jorda & Vincent）：极 RA 51.80°、Dec +10.83°（Sierks et al. 2011），W = 289.50° + 1057.751519°/天（周期 8.168270 h，Carry et al. 2010）。零经线过 Lauriacum 坑，模型已按这个定义旋转。

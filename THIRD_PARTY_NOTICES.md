@@ -38,6 +38,7 @@ Per-file details, original download URLs and processing steps are in each direct
 | `assets/textures/titan.jpg` | USGS Astrogeology Science Center / Cassini ISS Team, Titan Cassini ISS Global Mosaic 4005m | Public domain; please cite the authors |
 | `assets/shapes/{amalthea,thebe}.mesh` | P. Stooke, Stooke Small Body Shape Models V2.0 (PDS Small Bodies Node) | Public domain (PDS data) |
 | `assets/textures/amalthea.jpg` | P. Stooke, Stooke Small Bodies Maps V3.0 (PDS Small Bodies Node), Amalthea shaded relief | Public domain; credit: Stooke, P., Stooke Small Bodies Maps V3.0, NASA PDS, 2015 |
+| `assets/shapes/{67p,steins,lutetia}.mesh` | ESA Rosetta OSIRIS shape models (PDS Small Bodies Node: RO-C-MULTI-5-67P-SHAPE-V2.0, SHAP5, Gaskell & Jorda; RO-A-OSINAC_OSIWAC-5-STEINS-SHAPE-V1.0, Jorda et al. 2012; RO-A-OSINAC_OSIWAC-5-LUTETIA-SHAPE-V1.0, Sierks et al. 2011) | PDS archive data; cite the datasets and authors |
 | `assets/shapes/hyperion.mesh` | P. C. Thomas, Saturn Small Moon Shape Models V1.0 (PDS Small Bodies Node, Cassini ISS) | Public domain (PDS data) |
 | `assets/shapes/pallas.mesh` | “(2) Pallas - MPCD model” by marin (@marin14) on Sketchfab (https://sketchfab.com/3d-models/2-pallas-mpcd-model-59c1ec418b2f4f13bc182633a2cddc66), from the VLT/SPHERE large programme (Marsset et al. 2020; Vernazza et al. 2021); converted to the AXMESH2 format | CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/) |
 | `assets/shapes/vesta.mesh` | USGS Astrogeology Science Center / DLR, Vesta Dawn FC HAMO global DTM | Public domain |

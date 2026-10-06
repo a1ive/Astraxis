@@ -919,3 +919,103 @@ tolerance_km = 1.0
 kepler_gm_km3_s2 = 1.32712440041279419e11
 refine_near = ["emb"]
 refine_near_km = 2000000.0
+
+# --- Rosetta (assets/scenes/rosetta.toml) --------------------------------------
+# Rosetta (-226): 2004-Mar-02 09:27 TDB .. 2016-Oct-05 (ESA predicts and reconstructions,
+#   merged; see the Horizons notes). Relative to 67P (center "@1000012") only over
+#   2014-Mar-03 .. 2016-Oct-05, against ESA's own comet solution (Horizons 1000012, the
+#   "CORB" merge); the comet then comes from the same solution so that the two agree.
+#   End of mission: touchdown in Ma'at 2016-Sep-30 10:39:28 UTC (10:40:36 TDB).
+# Flybys (Horizons notes): Earth 2005-03-04 (8,340 km from the center), Mars 2007-02-25
+#   (250 km altitude), Earth 2007-11-13 (11,678 km from the center), 2867 Steins
+#   2008-09-05 (800 km), Earth 2009-11-13 (~2,490 km altitude), 21 Lutetia 2010-07-10
+#   (3,235 km).
+# 67P outside 2014-2016: the JPL apparition solution (DES=67P;CAP<2016, record 90000703).
+
+[[target]]
+name = "mars"
+command = "499"
+naif_id = 499
+center = "500@10"
+center_naif_id = 10
+start = "2004-01-01"
+stop = "2017-01-01"
+base_step_minutes = 1440
+tolerance_km = 2.0
+kepler_gm_km3_s2 = 1.32712440041279419e11
+radius_km = 3389.5
+
+[[target]]
+name = "steins"
+command = "2867;"
+naif_id = 2002867
+center = "500@10"
+center_naif_id = 10
+start = "2004-01-01"
+stop = "2017-01-01"
+base_step_minutes = 2880
+tolerance_km = 2.0
+kepler_gm_km3_s2 = 1.32712440041279419e11
+
+[[target]]
+name = "lutetia"
+command = "21;"
+naif_id = 2000021
+center = "500@10"
+center_naif_id = 10
+start = "2004-01-01"
+stop = "2017-01-01"
+base_step_minutes = 2880
+tolerance_km = 2.0
+kepler_gm_km3_s2 = 1.32712440041279419e11
+
+[[target]]
+name = "c67p"
+command = "1000012"
+naif_id = 1000012
+center = "500@10"
+center_naif_id = 10
+start = "2014-01-02"
+stop = "2016-10-05"
+base_step_minutes = 720
+tolerance_km = 0.5
+kepler_gm_km3_s2 = 1.32712440041279419e11
+
+[[target]]
+name = "c67p_jpl"
+command = "DES=67P;CAP<2016"
+naif_id = 90000703
+center = "500@10"
+center_naif_id = 10
+start = "2004-01-01"
+stop = "2017-01-01"
+base_step_minutes = 2880
+tolerance_km = 5.0
+kepler_gm_km3_s2 = 1.32712440041279419e11
+
+[[target]]
+name = "rosetta_helio"
+command = "-226"
+naif_id = -226
+center = "500@10"
+center_naif_id = 10
+start = "2004-03-02 09:28"
+stop = "2014-05-01"
+base_step_minutes = 1440
+tolerance_km = 2.0
+kepler_gm_km3_s2 = 1.32712440041279419e11
+refine_near = ["emb", "mars", "steins", "lutetia"]
+refine_near_km = 1500000.0
+encounters = ["emb", "mars", "steins", "lutetia"]
+encounter_km = 1500000.0
+
+[[target]]
+name = "rosetta_67p"
+command = "-226"
+naif_id = -226
+center = "@1000012"
+center_naif_id = 1000012
+start = "2014-03-03"
+stop = "2016-09-30 10:40"
+base_step_minutes = 60
+tolerance_km = 0.05

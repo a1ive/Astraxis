@@ -1907,6 +1907,76 @@ void test_halley_armada()
                 format_utc(t_g).c_str(), d_venus, format_utc(t_venus).c_str());
 }
 
+// Rosetta and 67P: flybys against the Horizons notes for -226 and ESA's figures; the
+// comet-relative phase against ESA's mission milestones.
+void test_rosetta_scene()
+{
+    Scene scene = load_scene_or_die("rosetta.toml");
+    const int earth = scene.find("Earth");
+    const int lutetia = scene.find("Lutetia");
+    const int comet = scene.find("67P");
+    const int craft = scene.find("Rosetta");
+    check(earth > 0 && lutetia > 0 && comet > 0 && craft > 0, "rosetta.toml bodies");
+    auto at = [&](int body, double t) { return scene.icrf_state_at(body, t).position; };
+    auto utc = [](const CalendarDateTime& c) { return tdb_from_utc_jd(jd_from_calendar(c)); };
+    auto closest = [&](int a, int b, double t0, double half, double step) {
+        std::pair<double, double> best{1e300, t0};
+        for (double t = t0 - half; t <= t0 + half; t += step) {
+            const double d = glm::length(at(a, t) - at(b, t));
+            if (d < best.first) {
+                best = {d, t};
+            }
+        }
+        return best;
+    };
+
+    // Earth flybys (Horizons notes): 2005-03-04 22:10 UTC 8,340 km from the center;
+    // 2007-11-13 20:57 UTC 11,678 km; 2009-11-13 07:45:40 UTC ~2,490 km above the surface.
+    // The Earth is the scene's (around the Earth-Moon barycenter, 50 km table tolerance).
+    const double r_earth = scene.bodies[static_cast<size_t>(earth)].equatorial_radius_km;
+    const auto [e1, te1] = closest(craft, earth, utc({2005, 3, 4, 22, 10, 0}), 3600.0, 5.0);
+    const auto [e2, te2] = closest(craft, earth, utc({2007, 11, 13, 20, 57, 0}), 3600.0, 5.0);
+    const auto [e3, te3] = closest(craft, earth, utc({2009, 11, 13, 7, 45, 40}), 3600.0, 5.0);
+    check(std::abs(e1 - 8340.0) < 60.0 && std::abs(te1 - utc({2005, 3, 4, 22, 10, 0})) < 120.0,
+          "Rosetta Earth flyby 2005 (km from the center)", e1);
+    check(std::abs(e2 - 11678.0) < 60.0 && std::abs(te2 - utc({2007, 11, 13, 20, 57, 0})) < 120.0,
+          "Rosetta Earth flyby 2007 (km from the center)", e2);
+    check(std::abs(e3 - r_earth - 2490.0) < 60.0 && std::abs(te3 - utc({2009, 11, 13, 7, 45, 40})) < 120.0,
+          "Rosetta Earth flyby 2009 (km above the surface)", e3 - r_earth);
+    std::printf("info: Rosetta Earth flybys %.0f, %.0f, %.0f km from the center\n", e1, e2, e3);
+
+    // 21 Lutetia, 2010-07-10 15:44:45 UTC, 3,235 km (Horizons notes).
+    const auto [dl, tl] = closest(craft, lutetia, utc({2010, 7, 10, 15, 44, 45}), 1800.0, 0.5);
+    check(std::abs(dl - 3235.0) < 100.0 && std::abs(tl - utc({2010, 7, 10, 15, 44, 45})) < 120.0,
+          "Rosetta at Lutetia (km)", dl);
+
+    // At the comet (ESA): arrival 2014-08-06 at ~100 km; Philae released 2014-11-12 08:35 UTC
+    // from 22.5 km of the center; the 2015-02-14 flyby 6 km above the surface (~8 km from the
+    // center, radii 2.4 x 1.55 x 1.2 km); touchdown 2016-09-30 10:39:28 UTC.
+    const double arrival = glm::length(at(craft, utc({2014, 8, 6, 9, 6, 0})) - at(comet, utc({2014, 8, 6, 9, 6, 0})));
+    check(std::abs(arrival - 100.0) < 10.0, "Rosetta at arrival (km from 67P)", arrival);
+    const double release =
+        glm::length(at(craft, utc({2014, 11, 12, 8, 35, 0})) - at(comet, utc({2014, 11, 12, 8, 35, 0})));
+    check(std::abs(release - 22.5) < 0.5, "Rosetta at Philae's release (km from 67P)", release);
+    const auto [flyby, t_flyby] = closest(craft, comet, utc({2015, 2, 14, 12, 41, 0}), 7200.0, 10.0);
+    check(flyby > 6.5 && flyby < 9.0 && std::abs(t_flyby - utc({2015, 2, 14, 12, 41, 0})) < 600.0,
+          "Rosetta close flyby 2015-02-14 (km from the center)", flyby);
+    const double t_end = utc({2016, 9, 30, 10, 38, 30});
+    check(glm::length(at(craft, t_end) - at(comet, t_end)) < 3.0, "Rosetta at the surface (km from the center)",
+          glm::length(at(craft, t_end) - at(comet, t_end)));
+    scene.update(utc({2016, 9, 30, 11, 0, 0}));
+    check(!scene.bodies[static_cast<size_t>(craft)].visible, "Rosetta gone after its touchdown");
+
+    // Hand-over from the heliocentric table to the comet-relative one (2014-05-01): no jump.
+    const double t_switch = utc({2014, 5, 1, 0, 0, 0});
+    double worst = 0.0;
+    for (double t = t_switch - 2 * kSecondsPerDay; t < t_switch + 2 * kSecondsPerDay; t += 600.0) {
+        const State a = scene.icrf_state_at(craft, t);
+        worst = std::max(worst, glm::length(at(craft, t + 600.0) - a.position - a.velocity * 600.0));
+    }
+    check(worst < 5.0, "Rosetta hand-over to the comet-relative table (km per 10 min)", worst);
+}
+
 void test_jwst_scene()
 {
     // Lagrange L2 of Sun / Earth-Moon: force balance in the rotating frame, ~1.5e6 km.
@@ -4144,6 +4214,7 @@ int main()
     test_saturn_scene();
     test_mercury_scene();
     test_isee3_scene();
+    test_rosetta_scene();
     test_halley_armada();
     test_jwst_scene();
     test_galactic_frame();

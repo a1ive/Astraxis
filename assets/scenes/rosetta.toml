@@ -1,0 +1,492 @@
+# Rosetta and comet 67P/Churyumov-Gerasimenko, 2004-2016.
+#
+# Ten years to catch a comet: Earth, Mars, Earth and Earth gravity assists (EMEE), with the
+# asteroids 2867 Steins (2008) and 21 Lutetia (2010) on the way and two and a half years of
+# hibernation. Rosetta arrived at 67P on 2014-08-06, sent Philae down on 2014-11-12, rode
+# with the comet through perihelion (2015-08-13) and ended on its surface on 2016-09-30.
+#
+# Around the comet, the "67P, Sun fixed" frames keep the Sun along one axis (as Rosetta's own
+# comet-centred solar orbital frame did): there the arrival legs show up as the triangles at
+# 100 and 50 km (hyperbolic arcs joined by small burns), and the later flybys and
+# excursions as fans and petals. The comet's own spin (12.4 h) is drawn on its shape model;
+# a frame turning with the nucleus would wind these days-long legs into spirals.
+#
+# Sources
+# [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py (tools/bake/ephem.toml):
+#        - Rosetta (-226): ESA's merged predicts and reconstructions; heliocentric to
+#          2014-05-01, then relative to 67P (center @1000012) until the touchdown,
+#          2016-09-30 10:40 TDB.
+#        - 67P: ESA's comet solution (Horizons 1000012, "CORB" merge), 2014-01-02 ..
+#          2016-10-05, the same solution the Rosetta-relative data use; before that the JPL
+#          apparition solution (record 90000703, K284/1).
+#        - Mars (499), 2867 Steins, 21 Lutetia, 2004-2017; the Earth-Moon barycenter and
+#          the geocentric Moon (Earth and Moon around their barycenter, as in solar_system.toml).
+# [APX]  E. M. Standish, Approximate Positions of the Planets, Table 2a: Mars and Venus
+#        outside the tables.
+# [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
+# [ELEM] JPL SSD, Planetary Satellite Mean Elements (the Moon, outside its table).
+# [ATM]  Atmospheres (single scattering): sources and choices in solar_system.toml.
+# [PCK]  NAIF pck00011.tpc (IAU 2015).
+# [CHP]  67P rotation: Scholten, Preusker, Jorda & Hviid, "Reference frames and mapping
+#        schemes of comet 67P" v2 (2015-09-24), PDS SBN RO-C-MULTI-5-67P-SHAPE-V2.0,
+#        DOCUMENT/CHEOPS_REF_FRAME_V1.PDF: pole (69.54, 64.11) deg, W = 114.69 deg +
+#        696.543884683 deg/d (12.4041 h), radii (2.40, 1.55, 1.20) km; valid Aug-Sep 2014 (the
+#        spin later sped up to ~12.06 h, not modelled; the 0.14 deg precession is left out).
+# [SH67] 67P shape: SHAP5 SPC model (Gaskell & Jorda; Jorda et al. 2016, Icarus 277, 257),
+#        50k-plate version, same dataset (assets/shapes/SOURCES.md).
+# [HZP]  Horizons physical data for 67P: GM 6.622e-7 km^3/s^2; comet magnitude M1 12.9, K1 7.5.
+# [STN]  Steins: PDS SBN RO-A-OSINAC_OSIWAC-5-STEINS-SHAPE-V1.0 (Jorda et al. 2012, Icarus
+#        221, 1089): pole (91, -62) deg +- 5, period 6.04681 h; the prime meridian (crater
+#        Spinel) is not tied to a date, so its phase here is arbitrary.
+# [LUT]  Lutetia: PDS SBN RO-A-OSINAC_OSIWAC-5-LUTETIA-SHAPE-V1.0, DOCUMENT/LUTETIA_ROTATION.PDF
+#        (Jorda & Vincent): pole (51.80, 10.83) deg (Sierks et al. 2011), W = 289.50 deg +
+#        1057.751519 deg/d (period 8.168270 h, Carry et al. 2010); shape 48k plates.
+# Flyby times and distances: computed from the tables (tools/bake/ephem.toml encounters);
+# tests/sim_tests.cpp checks them against the Horizons notes for -226.
+
+name = "Rosetta & 67P"
+
+[view]
+focus = "67P"
+frame = "67P, Sun fixed"
+distance_km = 400.0
+pitch_deg = 35.0
+start = "2014-08-06 00:00"
+warp = 21600.0             # 6 hours per second: a triangle leg (3-4 days) in about 15 s
+
+[[bodies]]
+name = "Sun"
+kind = "star"
+radii_km = [695700.0]                      # [PCK]
+gm_km3_s2 = 1.32712440041279419e11         # [GM]
+pole_ra_dec_deg = [286.13, 63.87]          # [PCK]
+prime_meridian_deg = [84.176, 14.1844]
+color = "#fff4e0"
+
+[[bodies]]
+name = "Venus"
+parent = "Sun"
+radii_km = [6051.8]                        # [PCK]
+body_gm_km3_s2 = 324858.592                # [GM]
+pole_ra_dec_deg = [272.76, 67.16]
+prime_meridian_deg = [160.20, -1.4813688]
+color = "#e8d6ae"
+orbit_color = "#d9c79f"
+texture = "textures/venus.jpg"
+texture_left_lon_deg = -180.0
+[bodies.orbit]                             # [APX] Table 2a
+type = "jpl_approx_planet"
+a_au = [0.72332102, -0.00000026]
+e = [0.00676399, -0.00005107]
+i_deg = [3.39777545, 0.00043494]
+mean_longitude_deg = [181.97970850, 58517.81560260]
+lon_peri_deg = [131.76755713, 0.05679648]
+node_deg = [76.67261496, -0.27274174]
+
+# Earth and Moon around their barycenter: Earth at -mu r, the Moon at (1 - mu) r, with r the
+# geocentric Moon and mu = 4902.800118 / (398600.435507 + 4902.800118) [GM].
+
+[[bodies]]
+name = "Earth-Moon barycenter"
+parent = "Sun"
+kind = "barycenter"
+gm_km3_s2 = 403503.235625                  # Earth + Moon [GM]
+orbit_color = "#7fa6e0"
+[bodies.orbit]                             # [HZN] Earth-Moon barycenter
+type = "ephemeris"
+file = "ephem/emb.eph"
+
+[[bodies]]
+name = "Earth"
+parent = "Earth-Moon barycenter"
+radii_km = [6378.1366, 6356.7519]          # [PCK]
+body_gm_km3_s2 = 398600.435507             # [GM]
+pole_ra_dec_deg = [0.0, 90.0]
+prime_meridian_deg = [190.147, 360.9856235]
+color = "#5b86c9"
+trail = "none"
+texture = "textures/earth.jpg"
+texture_left_lon_deg = -180.0
+[bodies.atmosphere]                        # [ATM]
+height_km = 60.0
+rayleigh_depth = 0.1085
+rayleigh_scale_height_km = 8.0
+haze_depth = 0.005328
+haze_scale_height_km = 1.2
+haze_albedo = 0.9
+haze_g = 0.8
+[bodies.orbit]                             # [HZN] 301 (geocentric Moon), scaled by -mu
+scale = -0.0121505844
+type = "ephemeris"
+file = "ephem/moon.eph"
+fallback_blend_days = 30.0                 # the elements are ~10 deg off at the ends: spread over a month
+[bodies.orbit.fallback]                    # [ELEM] DE405/LE405, J2000 ecliptic
+type = "mean_elements"
+a_km = 384400.0
+e = 0.0554
+arg_peri_deg = 318.15
+mean_anomaly_deg = 135.27
+i_deg = 5.16
+node_deg = 125.08
+period_days = 27.555032                    # of M; [ELEM] P = 27.322 (mean longitude)
+apsis_period_years = 5.997
+node_period_years = -18.600
+laplace_pole_ra_dec_deg = [270.0, 66.56070889]
+
+[[bodies]]
+name = "Moon"
+parent = "Earth-Moon barycenter"
+radii_km = [1737.4]                        # [PCK]
+body_gm_km3_s2 = 4902.800118               # [GM]
+pole_ra_dec_deg = [269.9949, 66.5392]      # [PCK] (libration terms ignored)
+prime_meridian_deg = [38.3213, 13.17635815]
+pole_rate_deg_per_century = [0.0031, 0.0130]
+color = "#a8a49c"
+orbit_color = "#b4b8c4"
+texture = "textures/moon.jpg"
+texture_left_lon_deg = -180.0
+[bodies.orbit]                             # [HZN] 301, scaled by 1 - mu
+scale = 0.9878494156
+type = "ephemeris"
+file = "ephem/moon.eph"
+fallback_blend_days = 30.0                 # the elements are ~10 deg off at the ends: spread over a month
+[bodies.orbit.fallback]                    # [ELEM]
+type = "mean_elements"
+a_km = 384400.0
+e = 0.0554
+arg_peri_deg = 318.15
+mean_anomaly_deg = 135.27
+i_deg = 5.16
+node_deg = 125.08
+period_days = 27.555032
+apsis_period_years = 5.997
+node_period_years = -18.600
+laplace_pole_ra_dec_deg = [270.0, 66.56070889]
+
+[[bodies]]
+name = "Mars"
+parent = "Sun"
+radii_km = [3396.19, 3376.20]              # [PCK]
+body_gm_km3_s2 = 42828.37362
+pole_ra_dec_deg = [317.269202, 54.432516]
+prime_meridian_deg = [176.049863, 350.891982443297]
+color = "#c1673e"
+orbit_color = "#c98a6e"
+texture = "textures/mars.jpg"
+texture_left_lon_deg = -180.0
+[bodies.atmosphere]                        # [ATM]
+height_km = 100.0
+haze_depth = 0.5
+haze_scale_height_km = 11.9
+haze_albedo = [0.97, 0.93, 0.75]
+haze_g = 0.63
+[bodies.orbit]                             # [HZN] 499, 2004-2017
+type = "ephemeris"
+file = "ephem/mars.eph"
+[bodies.orbit.fallback]                    # [APX] Table 2a
+type = "jpl_approx_planet"
+a_au = [1.52371243, 0.00000097]
+e = [0.09336511, 0.00009149]
+i_deg = [1.85181869, -0.00724757]
+mean_longitude_deg = [-4.56813164, 19140.29934243]
+lon_peri_deg = [-23.91744784, 0.45223625]
+node_deg = [49.71320984, -0.26852431]
+
+# --- Asteroids on the way ------------------------------------------------------------------
+
+[[bodies]]
+name = "Steins"
+parent = "Sun"
+shape = "shapes/steins.mesh"               # [STN] assets/shapes/SOURCES.md
+radii_km = [3.4, 2.8, 2.1]                 # half the model's extent (camera distances, shadows)
+pole_ra_dec_deg = [91.0, -62.0]            # [STN]
+prime_meridian_deg = [0.0, 1428.853]       # [STN] 360 deg / 6.04681 h; phase arbitrary
+color = "#9a9590"
+orbit_color = "#a0a8b0"
+trail = "none"
+[bodies.orbit]                             # [HZN] 2867
+type = "ephemeris"
+file = "ephem/steins.eph"
+
+[[bodies]]
+name = "Lutetia"
+parent = "Sun"
+shape = "shapes/lutetia.mesh"              # [LUT]
+radii_km = [60.4, 55.9, 42.4]              # half the model's extent, largest first
+pole_ra_dec_deg = [51.80, 10.83]           # [LUT]
+prime_meridian_deg = [289.50, 1057.751519]
+color = "#8f8a84"
+orbit_color = "#a0a8b0"
+trail = "none"
+[bodies.orbit]                             # [HZN] 21
+type = "ephemeris"
+file = "ephem/lutetia.eph"
+
+# --- 67P ----------------------------------------------------------------------------------
+# Coma, ion tail and dust tail as for the comets of isee3.toml: magnitudes from Horizons;
+# the tail sizes are illustrative.
+
+[[bodies]]
+name = "67P"
+parent = "Sun"
+shape = "shapes/67p.mesh"                  # [SH67]
+radii_km = [2.40, 1.55, 1.20]              # [CHP]
+body_gm_km3_s2 = 6.622e-7                  # [HZP]
+pole_ra_dec_deg = [69.54, 64.11]           # [CHP]
+prime_meridian_deg = [114.69, 696.543884683]
+color = "#5e5a56"                          # dark (illustrative tone; albedo ~6%)
+orbit_color = "#b8c8e8"
+trail = "history"
+trail_history_days = 400.0
+[bodies.comet]
+magnitude_m1_k1 = [12.9, 7.5]              # [HZP]
+ion_tail_diameter_km = 2.0e4               # illustrative
+ion_tail_length_km = 1.0e6                 # illustrative
+solar_wind_km_s = 400.0
+[bodies.orbit]                             # [HZN] 1000012 (ESA), 2014-01-02 .. 2016-10-05
+type = "ephemeris"
+file = "ephem/c67p.eph"
+fallback_blend_days = 2.0
+[bodies.orbit.fallback]                    # [HZN] JPL K284/1, 2004 .. 2017
+type = "ephemeris"
+file = "ephem/c67p_jpl.eph"
+
+# --- Rosetta ------------------------------------------------------------------------------
+# A child of the Sun: heliocentric to 2014-05-01, then a table relative to 67P (relative_to).
+
+[[bodies]]
+name = "Rosetta"
+parent = "Sun"
+kind = "spacecraft"
+radii_km = [0.016]                         # 32 m across its solar arrays (drawn as a marker)
+color = "#ffd27f"
+orbit_color = "#ffb347"
+trail = "history"
+trail_history_days = 4700.0                # the whole mission (frames cut it shorter)
+trail_linger_days = 365.0
+[bodies.orbit]                             # [HZN] -226, heliocentric
+type = "ephemeris"
+file = "ephem/rosetta_helio.eph"
+fallback_blend_days = 1.0
+[bodies.orbit.fallback]                    # [HZN] -226 relative to 67P
+type = "ephemeris"
+file = "ephem/rosetta_67p.eph"
+relative_to = "67P"
+
+[[frames]]
+name = "Heliocentric"
+type = "inertial"
+origin = "Sun"
+trail_history_days = 4700.0
+
+[[frames]]
+name = "67P, Sun fixed"
+type = "rotating"
+primary = "Sun"
+secondary = "67P"
+origin = "67P"
+trail_history_days = 20.0
+
+[[frames]]
+name = "67P, Sun fixed, 3 months"
+type = "rotating"
+primary = "Sun"
+secondary = "67P"
+origin = "67P"
+trail_history_days = 90.0
+
+[[frames]]
+name = "67P, Sun fixed, the whole stay"
+type = "rotating"
+primary = "Sun"
+secondary = "67P"
+origin = "67P"
+trail_history_days = 1000.0
+
+[[frames]]
+name = "67P-centered"
+type = "inertial"
+origin = "67P"
+trail_history_days = 2.0
+
+[[frames]]
+name = "Earth-centered"
+type = "inertial"
+origin = "Earth"
+trail_history_days = 2.0
+
+[[frames]]
+name = "Mars-centered"
+type = "inertial"
+origin = "Mars"
+trail_history_days = 1.0
+
+[[frames]]
+name = "Steins-centered"
+type = "inertial"
+origin = "Steins"
+trail_history_days = 0.1
+
+[[frames]]
+name = "Lutetia-centered"
+type = "inertial"
+origin = "Lutetia"
+trail_history_days = 0.1
+
+# --- Events --------------------------------------------------------------------------------
+# Times UTC. Flybys start an hour or two before closest approach.
+
+[[events]]
+name = "Launch (2004-03-02)"
+time = "2004-03-02 09:30"
+focus = "Earth"
+frame = "Earth-centered"
+distance_km = 1.0e5
+warp = 1800.0
+
+[[events]]
+name = "Cruise: Earth, Mars, Earth, Earth (2004-2014)"
+time = "2004-03-02 09:30"
+focus = "Sun"
+frame = "Heliocentric"
+from_orbit_normal = "Earth-Moon barycenter"
+distance_km = 1.3e9
+warp = 2592000.0           # 30 days per second
+
+# Closest approach 2005-03-04 22:10 UTC, 8,340 km from the Earth's center (Horizons notes).
+[[events]]
+name = "Earth flyby 1 (2005-03-04)"
+time = "2005-03-04 20:10"
+focus = "Earth"
+frame = "Earth-centered"
+distance_km = 6.0e4
+warp = 120.0
+
+# 2007-02-25 ~01:45 UTC; in these data (an ESA prediction of 2005) ~180 km above Mars, the
+# flight itself passed at 250 km (Horizons notes).
+[[events]]
+name = "Mars flyby (2007-02-25)"
+time = "2007-02-25 00:45"
+focus = "Mars"
+frame = "Mars-centered"
+distance_km = 3.0e4
+warp = 60.0
+
+# Closest approach 2007-11-13 20:57 UTC, 11,678 km from the Earth's center.
+[[events]]
+name = "Earth flyby 2 (2007-11-13)"
+time = "2007-11-13 18:57"
+focus = "Earth"
+frame = "Earth-centered"
+distance_km = 6.0e4
+warp = 120.0
+
+# 2008-09-05 18:37 UTC, 800 km at 8.6 km/s (Horizons notes); these data (an ESA prediction
+# of 2007) pass at ~560 km.
+[[events]]
+name = "Asteroid 2867 Steins (2008-09-05)"
+time = "2008-09-05 18:30"
+focus = "Steins"
+frame = "Steins-centered"
+from_body = "Sun"
+phase_deg = 50.0
+distance_km = 800.0
+warp = 5.0
+
+[[events]]
+name = "Earth flyby 3 (2009-11-13)"
+time = "2009-11-13 05:45"
+focus = "Earth"
+frame = "Earth-centered"
+distance_km = 6.0e4
+warp = 120.0
+
+# 2010-07-10 15:44:45 UTC, 3,235 km at 15 km/s (Horizons notes).
+[[events]]
+name = "Asteroid 21 Lutetia (2010-07-10)"
+time = "2010-07-10 15:38"
+focus = "Lutetia"
+frame = "Lutetia-centered"
+from_body = "Sun"
+phase_deg = 50.0
+distance_km = 4000.0
+warp = 10.0
+
+[[events]]
+name = "Arrival at 67P (2014-07 .. 08)"
+time = "2014-07-01 00:00"
+focus = "67P"
+frame = "67P, Sun fixed"
+distance_km = 2.0e4
+warp = 86400.0
+
+[[events]]
+name = "Triangles at 100 km and 50 km (2014-08 .. 09)"
+time = "2014-08-03 00:00"
+focus = "67P"
+frame = "67P, Sun fixed"
+distance_km = 600.0
+warp = 21600.0
+
+# Philae separated at 08:35 UTC from ~22.5 km and touched down at 15:34 UTC (Agilkia), then
+# bounced; it is not in Horizons, so only Rosetta is drawn.
+[[events]]
+name = "Philae's release (2014-11-12)"
+time = "2014-11-12 07:30"
+focus = "67P"
+frame = "67P-centered"
+from_body = "Sun"
+phase_deg = 60.0
+distance_km = 80.0
+warp = 300.0
+
+# 2015-02-14 12:41 UTC, 6 km above the surface.
+[[events]]
+name = "Close flyby (2015-02-14)"
+time = "2015-02-13 18:00"
+focus = "67P"
+frame = "67P, Sun fixed"
+distance_km = 120.0
+warp = 1800.0
+
+[[events]]
+name = "Fans and petals (2015)"
+time = "2015-01-15 00:00"
+focus = "67P"
+frame = "67P, Sun fixed, 3 months"
+distance_km = 800.0
+warp = 86400.0
+
+[[events]]
+name = "Perihelion (2015-08-13)"
+time = "2015-08-01 00:00"
+focus = "67P"
+frame = "67P, Sun fixed"
+distance_km = 3000.0
+warp = 21600.0
+
+# The night-side tail excursion out to ~1,000 km (2016-03-30 .. 04-10).
+[[events]]
+name = "Tail excursion (2016-03 .. 04)"
+time = "2016-03-25 00:00"
+focus = "67P"
+frame = "67P, Sun fixed, 3 months"
+distance_km = 3000.0
+warp = 21600.0
+
+# The last burn 2016-09-29 20:50 UTC from 19 km; touchdown in Ma'at 2016-09-30 10:39:28 UTC.
+[[events]]
+name = "Descent to the surface (2016-09-30)"
+time = "2016-09-30 07:00"
+focus = "67P"
+frame = "67P-centered"
+distance_km = 30.0
+warp = 120.0
+
+[[events]]
+name = "The whole stay at 67P (2014-2016)"
+time = "2016-09-30 10:00"
+focus = "67P"
+frame = "67P, Sun fixed, the whole stay"
+distance_km = 4000.0
+warp = 3600.0

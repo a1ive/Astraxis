@@ -1,6 +1,7 @@
 """Convert a plate model (PDS SBN "Saturn Small Moon Shape Models", Thomas, Cassini
-ISS; e.g. hyperion_30k_plt.tab) or a triangle mesh in Wavefront OBJ form (e.g. the
-VLT/SPHERE MPCD model of Pallas) into a body mesh for assets/shapes/.
+ISS; e.g. hyperion_30k_plt.tab), a triangle mesh in Wavefront OBJ form (e.g. the
+VLT/SPHERE MPCD model of Pallas) or a VRML IndexedFaceSet (the Rosetta shape models of
+67P, Steins and Lutetia on PDS SBN, *_cart.wrl) into a body mesh for assets/shapes/.
 
 Sources and conventions are listed in assets/shapes/SOURCES.md. Download the
 file there first, then (from the repository root):
@@ -10,7 +11,8 @@ file there first, then (from the repository root):
 Format of the table: a line with the vertex and plate counts, one line of x, y, z
 (km, body-fixed) per vertex, then one line of three vertex indices (from 0) per
 plate. OBJ files: "v x y z" lines (km, body-fixed) and "f a b c" lines (indices
-from 1; texture and normal indices are ignored). Either way the plates must be
+from 1; texture and normal indices are ignored). VRML: the "point [ ... ]" list (km,
+body-fixed) and the "coordIndex [ a b c -1 ... ]" list (indices from 0). Either way the plates must be
 counter-clockwise seen from outside (checked here: the signed volume must be
 positive). The mesh has a uniform albedo and no map coordinates.
 
@@ -50,10 +52,33 @@ def read_obj(path):
     return positions, triangles
 
 
+def read_vrml(path):
+    with open(path) as f:
+        text = f.read()
+    point = text.index('point', text.index('Coordinate'))
+    body = text[text.index('[', point) + 1:text.index(']', point)]
+    numbers = [float(x) for line in body.splitlines() if not line.lstrip().startswith('#') for x in line.split()]
+    positions = [tuple(numbers[k:k + 3]) for k in range(0, len(numbers), 3)]
+    index = text.index('coordIndex')
+    ids = [int(x) for x in text[text.index('[', index) + 1:text.index(']', index)].split()]
+    triangles = []
+    face = []
+    for i in ids:
+        if i >= 0:
+            face.append(i)
+            continue
+        if len(face) != 3:
+            sys.exit('only triangular faces are supported')
+        triangles.append(tuple(face))
+        face = []
+    return positions, triangles
+
+
 def main():
     if len(sys.argv) != 3:
         sys.exit(__doc__)
-    read = read_obj if sys.argv[1].lower().endswith('.obj') else read_plate_table
+    name = sys.argv[1].lower()
+    read = read_obj if name.endswith('.obj') else read_vrml if name.endswith('.wrl') else read_plate_table
     positions, triangles = read(sys.argv[1])
     vertex_count, plate_count = len(positions), len(triangles)
     if any(not 0 <= i < vertex_count for t in triangles for i in t):
