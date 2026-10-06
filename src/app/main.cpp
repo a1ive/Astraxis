@@ -1,5 +1,8 @@
 #include "app/app.hpp"
 #include "app/screensaver.hpp"
+#ifdef _WIN32
+#include "app/wallpaper.hpp"
+#endif
 #include "platform/paths.hpp"
 
 #include <SDL3/SDL_log.h>
@@ -17,7 +20,7 @@
 namespace {
 
 constexpr const char* kUsage =
-    "usage: astraxis [--scene <name>] [--event <n>] [--mode window|fullscreen|screensaver]\n"
+    "usage: astraxis [--scene <name>] [--event <n>] [--mode window|fullscreen|screensaver|wallpaper]\n"
     "                [--display <n>] [--fps <n>] [--config <path>]\n"
     "       astraxis /s | /p <hwnd> | /c   (the Windows screensaver protocol)";
 
@@ -145,7 +148,7 @@ int main(int argc, char* argv[])
     }
 
     astraxis::LaunchOptions options;
-    bool screensaver = false;
+    std::string_view mode = "window";
     for (int i = 1; i < argc; ++i) {
         const std::string_view arg = argv[i];
         const char* value = i + 1 < argc ? argv[i + 1] : nullptr;
@@ -156,11 +159,11 @@ int main(int argc, char* argv[])
         } else if (arg == "--event" && ok) {
             ok = parse_int(value, options.event);
         } else if (arg == "--mode" && ok) {
-            const std::string_view mode = value;
-            ok = mode == "window" || mode == "fullscreen" || mode == "screensaver";
+            const std::string_view m = value;
+            ok = m == "window" || m == "fullscreen" || m == "screensaver" || m == "wallpaper";
             if (ok) {
-                screensaver = mode == "screensaver";
-                options.fullscreen = mode == "fullscreen";
+                mode = m;
+                options.fullscreen = m == "fullscreen";
             }
         } else if (arg == "--display" && ok) {
             ok = parse_int(value, number);
@@ -184,7 +187,26 @@ int main(int argc, char* argv[])
         ++i; // the value
     }
 
-    if (screensaver) {
+    if (mode == "wallpaper") {
+#ifdef _WIN32
+        astraxis::WallpaperOptions wallpaper;
+        wallpaper.config = options.config;
+        wallpaper.scene = options.scene;
+        wallpaper.display = options.display;
+        wallpaper.fps = options.fps;
+        astraxis::Wallpaper host;
+        const bool ok = host.init(wallpaper);
+        if (ok) {
+            host.run();
+        }
+        host.shutdown();
+        return ok ? 0 : 1;
+#else
+        SDL_Log("The live wallpaper is only supported on Windows");
+        return 1;
+#endif
+    }
+    if (mode == "screensaver") {
         astraxis::ScreensaverOptions saver;
         saver.config = options.config;
         saver.scene = options.scene;

@@ -76,6 +76,16 @@ std::string display_name(uint32_t display)
     return name ? name : "";
 }
 
+void* native_display(uint32_t display)
+{
+#ifdef _WIN32
+    return SDL_GetPointerProperty(SDL_GetDisplayProperties(display), SDL_PROP_DISPLAY_WINDOWS_HMONITOR_POINTER, nullptr);
+#else
+    (void)display;
+    return nullptr;
+#endif
+}
+
 bool Window::create(const char* title, int width, int height, uint32_t display, bool fullscreen)
 {
     const float scale = SDL_GetDisplayContentScale(display);
@@ -113,6 +123,31 @@ bool Window::create_cover(const char* title, uint32_t display)
     set_fullscreen(true);
     SDL_ShowWindow(m_window);
     return true;
+}
+
+bool Window::create_hidden(const char* title, int width, int height)
+{
+    const SDL_WindowFlags flags = SDL_WINDOW_HIDDEN | SDL_WINDOW_BORDERLESS | SDL_WINDOW_HIGH_PIXEL_DENSITY;
+    m_window = SDL_CreateWindow(title, width, height, flags);
+    if (!m_window) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateWindow failed: %s", SDL_GetError());
+        return false;
+    }
+    return true;
+}
+
+void* Window::native_handle() const
+{
+#ifdef _WIN32
+    if (m_child) {
+        return m_child;
+    }
+    return m_window ? SDL_GetPointerProperty(SDL_GetWindowProperties(m_window), SDL_PROP_WINDOW_WIN32_HWND_POINTER,
+                                             nullptr)
+                    : nullptr;
+#else
+    return nullptr;
+#endif
 }
 
 bool Window::create_child(void* parent)
@@ -217,6 +252,9 @@ bool Window::parent_alive() const
 
 float Window::content_scale() const
 {
+    if (m_scale > 0.0f) {
+        return m_scale;
+    }
     if (!m_window) {
         return 1.0f;
     }

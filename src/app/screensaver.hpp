@@ -1,20 +1,11 @@
 #pragma once
 
-#include "app/settings.hpp"
-#include "platform/window.hpp"
-#include "render/gpu_device.hpp"
-#include "render/offscreen_output.hpp"
-#include "render/render_output.hpp"
-#include "scene/label_layout.hpp"
-#include "scene/simulation.hpp"
-#include "view/scene_renderer.hpp"
+#include "app/scene_host.hpp"
 
 #include <cstdint>
 #include <filesystem>
-#include <memory>
 #include <optional>
 #include <string>
-#include <vector>
 
 namespace astraxis {
 
@@ -40,42 +31,15 @@ public:
     void shutdown();
 
 private:
-    struct Output {
-        Window window;
-        RenderOutput output;       // a display's window
-        OffscreenOutput offscreen; // the preview, drawn with GDI
-        bool preview = false;
-        OutputView view;
-        LabelLayout labels;
-        bool scene = true;   // false: drawn black (not a chosen display)
-        uint64_t frames = 0; // frames presented, for the frame rate log
-    };
-
     bool create_outputs(int display);
     void handle_events();
     void quit(const char* reason);
-    void render();
-    void render_output(Output& out, bool wait);
-    // Records the scene and the labels into a frame of `out`.
-    void draw_scene(Output& out, const Frame& frame);
-    void log_frame_rates();
 
     ScreensaverOptions m_options;
-    GpuDevice m_gpu;
-    SceneRenderer m_scene_renderer;
-    Simulation m_sim;
-    std::vector<std::unique_ptr<Output>> m_outputs;
-    ViewOptions m_view_options;
-    bool m_show_labels = true;
-    int m_fps_limit = 0;
-
+    SceneHost m_host;
+    bool m_sdl_ready = false;
     bool m_running = false;
-    bool m_imgui_ready = false;
     uint64_t m_start_ns = 0;
-    uint64_t m_last_counter = 0;
-    uint64_t m_frame_start_ns = 0;
-    uint64_t m_log_start_ns = 0;
-    double m_real_dt = 0.0;
 
     // Mouse position (desktop pixels) at the first motion event.
     bool m_have_mouse = false;

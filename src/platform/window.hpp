@@ -16,6 +16,9 @@ uint32_t find_display(int index, const std::string& name);
 int display_index(uint32_t display);
 std::string display_name(uint32_t display);
 
+// The native monitor of a display (Windows: HMONITOR), or null.
+void* native_display(uint32_t display);
+
 // Thin owner of an SDL window.
 class Window {
 public:
@@ -23,6 +26,10 @@ public:
     bool create(const char* title, int width, int height, uint32_t display, bool fullscreen);
     // Covers `display`, above all other windows (screensaver).
     bool create_cover(const char* title, uint32_t display);
+    // Hidden and borderless, `width` x `height` pixels, for the host to place
+    // itself (wallpaper). SDL keeps that size: it does not follow a window
+    // moved and resized behind its back, and sizes the swapchain by it.
+    bool create_hidden(const char* title, int width, int height);
     // A native child window filling the client area of a foreign native
     // window (Win32 HWND; the screensaver preview), drawn with draw_child.
     // Not an SDL window: SDL would move and resize it by its own DPI logic,
@@ -31,7 +38,12 @@ public:
     void destroy();
 
     SDL_Window* handle() const { return m_window; }
-    float content_scale() const; // 1 for a child window
+    void* native_handle() const; // Windows: the HWND
+    // The display scale; 1 for a child window, or as set: SDL takes it from
+    // where it believes the window is, wrong once the window has been
+    // reparented (wallpaper).
+    float content_scale() const;
+    void set_content_scale(float scale) { m_scale = scale; }
     bool is_minimized() const;
 
     bool is_fullscreen() const;
@@ -48,6 +60,7 @@ public:
 
 private:
     SDL_Window* m_window = nullptr;
+    float m_scale = 0.0f; // set_content_scale; 0 = ask SDL
     void* m_parent = nullptr; // create_child: the foreign parent
     void* m_child = nullptr;  // create_child: our native child window (no SDL window)
 };

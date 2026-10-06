@@ -130,6 +130,8 @@ add_executable(astraxis
     src/app/app_ui.cpp
     src/app/label_overlay.cpp
     src/app/label_overlay.hpp
+    src/app/scene_host.cpp
+    src/app/scene_host.hpp
     src/app/scene_list.cpp
     src/app/scene_list.hpp
     src/app/screensaver.cpp
@@ -193,7 +195,18 @@ target_link_libraries(astraxis PRIVATE
 astraxis_set_warnings(astraxis)
 
 if(WIN32)
-    target_sources(astraxis PRIVATE res/astraxis.rc)
+    # The manifest declares Windows 8-11 support: the wallpaper's layered child
+    # windows need it.
+    target_sources(astraxis PRIVATE res/astraxis.rc res/astraxis.manifest)
+    # The live wallpaper (Windows only).
+    target_sources(astraxis PRIVATE
+        src/app/wallpaper.cpp
+        src/app/wallpaper.hpp
+        src/platform/tray_icon.cpp
+        src/platform/tray_icon.hpp
+        src/platform/wallpaper_layer.cpp
+        src/platform/wallpaper_layer.hpp
+    )
 endif()
 
 # Runtime assets (scenes, star catalog, textures) live next to the executable.
