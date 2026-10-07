@@ -1,6 +1,5 @@
 #include "app/app.hpp"
 
-#include "app/label_overlay.hpp"
 #include "app/scene_list.hpp"
 #include "platform/paths.hpp"
 
@@ -81,7 +80,7 @@ bool App::init(const LaunchOptions& options)
     style.Colors[ImGuiCol_WindowBg].w = 0.78f;
     style.ScaleAllSizes(scale);
     style.FontScaleDpi = scale;
-    m_title_font = load_fonts(m_asset_dir);
+    m_fonts = load_fonts(m_asset_dir);
 
     ImGui_ImplSDL3_InitForSDLGPU(m_window.handle());
     ImGui_ImplSDLGPU3_InitInfo init_info = {};
@@ -300,6 +299,9 @@ void App::handle_key(const SDL_Event& event)
         break;
     case SDLK_C:
         m_view_options.comets = !m_view_options.comets;
+        break;
+    case SDLK_E:
+        toggle_caption();
         break;
     case SDLK_LEFTBRACKET:
         clock.warp = std::max(1.0, clock.warp / 2.0);

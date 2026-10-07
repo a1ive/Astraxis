@@ -1053,6 +1053,7 @@ void Loader::parse(const toml::table& root, Scene& out)
             if (e.phase_deg != 0.0 && e.from_body < 0) {
                 fail(ctx, "phase_deg needs from_body");
             }
+            e.caption = get_string_or(*t, "caption", "");
             out.events.push_back(e);
         }
     }

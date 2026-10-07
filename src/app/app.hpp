@@ -1,5 +1,6 @@
 #pragma once
 
+#include "app/captions.hpp"
 #include "app/settings.hpp"
 #include "platform/window.hpp"
 #include "render/gpu_device.hpp"
@@ -14,7 +15,6 @@
 #include <string>
 #include <vector>
 
-struct ImFont;
 union SDL_Event;
 
 namespace astraxis {
@@ -46,6 +46,8 @@ private:
     void build_time_bar();   // playback controls at the bottom
     void build_info_panel(); // details of the focused body
     void build_labels();
+    void draw_captions();  // the scene title card and the last event's caption
+    void toggle_caption(); // dismisses the event caption, or shows it again
     void render();
 
     bool load_scene(size_t index);
@@ -87,9 +89,11 @@ private:
     bool m_initialized = false; // init succeeded: save the settings on shutdown
     bool m_running = false;
     bool m_imgui_ready = false;
-    ImFont* m_title_font = nullptr; // scene title card; nullptr: the default font
+    CaptionFonts m_fonts; // the scene title card and the event captions
     bool m_dragging = false;
     uint64_t m_last_counter = 0;
+
+    float m_time_bar_top = 0.0f; // where the time bar was last drawn (event captions stand above it)
 
     // UI options.
     bool m_show_ui = true;

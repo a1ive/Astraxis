@@ -129,7 +129,7 @@ bool SceneHost::start(const Settings& settings, const std::optional<std::string>
         ImGui::GetIO().IniFilename = nullptr;
         // The default font is chosen (pixel or vector) for the size it is drawn at.
         ImGui::GetStyle().FontScaleDpi = m_outputs.front()->window.content_scale();
-        m_title_font = load_fonts(asset_dir);
+        m_fonts = load_fonts(asset_dir);
         ImGui_ImplSDLGPU3_InitInfo init_info = {};
         init_info.Device = m_gpu.device();
         init_info.ColorTargetFormat = format;
@@ -261,7 +261,7 @@ void SceneHost::draw_scene(Output& out, const Frame& frame)
             draw_labels(out.labels, m_sim.scene(), out.view, m_sim.camera().target());
         }
         if (title) {
-            draw_scene_title(m_title_font, m_sim.scene().name, m_sim.scene_age());
+            draw_scene_title(m_fonts, m_sim.scene().name, m_sim.scene_age());
         }
         ImGui::Render();
         draw_data = ImGui::GetDrawData();

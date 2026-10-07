@@ -128,6 +128,8 @@ add_executable(astraxis
     src/app/app.cpp
     src/app/app.hpp
     src/app/app_ui.cpp
+    src/app/captions.cpp
+    src/app/captions.hpp
     src/app/label_overlay.cpp
     src/app/label_overlay.hpp
     src/app/scene_host.cpp

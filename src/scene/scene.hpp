@@ -338,6 +338,7 @@ struct SceneEvent {
     int from_orbit_normal = -1; // >= 0: view along this body's orbit normal (face-on orbit)
     int from_body = -1;         // >= 0: view from this body's direction (e.g. the Sun: as seen from Earth)
     double phase_deg = 0.0;     // with from_body: turned this far around the up axis (180 = from behind)
+    std::string caption;        // a museum-style note on why the view is worth seeing; may be empty
 };
 
 // Osculating two-body orbit.

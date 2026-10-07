@@ -1,5 +1,6 @@
 #pragma once
 
+#include "app/captions.hpp"
 #include "app/settings.hpp"
 #include "platform/window.hpp"
 #include "render/gpu_device.hpp"
@@ -14,8 +15,6 @@
 #include <optional>
 #include <string>
 #include <vector>
-
-struct ImFont;
 
 namespace astraxis {
 
@@ -77,7 +76,7 @@ private:
     bool m_show_labels = false;
     bool m_show_title = false;
     bool m_imgui_ready = false;
-    ImFont* m_title_font = nullptr;
+    CaptionFonts m_fonts;
     int m_fps_limit = 0;
     float m_render_scale = 1.0f;
 

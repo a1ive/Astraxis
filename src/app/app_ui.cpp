@@ -173,7 +173,6 @@ void App::build_ui()
     if (m_show_labels) {
         build_labels();
     }
-    draw_scene_title(m_title_font, m_sim.scene().name, m_sim.scene_age());
     if (panel_visible()) {
         build_control_panel();
         build_time_bar();
@@ -181,6 +180,7 @@ void App::build_ui()
             build_info_panel();
         }
     }
+    draw_captions();
     if (m_show_demo) {
         ImGui::ShowDemoWindow(&m_show_demo);
     }
@@ -356,6 +356,7 @@ void App::build_control_panel()
     ImGui::TextDisabled("Double-click label: focus");
     ImGui::TextDisabled("Space pause  R reverse  [ ] warp  N now");
     ImGui::TextDisabled("1-9 focus  A tour  O/L/I/M/P/C  H hide");
+    ImGui::TextDisabled("E event caption");
     ImGui::TextDisabled("F11 fullscreen  Esc quit");
 
     ImGui::End();
@@ -426,6 +427,7 @@ void App::build_time_bar()
     }
     ImGui::PopStyleVar(2);
 
+    m_time_bar_top = ImGui::GetWindowPos().y;
     ImGui::End();
 }
 
@@ -609,6 +611,35 @@ void App::build_info_panel()
     }
 
     ImGui::End();
+}
+
+void App::draw_captions()
+{
+    // A jump to an event (e.g. --event at startup) takes over from the title card.
+    const int event = m_sim.last_event();
+    if (event < 0) {
+        draw_scene_title(m_fonts, m_sim.scene().name, m_sim.scene_age());
+        return;
+    }
+    // Above the time bar and as wide, clear of the panels at the sides.
+    const ImGuiIO& io = ImGui::GetIO();
+    const float margin = 12.0f * ImGui::GetStyle().FontScaleDpi;
+    const float width = std::min(640.0f * ImGui::GetStyle().FontScaleDpi, io.DisplaySize.x - 2.0f * margin);
+    const float bottom = panel_visible() ? m_time_bar_top - margin : io.DisplaySize.y - margin;
+    draw_event_caption(m_fonts, m_sim.scene().events[static_cast<size_t>(event)], m_sim.event_age(),
+                       ImVec2(0.5f * io.DisplaySize.x, bottom), width);
+}
+
+void App::toggle_caption()
+{
+    const int event = m_sim.last_event();
+    if (event < 0) {
+        return;
+    }
+    const CaptionTimes t = caption_times(m_sim.scene().events[static_cast<size_t>(event)].caption);
+    const double age = m_sim.event_age();
+    // Shown (or fading in): fade out now. Otherwise fade in again.
+    m_sim.set_event_age(age >= t.fade_in && age < t.fade_out ? t.fade_out : t.fade_in);
 }
 
 void App::build_labels()

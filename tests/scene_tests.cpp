@@ -63,6 +63,45 @@ void test_scene_loader()
     check(!load_scene_string("name = [", "bad3", bad, &error), "rejects TOML syntax error");
 }
 
+// Event captions are placards: a few sentences, cleanly joined from the TOML's
+// continued lines. The solar system scene (the pilot) has one for every event.
+// A jump starts the caption's clock; loading a scene clears it.
+void test_event_captions()
+{
+    for (const auto& [stem, scene] : all_scenes()) {
+        for (const SceneEvent& e : scene->events) {
+            if (e.caption.empty()) {
+                continue;
+            }
+            const std::string what = stem + " / " + e.name + ": caption";
+            size_t words = 0;
+            bool in_word = false;
+            for (const char c : e.caption) {
+                words += (c != ' ' && !in_word) ? 1 : 0;
+                in_word = c != ' ';
+            }
+            check(words >= 15 && words <= 80, (what + " has 15-80 words").c_str(), static_cast<double>(words));
+            check(e.caption.front() != ' ' && e.caption.back() != ' ' &&
+                      e.caption.find("  ") == std::string::npos && e.caption.find('\n') == std::string::npos,
+                  (what + " is one clean paragraph").c_str());
+        }
+    }
+
+    Simulation sim;
+    std::string error;
+    check(sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/solar_system.toml", &error), "solar_system loads");
+    for (const SceneEvent& e : sim.scene().events) {
+        check(!e.caption.empty(), ("solar_system / " + e.name + " has a caption").c_str());
+    }
+    check(sim.last_event() == -1, "no event before a jump");
+    sim.jump_to_event(3);
+    sim.update(0.5);
+    check(sim.last_event() == 3 && std::abs(sim.event_age() - 0.5) < 1e-12, "a jump starts the caption clock",
+          sim.event_age());
+    check(sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/jupiter.toml", &error) && sim.last_event() == -1,
+          "loading a scene clears the event");
+}
+
 // Moons orbit their planet, and the primary of a barycenter stands for its
 // system; satellites fade out as their orbits shrink on screen.
 void test_satellite_fades()
@@ -543,6 +582,7 @@ void run_scene_tests()
     test_label_layout();
     test_orbit_center();
     test_body_masses();
+    test_event_captions();
     for (uint32_t seed : {42u, 7u, 2026u, 99u, 12345u}) {
         test_camera_director("jupiter.toml", 3600.0, 20.0, seed);
     }

@@ -61,6 +61,12 @@ public:
     double animation_time() const { return m_animation_time; }
     // Real seconds since the scene was loaded, paused or not (the title card).
     double scene_age() const { return m_scene_age; }
+    // The event last jumped to (-1: none since the scene was loaded) and the
+    // real seconds since (its caption).
+    int last_event() const { return m_last_event; }
+    double event_age() const { return m_event_age; }
+    // Moves the caption's clock (the host shows or dismisses the caption).
+    void set_event_age(double age) { m_event_age = age; }
 
 private:
     // Applies (or, when the shot ends, undoes) a time warp asked for by the tour.
@@ -76,6 +82,8 @@ private:
     double m_disk_time = 0.0;
     double m_animation_time = 0.0;
     double m_scene_age = 0.0;
+    int m_last_event = -1;
+    double m_event_age = 0.0;
 };
 
 } // namespace astraxis

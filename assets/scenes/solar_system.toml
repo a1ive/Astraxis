@@ -133,6 +133,46 @@
 #          over 100 km (Soderblom et al. 1990, Science 250, 410), toward the west: winds
 #          above 8 km blow west (Hansen et al. 1990, Science 250, 421). The tail's
 #          e-folding length is 50 km.
+# [CAP]  Event captions (retrieved 2026-10-07):
+#        [P10] NASA, science.nasa.gov/mission/pioneer-10/ ("first spacecraft to fly through
+#          the main asteroid belt", "first spacecraft to fly past Jupiter", about 500
+#          pictures, false commands triggered by Jupiter's radiation, escape trajectory);
+#          NSSDCA 1972-012A (heading toward Aldebaran).
+#        [P11] NASA, science.nasa.gov/mission/pioneer-11/ (closest approach to Jupiter
+#          42,500 km; "swing back across the solar system" to Saturn; first at Saturn;
+#          ring plane crossed beyond the outer ring; the F ring and a new satellite;
+#          Titan -193 C).
+#        [VPV] NASA, "Voyager: Planetary Voyage", science.nasa.gov/mission/voyager/
+#          planetary-voyage/ (Voyager 2 launched first; the alignment "occurs about every
+#          175 years"; Io's volcanoes "the first time active volcanoes had been seen on
+#          another body"; Voyager 1's Titan pass "bent the spacecraft's path inexorably
+#          northward out of the ecliptic plane"; 4,950 km above Neptune's north pole;
+#          Voyager 2 "diving below the ecliptic plane").
+#        [V1] NASA, science.nasa.gov/mission/voyager/voyager-1/ (Titan's haze hid the
+#          surface; because of the Titan flyby not directed to Uranus and Neptune).
+#        [V2] NASA, science.nasa.gov/mission/voyager/voyager-2/ (17,000 new pictures of
+#          Jupiter; first to fly past Uranus; 10 new moons and two new rings there).
+#        [PIA718] NASA/JPL PIA00718: Pele's deposits changed between Voyagers 1 and 2.
+#        [UFS] NASA NSSDCA Uranus Fact Sheet: obliquity 97.77 deg.
+#        [NH] NASA, science.nasa.gov/mission/new-horizons/ (launch at 58,536 km/h, the
+#          highest launch velocity relative to Earth; Jupiter added about 14,000 km/h and
+#          shortened the trip by three years; Sputnik Planitia, a heart-shaped nitrogen
+#          glacier; a possible ocean; Arrokoth "the most distant target in history").
+#        [IAU06] IAU 2006 General Assembly, Resolutions B5 and B6 (Pluto a dwarf planet,
+#          24 August 2006).
+#        [ST13] Stone et al. 2013, Science 341, 150: on 25 August 2012, at 122 au, the
+#          low-energy ions Voyager 1 had seen for 6 years dropped away; cosmic rays rose.
+#        [GU13] Gurnett et al. 2013, Science 341, 1489: from 9 April 2013, plasma
+#          oscillations gave an electron density of ~0.08 cm^-3 (interstellar), against
+#          ~0.002 expected in the outer heliosphere; Voyager 1's plasma instrument (PLS)
+#          failed in 1980.
+#        [ST19] Stone et al. 2019, Nature Astronomy 3, 1013: Voyager 2 crossed the
+#          heliopause on 5 November 2018 at 119 au.
+#        [RI19] Richardson et al. 2019, Nature Astronomy 3, 1019: Voyager 2's plasma
+#          instrument saw the crossing; it took about a day.
+#        [MK20] McKinnon et al. 2020, Science 367, eaay6620: Arrokoth is a contact binary
+#          from a gentle, low-speed merger in the early solar system.
+#        Heights of the plumes: [PLM]; Arrokoth's size: [ARRO].
 # Flyby times/distances: computed from the baked data by the bake tool (TDB).
 # Mission timeline events: Horizons spacecraft notes.
 #
@@ -1700,6 +1740,12 @@ time = "1972-03-04 00:00"
 focus = "Earth"
 distance_km = 6.0e7
 warp = 86400.0
+# [P10]
+caption = """\
+    Pioneer 10 sets out on a path no spacecraft had taken before. It will be the first \
+    to cross the main asteroid belt, the first to fly past Jupiter, and the first sent \
+    on a course out of the solar system. Watch its track pull away from the Earth's \
+    orbit toward the outer planets."""
 
 [[events]]
 name = "Pioneer 10 at Jupiter (CA 1973-12-04 02:26, 202,870 km)"
@@ -1708,6 +1754,12 @@ focus = "Jupiter"
 frame = "Jupiter-centered"
 distance_km = 6.0e6
 warp = 1200.0
+# [P10]
+caption = """\
+    The first close look at Jupiter. Pioneer 10 took about 500 pictures as it swept \
+    past, but the radiation around the planet was fiercer than expected and set off \
+    false commands on board. Jupiter's gravity bent its path onto an escape trajectory: \
+    it is still coasting out of the solar system, roughly toward Aldebaran in Taurus."""
 
 [[events]]
 name = "Pioneer 11 at Jupiter (CA 1974-12-03 05:22, 113,553 km)"
@@ -1716,6 +1768,12 @@ focus = "Jupiter"
 frame = "Jupiter-centered"
 distance_km = 3.0e6
 warp = 1200.0
+# [P11]
+caption = """\
+    A year after its twin, Pioneer 11 skimmed about 42,500 km above Jupiter's clouds. \
+    The pass was aimed so that the planet's gravity would swing it back across the solar \
+    system toward Saturn, nearly five years away. Follow the bend of its path around \
+    Jupiter."""
 
 [[events]]
 name = "Voyager 2 launch (1977-08-20)"
@@ -1723,6 +1781,12 @@ time = "1977-08-21 00:00"
 focus = "Earth"
 distance_km = 6.0e7
 warp = 86400.0
+# [VPV]
+caption = """\
+    Voyager 2 actually left first; Voyager 1 followed on 5 September on a faster, \
+    shorter path. Both rode an arrangement of Jupiter, Saturn, Uranus and Neptune that \
+    comes around about every 175 years and lets one spacecraft swing from each planet on \
+    to the next. Only Voyager 2 would take the whole tour."""
 
 [[events]]
 name = "Voyager 1 at Jupiter (CA 1979-03-05 12:05, 348,066 km)"
@@ -1731,6 +1795,11 @@ focus = "Jupiter"
 frame = "Jupiter-centered"
 distance_km = 4.0e6
 warp = 1200.0
+# [VPV], [PLM] (Pele)
+caption = """\
+    Voyager 1's greatest surprise was the moon Io: active volcanoes, the first ever seen \
+    on another world. The plume of one of them, Pele, rose about 300 km above the \
+    surface. Focus on Io to see it drawn at that height (P shows or hides the plumes)."""
 
 [[events]]
 name = "Voyager 2 at Jupiter (CA 1979-07-09 22:30, 720,883 km)"
@@ -1739,6 +1808,12 @@ focus = "Jupiter"
 frame = "Jupiter-centered"
 distance_km = 6.0e6
 warp = 1200.0
+# [V2], [PIA718], [VPV]
+caption = """\
+    Four months behind its twin, Voyager 2 sent back some 17,000 new pictures of Jupiter \
+    and its moons, and saw how much Io had changed in that time: the deposits around \
+    Pele had already been reshaped. Jupiter's gravity then sent it on toward Saturn, \
+    keeping the grand tour open."""
 
 [[events]]
 name = "Pioneer 11 at Saturn (CA 1979-09-01 16:30, 80,008 km)"
@@ -1747,6 +1822,11 @@ focus = "Saturn"
 frame = "Saturn-centered"
 distance_km = 2.5e6
 warp = 1200.0
+# [P11]
+caption = """\
+    The first visit to Saturn. Pioneer 11 crossed the plane of the rings just outside \
+    them, finding a narrow new ring beyond the A ring, the F ring, and a small new moon. \
+    A brief burst of data on Titan put its average temperature near -193 C."""
 
 [[events]]
 name = "Voyager 1 at Saturn (CA 1980-11-12 23:46, 183,555 km)"
@@ -1755,6 +1835,12 @@ focus = "Saturn"
 frame = "Saturn-centered"
 distance_km = 2.5e6
 warp = 1200.0
+# [VPV], [V1]
+caption = """\
+    Voyager 1 was aimed close past the giant moon Titan and behind Saturn's rings, and \
+    that pass bent its path northward, out of the plane of the planets. Titan's thick \
+    haze hid its surface completely. The price of Titan: Voyager 1 would visit no more \
+    planets. Its climb away from the ecliptic starts here."""
 
 [[events]]
 name = "Voyager 2 at Saturn (CA 1981-08-26 03:24, 159,764 km)"
@@ -1763,6 +1849,11 @@ focus = "Saturn"
 frame = "Saturn-centered"
 distance_km = 2.5e6
 warp = 1200.0
+# [V1], [VPV]
+caption = """\
+    With Voyager 1 spent on Titan, the rest of the grand tour fell to Voyager 2. \
+    Saturn's gravity turned it toward Uranus, which it would reach in January 1986, more \
+    than four years later."""
 
 [[events]]
 name = "Voyager 2 at Uranus (CA 1986-01-24 17:58, 102,180 km)"
@@ -1771,6 +1862,11 @@ focus = "Uranus"
 frame = "Uranus-centered"
 distance_km = 1.5e6
 warp = 1200.0
+# [V2], [UFS]
+caption = """\
+    Still the only visit to Uranus. The planet is tipped over by about 98 degrees, so it \
+    rolls around the Sun on its side. Voyager 2 found ten new moons and two new rings \
+    here."""
 
 [[events]]
 name = "Voyager 2 at Neptune (CA 1989-08-25 04:03, 33,661 km)"
@@ -1779,6 +1875,12 @@ focus = "Neptune"
 frame = "Neptune-centered"
 distance_km = 6.0e5
 warp = 600.0
+# [VPV], [PLM] (Triton)
+caption = """\
+    The last planet of the tour, and the closest pass of the whole mission: about 4,950 \
+    km above Neptune's north pole. Voyager 2 also passed Triton, and found dark plumes \
+    rising some 8 km and drifting downwind, drawn here as Hili and Mahilani. Neptune's \
+    gravity then sent it diving south of the planets' plane."""
 
 [[events]]
 name = "New Horizons launch (2006-01-19)"
@@ -1786,6 +1888,11 @@ time = "2006-01-20 00:00"
 focus = "Earth"
 distance_km = 6.0e7
 warp = 86400.0
+# [NH], [IAU06]
+caption = """\
+    New Horizons left the Earth faster than any spacecraft before it, at about 58,500 \
+    km/h. Pluto was still a planet on launch day; seven months later it was a dwarf \
+    planet. The flyby was nine and a half years away."""
 
 [[events]]
 name = "New Horizons at Jupiter (CA 2007-02-28 05:45, 2,304,686 km)"
@@ -1794,6 +1901,12 @@ focus = "Jupiter"
 frame = "Jupiter-centered"
 distance_km = 2.5e7
 warp = 3600.0
+# [NH], [PLM] (Tvashtar)
+caption = """\
+    A gravity assist on the way to Pluto: Jupiter added about 14,000 km/h to New \
+    Horizons' speed and cut three years off the trip. Passing at more than 2 million km, \
+    it also watched Io erupt; the plume of Tvashtar, 330 km high in its images, is drawn \
+    on Io here."""
 
 [[events]]
 name = "Voyager 1 crosses the heliopause (2012-08-25)"
@@ -1801,6 +1914,13 @@ time = "2012-08-25"
 focus = "Voyager 1"
 distance_km = 5.0e9
 warp = 2629800.0
+# [ST13], [GU13]
+caption = """\
+    Nothing on the screen marks this boundary, and nothing out here could be seen. On \
+    this day, 122 au from the Sun, the particles from the Sun around Voyager 1 suddenly \
+    fell away and cosmic rays from the Galaxy rose. Its plasma instrument had failed in \
+    1980, so proof waited until April 2013, when plasma waves showed a density forty \
+    times that expected inside: Voyager 1 was in interstellar space."""
 
 [[events]]
 name = "New Horizons at Pluto (CA 2015-07-14 11:50, 13,676 km)"
@@ -1809,13 +1929,25 @@ focus = "Pluto"
 frame = "Pluto-Charon barycentric"
 distance_km = 1.5e5
 warp = 120.0
+# [NH]
+caption = """\
+    After nine and a half years, the first close look at Pluto and Charon. New Horizons \
+    found a vast heart-shaped glacier of nitrogen ice, named Sputnik Planitia after the \
+    first artificial satellite, and signs that Pluto may still hide an ocean of liquid \
+    water beneath its ice. The maps on both bodies come from this flyby."""
 
 [[events]]
-name = "Voyager 2 crosses the heliopause (2018-11-15)"
-time = "2018-11-15"
+name = "Voyager 2 crosses the heliopause (2018-11-05)"
+time = "2018-11-05"                # [ST19]
 focus = "Voyager 2"
 distance_km = 5.0e9
 warp = 2629800.0
+# [ST19], [RI19], [GU13]
+caption = """\
+    Six years after its twin, Voyager 2 crossed into interstellar space, 119 au from the \
+    Sun. Unlike Voyager 1, it still had a working plasma instrument, and could watch the \
+    hot, thin wind from the Sun give way to the colder, denser interstellar plasma \
+    directly. The crossing took about a day."""
 
 [[events]]
 name = "New Horizons at Arrokoth (CA 2019-01-01 05:35, 3,538 km)"
@@ -1823,6 +1955,12 @@ time_tdb = "2019-01-01 05:14"
 focus = "Arrokoth"
 distance_km = 3.0e4
 warp = 30.0
+# [NH], [ARRO], [MK20]
+caption = """\
+    The most distant world ever explored up close. Arrokoth turned out to be two \
+    flattened lobes, about 35 km end to end, resting against each other: two bodies that \
+    came together gently early in the history of the solar system, and have barely \
+    changed since."""
 
 # The view of the CA06 image sequence (Porter et al. 2024, Table 1: 05:26:54.6 UTC, 6,622 km,
 # phase angle 32.6 deg), the best resolved image of the whole body.
@@ -1833,3 +1971,8 @@ focus = "Arrokoth"
 from_body = "New Horizons"
 distance_km = 90.0
 warp = 1.0
+# [ARRO]
+caption = """\
+    The view of New Horizons' sharpest image of the whole body, taken 6,600 km away \
+    shortly before closest approach. The shape is the model built from all the flyby \
+    images; the color is uniform, as no map of the surface is used."""
