@@ -8,9 +8,10 @@
 #include <imgui.h>
 
 #include <algorithm>
-#include <cctype>
 #include <cfloat>
 #include <system_error>
+#include <utility>
+#include <vector>
 
 namespace astraxis {
 
@@ -115,9 +116,25 @@ void draw_scene_title(ImFont* font, const std::string& title, double age)
         return;
     }
 
+    // Upper case for ASCII letters only: the bytes of multi-byte UTF-8
+    // sequences are left alone (and a Greek letter in a star's name stays
+    // lower case, as it should).
     std::string text = title;
     for (char& c : text) {
-        c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+        if (c >= 'a' && c <= 'z') {
+            c = static_cast<char>(c - 'a' + 'A');
+        }
+    }
+    // The title's code points as byte ranges: a UTF-8 sequence runs up to the
+    // next byte that is not a continuation byte (10xxxxxx).
+    std::vector<std::pair<const char*, const char*>> glyphs;
+    for (size_t i = 0; i < text.size();) {
+        size_t next = i + 1;
+        while (next < text.size() && (static_cast<unsigned char>(text[next]) & 0xC0) == 0x80) {
+            ++next;
+        }
+        glyphs.emplace_back(text.data() + i, text.data() + next);
+        i = next;
     }
 
     const ImGuiIO& io = ImGui::GetIO();
@@ -128,13 +145,13 @@ void draw_scene_title(ImFont* font, const std::string& title, double age)
     const float progress = static_cast<float>(std::clamp((age - kTitleDelay) / (kTitleEnd - kTitleDelay), 0.0, 1.0));
     const float tracking = size * (kTitleTrackingStart + (kTitleTrackingEnd - kTitleTrackingStart) * progress);
 
-    // ImGui has no letter spacing: lay out one character at a time. The last
-    // character's spacing is not counted, so the title stays centred.
+    // ImGui has no letter spacing: lay out one code point at a time. The last
+    // one's spacing is not counted, so the title stays centred.
     float width = 0.0f;
-    for (size_t i = 0; i < text.size(); ++i) {
-        width += font->CalcTextSizeA(size, FLT_MAX, 0.0f, &text[i], &text[i] + 1).x;
+    for (const auto& [begin, end] : glyphs) {
+        width += font->CalcTextSizeA(size, FLT_MAX, 0.0f, begin, end).x;
     }
-    width += tracking * static_cast<float>(text.size() - 1);
+    width += tracking * static_cast<float>(glyphs.size() - 1);
     // A long title in a narrow output: shrink to fit.
     const float fit = std::min(1.0f, kTitleMaxWidth * io.DisplaySize.x / std::max(width, 1.0f));
 
@@ -152,16 +169,15 @@ void draw_scene_title(ImFont* font, const std::string& title, double age)
     const ImU32 color = IM_COL32(236, 240, 246, static_cast<int>(235.0f * alpha));
     for (int pass = 0; pass < 2; ++pass) {
         float x = left;
-        for (size_t i = 0; i < text.size(); ++i) {
-            const char* c = &text[i];
+        for (const auto& [begin, end] : glyphs) {
             if (pass == 0) {
                 for (const ImVec2& d : halo) {
-                    draw->AddText(font, scaled, ImVec2(x + d.x, top + d.y), shadow, c, c + 1);
+                    draw->AddText(font, scaled, ImVec2(x + d.x, top + d.y), shadow, begin, end);
                 }
             } else {
-                draw->AddText(font, scaled, ImVec2(x, top), color, c, c + 1);
+                draw->AddText(font, scaled, ImVec2(x, top), color, begin, end);
             }
-            x += font->CalcTextSizeA(scaled, FLT_MAX, 0.0f, c, c + 1).x + tracking * fit;
+            x += font->CalcTextSizeA(scaled, FLT_MAX, 0.0f, begin, end).x + tracking * fit;
         }
     }
 }
