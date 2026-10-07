@@ -128,6 +128,11 @@ void test_satellite_fades()
         hosts_ok = hosts_ok && scene.satellite_host(i) == hosts[i];
     }
     check(hosts_ok, "satellite hosts (barycenter primary stands for its system)");
+    // Circular orbits: the fade radius is the distance from the host.
+    for (int i = 1; i < 6; ++i) {
+        scene.bodies[static_cast<size_t>(i)].fade_radius_km = glm::length(
+            scene.bodies[static_cast<size_t>(i)].world_position - scene.bodies[static_cast<size_t>(hosts[i])].world_position);
+    }
 
     std::vector<float> fades;
     // 1e7 km from the planet: the moon's orbit spans 100 px.
@@ -141,6 +146,22 @@ void test_satellite_fades()
     satellite_fades(scene, glm::dvec3(0.0, 0.0, 1e11), 1000.0, 10.0, 28.0, fades);
     check(fades[0] == 1.0f && fades[1] == 0.0f && fades[2] == 0.0f && fades[4] == 1.0f && fades[5] == 0.0f,
           "fades far out");
+
+    // An eccentric orbit fades by its size, not by where the body is on it:
+    // S2 (e = 0.88) is 15 times closer at pericentre than at apocentre, but its
+    // fade radius stays the semi-major axis (125.058 mas at 8246.7 pc, [GR20]).
+    // The Newtonian osculating a of the relativistic orbit is ~1% short at
+    // pericentre (GM / r c^2 ~ 3.5e-4, amplified by 2 / (1 - e)).
+    Scene sgr = load_scene_or_die("sgr_a.toml");
+    const int s2 = sgr.find("S2");
+    const double a_km = 125.058e-3 * 8246.7 * kAuKm;
+    const double t_peri = tdb_from_julian_year(2018.379);
+    for (const double t : {t_peri, t_peri - 0.5 * 16.0455 * kDaysPerJulianYear * kSecondsPerDay}) {
+        sgr.update(t);
+        const Body& b = sgr.bodies[static_cast<size_t>(s2)];
+        check(std::abs(b.fade_radius_km / a_km - 1.0) < 0.02, "S2 fade radius is its semi-major axis",
+              b.fade_radius_km / a_km);
+    }
 }
 
 // A body defined in several scenes (orbits are copied between scene files) moves

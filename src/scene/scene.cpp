@@ -186,7 +186,7 @@ void satellite_fades(const Scene& scene, const glm::dvec3& camera, double px_per
             continue;
         }
         const glm::dvec3& host_pos = scene.bodies[static_cast<size_t>(host)].world_position;
-        const double r = glm::length(scene.bodies[i].world_position - host_pos);
+        const double r = scene.bodies[i].fade_radius_km;
         const double d = glm::length(host_pos - camera);
         const double px = d > r ? r / d * px_per_radian : show_px;
         const double own = std::clamp((px - hide_px) / (show_px - hide_px), 0.0, 1.0);
@@ -300,17 +300,22 @@ void Scene::update(double t_tdb)
     double extent = 0.0;
     for (Body& body : bodies) {
         glm::dvec3 pos(0.0);
+        glm::dvec3 vel(0.0);
         bool visible = true;
         if (body.parent >= 0) {
             const Body& parent = bodies[static_cast<size_t>(body.parent)];
             pos = parent.icrf_position;
+            vel = parent.icrf_velocity;
             visible = parent.visible;
         }
         if (body.motion) {
-            pos += body.motion->eval(t_tdb).position;
+            const State s = body.motion->eval(t_tdb);
+            pos += s.position;
+            vel += s.velocity;
             visible = visible && body.motion->valid_at(t_tdb);
         }
         body.icrf_position = pos;
+        body.icrf_velocity = vel;
         body.visible = visible;
         body.world_position = m_transform.to_display(pos);
 
@@ -354,6 +359,30 @@ void Scene::update(double t_tdb)
         }
     }
     m_system_extent_km = std::max(extent, bodies.empty() ? 1.0 : bodies[0].equatorial_radius_km);
+
+    // Fade radii (after the loop: orbit_center looks at every sibling). The
+    // semi-major axis keeps a satellite on an eccentric orbit from fading out
+    // near periapsis while its orbit is still large on screen.
+    for (size_t i = 0; i < bodies.size(); ++i) {
+        Body& body = bodies[i];
+        const int host = satellite_host(static_cast<int>(i));
+        if (host < 0) {
+            body.fade_radius_km = 0.0;
+            continue;
+        }
+        body.fade_radius_km = glm::length(body.icrf_position - bodies[static_cast<size_t>(host)].icrf_position);
+        const OrbitCenter center = orbit_center(static_cast<int>(i));
+        if (center.body < 0 || center.gm <= 0.0) {
+            continue;
+        }
+        const Body& c = bodies[static_cast<size_t>(center.body)];
+        const State relative{body.icrf_position - c.icrf_position, body.icrf_velocity - c.icrf_velocity};
+        OrbitElements el;
+        if (glm::length(relative.velocity) > 1e-6 && osculating_elements(relative, center.gm, &el) &&
+            el.period_s > 0.0) {
+            body.fade_radius_km = 0.5 * (el.periapsis_km + el.apoapsis_km);
+        }
+    }
 
     const glm::dvec3 sun_icrf = sun_icrf_state_at(t_tdb).position;
     m_sun_position = m_transform.to_display(sun_icrf);

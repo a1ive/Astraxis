@@ -255,8 +255,13 @@ struct Body {
     // Updated by Scene::update.
     bool visible = true;
     glm::dvec3 icrf_position{0.0};  // relative to the scene origin, ICRF axes
+    glm::dvec3 icrf_velocity{0.0};
     glm::dvec3 world_position{0.0}; // in the active display frame (what is rendered)
     glm::dmat3 orientation{1.0};    // body-fixed axes in the display frame (columns)
+    // Size of the body's orbit around its satellite_host, for satellite_fades:
+    // the osculating semi-major axis around its orbit_center, or the current
+    // distance from the host if the orbit is unbound or unknown.
+    double fade_radius_km = 0.0;
 };
 
 // How positions are presented. Inertial frames keep ICRF axes around an origin
@@ -473,8 +478,8 @@ private:
 double lagrange_gamma(double mass_ratio, int point);
 
 // How much of each body's label, marker and orbit line to show (0..1) for a
-// camera at `camera` (display frame): a body whose distance from its
-// satellite_host spans fewer than hide_px pixels on screen is hidden, and more
+// camera at `camera` (display frame): a body whose orbit (fade_radius_km)
+// around its satellite_host spans fewer than hide_px pixels on screen is hidden, and more
 // than show_px fully shown, so that moons merge into their planet when the
 // camera pulls back. Satellites of a hidden body are hidden too.
 // `px_per_radian` is the screen scale (pixels per radian at the view center).
