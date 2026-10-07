@@ -31,6 +31,7 @@
 # [AN11] Antoniadis et al. 2011, MNRAS 412, 580 (arXiv:1011.0926): the white dwarf's
 #        optical counterpart (V = 25.08); its colour fits no cooling track, so no
 #        temperature or age was derived.
+# [CAP]  Event captions: from [VK20], [BBV08] and the notes above.
 # Derived (GM = mass * GM_sun, 1.32712440041279419e11 km^3/s^2, JPL DE440):
 #   a = 1.309e6 km from Kepler's third law for 2.28967 M_sun: the stars are 1.08e6 km
 #   apart at periastron, 1.53e6 km at apastron, 573 km/s relative speed at periastron.
@@ -164,6 +165,11 @@ focus = "PSR J1141-6545 system"
 from_orbit_normal = "J1141-6545 white dwarf"
 distance_km = 5.5e6
 warp = 1200.0
+# [VK20]
+caption = """\
+    An unusual pair: a young pulsar and a massive white dwarf on a 4.7-hour orbit. The \
+    white dwarf formed first, and matter from the pulsar's progenitor spun it up to a \
+    turn every few minutes; the pulsar, never spun up, still turns slowly."""
 
 [[events]]
 name = "1999 to today: the periastron turns 145 deg, Newton's orbit stays put"
@@ -172,6 +178,11 @@ focus = "PSR J1141-6545 system"
 from_orbit_normal = "J1141-6545 white dwarf"
 distance_km = 5.5e6
 warp = 15778800.0              # half a year per second
+# [BBV08], [VK20]
+caption = """\
+    The orbit's long axis turns 5.3 degrees a year, as general relativity predicts. \
+    Since timing began in 1999 it has swung some 145 degrees away from Newton's fixed \
+    ellipse, drawn in grey."""
 
 [[events]]
 name = "The white dwarf: 1.02 solar masses in 5,400 km, the pulsar beyond"
@@ -181,6 +192,12 @@ from_body = "PSR J1141-6545"
 phase_deg = 172.0              # from behind the white dwarf, the pulsar just off to the side
 distance_km = 4.0e4
 warp = 60.0
+# [VK20]
+caption = """\
+    A Sun's worth of mass in a ball smaller than the Earth. Spinning in minutes, it \
+    drags space around with it and slowly tilts the orbit: timing the pulsar over twenty \
+    years revealed this frame dragging, the Lense-Thirring effect, the pulsar shining \
+    just beyond."""
 
 [[events]]
 name = "Pulsar beams (drawn slowed down: really 2.5 turns a second)"
@@ -188,6 +205,11 @@ time = "2026-01-01"
 focus = "PSR J1141-6545"
 distance_km = 3.0e5
 warp = 30.0
+# [VK20]
+caption = """\
+    The pulsar turns 2.5 times a second, slow for a pulsar: having formed after its \
+    companion, it was never spun up by its matter. The beams are radio, drawn here and \
+    slowed down."""
 
 [[events]]
 name = "Centuries at 3 years per second: the orbit spins, Newton's does not"
@@ -196,3 +218,8 @@ focus = "PSR J1141-6545 system"
 from_orbit_normal = "J1141-6545 white dwarf"
 distance_km = 5.5e6
 warp = 1.0e8
+# [BBV08]
+caption = """\
+    At three years per second the orbit turns a full circle in about 68 years while \
+    Newton's ellipse stands still. The tilting by frame dragging, under 2 arcseconds a \
+    year, is far too small to show."""

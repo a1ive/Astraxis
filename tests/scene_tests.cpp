@@ -64,13 +64,14 @@ void test_scene_loader()
 }
 
 // Event captions are placards: a few sentences, cleanly joined from the TOML's
-// continued lines. The solar system scene (the pilot) has one for every event.
+// continued lines. Every event has one.
 // A jump starts the caption's clock; loading a scene clears it.
 void test_event_captions()
 {
     for (const auto& [stem, scene] : all_scenes()) {
         for (const SceneEvent& e : scene->events) {
             if (e.caption.empty()) {
+                check(false, (stem + " / " + e.name + " has a caption").c_str());
                 continue;
             }
             const std::string what = stem + " / " + e.name + ": caption";
@@ -90,9 +91,6 @@ void test_event_captions()
     Simulation sim;
     std::string error;
     check(sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/solar_system.toml", &error), "solar_system loads");
-    for (const SceneEvent& e : sim.scene().events) {
-        check(!e.caption.empty(), ("solar_system / " + e.name + " has a caption").c_str());
-    }
     check(sim.last_event() == -1, "no event before a jump");
     sim.jump_to_event(3);
     sim.update(0.5);

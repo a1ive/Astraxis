@@ -24,6 +24,11 @@
 #        profile, but published fits of the spin geometry disagree.
 # [DA15] Damour 2015, Class. Quantum Grav. 32, 124009 (arXiv:1411.3930): discovered
 #        at Arecibo on 1974 July 2 (the binary nature found that September).
+# [CAP]  Event captions (retrieved 2026-10-07), besides the sources above:
+#        [NOB93] nobelprize.org, The Nobel Prize in Physics 1993 (press release): to Hulse and
+#          Taylor "for the discovery of a new type of pulsar, a discovery that has opened up
+#          new possibilities for the study of gravitation"; the binary pulsar could be used
+#          to demonstrate gravitational radiation, confirmed by Taylor in 1978.
 # Derived (GM = mass * GM_sun, 1.32712440041279419e11 km^3/s^2, JPL DE440):
 #   a = 1.949e6 km (2.8 R_sun) from Kepler's third law for 2.828 M_sun; the stars are
 #   746,000 km apart at periastron and 3.15e6 km at apastron, 902 km/s relative speed
@@ -157,6 +162,12 @@ focus = "PSR B1913+16 system"
 from_orbit_normal = "B1913+16 companion"
 distance_km = 8.0e6
 warp = 1800.0
+# [WH16], [DA15], [NOB93]
+caption = """\
+    Two neutron stars, each about 1.4 times the Sun's mass, whirl around each other \
+    every 7.75 hours. Found at Arecibo in 1974, the first binary pulsar became a \
+    laboratory for Einstein's gravity and won Hulse and Taylor the 1993 Nobel Prize. The \
+    grey ellipse is Newton's."""
 
 [[events]]
 name = "1974 to today: the periastron turns 220 deg, Newton's orbit stays put"
@@ -165,6 +176,11 @@ focus = "PSR B1913+16 system"
 from_orbit_normal = "B1913+16 companion"
 distance_km = 8.0e6
 warp = 15778800.0              # half a year per second: 4.2 deg in 2 s
+# [WH16]
+caption = """\
+    Watch from 1974: the real orbit's long axis turns 4.2 degrees a year, 35,000 times \
+    faster than Mercury's, while Newton's ellipse stays fixed. By today the two have \
+    parted by some 220 degrees."""
 
 [[events]]
 name = "Periastron: 746,000 km apart, 450 km/s each"
@@ -172,6 +188,11 @@ time_tdb = "2026-01-01 12:41"  # 20 min before periastron [WH16]
 focus = "PSR B1913+16 system"
 distance_km = 2.5e6
 warp = 60.0
+# [WH16]
+caption = """\
+    At closest approach the stars are 746,000 km apart, about twice the distance to the \
+    Moon, and each moves at 450 km/s. The delays that relativity puts into the pulsar's \
+    ticking here are what allowed both stars to be weighed."""
 
 [[events]]
 name = "Pulsar beams (drawn slowed down: really 17 turns a second)"
@@ -179,6 +200,11 @@ time = "2026-01-01"
 focus = "PSR B1913+16"
 distance_km = 3.0e5
 warp = 30.0
+# [WH16]
+caption = """\
+    The pulsar spins 17 times a second; its radio beams are drawn here, slowed down. Its \
+    spin axis also slowly precesses, another effect of relativity, so the pulses we \
+    receive change shape over the years."""
 
 [[events]]
 name = "A full turn every 85 years (3 years per second): back on Newton's ellipse in 2059"
@@ -187,3 +213,9 @@ focus = "PSR B1913+16 system"
 from_orbit_normal = "B1913+16 companion"
 distance_km = 8.0e6
 warp = 1.0e8
+# [WH16], [NOB93]
+caption = """\
+    At three years per second the orbit swings all the way round in under half a minute: \
+    a full turn takes 85 years. Meanwhile it shrinks, too slowly to see here, as \
+    gravitational waves carry energy away, exactly as general relativity predicts: the \
+    first evidence that they exist."""

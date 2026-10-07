@@ -111,6 +111,39 @@
 # [SP1066] ESA SP-1066 (1986), Space Missions to Halley's Comet (PDS SBN, DOCUMENT/ESA_1066):
 #        Vega's wingspan "of the order of 10 m"; Suisei's and Sakigake's body a cylinder 140 cm
 #        across and 70 cm high.
+# [CAP]  Event captions (retrieved 2026-10-07):
+#        [ISEE] NASA, science.nasa.gov/mission/isee-3-ice/: "the first spacecraft to be put
+#          into orbit around a libration point" (1978-11-20), ~1.5 million km toward the Sun;
+#          "the first spacecraft to monitor the solar wind approaching Earth"; from 1982-06-10
+#          "the first deep survey of Earth's tail", where it found "a huge plasmoid"; five
+#          lunar flybys, the last on 1983-12-22 at about 75 miles; renamed the International
+#          Cometary Explorer; on 1985-09-11 "the first spacecraft to fly past a comet", 4,885
+#          miles from the nucleus, supporting comets as "dirty snowballs"; operations ended in
+#          1997; thrusters fired on 2014-07-02 "for the first time in 27 years"; lunar flyby
+#          on 2014-08-10, then on around the Sun.
+#        [RBT] NASA news release (May 2014), "NASA Signs Agreement with Citizen Scientists
+#          Attempting to Communicate with Old Spacecraft": Skycorp's ISEE-3 Reboot Project,
+#          funded with $160,000 raised on RocketHub; NASA, "ISEE-3 Spacecraft May End Up
+#          Crashing Into The Moon": the longer firing of 2014-07-08 failed, probably for lack
+#          of nitrogen.
+#        [VEGAN] NASA (solarsystem.nasa.gov/missions/vega-1; stardust.jpl.nasa.gov/comets/
+#          vega.html): each Vega released a lander and a balloon into Venus (entries on June
+#          11 and 15, 1985), the balloons drifting ~54 km up for about 46 hours, a third of
+#          the way around the planet; Vega 1 returned more than 500 images of the comet,
+#          Vega 2 700.
+#        [GIOE] ESA, Giotto overview: launched 1985-07-02 on an Ariane 1, ESA's first
+#          deep-space mission; "the first close-up images of a comet nucleus", very dark, with
+#          jets; a dust hit 7.6 s before closest approach set it spinning and cut contact, which
+#          came back within 32 minutes; the Vegas' data helped "Giotto to home in".
+#        [JAXAH] JAXA: Sakigake (January 1985) and Suisei (August 1985), Japan's first
+#          interplanetary probes; Suisei observed the coma's hydrogen cloud and the tail gas
+#          from about 150,000 km.
+#        [P7N] NASA, science.nasa.gov/mission/pioneer-7/: 12.1 million km from Halley on
+#          1986-03-20, "the closest approach for a U.S. spacecraft"; it "monitored the
+#          interaction between the cometary hydrogen tail and the solar wind"; last contact
+#          on 1995-03-31.
+#        Also the sources above: [REC], [ARM], [P7], [VEGA], [GIO], [JAXA], [PVUV], [SLV],
+#        [SZG], [STKS], [BLT], and the event notes below.
 # Flyby times and distances: computed from the tables (tools/isee3/isee3_reconstruct.py
 # prints them; tests/mission_tests.cpp checks them against the published values).
 
@@ -516,6 +549,11 @@ focus = "Earth"
 frame = "Sun-Earth rotating"
 distance_km = 4.0e6
 warp = 86400.0
+# [ISEE], [REC]
+caption = """\
+    ISEE-3 sets out for the Sun-Earth L1 point, 1.5 million km toward the Sun, to become \
+    the first spacecraft ever to orbit a libration point. In this frame, which turns \
+    with the Earth, watch the transfer curve out to it over three months."""
 
 [[events]]
 name = "Halo orbit around L1 (1978-1982)"
@@ -524,6 +562,11 @@ focus = "Earth"
 frame = "Sun-Earth rotating"
 distance_km = 5.0e6
 warp = 604800.0
+# [ISEE], [REC]
+caption = """\
+    The first spacecraft to orbit a libration point: a loop around L1 every six months \
+    or so, never sitting at the point itself. From here, upstream of the Earth, ISEE-3 \
+    was the first to watch the solar wind before it reached us."""
 
 [[events]]
 name = "Leaving L1 for the geomagnetic tail (1982-06)"
@@ -532,6 +575,10 @@ focus = "Earth"
 frame = "Sun-Earth rotating"
 distance_km = 6.0e6
 warp = 172800.0
+# [ISEE], [REC]
+caption = """\
+    After four years at L1, ISEE-3 leaves for a new job: diving into the Earth's \
+    magnetic tail, which streams away on the night side, out toward L2."""
 
 [[events]]
 name = "Geotail passes and lunar flybys (1982-1983)"
@@ -540,6 +587,11 @@ focus = "Earth"
 frame = "Sun-Earth rotating"
 distance_km = 5.0e6
 warp = 172800.0
+# [ISEE], [REC]
+caption = """\
+    Swinging past the Moon again and again, ISEE-3 traces petals through the Earth's \
+    magnetic tail: the first deep survey of it. It found a huge plasmoid, a cloud of \
+    electrified gas cast off down the tail."""
 
 [[events]]
 name = "Lunar flyby 4 (1983-10-21)"
@@ -548,6 +600,11 @@ focus = "Moon"
 frame = "Moon-centered"
 distance_km = 1.2e5
 warp = 300.0
+# [ISEE], [REC]
+caption = """\
+    The fourth of five lunar flybys in 1983. Each one sets up the next, like a slingshot \
+    wound up in stages; the last will throw the spacecraft out of the Earth-Moon system \
+    altogether."""
 
 # Closest approach 1983-12-22 18:44 UTC, 119 km above the far side; more than 30 minutes in
 # the Moon's shadow (TDA PR 42-84).
@@ -560,6 +617,11 @@ from_body = "Sun"
 phase_deg = 90.0           # side-on: the pass behind the Moon, through its shadow
 distance_km = 1.5e4
 warp = 30.0
+# [ISEE], [REC]
+caption = """\
+    The last and closest lunar flyby, 119 km above the far side, through the Moon's \
+    shadow for more than half an hour. It flings ISEE-3 out toward a comet, and the \
+    spacecraft gets a new name: the International Cometary Explorer, ICE."""
 
 [[events]]
 name = "Escape from the Earth-Moon system (1983-12)"
@@ -568,6 +630,11 @@ focus = "Earth"
 frame = "Earth-centered"
 distance_km = 3.0e6
 warp = 21600.0
+# [REC]
+caption = """\
+    In this Earth-centered view the lunar flybys' work is plain: the path that looped \
+    around the Earth for five years breaks away and heads out into its own orbit around \
+    the Sun."""
 
 [[events]]
 name = "Cruise to Giacobini-Zinner (1984-1985)"
@@ -577,6 +644,11 @@ frame = "Heliocentric"
 from_orbit_normal = "Earth-Moon barycenter"
 distance_km = 4.0e8
 warp = 604800.0
+# [ISEE], [REC]
+caption = """\
+    Twenty months of cruise to comet Giacobini-Zinner, which no spacecraft had ever \
+    visited. ICE carries no camera: it will meet the comet with the instruments built to \
+    measure the solar wind."""
 
 # Launches: Vega 1 1984-12-15 [VEGA], Sakigake 1985-01-08 and Suisei 1985-08-19 JST [JAXA];
 # Giotto (1985-07-02) appears with its table on 1986-03-05.
@@ -588,6 +660,11 @@ frame = "Heliocentric"
 from_orbit_normal = "Earth-Moon barycenter"
 distance_km = 4.0e8
 warp = 432000.0            # 5 days per second: launch to Halley in 90 seconds
+# [VEGAN], [JAXAH], [GIOE], [ARM]
+caption = """\
+    Five more spacecraft head for Halley's comet, due near the Sun in 1986: the Soviet \
+    Vega 1 and 2, Japan's Sakigake and Suisei, its first probes beyond the Earth, and \
+    Europe's Giotto (shown only near the comet). Watch them converge on its path."""
 
 # The Vega 1 lander arrived on 1985-06-11; the bus flew past (published 39,000 km; the
 # bridged path [ARM] passes 45,800 km from the center at 02:55 UTC).
@@ -600,6 +677,11 @@ from_body = "Sun"
 phase_deg = 90.0
 distance_km = 3.0e5
 warp = 1800.0
+# [VEGAN], [ARM]
+caption = """\
+    On the way to Halley, Vega 1 drops a lander and a balloon into Venus' atmosphere. \
+    The main craft flies past the planet, and Venus' gravity turns it toward its meeting \
+    with the comet, nine months away."""
 
 # Vega 2's balloon entered on 1985-06-15 02:06 UT [WIKI]; its bus's flyby is reconstructed
 # [ARM] (26,600 km from the center, 21:16 UTC on 06-14). The Pioneer Venus Orbiter goes round
@@ -613,6 +695,11 @@ from_body = "Sun"
 phase_deg = 90.0
 distance_km = 3.0e5
 warp = 1800.0
+# [VEGAN], [ARM], [PVUV]
+caption = """\
+    Four days later Vega 2 does the same. Its balloon floated about 54 km up, drifting \
+    with the winds for some 46 hours, a third of the way around Venus. The Pioneer Venus \
+    Orbiter, circling once a day, will later watch Halley from here."""
 
 # Closest approach 1985-09-11 11:02:43 UTC, 7,800 km on the tail side, at 20.7 km/s.
 [[events]]
@@ -622,6 +709,12 @@ focus = "Giacobini-Zinner"
 frame = "Giacobini-Zinner-centered"
 distance_km = 4.0e4
 warp = 10.0
+# [ISEE], [SLV]
+caption = """\
+    ICE crosses the tail of comet Giacobini-Zinner 7,800 km behind the nucleus: the \
+    first spacecraft to fly past a comet. Its fields and particles instruments measured \
+    the tail's gas and magnetic field, and supported the picture of comets as dirty \
+    snowballs."""
 
 [[events]]
 name = "Between the Sun and Halley (1986-03)"
@@ -631,6 +724,12 @@ frame = "Heliocentric"
 from_orbit_normal = "Earth-Moon barycenter"
 distance_km = 4.0e8
 warp = 172800.0
+# [REC], [HZN]
+caption = """\
+    Halley swings around the Sun with its tails streaming outward. ICE, the armada's far \
+    scout, passes between the Sun and the comet, some 30 million km from it. With the \
+    Vegas, the Japanese probes, Giotto, Pioneer 7 and the Pioneer Venus Orbiter, eight \
+    spacecraft watched this return."""
 
 # Halley passed perihelion on 1986-02-09 behind the Sun as seen from the Earth; the Pioneer
 # Venus Orbiter's ultraviolet spectrometer watched its hydrogen coma from 01-31 to 03-06
@@ -644,6 +743,11 @@ frame = "Venus-centered"
 from_body = "Venus"
 distance_km = 5.6e7
 warp = 3600.0
+# [PVUV], [HZN]
+caption = """\
+    Near perihelion Halley was behind the Sun as seen from the Earth, lost in its glare. \
+    But the Pioneer Venus Orbiter, at Venus, watched the comet's hydrogen cloud in \
+    ultraviolet light through these weeks: this is roughly its view, with the two tails."""
 
 # Ten days in the comet's frame: Vega 1 (03-06), Suisei (03-08), Vega 2 (03-09), Sakigake
 # (03-11), Giotto (03-14) pass; ICE is 3e7 km away on the sunward side.
@@ -656,6 +760,11 @@ from_body = "Sun"
 phase_deg = 90.0
 distance_km = 2.0e7
 warp = 7200.0              # 2 hours per second
+# [ARM], [GIOE]
+caption = """\
+    Ten days in the comet's frame: Vega 1, Suisei, Vega 2, Sakigake and Giotto pass in \
+    turn, while ICE watches from far off on the sunward side. The Vegas' sightings of \
+    the nucleus were passed on to help Giotto aim."""
 
 # Closest approach 1986-03-06 07:20:06 UT, 8,890 km, at 79.2 km/s [VEGA].
 [[events]]
@@ -667,6 +776,10 @@ from_body = "Sun"
 phase_deg = 90.0
 distance_km = 4.0e4
 warp = 10.0
+# [VEGA], [VEGAN]
+caption = """\
+    Vega 1 passes 8,890 km from the nucleus at 79 km/s, through the dust and gas of the \
+    coma, sending back more than 500 images of the comet."""
 
 # 151,000 km on the sunward side [JAXA]; 13:05:48 UTC at 73 km/s in the ISAS ephemeris [ARM].
 [[events]]
@@ -678,6 +791,10 @@ from_body = "Sun"
 phase_deg = 90.0
 distance_km = 6.0e5
 warp = 120.0
+# [JAXA], [JAXAH]
+caption = """\
+    Japan's Suisei passes 151,000 km from Halley on the side facing the Sun, studying \
+    the comet's enormous cloud of hydrogen gas and how it interacts with the solar wind."""
 
 # Closest approach 1986-03-09 07:20:00 UT, 8,030 km, at 76.8 km/s [VEGA] (the reconstruction
 # [ARM] is aimed at it).
@@ -690,6 +807,11 @@ from_body = "Sun"
 phase_deg = 90.0
 distance_km = 4.0e4
 warp = 10.0
+# [VEGA], [VEGAN], [GIOE]
+caption = """\
+    Three days after its twin, Vega 2 passes 8,030 km from the nucleus, sending some 700 \
+    images. Together the Vegas pinned down where the nucleus was, so that Giotto could \
+    aim much closer."""
 
 # "6.99 million km" on 03-11 (Wikipedia, Sakigake); HelioWeb's positions [ARM] give 6.7
 # million km at 00:34 UTC.
@@ -702,6 +824,11 @@ from_body = "Sun"
 phase_deg = 90.0
 distance_km = 2.5e7
 warp = 1800.0
+# [JAXAH], [ARM]
+caption = """\
+    Sakigake, Japan's first interplanetary spacecraft, launched in January 1985, keeps \
+    far off: it passes about 7 million km upstream of the comet, in the solar wind \
+    flowing toward Halley."""
 
 # The nucleus in the week of the Vega and Giotto flybys [STKS]. It tumbles in a long-axis
 # mode [BLT]; its phase on the day is illustrative.
@@ -714,6 +841,11 @@ from_body = "Sun"
 phase_deg = 60.0
 distance_km = 60.0
 warp = 3600.0              # an hour per second: the 3.69-day precession in a minute and a half
+# [GIOE], [SZG], [STKS], [BLT]
+caption = """\
+    The nucleus as Giotto and the Vegas revealed it: about 15 km long and very dark, \
+    throwing out jets of gas and dust. The shape here was built from their images. It \
+    tumbles: the long axis circles every 3.7 days while the body turns about it."""
 
 # Closest approach 1986-03-14 00:03:01.84 UTC, 596 km [GIO], at 68.4 km/s [ARM].
 [[events]]
@@ -725,6 +857,12 @@ from_body = "Sun"
 phase_deg = 60.0
 distance_km = 4000.0
 warp = 2.0
+# [GIO], [GIOE], [ARM]
+caption = """\
+    Europe's first deep-space mission passes 596 km from the nucleus at 68 km/s and \
+    takes the first close-up images of one. Seven seconds before closest approach a dust \
+    grain struck, sending Giotto wobbling and cutting contact; it recovered within 32 \
+    minutes."""
 
 # Closest at 23:36 UT on 03-20, 12.1 million km [P7] (the reconstruction [ARM] is timed to it
 # and passes at 12.0 million km), on the far side from the Sun: Halley is 10 million km south
@@ -738,6 +876,11 @@ from_body = "Sun"
 phase_deg = 90.0
 distance_km = 4.0e7
 warp = 3600.0
+# [P7], [P7N]
+caption = """\
+    Launched in 1966 and never steered since, Pioneer 7 crosses Halley's wake 12.1 \
+    million km downstream, the closest of any US spacecraft. It measured how the comet's \
+    hydrogen tail met the solar wind, and kept working until 1995."""
 
 # 1986-1987: two maneuvers (dates assumed, see the sources) aim ICE at the Moon in 2014.
 [[events]]
@@ -748,6 +891,11 @@ frame = "Sun-Earth rotating, whole mission"
 from_orbit_normal = "Earth-Moon barycenter"
 distance_km = 4.0e8
 warp = 5184000.0           # 60 days per second: 28 years in under 3 minutes
+# [REC], [ISEE]
+caption = """\
+    On a 355-day orbit, ICE drifts away from the Earth and goes once around the Sun \
+    relative to it, a 28-year loop back to the Earth and the Moon. Maneuvers in 1986 and \
+    1987 had aimed it at a lunar flyby in 2014. NASA stopped listening in 1997."""
 
 # The ISEE-3 Reboot Project took control in late May 2014; the thrusters fired on 2014-07-02
 # and failed on 2014-07-08 (no pressurant left).
@@ -758,6 +906,12 @@ focus = "Earth"
 frame = "Earth-centered"
 distance_km = 3.0e6
 warp = 21600.0
+# [RBT], [ISEE]
+caption = """\
+    In 2014 a volunteer team, funded with $160,000 raised online, got NASA's blessing to \
+    contact the old spacecraft, and on 2 July fired its thrusters for the first time in \
+    27 years. A longer burn on 8 July failed: the nitrogen that pushed the propellant \
+    was gone."""
 
 # Closest approach 2014-08-10 19:18 UTC, 18,400 km from the Moon's center (Horizons notes).
 [[events]]
@@ -769,6 +923,11 @@ from_body = "Sun"
 phase_deg = 30.0           # from the day side: it was a full Moon
 distance_km = 8.0e4
 warp = 120.0
+# [ISEE], [REC]
+caption = """\
+    Unable to change course, ISEE-3 flies past the full Moon, 18,400 km from its center, \
+    on the path set up in the 1980s, and heads back out into orbit around the Sun, where \
+    it still is."""
 
 [[events]]
 name = "The whole journey, Earth fixed (1978-2014)"
@@ -778,3 +937,8 @@ frame = "Sun-Earth rotating, whole mission"
 from_orbit_normal = "Earth-Moon barycenter"
 distance_km = 4.0e8
 warp = 86400.0
+# [REC]
+caption = """\
+    Thirty-six years in one view, in a frame that holds the Earth still: the halo loops \
+    at L1, the petals of the tail passes, the escape, and the long loop around the Sun \
+    and back to the Earth."""

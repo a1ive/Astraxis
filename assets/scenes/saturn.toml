@@ -39,6 +39,44 @@
 #        assets/rings/SOURCES.md. Opaque parts of the B ring are clipped at the
 #        detection threshold (tau ~ 5).
 #
+# [CAP]  Event captions (retrieved 2026-10-07):
+#        [CAS] NASA, science.nasa.gov/mission/cassini/: the first spacecraft to orbit Saturn;
+#          Huygens made "the first landing in the outer solar system"; Enceladus' plumes
+#          from a subsurface ocean with "essentially all the ingredients needed for life";
+#          22 dives between the rings and the planet in 2017, then a plunge into Saturn on
+#          2017-09-15 to keep the moons, Enceladus in particular, pristine.
+#        [CQF] NASA, "Cassini Quick Facts" / "Cassini-Huygens By the Numbers": 294 orbits.
+#        [SOI] NASA/JPL, Saturn orbit insertion (2004-06-30/07-01): through the gap between
+#          the F and G rings, a 96-minute burn (626 m/s), back out through the gap.
+#        [HUY] ESA, "Huygens landing on Titan 2005" and "The Huygens landing: one year on":
+#          a parachute descent of 2 h 28 min, landing around 11:30 UTC on 2005-01-14, "the
+#          farthest touchdown" of any human-built object; 70 minutes of data from the surface
+#          before Cassini moved out of range.
+#        [TET] NASA, "Tethys and Hyperion Flyby - Sept. 24 and 26, 2005": about 1,500 km,
+#          "eye-to-eye" with the giant crater Odysseus.
+#        [IAP] NASA, "Iapetus Flyby - Sept. 10, 2007" and "Cassini Flies By Walnut-Shaped
+#          Moon Iapetus": the closest pass, ~1,640 km; a leading side "as dark as a freshly
+#          tarred street", a trailing side like fresh snow; the mountains along the equator.
+#        [E5] NASA, "Enceladus Flyby - October 09, 2008": 25 km, the closest flyby yet of any
+#          of Saturn's moons, deeper into the south polar plume than ever before.
+#        [EQX] NASA/JPL PIA12796, "Long Spiky Shadows": after the August 2009 equinox,
+#          structures at the edge of the B ring up to 3.5 km high cast shadows; equinox
+#          comes every half Saturn year, about 15 Earth years.
+#        [PAC] NASA/JPL, "Cassini Finds a Video Gamers' Paradise at Saturn" (2010-03-29):
+#          the temperature map from 2010-02-13 shows a warm and a cold side with a sharp
+#          V-shaped edge; high-energy electrons harden the surface on one side.
+#        [T70] NASA, "Titan Flyby (T-70) - June 21, 2010": 880 km, the lowest Titan flyby of
+#          the mission, below the ionosphere, to look for a magnetic field of Titan's own.
+#        [RHE] NASA, "Rhea Flyby - Jan. 11, 2011" and "Thin Air: Cassini Finds Ethereal
+#          Atmosphere at Rhea": ~69 km, the closest; an exosphere of oxygen and carbon dioxide.
+#        [DIO] NASA/JPL, Dione flyby of 2011-12-12: 99 km, the closest, mainly for the
+#          infrared spectrometer and radio science.
+#        [GF] NASA/JPL, "Cassini's First Grand Finale Dive" and "Cassini Finds 'The Big
+#          Empty' Close to Saturn": a 2,400 km gap, the 4 m antenna turned forward as a
+#          shield; few dust hits. "NASA's Cassini Spacecraft Ends Its Historic Exploration of
+#          Saturn": contact lost at 4:55 a.m. PDT on 2017-09-15, a month short of 20 years
+#          after launch.
+#        Densities (the info panel) from [SPHY]; paths [HZN]; plumes [PLM].
 # Mean elements: [ELEM]'s phase angles for Saturn's moons do not match SAT441 at
 # their epoch: at J2000 the mean longitudes are off by 6-157 deg (for Jupiter's
 # JUP365 table they match to 0.3 deg). The node, argument of periapsis and mean
@@ -441,6 +479,12 @@ time_tdb = "2004-06-30 22:00"
 focus = "Saturn"
 distance_km = 5.0e5
 warp = 600.0
+# [SOI], [CAS]
+caption = """\
+    After nearly seven years in space, Cassini crosses the ring plane through the gap \
+    between the F and G rings, fires its engine for 96 minutes so that Saturn can \
+    capture it, and crosses back out through the same gap: the first spacecraft to orbit \
+    Saturn."""
 
 [[events]]
 name = "Cassini's tour, 2004-2017"
@@ -448,6 +492,11 @@ time_tdb = "2004-07-01 00:00"
 focus = "Saturn"
 distance_km = 1.2e7
 warp = 604800.0
+# [CQF], [HZN]
+caption = """\
+    Thirteen years and 294 orbits, hardly two alike: they stretch, shrink and tilt out \
+    of the ring plane and back as the tour moves on from moon to moon. Watch the pattern \
+    being rearranged again and again."""
 
 # Touchdown 2005-01-14 11:38:49 TDB (2 km below Titan's mean radius: the local surface).
 [[events]]
@@ -456,6 +505,12 @@ time_tdb = "2005-01-14 08:40"
 focus = "Titan"
 distance_km = 2.0e4
 warp = 120.0
+# [HUY], [CAS], [HZN]
+caption = """\
+    Released by Cassini three weeks ago, ESA's Huygens probe falls through Titan's \
+    orange haze, two and a half hours under its parachutes, and lands: the first landing \
+    in the outer solar system, the farthest ever. It sent data from the surface for 70 \
+    minutes, until Cassini moved out of range."""
 
 [[events]]
 name = "Cassini at Tethys (2005-09-24, 1,489 km)"
@@ -463,6 +518,11 @@ time_tdb = "2005-09-24 01:43"
 focus = "Tethys"
 distance_km = 2.0e4
 warp = 60.0
+# [TET], [SPHY]
+caption = """\
+    About 1,500 km above Tethys, eye to eye with its giant impact crater, Odysseus. \
+    Tethys' mass and size give it a density barely above that of water (see the info \
+    panel): a moon made mostly of ice."""
 
 [[events]]
 name = "Cassini at Iapetus (2007-09-10, 1,633 km)"
@@ -470,6 +530,11 @@ time_tdb = "2007-09-10 13:17"
 focus = "Iapetus"
 distance_km = 2.0e4
 warp = 60.0
+# [IAP]
+caption = """\
+    Cassini's closest pass of Iapetus. One side is as dark as fresh tar, the other as \
+    bright as snow, and a ridge of mountains runs along the equator, giving the moon the \
+    look of a walnut."""
 
 [[events]]
 name = "Cassini through Enceladus' plumes (2008-10-09, 23 km)"
@@ -477,6 +542,12 @@ time_tdb = "2008-10-09 18:08"
 focus = "Enceladus"
 distance_km = 5000.0
 warp = 30.0
+# [E5], [CAS], [PLM]
+caption = """\
+    Just 25 km above Enceladus, Cassini dives deeper than ever into the plume over the \
+    south pole, tasting the water vapor and ice grains thrown out by the jets drawn here \
+    along the "tiger stripes". They come from an ocean beneath the ice, with essentially \
+    all the ingredients needed for life."""
 
 # The Sun crosses the ring plane: the rings go dark and edge-on to the light.
 [[events]]
@@ -485,6 +556,12 @@ time_tdb = "2009-08-11 00:00"
 focus = "Saturn"
 distance_km = 6.0e5
 warp = 3600.0
+# [EQX]
+caption = """\
+    The Sun crosses the ring plane, as it does about every 15 years, and lights the \
+    rings edge-on: they go dark. In this low light anything standing up from the rings \
+    casts a long shadow, and Cassini found structures at the edge of the B ring rising \
+    as high as 3.5 km."""
 
 [[events]]
 name = "Cassini at Mimas (2010-02-13, 9,548 km)"
@@ -492,6 +569,12 @@ time_tdb = "2010-02-13 16:23"
 focus = "Mimas"
 distance_km = 3.0e4
 warp = 60.0
+# [PAC]
+caption = """\
+    On this pass Cassini mapped the temperatures of Mimas and found a surprise: a warm \
+    side and a cold side split by a sharp V, in the shape of Pac-Man. Fast electrons \
+    from Saturn's surroundings pack the surface ice hard on one side, so it heats and \
+    cools differently."""
 
 [[events]]
 name = "Cassini at Titan, lowest pass (2010-06-21, 878 km)"
@@ -499,6 +582,11 @@ time_tdb = "2010-06-21 00:29"
 focus = "Titan"
 distance_km = 2.0e4
 warp = 60.0
+# [T70]
+caption = """\
+    The lowest of Cassini's Titan flybys, about 880 km up, below the moon's ionosphere. \
+    Shielded there from Saturn's own magnetic field, the magnetometer could search for a \
+    magnetic field coming from inside Titan."""
 
 [[events]]
 name = "Cassini at Rhea (2011-01-11, 66 km)"
@@ -506,6 +594,11 @@ time_tdb = "2011-01-11 03:55"
 focus = "Rhea"
 distance_km = 8000.0
 warp = 30.0
+# [RHE]
+caption = """\
+    Cassini's closest pass of Rhea, under 70 km above the ice. Flying this close let it \
+    sample the moon's extremely thin atmosphere directly: a trace of oxygen and carbon \
+    dioxide around Saturn's second-largest moon."""
 
 [[events]]
 name = "Cassini at Dione (2011-12-12, 94 km)"
@@ -513,6 +606,11 @@ time_tdb = "2011-12-12 08:40"
 focus = "Dione"
 distance_km = 8000.0
 warp = 30.0
+# [DIO], [SPHY]
+caption = """\
+    Cassini's closest pass of Dione, under 100 km up, made mainly for its infrared \
+    spectrometer and for a radio measurement of the moon's gravity. Dione is half again \
+    as dense as its neighbor Tethys: more rock mixed in with its ice."""
 
 # First of 22 dives between the rings and the planet: periapsis 2017-04-26 09:04:44 TDB,
 # 63,172 km from the center (~2,900 km above the 1-bar level).
@@ -522,6 +620,11 @@ time_tdb = "2017-04-26 03:00"
 focus = "Saturn"
 distance_km = 3.0e5
 warp = 600.0
+# [GF], [CAS]
+caption = """\
+    The first of 22 dives through the 2,400 km gap between Saturn and its innermost \
+    rings, a place no spacecraft had been. Cassini turned its 4 m dish forward as a \
+    shield against ring dust, but heard only a few hits: the gap was "the big empty"."""
 
 [[events]]
 name = "Cassini's final plunge (2017-09-15)"
@@ -529,3 +632,8 @@ time_tdb = "2017-09-15 06:30"
 focus = "Saturn"
 distance_km = 2.0e5
 warp = 120.0
+# [GF], [CAS]
+caption = """\
+    Cassini dives into Saturn on purpose, so that it can never fall onto Enceladus or \
+    Titan and carry life from the Earth there. Its signal ended at 11:55 UTC, a month \
+    short of twenty years after launch."""

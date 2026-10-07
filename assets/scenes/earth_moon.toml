@@ -22,6 +22,39 @@
 # [PCK]  NAIF pck00011.tpc (IAU 2015): radii, poles, prime meridians.
 # [SPHY] JPL SSD satellite physical parameters (Moon mean radius).
 # [ATM]  Atmospheres (single scattering): sources and choices in solar_system.toml.
+# [CAP]  Event captions (retrieved 2026-10-07):
+#        [A2] NASA, www.nasa.gov/mission/artemis-ii/: crew Reid Wiseman, Victor Glover,
+#          Christina Koch (NASA) and Jeremy Hansen (CSA); launch 2026-04-01, splashdown
+#          04-10, 9 d 1 h 32 min.
+#        [A2PK] NASA, Artemis II Press Kit: the translunar injection "is the last major engine
+#          firing of the mission" and sets Orion on the free-return trajectory; Orion is
+#          "pulled back naturally by Earth's gravity".
+#        [A2R] NASA news release 2026-04-06, "NASA's Artemis II Crew Eclipses Record for
+#          Farthest Human Spaceflight": past Apollo 13's 248,655 miles (1970); 252,756 miles
+#          at the farthest. (NASA's distances match the heights above the Earth's surface
+#          computed here, below.)
+#        [A2B] NASA Artemis blog 2026-04-06, "Crew Wraps Historic Lunar Flyby": ~4,067 miles
+#          above the surface, a 40-minute loss of signal behind the Moon, Earthset and
+#          Earthrise, a "nearly hour-long solar eclipse", "humanity's first return to the Moon
+#          since Apollo 17 in 1972".
+#        [A2Q] NASA, "NASA Answers Your Most Pressing Artemis II Questions": reentry at nearly
+#          35 times the speed of sound, splashdown in the Pacific off San Diego.
+#        [A1] NASA, www.nasa.gov/mission/artemis-i/: "first flight test of rocket, spacecraft,
+#          and supporting ground systems"; 268,563 miles from the Earth; splashdown off San
+#          Diego 2022-12-11; 25 d 10 h 53 min.
+#        [A1B] NASA Artemis blogs: outbound powered flyby ~81 miles above the surface
+#          (2022-11-21); return flyby within ~80 miles (12-05); past Apollo 13's record for a
+#          spacecraft designed to carry humans (11-26); "nearly a week to complete half an
+#          orbit" (11-25).
+#        [DRO] NASA, "Orion Will Go the Distance in Retrograde Orbit During Artemis I": DRO is
+#          "highly stable", little fuel to stay; "retrograde" = opposite to the Moon's motion
+#          around the Earth; the outbound flyby and a burn of the service module together
+#          send Orion to it.
+#        [CAP1] NASA, www.nasa.gov/smallspacecraft/capstone/: a microwave oven-sized CubeSat;
+#          a four-month low-energy journey; insertion on 2022-11-13; the first spacecraft in a
+#          near rectilinear halo orbit, the orbit planned for the Gateway; within 1,000 miles
+#          of one pole and 43,500 miles from the other every seven days.
+#        Shapes of the paths in the rotating frames: [HZN] (see above).
 # Closest approaches (TDB at the spacecraft; altitude above the Moon's mean radius)
 # and the largest distances from the Earth (above its equatorial radius): computed
 # from the baked data. They agree with NASA's figures within a few km (checked in
@@ -165,6 +198,13 @@ focus = "Earth"
 frame = "Earth-Moon rotating"
 distance_km = 7.0e5
 warp = 3600.0
+# [A2], [A2B], [A2PK]
+caption = """\
+    Reid Wiseman, Victor Glover, Christina Koch and Jeremy Hansen are on their way, the \
+    first crew bound for the Moon since Apollo 17 in 1972. The translunar injection burn \
+    was the last big engine firing: on this free-return path, gravity alone will bring \
+    Orion home. In this frame, which holds the Moon still, the flight traces a figure \
+    eight."""
 
 # Closest approach 2026-04-06 23:01:49 TDB, 6,543 km above the far side; farthest
 # from the Earth 4 minutes later, 23:06:12 TDB, 406,765 km above its surface.
@@ -175,6 +215,12 @@ focus = "Moon"
 frame = "Earth-Moon rotating, Moon-centered"
 distance_km = 4.0e4
 warp = 300.0
+# [A2B], [A2R]
+caption = """\
+    About 6,500 km above the far side, the crew lost touch with the Earth for 40 \
+    minutes, watched it set behind the lunar horizon and rise again, and saw the Moon \
+    eclipse the Sun for nearly an hour. Minutes later they were about 406,800 km from \
+    the Earth, beyond Apollo 13's record of 1970: the farthest any humans have been."""
 
 [[events]]
 name = "Artemis II: home (2026-04-10)"
@@ -183,6 +229,11 @@ focus = "Earth"
 frame = "Earth-Moon rotating"
 distance_km = 1.2e5
 warp = 300.0
+# [A2], [A2Q], [A2PK]
+caption = """\
+    Pulled back by the Earth's gravity, Orion returns at nearly 35 times the speed of \
+    sound and splashes down in the Pacific off San Diego, nine days, one hour and 32 \
+    minutes after launch: the first crewed flight of Orion is over."""
 
 # --- Artemis I -------------------------------------------------------------------
 
@@ -193,6 +244,12 @@ focus = "Earth"
 frame = "Earth-Moon rotating"
 distance_km = 8.0e5
 warp = 7200.0
+# [A1], [DRO]
+caption = """\
+    The first flight of NASA's new Moon rocket and an uncrewed Orion: a 25-day test of \
+    rocket, spacecraft and ground systems before anyone flew. In this frame, which holds \
+    the Moon still, watch Orion's path loop around the Moon against the Moon's own \
+    motion: the distant retrograde orbit."""
 
 [[events]]
 name = "Artemis I: outbound flyby (2022-11-21, 131 km)"
@@ -200,6 +257,11 @@ time_tdb = "2022-11-21 11:58"
 focus = "Moon"
 distance_km = 2.0e4
 warp = 60.0
+# [A1B], [DRO]
+caption = """\
+    Orion skims about 130 km above the lunar surface. This is a powered flyby: the \
+    Moon's gravity and a burn of Orion's service module together send it on toward the \
+    distant retrograde orbit, far beyond the Moon."""
 
 # Farthest from the Earth 2022-11-28 21:07:35 TDB, 432,207 km above its surface.
 [[events]]
@@ -210,6 +272,12 @@ frame = "Earth-Moon rotating, Moon-centered"
 from_orbit_normal = "Moon"
 distance_km = 2.5e5
 warp = 3600.0
+# [DRO], [A1], [A1B]
+caption = """\
+    A distant retrograde orbit: high above the Moon, going around it against the Moon's \
+    motion around the Earth, and so stable that it takes little fuel to stay in. Half a \
+    lap takes nearly a week. On 28 November Orion reached 432,000 km from the Earth, \
+    farther than any spacecraft built to carry people."""
 
 [[events]]
 name = "Artemis I: return flyby (2022-12-05, 129 km)"
@@ -217,6 +285,11 @@ time_tdb = "2022-12-05 15:45"
 focus = "Moon"
 distance_km = 2.0e4
 warp = 60.0
+# [A1B], [A1]
+caption = """\
+    Leaving the distant retrograde orbit, Orion swings past the Moon again, about 130 km \
+    up, and heads home. It splashed down off San Diego on 11 December, after 25 days in \
+    space, clearing the way for a crew."""
 
 # --- CAPSTONE ---------------------------------------------------------------------
 
@@ -228,6 +301,11 @@ frame = "Earth-Moon rotating"
 from_orbit_normal = "Moon"
 distance_km = 3.5e6
 warp = 86400.0
+# [CAP1], [HZN]
+caption = """\
+    A CubeSat the size of a microwave oven takes the long way to the Moon: not three \
+    days but four months on a low-energy path, which swings far out beyond the Moon's \
+    orbit before falling back to meet it. The trip costs time instead of fuel."""
 
 # First perilune in the halo orbit 2022-11-14 00:39:27 TDB, 3,486 km from the Moon's center.
 [[events]]
@@ -237,3 +315,9 @@ focus = "Moon"
 frame = "Earth-Moon rotating, Moon-centered"
 distance_km = 1.5e5
 warp = 3600.0
+# [CAP1], [HZN]
+caption = """\
+    The first spacecraft in a near-rectilinear halo orbit, the orbit planned for the \
+    Gateway station. Every seven days it passes about 1,600 km over the Moon's north \
+    pole and climbs some 70,000 km beyond the south pole. In this Moon-centered frame, \
+    which turns with the Earth, the narrow loop stays put."""

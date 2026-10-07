@@ -40,6 +40,7 @@
 #          T_Ab = 3560 K; L = R^2 (T_eff / 5772 K)^4 = 4.70 and 0.0258 L_sun;
 #          planet mass 31.6 M_earth from [CK17] (assumed).
 #
+# [CAP]  Event captions: from [SC13], [GAIA] and the notes above.
 # Assumed: the orientation of the inner orbits on the sky (binary node 0, as
 # [SC13]); Ba + Bb on a circle of radius 1343 au (P = 27,000 yr), at its
 # ascending node at J2016.0 (so Gaia's position angle is the node), inclined
@@ -230,6 +231,11 @@ focus = "Kepler-64 A"
 from_orbit_normal = "Kepler-64 b"
 distance_km = 2.5e8
 warp = 172800.0
+# [SC13]
+caption = """\
+    Kepler-64 b, about six times the Earth's size, circles a pair of stars every 138.5 \
+    days. Volunteers of the Planet Hunters project spotted its transits in Kepler's data \
+    by eye: the first planet known in a system of four stars."""
 
 [[events]]
 name = "The pair: 20 days, e = 0.21"
@@ -237,6 +243,11 @@ time = "2026-01-01"
 focus = "Kepler-64 A"
 distance_km = 8.0e7
 warp = 21600.0                 # 6 hours per second: one orbit in 80 s
+# [SC13]
+caption = """\
+    The planet's two suns: an F star of 1.4 solar masses and a red dwarf of under 0.4, \
+    on an eccentric 20-day orbit that brings them in and out again. Seen from the Earth \
+    they eclipse each other on every lap."""
 
 [[events]]
 name = "Kepler-64 b under its two suns"
@@ -246,6 +257,11 @@ from_body = "Kepler-64 Aa"
 phase_deg = -150.0
 distance_km = 2.0e5
 warp = 3600.0
+# [SC13]
+caption = """\
+    A world about six times the Earth's size, its mass known only to be below 169 Earth \
+    masses, lit by two suns: an F star almost five times as luminous as the Sun and its \
+    dim red companion. Its look here is an artist's guess."""
 
 [[events]]
 name = "Edge-on, as Kepler saw it (2011)"
@@ -254,6 +270,11 @@ focus = "Kepler-64 A"
 from_body = "Sun"
 distance_km = 2.5e8
 warp = 86400.0
+# [SC13], [GAIA]
+caption = """\
+    The view from the Earth, very roughly 1,900 parsecs away. The orbits are nearly \
+    edge-on, so the stars eclipse each other every 20 days and the planet passes in \
+    front of them every 138.5 days."""
 
 [[events]]
 name = "Ba and Bb, 60 au apart"
@@ -262,6 +283,11 @@ focus = "Kepler-64 B"
 frame = "Kepler-64 B-centered"
 distance_km = 3.0e10
 warp = 315576000.0             # 10 years per second: one orbit in 38 s (Ba, Bb are Keplerian)
+# [SC13]
+caption = """\
+    The second pair: a Sun-like star and a red dwarf, roughly 60 au apart, about 1,300 \
+    au from the planet's stars. Their orbit has not been measured, so the circle drawn \
+    here is an assumption."""
 
 [[events]]
 name = "All four stars: the two pairs 1300 au apart"
@@ -269,3 +295,8 @@ time = "2026-01-01"
 focus = "Kepler-64 A"
 distance_km = 6.0e11
 warp = 2629800.0               # 1 month per second: the integration ends in 2060
+# [SC13], [GAIA]
+caption = """\
+    The whole quadruple: the planet's eclipsing pair and the second pair, about 1,300 au \
+    apart on the sky. On the assumed circular orbit drawn here, the two pairs would take \
+    some 27,000 years to go around each other."""

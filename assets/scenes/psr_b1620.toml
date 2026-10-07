@@ -34,6 +34,10 @@
 #   white dwarf: (V - I)_0 = 0.224 -> T_eff ~ 7820 K [PM13, dwarf colours; for a
 #     white dwarf only approximate]; M_V = 11.60, L = 1.8e-3 L_sun (M_bol,sun = 4.74),
 #     R = 0.023 R_sun.
+# [CAP]  Event captions (retrieved 2026-10-07), besides the sources above:
+#        [HUB03] NASA, "Hubble Helps Confirm Oldest Known Planet" (2003): 2.5 Jupiter masses,
+#          "almost 13 billion years" old; M4 is 5,600 light years away; the orbit "takes a
+#          century" (other solutions: ~62 years, [TH99]).
 # Assumed: the nodes on the sky (inner 0, so the planet's is 45.73 deg); the
 # pulsar's spin axis along the inner orbit's normal (recycling by accretion
 # aligns them), its magnetic axis 45 deg from it, beams 10 deg wide; the neutron
@@ -186,6 +190,11 @@ time = "2026-01-01"
 focus = "PSR B1620-26 AB"
 distance_km = 6.0e8
 warp = 345600.0
+# [TH99], [SI03]
+caption = """\
+    A pulsar, the collapsed core of a massive star, spinning 90 times a second, circles \
+    a white dwarf every 191 days. Timing its pulses precisely traces this orbit, and a \
+    slow extra wobble from something farther out: the planet."""
 
 [[events]]
 name = "Pulsar beams sweeping (drawn slowed down: really 90 turns a second)"
@@ -193,6 +202,11 @@ time = "2026-01-01"
 focus = "PSR B1620-26 A"
 distance_km = 2.0e6
 warp = 600.0
+# [TH99]
+caption = """\
+    Radio beams from the pulsar's magnetic poles sweep around as it spins; each sweep \
+    across the Earth is a pulse. Here they are drawn visible and slowed down: the real \
+    pulsar, spun up long ago by matter from a companion, turns 90 times a second."""
 
 [[events]]
 name = "The planet's 62-year orbit, tilted 40 deg to the binary's"
@@ -201,6 +215,12 @@ focus = "PSR B1620-26"
 from_orbit_normal = "PSR B1620-26 b"
 distance_km = 8.0e9
 warp = 31557600.0              # 1 year per second
+# [TH99], [ST05], [HUB03]
+caption = """\
+    The planet, about 2.5 times Jupiter's mass, circles the pair at some 19 au in this \
+    solution, taking about 62 years (other fits allow up to a century), in an orbit \
+    tilted about 40 degrees to theirs. At almost 13 billion years, it is one of the \
+    oldest planets known."""
 
 [[events]]
 name = "PSR B1620-26 b, 19 au from its two dead stars"
@@ -210,6 +230,11 @@ from_body = "PSR B1620-26 AB"
 phase_deg = -150.0
 distance_km = 3.5e5
 warp = 3600.0
+# [SI03], [HUB03]
+caption = """\
+    Near the planet: its "suns" are a dim white dwarf and a neutron star, and its sky is \
+    crowded with the stars of the globular cluster M4. It formed when the Universe was \
+    young; its color here is a guess."""
 
 [[events]]
 name = "Toward the core of M4, 0.4 pc away"
@@ -219,3 +244,8 @@ from_body = "M4 centre"
 phase_deg = 180.0
 distance_km = 6.0e8
 warp = 345600.0
+# [SI03], [HUB03]
+caption = """\
+    From the pulsar, about 0.4 parsecs from the cluster's center, the sky is full of \
+    M4's stars, over thirteen thousand of them drawn from Gaia's measurements. M4 lies \
+    5,600 light years from the Earth; seen from here, our Sun would be lost among them."""

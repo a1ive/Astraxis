@@ -14,6 +14,19 @@
 #        L2 mass ratio = (GM_Earth + GM_Moon) / (GM_Sun + GM_Earth + GM_Moon)
 #                      = 403503.235625 / (1.32712440041279419e11 + 403503.235625)
 #                      = 3.04042340e-6  (Sun / Earth-Moon barycenter system).
+# [CAP]  Event captions (retrieved 2026-10-07):
+#        [JW] NASA, science.nasa.gov/mission/webb/: launched 2021-12-25; at L2 from
+#          2022-01-24; 1.5 million km from the Earth; a "5-layer sunshield that protects the
+#          telescope from the infrared radiation of the Sun, Earth, and Moon".
+#        [JWO] NASA, "Webb's Orbit" (science.nasa.gov/asset/webb/webbs-orbit/): a halo orbit
+#          around L2, at "a safe distance from the bright light of the Sun, Earth, and Moon".
+#        [JWL2] NASA Webb blog 2022-01-24, "Orbital Insertion Burn a Success, Webb Arrives at
+#          L2": a 297 s burn adding 1.6 m/s; the orbit lets the optics "get cold enough to
+#          function"; station-keeping keeps it there.
+#        [JWF] NASA Webb blog 2021-12-29, "NASA Says Webb's Excess Fuel Likely to Extend its
+#          Lifetime Expectations": thanks to the Ariane 5's precision, propellant for
+#          "significantly more than a 10-year science lifetime".
+#        The halo loops' period: [HZN] (about six months, as the data show).
 # [ATM]  Atmospheres (single scattering): sources and choices in solar_system.toml.
 # [PCK]  NAIF pck00011.tpc (IAU 2015).
 # [SPHY] JPL SSD satellite physical parameters (Moon mean radius).
@@ -116,6 +129,12 @@ focus = "JWST"
 frame = "Sun-Earth rotating"
 distance_km = 3.0e5
 warp = 3600.0
+# [JW], [JWF]
+caption = """\
+    Webb leaves on an Ariane 5, aimed so precisely that its course corrections needed \
+    less propellant than planned: enough, NASA found four days later, for significantly \
+    more than a ten-year science life. A month of coasting brings it to its post, 1.5 \
+    million km from the Earth."""
 
 [[events]]
 name = "The full mission so far, from L2"
@@ -124,3 +143,10 @@ focus = "Earth"
 frame = "Sun-Earth rotating"
 distance_km = 4.0e6
 warp = 604800.0
+# [JW], [JWO], [JWL2], [HZN]
+caption = """\
+    Webb does not sit at L2: it circles it, one loop of its halo orbit about every six \
+    months, and small burns keep it there. From out here the Sun, the Earth and the Moon \
+    all stay on one side, behind its sunshield, so the telescope can stay cold enough to \
+    see in the infrared. In this frame, which turns with the Earth, the loops stay in \
+    place."""

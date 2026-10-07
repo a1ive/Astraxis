@@ -17,6 +17,33 @@
 #        "Planet and Pluto GM Values" table: the GM of Mars alone.
 # [ATM]  Atmospheres (single scattering): sources and choices in solar_system.toml.
 # [PCK]  NAIF pck00011.tpc (IAU 2015): radii, poles, prime meridians (T terms ignored).
+# [CAP]  Event captions (retrieved 2026-10-07):
+#        [PSP] NASA, science.nasa.gov/mission/parker-solar-probe/: to "touch the Sun"; a
+#          carbon-composite heat shield; 24 orbits over seven years.
+#        [PSP10] NASA, "10 Things to Know About Parker Solar Probe": a Delta IV Heavy; reaching
+#          the Sun takes "55 times more energy than it takes to go to Mars", shedding the
+#          Earth's 67,000 mph sideways speed; Venus slows it so it can swing closer, seven
+#          times; the shield's front at 2,500 F, the instruments behind it at 85 F; the
+#          corona at "upwards of 2 million degrees Fahrenheit", the surface at 10,000 F; the
+#          origin of the slow solar wind.
+#        [PSPR] NASA, "Parker Solar Probe Breaks Record, Becomes Closest Spacecraft to Sun":
+#          past Helios 2's 1976 records for distance and speed on 2018-10-29; the first
+#          perihelion "just 15 million miles from our star's surface".
+#        [WISPR] NASA, "Parker Solar Probe Captures its First Images of Venus' Surface in
+#          Visible Light, Confirmed": the third (July 2020) and fourth (February 2021)
+#          flybys; the night side's surface glows, "the first time from space" in visible
+#          light; highlands ~85 F cooler show up dark.
+#        [PSPC] NASA, "NASA's Parker Solar Probe Touches The Sun For The First Time": on
+#          2021-04-28, during the eighth perihelion, it crossed the Alfven critical surface at
+#          18.8 solar radii, into and out of the corona several times; the boundary has
+#          "spikes and valleys".
+#        [PSPV7] NASA, "Final Venus Flyby for NASA's Parker Solar Probe Queues Closest Sun
+#          Pass": 2024-11-06, 233 miles (376 km) above Venus; then within 3.86 million miles
+#          of the solar surface on 2024-12-24.
+#        [PSPCP] NASA, "NASA's Parker Solar Probe Makes History With Closest Pass to Sun":
+#          3.8 million miles from the surface at about 430,000 mph, the fastest any human-made
+#          object has traveled; a beacon tone late on December 26 confirmed it was safe.
+#        The petals, the perihelia (35.7 to 9.86 R_sun) and the 88-day orbit: [HZN], below.
 # Flyby and perihelion times/distances: computed from the baked data by the bake tool
 # (TDB; flyby distances from the center of Venus, perihelion distances from the center
 # of the Sun, R_sun = 695,700 km [PCK]). Event dates in the names are calendar dates.
@@ -179,6 +206,11 @@ time_tdb = "2018-08-12 08:17"
 focus = "Earth"
 distance_km = 4.0e7
 warp = 21600.0
+# [PSP], [PSP10]
+caption = """\
+    Parker leaves on a Delta IV Heavy to touch the Sun. Falling inward is the hard part: \
+    it must shed most of the Earth's sideways speed of 30 km/s, which takes 55 times the \
+    energy of a trip to Mars. Seven passes of Venus will do much of the braking."""
 
 [[events]]
 name = "The petals grow (Sun-Venus rotating)"
@@ -188,6 +220,12 @@ frame = "Sun-Venus rotating"
 from_orbit_normal = "Venus"
 distance_km = 2.4e8
 warp = 604800.0
+# [PSP10], [HZN]
+caption = """\
+    In this frame Venus stays put, so all seven flybys happen at one point, and each \
+    orbit since launch draws a petal around the Sun. Every flyby takes away some orbital \
+    energy: the petals shrink, and the closest approach steps down from 35.7 to 9.86 \
+    solar radii."""
 
 # Venus flybys start two hours before closest approach.
 [[events]]
@@ -197,6 +235,11 @@ focus = "Venus"
 frame = "Venus-centered"
 distance_km = 1.2e5
 warp = 120.0
+# [PSP10], [PSPR]
+caption = """\
+    The first of seven Venus flybys, seven weeks after launch. Venus slows Parker down \
+    so that it can swing closer to the Sun; a month from now it will pass closer than \
+    any spacecraft before it."""
 
 # Perihelion 1 (2018-11-06 03:29 TDB, 24,818,592 km). Starts a day before.
 [[events]]
@@ -206,6 +249,11 @@ focus = "Sun"
 from_orbit_normal = "Parker Solar Probe"
 distance_km = 7.0e7
 warp = 1800.0
+# [PSPR]
+caption = """\
+    A week ago, on 29 October, Parker broke the records Helios 2 had held since 1976: \
+    the closest spacecraft to the Sun, and the fastest. Now it swings by about 24 \
+    million km from the solar surface. Six more Venus flybys will take it much closer."""
 
 [[events]]
 name = "Venus flyby 2 (2019-12-26, 3,001 km altitude)"
@@ -214,6 +262,11 @@ focus = "Venus"
 frame = "Venus-centered"
 distance_km = 1.2e5
 warp = 120.0
+# [HZN]
+caption = """\
+    The second Venus flyby lowers the perihelion again. Watch how the probe comes back \
+    to the same spot in this frame: its orbits are timed so that Venus is waiting there, \
+    and each pass takes it one step farther in."""
 
 [[events]]
 name = "Venus flyby 3 (2020-07-11, 830 km altitude)"
@@ -222,6 +275,12 @@ focus = "Venus"
 frame = "Venus-centered"
 distance_km = 1.2e5
 warp = 120.0
+# [WISPR]
+caption = """\
+    On this pass Parker's WISPR camera, built to watch the solar wind, looked at Venus' \
+    night side and saw the surface itself glowing through the clouds, as hot as iron \
+    from a forge: the first view of it from space in visible light. Cooler highlands \
+    show up as dark patches."""
 
 [[events]]
 name = "Venus flyby 4 (2021-02-20, 2,386 km altitude)"
@@ -230,6 +289,12 @@ focus = "Venus"
 frame = "Venus-centered"
 distance_km = 1.2e5
 warp = 120.0
+# [PSPC]
+caption = """\
+    Two months after this flyby, on 28 April 2021, Parker crossed into the Sun's corona, \
+    18.8 solar radii out: the first spacecraft to touch the Sun. The edge of the corona \
+    turned out to be wrinkled, with spikes and valleys, and Parker passed in and out of \
+    it several times."""
 
 [[events]]
 name = "Venus flyby 5 (2021-10-16, 3,807 km altitude)"
@@ -238,6 +303,11 @@ focus = "Venus"
 frame = "Venus-centered"
 distance_km = 1.2e5
 warp = 120.0
+# [PSP10], [PSP]
+caption = """\
+    Each step inward means more heat. At the closest passes the front of Parker's \
+    carbon-composite heat shield reaches about 1,400 C, while the instruments in its \
+    shadow stay near 30 C. It is the shield that lets the probe keep going lower."""
 
 [[events]]
 name = "Venus flyby 6 (2023-08-21, 4,004 km altitude)"
@@ -246,6 +316,11 @@ focus = "Venus"
 frame = "Venus-centered"
 distance_km = 1.2e5
 warp = 120.0
+# [PSP10]
+caption = """\
+    What Parker is after: why the corona, at millions of degrees, is so much hotter than \
+    the Sun's 5,500 C surface, and where the slow solar wind comes from. Each lower \
+    orbit takes it deeper into the region where those answers are made."""
 
 [[events]]
 name = "Venus flyby 7 (2024-11-06, 372 km altitude)"
@@ -254,6 +329,11 @@ focus = "Venus"
 frame = "Venus-centered"
 distance_km = 1.2e5
 warp = 120.0
+# [PSPV7], [HZN]
+caption = """\
+    The seventh and last Venus flyby, and the closest, under 400 km above the surface. \
+    It sets up the final orbit: 88 days around the Sun, coming within 6.2 million km of \
+    the solar surface at each perihelion."""
 
 # Perihelion 22 (2024-12-24 11:42 TDB, 6,862,559 km): the first of the closest passes,
 # at ~190 km/s. Starts 12 hours before.
@@ -264,3 +344,9 @@ focus = "Sun"
 from_orbit_normal = "Parker Solar Probe"
 distance_km = 3.0e7
 warp = 900.0
+# [PSPCP]
+caption = """\
+    The closest any spacecraft has come to the Sun: about 6.1 million km from its \
+    surface, at roughly 690,000 km/h, the fastest any human-made object has traveled. \
+    Out of contact during the pass, Parker sent a beacon tone late on 26 December: it \
+    had come through."""

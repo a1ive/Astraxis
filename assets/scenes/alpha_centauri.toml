@@ -50,6 +50,14 @@
 # from us, so the plane's x axis (node on the ICRF equator) is east and the
 # mean_elements node is Omega - 90 deg. At inferior conjunction the planet is in
 # front of the star, i.e. argument of latitude 270 deg (omega = 0, M = 270 deg).
+# [CAP]  Event captions (retrieved 2026-10-07), besides the sources above:
+#        [AE16] Anglada-Escude et al. 2016, Nature 536, 437 (abstract): Proxima, 1.295 pc
+#          away, is the Sun's closest stellar neighbour; a planet of at least 1.3 Earth
+#          masses on an 11.2-day orbit (Proxima b), at a temperature where water could be
+#          liquid on its surface.
+#        Derived from [AK21]: the AB distance 1000 / 750.81 mas = 1.332 pc (4.34 ly); the
+#        stars ~35 au apart at apastron (a = 17.493" / 0.75081" = 23.3 au, e = 0.519).
+#        Saturn's distance from the Sun (9.5 au): JPL approximate elements.
 # Check (tests/stellar_system_tests.cpp): Proxima's reflex velocity is -K sin(2 pi (t - T0) / P).
 
 name = "Alpha Centauri"
@@ -220,6 +228,11 @@ time = "1995-06-12"
 focus = "Alpha Centauri AB"
 distance_km = 1.0e10
 warp = 3155760.0
+# [AK21]
+caption = """\
+    Alpha Centauri A and B at their farthest apart, about 35 au, on the 80-year orbit \
+    measured to high precision with ALMA. A is a little larger and brighter than the \
+    Sun, B a little smaller and cooler; together they shine 4.3 light years from us."""
 
 [[events]]
 name = "Next periastron (2035-04, 11.2 au apart)"
@@ -227,6 +240,11 @@ time = "2035-01-01"
 focus = "Alpha Centauri AB"
 distance_km = 5.0e9
 warp = 1209600.0
+# [AK21]
+caption = """\
+    In 2035 the two stars swing to their closest, 11.2 au apart, a little more than \
+    Saturn's distance from the Sun and three times closer than at apastron. Watch the \
+    pair speed up as they round each other."""
 
 [[events]]
 name = "Proxima d and b, 0.03 and 0.05 au from their star"
@@ -235,6 +253,12 @@ focus = "Proxima Centauri"
 distance_km = 3.0e7
 warp = 21600.0                 # 6 hours per second: b orbits in 45 s, d in 20 s
 frame = "Proxima Centauri-centered"
+# [AE16], [SM25]
+caption = """\
+    Proxima Centauri, the Sun's closest stellar neighbor, is a red dwarf that gives off \
+    less than 0.2% of the Sun's light, so its planets huddle close: d circles in 5 days, \
+    b in 11.2. Proxima b, found in 2016, gets about the warmth needed for liquid water, \
+    if it has any."""
 
 [[events]]
 name = "Proxima c (unconfirmed), 1.5 au out"
@@ -243,6 +267,11 @@ focus = "Proxima Centauri"
 distance_km = 8.0e8
 warp = 2592000.0               # 30 days per second: c orbits in 63 s
 frame = "Proxima Centauri-centered"
+# [DA20], [SM25]
+caption = """\
+    A candidate third planet, c, proposed in 2020 on a 1,900-day orbit about 1.5 au out. \
+    Later data have not confirmed it, so it is drawn here, with its assumed orientation, \
+    as unconfirmed."""
 
 [[events]]
 name = "Proxima and the pair, from afar"
@@ -250,3 +279,8 @@ time = "2026-01-01"
 focus = "Alpha Centauri AB"
 distance_km = 4.0e12
 warp = 31557600.0
+# [KE17], [AK21]
+caption = """\
+    Proxima is not just nearby: it is bound to A and B, wandering some 13,000 au from \
+    them on an orbit of about half a million years. From out here the 80-year dance of A \
+    and B shrinks to a single point of light."""

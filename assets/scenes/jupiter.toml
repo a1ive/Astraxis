@@ -32,6 +32,29 @@
 # [APX]  E. M. Standish, Approximate Positions of the Planets, Tables 2a/2b
 #        (https://ssd.jpl.nasa.gov/planets/approx_pos.html), 3000 BC - 3000 AD.
 #
+# [CAP]  Event captions (retrieved 2026-10-07):
+#        [GLL] NASA, science.nasa.gov/mission/galileo/: arrival on 1995-12-07 with flybys of
+#          Europa and Io; the probe entered the atmosphere that day at 170,000 km/h and sent
+#          data for 58 minutes; "the first spacecraft to orbit an outer planet", 34 orbits;
+#          the high-gain antenna "failed to deploy fully" (1991); Ganymede "the first
+#          satellite known to possess a magnetic field"; evidence for oceans under Europa's
+#          ice and liquid-saltwater layers in Europa, Ganymede and Callisto; Io's volcanism
+#          perhaps 100 times Earth's; out of propellant, steered into Jupiter on 2003-09-21 to
+#          rule out an impact on Europa.
+#        [JUNO] NASA, science.nasa.gov/mission/juno/: orbit insertion on 2016-07-04 (US
+#          time), "Engine burn complete and orbit obtained"; solar powered, "the first ...
+#          to operate at such a great distance from the Sun"; polar orbits of 53 days dipping
+#          to within 2,200 miles of the cloud tops between the radiation belts and the planet;
+#          eight cyclones around one at the north pole; Ganymede on 2021-06-07, the closest in
+#          over 20 years.
+#        [JUNE] NASA/JPL, "NASA's Juno Shares First Image From Flyby of Jupiter's Moon
+#          Europa": 2022-09-29, 352 km, the closest since Galileo on 2000-01-03; data on the
+#          ice shell.
+#        [JUNI] NASA/JPL, "NASA's Juno Mission Uncovers Heart of Jovian Moon's Volcanic Rage"
+#          and "NASA's Juno to Get Close Look at Jupiter's Volcanic Moon Io on Dec. 30": about
+#          1,500 km, the closest to Io in over 20 years; Loki Patera, a 200 km lava lake with
+#          islands, so smooth it mirrored the Sun.
+#        Orbits as drawn: [HZN].
 # Precession signs: [ELEM] lists apsidal/nodal periods as magnitudes. Nodes regress.
 # Io's and Europa's apsides are locked to the Laplace resonance and regress; Ganymede's
 # and Callisto's advance. With these signs, d(node + arg_peri + M)/dt reproduces the
@@ -427,6 +450,11 @@ time_tdb = "1995-12-07 16:47"
 focus = "Io"
 distance_km = 30000.0
 warp = 60.0
+# [GLL]
+caption = """\
+    Arrival day was crowded. Galileo flies past Io here, under 900 km up; the same day \
+    its probe plunges into Jupiter at 170,000 km/h and radios back for 58 minutes, and \
+    Galileo fires its engine to become the first spacecraft to orbit an outer planet."""
 
 [[events]]
 name = "Galileo's tour, 1995-2003"
@@ -435,6 +463,12 @@ focus = "Jupiter"
 from_orbit_normal = "Ganymede"
 distance_km = 4.5e7
 warp = 604800.0
+# [GLL], [HZN]
+caption = """\
+    Eight years and 34 orbits. Every flyby of a moon reshapes the next orbit, so the \
+    loops wander: watch them swing and stretch. Galileo did all this with its main \
+    antenna stuck half-open, sending its discoveries home through a small antenna, \
+    slowly."""
 
 [[events]]
 name = "Galileo at Ganymede (1996-09-06, 267 km)"
@@ -442,6 +476,11 @@ time_tdb = "1996-09-06 18:00"
 focus = "Ganymede"
 distance_km = 30000.0
 warp = 60.0
+# [GLL], [SPHY] (radii)
+caption = """\
+    Galileo's second pass of Ganymede, the largest moon in the solar system, under 300 \
+    km up. In its first passes it found that Ganymede makes its own magnetic field: the \
+    first moon known to have one."""
 
 [[events]]
 name = "Galileo at Europa (1997-12-16, 204 km)"
@@ -449,6 +488,11 @@ time_tdb = "1997-12-16 11:04"
 focus = "Europa"
 distance_km = 30000.0
 warp = 60.0
+# [GLL]
+caption = """\
+    About 200 km over Europa's cracked ice. Galileo's measurements made the case for a \
+    salty ocean beneath the ice, and that ocean is why, at the end, Galileo was kept \
+    from ever hitting Europa."""
 
 [[events]]
 name = "Galileo at Callisto (2001-05-25, 129 km)"
@@ -456,6 +500,11 @@ time_tdb = "2001-05-25 10:25"
 focus = "Callisto"
 distance_km = 30000.0
 warp = 60.0
+# [GLL]
+caption = """\
+    Callisto's dark, crater-covered face, about 130 km below. Even this ancient, \
+    battered moon gave Galileo signs of a layer of salty liquid water deep beneath the \
+    surface, as Europa and Ganymede did."""
 
 [[events]]
 name = "Galileo at Io (2002-01-17, 100 km)"
@@ -463,6 +512,11 @@ time_tdb = "2002-01-17 13:09"
 focus = "Io"
 distance_km = 30000.0
 warp = 60.0
+# [GLL], [PLM]
+caption = """\
+    Galileo's closest pass of Io, about 100 km above the most volcanic world known, with \
+    perhaps a hundred times the volcanic activity of the Earth. The two plumes drawn \
+    here, Pele and Tvashtar, rise about 300 km."""
 
 [[events]]
 name = "Galileo enters Jupiter (2003-09-21)"
@@ -470,6 +524,11 @@ time_tdb = "2003-09-21 17:58"
 focus = "Jupiter"
 distance_km = 4.0e5
 warp = 60.0
+# [GLL]
+caption = """\
+    Almost out of propellant, Galileo is steered into Jupiter on purpose: left in orbit, \
+    it might one day have crashed on Europa and contaminated its ocean with life from \
+    the Earth. Instead it burns up in Jupiter's atmosphere."""
 
 [[events]]
 name = "Juno arrives: orbit insertion (2016-07-05)"
@@ -477,6 +536,11 @@ time_tdb = "2016-07-04 20:48"
 focus = "Jupiter"
 distance_km = 6.0e5
 warp = 600.0
+# [JUNO]
+caption = """\
+    Juno fires its engine for its capture into a long polar orbit. "Engine burn complete \
+    and orbit obtained," mission control announced, on the 4th of July in the US. Juno \
+    runs on sunlight, the first spacecraft to do so this far from the Sun."""
 
 [[events]]
 name = "Juno's tour, 2016-2028"
@@ -484,6 +548,12 @@ time_tdb = "2016-07-05 00:00"
 focus = "Jupiter"
 distance_km = 2.5e7
 warp = 604800.0
+# [JUNO], [HZN]
+caption = """\
+    Juno's orbits run over the poles, unlike the moons', and dive to within about 3,500 \
+    km of the cloud tops, slipping between Jupiter and its worst radiation. Over the \
+    years the low point drifts north. Juno found that the cloud bands reach some 3,000 \
+    km deep, and eight cyclones circling one at the north pole."""
 
 [[events]]
 name = "Juno at Ganymede (2021-06-07, 1,035 km)"
@@ -491,6 +561,11 @@ time_tdb = "2021-06-07 15:57"
 focus = "Ganymede"
 distance_km = 30000.0
 warp = 60.0
+# [JUNO]
+caption = """\
+    About 1,000 km above Ganymede, the closest any spacecraft had come in over twenty \
+    years. Its extended mission takes Juno past the large moons, one by one: Ganymede \
+    first, then Europa and Io."""
 
 [[events]]
 name = "Juno at Europa (2022-09-29, 347 km)"
@@ -498,6 +573,11 @@ time_tdb = "2022-09-29 08:38"
 focus = "Europa"
 distance_km = 30000.0
 warp = 60.0
+# [JUNE]
+caption = """\
+    About 350 km above Europa, the closest look since Galileo in January 2000. Juno's \
+    images were the first sharp views in twenty years, and its microwave radiometer \
+    probed how the ice shell varies beneath the surface."""
 
 [[events]]
 name = "Juno at Io (2023-12-30, 1,500 km)"
@@ -505,3 +585,8 @@ time_tdb = "2023-12-30 07:37"
 focus = "Io"
 distance_km = 30000.0
 warp = 60.0
+# [JUNI]
+caption = """\
+    About 1,500 km above Io, the closest in over twenty years. Juno caught Loki Patera, \
+    a lava lake 200 km long dotted with islands, so smooth that it mirrored the Sun like \
+    glass."""

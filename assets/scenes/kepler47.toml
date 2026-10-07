@@ -27,6 +27,10 @@
 #          adds ~2% to the planets' light, from at most 4.8 deg (from c) to
 #          16 deg (from b) beside the primary: a second, orange-tinted terminator.
 #
+# [CAP]  Event captions (retrieved 2026-10-07), besides [OR19] and the notes above:
+#        [OR12] Orosz et al. 2012, Science 337, 1511 (abstract): two planets transiting an
+#          eclipsing binary, the first transiting circumbinary multiplanet system; the outer
+#          one (303 days) in the habitable zone, though not Earth-like.
 # GM = mass * GM_sun (1.32712440041279419e11 km^3/s^2, JPL DE440; k^2 differs by 2e-10).
 # R_earth = 6371.0 km (mean, JPL SSD). Times are BJD_TDB (as seen from the
 # solar-system barycentre); light-travel time across the system is ignored.
@@ -182,6 +186,11 @@ focus = "Kepler-47"
 from_orbit_normal = "Kepler-47 B"
 distance_km = 4.0e8
 warp = 345600.0
+# [OR12], [OR19]
+caption = """\
+    The first system found with several planets crossing in front of two stars. A Sun- \
+    like star and a red dwarf circle each other every 7.45 days; around the pair orbit \
+    three planets, from b at 49.5 days out to c at 303 days."""
 
 [[events]]
 name = "The pair, 0.08 au apart (7.4-day orbit)"
@@ -189,6 +198,11 @@ time = "2026-01-01"
 focus = "Kepler-47"
 distance_km = 4.0e7
 warp = 10800.0                 # 3 hours per second: one orbit in 60 s
+# [OR19]
+caption = """\
+    The two suns: a star a little cooler than the Sun and a red dwarf a third its size, \
+    only 0.08 au apart. The red dwarf adds just 2% to the light falling on the planets, \
+    a faint second sun with its own, orange-tinted shadow edge."""
 
 [[events]]
 name = "Primary eclipse as seen from Earth (2025-12-31)"
@@ -197,6 +211,11 @@ focus = "Kepler-47"
 from_body = "Sun"
 distance_km = 2.5e7            # beyond B, which is 0.06 au in front of the barycenter
 warp = 120.0                   # the eclipse lasts ~4 hours
+# [OR19]
+caption = """\
+    The orbits are edge-on to us: every 7.45 days the red dwarf crosses its companion \
+    and the light dips, and the planets transit too. The model fitted to Kepler's data \
+    still predicts the eclipses and transits years later."""
 
 [[events]]
 name = "Kepler-47 c in the habitable zone, under both suns"
@@ -206,6 +225,11 @@ from_body = "Kepler-47 A"
 phase_deg = -155.0             # a crescent, with the two suns in view beside it
 distance_km = 1.5e5
 warp = 3600.0
+# [OR12], [OR19]
+caption = """\
+    Kepler-47 c, about 4.7 times the Earth's size, so a gas planet rather than an Earth, \
+    circles in the habitable zone. From it the red dwarf never strays more than about 5 \
+    degrees from the main sun: two suns setting together."""
 
 [[events]]
 name = "Edge-on, as Kepler saw it (2011)"
@@ -214,3 +238,8 @@ focus = "Kepler-47"
 from_body = "Sun"
 distance_km = 4.0e8
 warp = 172800.0
+# [OR19], [GAIA]
+caption = """\
+    The view from the Earth, about 1,050 parsecs away: all five orbits lie nearly edge- \
+    on. For four years the Kepler telescope watched the stars eclipse each other and the \
+    planets cross in front of them, which is how the whole system was measured."""

@@ -16,6 +16,15 @@
 #        (B0-B3 V). We use 25,000 K; the radius (6 R_sun) is an assumption typical of
 #        such stars, and L = R^2 (T / 5772 K)^4 follows from it.
 #
+# [CAP]  Event captions (retrieved 2026-10-07), besides the sources above:
+#        [GR18] GRAVITY Collaboration 2018, A&A 615, L15: at pericentre (May 2018, 120 au) S2
+#          moves at ~7,650 km/s; the gravitational redshift and transverse Doppler effect
+#          detected.
+#        [NOB20] nobelprize.org, The Nobel Prize in Physics 2020: half to Genzel and Ghez "for
+#          the discovery of a supermassive compact object at the centre of our galaxy".
+#        [EHT22] Event Horizon Telescope Collaboration 2022, ApJL 930, L12: the first image of
+#          Sgr A* (published 2022-05-12, from 2017 data), a ring 51.8 microarcseconds across
+#          around a dark shadow.
 # Rendering: the hole is ray traced (src/ephem/kerr_null.cpp, shaders/black_hole.frag.hlsl):
 # shadow, lensed starfield and an ILLUSTRATIVE thin accretion disk (temperature profile
 # T ~ r^-3/4 (1 - sqrt(r_in/r))^1/4 from the ISCO, Doppler beaming and gravitational
@@ -152,6 +161,12 @@ time = "2026-10-01"
 focus = "Sgr A*"
 distance_km = 3.8e8            # ~60 M
 warp = 60.0
+# [GR20], [EHT22]
+caption = """\
+    Four million suns in a black hole at the center of our Galaxy, 27,000 light years \
+    away. Light bends around it: a dark shadow, the sky warped into rings, and a disk \
+    drawn for show (the real flow is hot and thick). In 2022 the Event Horizon Telescope \
+    imaged its shadow."""
 
 [[events]]
 name = "S2 pericentre (2018-05-19, 120 au, 7,700 km/s)"
@@ -159,6 +174,11 @@ time = "2018-04-01"
 focus = "S2"
 distance_km = 6.0e10
 warp = 86400.0
+# [GR18], [NOB20]
+caption = """\
+    The star S2 swings 120 au from the black hole at 7,700 km/s, 2.6% of the speed of \
+    light. On this pass the GRAVITY team saw its light reddened by relativity. Decades \
+    of following stars like S2 earned Genzel and Ghez the 2020 Nobel Prize."""
 
 [[events]]
 name = "Next S2 pericentre (2034-06)"
@@ -166,6 +186,11 @@ time = "2034-04-15"
 focus = "S2"
 distance_km = 6.0e10
 warp = 86400.0
+# [GR20]
+caption = """\
+    S2's next close pass. Each 16-year orbit turns by about 12 arcminutes, the \
+    Schwarzschild precession GRAVITY measured in 2020: watch the real orbit slowly part \
+    from Newton's grey ellipse."""
 
 [[events]]
 name = "Death Star: apsidal advance (top-down)"
@@ -174,6 +199,12 @@ focus = "Sgr A*"
 distance_km = 4.5e9            # the apoapsis (~230 M) fits vertically
 warp = 7200.0                  # one orbit (~2.35 d) in ~28 s
 from_orbit_normal = "Death Star"
+# (Death Star notes above)
+caption = """\
+    Not a real object: an imaginary body on a tight orbit, 40 gravitational radii from \
+    the hole at its closest, where relativity is strong. Its orbit turns about 18 \
+    degrees each lap; the line drawn at every closest approach fans out like the petals \
+    of a flower."""
 
 [[events]]
 name = "Death Star at periapsis (40 M, 0.2 c)"
@@ -181,3 +212,8 @@ time = "2025-12-31 22:00"      # periapsis at t_peri_year = 2026.0
 focus = "Death Star"
 distance_km = 3.0e7
 warp = 60.0
+# (Death Star notes above)
+caption = """\
+    At closest approach the imaginary body races along at a fifth of the speed of light, \
+    lit only by the accretion disk, and Newton's grey ellipse is soon left far behind. \
+    Its size is exaggerated thirty-thousand-fold so that it can be seen."""

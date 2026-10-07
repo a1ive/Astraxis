@@ -27,6 +27,37 @@
 # [ATM]  Atmospheres (single scattering): sources and choices in solar_system.toml.
 # [PCK]  NAIF pck00011.tpc (IAU 2015): radii, poles, prime meridians (T terms ignored
 #        unless given).
+# [CAP]  Event captions (retrieved 2026-10-07):
+#        [MES] NASA, science.nasa.gov/mission/messenger/: launched 2004-08-03 on a Delta II;
+#          flying straight toward the Sun accelerates a spacecraft, so it took one Earth, two
+#          Venus and three Mercury flybys, ~6.5 years, to slow down; the first spacecraft to
+#          orbit Mercury (2011-03-18); water ice in permanently shadowed polar craters,
+#          "hollows", a "significant northward offset" of the magnetic field; a 12-hour orbit,
+#          later 8 hours; ~275,000 images; out of propellant, it hit the surface at about
+#          14,080 km/h on 2015-04-30.
+#        [MESE] NASA/JHUAPL, "Earth Departure Movie" (PIA): 358 frames over 24 hours after the
+#          2005-08-02 flyby follow the Earth through one rotation.
+#        [MESV] ESA, "Venus Express and MESSENGER to look at Venus in tandem": Venus Express,
+#          in orbit since 2006, observed the same regions around MESSENGER's 2007-06-05 flyby.
+#        [MES1] JHUAPL news releases, January 2008: the first visit to Mercury in almost 33
+#          years (since Mariner 10's last flyby on 1975-03-16), 200 km above the surface;
+#          Mariner 10 had imaged about 45% of the planet, and this flyby added ~21% more.
+#        [BC] ESA, BepiColombo factsheet: ESA and JAXA; Europe's first mission to Mercury;
+#          placing a spacecraft in orbit there takes "even more energy ... than sending a
+#          mission to Pluto"; one Earth, two Venus and six Mercury flybys (2021-10-01 ..
+#          2025-01-08).
+#        [BCE] ESA, "ESA to conduct BepiColombo flyby amid coronavirus crisis": 12,700 km from
+#          the Earth on 2020-04-10, flown with a reduced team; "the last time we will see
+#          BepiColombo from Earth".
+#        [BCM] ESA, BepiColombo's first Mercury flyby (2021-10-01): within 200 km, 53 images
+#          from the monitoring cameras.
+#        [BCT] ESA, "Fourth Mercury flyby begins BepiColombo's new trajectory" and "Glitch on
+#          BepiColombo": from April 2024 the transfer module's electric thrusters could not
+#          reach full power; a new trajectory moved the arrival to November 2026.
+#        [BCA] ESA, "Latest updates: BepiColombo's arrival at Mercury": the transfer module
+#          separated on 2026-09-03; orbit insertion planned for 2026-11-21; MPO and Mio to
+#          separate on 2026-12-09/10; science from April 2027.
+#        Paths, orbits and the views: [HZN] (below).
 # Flyby times (TDB at the spacecraft) and altitudes: computed from the baked data
 # (tools/bake/ephem.toml encounters); altitudes above the mean (Mercury, Venus) or
 # equatorial (Earth) radius.
@@ -286,6 +317,11 @@ time_tdb = "2004-08-03 07:16"
 focus = "Earth"
 distance_km = 6.0e5
 warp = 3600.0
+# [MES]
+caption = """\
+    MESSENGER heads for Mercury, but not directly. Falling toward the Sun only speeds a \
+    spacecraft up, so it will spend six and a half years and six flybys, of the Earth, \
+    Venus twice and Mercury three times, shedding speed until Mercury can hold on to it."""
 
 [[events]]
 name = "MESSENGER: Earth flyby (2005-08-02)"
@@ -293,6 +329,11 @@ time_tdb = "2005-08-02 17:04"
 focus = "Earth"
 distance_km = 6.0e4
 warp = 120.0
+# [MES], [MESE]
+caption = """\
+    A year after launch MESSENGER swings past its home planet, which bends its path \
+    inward toward Venus. Leaving, its camera watched the Earth turn once over 24 hours, \
+    358 frames that became a farewell movie."""
 
 [[events]]
 name = "MESSENGER: Venus flyby 2 (2007-06-05, 336 km)"
@@ -300,6 +341,11 @@ time_tdb = "2007-06-05 21:09"
 focus = "Venus"
 distance_km = 4.0e4
 warp = 120.0
+# [MES], [MESV]
+caption = """\
+    About 340 km above Venus, the second pass of the planet. ESA's Venus Express, \
+    already in orbit there, looked at the same regions before and after, so the two \
+    spacecraft could compare notes on the clouds and the atmosphere."""
 
 [[events]]
 name = "MESSENGER: first Mercury flyby (2008-01-14, 200 km)"
@@ -308,6 +354,12 @@ focus = "Mercury"
 frame = "Mercury-centered"
 distance_km = 2.0e4
 warp = 60.0
+# [MES1]
+caption = """\
+    The first visit to Mercury in almost 33 years, since Mariner 10 in 1975. Mariner 10 \
+    had seen less than half the planet; skimming 200 km above the surface, MESSENGER \
+    photographed about a fifth more of it, never seen before. Two more flybys follow \
+    before it can stay."""
 
 [[events]]
 name = "MESSENGER: the cruise, 2004-2011"
@@ -316,6 +368,12 @@ focus = "Sun"
 from_orbit_normal = "Mercury"
 distance_km = 3.2e8
 warp = 604800.0
+# [MES], [HZN]
+caption = """\
+    Six and a half years in one view: one Earth flyby, two of Venus and three of \
+    Mercury, each trimming the orbit until it nearly matches Mercury's own. Seen from \
+    above Mercury's orbit, the loops shrink inward from the Earth's orbit toward the \
+    Sun."""
 
 # Orbit insertion: first periapsis 2011-03-18 00:51:44 TDB, 278 km above the surface.
 [[events]]
@@ -325,6 +383,11 @@ focus = "Mercury"
 frame = "Mercury-centered"
 distance_km = 4.0e4
 warp = 600.0
+# [MES], [HZN]
+caption = """\
+    Nearly seven years after launch, MESSENGER fires its engine and becomes the first \
+    spacecraft to orbit Mercury. Its orbit is long and steep: 12 hours around, dipping \
+    to about 200 km above the north, then swinging out to 9,300 km over the south."""
 
 [[events]]
 name = "MESSENGER: in orbit (2013)"
@@ -333,6 +396,12 @@ focus = "Mercury"
 frame = "Mercury-centered"
 distance_km = 3.0e4
 warp = 1800.0
+# [MES]
+caption = """\
+    From this orbit, MESSENGER found water ice in craters near Mercury's poles, which \
+    the Sun never reaches, and strange shallow "hollows" on the surface, and showed that \
+    the planet's magnetic field is offset well to the north of its center. It sent some \
+    275,000 images in all."""
 
 # Impact: the mean surface is reached at ~2015-04-30 19:27:55 TDB.
 [[events]]
@@ -342,6 +411,11 @@ focus = "Mercury"
 frame = "Mercury-centered"
 distance_km = 1.2e4
 warp = 300.0
+# [MES]
+caption = """\
+    Out of propellant after four years in orbit, MESSENGER can no longer lift its low \
+    point above the ground. On 30 April 2015 it strikes Mercury at about 14,000 km/h, \
+    leaving a new crater on the planet it mapped."""
 
 [[events]]
 name = "BepiColombo: launch (2018-10-20)"
@@ -349,6 +423,11 @@ time_tdb = "2018-10-20 02:16"
 focus = "Earth"
 distance_km = 6.0e5
 warp = 3600.0
+# [BC]
+caption = """\
+    Europe and Japan set out for Mercury together on an Ariane 5: two orbiters, ESA's \
+    MPO and JAXA's Mio, stacked on an electric-propelled transfer module. Getting into \
+    orbit around Mercury takes even more energy than going to Pluto."""
 
 [[events]]
 name = "BepiColombo: Earth flyby (2020-04-10)"
@@ -356,6 +435,11 @@ time_tdb = "2020-04-10 02:32"
 focus = "Earth"
 distance_km = 8.0e4
 warp = 120.0
+# [BCE]
+caption = """\
+    BepiColombo passes 12,700 km from the Earth on its last visit home, and swings onto \
+    a path toward Venus. With Europe in lockdown, the flyby was flown by a reduced team \
+    at ESA's control centre, keeping their distance."""
 
 [[events]]
 name = "BepiColombo: Venus flyby 2 (2021-08-10, 549 km)"
@@ -363,6 +447,11 @@ time_tdb = "2021-08-10 11:53"
 focus = "Venus"
 distance_km = 4.0e4
 warp = 120.0
+# [BC], [HZN]
+caption = """\
+    About 550 km above Venus, the second and last pass of the planet. From here on \
+    Mercury itself does the braking: six flybys of it over the next three years, the \
+    first only seven weeks away."""
 
 [[events]]
 name = "BepiColombo: first Mercury flyby (2021-10-01, 198 km)"
@@ -371,6 +460,11 @@ focus = "Mercury"
 frame = "Mercury-centered"
 distance_km = 2.0e4
 warp = 60.0
+# [BCM], [BC]
+caption = """\
+    BepiColombo's first look at its target, from 200 km above the night side. The first \
+    views came from the transfer module's small monitoring cameras, 53 black-and-white \
+    frames taken as it swept past and away."""
 
 [[events]]
 name = "BepiColombo: the cruise, 2018-2026"
@@ -379,6 +473,11 @@ focus = "Sun"
 from_orbit_normal = "Mercury"
 distance_km = 3.2e8
 warp = 604800.0
+# [BC], [BCT], [HZN]
+caption = """\
+    Nine flybys and years of electric thrust in one view. In April 2024 a glitch left \
+    the thrusters unable to reach full power; a new trajectory, with the same flybys of \
+    Mercury, moved the arrival from December 2025 to November 2026."""
 
 # Capture: first periapsis in orbit 2026-11-21 18:49:11 TDB, ~630 km above the surface.
 [[events]]
@@ -388,6 +487,11 @@ focus = "Mercury"
 frame = "Mercury-centered, 30-day trails"
 distance_km = 6.0e5
 warp = 7200.0
+# [BCA], [HZN]
+caption = """\
+    The transfer module, its work done, was cast off on 3 September 2026. If all goes to \
+    plan, MPO with Mio still attached slips into orbit on 21 November 2026; these are \
+    the planned trajectories, ahead of the real ones."""
 
 # Science orbit (480 x 1500 km, 2.3 h, polar) from mid-February 2027.
 [[events]]
@@ -397,3 +501,8 @@ focus = "Mercury"
 frame = "Mercury-centered"
 distance_km = 1.5e4
 warp = 120.0
+# [BCA], [HZN]
+caption = """\
+    The plan from here: the two orbiters part in December 2026, and science should begin \
+    in April 2027. Shown is ESA's MPO in its planned polar orbit, about 2.3 hours \
+    around; Japan's Mio, which will study Mercury's magnetosphere, is not in the data."""

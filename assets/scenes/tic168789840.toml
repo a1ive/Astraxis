@@ -28,6 +28,7 @@
 # [SIMB] SIMBAD (UCAC4): ICRS position at J2000, RA 04 14 04.839192,
 #        Dec -31 55 22.43820 = 63.5201633, -31.9228995 deg.
 #
+# [CAP]  Event captions: from [PO21] and the notes above.
 # Assumed (not measured): the nodes of all orbits (0, except B's); B's orbit
 # around AC is a circle of radius 0.4230" x 584 pc = 247 au (P = 1642 yr), on
 # which B is at its ascending node at the speckle epoch (so the measured
@@ -281,6 +282,11 @@ focus = "TIC 168789840 A"
 frame = "Binary A-centered"
 distance_km = 2.5e7
 warp = 5400.0                  # 1.5 hours per second: one orbit in 25 s
+# [PO21]
+caption = """\
+    Six stars in three pairs, and every pair eclipses as seen from the Earth: the first \
+    sextuple star system known in which all six stars take part in eclipses. Binary A: \
+    an F star and a small, cool companion, 0.03 au apart, round each other in 1.57 days."""
 
 [[events]]
 name = "Binary C: 1.31 days, seen 14 deg off edge-on"
@@ -289,6 +295,11 @@ focus = "TIC 168789840 C"
 frame = "Binary C-centered"
 distance_km = 2.2e7
 warp = 5400.0
+# [PO21]
+caption = """\
+    Binary C, the fastest pair, circles in 1.31 days. Like the others it is an F star \
+    with a much smaller, cooler companion, and its orbit, tilted 14 degrees from edge- \
+    on, still lets them eclipse each other."""
 
 [[events]]
 name = "Binary B: 8.2 days, 250 au from the others"
@@ -297,6 +308,10 @@ focus = "TIC 168789840 B"
 frame = "Binary B-centered"
 distance_km = 6.0e7
 warp = 21600.0                 # 6 hours per second: one orbit in 33 s
+# [PO21]
+caption = """\
+    Binary B, an 8.2-day pair, orbits the other four stars from about 250 au away. One \
+    lap takes something like 1,600 to 2,000 years; the orbit is estimated, not measured."""
 
 [[events]]
 name = "The inner quadruple: A and C every 3.7 years"
@@ -305,6 +320,11 @@ focus = "TIC 168789840 AC"
 from_orbit_normal = "TIC 168789840 C"
 distance_km = 2.0e9
 warp = 1209600.0
+# [PO21]
+caption = """\
+    Pairs A and C orbit each other every 3.7 years, about 4 au across. As they swing \
+    around, the eclipses of each pair come a little early or late with the light travel \
+    time, which is how this orbit was measured."""
 
 [[events]]
 name = "Three eclipsing pairs, as seen from Earth"
@@ -314,6 +334,11 @@ frame = "Binary A-centered"
 from_body = "Sun"
 distance_km = 2.5e7
 warp = 3600.0
+# [PO21]
+caption = """\
+    The view from the Earth, about 584 parsecs away. All three pairs are close to edge- \
+    on, so the TESS satellite saw three sets of eclipses mixed in the light of what \
+    looked like a single star."""
 
 [[events]]
 name = "All six stars: B on its ~1600-year orbit"
@@ -321,3 +346,8 @@ time = "2026-01-01"
 focus = "TIC 168789840"
 distance_km = 1.0e11
 warp = 31557600.0              # 1 year per second
+# [PO21]
+caption = """\
+    All six stars at once: two tight pairs dancing every 3.7 years, and the third pair \
+    far out on its orbit of about 1,600 years. The orientations of the outer orbits are \
+    assumptions."""

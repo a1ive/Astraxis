@@ -21,6 +21,7 @@
 #        parallax 0.5005 +- 0.0215 mas (1998 pc).
 # Derived: L = R^2 (T_eff / 5772 K)^4 = 3.148 L_sun.
 #
+# [CAP]  Event captions: from [MI16] and [GAIA] above.
 # GM = mass * GM_sun (1.32712440041279419e11 km^3/s^2, JPL DE440).
 # Times are BJD_TDB (as seen from the solar-system barycentre).
 # Planet colours are artistic; the star colour comes from T_eff.
@@ -174,6 +175,12 @@ focus = "Kepler-223"
 from_orbit_normal = "Kepler-223 c"
 distance_km = 6.0e7
 warp = 43200.0
+# [MI16]
+caption = """\
+    Four planets a little smaller than Neptune, locked in step: for every three laps of \
+    the outermost, the others make four, six and eight. Such a chain forms when young \
+    planets drift inward through the gas disk around their star, and this one survives \
+    as a relic of that time."""
 
 [[events]]
 name = "Edge-on, as Kepler saw it (2011-05)"
@@ -182,3 +189,9 @@ focus = "Kepler-223"
 from_body = "Sun"
 distance_km = 1.2e8
 warp = 21600.0
+# [MI16], [GAIA]
+caption = """\
+    From the Earth, 2,000 parsecs away, the orbits are seen almost edge-on, so the \
+    planets cross the face of their star. The Kepler telescope timed those transits; the \
+    small shifts in their timing, as the planets tug at one another, revealed the \
+    resonant chain and the planets' masses."""

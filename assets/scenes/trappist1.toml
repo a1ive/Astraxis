@@ -19,6 +19,15 @@
 #        Dec -05 02 29.037301866 = 346.622368729, -5.041399251 deg),
 #        parallax 80.2123 mas (12.466916 pc).
 #
+# [CAP]  Event captions (retrieved 2026-10-07), besides [AG21] above:
+#        [GI17] Gillon et al. 2017, Nature 542, 456: at least seven Earth-sized planets around
+#          an ultracool dwarf with "a mass just eight per cent that of the Sun" and a
+#          "Jupiter-like size", 12 pc away; the VLT/HAWK-I light curve of 2015-12-10/11,
+#          analysed after the three-planet discovery paper was submitted, revealed a triple
+#          transit of c, e and f, which "motivated us to intensify our photometric follow-up".
+#        [DW16] de Wit et al. 2016, Nature 537, 69 (abstract): HST's spectrum of the
+#          simultaneous transit of b and c on 2016-05-04 rules out cloud-free
+#          hydrogen-dominated atmospheres; denser atmospheres remain possible.
 # GM = mass * GM_sun (1.32712440041279419e11 km^3/s^2, JPL DE440); a planet's
 # GM = mu * 0.0898 GM_sun (the transit times fix only the mass ratios).
 # Times are BJD_TDB, i.e. when the light reaches the solar-system barycentre:
@@ -227,15 +236,20 @@ transit_u_deg = 270.0
 sky_ra_dec_deg = [346.622368729, -5.041399251]
 
 # Mid-transit times from the posterior of [AG21] (times_obs_and_posterior.txt in
-# their repository): c 2457367.57035, f .57732, e .59675 (Spitzer); b 2457512.88677
+# their repository): c 2457367.57035, f .57732, e .59675 (VLT/HAWK-I, [GI17]); b 2457512.88677
 # and c .88055 (HST, de Wit et al. 2016). Events start 1.5 h earlier.
 [[events]]
-name = "Triple transit of c, f and e (Spitzer, 2015-12-11)"
+name = "Triple transit of c, f and e (VLT, 2015-12-11)"
 time_tdb = "2015-12-11 00:11:18"
 focus = "TRAPPIST-1"
 from_body = "Sun"
 distance_km = 2.0e7
 warp = 300.0
+# [GI17]
+caption = """\
+    On this night the Very Large Telescope saw TRAPPIST-1 dim three times over: planets \
+    c, e and f crossing its face together. Spotted only after three planets had been \
+    announced, this light curve set off the follow-up campaign that found seven."""
 
 [[events]]
 name = "Double transit of b and c (HST, 2016-05-04)"
@@ -244,6 +258,11 @@ focus = "TRAPPIST-1"
 from_body = "Sun"
 distance_km = 2.0e7
 warp = 300.0
+# [DW16]
+caption = """\
+    Planets b and c cross the star together, and the Hubble Space Telescope took the \
+    light of both at once. Their combined spectrum was featureless: neither is wrapped \
+    in a thick, puffy hydrogen envelope, though denser atmospheres were not ruled out."""
 
 [[events]]
 name = "The resonant chain, face-on"
@@ -252,3 +271,9 @@ focus = "TRAPPIST-1"
 from_orbit_normal = "TRAPPIST-1 e"
 distance_km = 2.5e7
 warp = 21600.0
+# [GI17], [AG21]
+caption = """\
+    Seven Earth-sized planets, all closer to their star than Mercury is to the Sun: a \
+    star with 9% of the Sun's mass and about Jupiter's size, 12 parsecs away. Their \
+    periods are in ratios close to small whole numbers, a chain of resonances, like \
+    Kepler-223's."""

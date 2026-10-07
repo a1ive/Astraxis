@@ -41,6 +41,45 @@
 # [LUT]  Lutetia: PDS SBN RO-A-OSINAC_OSIWAC-5-LUTETIA-SHAPE-V1.0, DOCUMENT/LUTETIA_ROTATION.PDF
 #        (Jorda & Vincent): pole (51.80, 10.83) deg (Sierks et al. 2011), W = 289.50 deg +
 #        1057.751519 deg/d (period 8.168270 h, Carry et al. 2010); shape 48k plates.
+# [CAP]  Event captions (retrieved 2026-10-07):
+#        [ROS] ESA, Rosetta factsheet: launched 2004-03-02 on an Ariane 5 G+; Earth gravity
+#          assists in 2005, 2007 and 2009 and Mars on 2007-02-25; Steins (2008-09) and
+#          Lutetia (2010-07); hibernation from June 2011 to January 2014; at 67P on
+#          2014-08-06; Philae landed 2014-11-12; perihelion 2015-08-13; descent to the comet
+#          2016-09-30; "the first spacecraft to orbit a comet and land on its surface", the
+#          first to fly close to Jupiter's orbit on solar cells alone.
+#        [ROSN] ESA, "Rosetta - a new target to solve planetary mysteries" and "Rosetta launch
+#          postponed": after an Ariane 5 failure in December 2002 the January 2003 launch to
+#          comet 46P/Wirtanen was given up; 67P was chosen on 2003-05-14.
+#        [ROSE] ESA: the first Earth swingby on 2005-03-04, 1,954 km above the Pacific; the
+#          third on 2009-11-13, 2,481 km, the last boost needed to reach 67P; ESA Rosetta
+#          status report no. 90: before the second (2007-11-13) asteroid warning services
+#          flagged an object to pass 5,600 km above the Earth, which was Rosetta itself.
+#        [ROSM] ESA, Rosetta Mars swing-by (2007-02-25): 250 km above Mars at 01:54 UT, 25
+#          minutes in Mars' shadow on batteries, an eclipse the original design never
+#          planned for (the launch delay forced a new trajectory).
+#        [ROSA] ESA, the Steins flyby (2008-09-05, 802.6 km at 8.62 km/s; a diamond shape
+#          with dozens of craters) and the Lutetia flyby (2010-07-10, 3,162 km at 15 km/s;
+#          462 OSIRIS images, over half the surface).
+#        [ROST] ESA: on 2014-08-06 Rosetta began "a pair of triangular-shaped trajectories"
+#          in front of the comet, at 100 km and then 50 km.
+#        [PHI] ESA, "Touchdown! Rosetta's Philae probe lands on comet": released at 22.5 km
+#          from the comet's center, seven hours' descent, touchdown confirmed at 16:03 GMT;
+#          510 million km from the Earth; the thruster meant to hold it down did not work.
+#          ESA, "Philae found!" (2016-09-05): it bounced from Agilkia, flew for two more hours
+#          and came to rest at Abydos, wedged in a dark crack, seen from 2.7 km in 2016.
+#        [ROSF] ESA Rosetta blog, February-April 2015: the close flyby on 2015-02-14, 6 km
+#          above Imhotep at 12:41 UT, images at 11 cm/pixel; the coma's dust made the star
+#          trackers lock onto "false" stars.
+#        [ROSP] ESA Rosetta blog, July-August 2015: Rosetta moved out to 325-340 km so its star
+#          trackers would not be confused by dust; an outburst seen on 2015-08-22 from 336 km.
+#        [ROSX] ESA Rosetta blog and papers: from late March 2016 an excursion of about two
+#          weeks out to ~1,000 km on the night side, into the tail and coma.
+#        [ROSD] ESA, "Mission complete: Rosetta's journey ends in daring descent to comet" and
+#          the grand finale FAQ: heading out beyond Jupiter's orbit there would be too little
+#          sunlight to power it, and a month-long solar conjunction was coming; a controlled
+#          descent onto Ma'at, on the small lobe, on 2016-09-30.
+#        Paths in the Sun-fixed frames: [HZN] (see above).
 # Flyby times and distances: computed from the tables (tools/bake/ephem.toml encounters);
 # tests/mission_tests.cpp checks them against the Horizons notes for -226.
 
@@ -343,6 +382,11 @@ focus = "Earth"
 frame = "Earth-centered"
 distance_km = 1.0e5
 warp = 1800.0
+# [ROS], [ROSN]
+caption = """\
+    Rosetta leaves on an Ariane 5, a year late. It was meant to chase comet Wirtanen \
+    from 2003, but a rocket failure grounded it, and a new target was picked: comet \
+    67P/Churyumov-Gerasimenko, ten years away."""
 
 [[events]]
 name = "Cruise: Earth, Mars, Earth, Earth (2004-2014)"
@@ -352,6 +396,11 @@ frame = "Heliocentric"
 from_orbit_normal = "Earth-Moon barycenter"
 distance_km = 1.3e9
 warp = 2592000.0           # 30 days per second
+# [ROS], [HZN]
+caption = """\
+    Ten years to catch a comet: four gravity assists, three of the Earth and one of \
+    Mars, stretch Rosetta's orbit out toward Jupiter's. From mid-2011 it sleeps for two \
+    and a half years, far from the Sun, and wakes in January 2014 to meet 67P."""
 
 # Closest approach 2005-03-04 22:10 UTC, 8,340 km from the Earth's center (Horizons notes).
 [[events]]
@@ -361,6 +410,10 @@ focus = "Earth"
 frame = "Earth-centered"
 distance_km = 6.0e4
 warp = 120.0
+# [ROSE]
+caption = """\
+    The first of Rosetta's four gravity assists, 1,954 km above the Pacific: a kick from \
+    the Earth that sends it on to Mars two years later."""
 
 # 2007-02-25 ~01:45 UTC; in these data (an ESA prediction of 2005) ~180 km above Mars, the
 # flight itself passed at 250 km (Horizons notes).
@@ -371,6 +424,11 @@ focus = "Mars"
 frame = "Mars-centered"
 distance_km = 3.0e4
 warp = 60.0
+# [ROSM]
+caption = """\
+    A risky pass, 250 km above Mars. For 25 minutes Rosetta flies through the planet's \
+    shadow running on batteries, something it was never designed for: the delayed launch \
+    had forced a new route, and its controllers spent months preparing a low-power mode."""
 
 # Closest approach 2007-11-13 20:57 UTC, 11,678 km from the Earth's center.
 [[events]]
@@ -380,6 +438,11 @@ focus = "Earth"
 frame = "Earth-centered"
 distance_km = 6.0e4
 warp = 120.0
+# [ROSE]
+caption = """\
+    The second Earth swingby. Days before, asteroid watchers flagged a small object due \
+    to pass 5,600 km above the Earth on this night, a possible hazard. It was Rosetta, \
+    coming home."""
 
 # 2008-09-05 18:37 UTC, 800 km at 8.6 km/s (Horizons notes); these data (an ESA prediction
 # of 2007) pass at ~560 km.
@@ -392,6 +455,10 @@ from_body = "Sun"
 phase_deg = 50.0
 distance_km = 800.0
 warp = 5.0
+# [ROSA]
+caption = """\
+    Rosetta passes 800 km from Steins at 8.6 km/s. The small asteroid turned out to be \
+    shaped like a cut diamond, with dozens of craters and the scars of hard impacts."""
 
 [[events]]
 name = "Earth flyby 3 (2009-11-13)"
@@ -400,6 +467,10 @@ focus = "Earth"
 frame = "Earth-centered"
 distance_km = 6.0e4
 warp = 120.0
+# [ROSE]
+caption = """\
+    The third and last Earth swingby, 2,481 km up. With this boost Rosetta has the \
+    energy it needs to reach comet 67P, after a little over 4.5 of its 7.1 billion km."""
 
 # 2010-07-10 15:44:45 UTC, 3,235 km at 15 km/s (Horizons notes).
 [[events]]
@@ -411,6 +482,10 @@ from_body = "Sun"
 phase_deg = 50.0
 distance_km = 4000.0
 warp = 10.0
+# [ROSA], [LUT]
+caption = """\
+    Rosetta passes 3,162 km from Lutetia at 15 km/s, an asteroid some 120 km long, and \
+    takes 462 images covering more than half of its surface."""
 
 [[events]]
 name = "Arrival at 67P (2014-07 .. 08)"
@@ -419,6 +494,11 @@ focus = "67P"
 frame = "67P, Sun fixed"
 distance_km = 2.0e4
 warp = 86400.0
+# [ROS], [CHP], [HZN]
+caption = """\
+    After ten years, Rosetta slows to the comet's pace and arrives on 6 August 2014: the \
+    first spacecraft to rendezvous with a comet. The nucleus it found is two lobes \
+    joined at a narrow neck, about 5 km long."""
 
 [[events]]
 name = "Triangles at 100 km and 50 km (2014-08 .. 09)"
@@ -427,6 +507,11 @@ focus = "67P"
 frame = "67P, Sun fixed"
 distance_km = 600.0
 warp = 21600.0
+# [ROST], [HZN]
+caption = """\
+    Rosetta does not orbit yet: it flies triangles in front of the comet, hyperbolic \
+    legs joined by small burns, at 100 km and then 50 km. In this frame, which keeps the \
+    Sun in one direction, the triangles stand out."""
 
 # Philae separated at 08:35 UTC from ~22.5 km and touched down at 15:34 UTC (Agilkia), then
 # bounced; it is not in Horizons, so only Rosetta is drawn.
@@ -439,6 +524,12 @@ from_body = "Sun"
 phase_deg = 60.0
 distance_km = 80.0
 warp = 300.0
+# [PHI], [ROS]
+caption = """\
+    Rosetta releases Philae, 22.5 km from the comet's center, for a seven-hour fall: the \
+    first landing on a comet, 510 million km from the Earth. Its hold-down thruster had \
+    failed; Philae bounced, flew for two more hours and ended up in a dark crack, found \
+    only in 2016."""
 
 # 2015-02-14 12:41 UTC, 6 km above the surface.
 [[events]]
@@ -448,6 +539,11 @@ focus = "67P"
 frame = "67P, Sun fixed"
 distance_km = 120.0
 warp = 1800.0
+# [ROSF]
+caption = """\
+    Rosetta swoops 6 km above the surface, over the Imhotep region, taking pictures with \
+    details of 11 cm. So deep in the coma, dust grains confused its star trackers, which \
+    locked onto false stars: later flybys stayed farther out."""
 
 [[events]]
 name = "Fans and petals (2015)"
@@ -456,6 +552,11 @@ focus = "67P"
 frame = "67P, Sun fixed, 3 months"
 distance_km = 800.0
 warp = 86400.0
+# [ROSF], [ROSP], [HZN]
+caption = """\
+    As the comet warms toward the Sun, Rosetta flies past it again and again rather than \
+    orbiting. In this frame, which keeps the Sun in one direction, the passes fan out \
+    into petals, pushed farther out as the dust grows and the star trackers struggle."""
 
 [[events]]
 name = "Perihelion (2015-08-13)"
@@ -464,6 +565,11 @@ focus = "67P"
 frame = "67P, Sun fixed"
 distance_km = 3000.0
 warp = 21600.0
+# [ROS], [ROSP]
+caption = """\
+    The comet's closest approach to the Sun, and its most active days: jets and \
+    outbursts, one of them caught nine days later. Rosetta watched from 325 to 340 km \
+    away, where the dust no longer blinded its star trackers."""
 
 # The night-side tail excursion out to ~1,000 km (2016-03-30 .. 04-10).
 [[events]]
@@ -473,6 +579,10 @@ focus = "67P"
 frame = "67P, Sun fixed, 3 months"
 distance_km = 3000.0
 warp = 21600.0
+# [ROSX], [HZN]
+caption = """\
+    Rosetta heads about 1,000 km out on the night side, away from the Sun, spending two \
+    weeks studying the comet's tail, its outer coma and the plasma around it."""
 
 # The last burn 2016-09-29 20:50 UTC from 19 km; touchdown in Ma'at 2016-09-30 10:39:28 UTC.
 [[events]]
@@ -482,6 +592,12 @@ focus = "67P"
 frame = "67P-centered"
 distance_km = 30.0
 warp = 120.0
+# [ROSD], [PHI]
+caption = """\
+    The comet is carrying Rosetta out beyond Jupiter's orbit, where the sunlight is too \
+    weak to power it. So it ends on the comet itself: a slow, controlled descent onto \
+    Ma'at, on the small lobe, taking pictures to the last. Philae had come to rest on \
+    the same lobe."""
 
 [[events]]
 name = "The whole stay at 67P (2014-2016)"
@@ -490,3 +606,8 @@ focus = "67P"
 frame = "67P, Sun fixed, the whole stay"
 distance_km = 4000.0
 warp = 3600.0
+# [ROS], [HZN]
+caption = """\
+    More than two years beside one comet, from the triangles of arrival through the \
+    flybys, perihelion and the tail excursion, to the final descent: the first \
+    spacecraft to orbit a comet and land on it, in one view."""
