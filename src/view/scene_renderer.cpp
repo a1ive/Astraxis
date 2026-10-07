@@ -977,8 +977,8 @@ void SceneRenderer::build_orbit_lines(const Simulation& sim, const OutputView& o
     }
 
     // Lines of apsides, one per periapsis within the trail: from the periapsis
-    // through the parent out to the apoapsis distance on the far side, fading
-    // with age like the trail. They turn by the apsidal advance each orbit. The
+    // through the parent out to the following apoapsis, fading with age like
+    // the trail. They turn by the apsidal advance each orbit. The
     // part over the parent (or a black hole's disk) is left out.
     for (size_t i = 0; i < scene.bodies.size(); ++i) {
         const Body& body = scene.bodies[i];
@@ -998,27 +998,27 @@ void SceneRenderer::build_orbit_lines(const Simulation& sim, const OutputView& o
         const std::vector<double> times = scene.periapsis_times(index, sim.clock().t_tdb - span, sim.clock().t_tdb);
         for (size_t k = 0; k < times.size(); ++k) {
             const double tp = times[k];
-            // Apoapsis distance: half an anomalistic period later (or earlier, for the latest).
+            // Apoapsis: half an anomalistic period later (or earlier, for the latest).
             const double half = 0.5 * (k + 1 < times.size() ? times[k + 1] - tp : (k > 0 ? tp - times[k - 1] : 0.0));
             if (half <= 0.0) {
                 continue;
             }
             const glm::dvec3 center = scene.icrf_state_at(body.parent, tp).position;
             const glm::dvec3 peri = scene.icrf_state_at(index, tp).position - center;
-            const double r_peri = glm::length(peri);
-            const double r_apo = glm::length(scene.icrf_state_at(index, tp + half).position -
-                                             scene.icrf_state_at(body.parent, tp + half).position);
-            const glm::dvec3 dir = peri / r_peri;
+            const glm::dvec3 apo = scene.icrf_state_at(index, tp + half).position -
+                                   scene.icrf_state_at(body.parent, tp + half).position;
             const float age = static_cast<float>((sim.clock().t_tdb - tp) / span);
-            // Signed distances along dir: periapsis side, then apoapsis side.
-            const double segments[2][2] = {{r_peri, gap}, {-gap, -r_apo}};
-            for (const auto& seg : segments) {
-                if (std::max(std::abs(seg[0]), std::abs(seg[1])) <= gap) {
+            // Each side along its own apsis: with apsidal advance the apoapsis
+            // is not opposite the periapsis but turned by half the advance.
+            for (const glm::dvec3& apsis : {peri, apo}) {
+                const double r = glm::length(apsis);
+                if (r <= gap) {
                     continue; // the whole side lies within the gap
                 }
+                const glm::dvec3 dir = apsis / r;
                 m_line_points.clear();
-                m_line_points.emplace_back(to_render(transform.to_display(center + dir * seg[0]), cam), age);
-                m_line_points.emplace_back(to_render(transform.to_display(center + dir * seg[1]), cam), age);
+                m_line_points.emplace_back(to_render(transform.to_display(center + dir * r), cam), age);
+                m_line_points.emplace_back(to_render(transform.to_display(center + dir * gap), cam), age);
                 m_orbits.add_line(m_line_points, glm::vec4(color, kOrbitOpacity * fades[i]));
             }
         }
