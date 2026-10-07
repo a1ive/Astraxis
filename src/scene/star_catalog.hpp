@@ -45,12 +45,14 @@ std::vector<CatalogStar> catalog_sky(const StarCatalog& catalog, const glm::dvec
 // A sky as seen from one place, written by tools/sky/make_galaxy_sky.py:
 // directions and apparent V (header "ra_deg,dec_deg,vmag,bv"), and from the
 // comments the viewer it was made for ("# viewer_ra_dec_distance_pc = ra, dec,
-// pc") and the brightness of the Milky Way map made with it ("#
-// milky_way_brightness = b").
+// pc"), the brightness of the Milky Way map made with it ("#
+// milky_way_brightness = b") and how much fainter the stars are to be shown
+// where the eye adapts to a very bright sky ("# display_mag_offset = m").
 struct SkyStarFile {
-    std::vector<CatalogStar> stars;
+    std::vector<CatalogStar> stars; // true apparent magnitudes
     double viewer[3] = {0.0, 0.0, 0.0}; // RA, Dec (deg), distance (pc)
     double milky_way_brightness = 0.0;
+    double display_mag_offset = 0.0;
 };
 
 bool load_sky_stars(const std::filesystem::path& path, SkyStarFile& out, std::string* error);

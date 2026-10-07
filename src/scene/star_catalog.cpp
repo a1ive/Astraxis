@@ -124,12 +124,15 @@ bool load_sky_stars(const std::filesystem::path& path, SkyStarFile& out, std::st
         if (line.empty() || line[0] == '#') {
             constexpr std::string_view kViewer = "# viewer_ra_dec_distance_pc =";
             constexpr std::string_view kBrightness = "# milky_way_brightness =";
+            constexpr std::string_view kOffset = "# display_mag_offset =";
             if (line.starts_with(kViewer) && split_csv(line.substr(kViewer.size()), fields, 3) == 3) {
                 for (int i = 0; i < 3; ++i) {
                     out.viewer[i] = std::strtod(fields[i].c_str(), nullptr);
                 }
             } else if (line.starts_with(kBrightness)) {
                 out.milky_way_brightness = std::strtod(line.c_str() + kBrightness.size(), nullptr);
+            } else if (line.starts_with(kOffset)) {
+                out.display_mag_offset = std::strtod(line.c_str() + kOffset.size(), nullptr);
             }
             continue;
         }

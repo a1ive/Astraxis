@@ -1,21 +1,23 @@
 """Model Milky Way skies for the scenes far from the Sun (assets/sky/).
 
 From the Sun the sky is real (assets/stars/hyg.csv, assets/textures/milky_way.jpg).
-From a star 0.5-10 kpc away it is modelled here: a smooth Galaxy (stellar disks,
-bulge, dust disk) with statistical dust clumps, seen from the scene's viewer, plus
-point stars drawn from the solar neighbourhood's luminosity function. The model,
-its sources and the calibration are described in assets/sky/SOURCES.md.
+From a star 0.5-10 kpc away, or from the Galactic Centre, it is modelled here: the
+Galaxy's stars as a V-band emissivity in L_sun/pc^3 (disks, bulge, nuclear disk
+and cluster), dust (a disk, the nuclear molecular disk and the circumnuclear disk)
+with statistical clumps, seen from the scene's viewer, plus point stars drawn from
+the solar neighbourhood's luminosity function. The model, its sources and the
+calibration are described in assets/sky/SOURCES.md.
 
 Usage (needs numpy and Pillow):
     python make_galaxy_sky.py calibrate [--out DIR]
-        Fits the model's emission and dust to milky_way.jpg as seen from the Sun and
-        writes tools/sky/galaxy_calibration.json; DIR gets comparison images.
+        Fits the conversion from emissivity to map units and the disk's dust to
+        milky_way.jpg as seen from the Sun; writes tools/sky/galaxy_calibration.json
+        (DIR gets the arrays compared).
     python make_galaxy_sky.py sun [--out DIR]
         Validation: the model sky from the Sun (star counts; a map in DIR).
     python make_galaxy_sky.py render <scene.toml> [...]
         For each scene whose [sky] has viewer_ra_dec_distance_pc, milky_way and stars,
-        writes the map and the star list (paths relative to assets/) and prints the
-        milky_way_brightness to put in the scene file.
+        writes the map and the star list (paths relative to assets/).
 """
 
 import json
@@ -38,35 +40,71 @@ NGP_RA, NGP_DEC, L_NCP = 192.85948, 27.12825, 122.93192
 R0 = 8.2467       # kpc, Sun - Galactic centre [GR20] (as sgr_a.toml)
 DS = R0 / 8.0     # [DS01] lengths are for R0 = 8 kpc: scaled by this
 Z_SUN = 0.0146 * DS  # kpc, the Sun above the plane [DS01] Table 2
+SGR_A = (266.41683333, -29.00781611)  # [RB04], as sgr_a.toml; at R0
 
+# ---------------------------------------------------------------- stars
+# Everything is a V-band emissivity in L_sun / pc^3 (M_V,sun = 4.81 [WI18]).
+MV_SUN = 4.81
 # Stellar thin disk [DS01] Table 2: exp(-R/r) sech^2(z/h), cut off beyond r_c by
 # exp(-(R - r_c) / (r / 5)) (eq. 27). [DS01] fit the disk only beyond 0.35 R0
 # (the bulge region was excluded); inside, it is tapered here like their dust
-# hole (Gaussian of width 0.25 R0), leaving the centre to the bulge.
+# hole (Gaussian of width 0.25 R0), leaving the centre to the bulge. Normalized
+# to the local emissivity measured from hyg.csv (luminosity_function).
 THIN_R, THIN_H, THIN_RC = 2.264 * DS, 0.2822 * DS, 10.52 * DS
 DISK_HOLE = 0.35 * R0
 # Thick disk [BHG16] sec. 5.1.3 / 5.2.2: 4% of the thin disk's local density,
 # exponential, z_T = 900 pc, R_T = 2.0 kpc.
 THICK_F, THICK_Z, THICK_R = 0.04, 0.900, 2.0
-# Bulge/bar [RO12] Table 2, model S+E (the best two-ellipsoid fit to 2MASS star
-# counts): a boxy sech^2 ellipsoid and an exponential one, both with the major
-# axis 12.9 deg from the Sun - centre line, near end at positive longitude:
-# density norm * f(Rs) * cutoff, Rs^c_par = [(|x|/x0)^c_perp + (|y|/y0)^c_perp]^(c_par/c_perp)
-# + (|z|/z0)^c_par, cutoff exp(-((R_xy - R_c) / 0.5 kpc)^2) beyond R_c (sec. 2.2).
-# (Red-clump studies find a larger angle, ~27 deg [BHG16]; [RO12] is used as a
-# consistent set.) Columns: f, x0, y0, z0, norm, R_c, c_par, c_perp.
+# Mass-to-light ratio of the old populations below (bulge, nuclear disk and
+# cluster): the Galaxy's M/L_V = 1.70 [BHG16] Table 2.
+ML_V = 1.70
+# Bulge/bar: the boxy sech^2 ellipsoid of [RO12] Table 2 model S+E (major axis
+# 12.9 deg from the Sun - centre line, near end at positive longitude), density
+# f(Rs) with Rs^c_par = [(|x|/x0)^c_perp + (|y|/y0)^c_perp]^(c_par/c_perp) +
+# (|z|/z0)^c_par, cut off as exp(-((R_xy - R_c) / 0.5 kpc)^2) beyond R_c
+# (sec. 2.2). Its second, exponential ellipsoid is left out: fitted to the real
+# map from the Sun its amplitude goes to zero (it would light up the sky well
+# above and below the bulge). Mass: 1.55e10 M_sun inside the VVV box
+# (+-2.2 x +-1.4 x +-1.2 kpc), the middle of [BHG16] sec. 4.2.4's 1.4-1.7e10.
+# (Red-clump studies find a larger bar angle, ~27 deg [BHG16].)
 BAR_ANGLE = math.radians(12.9)
-BULGE = [
-    ('sech2', 1.46, 0.49, 0.39, 35.45, 3.43, 3.007, 3.329),
-    ('exp', 4.44, 1.31, 0.80, 2.27, 6.83, 2.786, 3.917),
-]
+BULGE_SHAPE = (1.46, 0.49, 0.39, 3.43, 3.007, 3.329)  # x0, y0, z0, R_c, c_par, c_perp
+BULGE_MASS_BOX = 1.55e10
+# Nuclear stellar disk [LA02] sec. 5.2, eq. 11: emissivity ~ exp(ln(1/2) (R/R_half)^n),
+# two components R_half = 120 and 220 pc (taken equal at the centre), n = 5;
+# vertically the same form with half width 45 pc and n = 1.4; 1.4e9 M_sun (Table 7).
+NSD_RADII, NSD_N, NSD_HZ, NSD_NZ, NSD_MASS = (0.120, 0.220), 5.0, 0.045, 1.4, 1.4e9
+# Nuclear star cluster [SC18] sec. 4.4 / Table 2 (mean): 3D Nuker law
+# rho = rho(rb) 2^((beta-gamma)/alpha) (r/rb)^-gamma (1 + (r/rb)^alpha)^((gamma-beta)/alpha),
+# rb = 3.1 pc, gamma = 1.13, beta = 3.5, alpha = 10; rho(1 pc) = 1.5e5 M_sun/pc^3
+# (Table 3, for 2.5e7 M_sun [SC14]); flattened along the Galactic plane with q = 0.71
+# [SC14]. Centred on Sgr A*.
+NSC_RB, NSC_GAMMA, NSC_BETA, NSC_ALPHA, NSC_RHO1, NSC_Q = 0.0031, 1.13, 3.5, 10.0, 1.5e5, 0.71
+
+# ---------------------------------------------------------------- dust
 # Dust disk [DS01] Table 1: rho0 exp(-R/h_r) sech^2(z/h_d), h_d flaring linearly
 # beyond r_f; inside 0.5 R0 a Gaussian hole (sec. 3.2). Density in MJy/sr/kpc,
 # V opacity 0.0180 (MJy/sr)^-1 (Table 2): tau_V per kpc. The spiral arms and the
-# local arm of [DS01] are left out; DUST_SCALE (calibrated) absorbs them on average.
+# local arm of [DS01] are left out; dust_scale (calibrated) absorbs them on average.
 DUST_RHO0, DUST_HR = 1098.0, 2.26 * DS
 DUST_H0, DUST_H1, DUST_RF = 0.1344 * DS, 0.0148, 4.40 * DS
 DUST_KAPPA_V = 0.0180
+# Gas near the centre, as hydrogen mass; A_V = N_H / 2.21e21 cm^-2 [GO09]. One
+# M_sun/pc^3 of hydrogen is 40.5 atoms/cm^3: A_V per kpc = 40.5 * 3.086e21 / 2.21e21
+# per M_sun/pc^3.
+AV_PER_KPC_PER_MSUN_PC3 = 40.5 * 3.086e21 / 2.21e21
+# Nuclear molecular disk [LA02] abstract / sec. 5.5: 2e7 M_sun of hydrogen, a warm
+# inner disk of radius 110 pc and a cold outer torus (> 80% of the mass) of the
+# nuclear disk's size; taken here as 20% in exp(ln(1/2) (R/110 pc)^5) and 80% in
+# the difference of that and the 220 pc profile, with the nuclear disk's height.
+NMD_MASS, NMD_INNER = 2e7, 0.2
+# Circumnuclear disk [GE10] sec. 3.2: dense clumps (0.2-0.3 pc) at R = 1.5-4 pc,
+# tilted 20-30 deg to the Galactic plane; a few 1e4 M_sun of gas from its dust
+# emission (virial estimates reach 1e6). Taken: 3e4 M_sun of hydrogen, uniform in
+# 1.5-4 pc with soft edges, Gaussian half width 0.25 pc, tilted 25 deg about the
+# Galactic y axis (the sense is assumed); clumps finer than the Galaxy's (below).
+CND_R, CND_H, CND_MASS, CND_TILT = (0.0015, 0.004), 0.00025, 3e4, math.radians(25.0)
+
 # Extinction in the map's blue, green and red channels relative to V: [CCM89]
 # with R_V = 3.1 at 440, 550 and 640 nm (assumed channel wavelengths).
 R_V = 3.1
@@ -88,15 +126,22 @@ EXT_RGB = np.array([ccm89(0.640), ccm89(0.550), ccm89(0.440)])
 # dust is as smooth as a pixel sees it - the same 3D field at any render size.
 SIGMA = 2.0
 OCTAVES = [(0.32, 1.0), (0.16, 0.71), (0.08, 0.5), (0.04, 0.35), (0.02, 0.25), (0.01, 0.18)]
+CND_OCTAVES = [(0.0016, 1.0), (0.0008, 0.71), (0.0004, 0.5), (0.0002, 0.35), (0.0001, 0.25)]
 FOOTPRINT = math.pi / 1024
 NOISE_SEED = 20261007
 
+# ---------------------------------------------------------------- stars and maps
 # Light of stars fainter than this (from the viewer) is in the diffuse map: the
 # SVS map leaves out the Hipparcos/Tycho stars (assets/textures/SOURCES.md).
 RESOLVED_MAG = 11.5
 NAKED_EYE_MAG = 6.5         # point stars, as scene/star_catalog.hpp kNakedEyeMag
+MAX_POINT_STARS = 40000     # beyond this (the Galactic Centre) the point/diffuse limit moves brighter
 MAG_GAMMA = 0.56            # star flux compression, render/starfield_pass.cpp kMagnitudeGamma
 DEFAULT_BRIGHTNESS = 0.25   # scene/scene.hpp SceneSky::milky_way_brightness (Earth's map)
+# The overall sky level (relative to the Sun's) is shown compressed like star fluxes,
+# up to this many times the Sun's; beyond it the eye adapts: map and stars together
+# get one exposure factor (the Galactic Centre, ~4600 times the Sun's sky).
+SKY_LEVEL_CAP = 3.0
 
 # Galaxies outside ours, carried over from the real map ([SIMBAD] centre and
 # size; distances [PI19], [GR20s], [LI21]): (ra, dec, radius deg, distance kpc).
@@ -105,12 +150,6 @@ EXTERNAL = [
     (13.1583, -72.8003, 3.0, 62.44),   # SMC
     (10.6847, 41.2688, 2.2, 761.0),    # M31
 ]
-
-# Ray marching: log-spaced samples from 1 pc to 40 kpc.
-STEPS = 192
-S_EDGES = np.geomspace(0.001, 40.0, STEPS + 1)
-S_MID = np.sqrt(S_EDGES[1:] * S_EDGES[:-1])
-S_DS = np.diff(S_EDGES)
 
 
 def unit_ra_dec(ra_deg, dec_deg):
@@ -130,8 +169,23 @@ def galactic_to_icrf():
 
 G2I = galactic_to_icrf()
 I2G = G2I.T
+NUCLEUS = I2G @ unit_ra_dec(*SGR_A) * R0  # Sgr A*, heliocentric Galactic (kpc)
 
-# ---------------------------------------------------------------- model
+
+def ray_grid(s_min, steps):
+    """Log-spaced samples along a ray from s_min to 40 kpc: midpoints and lengths."""
+    edges = np.geomspace(s_min, 40.0, steps + 1)
+    return np.sqrt(edges[1:] * edges[:-1]), np.diff(edges)
+
+
+def galactocentric(P):
+    X = P[..., 0] - R0
+    Y = P[..., 1]
+    Z = P[..., 2] + Z_SUN
+    return X, Y, Z, np.hypot(X, Y)
+
+
+# ---------------------------------------------------------------- stellar emissivity
 
 
 def inner_taper(R):
@@ -150,40 +204,121 @@ def thick_disk(R, Z):
             inner_taper(R))
 
 
-def disk_light(R, Z):
+def disk_shape(R, Z):
     return thin_disk(R, Z) + thick_disk(R, Z)
 
 
-def bulge_light(X, Y, Z):
-    """The two [RO12] ellipsoids, each at its own normalization."""
+DISK_AT_SUN = float(disk_shape(np.array(R0), np.array(Z_SUN)))
+
+
+def bulge_shape(X, Y, Z):
     c, s = math.cos(BAR_ANGLE), math.sin(BAR_ANGLE)
     along = np.abs(-c * X + s * Y)
     across = np.abs(s * X + c * Y)
-    az = np.abs(Z)
+    x0, y0, z0, rc, c_par, c_perp = BULGE_SHAPE
+    rs = (((along / x0) ** c_perp + (across / y0) ** c_perp) ** (c_par / c_perp) + (np.abs(Z) / z0) ** c_par) ** (1 / c_par)
     rxy = np.hypot(along, across)
-    parts = []
-    for shape, x0, y0, z0, norm, rc, c_par, c_perp in BULGE:
-        rs = (((along / x0) ** c_perp + (across / y0) ** c_perp) ** (c_par / c_perp) + (az / z0) ** c_par) ** (1 / c_par)
-        f = 1.0 / np.cosh(rs) ** 2 if shape == 'sech2' else np.exp(-rs)
-        parts.append(norm * f * np.where(rxy > rc, np.exp(-((rxy - rc) / 0.5) ** 2), 1.0))
-    return parts
+    return np.where(rxy > rc, np.exp(-((rxy - rc) / 0.5) ** 2), 1.0) / np.cosh(rs) ** 2
 
 
-# Emission components, each with its own fitted RGB amplitude (calibration).
-COMPONENTS = ['disk', 'bulge_sech2', 'bulge_exp']
+def _bulge_density_scale():
+    """M_sun/pc^3 per unit of bulge_shape: BULGE_MASS_BOX inside the VVV box (in the bar frame)."""
+    x = np.linspace(-2.2, 2.2, 221)
+    y = np.linspace(-1.4, 1.4, 141)
+    z = np.linspace(-1.2, 1.2, 121)
+    A, B, Z = np.meshgrid(x, y, z, indexing='ij')
+    c, s = math.cos(BAR_ANGLE), math.sin(BAR_ANGLE)
+    total = bulge_shape(-c * A + s * B, s * A + c * B, Z).sum() * (x[1] - x[0]) * (y[1] - y[0]) * (z[1] - z[0]) * 1e9
+    return BULGE_MASS_BOX / total
 
 
-def component_light(X, Y, Z, R):
-    return [disk_light(R, Z)] + bulge_light(X, Y, Z)
+BULGE_RHO = _bulge_density_scale()
 
 
-def dust_tau_v(R, Z):
-    """Smooth V optical depth per kpc."""
+def half_profile(x, half, n):
+    return np.exp(math.log(0.5) * (x / half) ** n)
+
+
+def nsd_shape(Rn, Zn):
+    radial = 0.5 * (half_profile(Rn, NSD_RADII[0], NSD_N) + half_profile(Rn, NSD_RADII[1], NSD_N))
+    return radial * half_profile(np.abs(Zn), NSD_HZ, NSD_NZ)
+
+
+def _volume_integral(shape_rz, r_max, z_max):
+    """Integral over an axisymmetric shape(R, z) in pc^3."""
+    r = np.linspace(0.0, r_max, 1201)[1:]
+    z = np.linspace(-z_max, z_max, 801)
+    Rg, Zg = np.meshgrid(r, z, indexing='ij')
+    return float((shape_rz(Rg, Zg) * 2 * math.pi * Rg).sum() * (r[1] - r[0]) * (z[1] - z[0]) * 1e9)
+
+
+NSD_RHO = NSD_MASS / _volume_integral(nsd_shape, 0.6, 0.4)  # M_sun/pc^3 at the centre
+
+
+def nsc_density(rn):
+    """M_sun/pc^3 at (flattened) radius rn (kpc)."""
+    x = np.maximum(rn, 1e-5) / NSC_RB
+    g, b, a = NSC_GAMMA, NSC_BETA, NSC_ALPHA
+    shape = x ** -g * (1 + x ** a) ** ((g - b) / a)
+    x1 = 0.001 / NSC_RB
+    return NSC_RHO1 * shape / (x1 ** -g * (1 + x1 ** a) ** ((g - b) / a))
+
+
+def nuclear_coords(P):
+    """Sgr A*-centred Galactic axes (kpc): in-plane radius, height."""
+    d = P - NUCLEUS
+    return np.hypot(d[..., 0], d[..., 1]), d[..., 2], d
+
+
+def emissivity(P, j_sun):
+    """V-band stellar emissivity (L_sun/pc^3) at heliocentric Galactic positions P (kpc)."""
+    X, Y, Z, R = galactocentric(P)
+    Rn, Zn, _ = nuclear_coords(P)
+    mass = BULGE_RHO * bulge_shape(X, Y, Z) + NSD_RHO * nsd_shape(Rn, Zn)
+    mass += nsc_density(np.sqrt(Rn ** 2 + (Zn / NSC_Q) ** 2))
+    return j_sun * disk_shape(R, Z) / DISK_AT_SUN + mass / ML_V
+
+
+# ---------------------------------------------------------------- dust
+
+
+def dust_disk_tau(R, Z):
+    """Smooth [DS01] V optical depth per kpc (before dust_scale)."""
     Rh = np.maximum(R, 0.5 * R0)
     hd = np.where(Rh > DUST_RF, DUST_H0 + DUST_H1 * (Rh - DUST_RF), DUST_H0)
     rho = DUST_RHO0 * np.exp(-Rh / DUST_HR) / np.cosh(Z / hd) ** 2
     hole = np.exp(-((R / R0) - 0.5) ** 2 / 0.25 ** 2)
     return DUST_KAPPA_V * np.where(R < 0.5 * R0, rho * hole, rho)
+
+
+def nmd_shape(Rn, Zn):
+    inner = half_profile(Rn, 0.110, 5.0)
+    torus = np.maximum(half_profile(Rn, 0.220, 5.0) - inner, 0.0)
+    return (NMD_INNER * inner / NMD_NORM[0] + (1 - NMD_INNER) * torus / NMD_NORM[1]) * \
+        half_profile(np.abs(Zn), NSD_HZ, NSD_NZ)
+
+
+NMD_NORM = (_volume_integral(lambda r, z: half_profile(r, 0.110, 5.0) * half_profile(np.abs(z), NSD_HZ, NSD_NZ), 0.6, 0.4),
+            _volume_integral(lambda r, z: np.maximum(half_profile(r, 0.220, 5.0) - half_profile(r, 0.110, 5.0), 0.0) *
+                             half_profile(np.abs(z), NSD_HZ, NSD_NZ), 0.6, 0.4))
+
+
+def cnd_frame(d):
+    """Nuclear offsets d (kpc) in the CND's frame: in-plane radius, height."""
+    c, s = math.cos(CND_TILT), math.sin(CND_TILT)
+    x = c * d[..., 0] - s * d[..., 2]
+    z = s * d[..., 0] + c * d[..., 2]
+    return np.hypot(x, d[..., 1]), z
+
+
+def cnd_shape(Rc, Zc):
+    lo, hi = CND_R
+    edge = 0.0003
+    radial = 1 / (1 + np.exp(-(Rc - lo) / edge * 4)) / (1 + np.exp((Rc - hi) / edge * 4))
+    return radial * np.exp(-0.5 * (Zc / (CND_H / 1.1774)) ** 2)
+
+
+CND_RHO = CND_MASS / _volume_integral(cnd_shape, 0.006, 0.002)  # M_sun/pc^3 of hydrogen
 
 
 def hash3(i, j, k, seed):
@@ -228,10 +363,6 @@ def _random_rotation(seed):
     return q * np.sign(np.diag(r))
 
 
-# Each octave turned by its own random rotation, so no lattice direction shows.
-ROTATIONS = [_random_rotation(NOISE_SEED + o) for o in range(len(OCTAVES))]
-
-
 def _octave_stats():
     """Standardization of one ridged octave, v = (mean|n| - |n|) / std|n| (zero mean,
     unit variance, peaking on the surfaces where the noise n crosses zero: sheets,
@@ -248,34 +379,50 @@ def _octave_stats():
 
 
 RIDGE_MEAN, RIDGE_STD, CGF_T, CGF_K = _octave_stats()
-OCTAVE_NORM = math.sqrt(sum(a * a for _, a in OCTAVES))
 
 
-def clump_factor(X, Y, Z, footprint):
-    """Mean-preserving clumping of the dust density: exp(SIGMA g) / E[exp(SIGMA g)],
-    g the normalized sum of the (independent) octaves still resolved."""
+def clump_factor(X, Y, Z, footprint, octaves=OCTAVES, seed=NOISE_SEED):
+    """Mean-preserving clumping of a dust density: exp(SIGMA g) / E[exp(SIGMA g)],
+    g the normalized sum of the (independent) octaves still resolved. Each octave
+    is turned by its own random rotation, so no lattice direction shows."""
+    norm = math.sqrt(sum(a * a for _, a in octaves))
     log_f = np.zeros(X.shape, np.float32)
-    for o, (cell, amp) in enumerate(OCTAVES):
+    for o, (cell, amp) in enumerate(octaves):
         fade = np.clip(1.5 - footprint / cell, 0.0, 1.0).astype(np.float32)
         if not fade.any():
             continue
         live = fade > 0
-        rot = ROTATIONS[o] / cell
+        rot = _random_rotation(seed + o) / cell
         x, y, z = X[live], Y[live], Z[live]
         n = gradient_noise(rot[0, 0] * x + rot[0, 1] * y + rot[0, 2] * z,
                            rot[1, 0] * x + rot[1, 1] * y + rot[1, 2] * z,
-                           rot[2, 0] * x + rot[2, 1] * y + rot[2, 2] * z, NOISE_SEED + 7919 * o)
-        coef = SIGMA * amp * fade[live] / OCTAVE_NORM
+                           rot[2, 0] * x + rot[2, 1] * y + rot[2, 2] * z, seed + 7919 * o)
+        coef = SIGMA * amp * fade[live] / norm
         v = (RIDGE_MEAN - np.abs(n)) / RIDGE_STD
         log_f[live] += coef * v - np.interp(coef, CGF_T, CGF_K).astype(np.float32)
     return np.exp(log_f)
 
 
-def galactocentric(P):
-    X = P[..., 0] - R0
-    Y = P[..., 1]
-    Z = P[..., 2] + Z_SUN
-    return X, Y, Z, np.hypot(X, Y)
+def dust_tau(P, cal, footprint=None):
+    """V optical depth per kpc at heliocentric positions P (kpc); clumped unless
+    footprint (kpc, the resolution at each point) is None."""
+    X, Y, Z, R = galactocentric(P)
+    Rn, Zn, d = nuclear_coords(P)
+    disk = dust_disk_tau(R, Z) * cal['dust_scale']
+    # Inside the CND the gas is hot and ionized (the central cavity [GE10] sec. 3.1-3.2).
+    cavity = 1 / (1 + np.exp(-(np.hypot(Rn, Zn) - CND_R[0]) / 0.0001))
+    nmd = NMD_MASS * nmd_shape(Rn, Zn) * cavity
+    near = np.hypot(Rn, Zn) < 0.01  # the CND only matters within 10 pc
+    cnd = np.zeros(np.shape(R))
+    if near.any():
+        cnd[near] = CND_RHO * cnd_shape(*cnd_frame(d[near]))
+    if footprint is not None:
+        clumps = clump_factor(X, Y, Z, footprint)  # one interstellar medium for both
+        disk = disk * clumps
+        nmd = nmd * clumps
+        if near.any():
+            cnd[near] *= clump_factor(X[near], Y[near], Z[near], footprint[near], CND_OCTAVES, NOISE_SEED + 101)
+    return disk + (nmd + cnd) * AV_PER_KPC_PER_MSUN_PC3 / 1.0857
 
 
 # ---------------------------------------------------------------- luminosity function
@@ -300,44 +447,47 @@ def load_hyg():
 
 
 MAG_EDGES = np.arange(-9.0, 7.51, 0.5)
+MAG_MID = 0.5 * (MAG_EDGES[:-1] + MAG_EDGES[1:])
 LF_MAX_PC = 500.0    # Hipparcos distances are usable to here
 
 
-def mc_volume(center, radius, rng, n=20000):
+def disk_volume(center, radius, rng, n=20000):
     """Volume of a sphere (kpc^3) weighted by the disk density relative to the Sun's."""
     u = rng.normal(size=(n, 3))
     u /= np.linalg.norm(u, axis=1)[:, None]
     p = center + u * (radius * rng.uniform(size=n) ** (1 / 3))[:, None]
     X, Y, Z, R = galactocentric(p)
-    sun = disk_light(np.array(R0), np.array(Z_SUN))
-    return 4 / 3 * math.pi * radius ** 3 * float(np.mean(disk_light(R, Z) / sun))
+    return 4 / 3 * math.pi * radius ** 3 * float(np.mean(disk_shape(R, Z) / DISK_AT_SUN))
 
 
-def luminosity_function(cal=None):
-    """Stars per kpc^3 (at the Sun's density) per bin of absolute V, and per-bin
-    templates (M, B-V). With a calibration, absolute magnitudes are corrected for
-    the model's (smooth) extinction."""
+def luminosity_function(cal):
+    """Stars per kpc^3 (at the Sun's density) per bin of absolute V, per-bin templates
+    (M, B-V), and the local V emissivity (L_sun/pc^3). The volume of each bin is
+    the sphere within which it is complete in hyg.csv (V <= 6.5, at most 500 pc),
+    weighted by the disk's density. Absolute magnitudes are corrected for the
+    model's mean (unclumped) extinction, which the model then applies again."""
     stars = load_hyg()
     d_kpc = stars[:, 2] / 1000.0
     M = stars[:, 3] - 5 * np.log10(stars[:, 2] / 10.0)
-    if cal:
-        dirs = I2G @ unit_ra_dec(stars[:, 0], stars[:, 1]).T
-        M -= extinction_v(np.zeros(3), dirs.T, d_kpc, cal, smooth=True)
+    dirs = unit_ra_dec(stars[:, 0], stars[:, 1]) @ G2I
+    M -= np.concatenate([extinction_v(np.zeros(3), dirs[i:i + 4096], d_kpc[i:i + 4096], cal, clumped=False)
+                         for i in range(0, len(dirs), 4096)])
     rng = np.random.default_rng(5)
     phi, templates = [], []
     for lo, hi in zip(MAG_EDGES[:-1], MAG_EDGES[1:]):
         dc = min(10 ** ((NAKED_EYE_MAG - hi) / 5 + 1), LF_MAX_PC) / 1000.0
         sel = (M >= lo) & (M < hi) & (d_kpc < dc) & (stars[:, 3] <= NAKED_EYE_MAG)
-        phi.append(sel.sum() / mc_volume(np.zeros(3), dc, rng))
+        phi.append(sel.sum() / disk_volume(np.zeros(3), dc, rng))
         templates.append(np.stack([M[sel], stars[sel, 4]], axis=1))
-    return np.array(phi), templates
+    phi = np.array(phi)
+    j_sun = float((phi / 1e9 * 10 ** (-0.4 * (MAG_MID - MV_SUN))).sum())
+    return phi, templates, j_sun
 
 
-def unresolved_fraction(phi):
-    """Fraction of the stellar light (V) at each S_MID in stars fainter than RESOLVED_MAG."""
-    mid = 0.5 * (MAG_EDGES[:-1] + MAG_EDGES[1:])
-    light = phi * 10 ** (-0.4 * mid)
-    m_lim = RESOLVED_MAG - 5 * np.log10(S_MID * 1000.0 / 10.0)
+def unresolved_fraction(phi, s_mid, resolved_mag):
+    """Fraction of the stellar light (V) at distances s_mid (kpc) in stars fainter than resolved_mag."""
+    light = phi * 10 ** (-0.4 * MAG_MID)
+    m_lim = resolved_mag - 5 * np.log10(s_mid * 1000.0 / 10.0)
     frac = np.clip((MAG_EDGES[1:][None, :] - m_lim[:, None]) / 0.5, 0.0, 1.0)  # part of each bin fainter
     return (frac * light[None, :]).sum(1) / light.sum()
 
@@ -348,28 +498,20 @@ _W = {}
 
 
 def _init(params):
-    global SIGMA
     _W.update(params)
-    SIGMA = params.get('sigma', SIGMA)  # overrides reach the worker processes
 
 
-def _render_chunk(args):
-    dirs = args
-    viewer, cal, f_unres = _W['viewer'], _W['cal'], _W['f_unres']
-    P = viewer[None, None, :] + dirs[:, None, :] * S_MID[None, :, None]
-    X, Y, Z, R = galactocentric(P)
-    lights = component_light(X, Y, Z, R)
-    footprint = np.broadcast_to(S_MID[None, :] * FOOTPRINT, R.shape)
-    dtau = dust_tau_v(R, Z) * cal['dust_scale'] * S_DS[None, :]
-    if _W['clumps']:
-        dtau *= clump_factor(X, Y, Z, footprint)
+def _render_chunk(dirs):
+    viewer, cal, s_mid, s_ds = _W['viewer'], _W['cal'], _W['s_mid'], _W['s_ds']
+    P = viewer[None, None, :] + dirs[:, None, :] * s_mid[None, :, None]
+    j = emissivity(P, _W['j_sun'])
+    footprint = np.broadcast_to(s_mid[None, :] * FOOTPRINT, j.shape) if _W['clumps'] else None
+    dtau = dust_tau(P, cal, footprint) * s_ds[None, :]
     tau = np.cumsum(dtau, axis=1) - 0.5 * dtau
-    w = (f_unres * S_DS)[None, :]
-    out = np.empty((len(lights), len(dirs), 3))
+    w = j * (_W['f_unres'] * s_ds)[None, :]
+    out = np.empty((len(dirs), 3))
     for c in range(3):
-        t = np.exp(-tau * EXT_RGB[c]) * w
-        for i, j in enumerate(lights):
-            out[i, :, c] = (j * t).sum(1)
+        out[:, c] = (w * np.exp(-tau * EXT_RGB[c])).sum(1)
     return out, dtau.sum(1)
 
 
@@ -382,28 +524,32 @@ def pixel_dirs(width, height):
     return d.reshape(-1, 3) @ G2I  # ICRF -> Galactic (row vectors)
 
 
-def render(viewer, width, height, cal, f_unres, clumps=True, pool_size=None):
-    """Light of each component ((N, H, W, 3), unit amplitudes) and V optical depth to infinity."""
+def render(viewer, width, height, cal, lf, resolved_mag=RESOLVED_MAG, s_min=0.001, steps=192, clumps=True):
+    """Unresolved starlight (H, W, 3) in L_sun/pc^3 * kpc (times V-band transmission
+    per channel) and the V optical depth to infinity (H, W)."""
+    phi, _, j_sun = lf
+    s_mid, s_ds = ray_grid(s_min, steps)
     dirs = pixel_dirs(width, height)
     chunks = [dirs[i:i + 2048] for i in range(0, len(dirs), 2048)]
-    params = {'viewer': viewer, 'cal': cal, 'f_unres': f_unres, 'clumps': clumps}
-    with mp.Pool(pool_size, _init, (params,)) as pool:
+    params = {'viewer': viewer, 'cal': cal, 'j_sun': j_sun, 's_mid': s_mid, 's_ds': s_ds, 'clumps': clumps,
+              'f_unres': unresolved_fraction(phi, s_mid, resolved_mag)}
+    with mp.Pool(None, _init, (params,)) as pool:
         parts = pool.map(_render_chunk, chunks)
-    comps = np.concatenate([p[0] for p in parts], axis=1).reshape(len(COMPONENTS), height, width, 3)
+    light = np.concatenate([p[0] for p in parts]).reshape(height, width, 3)
     tau = np.concatenate([p[1] for p in parts]).reshape(height, width)
-    return comps, tau
+    return light, tau
 
 
-def extinction_v(viewer, dirs, dist, cal, smooth=False, steps=48):
-    """A_V (mag) from viewer (heliocentric Galactic, kpc) along dirs to dist (kpc)."""
-    t = (np.arange(steps) + 0.5) / steps
-    s = dist[:, None] * t[None, :]
+def extinction_v(viewer, dirs, dist, cal, steps=64, clumped=True):
+    """A_V (mag) from viewer (heliocentric Galactic, kpc) along dirs to dist (kpc).
+    Log-spaced from 0.01 pc, so the dust right around the viewer is resolved."""
+    start = np.minimum(1e-5 / np.maximum(dist, 1e-9), 0.5)
+    edges = dist[:, None] * np.geomspace(start, 1.0, steps + 1).T
+    s = np.sqrt(edges[:, 1:] * edges[:, :-1])
+    ds = np.diff(edges, axis=1)
     P = viewer[None, None, :] + dirs[:, None, :] * s[:, :, None]
-    X, Y, Z, R = galactocentric(P)
-    k = dust_tau_v(R, Z) * cal['dust_scale']
-    if not smooth:
-        k = k * clump_factor(X, Y, Z, np.maximum(s * 0.002, 0.005))
-    return 1.0857 * (k * (dist / steps)[:, None]).sum(1)
+    k = dust_tau(P, cal, np.maximum(s * FOOTPRINT, 1e-6) if clumped else None)
+    return 1.0857 * (k * ds).sum(1)
 
 
 # ---------------------------------------------------------------- maps
@@ -483,10 +629,6 @@ def external_galaxies(real, viewer_icrf, width, height, transmission):
     return out * transmission[..., None]
 
 
-def combine(cal, comps):
-    return np.einsum('nhwc,nc->hwc', comps, np.array([cal['amplitudes'][n] for n in COMPONENTS]))
-
-
 def luminance(lin):
     return lin @ np.array([0.2126, 0.7152, 0.0722])
 
@@ -494,10 +636,6 @@ def luminance(lin):
 def mean_luminance(lin):
     w = solid_angle_weights(*lin.shape[:2])
     return float((luminance(lin) * w).sum() / w.sum())
-
-
-def save_preview(lin, path, scale):
-    Image.fromarray((srgb_encode(lin * scale) * 255 + 0.5).astype(np.uint8)).save(path)
 
 
 # ---------------------------------------------------------------- calibration
@@ -508,65 +646,38 @@ def block_mean(img, n):
     return img[:h * n, :w * n].reshape(h, n, w, n, *img.shape[2:]).mean(axis=(1, 3))
 
 
-def fit_log(comps, real, weight):
-    """Per channel: amplitudes a_i >= 0 minimizing the weighted squared
-    log(sum a_i comp_i) - log(real) (damped Gauss-Newton on log a_i)."""
-    n = len(comps)
-    amps = np.zeros((n, 3))
-    w = weight.ravel()
-    for c in range(3):
-        C = comps[..., c].reshape(n, -1)
-        y = np.log(real[..., c].ravel())
-        la = np.full(n, float(np.median(y - np.log(C[0]))))
-        for i in range(1, n):  # start each bulge part at ~1% of the disk near its peak
-            la[i] = la[0] + float(np.log(C[0][np.argmax(C[i])] / C[i].max())) - 4.0
-        for _ in range(300):
-            A = np.exp(la)
-            mod = A @ C
-            r = np.log(mod) - y
-            J = (C * A[:, None] / mod).T
-            H = J.T @ (J * w[:, None])
-            step = np.linalg.solve(H + 1e-6 * np.trace(H) * np.eye(n), J.T @ (r * w))
-            step = np.clip(step, -1.0, 1.0)
-            la -= step
-            la = np.maximum(la, la[0] - 40.0)
-            if np.abs(step).max() < 1e-6:
-                break
-        amps[:, c] = np.exp(la)
-    return {name: [float(v) for v in amps[i]] for i, name in enumerate(COMPONENTS)}
-
-
 def calibrate(out_dir):
-    """Fits the model to the real map, both averaged in 2.8 deg cells."""
+    """Fits, per channel, the factor from rendered light to the real map's units
+    (log space, 2.8 deg cells, weighted by solid angle), scanning the disk's dust."""
     w, h = 512, 256
-    real = block_mean(load_real_map(4096 // w), 4)
-    phi, _ = luminosity_function()
-    f_unres = unresolved_fraction(phi)
+    real = np.maximum(block_mean(load_real_map(4096 // w), 4), 1e-5)
     weight = block_mean(solid_angle_weights(h, w), 4)
     dirs = map_icrf_dirs(w // 4, h // 4)
     for ra, dec, radius, _ in EXTERNAL:  # not part of the model
         weight[dirs @ unit_ra_dec(ra, dec) > math.cos(math.radians(radius * 1.3))] = 0.0
-    real = np.maximum(real, 1e-5)
     best = None
     for k in np.geomspace(0.7, 2.8, 13):
         cal = {'dust_scale': float(k)}
-        comps, _ = render(np.zeros(3), w, h, cal, f_unres)
-        comps = np.stack([block_mean(x, 4) for x in comps])
-        cal['amplitudes'] = fit_log(comps, real, weight)
-        model = combine(cal, comps)
+        lf = luminosity_function(cal)
+        light, _ = render(np.zeros(3), w, h, cal, lf)
+        light = block_mean(light, 4)
+        logs = np.log(real) - np.log(light)
+        cal['map_per_light'] = [float(math.exp((logs[..., c] * weight).sum() / weight.sum())) for c in range(3)]
+        model = light * np.array(cal['map_per_light'])
         r = np.log(luminance(model)) - np.log(luminance(real))
         cost = float(np.sqrt((r * r * weight).sum() / weight.sum()))
         print(f'dust scale {k:.3f}: rms log residual {cost:.4f}')
         if best is None or cost < best[0]:
             best = (cost, cal, model)
     cost, cal, model = best
+    lf = luminosity_function(cal)
     cal['rms_log_residual'] = cost
-    tau_sun = float(dust_tau_v(np.array(R0), np.array(Z_SUN)) * cal['dust_scale'])
-    cal['a_v_per_kpc_at_sun'] = 1.0857 * tau_sun
-    # The mean sky brightness from the Sun, rendered as the scenes are (with clumps).
-    comps, tau = render(np.zeros(3), 512, 256, cal, f_unres)
-    sun_sky = combine(cal, comps) + external_galaxies(load_real_map(2), np.zeros(3), 512, 256,
-                                                             np.exp(-tau * EXT_RGB[1]))
+    cal['j_sun'] = lf[2]
+    cal['a_v_per_kpc_at_sun'] = 1.0857 * float(dust_disk_tau(np.array(R0), np.array(Z_SUN))) * cal['dust_scale']
+    # The mean sky brightness from the Sun, rendered as the scenes are.
+    light, tau = render(np.zeros(3), 512, 256, cal, lf)
+    sun_sky = light * np.array(cal['map_per_light']) + external_galaxies(
+        load_real_map(2), np.zeros(3), 512, 256, np.exp(-tau * EXT_RGB[1]))
     cal['mean_luminance_sun'] = mean_luminance(sun_sky)
     cal['mean_luminance_sun_real'] = mean_luminance(load_real_map(8))
     print(json.dumps(cal, indent=2))
@@ -584,34 +695,63 @@ def load_calibration():
         return json.load(f)
 
 
-# ---------------------------------------------------------------- stars
+# ---------------------------------------------------------------- point stars
 
 
-def sample_stars(viewer, cal, rng):
-    """Point stars brighter than NAKED_EYE_MAG seen from viewer (heliocentric Galactic, kpc):
-    returns ICRF unit vectors, V and B-V."""
-    phi, templates = luminosity_function(cal)
+def shell_candidates(viewer, r_min, r_max, j_sun, rng, n):
+    """Points between r_min and r_max (kpc) around viewer, log-uniform in radius, with
+    weights w such that the emissivity's volume integral is mean(w) * 4 pi ln(r_max/r_min)
+    (kpc^3 * L_sun/pc^3) and points drawn with probability ~ w follow the emissivity."""
+    u = rng.normal(size=(n, 3))
+    u /= np.linalg.norm(u, axis=1)[:, None]
+    r = r_min * (r_max / r_min) ** rng.uniform(size=n)
+    p = viewer + u * r[:, None]
+    return p, emissivity(p, j_sun) * r ** 3
+
+
+def expected_counts(viewer, lf, point_mag, r_min, rng):
+    """Expected point stars per magnitude bin (no extinction): the luminosity
+    function scaled by the emissivity relative to the local one."""
+    phi, _, j_sun = lf
+    counts = np.zeros(len(phi))
+    for b, lo in enumerate(MAG_EDGES[:-1]):
+        D = min(10 ** ((point_mag - lo) / 5 + 1), 15000.0) / 1000.0
+        if phi[b] <= 0 or D <= r_min:
+            continue
+        _, w = shell_candidates(viewer, r_min, D, j_sun, rng, 20000)
+        counts[b] = phi[b] * w.mean() * 4 * math.pi * math.log(D / r_min) / j_sun
+    return counts
+
+
+def choose_point_mag(viewer, lf, r_min, rng):
+    """NAKED_EYE_MAG, or a brighter limit where that would give more than MAX_POINT_STARS."""
+    if expected_counts(viewer, lf, NAKED_EYE_MAG, r_min, rng).sum() <= MAX_POINT_STARS:
+        return NAKED_EYE_MAG
+    lo, hi = -15.0, NAKED_EYE_MAG
+    for _ in range(14):
+        mid = 0.5 * (lo + hi)
+        if expected_counts(viewer, lf, mid, r_min, rng).sum() > MAX_POINT_STARS:
+            hi = mid
+        else:
+            lo = mid
+    return round(lo, 2)
+
+
+def sample_stars(viewer, cal, lf, point_mag, r_min, rng):
+    """Point stars brighter than point_mag seen from viewer (heliocentric Galactic, kpc),
+    none closer than r_min: ICRF unit vectors, V and B-V."""
+    phi, templates, j_sun = lf
+    counts = expected_counts(viewer, lf, point_mag, r_min, rng)
     positions, mags, colors = [], [], []
-    for b, (lo, _) in enumerate(zip(MAG_EDGES[:-1], MAG_EDGES[1:])):
-        if phi[b] <= 0 or len(templates[b]) == 0:
+    for b, lo in enumerate(MAG_EDGES[:-1]):
+        n = rng.poisson(counts[b])
+        if n == 0 or len(templates[b]) == 0:
             continue
-        D = min(10 ** ((NAKED_EYE_MAG - lo) / 5 + 1), 15000.0) / 1000.0
-        n = rng.poisson(phi[b] * mc_volume(viewer, D, rng))
-        if n == 0:
-            continue
-        sun = disk_light(np.array(R0), np.array(Z_SUN))
-        got = []
-        while sum(len(g) for g in got) < n:
-            m = max(4 * n, 1000)
-            u = rng.normal(size=(m, 3))
-            u /= np.linalg.norm(u, axis=1)[:, None]
-            p = viewer + u * (D * rng.uniform(size=m) ** (1 / 3))[:, None]
-            X, Y, Z, R = galactocentric(p)
-            ratio = disk_light(R, Z) / sun
-            got.append(p[rng.uniform(size=m) * max(ratio.max(), 1e-12) < ratio])
-        p = np.concatenate(got)[:n]
+        D = min(10 ** ((point_mag - lo) / 5 + 1), 15000.0) / 1000.0
+        p, w = shell_candidates(viewer, r_min, D, j_sun, rng, max(50 * n, 50000))
+        pick = rng.choice(len(p), size=n, p=w / w.sum())
         t = templates[b][rng.integers(len(templates[b]), size=n)]
-        positions.append(p)
+        positions.append(p[pick])
         mags.append(t[:, 0])
         colors.append(t[:, 1])
     p = np.concatenate(positions)
@@ -620,11 +760,11 @@ def sample_stars(viewer, cal, rng):
     rel = p - viewer
     dist = np.linalg.norm(rel, axis=1)
     dirs = rel / dist[:, None]
-    av = np.concatenate([extinction_v(viewer, dirs[i:i + 4096], dist[i:i + 4096], cal)
-                         for i in range(0, len(dirs), 4096)])
+    av = np.concatenate([extinction_v(viewer, dirs[i:i + 2048], dist[i:i + 2048], cal)
+                         for i in range(0, len(dirs), 2048)])
     V = M + 5 * np.log10(dist * 1000.0 / 10.0) + av
     bv = bv0 + av / R_V
-    keep = V <= NAKED_EYE_MAG
+    keep = V <= point_mag
     return dirs[keep] @ I2G, V[keep], bv[keep]
 
 
@@ -650,21 +790,32 @@ def viewer_from(ra, dec, dist_pc):
 
 
 def sky_for(viewer_ra_dec_pc, width, height, cal, rng):
+    """The map (real map units), the point stars and the point/diffuse limit."""
     viewer_icrf, viewer = viewer_from(*viewer_ra_dec_pc)
-    phi, _ = luminosity_function()
-    comps, tau = render(viewer, width, height, cal, unresolved_fraction(phi))
-    model = combine(cal, comps)
-    real = load_real_map(1)
-    model += external_galaxies(real, viewer_icrf, width, height, np.exp(-tau * EXT_RGB[1]))
-    dirs, V, bv = sample_stars(viewer, cal, rng)
-    return model, dirs, V, bv
+    lf = luminosity_function(cal)
+    near_centre = np.linalg.norm(viewer - NUCLEUS) < 0.5
+    # At the centre: stars from 0.2 pc out (closer ones would show parallax as the
+    # camera moves around Sgr A*), rays from 0.02 pc.
+    r_min = 0.0002 if near_centre else 0.0005
+    point_mag = choose_point_mag(viewer, lf, r_min, rng)
+    resolved = RESOLVED_MAG if point_mag >= NAKED_EYE_MAG else point_mag
+    light, tau = render(viewer, width, height, cal, lf, resolved,
+                        s_min=2e-5 if near_centre else 0.001, steps=256 if near_centre else 192)
+    model = light * np.array(cal['map_per_light'])
+    model += external_galaxies(load_real_map(1), viewer_icrf, width, height, np.exp(-tau * EXT_RGB[1]))
+    dirs, V, bv = sample_stars(viewer, cal, lf, point_mag, r_min, rng)
+    return model, dirs, V, bv, point_mag
 
 
 def brightness_for(model, cal):
-    """Displayed brightness: Earth's default, with the overall level compressed like
-    the stars' fluxes (relative to the model sky at the Sun)."""
+    """Displayed brightness (Earth's default, with the overall level compressed like
+    the stars' fluxes, relative to the model sky at the Sun), the magnitude offset
+    with which the scene's stars are shown (> 0 when the eye adapts), and the ratio."""
     ratio = mean_luminance(model) / cal['mean_luminance_sun']
-    return DEFAULT_BRIGHTNESS * ratio ** (MAG_GAMMA - 1.0), ratio
+    level = ratio ** MAG_GAMMA
+    exposure = min(1.0, SKY_LEVEL_CAP / level)
+    mag_offset = max(0.0, -2.5 * math.log10(exposure) / MAG_GAMMA)  # the same factor on the stars' compressed flux
+    return DEFAULT_BRIGHTNESS * ratio ** (MAG_GAMMA - 1.0) * exposure, mag_offset, ratio
 
 
 def write_map(path, model, white):
@@ -682,25 +833,27 @@ def render_scene(path, width=2048, height=1024):
         sys.exit(f'{path}: [sky] needs viewer_ra_dec_distance_pc, milky_way and stars')
     cal = load_calibration()
     rng = np.random.default_rng(NOISE_SEED)
-    model, dirs, V, bv = sky_for(viewer, width, height, cal, rng)
+    model, dirs, V, bv, point_mag = sky_for(viewer, width, height, cal, rng)
     white = float(np.percentile(model.max(axis=2), 99.99))
-    brightness, ratio = brightness_for(model, cal)
+    brightness, mag_offset, ratio = brightness_for(model, cal)
     write_map(os.path.join(ASSETS, sky['milky_way']), model, white)
     header = [
-        f'Model sky for {scene.get("name", path)}: stars brighter than V = {NAKED_EYE_MAG} seen from the viewer.',
+        f'Model sky for {scene.get("name", path)}: stars brighter than V = {point_mag} seen from the viewer.',
         'Generated by tools/sky/make_galaxy_sky.py (see assets/sky/SOURCES.md); statistical, not real stars.',
         f'viewer_ra_dec_distance_pc = {viewer[0]}, {viewer[1]}, {viewer[2]}',
         f'milky_way_brightness = {brightness * white:.4f}',
+        f'display_mag_offset = {mag_offset:.3f}',
     ]
     write_stars(os.path.join(ASSETS, sky['stars']), dirs, V, bv, header)
-    print(f'{scene.get("name", path)}: {len(V)} stars (brightest V = {V.min():.2f}); '
-          f'mean sky {ratio:.2f} x the Sun\'s; milky_way_brightness = {brightness * white:.4f}')
+    print(f'{scene.get("name", path)}: {len(V)} stars to V = {point_mag} (brightest V = {V.min():.2f}); '
+          f'mean sky {ratio:.3g} x the Sun\'s; milky_way_brightness = {brightness * white:.4f}; '
+          f'stars shown {mag_offset:.2f} mag fainter')
 
 
 def sun(out_dir):
     cal = load_calibration()
     rng = np.random.default_rng(NOISE_SEED)
-    model, dirs, V, bv = sky_for((0.0, 0.0, 0.0), 1024, 512, cal, rng)
+    model, dirs, V, bv, _ = sky_for((0.0, 0.0, 0.0), 1024, 512, cal, rng)
     b = np.degrees(np.arcsin((dirs @ G2I)[:, 2]))
     real = load_hyg()
     real_b = np.degrees(np.arcsin((unit_ra_dec(real[:, 0], real[:, 1]) @ G2I)[:, 2]))
@@ -710,8 +863,7 @@ def sun(out_dir):
     print(f'real (hyg.csv with distances): {real_v.sum()} stars, '
           f'{np.mean(np.abs(real_b[real_v]) < 10):.3f} within 10 deg, {np.sum(real[:, 3] < 2):.0f} brighter than V = 2')
     if out_dir:
-        scale = 4.0 / np.percentile(luminance(model), 99.5)
-        save_preview(model, os.path.join(out_dir, 'model_from_sun.png'), scale)
+        np.save(os.path.join(out_dir, 'model_from_sun.npy'), model)
 
 
 def main():

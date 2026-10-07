@@ -136,7 +136,7 @@ CMake 目标：
 
 - 星历烘焙：`python tools/bake/horizons_bake.py tools/bake/ephem.toml [name ...]`，联网访问 Horizons，输出到 `assets/ephem/`，说明见 `assets/ephem/SOURCES.md`。卫星相位拟合：`tools/bake/fit_moon_phase.py`
 - `assets/stars/hyg.csv`：`tools/stars/convert_hyg.py`（HYG v4.4，带距离，供近邻系统重投影）；M4 星团天空：`tools/stars/make_m4.py`（Gaia DR3）
-- `assets/sky/`：远处场景的模型星空，`tools/sky/make_galaxy_sky.py`（需要 numpy；先 `calibrate` 对照 `milky_way.jpg` 标定，结果在 `tools/sky/galaxy_calibration.json`，再 `render <场景.toml>`，一个场景约 10 分钟）。改了模型或标定要重新生成全部场景
+- `assets/sky/`：远处场景和银心的模型星空，`tools/sky/make_galaxy_sky.py`（需要 numpy；先 `calibrate` 对照 `milky_way.jpg` 标定，结果在 `tools/sky/galaxy_calibration.json`，再 `render <场景.toml>`，一个场景约 10 分钟，银心约 20 分钟）。改了模型或标定要重新生成全部场景。工具用 multiprocessing：Windows 上子进程重新导入模块，在主进程里改的模块全局变量传不过去，参数要经 `_init` 传
 - `assets/belts/*.bin`：`tools/belts/make_belts.py`（JPL SBDB，主带 H < 15、全部 TNO）
 - `assets/textures/*.jpg`：`tools/textures/prepare_textures.py` 从原图缩放
 - `assets/shapes/*.mesh`（AXMESH2）：`tools/shapes/` 下按来源格式分：`make_arrokoth.py`、`make_grid_table_shape.py`（Thomas / Stooke 经纬网格表）、`make_dtm_shape.py`（DLR 全球 DTM）、`make_plate_shape.py`（板块模型、OBJ、VRML）
@@ -170,6 +170,7 @@ CMake 目标：
 - 截图不要用 GDI+ 的 `Graphics.GetHdc()`（`CopyFromScreen` 内部也用它）：GDI+ 会把恰好等于 RGB(13, 11, 12) 的像素变成透明黑，在暗的光晕里看起来像一圈白色坏点。要把 PrintWindow 画进 `CreateCompatibleDC` + `CreateCompatibleBitmap`，`capture_window.ps1` 就是这么做的
 - 截图脚本偶尔丢最后一个按键：需要切换状态的键放在前面，截完核对。等待别超过 60 秒，空闲 60 秒后自动导览会接管相机；`--event` 超出范围时只打日志、停在默认视图
 - Release 版是 GUI 程序，后台进程无法把它切到前台；computer-use 的 `open_application` 会再开一个实例，要用 `SetForegroundWindow`/`ShowWindow`。computer-use 和 `SendKeys` 发的 Esc 进不了 SDL，用 `PostMessage(hwnd, WM_KEYDOWN, VK_ESCAPE)`
+- PowerShell 的变量名不区分大小写：`$S` 和循环变量 `$s` 是同一个变量
 - 从 Bash 用 `&` 启动的 exe 会随 shell 一起退出，长时间运行用 PowerShell 的 `Start-Process`；后台命令里 `cd dir && a & b &` 只有 a 在 dir 里执行，下载用 `curl -o 绝对路径`
 - Bash 工具的 heredoc 即使写成 `<<'EOF'` 也会吃掉反斜杠（`\\n` 变成 `\n`）：含反斜杠的编辑用 Edit 工具，或先用 Write 写成脚本文件
 - 从 Git Bash 调 `wsl.exe`：`/mnt/c/...` 参数要加 `MSYS_NO_PATHCONV=1`；`bash -lc '...'` 里的 `$变量` 会被提前展开，脚本最好写成文件再执行
@@ -210,8 +211,7 @@ CMake 目标：
 2. 导览按事件走：飞掠前自动降倍速、飞掠特写镜头、显示展签；让屏保和壁纸里也出现展签（现在只有窗口版有）
 3. 标题字体加希腊字母后备（Jost 没有希腊字母，`α` 显示成 `?`）；面板打开时长标题两端会被挡住
 4. 随天体自转的参考系；Rosetta 场景加 Philae（ESA SPICE 里有着陆轨迹，Horizons 没有）
-5. Sgr A* 的银心天空：在 `make_galaxy_sky.py` 的模型上加核星团、核星盘、CMZ 尘埃和真实 S 星，处理近场视差；动态范围大，可能要改用 HDR 地图
-6. 远期：macOS（Metal，需要 SPIR-V → MSL 和 macOS CI）；Hulse–Taylor 并合（3 亿年后 double 秒数只有约 2 s 分辨率，要做成以并合为零点的单独场景）；脉冲星自转轴的测地线进动（B1913+16 的几何解各论文不一致）
+5. 远期：macOS（Metal，需要 SPIR-V → MSL 和 macOS CI）；Hulse–Taylor 并合（3 亿年后 double 秒数只有约 2 s 分辨率，要做成以并合为零点的单独场景）；脉冲星自转轴的测地线进动（B1913+16 的几何解各论文不一致）
 
 ## 不要做
 

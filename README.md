@@ -23,7 +23,7 @@ Astraxis shows planets, spacecraft and stars in motion using orbital data and ph
 | ISEE-3 / ICE | The first halo orbit around Sun-Earth L1 (1978-1982), the geotail passes and five lunar flybys of 1983, the first comet flyby (Giacobini-Zinner, 1985), the pass between the Sun and Halley (1986), and 28 years around the Sun back to the Earth and Moon (2014) | Reconstructed from NASA SSCWeb positions and the JPL navigation trajectory (PDS); JPL Horizons for 2014 |
 | Parker Solar Probe | Seven Venus gravity assists lower the perihelion to 9.86 solar radii. The trajectory forms petals in the Sun-Venus rotating frame | JPL Horizons ephemerides |
 | Alpha Centauri | A, B and Proxima | Newtonian N-body integration |
-| Sgr A* | The Galactic Centre black hole and the star S2 | Kerr geodesics + GPU ray-traced black hole |
+| Sgr A* | The Galactic Centre black hole, the star S2 and 25 other S-stars, under the sky of the nuclear star cluster | Kerr geodesics (S2) and Keplerian orbits (the others) + GPU ray-traced black hole |
 | TRAPPIST-1 | Seven Earth-sized planets in a resonant chain around an ultracool dwarf | Newtonian N-body integration from transit-timing fits |
 | Kepler-223 | Four sub-Neptunes in a 3:4:6:8 resonant chain | Newtonian N-body integration from transit-timing fits |
 | Kepler-47 | Three planets orbiting an eclipsing binary: a Sun-like star and a red dwarf | Newtonian N-body integration from a photodynamical fit |

@@ -476,9 +476,32 @@ void test_sgr_a_scene()
     check(hyp >= 0 && scene.bodies[static_cast<size_t>(hyp)].style == SurfaceStyle::DeathStar &&
               scene.bodies[static_cast<size_t>(hyp)].mark_periapsides,
           "Death Star body");
-    check(scene.sky.milky_way == "textures/milky_way.jpg" && scene.sky.milky_way_brightness > 0.0, "Milky Way sky");
-    check(std::filesystem::exists(std::filesystem::path(ASTRAXIS_ASSET_DIR) / scene.sky.milky_way),
-          "Milky Way map present");
+    // The sky is the model seen from Sgr A* itself.
+    check_model_sky(scene, "Sgr A* model sky");
+    const glm::dvec3 hole_pc = unit_toward(266.41683333, -29.00781611) * 8246.7;
+    check(glm::length(scene.sky.viewer_pc - hole_pc) < 1e-6, "Sgr A* sky seen from Sgr A*",
+          glm::length(scene.sky.viewer_pc - hole_pc));
+
+    // The other S-stars: Keplerian orbits with [GI17]'s periods in this scene's
+    // potential have [GI17]'s angular semi-major axes (they used 4.28e6 M_sun at
+    // 8.32 kpc; here 4.261e6 at 8.2467: ~0.7% larger) - Table 3.
+    struct SStar {
+        const char* name;
+        double a_arcsec;
+    };
+    for (const SStar& s : {SStar{"S1", 0.595}, SStar{"S4", 0.3570}, SStar{"S6", 0.6574}, SStar{"S8", 0.4047},
+                           SStar{"S12", 0.2987}, SStar{"S13", 0.2641}, SStar{"S14", 0.2863}, SStar{"S31", 0.449}}) {
+        const int index = scene.find(s.name);
+        check(index > 0 && !scene.bodies[static_cast<size_t>(index)].label, s.name);
+        if (index <= 0) {
+            continue;
+        }
+        const State st = scene.bodies[static_cast<size_t>(index)].motion->eval(0.0);
+        const double r = glm::length(st.position);
+        const double a = 1.0 / (2.0 / r - glm::dot(st.velocity, st.velocity) / scene.bodies[0].gm_km3_s2);
+        const double a_arcsec = a / kAuKm / 8246.7;
+        check(std::abs(a_arcsec / s.a_arcsec - 1.0) < 0.02, "S-star semi-major axis vs GI17", a_arcsec);
+    }
     const double m = scene.bodies[0].gm_km3_s2 / (kSpeedOfLightKmS * kSpeedOfLightKmS);
     double t = tdb_from_julian_year(2026.5);
     double r_min = 1e300;

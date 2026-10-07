@@ -100,7 +100,8 @@ void LabelLayout::update(const Scene& scene, const OutputView& view, int focus, 
     for (size_t i = 0; i < scene.bodies.size(); ++i) {
         const Body& body = scene.bodies[i];
         const float fade = i < view.body_fades.size() ? view.body_fades[i] : 1.0f;
-        if (!body.visible || body.kind == BodyKind::Barycenter || fade <= 0.0f) {
+        if (!body.visible || body.kind == BodyKind::Barycenter || fade <= 0.0f ||
+            (!body.label && static_cast<int>(i) != focus)) {
             m_labels[i].alpha = 0.0f;
             continue;
         }

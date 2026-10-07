@@ -778,6 +778,7 @@ void Loader::parse(const toml::table& root, Scene& out)
         } else {
             fail(ctx, "trail must be \"orbit\", \"history\" or \"none\"");
         }
+        body.label = (*t)["label"].value<bool>().value_or(true);
         body.trail_history_days = get_double_or(*t, "trail_history_days", 0.0);
         body.trail_linger_days = get_double_or(*t, "trail_linger_days", 0.0);
         body.mark_periapsides = (*t)["mark_periapsides"].value<bool>().value_or(false);
@@ -1102,6 +1103,10 @@ void Loader::parse(const toml::table& root, Scene& out)
                 }
             }
             out.sky.stars = std::move(file.stars);
+            for (CatalogStar& s : out.sky.stars) {
+                s.vmag += file.display_mag_offset; // shown as the adapted eye sees them
+            }
+            out.sky.display_mag_offset = file.display_mag_offset;
             if (!sky->contains("milky_way_brightness")) {
                 out.sky.milky_way_brightness = file.milky_way_brightness;
             }

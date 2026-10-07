@@ -45,16 +45,20 @@
 # relativity. S2's leaves its ghost from the 2010 apocentre, where its elements are
 # osculating (the ellipses part by ~12 arcmin per orbit); the Death Star's from
 # wherever its rolling integration last (re)started from the elements (~18 deg per orbit).
-# The background sky (catalog stars and the Milky Way) is the one seen from Earth,
-# not from the Galactic Centre.
-# [SVS20] Milky Way: NASA/Goddard Space Flight Center Scientific Visualization Studio,
-#         Deep Star Maps 2020 (Gaia DR2: ESA/Gaia/DPAC), see assets/textures/SOURCES.md.
+# [GI17] Gillessen et al. 2017, ApJ 837, 30 (arXiv:1611.09144), Table 3: the orbits of
+#        the other S-stars (see the note before the events).
+# The sky is a model of the Galaxy as seen from Sgr A* (tools/sky/make_galaxy_sky.py,
+# assets/sky/SOURCES.md): the nuclear star cluster all around, the nuclear stellar disk
+# and the bulge, dimmed by the nuclear molecular disk and the circumnuclear disk. Its
+# stars and dust clouds are statistical, not real ones; stars closer than 0.2 pc are
+# left out of it (they would shift as the camera moves) - only the S-stars are there.
 
 name = "Sgr A*"
 
 [sky]
-milky_way = "textures/milky_way.jpg"   # [SVS20], without the Hipparcos/Tycho stars
-milky_way_brightness = 0.25
+viewer_ra_dec_distance_pc = [266.41683333, -29.00781611, 8246.7]   # Sgr A* [RB04] at [GR20]'s R0
+milky_way = "sky/sgr_a.jpg"
+stars = "sky/sgr_a_stars.csv"
 
 [view]
 focus = "Sgr A*"
@@ -153,6 +157,513 @@ i_deg = 134.567
 node_deg = 300.0
 arg_peri_deg = 0.0
 t_peri_year = 2026.0
+sky_ra_dec_deg = [266.41683333, -29.00781611]
+
+# The other S-stars [GI17] Table 3: the early-type stars whose period is known to
+# 15% or better (late-type giants, stars without a type, poorly fixed orbits and
+# the hyperbolic S111 are left out). Keplerian orbits with GI17's period, epoch
+# and orientation (their convention matches [GR20]'s for S2); the size follows
+# from the period and this scene's mass. Like S2 they are taken as 25,000 K;
+# luminosities scale with S2's by their K magnitudes (same temperature, so the same
+# bolometric correction and extinction), radii as sqrt(L). No labels: a crowd.
+[[bodies]]
+name = "S1"
+parent = "Sgr A*"
+kind = "star"
+label = false
+radii_km = [2955107.0]
+temperature_k = 25000.0
+luminosity_solar = 6350.0      # K = 14.7
+orbit_color = "#3c4a63"
+[bodies.orbit]
+type = "visual_orbit"
+gm_km3_s2 = 5.65487707e17
+period_days = 60631.50     # 166.0 yr
+e = 0.556
+i_deg = 119.14
+node_deg = 342.04
+arg_peri_deg = 122.3
+t_peri_year = 2001.80
+sky_ra_dec_deg = [266.41683333, -29.00781611]
+
+[[bodies]]
+name = "S4"
+parent = "Sgr A*"
+kind = "star"
+label = false
+radii_km = [3392917.0]
+temperature_k = 25000.0
+luminosity_solar = 8370.0      # K = 14.4
+orbit_color = "#3c4a63"
+[bodies.orbit]
+type = "visual_orbit"
+gm_km3_s2 = 5.65487707e17
+period_days = 28124.25     # 77.0 yr
+e = 0.3905
+i_deg = 80.33
+node_deg = 258.84
+arg_peri_deg = 290.8
+t_peri_year = 1957.4
+sky_ra_dec_deg = [266.41683333, -29.00781611]
+
+[[bodies]]
+name = "S6"
+parent = "Sgr A*"
+kind = "star"
+label = false
+radii_km = [2140786.0]
+temperature_k = 25000.0
+luminosity_solar = 3332.0      # K = 15.4
+orbit_color = "#3c4a63"
+[bodies.orbit]
+type = "visual_orbit"
+gm_km3_s2 = 5.65487707e17
+period_days = 70128.00     # 192.0 yr
+e = 0.8400
+i_deg = 87.24
+node_deg = 85.07
+arg_peri_deg = 116.23
+t_peri_year = 2108.61
+sky_ra_dec_deg = [266.41683333, -29.00781611]
+
+[[bodies]]
+name = "S8"
+parent = "Sgr A*"
+kind = "star"
+label = false
+radii_km = [3240211.0]
+temperature_k = 25000.0
+luminosity_solar = 7634.0      # K = 14.5
+orbit_color = "#3c4a63"
+[bodies.orbit]
+type = "visual_orbit"
+gm_km3_s2 = 5.65487707e17
+period_days = 33931.72     # 92.9 yr
+e = 0.8031
+i_deg = 74.37
+node_deg = 315.43
+arg_peri_deg = 346.70
+t_peri_year = 1983.64
+sky_ra_dec_deg = [266.41683333, -29.00781611]
+
+[[bodies]]
+name = "S9"
+parent = "Sgr A*"
+kind = "star"
+label = false
+radii_km = [2457951.0]
+temperature_k = 25000.0
+luminosity_solar = 4393.0      # K = 15.1
+orbit_color = "#3c4a63"
+[bodies.orbit]
+type = "visual_orbit"
+gm_km3_s2 = 5.65487707e17
+period_days = 18737.33     # 51.3 yr
+e = 0.644
+i_deg = 82.41
+node_deg = 156.60
+arg_peri_deg = 150.6
+t_peri_year = 1976.71
+sky_ra_dec_deg = [266.41683333, -29.00781611]
+
+[[bodies]]
+name = "S12"
+parent = "Sgr A*"
+kind = "star"
+label = false
+radii_km = [2044435.0]
+temperature_k = 25000.0
+luminosity_solar = 3039.0      # K = 15.5
+orbit_color = "#3c4a63"
+[bodies.orbit]
+type = "visual_orbit"
+gm_km3_s2 = 5.65487707e17
+period_days = 21513.22     # 58.9 yr
+e = 0.8883
+i_deg = 33.56
+node_deg = 230.1
+arg_peri_deg = 317.9
+t_peri_year = 1995.59
+sky_ra_dec_deg = [266.41683333, -29.00781611]
+
+[[bodies]]
+name = "S13"
+parent = "Sgr A*"
+kind = "star"
+label = false
+radii_km = [1780628.0]
+temperature_k = 25000.0
+luminosity_solar = 2305.0      # K = 15.8
+orbit_color = "#3c4a63"
+[bodies.orbit]
+type = "visual_orbit"
+gm_km3_s2 = 5.65487707e17
+period_days = 17897.25     # 49.00 yr
+e = 0.4250
+i_deg = 24.70
+node_deg = 74.5
+arg_peri_deg = 245.2
+t_peri_year = 2004.86
+sky_ra_dec_deg = [266.41683333, -29.00781611]
+
+[[bodies]]
+name = "S14"
+parent = "Sgr A*"
+kind = "star"
+label = false
+radii_km = [1864547.0]
+temperature_k = 25000.0
+luminosity_solar = 2528.0      # K = 15.7
+orbit_color = "#3c4a63"
+[bodies.orbit]
+type = "visual_orbit"
+gm_km3_s2 = 5.65487707e17
+period_days = 20198.33     # 55.3 yr
+e = 0.9761
+i_deg = 100.59
+node_deg = 226.38
+arg_peri_deg = 334.59
+t_peri_year = 2000.12
+sky_ra_dec_deg = [266.41683333, -29.00781611]
+
+[[bodies]]
+name = "S18"
+parent = "Sgr A*"
+kind = "star"
+label = false
+radii_km = [1176449.0]
+temperature_k = 25000.0
+luminosity_solar = 1006.0      # K = 16.7
+orbit_color = "#3c4a63"
+[bodies.orbit]
+type = "visual_orbit"
+gm_km3_s2 = 5.65487707e17
+period_days = 15303.98     # 41.9 yr
+e = 0.471
+i_deg = 110.67
+node_deg = 49.11
+arg_peri_deg = 349.46
+t_peri_year = 1993.86
+sky_ra_dec_deg = [266.41683333, -29.00781611]
+
+[[bodies]]
+name = "S19"
+parent = "Sgr A*"
+kind = "star"
+label = false
+radii_km = [1623952.0]
+temperature_k = 25000.0
+luminosity_solar = 1918.0      # K = 16.0
+orbit_color = "#3c4a63"
+[bodies.orbit]
+type = "visual_orbit"
+gm_km3_s2 = 5.65487707e17
+period_days = 49308.75     # 135 yr
+e = 0.750
+i_deg = 71.96
+node_deg = 344.60
+arg_peri_deg = 155.2
+t_peri_year = 2005.39
+sky_ra_dec_deg = [266.41683333, -29.00781611]
+
+[[bodies]]
+name = "S22"
+parent = "Sgr A*"
+kind = "star"
+label = false
+radii_km = [1231894.0]
+temperature_k = 25000.0
+luminosity_solar = 1103.0      # K = 16.6
+orbit_color = "#3c4a63"
+[bodies.orbit]
+type = "visual_orbit"
+gm_km3_s2 = 5.65487707e17
+period_days = 197235.00     # 540 yr
+e = 0.449
+i_deg = 105.76
+node_deg = 291.7
+arg_peri_deg = 95
+t_peri_year = 1996.9
+sky_ra_dec_deg = [266.41683333, -29.00781611]
+
+[[bodies]]
+name = "S23"
+parent = "Sgr A*"
+kind = "star"
+label = false
+radii_km = [708881.0]
+temperature_k = 25000.0
+luminosity_solar = 365.0      # K = 17.8
+orbit_color = "#3c4a63"
+[bodies.orbit]
+type = "visual_orbit"
+gm_km3_s2 = 5.65487707e17
+period_days = 16728.45     # 45.8 yr
+e = 0.56
+i_deg = 48.0
+node_deg = 249
+arg_peri_deg = 39.0
+t_peri_year = 2024.7
+sky_ra_dec_deg = [266.41683333, -29.00781611]
+
+[[bodies]]
+name = "S29"
+parent = "Sgr A*"
+kind = "star"
+label = false
+radii_km = [1176449.0]
+temperature_k = 25000.0
+luminosity_solar = 1006.0      # K = 16.7
+orbit_color = "#3c4a63"
+[bodies.orbit]
+type = "visual_orbit"
+gm_km3_s2 = 5.65487707e17
+period_days = 36890.25     # 101.0 yr
+e = 0.728
+i_deg = 105.8
+node_deg = 161.96
+arg_peri_deg = 346.5
+t_peri_year = 2025.96
+sky_ra_dec_deg = [266.41683333, -29.00781611]
+
+[[bodies]]
+name = "S31"
+parent = "Sgr A*"
+kind = "star"
+label = false
+radii_km = [1864547.0]
+temperature_k = 25000.0
+luminosity_solar = 2528.0      # K = 15.7
+orbit_color = "#3c4a63"
+[bodies.orbit]
+type = "visual_orbit"
+gm_km3_s2 = 5.65487707e17
+period_days = 39447.00     # 108.0 yr
+e = 0.5497
+i_deg = 109.03
+node_deg = 137.16
+arg_peri_deg = 308.0
+t_peri_year = 2018.07
+sky_ra_dec_deg = [266.41683333, -29.00781611]
+
+[[bodies]]
+name = "S33"
+parent = "Sgr A*"
+kind = "star"
+label = false
+radii_km = [1623952.0]
+temperature_k = 25000.0
+luminosity_solar = 1918.0      # K = 16.0
+orbit_color = "#3c4a63"
+[bodies.orbit]
+type = "visual_orbit"
+gm_km3_s2 = 5.65487707e17
+period_days = 70128.00     # 192.0 yr
+e = 0.608
+i_deg = 60.5
+node_deg = 100.1
+arg_peri_deg = 303.7
+t_peri_year = 1928
+sky_ra_dec_deg = [266.41683333, -29.00781611]
+
+[[bodies]]
+name = "S60"
+parent = "Sgr A*"
+kind = "star"
+label = false
+radii_km = [1414403.0]
+temperature_k = 25000.0
+luminosity_solar = 1455.0      # K = 16.3
+orbit_color = "#3c4a63"
+[bodies.orbit]
+type = "visual_orbit"
+gm_km3_s2 = 5.65487707e17
+period_days = 31813.27     # 87.1 yr
+e = 0.7179
+i_deg = 126.87
+node_deg = 170.54
+arg_peri_deg = 29.37
+t_peri_year = 2023.89
+sky_ra_dec_deg = [266.41683333, -29.00781611]
+
+[[bodies]]
+name = "S66"
+parent = "Sgr A*"
+kind = "star"
+label = false
+radii_km = [2822106.0]
+temperature_k = 25000.0
+luminosity_solar = 5791.0      # K = 14.8
+orbit_color = "#3c4a63"
+[bodies.orbit]
+type = "visual_orbit"
+gm_km3_s2 = 5.65487707e17
+period_days = 242526.00     # 664 yr
+e = 0.128
+i_deg = 128.5
+node_deg = 92.3
+arg_peri_deg = 134
+t_peri_year = 1771
+sky_ra_dec_deg = [266.41683333, -29.00781611]
+
+[[bodies]]
+name = "S67"
+parent = "Sgr A*"
+kind = "star"
+label = false
+radii_km = [9785280.0]
+temperature_k = 25000.0
+luminosity_solar = 69621.0      # K = 12.1
+orbit_color = "#3c4a63"
+[bodies.orbit]
+type = "visual_orbit"
+gm_km3_s2 = 5.65487707e17
+period_days = 157422.75     # 431 yr
+e = 0.293
+i_deg = 136.0
+node_deg = 96.5
+arg_peri_deg = 213.5
+t_peri_year = 1705
+sky_ra_dec_deg = [266.41683333, -29.00781611]
+
+[[bodies]]
+name = "S71"
+parent = "Sgr A*"
+kind = "star"
+label = false
+radii_km = [1550862.0]
+temperature_k = 25000.0
+luminosity_solar = 1749.0      # K = 16.1
+orbit_color = "#3c4a63"
+[bodies.orbit]
+type = "visual_orbit"
+gm_km3_s2 = 5.65487707e17
+period_days = 126376.50     # 346 yr
+e = 0.899
+i_deg = 74.0
+node_deg = 35.16
+arg_peri_deg = 337.8
+t_peri_year = 1695
+sky_ra_dec_deg = [266.41683333, -29.00781611]
+
+[[bodies]]
+name = "S83"
+parent = "Sgr A*"
+kind = "star"
+label = false
+radii_km = [4904257.0]
+temperature_k = 25000.0
+luminosity_solar = 17488.0      # K = 13.6
+orbit_color = "#3c4a63"
+[bodies.orbit]
+type = "visual_orbit"
+gm_km3_s2 = 5.65487707e17
+period_days = 239604.00     # 656 yr
+e = 0.365
+i_deg = 127.2
+node_deg = 87.7
+arg_peri_deg = 203.6
+t_peri_year = 2046.8
+sky_ra_dec_deg = [266.41683333, -29.00781611]
+
+[[bodies]]
+name = "S87"
+parent = "Sgr A*"
+kind = "star"
+label = false
+radii_km = [4904257.0]
+temperature_k = 25000.0
+luminosity_solar = 17488.0      # K = 13.6
+orbit_color = "#3c4a63"
+[bodies.orbit]
+type = "visual_orbit"
+gm_km3_s2 = 5.65487707e17
+period_days = 599010.00     # 1640 yr
+e = 0.224
+i_deg = 119.54
+node_deg = 106.32
+arg_peri_deg = 336.1
+t_peri_year = 611
+sky_ra_dec_deg = [266.41683333, -29.00781611]
+
+[[bodies]]
+name = "S91"
+parent = "Sgr A*"
+kind = "star"
+label = false
+radii_km = [9344870.0]
+temperature_k = 25000.0
+luminosity_solar = 63495.0      # K = 12.2
+orbit_color = "#3c4a63"
+[bodies.orbit]
+type = "visual_orbit"
+gm_km3_s2 = 5.65487707e17
+period_days = 349909.50     # 958 yr
+e = 0.303
+i_deg = 114.49
+node_deg = 105.35
+arg_peri_deg = 356.4
+t_peri_year = 1108
+sky_ra_dec_deg = [266.41683333, -29.00781611]
+
+[[bodies]]
+name = "S96"
+parent = "Sgr A*"
+kind = "star"
+label = false
+radii_km = [25737909.0]
+temperature_k = 25000.0
+luminosity_solar = 481662.0      # K = 10.0
+orbit_color = "#3c4a63"
+[bodies.orbit]
+type = "visual_orbit"
+gm_km3_s2 = 5.65487707e17
+period_days = 241795.50     # 662 yr
+e = 0.174
+i_deg = 126.36
+node_deg = 115.66
+arg_peri_deg = 233.6
+t_peri_year = 1646
+sky_ra_dec_deg = [266.41683333, -29.00781611]
+
+[[bodies]]
+name = "S175"
+parent = "Sgr A*"
+kind = "star"
+label = false
+radii_km = [813904.0]
+temperature_k = 25000.0
+luminosity_solar = 482.0      # K = 17.5
+orbit_color = "#3c4a63"
+[bodies.orbit]
+type = "visual_orbit"
+gm_km3_s2 = 5.65487707e17
+period_days = 35137.05     # 96.2 yr
+e = 0.9867
+i_deg = 88.53
+node_deg = 326.83
+arg_peri_deg = 68.52
+t_peri_year = 2009.51
+sky_ra_dec_deg = [266.41683333, -29.00781611]
+
+[[bodies]]
+name = "R34"
+parent = "Sgr A*"
+kind = "star"
+label = false
+radii_km = [4079184.0]
+temperature_k = 25000.0
+luminosity_solar = 12099.0      # K = 14.0
+orbit_color = "#3c4a63"
+[bodies.orbit]
+type = "visual_orbit"
+gm_km3_s2 = 5.65487707e17
+period_days = 320324.25     # 877 yr
+e = 0.641
+i_deg = 136.0
+node_deg = 330
+arg_peri_deg = 57.0
+t_peri_year = 1522
 sky_ra_dec_deg = [266.41683333, -29.00781611]
 
 [[events]]

@@ -193,6 +193,7 @@ struct Body {
     glm::vec3 color{1.0f}; // sRGB
     SurfaceStyle style = SurfaceStyle::Solid;
     glm::vec3 orbit_color{0.5f}; // sRGB
+    bool label = true; // false: no name on screen unless focused (e.g. a crowd of stars)
     TrailMode trail = TrailMode::Orbit;
     double trail_history_days = 0.0; // History trails: 0 = everything since the motion became valid
     double trail_linger_days = 0.0;  // History trails: how long the trail stays after the motion ends
@@ -311,7 +312,10 @@ struct SceneSky {
     // Stars that replace the catalog seen from Earth: the catalog from
     // viewer_pc, or a model sky made for it (tools/sky/make_galaxy_sky.py),
     // plus the members of a cluster seen from inside. Empty: from Earth.
+    // Magnitudes are as displayed: a model sky's stars are shifted fainter by
+    // display_mag_offset where the eye adapts to a very bright sky.
     std::vector<CatalogStar> stars;
+    double display_mag_offset = 0.0;
 };
 
 // A cloud of small bodies drawn as points (the main asteroid belt, the Kuiper
