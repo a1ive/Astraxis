@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 
+struct ImFont;
 union SDL_Event;
 
 namespace astraxis {
@@ -79,12 +80,14 @@ private:
 
     std::filesystem::path m_asset_dir;
     std::vector<std::filesystem::path> m_scene_files;
+    std::vector<std::string> m_scene_names; // each file's own `name`, for the scene list
     size_t m_scene_index = 0;
     std::string m_scene_error;
 
     bool m_initialized = false; // init succeeded: save the settings on shutdown
     bool m_running = false;
     bool m_imgui_ready = false;
+    ImFont* m_title_font = nullptr; // scene title card; nullptr: the default font
     bool m_dragging = false;
     uint64_t m_last_counter = 0;
 

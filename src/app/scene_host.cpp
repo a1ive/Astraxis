@@ -74,11 +74,12 @@ void SceneHost::remove_outputs()
     m_outputs.clear();
 }
 
-bool SceneHost::start(const Settings& settings, const std::optional<std::string>& scene, bool labels,
+bool SceneHost::start(const Settings& settings, const std::optional<std::string>& scene, bool labels, bool title,
                       std::string* error)
 {
     m_view_options = settings.view;
     m_show_labels = labels;
+    m_show_title = title;
 
     // All outputs share one swapchain format (SDR), and the offscreen one is
     // the same: B8G8R8A8_UNORM.
@@ -120,12 +121,15 @@ bool SceneHost::start(const Settings& settings, const std::optional<std::string>
                                 static_cast<uint32_t>(static_cast<float>(max_height) * m_render_scale));
     m_sim.start_tour();
 
-    // ImGui only draws the labels: no platform backend (there is no input to
-    // pass on), one frame per output.
-    if (m_show_labels) {
+    // ImGui only draws the labels and the title: no platform backend (there
+    // is no input to pass on), one frame per output.
+    if (m_show_labels || m_show_title) {
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
         ImGui::GetIO().IniFilename = nullptr;
+        // The default font is chosen (pixel or vector) for the size it is drawn at.
+        ImGui::GetStyle().FontScaleDpi = m_outputs.front()->window.content_scale();
+        m_title_font = load_fonts(asset_dir);
         ImGui_ImplSDLGPU3_InitInfo init_info = {};
         init_info.Device = m_gpu.device();
         init_info.ColorTargetFormat = format;
@@ -236,7 +240,8 @@ void SceneHost::draw_scene(Output& out, const Frame& frame)
     m_sim.compute_view(static_cast<int>(frame.width), static_cast<int>(frame.height), scene_scale, out.view);
 
     ImDrawData* draw_data = nullptr;
-    if (m_show_labels) {
+    const bool title = m_show_title && scene_title_visible(m_sim.scene_age());
+    if (m_show_labels || title) {
         // As imgui_impl_sdl3 would set it up for this window; the labels are
         // drawn at the output's full resolution.
         int w = static_cast<int>(frame.output_width);
@@ -252,7 +257,12 @@ void SceneHost::draw_scene(Output& out, const Frame& frame)
         ImGui::GetStyle().FontScaleDpi = scale;
         ImGui_ImplSDLGPU3_NewFrame(); // creates the samplers on first use
         ImGui::NewFrame();
-        draw_labels(out.labels, m_sim.scene(), out.view, m_sim.camera().target());
+        if (m_show_labels) {
+            draw_labels(out.labels, m_sim.scene(), out.view, m_sim.camera().target());
+        }
+        if (title) {
+            draw_scene_title(m_title_font, m_sim.scene().name, m_sim.scene_age());
+        }
         ImGui::Render();
         draw_data = ImGui::GetDrawData();
         ImGui_ImplSDLGPU3_PrepareDrawData(draw_data, frame.cmd); // a copy pass: before the render passes

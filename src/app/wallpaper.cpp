@@ -59,7 +59,7 @@ bool Wallpaper::init(const WallpaperOptions& options)
                                  "The wallpaper could not be placed on the desktop.", nullptr);
         return false;
     }
-    if (!m_host.start(m_settings, options.scene, m_settings.labels, &error)) {
+    if (!m_host.start(m_settings, options.scene, m_settings.labels, true, &error)) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", error.c_str());
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Astraxis", error.c_str(), nullptr);
         return false;

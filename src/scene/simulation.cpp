@@ -29,6 +29,7 @@ bool Simulation::load_scene(const std::filesystem::path& file, std::string* erro
         return false;
     }
     m_scene = std::move(scene);
+    m_scene_age = 0.0;
 
     const bool touring = m_director.active();
     stop_tour();
@@ -57,6 +58,7 @@ void Simulation::update(double real_dt)
 {
     m_clock.advance(real_dt);
     m_scene.update(m_clock.t_tdb);
+    m_scene_age += real_dt;
 
     // Accretion-disk animation: follows the clock, but capped so that the inner
     // disk does not blur at high time warp.

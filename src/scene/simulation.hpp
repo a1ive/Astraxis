@@ -59,6 +59,8 @@ public:
     // keep float precision.
     double disk_time() const { return m_disk_time; }
     double animation_time() const { return m_animation_time; }
+    // Real seconds since the scene was loaded, paused or not (the title card).
+    double scene_age() const { return m_scene_age; }
 
 private:
     // Applies (or, when the shot ends, undoes) a time warp asked for by the tour.
@@ -73,6 +75,7 @@ private:
     double m_saved_warp = 0.0; // the user's warp, restored afterwards
     double m_disk_time = 0.0;
     double m_animation_time = 0.0;
+    double m_scene_age = 0.0;
 };
 
 } // namespace astraxis

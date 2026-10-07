@@ -1,5 +1,6 @@
 #include "app/app.hpp"
 
+#include "app/label_overlay.hpp"
 #include "app/scene_list.hpp"
 #include "platform/paths.hpp"
 
@@ -80,6 +81,7 @@ bool App::init(const LaunchOptions& options)
     style.Colors[ImGuiCol_WindowBg].w = 0.78f;
     style.ScaleAllSizes(scale);
     style.FontScaleDpi = scale;
+    m_title_font = load_fonts(m_asset_dir);
 
     ImGui_ImplSDL3_InitForSDLGPU(m_window.handle());
     ImGui_ImplSDLGPU3_InitInfo init_info = {};
@@ -90,6 +92,13 @@ bool App::init(const LaunchOptions& options)
     m_imgui_ready = true;
 
     m_scene_files = list_scene_files(m_asset_dir);
+    const std::vector<SceneEntry> entries = list_scenes(m_asset_dir);
+    for (const std::filesystem::path& file : m_scene_files) {
+        const std::string stem = file.stem().string();
+        const auto entry = std::find_if(entries.begin(), entries.end(),
+                                        [&](const SceneEntry& e) { return e.stem == stem; });
+        m_scene_names.push_back(entry != entries.end() ? entry->name : stem);
+    }
     const std::string scene = options.scene.value_or(m_settings.scene);
     const int found = find_scene(m_scene_files, scene);
     if (found >= 0) {

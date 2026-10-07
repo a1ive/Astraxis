@@ -57,7 +57,7 @@ bool Screensaver::init(const ScreensaverOptions& options)
     if (!create_outputs(display)) {
         return false;
     }
-    if (!m_host.start(settings, options.scene, settings.labels && !options.preview, &error)) {
+    if (!m_host.start(settings, options.scene, settings.labels && !options.preview, !options.preview, &error)) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", error.c_str());
         if (!options.preview) {
             SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Astraxis", error.c_str(), nullptr);

@@ -15,10 +15,12 @@
 #include <string>
 #include <vector>
 
+struct ImFont;
+
 namespace astraxis {
 
-// One Simulation on the tour, drawn on several outputs with the labels as
-// its only overlay: what the screensaver and the wallpaper hosts share. The
+// One Simulation on the tour, drawn on several outputs with the labels and
+// the scene's title card as the only overlays: what the screensaver and the wallpaper hosts share. The
 // host creates the windows and runs the event loop; SceneHost draws.
 class SceneHost {
 public:
@@ -42,8 +44,10 @@ public:
     void remove_outputs();
 
     // After the first outputs: loads the scene of `settings` (or `scene`),
-    // starts the tour. `labels` draws them; `error` gets the message on failure.
-    bool start(const Settings& settings, const std::optional<std::string>& scene, bool labels, std::string* error);
+    // starts the tour. `labels` draws them, `title` the scene's title card;
+    // `error` gets the message on failure.
+    bool start(const Settings& settings, const std::optional<std::string>& scene, bool labels, bool title,
+               std::string* error);
     void set_fps_limit(int fps) { m_fps_limit = fps; }
     // The scene's resolution relative to each output's (window outputs only).
     void set_render_scale(float scale);
@@ -71,7 +75,9 @@ private:
     std::vector<std::unique_ptr<Output>> m_outputs;
     ViewOptions m_view_options;
     bool m_show_labels = false;
+    bool m_show_title = false;
     bool m_imgui_ready = false;
+    ImFont* m_title_font = nullptr;
     int m_fps_limit = 0;
     float m_render_scale = 1.0f;
 

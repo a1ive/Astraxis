@@ -173,6 +173,7 @@ void App::build_ui()
     if (m_show_labels) {
         build_labels();
     }
+    draw_scene_title(m_title_font, m_sim.scene().name, m_sim.scene_age());
     if (panel_visible()) {
         build_control_panel();
         build_time_bar();
@@ -196,12 +197,10 @@ void App::build_control_panel()
 
     // --- Scene ---
     if (m_scene_files.size() > 1) {
-        const std::string current = m_scene_files[m_scene_index].stem().string();
-        ImGui::SetNextItemWidth(180.0f * ImGui::GetStyle().FontScaleDpi);
-        if (ImGui::BeginCombo("Scene", current.c_str())) {
+        ImGui::SetNextItemWidth(200.0f * ImGui::GetStyle().FontScaleDpi); // as the View combos
+        if (ImGui::BeginCombo("Scene", m_scene_names[m_scene_index].c_str())) {
             for (size_t i = 0; i < m_scene_files.size(); ++i) {
-                const std::string name = m_scene_files[i].stem().string();
-                if (ImGui::Selectable(name.c_str(), i == m_scene_index) && i != m_scene_index) {
+                if (ImGui::Selectable(m_scene_names[i].c_str(), i == m_scene_index) && i != m_scene_index) {
                     load_scene(i);
                 }
             }

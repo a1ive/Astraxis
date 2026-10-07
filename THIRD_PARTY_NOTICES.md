@@ -47,6 +47,7 @@ Per-file details, original download URLs and processing steps are in each direct
 | `assets/rings/saturn_rss.ring` | NASA PDS Ring-Moon Systems Node, Cassini Radio Science ring occultation (CORSS_8001, Marouf et al.) | Public domain |
 | `assets/textures/earth.jpg` | NASA Earth Observatory, Blue Marble Next Generation (Reto Stöckli) | Public domain; credit: NASA Earth Observatory |
 | `assets/textures/moon.jpg` | NASA's Scientific Visualization Studio, CGI Moon Kit (LRO data) | Public domain; credit: NASA's Scientific Visualization Studio |
+| `assets/fonts/Jost-300-Light.ttf` | Jost* 3.5 by indestructible type* (Owen Earl), <https://github.com/indestructible-type/Jost>, unmodified | SIL Open Font License 1.1; full text in `assets/fonts/OFL.txt` |
 | `assets/textures/milky_way.jpg` | NASA/GSFC Scientific Visualization Studio, Deep Star Maps 2020 | Public domain; credit: NASA/Goddard Space Flight Center Scientific Visualization Studio. Gaia DR2: ESA/Gaia/DPAC |
 
 ---
@@ -172,6 +173,15 @@ ProggyForever: MIT License / Copyright (c) 2026 Disco Hello, Copyright (c) 2019,
 
 The MIT License text is the same as for Dear ImGui above, with the copyright
 notices replaced by those listed here.
+```
+
+### Jost* font
+
+```text
+Copyright 2019 indestructible type* (https://github.com/indestructible-type)
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+The full license text is in assets/fonts/OFL.txt, distributed with the font.
 ```
 
 ### toml++
