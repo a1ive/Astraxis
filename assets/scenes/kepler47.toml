@@ -42,7 +42,8 @@
 # transit durations (c runs ~0.2 stellar radii ahead of ELC, cause unknown).
 # The primary eclipses drift from the linear ephemeris by 0.6 s per orbit
 # (8 min by 2025), most likely the GR terms that ELC includes and we do not.
-# The background sky is the one seen from Earth (BSC5); from 1 kpc it would differ.
+# The background sky (catalog stars, Milky Way) is the one seen from Earth; from 1 kpc
+# it would differ.
 
 name = "Kepler-47"
 

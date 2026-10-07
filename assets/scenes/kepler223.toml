@@ -27,7 +27,8 @@
 # Planet colours are artistic; the star colour comes from T_eff.
 # Check (tests/stellar_system_tests.cpp): the integration reproduces the linear transit
 # ephemerides that [MI16] Extended Data Table 1 fits to the Kepler data.
-# The background sky is the one seen from Earth (BSC5); from 2 kpc it would differ.
+# The background sky (catalog stars, Milky Way) is the one seen from Earth; from 2 kpc
+# it would differ.
 
 name = "Kepler-223"
 

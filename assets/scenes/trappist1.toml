@@ -34,10 +34,17 @@
 # transits happen in the scene when they are seen from Earth.
 # The node on the sky is not measured; 0 is used for all planets (as in the fit).
 # Planet colours are artistic; the star colour comes from T_eff.
+# The sky: the catalog stars (HYG, Hipparcos distances; assets/stars/SOURCES.md) as
+# seen from TRAPPIST-1 [GAIA]; the Milky Way map is the one seen from Earth (its light
+# comes from kpc away).
 # Check (tests/stellar_system_tests.cpp): the integration reproduces the transit times that
-# AG21's posterior predicts over 2015-2019 and their impact parameters.
+# AG21's posterior predicts over 2015-2019 and their impact parameters; the sky's viewer
+# is opposite the Sun body.
 
 name = "TRAPPIST-1"
+
+[sky]
+viewer_ra_dec_distance_pc = [346.622368729, -5.041399251, 12.466916]   # [GAIA]
 
 [view]
 focus = "TRAPPIST-1"

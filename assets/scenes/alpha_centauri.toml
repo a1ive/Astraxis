@@ -58,9 +58,16 @@
 #        Derived from [AK21]: the AB distance 1000 / 750.81 mas = 1.332 pc (4.34 ly); the
 #        stars ~35 au apart at apastron (a = 17.493" / 0.75081" = 23.3 au, e = 0.519).
 #        Saturn's distance from the Sun (9.5 au): JPL approximate elements.
-# Check (tests/stellar_system_tests.cpp): Proxima's reflex velocity is -K sin(2 pi (t - T0) / P).
+# The sky: the catalog stars (HYG, Hipparcos distances; assets/stars/SOURCES.md) as
+# seen from the AB barycentre [AK21], without A, B and Proxima (drawn as bodies); the
+# Milky Way map is the one seen from Earth (its light comes from kpc away).
+# Check (tests/stellar_system_tests.cpp): Proxima's reflex velocity is -K sin(2 pi (t - T0) / P);
+# the sky's viewer is opposite the Sun body.
 
 name = "Alpha Centauri"
+
+[sky]
+viewer_ra_dec_distance_pc = [219.85892215, -60.83163195, 1.33189489]   # [AK21], 1000 / 750.81 mas
 
 [view]
 focus = "Alpha Centauri AB"

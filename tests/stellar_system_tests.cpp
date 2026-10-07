@@ -85,6 +85,26 @@ double find_conjunction(const Scene& scene, int body, int center, const glm::dve
     return std::nan("");
 }
 
+// A nearby system's sky is the catalog seen from the system: from opposite the
+// Sun body, without its own stars (all catalog stars at least kOwnSystemPc
+// away). Returns the brightest star's V.
+double check_relocated_sky(const Scene& scene, const char* what)
+{
+    const int sun = scene.find("Sun");
+    const glm::dvec3 sun_pc = scene.icrf_state_at(sun, 0.0).position / kParsecKm;
+    check(glm::length(scene.sky.viewer_pc + sun_pc) < 1e-6, what, glm::length(scene.sky.viewer_pc + sun_pc));
+    double nearest = 1e9;
+    double brightest = 99.0;
+    for (const CatalogStar& s : scene.sky.stars) {
+        nearest = s.distance_pc > 0.0 ? std::min(nearest, s.distance_pc) : nearest;
+        brightest = std::min(brightest, s.vmag);
+    }
+    std::printf("info: %s: %zu stars, nearest %.2f pc, brightest V = %.2f\n", what, scene.sky.stars.size(), nearest,
+                brightest);
+    check(scene.sky.stars.size() > 8000 && nearest >= kOwnSystemPc, what, nearest);
+    return brightest;
+}
+
 void test_alpha_centauri_scene()
 {
     Scene scene = load_scene_or_die("alpha_centauri.toml");
@@ -112,6 +132,11 @@ void test_alpha_centauri_scene()
     // The Sun is ~1.33 pc away, in Cassiopeia.
     const double d_sun = glm::length(scene.icrf_state_at(sun, 0.0).position) / kParsecKm;
     check(std::abs(d_sun - 1.3319) < 1e-3, "Sun distance from alpha Cen (pc)", d_sun);
+
+    // The sky from here: A, B and Proxima are bodies, not catalog stars; Sirius
+    // (2.64 pc from the Sun, 2.92 pc from here) is still the brightest, dimmed.
+    const double brightest = check_relocated_sky(scene, "alpha Cen sky");
+    check(std::abs(brightest + 1.22) < 0.01, "Sirius from alpha Cen", brightest);
 
     // Proxima's planets [Suarez Mascareno et al. 2025, Table 3; Damasso et al. 2020,
     // Table 1]: circular orbits whose time of inferior conjunction T0 puts the planet
@@ -206,6 +231,10 @@ void test_trappist1_scene()
     const auto& b = static_cast<const EphemerisMotion&>(*scene.bodies[static_cast<size_t>(scene.find("TRAPPIST-1 b"))].motion);
     const double per_orbit = 1.510826 * static_cast<double>(b.table().knots().size()) / (50.0 * kDaysPerJulianYear);
     check(per_orbit > 20.0 && per_orbit < 30.0, "TRAPPIST-1 b knots per orbit", per_orbit);
+
+    // The sky from 12.5 pc: Sirius is now far away; Canopus (95 pc) is the brightest.
+    const double brightest = check_relocated_sky(scene, "TRAPPIST-1 sky");
+    check(std::abs(brightest + 0.57) < 0.01, "Canopus from TRAPPIST-1", brightest);
 }
 
 // Kepler-223 [Mills et al. 2016]: integrated from the best-fit initial
@@ -603,6 +632,7 @@ void test_psr_b1620_scene()
                 scene.sky.stars.size(), naked_eye, brightest);
     check(scene.sky.stars.size() > 13000, "M4 sky star count", static_cast<double>(scene.sky.stars.size()));
     check(naked_eye > 5000 && brightest < -4.0, "M4 sky is bright", brightest);
+    check(scene.sky.milky_way.empty(), "M4 sky without the Milky Way seen from Earth");
 
     // The pulsar's spin axis is the inner orbit's normal.
     check(scene.bodies[static_cast<size_t>(pulsar)].pulsar.enabled &&

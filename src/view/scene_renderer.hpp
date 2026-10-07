@@ -89,6 +89,8 @@ private:
     SDL_GPUTextureFormat m_sky_cube_format = SDL_GPU_TEXTUREFORMAT_INVALID;
     uint32_t m_sky_cube_size = 0;
     SDL_GPUTexture* m_milky_way = nullptr; // the scene's Milky Way map, if any
+    std::string m_milky_way_path;          // and its asset path (kept across scenes that share it)
+    uint32_t m_milky_way_width = 0;
     std::vector<CatalogStar> m_catalog;   // the catalog sky (seen from Earth)
     bool m_scene_sky_stars = false;       // the starfield shows the scene's own stars
 

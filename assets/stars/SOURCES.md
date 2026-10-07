@@ -1,13 +1,16 @@
 # 星表来源
 
-## 亮星表
+## 星表（带距离）
 
-`bsc5.csv` 来自 Yale Bright Star Catalogue 第 5 修订版（Hoffleit & Warren 1991），数据取自 CDS 目录 V/50（<https://cdsarc.cds.unistra.fr/ftp/V/50/>，文件 `ReadMe` 和 `catalog.gz`），使用 `tools/stars/convert_bsc5.py` 转换。
+`hyg.csv` 来自 HYG 数据库 v4.4（astronexus，<https://codeberg.org/astronexus/hyg>，文件 `data/hyg/CURRENT/hyg_v44.csv.gz`，13,636,362 字节，SHA-256 `00b349893b9a53106dd488d8371e8d2fa586043e500bb3cdb8bff3931682197d`，2026-10-07 下载），使用 `tools/stars/convert_hyg.py` 转换。原文件 34 MB（解压后），不入库。
 
-- 共 9096 颗星（原表中没有 J2000 坐标的条目已跳过）。
-- 坐标为 J2000，历元 2000.0，未做自行改正。
-- 列：`hr,ra_deg,dec_deg,vmag,bv,name`。
-- 该星表是 NASA/CDS 公开分发的天文数据。
+- 来源：HYG 合并了 Hipparcos、Yale Bright Star Catalogue 和 Gliese 近星表，距离来自 Hipparcos 视差。
+- 许可证：CC BY-SA 4.0（<https://creativecommons.org/licenses/by-sa/4.0/>），署名 astronexus / HYG database。`hyg.csv` 是它的衍生数据，同样按 CC BY-SA 4.0 分发。
+- 选星：观察者在离太阳 15 pc 以内的任何位置时，可能亮于 V = 6.5 的星都保留（距离 d 的星离这样的观察者至少 d − 15 pc）。没有可用视差的星（HYG 中 dist ≥ 100000）按地球上看到的星等保留，当作无穷远。共 13821 颗。从地球上看亮于 6.5 等的约 8900 颗，与 BSC5 相当；其余是近处的暗星，例如 HIP 112325（地球上看 V = 9.4），它离 TRAPPIST-1 只有 1.3 pc，在那里是 4.5 等。
+- 去掉了太阳：需要太阳的场景都把它作为天体来画。
+- 坐标 J2000，历元 2000.0，未做自行改正。星等是 Hipparcos 的 V 星等，颜色是 B−V。
+- 列：`hip,hr,ra_deg,dec_deg,dist_pc,vmag,bv,name`。`dist_pc` 或 `bv` 为空表示未知；`name` 依次取专名、拜耳/弗兰斯蒂德名、Gliese 编号。文件头的 `# max_viewer_pc = 15` 由程序读取：场景的观察者离太阳更远时拒绝加载。
+- 程序用法（`scene/star_catalog.cpp` 中的 `catalog_sky`）：把每颗星放到它的三维位置，从观察者处重新计算方向和星等，只画亮于 6.5 等的星，并去掉离观察者 0.5 pc 以内的星（属于场景自己的系统，例如 α Cen A、B 和比邻星）。
 
 ## 球状星团成员星
 

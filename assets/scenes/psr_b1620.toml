@@ -49,7 +49,8 @@
 # The sky: M4's members from Gaia DR3 as seen from the pulsar (assets/stars/m4.csv,
 # tools/stars/make_m4.py; ESA/Gaia/DPAC, CC BY-NC 3.0 IGO; depths along the line
 # of sight are statistical). The
-# Earth's sky (BSC5) is not shown; the Milky Way and field stars are missing.
+# Earth's sky (catalog stars, Milky Way) is not shown; the Milky Way and field stars
+# as seen from M4 are missing.
 # GM = mass * GM_sun (1.32712440041279419e11 km^3/s^2, JPL DE440).
 # Check (tests/stellar_system_tests.cpp): the pulsar's Roemer delay and the inner orbit,
 # the binary's 6.4 lt-s outer motion with its 1993 node, the 40 deg tilt, the sky.
@@ -62,6 +63,9 @@ distance_km = 6.0e8
 start = "now"
 warp = 345600.0                # 4 days per second: the binary turns in 48 s
 up = "orbit_normal:PSR B1620-26 B"
+
+[sky]
+milky_way = ""                 # Earth's map would be wrong here
 
 [sky.cluster]
 file = "stars/m4.csv"

@@ -44,9 +44,9 @@ struct Uniforms {
 
 // Catalog stars: brightness follows the magnitude scale with a compressed
 // dynamic range (exponent kMagnitudeGamma on the flux ratio), so that both
-// Sirius (-1.46) and naked-eye-limit stars (6.5) are visible on a display.
+// Sirius (-1.46) and naked-eye-limit stars (kNakedEyeMag) are visible on a display.
 constexpr double kMagnitudeGamma = 0.56;
-constexpr double kFaintMag = 6.5;
+constexpr double kFaintMag = kNakedEyeMag;
 constexpr double kFaintIntensity = 0.07;
 constexpr double kColorSaturation = 0.65; // stars look less saturated than blackbody color
 

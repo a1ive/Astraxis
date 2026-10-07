@@ -59,15 +59,51 @@ void test_calendar()
 
 void test_star_catalog_and_color()
 {
-    std::vector<CatalogStar> stars;
+    StarCatalog catalog;
     std::string error;
-    check(load_star_catalog(ASTRAXIS_ASSET_DIR "/stars/bsc5.csv", stars, &error), "BSC5 loads");
-    check(stars.size() > 9000, "BSC5 star count", static_cast<double>(stars.size()));
+    check(load_star_catalog(ASTRAXIS_ASSET_DIR "/stars/hyg.csv", catalog, &error), "HYG catalog loads");
+    check(catalog.stars.size() > 13000, "catalog star count", static_cast<double>(catalog.stars.size()));
+    check(catalog.max_viewer_pc == 15.0, "catalog complete for viewers within 15 pc", catalog.max_viewer_pc);
+
+    // From Earth: the naked-eye sky (~9000 stars, as in the Bright Star
+    // Catalogue), without the Sun; Sirius is the brightest (Hipparcos V).
+    const std::vector<CatalogStar> stars = catalog_sky(catalog, glm::dvec3(0.0));
+    check(stars.size() > 8800 && stars.size() < 9200, "naked-eye star count", static_cast<double>(stars.size()));
     double brightest = 99.0;
     for (const CatalogStar& s : stars) {
         brightest = std::min(brightest, s.vmag);
     }
-    check(std::abs(brightest + 1.46) < 1e-9, "brightest star is Sirius (-1.46)", brightest);
+    check(std::abs(brightest + 1.44) < 1e-9, "brightest star is Sirius (-1.44)", brightest);
+
+    // From elsewhere: positions shift by parallax, magnitudes by distance.
+    auto star = [](double ra_deg, double dec_deg, double vmag, double distance_pc) {
+        CatalogStar s;
+        s.ra_deg = ra_deg;
+        s.dec_deg = dec_deg;
+        s.vmag = vmag;
+        s.distance_pc = distance_pc;
+        return s;
+    };
+    StarCatalog synthetic;
+    synthetic.stars = {
+        star(0.0, 0.0, 0.0, 10.0),   // 5 pc ahead of the viewer
+        star(90.0, 0.0, 1.0, 0.0),   // unknown distance: unchanged
+        star(0.0, 0.0, 5.0, 5.3),    // 0.3 pc away: the viewer's own system
+        star(180.0, 0.0, 6.0, 10.0), // 15 pc behind: fainter than 6.5
+        star(0.0, 90.0, 2.0, 5.0),   // off to the side
+    };
+    const std::vector<CatalogStar> moved = catalog_sky(synthetic, glm::dvec3(5.0, 0.0, 0.0));
+    check(moved.size() == 3, "catalog sky drops own-system and faint stars", static_cast<double>(moved.size()));
+    if (moved.size() == 3) {
+        check(std::abs(moved[0].vmag - 5.0 * std::log10(0.5)) < 1e-12 && std::abs(moved[0].ra_deg) < 1e-9 &&
+                  std::abs(moved[0].distance_pc - 5.0) < 1e-12,
+              "closer star brightens", moved[0].vmag);
+        check(moved[1].ra_deg == 90.0 && moved[1].vmag == 1.0, "star of unknown distance unchanged");
+        // Seen from (5, 0, 0), (0, 0, 5) lies 45 deg up toward -x, sqrt(50) pc away.
+        check(std::abs(moved[2].dec_deg - 45.0) < 1e-9 && std::abs(moved[2].ra_deg - 180.0) < 1e-9 &&
+                  std::abs(moved[2].vmag - (2.0 + 5.0 * std::log10(std::sqrt(2.0)))) < 1e-12,
+              "parallax shift", moved[2].dec_deg);
+    }
 
     // The Sun (B-V = 0.65) is ~5800 K; blackbody colors go from red to blue.
     const double t_sun = temperature_from_bv(0.65);

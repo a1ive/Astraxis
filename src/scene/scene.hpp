@@ -300,14 +300,16 @@ struct Marker {
     glm::dvec3 world_position{0.0}; // updated by Scene::update (display frame)
 };
 
-// Background sky. The catalog stars are always drawn; the optional Milky Way
-// map (equirectangular in ICRF right ascension / declination, path relative to
-// the asset directory) is drawn behind them.
+// Background sky: stars, and behind them a Milky Way map (equirectangular in
+// ICRF right ascension / declination, path relative to the asset directory;
+// empty for none). By default the sky seen from Earth.
 struct SceneSky {
-    std::string milky_way;
-    double milky_way_brightness = 1.0; // linear scale of the map's values
-    // Stars that replace the catalog (e.g. a globular cluster seen from inside);
-    // empty: the catalog sky as seen from Earth.
+    std::string milky_way = "textures/milky_way.jpg";
+    double milky_way_brightness = 0.25; // linear scale of the map's values
+    // Where the catalog stars are seen from (ICRF, pc from the Sun).
+    glm::dvec3 viewer_pc{0.0};
+    // Stars that replace the catalog seen from Earth: the catalog from
+    // viewer_pc, or a globular cluster seen from inside. Empty: from Earth.
     std::vector<CatalogStar> stars;
 };
 

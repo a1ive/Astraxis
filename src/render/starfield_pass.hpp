@@ -10,7 +10,7 @@
 
 namespace astraxis {
 
-// Background stars from a catalog (BSC5), drawn as soft dots at infinity.
+// Background stars from a catalog (HYG), drawn as soft dots at infinity.
 // Without a catalog, falls back to procedural stars concentrated toward the
 // galactic plane. Optionally a Milky Way map (equirectangular, ICRF) is drawn
 // behind them.

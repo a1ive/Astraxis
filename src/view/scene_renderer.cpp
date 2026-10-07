@@ -292,7 +292,10 @@ bool SceneRenderer::init(const GpuDevice& gpu, SDL_GPUTextureFormat output_forma
     m_asset_dir = asset_dir;
 
     std::string catalog_error;
-    if (!load_star_catalog(m_asset_dir / "stars" / "bsc5.csv", m_catalog, &catalog_error)) {
+    StarCatalog catalog;
+    if (load_star_catalog(m_asset_dir / "stars" / "hyg.csv", catalog, &catalog_error)) {
+        m_catalog = catalog_sky(catalog, glm::dvec3(0.0));
+    } else {
         SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Star catalog unavailable (%s); using procedural stars",
                     catalog_error.c_str());
     }
@@ -320,6 +323,7 @@ void SceneRenderer::shutdown()
         SDL_ReleaseGPUTexture(m_device->device(), m_milky_way);
         m_milky_way = nullptr;
     }
+    m_milky_way_path.clear();
     m_black_hole.shutdown();
     m_post.shutdown();
     m_beams.shutdown();
@@ -397,21 +401,25 @@ void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, u
         m_scene_sky_stars = false;
     }
 
-    m_starfield.set_milky_way(nullptr, 0, 0.0f);
-    if (m_milky_way) {
-        SDL_ReleaseGPUTexture(m_device->device(), m_milky_way);
-        m_milky_way = nullptr;
-    }
-    if (!scene.sky.milky_way.empty()) {
-        std::string error;
-        uint32_t map_width = 0;
-        m_milky_way = load_texture_srgb(m_device->device(), m_asset_dir / scene.sky.milky_way, &error, &map_width);
+    // Most scenes share the same map: keep it loaded across them.
+    if (scene.sky.milky_way != m_milky_way_path) {
+        m_starfield.set_milky_way(nullptr, 0, 0.0f);
         if (m_milky_way) {
-            m_starfield.set_milky_way(m_milky_way, map_width, static_cast<float>(scene.sky.milky_way_brightness));
-        } else {
-            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Milky Way map unavailable: %s", error.c_str());
+            SDL_ReleaseGPUTexture(m_device->device(), m_milky_way);
+            m_milky_way = nullptr;
+        }
+        m_milky_way_path = scene.sky.milky_way;
+        m_milky_way_width = 0;
+        if (!m_milky_way_path.empty()) {
+            std::string error;
+            m_milky_way = load_texture_srgb(m_device->device(), m_asset_dir / m_milky_way_path, &error,
+                                            &m_milky_way_width);
+            if (!m_milky_way) {
+                SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Milky Way map unavailable: %s", error.c_str());
+            }
         }
     }
+    m_starfield.set_milky_way(m_milky_way, m_milky_way_width, static_cast<float>(scene.sky.milky_way_brightness));
 
     for (const Body& body : scene.bodies) {
         if (body.kind == BodyKind::BlackHole) {

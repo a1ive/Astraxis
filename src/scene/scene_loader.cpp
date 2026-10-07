@@ -1079,10 +1079,28 @@ void Loader::parse(const toml::table& root, Scene& out)
     }
 
     if (const toml::table* sky = root["sky"].as_table()) {
-        out.sky.milky_way = get_string_or(*sky, "milky_way", "");
-        out.sky.milky_way_brightness = get_double_or(*sky, "milky_way_brightness", 1.0);
+        out.sky.milky_way = get_string_or(*sky, "milky_way", out.sky.milky_way);
+        out.sky.milky_way_brightness = get_double_or(*sky, "milky_way_brightness", out.sky.milky_way_brightness);
         if (out.sky.milky_way_brightness < 0.0) {
             fail("sky", "milky_way_brightness must not be negative");
+        }
+        if (sky->contains("viewer_ra_dec_distance_pc")) {
+            if (sky->contains("cluster")) {
+                fail("sky", "viewer_ra_dec_distance_pc and [sky.cluster] exclude each other");
+            }
+            double v[3];
+            get_array(*sky, "viewer_ra_dec_distance_pc", "sky", v, 3, 3);
+            out.sky.viewer_pc = unit_from_ra_dec(v[0] * kDegToRad, v[1] * kDegToRad) * v[2];
+            StarCatalog catalog;
+            std::string error;
+            if (!load_star_catalog(m_asset_root / "stars" / "hyg.csv", catalog, &error)) {
+                fail("sky", error);
+            }
+            if (v[2] > catalog.max_viewer_pc) {
+                fail("sky", "the star catalog is only complete for viewers within " +
+                                std::to_string(catalog.max_viewer_pc) + " pc of the Sun");
+            }
+            out.sky.stars = catalog_sky(catalog, out.sky.viewer_pc);
         }
         if (const toml::table* c = (*sky)["cluster"].as_table()) {
             const std::string ctx = "sky.cluster";

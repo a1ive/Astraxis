@@ -70,6 +70,15 @@
 
 name = "Jupiter"
 
+# Background sky, optional. Without [sky]: the catalog stars (assets/stars/hyg.csv)
+# and the Milky Way map as seen from Earth, i.e. these defaults:
+#   [sky]
+#   milky_way = "textures/milky_way.jpg"   # "" for none
+#   milky_way_brightness = 0.25
+# A nearby system sets viewer_ra_dec_distance_pc = [ra, dec, pc] (where it is, seen
+# from the Sun, within the catalog's 15 pc) to see the catalog stars from there
+# (alpha_centauri.toml); [sky.cluster] replaces them with a cluster (psr_b1620.toml).
+
 # Heliocentric orbit of the scene origin, used for the sun direction. [APX]
 # Each element is [value at J2000, rate per Julian century].
 [origin_heliocentric]
