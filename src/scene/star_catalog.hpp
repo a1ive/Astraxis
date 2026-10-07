@@ -42,6 +42,19 @@ bool load_star_catalog(const std::filesystem::path& path, StarCatalog& out, std:
 // direction and magnitude.
 std::vector<CatalogStar> catalog_sky(const StarCatalog& catalog, const glm::dvec3& viewer_pc);
 
+// A sky as seen from one place, written by tools/sky/make_galaxy_sky.py:
+// directions and apparent V (header "ra_deg,dec_deg,vmag,bv"), and from the
+// comments the viewer it was made for ("# viewer_ra_dec_distance_pc = ra, dec,
+// pc") and the brightness of the Milky Way map made with it ("#
+// milky_way_brightness = b").
+struct SkyStarFile {
+    std::vector<CatalogStar> stars;
+    double viewer[3] = {0.0, 0.0, 0.0}; // RA, Dec (deg), distance (pc)
+    double milky_way_brightness = 0.0;
+};
+
+bool load_sky_stars(const std::filesystem::path& path, SkyStarFile& out, std::string* error);
+
 // A star cluster seen from inside: member positions in pc relative to the
 // cluster centre on the tangent-plane axes at the centre (east, north, away
 // from us) with absolute V magnitudes and B - V, as written by
@@ -56,7 +69,7 @@ struct ClusterView {
     double viewer_depth_pc = 0.0;
 };
 
-// The members as the viewer sees them: ICRF directions and apparent V.
+// The members as the viewer sees them (ICRF directions and apparent V), appended to out.
 bool load_cluster_stars(const std::filesystem::path& path, const ClusterView& view, std::vector<CatalogStar>& out,
                         std::string* error);
 

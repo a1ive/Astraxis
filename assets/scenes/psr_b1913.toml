@@ -44,11 +44,20 @@
 # shown. The beams are radio and invisible; they are drawn bluish and turn once every
 # 2 s of real time (the true 59 ms cannot be shown), stopping when the clock is paused.
 # Times are those of the timing model, i.e. as seen from the solar system barycentre
-# (light travel time not removed). The background sky is the one seen from Earth.
+# (light travel time not removed).
+# [DE18] Deller et al. 2018 (arXiv:1806.10265), abstract: from the VLBI parallax, a distance
+#        of 4.1 +2.0 -0.7 kpc (the dispersion measure suggests 9.8 +- 3.1 kpc).
+# The sky is a model of the Milky Way as seen from here (tools/sky/make_galaxy_sky.py,
+# assets/sky/SOURCES.md): its stars and dust clouds are statistical, not real ones.
 # Check (tests/relativity_tests.cpp): the Roemer delay and velocity amplitude, the periastron
 # advance and period decay against the GR formulas, the 1974 Newtonian orbit.
 
 name = "PSR B1913+16 (Hulse-Taylor)"
+
+[sky]
+viewer_ra_dec_distance_pc = [288.86666425, 16.10760744, 4100.0]   # [WH16] position, [DE18] distance
+milky_way = "sky/psr_b1913.jpg"
+stars = "sky/psr_b1913_stars.csv"
 
 [view]
 focus = "PSR B1913+16 system"

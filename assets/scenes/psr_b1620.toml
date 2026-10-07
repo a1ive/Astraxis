@@ -48,9 +48,9 @@
 # be shown), stopping when the clock is paused.
 # The sky: M4's members from Gaia DR3 as seen from the pulsar (assets/stars/m4.csv,
 # tools/stars/make_m4.py; ESA/Gaia/DPAC, CC BY-NC 3.0 IGO; depths along the line
-# of sight are statistical). The
-# Earth's sky (catalog stars, Milky Way) is not shown; the Milky Way and field stars
-# as seen from M4 are missing.
+# of sight are statistical). Behind them, a model of the Milky Way and its field
+# stars as seen from M4 (tools/sky/make_galaxy_sky.py, assets/sky/SOURCES.md;
+# statistical, not real ones).
 # GM = mass * GM_sun (1.32712440041279419e11 km^3/s^2, JPL DE440).
 # Check (tests/stellar_system_tests.cpp): the pulsar's Roemer delay and the inner orbit,
 # the binary's 6.4 lt-s outer motion with its 1993 node, the 40 deg tilt, the sky.
@@ -65,7 +65,9 @@ warp = 345600.0                # 4 days per second: the binary turns in 48 s
 up = "orbit_normal:PSR B1620-26 B"
 
 [sky]
-milky_way = ""                 # Earth's map would be wrong here
+viewer_ra_dec_distance_pc = [245.9092575, -26.5316025, 1850.0]   # the pulsar [TH99], at M4's distance
+milky_way = "sky/psr_b1620.jpg"
+stars = "sky/psr_b1620_stars.csv"
 
 [sky.cluster]
 file = "stars/m4.csv"

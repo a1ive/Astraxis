@@ -47,11 +47,19 @@
 # every 2 s of real time (the true 0.39 s cannot be shown). The [RE19] node and sense
 # of inclination are assumed to follow the convention of visual orbits used here.
 # Times are those of the timing model, i.e. as seen from the solar system barycentre.
-# The background sky is the one seen from Earth.
+# The sky is a model of the Milky Way as seen from here (tools/sky/make_galaxy_sky.py,
+# assets/sky/SOURCES.md): its stars and dust clouds are statistical, not real ones.
+# [RE19] also estimates the distance from the scintillation: 10 +4 -3 kpc (other estimates:
+#        1.6-2.4 kpc from the dispersion measure, > 3.7 kpc from HI absorption [VK20]).
 # Check (tests/relativity_tests.cpp): the Roemer delay, the omega_dot of GR for the [VK20]
 # masses, [BBV08]'s omega in 1999, the 1999 Newtonian orbit.
 
 name = "PSR J1141-6545"
+
+[sky]
+viewer_ra_dec_distance_pc = [175.27919583, -65.75531667, 10000.0]   # [VK20] position, [RE19] distance
+milky_way = "sky/psr_j1141.jpg"
+stars = "sky/psr_j1141_stars.csv"
 
 [view]
 focus = "PSR J1141-6545 system"

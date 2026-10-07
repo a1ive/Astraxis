@@ -136,6 +136,7 @@ CMake 目标：
 
 - 星历烘焙：`python tools/bake/horizons_bake.py tools/bake/ephem.toml [name ...]`，联网访问 Horizons，输出到 `assets/ephem/`，说明见 `assets/ephem/SOURCES.md`。卫星相位拟合：`tools/bake/fit_moon_phase.py`
 - `assets/stars/hyg.csv`：`tools/stars/convert_hyg.py`（HYG v4.4，带距离，供近邻系统重投影）；M4 星团天空：`tools/stars/make_m4.py`（Gaia DR3）
+- `assets/sky/`：远处场景的模型星空，`tools/sky/make_galaxy_sky.py`（需要 numpy；先 `calibrate` 对照 `milky_way.jpg` 标定，结果在 `tools/sky/galaxy_calibration.json`，再 `render <场景.toml>`，一个场景约 10 分钟）。改了模型或标定要重新生成全部场景
 - `assets/belts/*.bin`：`tools/belts/make_belts.py`（JPL SBDB，主带 H < 15、全部 TNO）
 - `assets/textures/*.jpg`：`tools/textures/prepare_textures.py` 从原图缩放
 - `assets/shapes/*.mesh`（AXMESH2）：`tools/shapes/` 下按来源格式分：`make_arrokoth.py`、`make_grid_table_shape.py`（Thomas / Stooke 经纬网格表）、`make_dtm_shape.py`（DLR 全球 DTM）、`make_plate_shape.py`（板块模型、OBJ、VRML）
@@ -209,7 +210,7 @@ CMake 目标：
 2. 导览按事件走：飞掠前自动降倍速、飞掠特写镜头、显示展签；让屏保和壁纸里也出现展签（现在只有窗口版有）
 3. 标题字体加希腊字母后备（Jost 没有希腊字母，`α` 显示成 `?`）；面板打开时长标题两端会被挡住
 4. 随天体自转的参考系；Rosetta 场景加 Philae（ESA SPICE 里有着陆轨迹，Horizons 没有）
-5. 模型星空：用银河模型（薄盘、厚盘、棒/核球、尘埃，参数注明出处）离线生成各场景的漫射图（.hdr）和统计星点，先在太阳位置对照 milky_way.jpg 校准，用于 Kepler-223/47/64、TIC 168789840、两颗脉冲星双星以及 M4 的场星和银河；漫射光改用与星点相同的亮度压缩规律。之后做 Sgr A* 的银心天空（核星团、核星盘、CMZ 尘埃、真实 S 星，近场视差）
+5. Sgr A* 的银心天空：在 `make_galaxy_sky.py` 的模型上加核星团、核星盘、CMZ 尘埃和真实 S 星，处理近场视差；动态范围大，可能要改用 HDR 地图
 6. 远期：macOS（Metal，需要 SPIR-V → MSL 和 macOS CI）；Hulse–Taylor 并合（3 亿年后 double 秒数只有约 2 s 分辨率，要做成以并合为零点的单独场景）；脉冲星自转轴的测地线进动（B1913+16 的几何解各论文不一致）
 
 ## 不要做

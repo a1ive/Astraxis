@@ -104,6 +104,56 @@ std::vector<CatalogStar> catalog_sky(const StarCatalog& catalog, const glm::dvec
     return sky;
 }
 
+bool load_sky_stars(const std::filesystem::path& path, SkyStarFile& out, std::string* error)
+{
+    std::ifstream file(path);
+    if (!file) {
+        if (error) {
+            *error = "cannot open " + path.string();
+        }
+        return false;
+    }
+
+    out = {};
+    std::string line;
+    bool header_seen = false;
+    int line_number = 0;
+    std::string fields[4];
+    while (std::getline(file, line)) {
+        ++line_number;
+        if (line.empty() || line[0] == '#') {
+            constexpr std::string_view kViewer = "# viewer_ra_dec_distance_pc =";
+            constexpr std::string_view kBrightness = "# milky_way_brightness =";
+            if (line.starts_with(kViewer) && split_csv(line.substr(kViewer.size()), fields, 3) == 3) {
+                for (int i = 0; i < 3; ++i) {
+                    out.viewer[i] = std::strtod(fields[i].c_str(), nullptr);
+                }
+            } else if (line.starts_with(kBrightness)) {
+                out.milky_way_brightness = std::strtod(line.c_str() + kBrightness.size(), nullptr);
+            }
+            continue;
+        }
+        if (!header_seen) {
+            header_seen = true; // "ra_deg,dec_deg,vmag,bv"
+            continue;
+        }
+        if (split_csv(line, fields, 4) < 3) {
+            if (error) {
+                *error = path.string() + ":" + std::to_string(line_number) + ": too few fields";
+            }
+            return false;
+        }
+        CatalogStar star;
+        star.ra_deg = std::strtod(fields[0].c_str(), nullptr);
+        star.dec_deg = std::strtod(fields[1].c_str(), nullptr);
+        star.vmag = std::strtod(fields[2].c_str(), nullptr);
+        star.has_bv = !fields[3].empty();
+        star.bv = star.has_bv ? std::strtod(fields[3].c_str(), nullptr) : 0.0;
+        out.stars.push_back(star);
+    }
+    return true;
+}
+
 bool load_cluster_stars(const std::filesystem::path& path, const ClusterView& view, std::vector<CatalogStar>& out,
                         std::string* error)
 {
@@ -126,7 +176,6 @@ bool load_cluster_stars(const std::filesystem::path& path, const ClusterView& vi
     const glm::dvec3 viewer(glm::dot(viewer_dir, east) / along * view.distance_pc,
                             glm::dot(viewer_dir, north) / along * view.distance_pc, view.viewer_depth_pc);
 
-    out.clear();
     std::string line;
     bool header_seen = false;
     int line_number = 0;

@@ -77,7 +77,10 @@ name = "Jupiter"
 #   milky_way_brightness = 0.25
 # A nearby system sets viewer_ra_dec_distance_pc = [ra, dec, pc] (where it is, seen
 # from the Sun, within the catalog's 15 pc) to see the catalog stars from there
-# (alpha_centauri.toml); [sky.cluster] replaces them with a cluster (psr_b1620.toml).
+# (alpha_centauri.toml). A farther one also sets milky_way and stars to the model sky
+# that tools/sky/make_galaxy_sky.py made for that viewer (kepler47.toml); its
+# milky_way_brightness comes from the stars file. [sky.cluster] adds the members of
+# a star cluster seen from inside (psr_b1620.toml).
 
 # Heliocentric orbit of the scene origin, used for the sun direction. [APX]
 # Each element is [value at J2000, rate per Julian century].

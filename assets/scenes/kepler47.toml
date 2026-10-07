@@ -42,10 +42,15 @@
 # transit durations (c runs ~0.2 stellar radii ahead of ELC, cause unknown).
 # The primary eclipses drift from the linear ephemeris by 0.6 s per orbit
 # (8 min by 2025), most likely the GR terms that ELC includes and we do not.
-# The background sky (catalog stars, Milky Way) is the one seen from Earth; from 1 kpc
-# it would differ.
+# The sky is a model of the Milky Way as seen from here (tools/sky/make_galaxy_sky.py,
+# assets/sky/SOURCES.md): its stars and dust clouds are statistical, not real ones.
 
 name = "Kepler-47"
+
+[sky]
+viewer_ra_dec_distance_pc = [295.297909668, 46.92047426, 1048.0]   # the star, opposite the Sun
+milky_way = "sky/kepler47.jpg"
+stars = "sky/kepler47_stars.csv"
 
 [view]
 focus = "Kepler-47"

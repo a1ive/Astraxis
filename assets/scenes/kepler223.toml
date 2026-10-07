@@ -27,10 +27,15 @@
 # Planet colours are artistic; the star colour comes from T_eff.
 # Check (tests/stellar_system_tests.cpp): the integration reproduces the linear transit
 # ephemerides that [MI16] Extended Data Table 1 fits to the Kepler data.
-# The background sky (catalog stars, Milky Way) is the one seen from Earth; from 2 kpc
-# it would differ.
+# The sky is a model of the Milky Way as seen from here (tools/sky/make_galaxy_sky.py,
+# assets/sky/SOURCES.md): its stars and dust clouds are statistical, not real ones.
 
 name = "Kepler-223"
+
+[sky]
+viewer_ra_dec_distance_pc = [298.318417682, 47.279530121, 1998.0]   # the star, opposite the Sun
+milky_way = "sky/kepler223.jpg"
+stars = "sky/kepler223_stars.csv"
 
 [view]
 focus = "Kepler-223"

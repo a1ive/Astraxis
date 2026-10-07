@@ -306,10 +306,11 @@ struct Marker {
 struct SceneSky {
     std::string milky_way = "textures/milky_way.jpg";
     double milky_way_brightness = 0.25; // linear scale of the map's values
-    // Where the catalog stars are seen from (ICRF, pc from the Sun).
+    // Where the sky is seen from (ICRF, pc from the Sun).
     glm::dvec3 viewer_pc{0.0};
     // Stars that replace the catalog seen from Earth: the catalog from
-    // viewer_pc, or a globular cluster seen from inside. Empty: from Earth.
+    // viewer_pc, or a model sky made for it (tools/sky/make_galaxy_sky.py),
+    // plus the members of a cluster seen from inside. Empty: from Earth.
     std::vector<CatalogStar> stars;
 };
 

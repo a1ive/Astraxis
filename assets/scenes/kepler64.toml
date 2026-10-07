@@ -53,10 +53,15 @@
 # 0.6 min (primary) and 8 min (secondary, 1-sigma ~7 min), the planet transits
 # (Table 2) within 13 min (1-sigma 6-9 min; the medians of Table 7 are not a
 # single best-fit model).
-# The background sky (catalog stars, Milky Way) is the one seen from Earth; from 1.9 kpc
-# it would differ.
+# The sky is a model of the Milky Way as seen from here (tools/sky/make_galaxy_sky.py,
+# assets/sky/SOURCES.md): its stars and dust clouds are statistical, not real ones.
 
 name = "Kepler-64"
+
+[sky]
+viewer_ra_dec_distance_pc = [298.215070011, 39.95510321, 1906.58]   # the star, opposite the Sun
+milky_way = "sky/kepler64.jpg"
+stars = "sky/kepler64_stars.csv"
 
 [view]
 focus = "Kepler-64 A"

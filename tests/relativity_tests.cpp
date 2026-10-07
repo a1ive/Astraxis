@@ -262,6 +262,7 @@ void test_post_keplerian()
 void test_psr_b1913_scene()
 {
     Scene scene = load_scene_or_die("psr_b1913.toml");
+    check_model_sky(scene, "PSR B1913+16 model sky");
     const int pulsar = scene.find("PSR B1913+16");
     const int companion = scene.find("B1913+16 companion");
     const int ghost_p = scene.find("PSR B1913+16 (Newton)");
@@ -333,6 +334,7 @@ void test_psr_b1913_scene()
 void test_psr_j1141_scene()
 {
     Scene scene = load_scene_or_die("psr_j1141.toml");
+    check_model_sky(scene, "PSR J1141-6545 model sky");
     const int pulsar = scene.find("PSR J1141-6545");
     const int wd = scene.find("J1141-6545 white dwarf");
     const int ghost_p = scene.find("PSR J1141-6545 (Newton)");

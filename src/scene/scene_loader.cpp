@@ -1084,13 +1084,28 @@ void Loader::parse(const toml::table& root, Scene& out)
         if (out.sky.milky_way_brightness < 0.0) {
             fail("sky", "milky_way_brightness must not be negative");
         }
+        double v[3] = {0.0, 0.0, 0.0};
         if (sky->contains("viewer_ra_dec_distance_pc")) {
-            if (sky->contains("cluster")) {
-                fail("sky", "viewer_ra_dec_distance_pc and [sky.cluster] exclude each other");
-            }
-            double v[3];
             get_array(*sky, "viewer_ra_dec_distance_pc", "sky", v, 3, 3);
             out.sky.viewer_pc = unit_from_ra_dec(v[0] * kDegToRad, v[1] * kDegToRad) * v[2];
+        }
+        if (sky->contains("stars")) {
+            // A sky made for this viewer by tools/sky/make_galaxy_sky.py.
+            SkyStarFile file;
+            std::string error;
+            if (!load_sky_stars(m_asset_root / get_string(*sky, "stars", "sky"), file, &error)) {
+                fail("sky", error);
+            }
+            for (int i = 0; i < 3; ++i) {
+                if (std::abs(file.viewer[i] - v[i]) > 1e-9 * std::max(1.0, std::abs(v[i]))) {
+                    fail("sky", "the stars file was made for another viewer_ra_dec_distance_pc; regenerate it");
+                }
+            }
+            out.sky.stars = std::move(file.stars);
+            if (!sky->contains("milky_way_brightness")) {
+                out.sky.milky_way_brightness = file.milky_way_brightness;
+            }
+        } else if (sky->contains("viewer_ra_dec_distance_pc")) {
             StarCatalog catalog;
             std::string error;
             if (!load_star_catalog(m_asset_root / "stars" / "hyg.csv", catalog, &error)) {

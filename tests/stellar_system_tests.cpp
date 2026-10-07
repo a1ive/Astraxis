@@ -245,6 +245,7 @@ void test_trappist1_scene()
 void test_kepler223_scene()
 {
     Scene scene = load_scene_or_die("kepler223.toml");
+    check_model_sky(scene, "Kepler-223 model sky");
     const glm::dvec3 away = unit_toward(298.318417682, 47.279530121);
     struct Quarter {
         double t_mean, m3, m1, ttv, p1, p3;
@@ -368,6 +369,7 @@ void test_kepler223_scene()
 void test_kepler47_scene()
 {
     Scene scene = load_scene_or_die("kepler47.toml");
+    check_model_sky(scene, "Kepler-47 model sky");
     const glm::dvec3 away = unit_toward(295.297909668, 46.920474260);
     const int a = scene.find("Kepler-47 A");
     const int b = scene.find("Kepler-47 B");
@@ -440,6 +442,7 @@ void test_kepler47_scene()
 void test_tic168789840_scene()
 {
     Scene scene = load_scene_or_die("tic168789840.toml");
+    check_model_sky(scene, "TIC 168789840 model sky");
     const glm::dvec3 away = unit_toward(63.5201633, -31.9228995);
     struct Binary {
         const char* primary;
@@ -517,6 +520,7 @@ void test_tic168789840_scene()
 void test_kepler64_scene()
 {
     Scene scene = load_scene_or_die("kepler64.toml");
+    check_model_sky(scene, "Kepler-64 model sky");
     const glm::dvec3 away = unit_toward(298.215070011, 39.955103210);
     const int aa = scene.find("Kepler-64 Aa");
     const int ab = scene.find("Kepler-64 Ab");
@@ -632,7 +636,8 @@ void test_psr_b1620_scene()
                 scene.sky.stars.size(), naked_eye, brightest);
     check(scene.sky.stars.size() > 13000, "M4 sky star count", static_cast<double>(scene.sky.stars.size()));
     check(naked_eye > 5000 && brightest < -4.0, "M4 sky is bright", brightest);
-    check(scene.sky.milky_way.empty(), "M4 sky without the Milky Way seen from Earth");
+    // Behind the members, the model's field stars and Milky Way from M4.
+    check_model_sky(scene, "M4 field sky");
 
     // The pulsar's spin axis is the inner orbit's normal.
     check(scene.bodies[static_cast<size_t>(pulsar)].pulsar.enabled &&

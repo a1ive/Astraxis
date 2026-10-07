@@ -20,6 +20,11 @@ double tdb_from_jd_tdb(double jd);
 // Unit vector in ICRF toward the given RA/Dec.
 glm::dvec3 unit_toward(double ra_deg, double dec_deg);
 
+// A scene far from the Sun shows a model sky (tools/sky/make_galaxy_sky.py):
+// its map and stars exist, the map's brightness comes from the stars file, and
+// the viewer sits opposite the scene's "Sun" body, if it has one.
+void check_model_sky(const astraxis::Scene& scene, const char* what);
+
 void run_settings_tests();
 void run_core_tests();
 void run_ephem_tests();

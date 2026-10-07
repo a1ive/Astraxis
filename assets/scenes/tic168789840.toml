@@ -37,10 +37,15 @@
 # GM = mass * GM_sun (1.32712440041279419e11 km^3/s^2, JPL DE440).
 # Check (tests/stellar_system_tests.cpp): the binaries eclipse on the [PO21] ephemerides
 # and B stands at the speckle position.
-# The background sky (catalog stars, Milky Way) is the one seen from Earth; from 584 pc
-# it would differ.
+# The sky is a model of the Milky Way as seen from here (tools/sky/make_galaxy_sky.py,
+# assets/sky/SOURCES.md): its stars and dust clouds are statistical, not real ones.
 
 name = "TIC 168789840"
+
+[sky]
+viewer_ra_dec_distance_pc = [63.5201633, -31.9228995, 584.0]   # the system, opposite the Sun
+milky_way = "sky/tic168789840.jpg"
+stars = "sky/tic168789840_stars.csv"
 
 [view]
 focus = "TIC 168789840 AC"

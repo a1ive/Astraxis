@@ -27,6 +27,8 @@ Per-file details, original download URLs and processing steps are in each direct
 | `assets/ephem/{isee3_geo,isee3_helio,gz}.eph` | Reconstructed from NASA GSFC SSCWeb positions of ISEE-3 and the JPL Navigation ICE trajectory (PDS Small Bodies Node, ICE-C-PLAWAV-3-RDR-ESP-GIACOBIN-ZIN-V1.0) | U.S. Government works / PDS data, public domain |
 | `assets/belts/*.bin` | JPL Small-Body Database (NASA/JPL-Caltech) orbital elements | U.S. Government work, public domain |
 | `assets/stars/hyg.csv` | HYG database v4.4 (astronexus, https://codeberg.org/astronexus/hyg; compiled from Hipparcos, the Yale Bright Star Catalogue and the Gliese Catalogue of Nearby Stars), subset selected by `tools/stars/convert_hyg.py` | CC BY-SA 4.0; credit: astronexus / HYG database. The subset is distributed under the same license |
+| `assets/sky/*.jpg` | Model Milky Way maps made by `tools/sky/make_galaxy_sky.py`; the LMC, SMC and M31 in them are cut from `assets/textures/milky_way.jpg` (NASA/GSFC SVS, Deep Star Maps 2020) | Public domain parts credited as for `milky_way.jpg`; the rest is project output (GPL-3.0-or-later) |
+| `assets/sky/*_stars.csv` | Statistical stars made by `tools/sky/make_galaxy_sky.py`, with absolute magnitudes and colours drawn from the HYG database v4.4 (astronexus) | CC BY-SA 4.0; credit: astronexus / HYG database |
 | `assets/stars/m4.csv` | Gaia DR3 (ESA/Gaia/DPAC), CDS catalogue I/355, members of M4 selected and processed by `tools/stars/make_m4.py` | CC BY-NC 3.0 IGO; credit: ESA/Gaia/DPAC. Non-commercial use only |
 | `assets/textures/jupiter.jpg` | NASA/JPL/Space Science Institute, PIA07782 | Public domain |
 | `assets/textures/{io,europa,ganymede,callisto}.jpg` | USGS Astrogeology Science Center, Galileo/Voyager global mosaics | Public domain |

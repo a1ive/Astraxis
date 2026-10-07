@@ -6,9 +6,13 @@
 #include "core/time.hpp"
 #include "scene/scene_loader.hpp"
 
+#include <glm/glm.hpp>
+
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include <string>
 
 using namespace astraxis;
@@ -64,4 +68,25 @@ glm::dvec3 unit_toward(double ra_deg, double dec_deg)
     const double ra = ra_deg * kDegToRad;
     const double dec = dec_deg * kDegToRad;
     return {std::cos(dec) * std::cos(ra), std::cos(dec) * std::sin(ra), std::sin(dec)};
+}
+
+void check_model_sky(const Scene& scene, const char* what)
+{
+    const std::filesystem::path map = std::filesystem::path(ASTRAXIS_ASSET_DIR) / scene.sky.milky_way;
+    check(scene.sky.milky_way.starts_with("sky/") && std::filesystem::exists(map), what);
+    check(scene.sky.stars.size() > 500, what, static_cast<double>(scene.sky.stars.size()));
+    check(scene.sky.milky_way_brightness > 0.0 && scene.sky.milky_way_brightness < 10.0, what,
+          scene.sky.milky_way_brightness);
+    const int sun = scene.find("Sun");
+    if (sun >= 0) {
+        const glm::dvec3 sun_pc = scene.icrf_state_at(sun, 0.0).position / kParsecKm;
+        const double miss = glm::length(scene.sky.viewer_pc + sun_pc) / glm::length(scene.sky.viewer_pc);
+        check(miss < 1e-6, what, miss);
+    }
+    double brightest = 99.0;
+    for (const CatalogStar& s : scene.sky.stars) {
+        brightest = std::min(brightest, s.vmag);
+    }
+    std::printf("info: %s: %zu stars, brightest V = %.2f, Milky Way brightness %.3f\n", what, scene.sky.stars.size(),
+                brightest, scene.sky.milky_way_brightness);
 }
