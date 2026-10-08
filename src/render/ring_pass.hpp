@@ -13,7 +13,7 @@
 
 namespace astraxis {
 
-inline constexpr int kMaxRingBands = 16; // drawn one by one (eccentric or inclined rings)
+inline constexpr int kMaxRingBands = 16; // drawn one by one (eccentric, inclined or partial rings)
 
 struct RingDrawItem {
     glm::mat4 model{1.0f};          // camera-relative translation * body-fixed axes (km)
@@ -36,7 +36,9 @@ struct RingDrawItem {
     int band_count = 0;
     std::array<glm::vec4, kMaxRingBands> band_edges{};  // a and e of the inner and outer edge
     std::array<glm::vec4, kMaxRingBands> band_shape{};  // xy = unit vector to periapsis, zw = node (a sin i)
-    std::array<glm::vec4, kMaxRingBands> band_optics{}; // x = mean tau x mean width (km), y = mu floor
+    // x = mean tau x mean width (km), y = mu floor, z = arc center (angle from x toward y),
+    // w = arc half-length (radians; 0 = complete ring)
+    std::array<glm::vec4, kMaxRingBands> band_optics{};
 };
 
 // Draws planetary rings as single-scattering annuli in the planet's

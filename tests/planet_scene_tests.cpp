@@ -573,6 +573,60 @@ void test_uranus_rings()
     }
 }
 
+// Ring arcs: Neptune's Adams arcs and Quaoar's dense Q1R arc.
+void test_ring_arcs()
+{
+    Scene scene = load_scene_or_die("solar_system.toml");
+    auto find_band = [&](const Body& body, const char* name) -> const RingBand* {
+        for (const RingBand& b : body.rings.bands) {
+            if (b.name == name) {
+                return &b;
+            }
+        }
+        check(false, name);
+        return nullptr;
+    };
+
+    // Carried from Voyager's 1989 position at [SOU22]'s mean motion, Fraternite's
+    // middle must be where SPHERE saw it 27 years later: 217.43 +- 0.30 deg from
+    // the ascending node of Neptune's equator on the ICRF equator, at the time the
+    // light left Neptune, 28.959 au (Table 1) before the 05:33:51.958 UT frame.
+    const Body& neptune = scene.bodies[static_cast<size_t>(scene.find("Neptune"))];
+    if (const RingBand* fraternite = find_band(neptune, "Fraternite")) {
+        double t = 0.0;
+        parse_utc("2016-08-23 05:33:51.958", &t);
+        t -= 28.959 * kAuKm / kSpeedOfLightKmS;
+        scene.update(t);
+        const glm::dmat3 body_to_icrf = scene.current_transform().axes * neptune.orientation;
+        const double center = ring_band_shape(neptune, *fraternite, body_to_icrf, t).arc_center;
+        const glm::dvec3 dir = body_to_icrf * glm::dvec3(std::cos(center), std::sin(center), 0.0);
+        const glm::dvec3 pole = body_to_icrf[2];
+        const glm::dvec3 x = glm::normalize(glm::cross(glm::dvec3(0.0, 0.0, 1.0), pole));
+        const double longitude =
+            wrap_two_pi(std::atan2(glm::dot(dir, glm::cross(pole, x)), glm::dot(dir, x))) / kDegToRad;
+        // 0.3 deg each from that measurement and from the rate over 27 years; and
+        // [SOU22] counted the interval in UT (13 leap seconds, 0.12 deg, short).
+        check(std::abs(longitude - 217.43) < 0.6, "Fraternite in 2016 (SPHERE)", longitude);
+        std::printf("info: Fraternite on 2016-08-23 at %.2f deg (SPHERE: 217.43 +- 0.30)\n", longitude);
+    }
+    if (const RingBand* liberte = find_band(neptune, "Liberte")) {
+        const double y1989 = tdb_from_jd_tdb(2447757.0);
+        const double y2009 = tdb_from_jd_tdb(2454832.5);
+        check(liberte->fade(y1989 - kSecondsPerDay) == 1.0 &&
+                  std::abs(liberte->fade(0.5 * (y1989 + y2009)) - 0.5) < 0.01 && liberte->fade(y2009 + kSecondsPerDay) == 0.0,
+              "Liberte fades out by 2009");
+    }
+
+    // Quaoar's arc moves at the circular mean motion at its radius.
+    const Body& quaoar = scene.bodies[static_cast<size_t>(scene.find("Quaoar"))];
+    if (const RingBand* arc = find_band(quaoar, "Q1R dense arc")) {
+        const double r = 0.5 * (arc->inner_km + arc->outer_km);
+        const double n = std::sqrt(quaoar.body_gm_km3_s2 / (r * r * r)) * kSecondsPerDay / kDegToRad;
+        check(std::abs(arc->arc_rate_deg_per_day / n - 1.0) < 1e-5 && quaoar.rings.shaped(), "Quaoar arc mean motion",
+              arc->arc_rate_deg_per_day - n);
+    }
+}
+
 void test_saturn_scene()
 {
     Scene scene = load_scene_or_die("saturn.toml");
@@ -711,6 +765,7 @@ void run_planet_scene_tests()
     test_solar_system_bodies();
     test_solar_system_belts();
     test_uranus_rings();
+    test_ring_arcs();
     test_earth_moon_frame();
     test_earth_moon_rotation();
     test_saturn_scene();

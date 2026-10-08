@@ -76,8 +76,25 @@
 #        about the pole of positive angular momentum (opposite to the IAU north pole).
 # [PDSN] PDS Ring-Moon Systems Node, "Vital Statistics for Neptune's Rings and Inner
 #        Satellites" (https://pds-rings.seti.org/neptune/neptune_tables.html).
+# [ARCS] Adams ring arcs at 1989 Aug 18 12:00 UT (at Neptune), longitudes: Fraternite
+#        247-257, Egalite 1 261-264, Egalite 2 265-266, Liberte 276-280, Courage
+#        284.5-285.5 deg, as compiled in Wikipedia's "Rings of Neptune" from Porco 1991
+#        (Science 253, 995) and Miner et al. 2007 (Planetary Ring Systems); the original
+#        tables were not at hand. Fraternite's middle agrees with 251.88 deg (Porco et
+#        al. 1995, quoted in [SOU22]); the extents with the ~10, 4, 4 and 1-2 deg of
+#        arXiv:2006.10939 and the 9.6 deg of Fraternite in [NRV].
+# [SOU22] Souami et al. 2022, A&A 657, A134 (arXiv:2110.12669), Sect. 3.2: the arcs'
+#        mean motion, 820.11178 +- 0.00003 deg/day, from Fraternite at 251.88 deg in 1989
+#        and 217.43 +- 0.30 deg on 2016 Aug 23 (light leaving Neptune 4.01 h before the
+#        05:33:52 UT frame of Table 1). Longitudes in the ring plane from the J2000.0
+#        ascending node of Neptune's equator.
+# [NRV]  de Pater et al. 2018, "The rings of Neptune" (Planetary Ring Systems,
+#        arXiv:1906.11728): Table 1, arcs 15 km wide with normal optical depth 0.1;
+#        Sect. 2.1, Liberte and Courage had essentially disappeared by 2009.
 # [QRNG] Pereira et al. 2023, A&A (arXiv:2304.09237), Table 2 and Sect. 5:
 #        Quaoar's two rings and the Q1R pole, RA 17h19m16.8s, Dec +53 27' (ICRS).
+#        Table 7: Q1R's dense part at egress (2022 Aug 9; CFHT, Gemini z', r'): radius
+#        4123.69, 4123.11, 4122.85 km, width 6.1, 5.3, 5.1 km, tau 0.395, 0.417, 0.398.
 # [ATM]  Atmospheres, single scattering (Rayleigh gas + Henyey-Greenstein haze; optical
 #        depths vertical, at 550 nm, from the base of the shell). Colors (haze albedo),
 #        phase functions and depths marked "illustrative" are chosen by eye.
@@ -1299,16 +1316,21 @@ s = -0.10162547
 f = 7.67025000
 
 # Rings [PDSN]: Galle, Le Verrier, Lassell and Adams (Arago, a brightening at
-# Lassell's outer edge, has no width or optical depth in the table). The Adams
-# ring is drawn without its arcs (tau up to 0.1), Le Verrier at its upper width
-# bound (< 100 km). The rings are dusty, so they scatter forward (g = 0.5,
-# illustrative); their dark, reddish tint and the gain are artistic (gain x tau x
-# albedo about twice that of Jupiter's main ring in jupiter.toml, so that the narrow
-# Le Verrier and Adams rings show; Galle and Lassell stay 100 times fainter).
+# Lassell's outer edge, has no width or optical depth in the table), Le Verrier at
+# its upper width bound (< 100 km). The Adams arcs [ARCS] lie on the Adams ring, 15
+# km wide with tau 0.1 [NRV], and move together at [SOU22]'s mean motion; their ends
+# are softened over 15% of their length. Liberte and Courage fade out linearly from
+# Voyager's flyby to 2009 [NRV] (in between, Liberte was almost gone by 2003 and
+# Courage flared in 1998 and jumped 8 deg ahead; Fraternite shortened by a quarter:
+# not drawn). The rings are dusty, so they scatter forward (g = 0.5, illustrative);
+# their dark, reddish tint and the gain are artistic (gain x tau x albedo about
+# twice that of Jupiter's main ring in jupiter.toml, so that the narrow Le Verrier
+# and Adams rings show; Galle and Lassell stay 100 times fainter).
 [bodies.rings]
 color = "#4c4440"
 gain = 400.0
 phase_g = 0.5
+epoch = "1989-08-18 12:00"                 # [ARCS] (UT at Neptune)
 
 [[bodies.rings.bands]]
 name = "Galle"
@@ -1332,7 +1354,54 @@ optical_depth = 0.0001
 name = "Adams"
 inner_km = 62925.50
 outer_km = 62940.50
-optical_depth = 0.01                       # without the arcs (0.01 to 0.1)
+optical_depth = 0.01                       # between the arcs (0.01 to 0.1 with them)
+
+[[bodies.rings.bands]]
+name = "Fraternite"
+inner_km = 62925.50
+outer_km = 62940.50
+optical_depth = 0.1                        # [NRV]
+arc_center_deg = 251.88                    # [SOU22] (Porco et al. 1995)
+arc_length_deg = 10.0
+arc_rate_deg_per_day = 820.11178           # [SOU22]
+
+[[bodies.rings.bands]]
+name = "Egalite 1"
+inner_km = 62925.50
+outer_km = 62940.50
+optical_depth = 0.1                        # [NRV]
+arc_center_deg = 262.5                     # [ARCS]
+arc_length_deg = 3.0
+arc_rate_deg_per_day = 820.11178           # [SOU22]
+
+[[bodies.rings.bands]]
+name = "Egalite 2"
+inner_km = 62925.50
+outer_km = 62940.50
+optical_depth = 0.1                        # [NRV]
+arc_center_deg = 265.5                     # [ARCS]
+arc_length_deg = 1.0
+arc_rate_deg_per_day = 820.11178           # [SOU22]
+
+[[bodies.rings.bands]]
+name = "Liberte"
+inner_km = 62925.50
+outer_km = 62940.50
+optical_depth = 0.1                        # [NRV]
+arc_center_deg = 278.0                     # [ARCS]
+arc_length_deg = 4.0
+arc_rate_deg_per_day = 820.11178           # [SOU22]
+fade_out = ["1989-08-18 12:00", "2009-01-01"] # [NRV]
+
+[[bodies.rings.bands]]
+name = "Courage"
+inner_km = 62925.50
+outer_km = 62940.50
+optical_depth = 0.1                        # [NRV]
+arc_center_deg = 285.0                     # [ARCS]
+arc_length_deg = 1.0
+arc_rate_deg_per_day = 820.11178           # [SOU22]
+fade_out = ["1989-08-18 12:00", "2009-01-01"] # [NRV]
 
 
 # Triton: retrograde (i > 90 deg) around its Laplace plane [ELEM] (NEP097, pole RA 299.8,
@@ -1613,15 +1682,19 @@ type = "ephemeris"
 file = "ephem/quaoar.eph"
 extrapolate = "kepler"                     # two-body orbit from the nearer end of the table
 
-# Rings [QRNG]: Q1R at 4,057 km (its tenuous part, 80-100 km wide, tau ~0.003;
-# the dense core, tau 0.4 over ~5 km, was only seen along short arcs and is left
-# out) and Q2R at 2,520 km (~10 km wide, tau ~0.004), both outside the Roche
-# limit. Assumed in Quaoar's equatorial plane (pole above). Tint and gain
-# illustrative.
+# Rings [QRNG]: Q1R at 4,057 km (its tenuous part, 80-100 km wide, tau ~0.003)
+# and Q2R at 2,520 km (~10 km wide, tau ~0.004), both outside the Roche limit.
+# Q1R's dense part (Table 7, mean of the three: 4123.2 km, 5.5 km wide, tau 0.40)
+# was only seen in 2 of 19 chords, so it is an arc whose length, from those odds,
+# lies between 18 and 72 deg with 70% chance (Sect. 5): drawn 45 deg long. Where
+# it lies is not known (its phase here is arbitrary); it moves at the circular
+# mean motion there, sqrt(GM / r^3) with Quaoar's GM. Assumed in Quaoar's
+# equatorial plane (pole above). Tint and gain illustrative.
 [bodies.rings]
 color = "#8a7a70"
 gain = 60.0
 phase_g = 0.0
+epoch = "2022-08-09 06:38"                 # [QRNG] the egress detection (phase arbitrary)
 
 [[bodies.rings.bands]]
 name = "Q2R"
@@ -1634,6 +1707,15 @@ name = "Q1R"
 inner_km = 4012.00
 outer_km = 4102.00
 optical_depth = 0.003                      # width 80-100 km
+
+[[bodies.rings.bands]]
+name = "Q1R dense arc"
+inner_km = 4120.45
+outer_km = 4125.95
+optical_depth = 0.40
+arc_center_deg = 0.0                       # arbitrary
+arc_length_deg = 45.0
+arc_rate_deg_per_day = 182.8166            # sqrt(GM / r^3) at 4123.2 km, GM 95.6022 [GMB]
 
 
 [[bodies]]

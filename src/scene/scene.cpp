@@ -45,6 +45,14 @@ bool RingSystem::shaped() const
     return std::any_of(bands.begin(), bands.end(), [](const RingBand& b) { return b.shaped(); });
 }
 
+double RingBand::fade(double t_tdb) const
+{
+    if (!(fade_to_tdb > fade_from_tdb)) {
+        return 1.0;
+    }
+    return std::clamp((fade_to_tdb - t_tdb) / (fade_to_tdb - fade_from_tdb), 0.0, 1.0);
+}
+
 double ring_edge_radius(double a_km, double ae_km, double from_periapsis)
 {
     const double e = ae_km / a_km;
@@ -68,9 +76,11 @@ RingBandShape ring_band_shape(const Body& planet, const RingBand& band, const gl
     const double days = (t_tdb - planet.rings.epoch_tdb) / kSecondsPerDay;
     const double peri = origin + sense * wrap_two_pi((band.peri_deg + band.peri_rate_deg_per_day * days) * kDegToRad);
     const double node = origin + sense * wrap_two_pi((band.node_deg + band.node_rate_deg_per_day * days) * kDegToRad);
+    const double arc = origin + sense * wrap_two_pi((band.arc_center_deg + band.arc_rate_deg_per_day * days) * kDegToRad);
     RingBandShape shape;
     shape.periapsis = glm::dvec2(std::cos(peri), std::sin(peri));
     shape.node = band.a_sin_i_km * glm::dvec2(std::cos(node), std::sin(node));
+    shape.arc_center = wrap_pi(arc);
     return shape;
 }
 

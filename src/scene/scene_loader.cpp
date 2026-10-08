@@ -21,6 +21,7 @@
 #include <cstring>
 #include <fstream>
 #include <map>
+#include <optional>
 #include <sstream>
 #include <unordered_map>
 
@@ -849,6 +850,29 @@ void Loader::parse(const toml::table& root, Scene& out)
                 band.a_sin_i_km = get_double_or(*b, "a_sin_i_km", 0.0);
                 band.node_deg = get_double_or(*b, "node_deg", 0.0);
                 band.node_rate_deg_per_day = get_double_or(*b, "node_rate_deg_per_day", 0.0);
+                band.arc_length_deg = get_double_or(*b, "arc_length_deg", 0.0);
+                band.arc_center_deg = get_double_or(*b, "arc_center_deg", 0.0);
+                band.arc_rate_deg_per_day = get_double_or(*b, "arc_rate_deg_per_day", 0.0);
+                if (!(band.arc_length_deg >= 0.0 && band.arc_length_deg < 360.0)) {
+                    fail(rctx, "band '" + band.name + "' needs 0 <= arc_length_deg < 360");
+                }
+                if (b->contains("fade_out")) {
+                    const std::string fctx = rctx + " band '" + band.name + "' fade_out";
+                    const toml::array* span = (*b)["fade_out"].as_array();
+                    double ends[2] = {0.0, 0.0};
+                    for (size_t e = 0; e < 2; ++e) {
+                        const std::optional<std::string> text =
+                            span && span->size() == 2 ? (*span)[e].value<std::string>() : std::nullopt;
+                        if (!text || !parse_utc(text->c_str(), &ends[e])) {
+                            fail(fctx, "must be two dates, [\"YYYY-MM-DD[ HH:MM[:SS]]\", ...] (UTC)");
+                        }
+                    }
+                    if (!(ends[1] > ends[0])) {
+                        fail(fctx, "must end after it starts");
+                    }
+                    band.fade_from_tdb = ends[0];
+                    band.fade_to_tdb = ends[1];
+                }
                 // The edges must not cross: the width varies by the difference of their a e.
                 if (band.inner_ae_km < 0.0 || band.outer_ae_km < 0.0 || band.a_sin_i_km < 0.0 ||
                     std::abs(band.outer_ae_km - band.inner_ae_km) >= band.outer_km - band.inner_km ||
@@ -864,9 +888,11 @@ void Loader::parse(const toml::table& root, Scene& out)
             }
             if (body.rings.shaped()) {
                 if (body.rings.bands.size() > static_cast<size_t>(kMaxShapedRingBands)) {
-                    fail(rctx, "at most " + std::to_string(kMaxShapedRingBands) + " bands with eccentric or inclined rings");
+                    fail(rctx, "at most " + std::to_string(kMaxShapedRingBands) + " bands with eccentric, inclined or partial rings");
                 }
-                body.rings.epoch_tdb = (get_double(*rings, "epoch_jd_tdb", rctx) - kJ2000Jd) * kSecondsPerDay;
+                body.rings.epoch_tdb = rings->contains("epoch")
+                                           ? parse_time(*rings, "epoch", rctx)
+                                           : (get_double(*rings, "epoch_jd_tdb", rctx) - kJ2000Jd) * kSecondsPerDay;
             }
         }
 

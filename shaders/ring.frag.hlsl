@@ -11,8 +11,9 @@
 // ellipsoid with a penumbra from the sun's disk. Everything is in body-fixed
 // coordinates, where the ring plane is z = 0.
 //
-// Narrow eccentric and inclined rings (Uranus') are instead summed band by
-// band: each edge is an ellipse with the planet at a focus, and the band lies
+// Narrow eccentric, inclined or partial rings (Uranus', Neptune's arcs) are
+// instead summed band by band: each edge is an ellipse with the planet at a
+// focus, an arc spans only part of the circle (with soft ends), and the band lies
 // at height z = cross(node, u) in direction u. Along the line of sight through
 // this pixel's point on the z = 0 plane, the band's height is reached a little
 // farther on (one fixed-point step). Its optical depth is filtered with a tent
@@ -32,7 +33,7 @@ cbuffer Uniforms : register(b0, space3)
     float4 u_radii;  // x = inner, y = outer radius of the profile (km), z = number of bands drawn one by one
     float4 u_band_edges[16];  // x, y = semi-major axis of the inner, outer edge (km); z, w = their eccentricity
     float4 u_band_shape[16];  // xy = unit vector to periapsis; zw = toward the ascending node, length a sin i (km)
-    float4 u_band_optics[16]; // x = mean tau x mean width (km), y = floor for mu
+    float4 u_band_optics[16]; // x = mean tau x mean width (km), y = floor for mu, z = arc center angle, w = arc half-length (0: no arc)
 };
 
 // A view along the plane would shift a ring's crossing without bound.
@@ -118,6 +119,14 @@ float4 main(PSInput input) : SV_Target0
             float covered = tent_cdf(outer - rq, half_width) - tent_cdf(inner - rq, half_width);
             // tau x width is kept where the ring narrows or widens.
             float t = u_band_optics[k].x / (outer - inner) * covered;
+            float half_length = u_band_optics[k].w;
+            if (half_length > 0.0) {
+                // Ends soft over 15% of the length on each side, keeping its integral.
+                float off = atan2(q.y, q.x) - u_band_optics[k].z;
+                off = abs(off - 6.2831853 * round(off / 6.2831853));
+                float taper = 0.3 * half_length;
+                t *= 1.0 - smoothstep(half_length - taper, half_length + taper, off);
+            }
             tau += t;
             floor_weighted += t * u_band_optics[k].y;
             weighted += t * float3(q, z);

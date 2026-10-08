@@ -65,7 +65,24 @@ struct RingBand {
     double node_deg = 0.0;   // longitude of the ascending node
     double node_rate_deg_per_day = 0.0;
 
-    bool shaped() const { return inner_ae_km != 0.0 || outer_ae_km != 0.0 || a_sin_i_km != 0.0; }
+    // Arcs (Neptune's Adams arcs, Quaoar's dense Q1R): the band only spans
+    // arc_length_deg around a longitude that moves at arc_rate_deg_per_day
+    // (same convention as above), with soft ends. 0: a complete ring.
+    double arc_length_deg = 0.0;
+    double arc_center_deg = 0.0;
+    double arc_rate_deg_per_day = 0.0;
+    // Optional fading: the optical depth falls linearly to 0 over this span
+    // (TDB seconds since J2000; equal: never fades).
+    double fade_from_tdb = 0.0;
+    double fade_to_tdb = 0.0;
+
+    bool shaped() const
+    {
+        return inner_ae_km != 0.0 || outer_ae_km != 0.0 || a_sin_i_km != 0.0 || arc_length_deg > 0.0 ||
+               fade_to_tdb > fade_from_tdb;
+    }
+    // Fraction of the optical depth left at t_tdb.
+    double fade(double t_tdb) const;
 };
 inline constexpr int kMaxShapedRingBands = 16;
 
@@ -109,6 +126,7 @@ struct RingBandShape {
     // Toward the ascending node, of length a sin i: a point of the ring in
     // direction u (unit) lies at height z = cross(node, u) = node.x u.y - node.y u.x.
     glm::dvec2 node{0.0};
+    double arc_center = 0.0; // angle from the body x axis toward y (radians, -pi..pi)
 };
 
 // Radius of an edge (semi-major axis a_km, a e = ae_km) at an angle

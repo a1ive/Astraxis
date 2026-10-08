@@ -289,8 +289,8 @@ void add_plume_items(const Body& body, const Plume& plume, const glm::dvec3& cam
 // shader's cap) away.
 constexpr double kMaxRingSlope = 1000.0;
 
-// Eccentric and inclined rings, one by one in the body frame (camera: camera
-// position in that frame); the annulus is widened to cover them.
+// Eccentric, inclined or partial rings, one by one in the body frame (camera:
+// camera position in that frame); the annulus is widened to cover them.
 void set_ring_bands(const Body& body, const glm::dmat3& body_to_icrf, double t_tdb, const glm::dvec3& camera,
                     RingDrawItem& ring)
 {
@@ -307,8 +307,10 @@ void set_ring_bands(const Body& body, const glm::dmat3& body_to_icrf, double t_t
                                        static_cast<float>(band.inner_ae_km / band.inner_km),
                                        static_cast<float>(band.outer_ae_km / band.outer_km));
         ring.band_shape[k] = glm::vec4(glm::vec2(shape.periapsis), glm::vec2(shape.node));
-        ring.band_optics[k] = glm::vec4(static_cast<float>(band.optical_depth * width),
-                                        static_cast<float>(band.thickness_km / width), 0.0f, 0.0f);
+        ring.band_optics[k] = glm::vec4(static_cast<float>(band.optical_depth * band.fade(t_tdb) * width),
+                                        static_cast<float>(band.thickness_km / width),
+                                        static_cast<float>(shape.arc_center),
+                                        static_cast<float>(0.5 * band.arc_length_deg * kDegToRad));
         inner = std::min(inner, band.inner_km - band.inner_ae_km);
         outer = std::max(outer, band.outer_km + band.outer_ae_km);
         height = std::max(height, band.a_sin_i_km);
