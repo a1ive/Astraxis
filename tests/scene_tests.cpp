@@ -385,6 +385,40 @@ void test_label_layout()
     labels.reset();
     labels.update(sim.scene(), view, focus, screen, font, measure, 0.0f);
     check(labels.bodies().front().text_alpha == 0.0f, "reset forgets the eased opacities");
+
+    // Labels covered by a huge focus label come back only after their place
+    // has stayed free for a moment, and never move relative to their body.
+    glm::vec2 label_size(5000.0f);
+    auto measure_sized = [&](const std::string&) { return label_size; };
+    labels.reset();
+    for (int k = 0; k < 30; ++k) {
+        labels.update(sim.scene(), view, focus, screen, font, measure_sized, 1.0f / 30.0f);
+    }
+    std::vector<glm::vec2> offsets(sim.scene().bodies.size(), glm::vec2(0.0f));
+    for (const LabelLayout::BodyMark& mark : labels.bodies()) {
+        offsets[static_cast<size_t>(mark.body)] = mark.text_position - mark.position;
+    }
+    label_size = glm::vec2(1.0f);
+    float waiting_max = 0.0f;
+    for (int k = 0; k < 15; ++k) {
+        labels.update(sim.scene(), view, focus, screen, font, measure_sized, 1.0f / 30.0f);
+    }
+    for (const LabelLayout::BodyMark& mark : labels.bodies()) {
+        waiting_max = mark.body == focus ? waiting_max : std::max(waiting_max, mark.text_alpha);
+    }
+    check(waiting_max == 0.0f, "uncovered labels wait before they show again", waiting_max);
+    for (int k = 0; k < 60; ++k) {
+        labels.update(sim.scene(), view, focus, screen, font, measure_sized, 1.0f / 30.0f);
+    }
+    int reshown = 0;
+    bool moved = false;
+    for (const LabelLayout::BodyMark& mark : labels.bodies()) {
+        reshown += mark.body != focus && mark.text_alpha > 0.99f * mark.fade && mark.fade > 0.05f ? 1 : 0;
+        const glm::vec2 offset = mark.text_position - mark.position;
+        moved = moved || glm::length(offset - offsets[static_cast<size_t>(mark.body)]) > 1e-3f;
+    }
+    check(reshown > 0, "uncovered labels show again after the wait", static_cast<double>(reshown));
+    check(!moved, "labels keep their place relative to their body");
 }
 
 // What the info panel describes a body as orbiting, and its osculating orbit.

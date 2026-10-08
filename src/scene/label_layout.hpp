@@ -14,8 +14,10 @@ struct OutputView;
 // Where the on-screen annotations go: scene markers (e.g. Lagrange points),
 // body markers and body labels. Labels are placed by priority (the focus,
 // stars, bodies orbiting a star, spacecraft, moons, then ghosts, larger bodies
-// first); a label that would overlap one already placed fades out, and labels
-// ease in and out so that they do not flicker as bodies pass each other.
+// first); a label that would overlap one already placed fades out, and comes
+// back only after its place has stayed free for a moment (it keeps that place
+// meanwhile). Labels never move relative to their body; they only fade, slowly,
+// so that they do not draw the eye as bodies pass each other.
 //
 // Screen coordinates are in "points" from the top left, in whatever unit the
 // host draws text with (`screen_size`, `font_size` and `measure_text` agree);
@@ -48,7 +50,7 @@ public:
     void update(const Scene& scene, const OutputView& view, int focus, glm::vec2 screen_size, float font_size,
                 const MeasureText& measure_text, float dt);
     // Forgets the eased label opacities (e.g. on a scene change).
-    void reset() { m_alpha.clear(); }
+    void reset() { m_labels.clear(); }
 
     const std::vector<SceneMarker>& markers() const { return m_markers; }
     // In placement order (highest priority first).
@@ -60,7 +62,11 @@ public:
     int pick(glm::vec2 point, float pick_radius) const;
 
 private:
-    std::vector<float> m_alpha; // per body: label opacity, eased toward its target
+    struct LabelState {
+        float alpha = 0.0f; // opacity, eased toward its target
+        float wait = 0.0f;  // seconds before a label that was covered may show again
+    };
+    std::vector<LabelState> m_labels; // per body
     std::vector<SceneMarker> m_markers;
     std::vector<BodyMark> m_bodies;
 };

@@ -13,7 +13,10 @@ namespace astraxis {
 namespace {
 
 constexpr float kLabelPadding = 2.0f;     // points around each label when checking overlaps
-constexpr float kLabelFadeSeconds = 0.3f; // labels ease in/out over this long
+constexpr float kLabelFadeSeconds = 0.7f; // labels ease in/out over this long
+// A label that was covered comes back only once its place has stayed free this
+// long, so that it does not blink as bodies graze each other.
+constexpr float kLabelReshowSeconds = 1.0f;
 constexpr float kPickMinAlpha = 0.3f;     // a label must be at least this visible to be picked
 
 // True if the segment from the camera (origin) to `target` passes through a sphere.
@@ -65,13 +68,13 @@ void LabelLayout::update(const Scene& scene, const OutputView& view, int focus, 
         float radius_px;
     };
     std::vector<Candidate> candidates;
-    m_alpha.resize(scene.bodies.size(), 0.0f);
+    m_labels.resize(scene.bodies.size());
     for (size_t i = 0; i < scene.bodies.size(); ++i) {
         const Body& body = scene.bodies[i];
         const float fade = i < view.body_fades.size() ? view.body_fades[i] : 1.0f;
         if (!body.visible || body.kind == BodyKind::Barycenter || fade <= 0.0f ||
             (!body.label && static_cast<int>(i) != focus)) {
-            m_alpha[i] = 0.0f;
+            m_labels[i] = {};
             continue;
         }
         const glm::dvec3 rel = body.world_position - cam;
@@ -87,7 +90,7 @@ void LabelLayout::update(const Scene& scene, const OutputView& view, int focus, 
         glm::vec2 screen;
         float w = 0.0f;
         if (hidden || !project(rel, &screen, &w)) {
-            m_alpha[i] = 0.0f;
+            m_labels[i] = {};
             continue;
         }
         const float radius_px =
@@ -137,8 +140,10 @@ void LabelLayout::update(const Scene& scene, const OutputView& view, int focus, 
         if (!overlaps && fade > 0.05f) {
             placed.push_back(rect);
         }
-        float& eased = m_alpha[i];
-        eased = std::clamp(eased + (overlaps ? -step : step), 0.0f, 1.0f);
+        LabelState& s = m_labels[i];
+        s.wait = overlaps ? kLabelReshowSeconds : std::max(s.wait - dt, 0.0f);
+        const bool show = !overlaps && s.wait <= 0.0f;
+        s.alpha = std::clamp(s.alpha + (show ? step : -step), 0.0f, 1.0f);
 
         BodyMark mark;
         mark.body = c.body;
@@ -146,7 +151,7 @@ void LabelLayout::update(const Scene& scene, const OutputView& view, int focus, 
         mark.radius = c.radius_px;
         mark.fade = fade;
         mark.text_position = text_pos;
-        mark.text_alpha = eased * fade;
+        mark.text_alpha = s.alpha * fade;
         // Spacecraft and ghosts are never drawn as bodies, so they always get a dot.
         if (body.kind == BodyKind::Ghost) {
             mark.dot = Dot::Hollow;
