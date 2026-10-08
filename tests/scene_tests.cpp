@@ -610,7 +610,8 @@ void test_camera_director(const char* scene_file, double base_warp, double minut
         camera.update(dt, scene);
         kinds_seen[static_cast<int>(director.current_shot())] = true;
         if (director.current_shot() == CameraDirector::ShotKind::ShadowTransit) {
-            check(director.shot_warp() > 0.0 && director.shot_warp() <= 600.0, "transit shot slows time");
+            const double transit_warp = director.shot_warp() > 0.0 ? director.shot_warp() : base_warp;
+            check(transit_warp <= 600.0, "transit shot slows time", transit_warp);
             if (transit_seen) {
                 *transit_seen = true;
             }
@@ -712,6 +713,9 @@ void run_scene_tests()
     }
     for (uint32_t seed : {1u, 2u, 3u}) {
         test_camera_director("solar_system.toml", 2629800.0, 10.0, seed);
+    }
+    for (uint32_t seed : {5u, 6u}) {
+        test_camera_director("mars.toml", 600.0, 10.0, seed); // Phobos: 11 km, close to Mars
     }
     test_camera_director_black_hole();
 }

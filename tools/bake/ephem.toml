@@ -1164,3 +1164,91 @@ start = "2014-03-03"
 stop = "2016-09-30 10:40"
 base_step_minutes = 60
 tolerance_km = 0.05
+
+# --- Mars-centered (assets/scenes/mars.toml; center: Mars body center, 500@499) ----
+# Horizons notes (2026-10-08):
+#   Mars Express (-41): 2003-Jun-02 19:13 .. 2032-Dec-31 23:59 TDB (ESA; reconstructed
+#                    from tracking through 2026-Sep-23, then a prediction; long-term
+#                    forecast file ORMF from 2026-Oct-20)
+#   MAVEN (-202):    2013-Nov-18 19:22 .. 2026-Mar-01 00:58 TDB (JPL navigation, fit to data
+#                    through 2025-Dec-04; no contact since 2025-Dec-06, after "an unplanned
+#                    delta-V Dec. 4", so the later prediction is not where MAVEN went)
+#   MRO (-74):       2005-Aug-12 12:42 .. 2026-Oct-27 12:08 TDB (JPL MRO navigation; aerobraking
+#                    file mro_ab 2006-Mar-10 22:06 .. 2006-Sep-12 06:40; planning prediction
+#                    after 2026-Sep-27 23:32)
+# Kepler-relative around the Mars system GM (DE440, JPL SSD astrodynamic parameters).
+# Low orbits need many knots (Mars' oblateness bends them every revolution): at 10 km,
+# a month of MRO's 112-minute orbit takes ~800 knots, of MAVEN's ~330, of Mars Express'
+# ~210. So MRO keeps two windows only (arrival and aerobraking; the last two years),
+# and Phobos only the days around Mars Express' close passes (mean elements elsewhere).
+
+[[target]]
+name = "phobos_mex"
+command = "401"
+naif_id = 401
+center = "500@499"
+center_naif_id = 499
+kepler_gm_km3_s2 = 42828.375816
+start = "2003-12-20"
+stop = "2029-01-01"
+base_step_minutes = 10
+tolerance_km = 2.0
+radius_km = 11.08
+windows_near = "-41"       # only near Mars Express; mean elements elsewhere
+window_km = 1500.0
+window_pad_days = 1.0
+
+[[target]]
+name = "mex_mars"
+command = "-41"
+naif_id = -41
+center = "500@499"
+center_naif_id = 499
+kepler_gm_km3_s2 = 42828.375816
+start = "2003-12-20"       # five days before orbit insertion (2003-12-25)
+stop = "2029-01-01"        # reconstructed to 2026-09-23, then ESA's prediction
+base_step_minutes = 10
+tolerance_km = 5.0
+radius_km = 3396.19
+encounters = ["phobos_mex"]
+encounter_km = 200.0
+encounter_step_minutes = 10  # slow: 25 years in Python
+
+[[target]]
+name = "maven_mars"
+command = "-202"
+naif_id = -202
+center = "500@499"
+center_naif_id = 499
+kepler_gm_km3_s2 = 42828.375816
+start = "2014-09-18"       # four days before orbit insertion (2014-09-22 02:24 UTC)
+stop = "2025-12-04"        # end of the tracking data
+base_step_minutes = 5
+tolerance_km = 10.0
+radius_km = 3396.19
+
+[[target]]
+name = "mro_arrival"
+command = "-74"
+naif_id = -74
+center = "500@499"
+center_naif_id = 499
+kepler_gm_km3_s2 = 42828.375816
+start = "2006-03-07"       # three days before orbit insertion (2006-03-10)
+stop = "2006-10-01"        # aerobraking ended 2006-08-30; then the trims into the science orbit
+base_step_minutes = 5
+tolerance_km = 10.0
+radius_km = 3396.19
+
+[[target]]
+name = "mro_recent"
+command = "-74"
+naif_id = -74
+center = "500@499"
+center_naif_id = 499
+kepler_gm_km3_s2 = 42828.375816
+start = "2024-10-01"
+stop = "2026-10-27 12:08"  # end of the data (planning prediction after 2026-09-27 23:32)
+base_step_minutes = 5
+tolerance_km = 10.0
+radius_km = 3396.19

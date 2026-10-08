@@ -572,6 +572,119 @@ void test_mercury_scene()
     check(points.size() > 50 && widest < 2.0e4, "MESSENGER trail in the Mercury frame: a day of orbits (km)", widest);
 }
 
+// Mars Express, MRO and MAVEN around Mars, against figures published by NASA and
+// ESA independently of the Horizons tables.
+void test_mars_scene()
+{
+    Scene scene = load_scene_or_die("mars.toml");
+    const int mars = scene.find("Mars");
+    const int phobos = scene.find("Phobos");
+    const int mex = scene.find("Mars Express");
+    const int mro = scene.find("MRO");
+    const int maven = scene.find("MAVEN");
+    check(mars == 0 && phobos > 0 && mex > 0 && mro > 0 && maven > 0, "mars.toml bodies");
+    auto tdb = [](const CalendarDateTime& c) { return (jd_from_calendar(c) - kJ2000Jd) * kSecondsPerDay; };
+    auto at = [&](int body, double t) { return scene.icrf_state_at(body, t).position; };
+    const double gm = scene.bodies[static_cast<size_t>(mars)].gm_km3_s2;
+    const double r_mean = scene.bodies[static_cast<size_t>(mars)].equatorial_radius_km;
+
+    // Altitude above the IAU ellipsoid (3396.19 x 3376.20 km, pole RA 317.269202,
+    // Dec 54.432516 deg, pck00011; latitude geocentric, close enough at these heights).
+    const double ra = 317.269202 * kDegToRad;
+    const double dec = 54.432516 * kDegToRad;
+    const glm::dvec3 pole(std::cos(dec) * std::cos(ra), std::cos(dec) * std::sin(ra), std::sin(dec));
+    auto ellipsoid_altitude = [&](const glm::dvec3& p) {
+        const double r = glm::length(p);
+        const double s = glm::dot(p, pole) / r;
+        const double a = 3396.19;
+        const double b = 3376.20;
+        return r - a * b / std::sqrt(b * b * (1.0 - s * s) + a * a * s * s);
+    };
+
+    // MRO's aerobraking ([MROS], NASA/JPL 2006-09-13): 426 passes through the upper
+    // atmosphere from early April to 2006-08-30, the low point 98-105 km above the
+    // surface, the high point lowered from 45,000 to 486 km.
+    int passes = 0;
+    double lowest = 1e300;
+    for (int month = 3; month <= 9; ++month) {
+        for (const double tp : scene.periapsis_times(mro, tdb({2006, month, month == 3 ? 12 : 1, 0, 0, 0}),
+                                                     tdb({2006, month + 1, 1, 0, 0, 0}))) {
+            const double h = ellipsoid_altitude(at(mro, tp));
+            passes += h < 150.0 ? 1 : 0;
+            lowest = std::min(lowest, h);
+        }
+    }
+    check(std::abs(passes - 426) <= 3, "MRO aerobraking passes", passes);
+    check(lowest > 95.0 && lowest < 108.0, "MRO aerobraking low point (km above the ellipsoid)", lowest);
+    std::printf("info: MRO aerobraking: %d passes, lowest %.1f km\n", passes, lowest);
+    OrbitElements el;
+    osculating_elements(scene.icrf_state_at(mro, tdb({2006, 3, 12, 0, 0, 0})), gm, &el);
+    check(std::abs(el.apoapsis_km - r_mean - 45000.0) < 500.0, "MRO capture orbit apoapsis (km)", el.apoapsis_km - r_mean);
+    osculating_elements(scene.icrf_state_at(mro, tdb({2006, 8, 31, 0, 0, 0})), gm, &el);
+    check(std::abs(el.apoapsis_km - r_mean - 486.0) < 20.0, "MRO apoapsis after aerobraking (km)", el.apoapsis_km - r_mean);
+
+    // MRO's science orbit ([MROS]): 250 to 316 km above the surface from 2006-09-11.
+    double low = 1e300;
+    double high = 0.0;
+    for (double t = tdb({2006, 9, 15, 0, 0, 0}); t < tdb({2006, 9, 16, 0, 0, 0}); t += 30.0) {
+        const double h = ellipsoid_altitude(at(mro, t));
+        low = std::min(low, h);
+        high = std::max(high, h);
+    }
+    check(std::abs(low - 250.0) < 20.0 && std::abs(high - 316.0) < 20.0, "MRO science orbit (km)", low);
+    std::printf("info: MRO in September 2006: %.0f x %.0f km\n", low, high);
+
+    // MRO: two windows of data only.
+    for (const auto& [when, shown] : {std::pair{CalendarDateTime{2006, 6, 1, 0, 0, 0}, true},
+                                      std::pair{CalendarDateTime{2015, 1, 1, 0, 0, 0}, false},
+                                      std::pair{CalendarDateTime{2025, 6, 1, 0, 0, 0}, true}}) {
+        scene.update(tdb(when));
+        check(scene.bodies[static_cast<size_t>(mro)].visible == shown, "MRO shown only inside its windows",
+              static_cast<double>(when.year));
+    }
+
+    // Mars Express at Phobos ([MEXP], ESA 2013-12-23): 45 km above the surface on
+    // 2013-12-29 (07:09 UTC), 67 km in March 2010. Distances from Phobos' center
+    // minus its mean radius (11.08 km, [SPHY]); Phobos is irregular by a few km.
+    auto phobos_pass = [&](const CalendarDateTime& c) {
+        const double t0 = tdb(c);
+        double best = 1e300;
+        for (double dt = -1800.0; dt <= 1800.0; dt += 0.5) {
+            best = std::min(best, glm::length(at(mex, t0 + dt) - at(phobos, t0 + dt)));
+        }
+        return best - 11.08;
+    };
+    const double p2013 = phobos_pass({2013, 12, 29, 7, 9, 0});
+    const double p2010 = phobos_pass({2010, 3, 3, 21, 0, 0});
+    check(std::abs(p2013 - 45.0) < 6.0, "Mars Express - Phobos 2013 (km above the mean radius)", p2013);
+    check(std::abs(p2010 - 67.0) < 6.0, "Mars Express - Phobos 2010 (km above the mean radius)", p2010);
+    std::printf("info: Mars Express at Phobos: %.1f km (2013), %.1f km (2010)\n", p2013, p2010);
+
+    // Mars Express' period, "6h 43m" (Horizons notes), in 2004.
+    osculating_elements(scene.icrf_state_at(mex, tdb({2004, 6, 1, 0, 0, 0})), gm, &el);
+    check(std::abs(el.period_s / 60.0 - 403.0) < 5.0, "Mars Express period (min)", el.period_s / 60.0);
+
+    // MAVEN's science orbit (Horizons notes: 150 x 6200 km, 75 deg inclination), then
+    // gone at the end of the tracking data.
+    low = 1e300;
+    high = 0.0;
+    glm::dvec3 normal(0.0);
+    for (double t = tdb({2015, 3, 1, 0, 0, 0}); t < tdb({2015, 3, 2, 0, 0, 0}); t += 30.0) {
+        const State s = scene.icrf_state_at(maven, t);
+        const double h = ellipsoid_altitude(s.position);
+        low = std::min(low, h);
+        high = std::max(high, h);
+        normal = glm::normalize(glm::cross(s.position, s.velocity));
+    }
+    const double incl = std::acos(glm::dot(normal, pole)) / kDegToRad;
+    check(std::abs(low - 150.0) < 25.0 && std::abs(high - 6200.0) < 150.0, "MAVEN science orbit (km)", low);
+    // The osculating inclination swings between ~73 and ~75.7 deg over the years.
+    check(std::abs(incl - 75.0) < 2.5, "MAVEN inclination (deg)", incl);
+    std::printf("info: MAVEN in March 2015: %.0f x %.0f km, %.1f deg\n", low, high, incl);
+    scene.update(tdb({2026, 1, 15, 0, 0, 0}));
+    check(!scene.bodies[static_cast<size_t>(maven)].visible, "MAVEN gone after the tracking data");
+}
+
 // ISEE-3 / ICE, reconstructed by tools/isee3/isee3_reconstruct.py from SSCWeb positions
 // (1978-1983), the JPL navigation trajectory of the comet encounter and Horizons' 2014
 // solution. Checked against figures published independently of those data.
@@ -995,6 +1108,7 @@ void run_mission_tests()
     test_earth_moon_missions();
     test_saturn_missions();
     test_mercury_scene();
+    test_mars_scene();
     test_isee3_scene();
     test_rosetta_scene();
     test_halley_armada();

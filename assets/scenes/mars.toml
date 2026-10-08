@@ -1,0 +1,316 @@
+# Mars, Phobos and Deimos, and three orbiters: Mars Express (2003-), the Mars
+# Reconnaissance Orbiter (2006-) and MAVEN (2014-2025).
+#
+# Sources
+# [HZN]  JPL Horizons state vectors relative to Mars' center, baked by
+#        tools/bake/horizons_bake.py (tools/bake/ephem.toml, Kepler-relative AXEPH2):
+#        - Mars Express (-41): ESA trajectory, 2003-12-20 .. 2029-01-01, reconstructed from
+#          tracking through 2026-09-23, then ESA's prediction.
+#        - MAVEN (-202): JPL navigation, 2014-09-18 .. 2025-12-04, the end of the tracking
+#          data (contact was lost on 2025-12-06).
+#        - MRO (-74): JPL MRO navigation, two windows only (a low orbit takes many knots):
+#          2006-03-07 .. 2006-10-01 (arrival and aerobraking) and 2024-10-01 .. 2026-10-27
+#          12:08 (a planning prediction after 2026-09-27). MRO is not shown in between.
+#        - Phobos (401): only within a day of Mars Express' passes closer than 1,500 km;
+#          elsewhere the mean elements [ELEM], faded in over one day.
+#        Horizons notes: Mars Express "Inclination: 86.3 deg, pericentre = 258 km, Period:
+#        6h 43m, apocentre = 11 560 km"; MAVEN "took 5 weeks" from capture to its science
+#        orbit, "150 x 6200 km having a 75 degree inclination"; MRO "aerobraked for 6 months
+#        from the post-insertion 35 hour orbit", then "a 112 minute, near circular polar
+#        orbit".
+# [APX]  E. M. Standish, Approximate Positions of the Planets, Table 2a (Mars).
+# [ELEM] JPL SSD, Planetary Satellite Mean Elements (https://ssd.jpl.nasa.gov/sats/elem/),
+#        MAR099, epoch 2000-01-01.5 TDB; how the periods are derived: solar_system.toml.
+# [SPHY] JPL SSD, Planetary Satellite Physical Parameters (https://ssd.jpl.nasa.gov/sats/phys_par/),
+#        also the GM of Mars alone ("Planet and Pluto GM Values").
+# [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
+# [PCK]  NAIF pck00011.tpc (IAU 2015): radii, poles, prime meridians.
+# [THOM] Phobos and Deimos shape models and Viking mosaics (P. C. Thomas): solar_system.toml.
+# [ATM]  Atmospheres (single scattering): sources and choices in solar_system.toml.
+#
+# [CAP]  Event captions (retrieved 2026-10-08):
+#        [MEX] ESA, Mars Express mission page (esa.int/Science_Exploration/Space_Science/
+#          Mars_Express): launched 2003-06-02, at Mars in December 2003; "the most complete
+#          map of the chemical composition of the atmosphere", the history of water, views
+#          of Mars "in three dimensions"; two decades of operation.
+#        [B2] ESA, "Beagle-2 lander found on Mars" (2015-01-16): released from Mars Express on
+#          2003-12-19, due to land on Christmas Day 2003; found in images from HiRISE on
+#          NASA's Mars Reconnaissance Orbiter, "partially deployed on the surface" with only
+#          one to three of its four solar panels open.
+#        [MEXP] ESA, "Mars Express heading towards daring flyby of Phobos" (2013-12-23): 45 km
+#          above the surface on 2013-12-29, the closest yet (67 km in March 2010); too close
+#          and fast for images; Phobos' pull on the spacecraft, tracked by radio, gives its
+#          mass and inner structure; earlier flybys suggest it "could be between a quarter
+#          and a third empty space", a rubble pile.
+#        [MRO] NASA, science.nasa.gov/mission/mars-reconnaissance-orbiter/: launched
+#          2005-08-12, orbit insertion 2006-03-10, six months of aerobraking; a camera that
+#          "can spot something as small as a dinner table"; a relay for landers.
+#        [MROS] NASA/JPL, "NASA Mars Reconnaissance Orbiter Reaches Science Orbit" (2006-09-13):
+#          426 passes through the upper atmosphere from early April to 2006-08-30, lowering
+#          the high point from 45,000 to 486 km, the low point 98-105 km above the surface;
+#          35 hours per orbit to under two, "saved us roughly 600 kilograms of fuel"; science
+#          orbit 250 x 316 km set on 2006-09-11.
+#        [MAV] NASA, science.nasa.gov/mission/maven/: in orbit 2014-09-21 22:24 EDT (09-22
+#          UTC), "the first mission devoted to understanding the Martian upper atmosphere";
+#          last heard from on 2025-12-06 after passing behind Mars; not recoverable, end of
+#          mission declared 2026-06-03; more than 11 years at Mars.
+#        [MAVS] NASA, "NASA Mission Reveals Speed of Solar Wind Stripping Martian Atmosphere"
+#          (2015-11-05): about 100 grams of gas a second, more during solar storms (March
+#          2015); loss to space likely a major cause of Mars' change in climate.
+#        Orbits as drawn: [HZN].
+#
+# Colors are sRGB and illustrative where no map is used.
+
+name = "Mars"
+
+[view]
+focus = "Mars"
+distance_km = 7.0e4         # out to Deimos
+pitch_deg = 20.0
+start = "now"
+warp = 600.0                # 10 minutes per second: Phobos goes round in 46 seconds
+
+# Heliocentric orbit of the scene origin, used for the Sun direction. [APX]
+[origin_heliocentric]
+type = "jpl_approx_planet"
+a_au = [1.52371243, 0.00000097]
+e = [0.09336511, 0.00009149]
+i_deg = [1.85181869, -0.00724757]
+mean_longitude_deg = [-4.56813164, 19140.29934243]
+lon_peri_deg = [-23.91744784, 0.45223625]
+node_deg = [49.71320984, -0.26852431]
+
+[[bodies]]
+name = "Mars"
+radii_km = [3396.19, 3376.20]              # [PCK]
+gm_km3_s2 = 42828.375816                   # system [GM]; osculating orbits of the moons and spacecraft
+body_gm_km3_s2 = 42828.37362               # [SPHY] (MAR097)
+pole_ra_dec_deg = [317.269202, 54.432516]  # [PCK]
+prime_meridian_deg = [176.049863, 350.891982443297]
+color = "#c1673e"
+texture = "textures/mars.jpg"              # assets/textures/SOURCES.md
+texture_left_lon_deg = -180.0
+[bodies.atmosphere]                        # [ATM]
+height_km = 100.0
+haze_depth = 0.5
+haze_scale_height_km = 11.9
+haze_albedo = [0.97, 0.93, 0.75]
+haze_g = 0.63
+
+# Phobos and Deimos as in solar_system.toml (keep the two in step).
+
+[[bodies]]
+name = "Phobos"
+parent = "Mars"
+shape = "shapes/phobos.mesh"                # [THOM] 2-deg grid; assets/shapes/SOURCES.md
+radii_km = [13.0, 11.4, 9.1]               # [PCK], long axis toward Mars (shadows, camera distances)
+body_gm_km3_s2 = 0.0007087                 # [SPHY] (MAR097)
+pole_ra_dec_deg = [317.67071657, 52.88627266]  # [PCK]
+prime_meridian_deg = [35.18774440, 1128.84475928]
+pole_rate_deg_per_century = [-0.10844326, -0.06134706]
+color = "#7d746b"
+orbit_color = "#a0968c"
+texture = "textures/phobos.jpg"            # [THOM] Viking mosaic, assets/textures/SOURCES.md
+texture_left_lon_deg = -180.0
+[bodies.orbit]                             # [HZN] 401, near Mars Express
+type = "ephemeris"
+file = "ephem/phobos_mex.eph"
+fallback_blend_days = 1.0
+[bodies.orbit.fallback]                    # [ELEM]
+type = "mean_elements"
+a_km = 9375.0
+e = 0.015
+arg_peri_deg = 216.3
+mean_anomaly_deg = 189.7
+i_deg = 1.1
+node_deg = 169.2
+period_days = 0.319042230                  # from the PCK spin rate; [ELEM] P = 0.3187
+mean_anomaly_accel_deg_per_day2 = 9.536137031212154e-09   # [PCK] quadratic PM term
+apsis_period_years = 1.1
+node_period_years = -2.3
+laplace_pole_ra_dec_deg = [317.7, 52.9]
+
+[[bodies]]
+name = "Deimos"
+parent = "Mars"
+shape = "shapes/deimos.mesh"                # [THOM] 5-deg grid; assets/shapes/SOURCES.md
+radii_km = [7.8, 6.0, 5.1]                 # [PCK] (shadows, camera distances)
+body_gm_km3_s2 = 0.0000962                 # [SPHY] (MAR097)
+pole_ra_dec_deg = [316.65705808, 53.50992033]  # [PCK]
+prime_meridian_deg = [79.39932954, 285.16188899]
+pole_rate_deg_per_century = [-0.10518014, -0.05979094]
+color = "#8f857a"
+orbit_color = "#b0a698"
+texture = "textures/deimos.jpg"            # [THOM] Viking mosaic, assets/textures/SOURCES.md
+texture_left_lon_deg = -180.0
+[bodies.orbit]                             # [ELEM]
+type = "mean_elements"
+a_km = 23457.0
+e = 0.0
+arg_peri_deg = 0.0
+mean_anomaly_deg = 205.0
+i_deg = 1.8
+node_deg = 54.3
+period_days = 1.262363152                  # from the PCK spin rate; [ELEM] P = 1.2625
+node_period_years = -56.2
+laplace_pole_ra_dec_deg = [316.6, 53.5]
+
+# Spacecraft [HZN], visible while their tables have data. Trails show about one
+# revolution: the orbits barely change from one to the next, so longer trails only
+# thicken the line (the aerobraking event shows weeks of them).
+
+[[bodies]]
+name = "Mars Express"
+parent = "Mars"
+kind = "spacecraft"
+radii_km = [0.006]                         # meters across (drawn as a marker)
+color = "#9fd0ff"
+orbit_color = "#6fb4f0"
+trail = "history"
+trail_history_days = 0.28                  # 6 h 43 min
+[bodies.orbit]                             # [HZN] -41
+type = "ephemeris"
+file = "ephem/mex_mars.eph"
+
+[[bodies]]
+name = "MRO"
+parent = "Mars"
+kind = "spacecraft"
+radii_km = [0.007]                         # 13.6 m tip to tip (Horizons notes)
+color = "#d2f59a"
+orbit_color = "#a8dc6a"
+trail = "history"
+trail_history_days = 0.078                 # 112 minutes
+[bodies.orbit]                             # [HZN] -74, the last two years
+type = "ephemeris"
+file = "ephem/mro_recent.eph"
+[bodies.orbit.fallback]                    # [HZN] -74, arrival and aerobraking
+type = "ephemeris"
+file = "ephem/mro_arrival.eph"
+
+[[bodies]]
+name = "MAVEN"
+parent = "Mars"
+kind = "spacecraft"
+radii_km = [0.006]                         # 11.4 m long (Horizons notes)
+color = "#ffb0d0"
+orbit_color = "#f28cb8"
+trail = "history"
+trail_history_days = 0.19                  # 4.5 hours
+trail_linger_days = 30.0                   # after the end of the data, fading
+[bodies.orbit]                             # [HZN] -202
+type = "ephemeris"
+file = "ephem/maven_mars.eph"
+
+# --- Events --------------------------------------------------------------------------
+# Times and distances (TDB) computed from the baked data.
+# Arrivals start a few hours before the first periapsis (when the osculating orbit
+# around Mars becomes bound): Mars Express 2003-12-25 03:08 TDB, 434 km above the
+# mean radius; MRO 2006-03-10 21:32, 444 km; MAVEN 2014-09-22 02:05, 414 km.
+
+[[events]]
+name = "Mars Express arrives (2003-12-25)"
+time_tdb = "2003-12-24 23:00"
+focus = "Mars"
+distance_km = 6.0e4
+warp = 600.0
+# [MEX], [B2]
+caption = """\
+    ESA's Mars Express fires its engine to be captured by Mars. Six days earlier it \
+    had released the British-led lander Beagle 2, due to touch down on \
+    Christmas Day. Beagle 2 was never heard from; eleven years later a camera on NASA's \
+    MRO found it on the surface, partly unfolded."""
+
+[[events]]
+name = "MRO arrives (2006-03-10)"
+time_tdb = "2006-03-10 17:30"
+focus = "Mars"
+distance_km = 8.0e4
+warp = 600.0
+# [MRO], [MROS], [HZN]
+caption = """\
+    NASA's Mars Reconnaissance Orbiter brakes into a long, loose orbit: 35 hours around, \
+    swinging out 45,000 km. Its working orbit is to be a low circle, two hours around, \
+    and it will get there by skimming the top of the atmosphere."""
+
+# Aerobraking: 427 periapses below 130 km above the mean radius between 2006-04-06 and
+# 08-30 [HZN] ([MROS]: 426 passes); the lowest is 79 km above the mean radius, ~99 km
+# above the ellipsoid near the south pole, where the periapsis was.
+[[events]]
+name = "MRO aerobraking (2006-04 .. 08)"
+time_tdb = "2006-04-01 00:00"
+focus = "Mars"
+distance_km = 1.3e5
+warp = 86400.0
+# [MROS], [HZN]
+caption = """\
+    One pass at a time, about 100 km up, the thin air drags on MRO and the far end of \
+    its orbit sinks: from 45,000 km to under 500 km in 426 passes, and from 35 hours \
+    around to under two. Rocket fuel would have cost some 600 kg more."""
+[[events.trails]]
+body = "MRO"
+trail_history_days = 15.0
+
+# Closest approach 2013-12-29 07:10:08 TDB, 59.6 km from Phobos' center (48.5 km above
+# its mean radius) [HZN]; ESA: 07:09 UTC, 45 km [MEXP].
+[[events]]
+name = "Mars Express skims Phobos (2013-12-29, 45 km)"
+time_tdb = "2013-12-29 07:08:30"
+focus = "Phobos"
+distance_km = 400.0
+warp = 3.0
+# [MEXP]
+caption = """\
+    Mars Express passes 45 km above Phobos, its closest ever: too close and fast for \
+    pictures. Instead, the tug of Phobos on the spacecraft, read from its radio signal, \
+    weighs the moon. Earlier passes suggested that Phobos may be a quarter to a third \
+    empty space, a pile of rubble."""
+
+[[events]]
+name = "MAVEN arrives (2014-09-22)"
+time_tdb = "2014-09-21 22:00"
+focus = "Mars"
+distance_km = 7.0e4
+warp = 600.0
+# [MAV]
+caption = """\
+    MAVEN, the first spacecraft devoted to the upper atmosphere of Mars, is captured into \
+    a 35-hour orbit. Five weeks later it will be in its working orbit, dipping to about \
+    150 km at every pass, inside the air it came to study."""
+
+[[events]]
+name = "MAVEN: where the air went (2015)"
+time_tdb = "2015-03-01 00:00"
+focus = "Mars"
+distance_km = 3.0e4
+warp = 600.0
+# [MAVS], [HZN]
+caption = """\
+    From its orbit, 150 by 6,200 km, MAVEN measured the solar wind stripping gas from \
+    the top of the atmosphere, about 100 grams a second, and much more during the solar \
+    storms of March 2015. Over the ages, such loss to space likely did much to change \
+    the climate of Mars."""
+
+[[events]]
+name = "Three orbiters (2025)"
+time_tdb = "2025-06-01 00:00"
+focus = "Mars"
+distance_km = 5.0e4
+warp = 300.0
+# [MEX], [MRO], [MAV], [HZN]
+caption = """\
+    Three orbits at three heights. MRO circles about 300 km up every two hours; MAVEN \
+    swings out to 4,500 km; Mars Express, here for over twenty years, out to 10,500 \
+    km, crossing the orbit of Phobos. Deimos goes round once in 30 hours."""
+
+[[events]]
+name = "MAVEN falls silent (2025-12)"
+time_tdb = "2025-12-03 12:00"
+focus = "Mars"
+distance_km = 2.5e4
+warp = 1200.0
+# [MAV], [HZN]
+caption = """\
+    MAVEN's last orbits as tracked from the Earth. On 6 December 2025 it passed behind \
+    Mars and never called again; NASA ended the mission in June 2026, after more than \
+    eleven years at Mars, ten beyond its planned one."""
