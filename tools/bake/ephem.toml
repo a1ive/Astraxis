@@ -581,10 +581,10 @@ stop = "2017-09-15 10:32"   # atmospheric entry (~1,800 km above the 1-bar level
 base_step_minutes = 360
 tolerance_km = 5.0
 periapsides = true
-encounters = ["mimas_cas", "enceladus_cas", "tethys_cas", "dione_cas", "rhea_cas", "titan_cas", "iapetus_cas"]
+encounters = ["mimas_cas", "enceladus_cas", "tethys_cas", "dione_cas", "rhea_cas", "titan_cas", "iapetus_cas", "hyperion_cas"]
 encounter_km = 50000.0
 encounter_step_minutes = 10
-refine_near = ["mimas_cas", "enceladus_cas", "tethys_cas", "dione_cas", "rhea_cas", "titan_cas", "iapetus_cas"]
+refine_near = ["mimas_cas", "enceladus_cas", "tethys_cas", "dione_cas", "rhea_cas", "titan_cas", "iapetus_cas", "hyperion_cas"]
 refine_near_km = 30000.0
 
 [[target]]

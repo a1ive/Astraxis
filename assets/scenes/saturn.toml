@@ -62,6 +62,11 @@
 #          before Cassini moved out of range.
 #        [TET] NASA, "Tethys and Hyperion Flyby - Sept. 24 and 26, 2005": about 1,500 km,
 #          "eye-to-eye" with the giant crater Odysseus.
+#        [HYP] Thomas et al. 2007, Nature 448, 50: the September 2005 flyby, targeted for
+#          high-resolution images and Hyperion's mass, 618 km at 5.6 km/s (Horizons: 604 km
+#          from the center at 2005-09-26 02:25:48 TDB, 469 km above the mean radius);
+#          a "sponge-like appearance" of well-preserved craters; porosity over 40%; chaotic
+#          rotation near the long axis at 72-75 deg/day.
 #        [IAP] NASA, "Iapetus Flyby - Sept. 10, 2007" and "Cassini Flies By Walnut-Shaped
 #          Moon Iapetus": the closest pass, ~1,640 km; a leading side "as dark as a freshly
 #          tarred street", a trailing side like fresh snow; the mountains along the equator.
@@ -531,6 +536,20 @@ caption = """\
     About 1,500 km above Tethys, eye to eye with its giant impact crater, Odysseus. \
     Tethys' mass and size give it a density barely above that of water (see the info \
     panel): a moon made mostly of ice."""
+
+[[events]]
+name = "Cassini at Hyperion (2005-09-26, 469 km)"
+time_tdb = "2005-09-26 01:26"
+focus = "Hyperion"
+from_body = "Cassini"                      # Cassini's approach view
+distance_km = 3000.0
+warp = 30.0
+# [HYP], [HSPN]
+caption = """\
+    Cassini's closest look at Hyperion, about 470 km up: a sponge of deep, well-preserved \
+    craters on a moon so porous that over 40% of it is empty space. It tumbles \
+    chaotically, turning once in five days. Here it is oriented as Cassini measured it \
+    that day; within a month or two the real spin axis wanders tens of degrees away."""
 
 [[events]]
 name = "Cassini at Iapetus (2007-09-10, 1,633 km)"
