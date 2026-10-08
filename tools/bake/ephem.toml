@@ -20,6 +20,11 @@
 #   Artemis II (-1024): 2026-Apr-02 01:59 .. 2026-Apr-10 23:54 TDB (NASA/JSC navigation files,
 #                    concatenated; starts after ICPS separation)
 #   CAPSTONE (-1176): 2022-Jun-28 10:07 .. 2026-Aug-14 11:58 TDB (tracking to 2026-Jul-15)
+#   ARTEMIS-P1 / P2 (THEMIS-B -192 / THEMIS-C -193): 2007-Feb-18 00:15 .. 2026-Nov-05 00:01 TDB
+#                    (final reconstruction to 2024-Jan-02, then tag-up solutions and predictions)
+#   LCROSS (-18):    2009-Jun-18 22:18 .. 2009-Oct-09 11:37 TDB (JPL NAV; Shepherding Spacecraft
+#                    impact 11:35:36.116 UTC = 11:36:42 TDB, the data continue below the surface)
+#   LADEE (-12):     2013-Sep-07 03:52 .. 2014-Apr-18 04:33 TDB (NASA-Ames final definitive)
 #   Cassini (-82):   1997-Oct-15 09:28 .. 2017-Sep-15 11:58 TDB (navigation team, post-mission
 #                    reconstruction released 2018-06-29)
 #   Huygens (-150):  2004-Dec-25 02:01 .. 2005-Jan-14 12:06 TDB
@@ -220,7 +225,7 @@ command = "301"
 naif_id = 301
 center = "500@399"
 center_naif_id = 399
-start = "2021-12-25 13:02"
+start = "2007-02-18 00:16"   # ARTEMIS-P1/P2 (THEMIS-B/C) data start
 stop = "2031-09-27 23:00"
 base_step_minutes = 360    # 6 h
 tolerance_km = 2.0         # Artemis lunar flybys come within ~130 km of the surface
@@ -444,6 +449,131 @@ stop = "2026-08-14 11:58"
 base_step_minutes = 120
 tolerance_km = 2.0
 periapsides = true
+
+# ARTEMIS-P1/P2 and LADEE: around the Earth until shortly before lunar orbit
+# insertion, then around the Moon (the scene chains the two tables). Short base
+# steps: the leave-one-out test misses fast periapsis passes between samples
+# (15 km off for ARTEMIS-P2's low perilunes with 20 min, 7 km at LADEE's phasing
+# perigees with 60 min; checked against 1-minute samples). LCROSS and LADEE's
+# phasing orbits are short enough to sample every minute (LADEE in lunar orbit
+# too: its orbit-lowering burns were up to 15 km off with 10 min), which also puts the
+# jumps at the seams of LCROSS's trajectory files (232 km on 2009-06-23 10:49,
+# 656 km on 2009-08-25 06:59 TDB) between two knots a minute apart.
+# ARTEMIS: too long to sample every minute; maneuvers and file seams between the
+# 10-minute samples (up to 44 km within a minute, 2012-07-05) are found by the
+# verification against 3-minute samples.
+
+[[target]]
+name = "artemis_p1_geo"
+command = "-192"
+naif_id = -192
+center = "500@399"
+center_naif_id = 399
+kepler_gm_km3_s2 = 398600.435507
+start = "2007-02-18 00:16"
+stop = "2011-06-25 00:00"    # ~2 days before lunar orbit insertion, ~70,000 km from the Moon
+base_step_minutes = 10
+tolerance_km = 2.0
+verify_step_minutes = 3
+encounters = ["moon_geo"]
+encounter_km = 50000.0
+encounter_step_minutes = 30
+refine_near = ["moon_geo"]
+refine_near_km = 20000.0
+refine_near_step_minutes = 10
+
+[[target]]
+name = "artemis_p1_sel"
+command = "-192"
+naif_id = -192
+center = "500@301"
+center_naif_id = 301
+kepler_gm_km3_s2 = 4902.800118
+start = "2011-06-25 00:00"
+stop = "2019-12-31 00:00"
+base_step_minutes = 10
+tolerance_km = 2.0
+verify_step_minutes = 3
+
+[[target]]
+name = "artemis_p2_geo"
+command = "-193"
+naif_id = -193
+center = "500@399"
+center_naif_id = 399
+kepler_gm_km3_s2 = 398600.435507
+start = "2007-02-18 00:16"
+stop = "2011-07-14 00:00"    # ~3 days before lunar orbit insertion
+base_step_minutes = 10
+tolerance_km = 2.0
+verify_step_minutes = 3
+encounters = ["moon_geo"]
+encounter_km = 50000.0
+encounter_step_minutes = 30
+refine_near = ["moon_geo"]
+refine_near_km = 20000.0
+refine_near_step_minutes = 10
+
+[[target]]
+name = "artemis_p2_sel"
+command = "-193"
+naif_id = -193
+center = "500@301"
+center_naif_id = 301
+kepler_gm_km3_s2 = 4902.800118
+start = "2011-07-14 00:00"
+stop = "2019-12-31 00:00"
+base_step_minutes = 10
+tolerance_km = 2.0
+verify_step_minutes = 3
+
+[[target]]
+name = "lcross"
+command = "-18"
+naif_id = -18
+center = "500@399"
+center_naif_id = 399
+kepler_gm_km3_s2 = 398600.435507
+start = "2009-06-18 22:18"
+stop = "2009-10-09 11:36:42"   # Shepherding Spacecraft impact (11:35:36.116 UTC)
+base_step_minutes = 1
+tolerance_km = 2.0
+encounters = ["moon_geo"]
+encounter_km = 100000.0
+encounter_step_minutes = 10
+refine_near = ["moon_geo"]
+refine_near_km = 70000.0
+refine_near_step_minutes = 10
+
+[[target]]
+name = "ladee_geo"
+command = "-12"
+naif_id = -12
+center = "500@399"
+center_naif_id = 399
+kepler_gm_km3_s2 = 398600.435507
+start = "2013-09-07 03:53"
+stop = "2013-10-05 12:00"    # ~1 day before lunar orbit insertion
+base_step_minutes = 1
+tolerance_km = 2.0
+encounters = ["moon_geo"]
+encounter_km = 150000.0
+encounter_step_minutes = 10
+refine_near = ["moon_geo"]
+refine_near_km = 70000.0
+refine_near_step_minutes = 10
+
+[[target]]
+name = "ladee_sel"
+command = "-12"
+naif_id = -12
+center = "500@301"
+center_naif_id = 301
+kepler_gm_km3_s2 = 4902.800118
+start = "2013-10-05 12:00"
+stop = "2014-04-18 04:33"    # end of the data at the impact (contact lost 04:30 UTC)
+base_step_minutes = 1
+tolerance_km = 2.0
 
 # --- Saturn-centered (center: Saturn body center, 500@699) -----------------
 #

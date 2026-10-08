@@ -37,6 +37,12 @@ periapsides around the center (for scene event lists).
 within `refine_near_km` of those (already baked) targets, e.g. moon flybys that
 are too brief for the base step to notice.
 
+`verify_step_minutes = n` checks the reduced table against fresh samples every n
+minutes between the base samples, re-fetches 1-minute samples around any over
+the tolerance (maneuvers, seams between trajectory files) and reduces again
+(at most twice). Samples with a velocity far off their neighbours' (bogus
+states during burns) are dropped before every reduction.
+
 `windows_near = "<Horizons command>"` keeps data only where the target comes
 within `window_km` of that object (e.g. a moon near a spacecraft), padded by
 `window_pad_days` on each side; windows closer than 2 pads merge. The rest is
@@ -45,6 +51,7 @@ and reduced on its own.
 Only the Python standard library is used.
 """
 
+import bisect
 import math
 import os
 import struct
@@ -237,7 +244,10 @@ def leave_one_out_errors(rows, interp):
     """Estimated interpolation error (km) of the interval around each knot."""
     err = [0.0] * len(rows)
     for i in range(1, len(rows) - 1):
-        e2h = dist(interp(rows[i - 1], rows[i + 1], rows[i][0]), rows[i][1])
+        try:
+            e2h = dist(interp(rows[i - 1], rows[i + 1], rows[i][0]), rows[i][1])
+        except (OverflowError, ValueError):  # a bogus velocity (see drop_velocity_spikes)
+            e2h = math.inf
         err[i] = e2h / 16.0
     if len(rows) > 2:
         err[0] = err[1]
@@ -276,6 +286,65 @@ def refine(command, center, rows, tol_km, step_minutes, depth, interp):
         rows = out
         step_minutes = new_step
     return rows
+
+
+def drop_velocity_spikes(rows, threshold_kms=1.0, max_spacing_s=150.0):
+    """Drops samples whose velocity is far from the median of their neighbours
+    (three on each side, all at most `max_spacing_s` apart). Horizons can return
+    bogus states for a few minutes during short burns (THEMIS-B 2008-10-18 03:22
+    TDB: up to 120 km/s instead of 1 km/s, positions ~1,700 km off a smooth path);
+    the table then bridges the burn with the knots around it. Refinement narrows
+    such stretches down to minute samples first. Position jumps at trajectory-file
+    seams (velocities continuous) keep their samples."""
+    keep = []
+    for i, (t, _, v) in enumerate(rows):
+        window = rows[max(0, i - 3):i + 4]
+        if len(window) < 5 or any(b[0] - a[0] > max_spacing_s for a, b in zip(window, window[1:])):
+            keep.append(rows[i])
+            continue
+        median = [sorted(w[2][k] for w in window)[len(window) // 2] for k in range(3)]
+        if dist(v, median) <= threshold_kms:
+            keep.append(rows[i])
+        else:
+            print(f'    dropped {calendar(t)}: velocity {math.sqrt(sum(x * x for x in v)):.3f} km/s, '
+                  f'neighbours {math.sqrt(sum(x * x for x in median)):.3f} km/s')
+    return keep
+
+
+def verify(command, center, rows, knots, gm, tol_km, step_minutes, pad_minutes=15):
+    """Checks the reduced table against fresh samples off the base grid (every
+    `step_minutes`, shifted by 37 s). The leave-one-out estimate assumes smooth
+    motion, so a jump between two base samples (a maneuver, or a seam between
+    trajectory files: ARTEMIS-P1 2012-07-05 20:01 TDB, 44 km within a minute)
+    escapes it. Returns `rows` with 1-minute samples `pad_minutes` around every
+    sample over the tolerance, or None when all are within it."""
+    table = Table(knots, gm)
+    t0, t1 = rows[0][0], rows[-1][0]
+    check = fetch(command, center, t0 / DAY + J2000_JD + 37.0 / DAY, t1 / DAY + J2000_JD - 1.0 / 1440, step_minutes)
+    pad = pad_minutes * 60.0
+    windows = []
+    for t, p, _ in check:
+        q = eval_eph(table, t)
+        if q is None or dist(p, q) <= tol_km:
+            continue
+        a, b = max(t0, t - pad), min(t1, t + pad)
+        if windows and a <= windows[-1][1]:
+            windows[-1][1] = max(windows[-1][1], b)
+        else:
+            windows.append([a, b])
+    print(f'    verified at {len(check)} samples every {step_minutes} min: {len(windows)} windows over tolerance')
+    if not windows:
+        return None
+    fine = []
+    for a, b in windows:
+        fine.extend(fetch(command, center, a / DAY + J2000_JD, b / DAY + J2000_JD, MIN_STEP_MINUTES))
+    starts = [a for a, _ in windows]
+    kept = []
+    for r in rows:
+        i = bisect.bisect_right(starts, r[0]) - 1
+        if i < 0 or r[0] > windows[i][1]:
+            kept.append(r)
+    return sorted(kept + fine, key=lambda r: r[0])
 
 
 def decimate(rows, tol_km, interp):
@@ -539,10 +608,11 @@ def report_periapsides(name, table):
 # --- Main ---------------------------------------------------------------------
 
 def jd_from_text(s):
-    """'YYYY-MM-DD[ HH:MM]' (TDB) -> JD."""
+    """'YYYY-MM-DD[ HH:MM[:SS]]' (TDB) -> JD."""
     date, _, clock = s.partition(' ')
     y, m, d = (int(x) for x in date.split('-'))
-    hh, mm = (int(x) for x in clock.split(':')) if clock else (0, 0)
+    hh, mm, ss = (float(x) for x in (clock.split(':') + ['0'])[:3]) if clock else (0, 0, 0)
+    mm += ss / 60
     if m <= 2:
         y -= 1
         m += 12
@@ -589,6 +659,7 @@ def main():
                 if len(part) < 3:
                     continue
                 part = refine(tgt['command'], tgt['center'], part, tol, step, tgt.get('max_refine', 4), interp)
+                part = drop_velocity_spikes(part)
                 seg = decimate(part, tol, interp)
                 err = max(err, max_error(part, seg, interp))
                 knots.extend(seg)
@@ -611,7 +682,15 @@ def main():
                 sys.exit(f'{name}: refine_near needs {missing} baked first (earlier in the config)')
             rows = refine_near(tgt['command'], tgt['center'], rows, gm, [baked[o] for o in tgt['refine_near']],
                                tgt['refine_near_km'], tgt.get('refine_near_step_minutes', 20) * 60.0)
+        rows = drop_velocity_spikes(rows)
         knots = decimate(rows, tol, interp)
+        if tgt.get('verify_step_minutes'):
+            for _ in range(2):
+                checked = verify(tgt['command'], tgt['center'], rows, knots, gm, tol, tgt['verify_step_minutes'])
+                if checked is None:
+                    break
+                rows = drop_velocity_spikes(checked)
+                knots = decimate(rows, tol, interp)
         err = max_error(rows, knots, interp)
         kind = 'Kepler-relative' if gm else 'Hermite'
         print(f'    {len(rows)} samples -> {len(knots)} knots ({kind}), max error {err:.3f} km')
