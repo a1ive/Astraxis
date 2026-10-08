@@ -1,9 +1,10 @@
-# The Earth and the Moon with seven missions: Artemis II's free-return flight
+# The Earth and the Moon with eight missions: Artemis II's free-return flight
 # around the Moon (2026), Artemis I's distant retrograde orbit (2022), CAPSTONE
-# in the near-rectilinear halo orbit planned for the Gateway (2022-2026), LADEE's
-# low lunar orbits (2013-2014), the twin ARTEMIS probes moving from Earth orbit to
-# the Earth-Moon Lagrange points and into lunar orbit (2007-2019), and LCROSS's
-# impact near the lunar south pole (2009).
+# in the near-rectilinear halo orbit planned for the Gateway (2022-2026), the
+# Chang'e 5-T1 service module swinging by the Moon into an orbit around L2 and
+# back into lunar orbit (2014-2015), LADEE's low lunar orbits (2013-2014), the twin
+# ARTEMIS probes moving from Earth orbit to the Earth-Moon Lagrange points and into
+# lunar orbit (2007-2019), and LCROSS's impact near the lunar south pole (2009).
 #
 # The default "Earth-Moon rotating" frame keeps the Moon still on the x axis:
 # Artemis II traces a figure eight, Artemis I a loop around the Moon that runs
@@ -23,6 +24,16 @@
 #        04:33 TDB, where the data end at the impact. ARTEMIS and LADEE are Moon-centered
 #        from a few days before lunar orbit insertion. The Sun direction uses the
 #        heliocentric Earth-Moon barycenter (as in jwst.toml).
+# [L16]  Liu & Li 2016, "CHANG'E-5T1 extended mission: The first lunar libration point
+#        flight via a lunar swing-by", Adv. Space Res. 58, 1257: the service module's state
+#        after the reentry test (Table 1) and the 12 maneuvers flown (Table 5: times and sizes).
+#        The trajectory is reconstructed from them by tools/ce5t1/ce5t1_reconstruct.py (the
+#        directions of the maneuvers solved for; see assets/ephem/SOURCES.md):
+#        2014-10-31 22:18 UTC .. 2015-01-13 19:33 UTC (a day after the last brake). The
+#        paper also: a test of key technologies for Chang'e 5; propellant left for about
+#        1.4 km/s; "the first spacecraft to reach the EML orbit via a lunar swing-by and the
+#        second flight ever in the EML orbit"; the lunar brake split into three maneuvers
+#        because of the engine's thrust; the design orbit 200 km circular (Eq. 2).
 # [GM]   JPL SSD astrodynamic parameters (DE440): GM Earth 398600.435507, Moon
 #        4902.800118 km^3/s^2. Earth-Moon mass ratio for L1/L2:
 #        4902.800118 / (398600.435507 + 4902.800118) = 0.0121505844.
@@ -212,6 +223,24 @@ file = "ephem/ladee_geo.eph"
 [bodies.orbit.fallback]                    # [HZN] -12, Moon-centered from a day before lunar orbit insertion
 type = "ephemeris"
 file = "ephem/ladee_sel.eph"
+relative_to = "Moon"
+
+[[bodies]]
+name = "Chang'e 5-T1"
+parent = "Earth"
+kind = "spacecraft"
+radii_km = [0.0026]                        # the service module: 21.7 m^2 cross-section [L16] Table 1
+color = "#ffb0bc"
+orbit_color = "#ff6f86"
+trail = "history"
+trail_history_days = 30.0                  # two laps around L2
+trail_linger_days = 30.0                   # after the data end, fading
+[bodies.orbit]                             # [L16] reconstructed, Earth-centered
+type = "ephemeris"
+file = "ephem/ce5t1_geo.eph"
+[bodies.orbit.fallback]                    # [L16] reconstructed, Moon-centered from two days before lunar orbit insertion
+type = "ephemeris"
+file = "ephem/ce5t1_sel.eph"
 relative_to = "Moon"
 
 [[bodies]]
@@ -431,6 +460,67 @@ caption = """\
     Gateway station. Every seven days it passes about 1,600 km over the Moon's north \
     pole and climbs some 70,000 km beyond the south pole. In this Moon-centered frame, \
     which turns with the Earth, the narrow loop stays put."""
+
+# --- Chang'e 5-T1 -------------------------------------------------------------------
+
+# Reconstructed ([L16], tools/ce5t1): farthest 540,976 km from the Earth's center on
+# 2014-11-09; lunar swing-by 2014-11-23 15:11 UTC, 296 km up; perilune at brake 1
+# 2015-01-10 19:04:37 UTC (Table 5: 19:04:33), 202 km up; after brake 3, 189 x 209 km.
+[[events]]
+name = "Chang'e 5-T1: a second mission (2014-11)"
+time_tdb = "2014-11-01 00:00"
+focus = "Earth"
+frame = "Earth-Moon rotating"
+distance_km = 1.8e6
+warp = 86400.0
+# [L16]
+caption = """\
+    Chang'e 5-T1 has just flown around the Moon and sent a capsule home through the \
+    atmosphere, a rehearsal for the Chang'e 5 sample return. Its service module still \
+    has propellant for about 1.4 km/s, so it flies on: out beyond the Moon's orbit, back \
+    past the Earth, and on to meet the Moon three weeks later."""
+
+[[events]]
+name = "Chang'e 5-T1: swing-by into an L2 orbit (2014-11-23)"
+time_tdb = "2014-11-23 06:00"
+focus = "Moon"
+frame = "Earth-Moon rotating, Moon-centered"
+distance_km = 1.5e5
+warp = 1800.0
+# [L16]
+caption = """\
+    The service module skims a few hundred km over the Moon and brakes at the lowest \
+    point. The swing-by sends it on to L2, 65,000 km beyond the far side, where it \
+    settles into an orbit around the empty point: the first spacecraft to get there by a \
+    lunar swing-by, and the second ever to orbit an Earth-Moon libration point."""
+
+[[events]]
+name = "Chang'e 5-T1: around L2 (2014-12)"
+time_tdb = "2014-11-28 09:00"
+focus = "Moon"
+frame = "Earth-Moon rotating, Moon-centered"
+distance_km = 2.5e5
+warp = 21600.0
+# [L16]
+caption = """\
+    For five weeks the module loops around L2, a point where nothing holds it: orbits \
+    there are barely stable and easily lost. Three small burns, of 2 to 10 m/s, keep it \
+    on track. On 4 January it fires its engine once more and falls back towards the \
+    Moon."""
+
+[[events]]
+name = "Chang'e 5-T1: into lunar orbit (2015-01-10)"
+time_tdb = "2015-01-10 17:00"
+focus = "Moon"
+frame = "Moon-centered"
+distance_km = 2.0e4
+warp = 600.0
+# [L16]
+caption = """\
+    Its engine is too weak to brake into orbit at once, so the module brakes three times, \
+    each at the same low point 200 km above the surface, a day apart. The orbit shrinks \
+    from long ellipses to a circle about 200 km up, where it tests technology for the \
+    rendezvous and docking in lunar orbit that Chang'e 5 would need."""
 
 # --- LADEE -------------------------------------------------------------------------
 

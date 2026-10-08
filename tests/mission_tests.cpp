@@ -333,6 +333,29 @@ void test_earth_moon_missions()
     check(std::abs(ladee_speed - 1.699) < 0.02, "LADEE impact speed (km/s)", ladee_speed);
     check(ladee_alt > 0.0 && ladee_alt < 5.0, "LADEE altitude at the end of the data (km)", ladee_alt);
 
+    // Chang'e 5-T1's service module [L16] (reconstructed): the farthest distance of the
+    // flown trajectory, 540,000 km (Table 4; the design's, flown "essentially identical");
+    // around L2 beyond the Moon from the injection (2014-11-28) to the departure (01-04);
+    // brake 1 at the "perilune arrival time" 19:04:33 UTC (+67.18 s to TDB); the orbit
+    // after brake 3 about 200 km circular (Eq. 2).
+    const int ce5 = scene.find("Chang'e 5-T1");
+    check(ce5 > 0, "earth_moon.toml: Chang'e 5-T1");
+    const double ce5_far = extremum([&](double t) { return glm::length(at(ce5, t)); },
+                                    tdb({2014, 11, 9, 6, 43, 0}), 3600.0, true);
+    check(std::abs(ce5_far - 540000.0) < 5000.0, "Chang'e 5-T1 farthest from the Earth (km)", ce5_far);
+    check(least_beyond(ce5, {2014, 11, 29, 0, 0, 0}, {2015, 1, 4, 0, 0, 0}, 1.0) > 30000.0,
+          "Chang'e 5-T1 stays beyond the Moon around L2");
+    const double t_brake1 = tdb({2015, 1, 10, 19, 5, 40}) + 0.18;
+    const double ce5_peri = extremum(above_moon(ce5), t_brake1, 600.0, false);
+    check(std::abs(above_moon(ce5)(t_brake1) - ce5_peri) < 1.0, "Chang'e 5-T1 brake 1 at perilune (km above it)",
+          above_moon(ce5)(t_brake1) - ce5_peri);
+    double ce5_low = 1e300, ce5_high = 0.0;
+    for (double t = tdb({2015, 1, 13, 0, 0, 0}); t < tdb({2015, 1, 13, 12, 0, 0}); t += 60.0) {
+        ce5_low = std::min(ce5_low, above_moon(ce5)(t));
+        ce5_high = std::max(ce5_high, above_moon(ce5)(t));
+    }
+    check(ce5_low > 150.0 && ce5_high < 250.0, "Chang'e 5-T1 final orbit about 200 km (km, highest)", ce5_high);
+
     // After splashdown the spacecraft is gone, but its trail lingers (fading) for
     // trail_linger_days and then disappears.
     std::vector<glm::dvec3> points;
