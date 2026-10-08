@@ -102,6 +102,20 @@ glm::dvec3 get_rgb_or(const toml::table& t, std::string_view key, const std::str
     return glm::dvec3(rgb[0], rgb[1], rgb[2]);
 }
 
+TrailMode parse_trail_mode(const std::string& name, const std::string& ctx)
+{
+    if (name == "orbit") {
+        return TrailMode::Orbit;
+    }
+    if (name == "history") {
+        return TrailMode::History;
+    }
+    if (name == "none") {
+        return TrailMode::None;
+    }
+    fail(ctx, "trail must be \"orbit\", \"history\" or \"none\"");
+}
+
 // [bodies.atmosphere]: optical depths at 550 nm, scaled to the display
 // channels as lambda^-4 (gas) and lambda^-haze_angstrom (haze).
 Atmosphere parse_atmosphere(const toml::table& t, const std::string& ctx)
@@ -768,17 +782,8 @@ void Loader::parse(const toml::table& root, Scene& out)
             fail(ctx, "unknown style '" + style + "'");
         }
 
-        const std::string trail =
-            get_string_or(*t, "trail", body.kind == BodyKind::Spacecraft ? "history" : "orbit");
-        if (trail == "orbit") {
-            body.trail = TrailMode::Orbit;
-        } else if (trail == "history") {
-            body.trail = TrailMode::History;
-        } else if (trail == "none") {
-            body.trail = TrailMode::None;
-        } else {
-            fail(ctx, "trail must be \"orbit\", \"history\" or \"none\"");
-        }
+        body.trail = parse_trail_mode(
+            get_string_or(*t, "trail", body.kind == BodyKind::Spacecraft ? "history" : "orbit"), ctx);
         body.label = (*t)["label"].value<bool>().value_or(true);
         body.trail_history_days = get_double_or(*t, "trail_history_days", 0.0);
         body.trail_linger_days = get_double_or(*t, "trail_linger_days", 0.0);
@@ -1102,6 +1107,40 @@ void Loader::parse(const toml::table& root, Scene& out)
                 fail(ctx, "phase_deg needs from_body");
             }
             e.caption = get_string_or(*t, "caption", "");
+            if (const toml::node* trails = t->get("trails")) {
+                const toml::array* list = trails->as_array();
+                if (!list) {
+                    fail(ctx, "trails must be an array of tables");
+                }
+                for (const auto& trail_node : *list) {
+                    const toml::table* tt = trail_node.as_table();
+                    if (!tt) {
+                        fail(ctx, "trails must be an array of tables");
+                    }
+                    SceneEvent::Trail trail;
+                    trail.body = body_ref(out, *tt, "body", ctx, false);
+                    const Body& body = out.bodies[static_cast<size_t>(trail.body)];
+                    const std::string trail_ctx = ctx + ", trail of '" + body.name + "'";
+                    if (!tt->contains("trail") && !tt->contains("trail_history_days")) {
+                        fail(trail_ctx, "set trail and/or trail_history_days");
+                    }
+                    trail.mode = tt->contains("trail") ? parse_trail_mode(get_string(*tt, "trail", trail_ctx), trail_ctx)
+                                                       : body.trail;
+                    trail.history_days = get_double_or(*tt, "trail_history_days", body.trail_history_days);
+                    if (trail.history_days < 0.0) {
+                        fail(trail_ctx, "trail_history_days must not be negative");
+                    }
+                    if (body.mark_periapsides && trail.history_days <= 0.0) {
+                        fail(trail_ctx, "mark_periapsides needs trail_history_days");
+                    }
+                    for (const SceneEvent::Trail& other : e.trails) {
+                        if (other.body == trail.body) {
+                            fail(trail_ctx, "set twice");
+                        }
+                    }
+                    e.trails.push_back(trail);
+                }
+            }
             out.events.push_back(e);
         }
     }

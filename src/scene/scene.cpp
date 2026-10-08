@@ -287,9 +287,39 @@ glm::dvec3 Scene::light_position(int body) const
 
 void Scene::set_active_frame(int index)
 {
-    if (index >= 0 && index < static_cast<int>(frames.size())) {
+    if (index >= 0 && index < static_cast<int>(frames.size()) && index != m_active_frame) {
         m_active_frame = index;
+        m_active_event = -1;
     }
+}
+
+void Scene::set_active_event(int index)
+{
+    m_active_event = index >= 0 && index < static_cast<int>(events.size()) ? index : -1;
+}
+
+TrailMode Scene::trail_mode(int body) const
+{
+    if (m_active_event >= 0) {
+        for (const SceneEvent::Trail& t : events[static_cast<size_t>(m_active_event)].trails) {
+            if (t.body == body) {
+                return t.mode;
+            }
+        }
+    }
+    return bodies[static_cast<size_t>(body)].trail;
+}
+
+double Scene::trail_history_days(int body) const
+{
+    if (m_active_event >= 0) {
+        for (const SceneEvent::Trail& t : events[static_cast<size_t>(m_active_event)].trails) {
+            if (t.body == body) {
+                return t.history_days;
+            }
+        }
+    }
+    return bodies[static_cast<size_t>(body)].trail_history_days;
 }
 
 State Scene::icrf_state_at(int body, double t_tdb) const
@@ -607,7 +637,9 @@ void Scene::trail(int body_index, double t_tdb, int max_points, std::vector<glm:
     points.clear();
     fades.clear();
     const Body& body = bodies[static_cast<size_t>(body_index)];
-    if (!body.motion || body.parent < 0 || body.trail == TrailMode::None) {
+    TrailMode mode = trail_mode(body_index);
+    double history_days = trail_history_days(body_index);
+    if (!body.motion || body.parent < 0 || mode == TrailMode::None) {
         return;
     }
 
@@ -618,7 +650,7 @@ void Scene::trail(int body_index, double t_tdb, int max_points, std::vector<glm:
     double linger = 0.0;   // 0 .. 1: how far a finished trail has faded
     if (!body.visible) {
         const double window = body.trail_linger_days * kSecondsPerDay;
-        if (body.trail != TrailMode::History || window <= 0.0 ||
+        if (mode != TrailMode::History || window <= 0.0 ||
             !bodies[static_cast<size_t>(body.parent)].visible) {
             return;
         }
@@ -643,8 +675,6 @@ void Scene::trail(int body_index, double t_tdb, int max_points, std::vector<glm:
         linger = (t_tdb - t_head) / window;
     }
 
-    TrailMode mode = body.trail;
-    double history_days = body.trail_history_days;
     if (frame_is_rotating() && mode == TrailMode::Orbit) {
         mode = TrailMode::History;
         history_days = history_days > 0.0 ? history_days : kRotatingTrailDays;

@@ -227,7 +227,9 @@ caption = """\
     energy: the petals shrink, and the closest approach steps down from 35.7 to 9.86 \
     solar radii."""
 
-# Venus flybys start two hours before closest approach.
+# Venus flybys start two hours before closest approach. Their trails show the last 30
+# days only (until the frame is changed): in the Venus-centered frame the paths of all
+# the earlier flybys would cross Venus.
 [[events]]
 name = "Venus flyby 1 (2018-10-03, 2,428 km altitude)"
 time_tdb = "2018-10-03 06:45"
@@ -240,6 +242,9 @@ caption = """\
     The first of seven Venus flybys, seven weeks after launch. Venus slows Parker down \
     so that it can swing closer to the Sun; a month from now it will pass closer than \
     any spacecraft before it."""
+[[events.trails]]
+body = "Parker Solar Probe"
+trail_history_days = 30.0
 
 # Perihelion 1 (2018-11-06 03:29 TDB, 24,818,592 km). Starts a day before.
 [[events]]
@@ -267,6 +272,9 @@ caption = """\
     The second Venus flyby lowers the perihelion again. Watch how the probe comes back \
     to the same spot in this frame: its orbits are timed so that Venus is waiting there, \
     and each pass takes it one step farther in."""
+[[events.trails]]
+body = "Parker Solar Probe"
+trail_history_days = 30.0
 
 [[events]]
 name = "Venus flyby 3 (2020-07-11, 830 km altitude)"
@@ -281,6 +289,9 @@ caption = """\
     night side and saw the surface itself glowing through the clouds, as hot as iron \
     from a forge: the first view of it from space in visible light. Cooler highlands \
     show up as dark patches."""
+[[events.trails]]
+body = "Parker Solar Probe"
+trail_history_days = 30.0
 
 [[events]]
 name = "Venus flyby 4 (2021-02-20, 2,386 km altitude)"
@@ -295,6 +306,9 @@ caption = """\
     18.8 solar radii out: the first spacecraft to touch the Sun. The edge of the corona \
     turned out to be wrinkled, with spikes and valleys, and Parker passed in and out of \
     it several times."""
+[[events.trails]]
+body = "Parker Solar Probe"
+trail_history_days = 30.0
 
 [[events]]
 name = "Venus flyby 5 (2021-10-16, 3,807 km altitude)"
@@ -308,6 +322,9 @@ caption = """\
     Each step inward means more heat. At the closest passes the front of Parker's \
     carbon-composite heat shield reaches about 1,400 C, while the instruments in its \
     shadow stay near 30 C. It is the shield that lets the probe keep going lower."""
+[[events.trails]]
+body = "Parker Solar Probe"
+trail_history_days = 30.0
 
 [[events]]
 name = "Venus flyby 6 (2023-08-21, 4,004 km altitude)"
@@ -321,6 +338,9 @@ caption = """\
     What Parker is after: why the corona, at millions of degrees, is so much hotter than \
     the Sun's 5,500 C surface, and where the slow solar wind comes from. Each lower \
     orbit takes it deeper into the region where those answers are made."""
+[[events.trails]]
+body = "Parker Solar Probe"
+trail_history_days = 30.0
 
 [[events]]
 name = "Venus flyby 7 (2024-11-06, 372 km altitude)"
@@ -334,6 +354,9 @@ caption = """\
     The seventh and last Venus flyby, and the closest, under 400 km above the surface. \
     It sets up the final orbit: 88 days around the Sun, coming within 6.2 million km of \
     the solar surface at each perihelion."""
+[[events.trails]]
+body = "Parker Solar Probe"
+trail_history_days = 30.0
 
 # Perihelion 22 (2024-12-24 11:42 TDB, 6,862,559 km): the first of the closest passes,
 # at ~190 km/s. Starts 12 hours before.

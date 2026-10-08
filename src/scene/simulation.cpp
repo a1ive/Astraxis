@@ -137,6 +137,7 @@ void Simulation::jump_to_event(size_t index)
         m_clock.warp = e.warp;
     }
     set_frame(e.frame >= 0 ? e.frame : 0); // events without a frame use the root frame
+    m_scene.set_active_event(static_cast<int>(index)); // its trails, until the frame changes
     m_scene.update(m_clock.t_tdb);
     if (e.focus >= 0) {
         const double distance =

@@ -413,6 +413,16 @@ struct SceneEvent {
     int from_body = -1;         // >= 0: view from this body's direction (e.g. the Sun: as seen from Earth)
     double phase_deg = 0.0;     // with from_body: turned this far around the up axis (180 = from behind)
     std::string caption;        // a museum-style note on why the view is worth seeing; may be empty
+
+    // Trail settings that replace a body's own while the event is active
+    // (Scene::set_active_event), e.g. a short trail for a flyby close-up in a
+    // planet-centered frame, where the earlier flybys would cross the planet.
+    struct Trail {
+        int body = -1;
+        TrailMode mode = TrailMode::History;
+        double history_days = 0.0;
+    };
+    std::vector<Trail> trails;
 };
 
 // Osculating two-body orbit.
@@ -484,8 +494,13 @@ public:
     };
     OrbitCenter orbit_center(int body) const;
 
+    // Switching to another frame ends the active event (its trails were set
+    // for the event's own frame).
     void set_active_frame(int index);
     int active_frame() const { return m_active_frame; }
+    // The event whose trail settings apply (-1: none).
+    void set_active_event(int index);
+    int active_event() const { return m_active_event; }
     const DisplayFrame& frame() const { return frames[static_cast<size_t>(m_active_frame)]; }
     bool frame_is_rotating() const { return frame().type == DisplayFrame::Type::Rotating; }
     FrameTransform frame_transform(double t_tdb) const;
@@ -514,6 +529,12 @@ public:
     // Distance from the root at which the whole (visible) system fits.
     double system_extent_km() const { return m_system_extent_km; }
 
+    // A body's trail settings: its own, or the active event's for it. The
+    // trail drawn may still differ (a rotating frame turns orbits into history
+    // trails, and a frame may cap their length).
+    TrailMode trail_mode(int body) const;
+    double trail_history_days(int body) const;
+
     // Trail of a body in the display frame at t: head (current position) first,
     // going back in time, with fade 0 at the head and 1 at the tail.
     void trail(int body, double t_tdb, int max_points, std::vector<glm::dvec3>& points,
@@ -534,6 +555,7 @@ public:
 private:
     double m_time = 0.0;
     int m_active_frame = 0;
+    int m_active_event = -1;
     FrameTransform m_transform;
     glm::dvec3 m_sun_position{1.0, 0.0, 0.0};
     double m_system_extent_km = 1.0;

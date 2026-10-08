@@ -995,7 +995,8 @@ void SceneRenderer::build_orbit_lines(const Simulation& sim, const OutputView& o
         // An orbit fades with its body; a travelled path (e.g. a spacecraft's
         // tour) stays while its host system is shown.
         const int host = scene.satellite_host(static_cast<int>(i));
-        const float fade = scene.bodies[i].trail == TrailMode::History
+        const TrailMode mode = scene.trail_mode(static_cast<int>(i));
+        const float fade = mode == TrailMode::History
                                ? (host >= 0 ? fades[static_cast<size_t>(host)] : 1.0f)
                                : fades[i];
         if (fade <= 0.0f) {
@@ -1005,7 +1006,7 @@ void SceneRenderer::build_orbit_lines(const Simulation& sim, const OutputView& o
         if (m_trail_points.size() < 2) {
             continue;
         }
-        if (scene.bodies[i].trail == TrailMode::Orbit && !scene.frame_is_rotating()) {
+        if (mode == TrailMode::Orbit && !scene.frame_is_rotating()) {
             // Real time per orbit, from its length and the current speed (within a
             // factor of a few on eccentric orbits, which is enough here).
             double length = 0.0;
@@ -1044,8 +1045,8 @@ void SceneRenderer::build_orbit_lines(const Simulation& sim, const OutputView& o
             const double m_km = parent.gm_km3_s2 / (kSpeedOfLightKmS * kSpeedOfLightKmS);
             gap = std::max(parent.disk_outer_m, 6.0) * m_km; // the disk, or the shadow (~5.2 M)
         }
-        const double span = body.trail_history_days * kSecondsPerDay;
         const int index = static_cast<int>(i);
+        const double span = scene.trail_history_days(index) * kSecondsPerDay;
         const FrameTransform& transform = scene.current_transform();
         const glm::vec3 color = glm::mix(body.orbit_color, glm::vec3(1.0f), 0.5f);
         const std::vector<double> times = scene.periapsis_times(index, sim.clock().t_tdb - span, sim.clock().t_tdb);

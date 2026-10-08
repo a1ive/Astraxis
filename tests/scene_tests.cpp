@@ -332,6 +332,76 @@ void test_simulation()
     check(!sim.touring(), "set_focus stops the tour");
 }
 
+// An event can shorten a trail while its frame is shown: in Parker's
+// Venus-centered frame, the earlier flybys would otherwise cross Venus.
+void test_event_trails()
+{
+    Simulation sim;
+    std::string error;
+    check(sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/parker.toml", &error), "parker.toml loads");
+    const Scene& scene = sim.scene();
+    const int parker = scene.find("Parker Solar Probe");
+    auto find_event = [&](std::string_view prefix) {
+        for (size_t i = 0; i < scene.events.size(); ++i) {
+            if (scene.events[i].name.starts_with(prefix)) {
+                return i;
+            }
+        }
+        return scene.events.size();
+    };
+    auto find_frame = [&](std::string_view name) {
+        for (size_t i = 0; i < scene.frames.size(); ++i) {
+            if (scene.frames[i].name == name) {
+                return static_cast<int>(i);
+            }
+        }
+        return -1;
+    };
+    const size_t flyby2 = find_event("Venus flyby 2");
+    const size_t perihelion1 = find_event("Perihelion 1");
+    const int venus_frame = find_frame("Venus-centered");
+    const int rotating = find_frame("Sun-Venus rotating");
+    check(parker > 0 && flyby2 < scene.events.size() && perihelion1 < scene.events.size() && venus_frame > 0 &&
+              rotating > 0,
+          "parker events and frames");
+    check(scene.active_event() == -1 && scene.trail_history_days(parker) == 0.0, "no event trails after loading");
+
+    // Passes within 1e6 km of Venus along the trail (Venus at the frame's origin).
+    std::vector<glm::dvec3> points;
+    std::vector<float> fades;
+    auto venus_passes = [&] {
+        scene.trail(parker, sim.clock().t_tdb, 2048, points, fades);
+        int passes = 0;
+        bool was_near = false;
+        for (const glm::dvec3& p : points) {
+            const bool now_near = glm::length(p) < 1.0e6;
+            passes += now_near && !was_near ? 1 : 0;
+            was_near = now_near;
+        }
+        return passes;
+    };
+
+    sim.jump_to_event(flyby2);
+    check(scene.active_event() == static_cast<int>(flyby2) && scene.trail_history_days(parker) == 30.0 &&
+              scene.trail_mode(parker) == TrailMode::History,
+          "the flyby event sets Parker's trail", scene.trail_history_days(parker));
+    const int venus = scene.find("Venus");
+    check(scene.trail_mode(venus) == scene.bodies[static_cast<size_t>(venus)].trail, "other bodies keep their trails");
+    const int with_event = venus_passes();
+    check(with_event == 1, "flyby 2 trail passes Venus once", with_event);
+
+    // Another frame ends the event; back in the Venus frame, flyby 1 shows up again.
+    sim.set_frame(rotating);
+    check(scene.active_event() == -1, "a frame change ends the event's trails");
+    sim.set_frame(venus_frame);
+    const int without_event = venus_passes();
+    check(without_event == 2, "full trail passes Venus at both flybys", without_event);
+
+    sim.jump_to_event(perihelion1);
+    check(scene.active_event() == static_cast<int>(perihelion1) && scene.trail_history_days(parker) == 0.0,
+          "an event without trails keeps the body's own");
+}
+
 // Label layout: priority order, easing, no overlapping labels once settled, picking.
 void test_label_layout()
 {
@@ -632,6 +702,7 @@ void run_scene_tests()
     test_cross_scene_orbits();
     test_ephemeris_blends();
     test_simulation();
+    test_event_trails();
     test_label_layout();
     test_orbit_center();
     test_body_masses();
