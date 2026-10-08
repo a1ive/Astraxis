@@ -394,6 +394,21 @@ encounter_step_minutes = 10
 refine_near = ["io_juno", "europa_juno", "ganymede_juno", "callisto_juno"]
 refine_near_km = 100000.0
 
+# Cassini's Jupiter flyby (closest approach 2000-12-30), a hyperbola far outside the
+# moons, while Galileo was in orbit. The span covers the flyby observations.
+[[target]]
+name = "cassini_jup"
+command = "-82"
+naif_id = -82
+center = "500@599"
+kepler_gm_km3_s2 = 126712764.1
+center_naif_id = 599
+start = "2000-10-01"
+stop = "2001-04-01"
+base_step_minutes = 360
+tolerance_km = 5.0
+periapsides = true
+
 # --- Earth-Moon --------------------------------------------------------------
 #
 # Artemis I and II around the Earth (refined to 1 minute near the Moon), and

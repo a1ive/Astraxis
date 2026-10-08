@@ -1,5 +1,5 @@
-# Jupiter, its rings, the Galilean and the four inner satellites, and the orbits
-# of Galileo (1995-2003) and Juno (2016-).
+# Jupiter, its rings, the Galilean and the four inner satellites, the orbits of
+# Galileo (1995-2003) and Juno (2016-), and Cassini's flyby (2000-2001).
 #
 # Sources
 # [ELEM] JPL SSD, Planetary Satellite Mean Elements (https://ssd.jpl.nasa.gov/sats/elem/),
@@ -15,8 +15,10 @@
 #        tools/bake/horizons_bake.py (tools/bake/ephem.toml, Kepler-relative AXEPH2 tables):
 #        Galileo 1995-11-01 .. 2003-09-21 (navigation fits to 2002-08-12, then the
 #        baseline prediction), Juno 2016-06-01 .. 2028-09-01 (reconstructed to 2026-08-24,
-#        then predictions), and the Galilean moons over both spans. Outside them the moons
-#        fade over one day into the mean-element model [ELEM], which drifts by degrees.
+#        then predictions), Cassini 2000-10-01 .. 2001-04-01 (navigation team's
+#        post-mission reconstruction), and the Galilean moons over the Galileo and Juno
+#        spans. Outside them the moons fade over one day into the mean-element model
+#        [ELEM], which drifts by degrees.
 # [PLM]  Plumes (always erupting): sources and choices in solar_system.toml.
 # [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
 # [STKS] P. Stooke, Stooke Small Body Shape Models V2.0 (PDS SBN, small_bodies.stooke.shape-models;
@@ -54,6 +56,12 @@
 #          and "NASA's Juno to Get Close Look at Jupiter's Volcanic Moon Io on Dec. 30": about
 #          1,500 km, the closest to Io in over 20 years; Loki Patera, a 200 km lava lake with
 #          islands, so smooth it mirrored the Sun.
+#        [CJUP] NASA Science, "Cassini Celebrates 10 Years Since Jupiter Encounter"
+#          (2010-12-28): about six months at Jupiter, October 2000 to March 2001, slingshot
+#          toward Saturn; closest approach 2000-12-30 10:05 UTC, about 9.7 million km from the
+#          cloud tops; Galileo still in orbit, near-simultaneous measurements from two
+#          spacecraft, the first two-point measurement of the boundary of Jupiter's magnetic
+#          bubble, which was contracting under higher solar wind pressure; some 26,000 images.
 #        Orbits as drawn: [HZN].
 # Precession signs: [ELEM] lists apsidal/nodal periods as magnitudes. Nodes regress.
 # Io's and Europa's apsides are locked to the Laplace resonance and regress; Ganymede's
@@ -422,7 +430,9 @@ laplace_pole_ra_dec_deg = [268.1, 64.5]
 # Spacecraft [HZN], visible while they are at Jupiter. The trails show a sliding
 # window of each tour (the whole of it is a dense tangle): Galileo's orbits reshaped
 # by moon flybys, Juno's polar orbits whose perijove drifts north (out of the
-# equatorial plane, unlike the moons).
+# equatorial plane, unlike the moons). Cassini only passes by, far outside the moons:
+# its hyperbola lies within 4 deg of Jupiter's equator, and Jupiter turns it by 12 deg
+# (velocity 2000-10-01 vs 2001-04-01 [HZN]).
 
 [[bodies]]
 name = "Galileo"
@@ -451,6 +461,21 @@ trail_history_days = 200.0                # about 6 orbits (33 days each since 2
 [bodies.orbit]                         # [HZN] -61
 type = "ephemeris"
 file = "ephem/juno_jup.eph"
+
+[[bodies]]
+name = "Cassini"
+parent = "Jupiter"
+kind = "spacecraft"
+radii_km = [0.002]                     # 4 m high-gain antenna
+color = "#ffc2cf"                      # not saturn.toml's gold, which is Galileo's here
+orbit_color = "#ff9bb0"
+trail = "history"
+trail_history_days = 90.0                 # the inbound leg, about 80 million km
+trail_linger_days = 30.0
+
+[bodies.orbit]                         # [HZN] -82
+type = "ephemeris"
+file = "ephem/cassini_jup.eph"
 
 # Events. Closest approaches (TDB at the spacecraft) and distances from the bake tool
 # (tools/bake/ephem.toml encounters; altitudes above the moons' mean radii [SPHY]).
@@ -505,6 +530,21 @@ caption = """\
     About 200 km over Europa's cracked ice. Galileo's measurements made the case for a \
     salty ocean beneath the ice, and that ocean is why, at the end, Galileo was kept \
     from ever hitting Europa."""
+
+# Cassini's closest approach: 2000-12-30 10:05:24 TDB, 9,794,455 km from Jupiter's center.
+[[events]]
+name = "Galileo and Cassini, two spacecraft at Jupiter (2000-12-30)"
+time_tdb = "2000-12-10 00:00"
+focus = "Jupiter"
+from_orbit_normal = "Ganymede"
+distance_km = 7.0e7
+warp = 86400.0
+# [CJUP], [HZN]
+caption = """\
+    Galileo swings in on its orbit as Cassini, bound for Saturn, sweeps past about 9.7 \
+    million km out, slung onward by Jupiter's gravity. With one craft inside Jupiter's \
+    magnetic bubble and one outside, they caught its edge shrinking under a gust of \
+    solar wind. Cassini took some 26,000 images in six months."""
 
 [[events]]
 name = "Galileo at Callisto (2001-05-25, 129 km)"

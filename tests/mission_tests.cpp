@@ -213,6 +213,46 @@ void test_jupiter_missions()
     parse_utc("2026-10-02", &t);
     scene.update(t);
     check(scene.bodies[static_cast<size_t>(juno)].visible, "Juno at Jupiter in 2026");
+
+    // Cassini's flyby. Horizons, -82 @ 500@599, 2000-12-31 00:00 TDB, ICRF km: a day
+    // after closest approach, between two knots of the table.
+    const int cassini = scene.find("Cassini");
+    check(cassini > 0, "Cassini in the Jupiter scene");
+    const double t_c = tdb_from_jd_tdb(2451909.5);
+    const glm::dvec3 cassini_hzn(6.643951662465836E+06, -6.555686166043234E+06, -3.019377321932644E+06);
+    check(glm::length(at(cassini, t_c) - cassini_hzn) < 5.0, "Cassini matches Horizons after its Jupiter flyby (km)",
+          glm::length(at(cassini, t_c) - cassini_hzn));
+    // NASA Science, "Cassini Celebrates 10 Years Since Jupiter Encounter" (2010-12-28):
+    // within about 9.7 million km of the cloud tops, 2000-12-30 10:05 UTC.
+    const double t_ca = (jd_from_calendar({2000, 12, 30, 10, 5, 0}) - kJ2000Jd) * kSecondsPerDay;
+    double ca = 1e300;
+    double t_min = 0.0;
+    for (double dt = -6.0 * 3600.0; dt <= 6.0 * 3600.0; dt += 60.0) {
+        const double d = glm::length(at(cassini, t_ca + dt));
+        if (d < ca) {
+            ca = d;
+            t_min = dt;
+        }
+    }
+    const double cloud_tops = ca - scene.bodies[static_cast<size_t>(scene.find("Jupiter"))].equatorial_radius_km;
+    check(std::abs(cloud_tops - 9.7e6) < 0.05e6, "Cassini's closest approach to Jupiter's cloud tops (km)", cloud_tops);
+    check(std::abs(t_min) < 600.0, "Cassini's closest approach time (s from NASA's)", t_min);
+    // Jupiter turns the hyperbola by about 12 deg (jupiter.toml), near its equator.
+    const glm::dvec3 v0 = scene.icrf_state_at(cassini, tdb_from_jd_tdb(2451818.5)).velocity;
+    const glm::dvec3 v1 = scene.icrf_state_at(cassini, tdb_from_jd_tdb(2452000.5)).velocity;
+    const double turn = glm::degrees(std::acos(glm::dot(glm::normalize(v0), glm::normalize(v1))));
+    check(std::abs(turn - 12.0) < 1.0, "Jupiter turns Cassini's path (deg)", turn);
+    const glm::dvec3 pole = scene.bodies[static_cast<size_t>(scene.find("Jupiter"))].pole;
+    const State s_c = scene.icrf_state_at(cassini, t_c);
+    const double tilt = glm::degrees(std::acos(glm::dot(glm::normalize(glm::cross(s_c.position, s_c.velocity)), pole)));
+    check(tilt < 4.0, "Cassini's hyperbola near Jupiter's equator (deg)", tilt);
+    parse_utc("2000-09-30", &t);
+    scene.update(t);
+    check(!scene.bodies[static_cast<size_t>(cassini)].visible, "Cassini not yet at Jupiter");
+    parse_utc("2000-12-30", &t);
+    scene.update(t);
+    check(scene.bodies[static_cast<size_t>(cassini)].visible && scene.bodies[static_cast<size_t>(galileo)].visible,
+          "Galileo and Cassini both at Jupiter");
 }
 
 // Artemis I/II and CAPSTONE against NASA's published figures (distances only:
