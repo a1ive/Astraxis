@@ -397,7 +397,8 @@ void test_hyperion_spin_state()
 // Halley (ISEE-3 scene): Stooke's shape model ([STKS]) against Szego 1991's independent
 // Vega/Giotto model ([SZG]: a 15.3 x 7.2 x 7.22 km box, 365 km^3), and the long-axis mode
 // of Belton et al. 1991 ([BLT]): from the long axis at 66.0 deg to M, 3.69 d around it and
-// 7.1 d about itself, the abstract derives a total spin of 2.84 d at 21.4 deg from M.
+// 7.1 d about itself, the paper derives a total spin of 2.84 d at 21.4 deg from M. Then the
+// phases: the long axis at the encounters ([BLT], [SA91]) and Stooke's longitudes ([STKS]).
 void test_halley_shape()
 {
     Scene scene = load_scene_or_die("isee3.toml");
@@ -445,6 +446,68 @@ void test_halley_shape()
         }
     }
     check(worst_nutation < 1e-6, "Halley long axis stays 66 deg from M (deg)", worst_nutation);
+
+    // The phases. B1950 directions to J2000 with SPICE's FK4 -> J2000 rotation (pxform), and
+    // B1950 ecliptic to equator with the IAU 1980 obliquity at B1950.0.
+    const glm::dmat3 fk4_to_j2000(0.9999256794956877, 0.0111814832391717, 0.0048590037723143,
+                                  -0.0111814832204662, 0.9999374848933135, -0.0000271702937440,
+                                  -0.0048590038153592, -0.0000271625947142, 0.9999881946023742);
+    const double t_b1950 = (2433282.4235 - kJ2000Jd) / 36525.0;
+    const double eps_b1950 = (84381.448 - 46.8150 * t_b1950) / 3600.0 * kDegToRad;
+    const auto radec = [](double ra_deg, double dec_deg) {
+        const double ra = ra_deg * kDegToRad;
+        const double dec = dec_deg * kDegToRad;
+        return glm::dvec3(std::cos(dec) * std::cos(ra), std::cos(dec) * std::sin(ra), std::sin(dec));
+    };
+    const auto big_end_at = [&](double t) {
+        scene.update(t);
+        return scene.bodies[static_cast<size_t>(halley)].orientation[2];
+    };
+    const auto angle_deg = [](const glm::dvec3& a, const glm::dvec3& b) {
+        return std::acos(std::clamp(glm::dot(glm::normalize(a), glm::normalize(b)), -1.0, 1.0)) / kDegToRad;
+    };
+    // [BLT] sec. 2.2: at the Vega 2 encounter (JD 2446498.80556 UT, the closest approach of
+    // [VEGA]) the long axis pierces the "big" end (Stooke's body +z) toward RA, Dec (B1950) =
+    // 313.20, -7.52.
+    const double vega2_ca = tdb_from_utc_jd(jd_from_calendar({1986, 3, 9, 7, 20, 0}));
+    const double p_error = angle_deg(big_end_at(vega2_ca), fk4_to_j2000 * radec(313.20, -7.52));
+    check(p_error < 0.1, "Halley big end at the Vega 2 encounter (Belton's P, deg)", p_error);
+    // Independent: [SA91] Table II, combination (2,1,2), the big end in ecliptic (B1950)
+    // longitude, latitude at the other two encounters (closest approaches from [VEGA], [GIO]).
+    const struct {
+        const char* name;
+        double t;
+        double lon, lat;
+    } encounters[] = {
+        {"Vega 1", tdb_from_utc_jd(jd_from_calendar({1986, 3, 6, 7, 20, 6})), 259.0, -15.0},
+        {"Vega 2", vega2_ca, 310.0, 9.0},
+        {"Giotto", tdb_from_utc_jd(jd_from_calendar({1986, 3, 14, 0, 3, 2})), 235.0, -32.0},
+    };
+    for (const auto& e : encounters) {
+        const glm::dvec3 ecl = radec(e.lon, e.lat);
+        const glm::dvec3 eq(ecl.x, ecl.y * std::cos(eps_b1950) - ecl.z * std::sin(eps_b1950),
+                            ecl.y * std::sin(eps_b1950) + ecl.z * std::cos(eps_b1950));
+        const double error = angle_deg(big_end_at(e.t), fk4_to_j2000 * eq);
+        check(error < 5.0, (std::string("Halley big end at ") + e.name + " vs Samarasinha & A'Hearn (deg)").c_str(),
+              error);
+    }
+    // [STKS]: 90 deg east (V1.0's 270 W) below Vega 2 in its image 1.5 s before the closest
+    // approach; that image's header [VTV] has 8,032 km and a phase angle of 28.7 deg.
+    {
+        scene.update(vega2_ca - 1.5);
+        const auto position = [&](const char* name) {
+            return scene.bodies[static_cast<size_t>(scene.find(name))].icrf_position;
+        };
+        const glm::dvec3 to_vega2 = position("Vega 2") - position("Halley");
+        const glm::dvec3 sub = glm::transpose(scene.bodies[static_cast<size_t>(halley)].orientation) *
+                               glm::normalize(to_vega2);
+        const double lon = std::atan2(sub.y, sub.x) / kDegToRad;
+        const double phase = angle_deg(to_vega2, position("Sun") - position("Halley"));
+        check(std::abs(glm::length(to_vega2) - 8032.0) < 20.0, "Vega 2 range in its closest image (km)",
+              glm::length(to_vega2));
+        check(std::abs(phase - 28.7) < 1.0, "Vega 2 phase angle in its closest image (deg)", phase);
+        check(std::abs(lon - 90.0) < 0.1, "Halley longitude below Vega 2 (deg east)", lon);
+    }
 }
 
 } // namespace
