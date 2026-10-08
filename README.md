@@ -14,7 +14,7 @@ Astraxis shows planets, spacecraft and stars in motion using orbital data and ph
 | Scene | What you see | Motion source |
 |---|---|---|
 | Solar System (default) | The Sun, planets, major moons, dwarf planets and largest asteroids | JPL Horizons ephemerides, JPL mean orbital elements, JPL Small-Body Database |
-| Jupiter | Jupiter, its faint rings, the Galilean and four inner moons, and the orbits of Galileo (1995 to 2003) and Juno (2016 onward) | JPL Horizons ephemerides, JPL mean orbital elements |
+| Jupiter | Jupiter, its faint rings, the Galilean and four inner moons, the orbits of Galileo (1995 to 2003) and Juno (2016 onward), and Cassini's flyby (2000 to 2001) | JPL Horizons ephemerides, JPL mean orbital elements |
 | JWST | JWST's halo orbit around Sun-Earth L2 | JPL Horizons ephemerides |
 | Earth-Moon | Artemis II's free-return flight, Artemis I's distant retrograde orbit, CAPSTONE's near-rectilinear halo orbit, the ARTEMIS probes at the Earth-Moon Lagrange points, Chang'e 5-T1's swing-by into an L2 orbit, LADEE's low lunar orbits and LCROSS's impact, in the Earth-Moon rotating frame | JPL Horizons ephemerides; Chang'e 5-T1 reconstructed from the published state and maneuvers (Liu & Li 2016) |
 | Saturn | Saturn's rings (Cassini radio-occultation optical depths), the seven major moons, Cassini's tour and Huygens' descent to Titan | JPL Horizons ephemerides, JPL mean orbital elements (phases fitted to Horizons) |
