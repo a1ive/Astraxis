@@ -19,8 +19,8 @@
 #          osculating elements of another epoch would.
 #        - Jupiter's and Saturn's moons relative to the planet's center (copied from
 #          jupiter.toml / saturn.toml; see the notes there), while the planets here are
-#          system barycenters: offsets of a few hundred km. Phobos near Mars Express'
-#          close passes (copied from mars.toml).
+#          system barycenters: offsets of a few hundred km. Phobos and Deimos near
+#          Mars Express' and Hope's close passes (copied from mars.toml).
 # [APX]  E. M. Standish, Approximate Positions of the Planets, Table 2a (+2b), used for
 #        Mercury, Venus and Mars, and outside the baked span for the others.
 # [ELEM] JPL SSD, Planetary Satellite Mean Elements (https://ssd.jpl.nasa.gov/sats/elem/),
@@ -437,7 +437,11 @@ color = "#8f857a"
 orbit_color = "#b0a698"
 texture = "textures/deimos.jpg"            # [THOM] Viking mosaic, assets/textures/SOURCES.md
 texture_left_lon_deg = -180.0
-[bodies.orbit]                             # [ELEM]
+[bodies.orbit]                             # [HZN] 402, near Hope (as in mars.toml)
+type = "ephemeris"
+file = "ephem/deimos_emm.eph"
+fallback_blend_days = 1.0
+[bodies.orbit.fallback]                    # [ELEM]
 type = "mean_elements"
 a_km = 23457.0
 e = 0.0

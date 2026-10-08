@@ -1176,11 +1176,16 @@ tolerance_km = 0.05
 #   MRO (-74):       2005-Aug-12 12:42 .. 2026-Oct-27 12:08 TDB (JPL MRO navigation; aerobraking
 #                    file mro_ab 2006-Mar-10 22:06 .. 2006-Sep-12 06:40; planning prediction
 #                    after 2026-Sep-27 23:32)
+#   Hope / EMM (-62): 2020-Jul-19 23:07 .. 2027-Mar-04 00:02 TDB (fit to tracking data through
+#                    2026-Sep-03, then a prediction; arrival 2021-Feb-09 15:54:46 UTC)
+#   C/2013 A1 (Siding Spring): Horizons record 1003228, JPL solution c2013a1_s105_merged
+#                    (with non-gravitational jet terms); closest to Mars on 2014-Oct-19
 # Kepler-relative around the Mars system GM (DE440, JPL SSD astrodynamic parameters).
 # Low orbits need many knots (Mars' oblateness bends them every revolution): at 10 km,
 # a month of MRO's 112-minute orbit takes ~800 knots, of MAVEN's ~330, of Mars Express'
-# ~210. So MRO keeps two windows only (arrival and aerobraking; the last two years),
-# and Phobos only the days around Mars Express' close passes (mean elements elsewhere).
+# ~210. So MRO keeps three windows only (arrival and aerobraking; the comet's month; the
+# last two years), and Phobos and Deimos only the days around Mars Express' and Hope's
+# close passes (mean elements elsewhere).
 
 [[target]]
 name = "phobos_mex"
@@ -1251,4 +1256,63 @@ start = "2024-10-01"
 stop = "2026-10-27 12:08"  # end of the data (planning prediction after 2026-09-27 23:32)
 base_step_minutes = 5
 tolerance_km = 10.0
+radius_km = 3396.19
+
+[[target]]
+name = "mro_comet"
+command = "-74"
+naif_id = -74
+center = "500@499"
+center_naif_id = 499
+kepler_gm_km3_s2 = 42828.375816
+start = "2014-10-05"       # Siding Spring's month (closest to Mars on 2014-10-19)
+stop = "2014-11-05"
+base_step_minutes = 5
+tolerance_km = 10.0
+radius_km = 3396.19
+
+[[target]]
+name = "deimos_emm"
+command = "402"
+naif_id = 402
+center = "500@499"
+center_naif_id = 499
+kepler_gm_km3_s2 = 42828.375816
+start = "2021-02-05"
+stop = "2027-03-04"
+base_step_minutes = 10
+tolerance_km = 2.0
+radius_km = 6.2
+windows_near = "-62"       # only near Hope; mean elements elsewhere
+window_km = 1500.0
+window_pad_days = 1.0
+
+[[target]]
+name = "emm_mars"
+command = "-62"
+naif_id = -62
+center = "500@499"
+center_naif_id = 499
+kepler_gm_km3_s2 = 42828.375816
+start = "2021-02-05"       # four days before orbit insertion (2021-02-09)
+stop = "2027-03-04"        # end of the data (prediction after 2026-09-03)
+base_step_minutes = 10
+tolerance_km = 5.0
+radius_km = 3396.19
+encounters = ["deimos_emm"]
+encounter_km = 1000.0
+encounter_step_minutes = 2
+
+# The comet relative to Mars (Mars in mars.toml is a root with approximate heliocentric
+# elements, which would misplace a heliocentric comet by thousands of km).
+[[target]]
+name = "siding_spring_mars"
+command = "DES=C/2013 A1;"
+naif_id = 1003228
+center = "500@499"
+center_naif_id = 499
+start = "2014-08-01"
+stop = "2014-12-31"
+base_step_minutes = 60
+tolerance_km = 5.0
 radius_km = 3396.19

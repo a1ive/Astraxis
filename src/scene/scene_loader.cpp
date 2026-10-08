@@ -922,7 +922,7 @@ void Loader::parse(const toml::table& root, Scene& out)
         if (const toml::table* c = (*t)["comet"].as_table()) {
             const std::string comet_ctx = ctx + " comet";
             if (body.kind != BodyKind::Planet || body.parent != 0) {
-                fail(comet_ctx, "a comet must be a body orbiting the root (the sun)");
+                fail(comet_ctx, "a comet must be a child of the root (the sun, or the planet the scene is centered on)");
             }
             Body::Comet& comet = body.comet;
             comet.enabled = true;

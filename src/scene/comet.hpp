@@ -62,7 +62,8 @@ public:
     static constexpr int kBetas = 16; // strata, log-spaced; each grain draws its beta within one
     static constexpr int kDirections = 4;
 
-    // Grains of comet `body` (orbiting the sun) at t. Weights: the production
+    // Grains of comet `body` (a child of the root: the sun, or the planet a
+    // scene is centered on) at t. Weights: the production
     // at emission (from the total magnitude law, less the r_h^-2 of sunlight:
     // r_h^-(0.4 K1 - 2)) times the grain size distribution (scattering cross
     // section per log beta ~ beta^0.5 for n(a) ~ a^-3.5, Dohnanyi 1969, JGR 74,

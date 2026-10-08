@@ -127,7 +127,7 @@ void DustTail::update(const Scene& scene, int body, double t_tdb)
         m_slots.push_back(make_slot(scene, body, m_slots.back().index + 1, slot_s));
     }
 
-    const double gm_sun = scene.bodies[static_cast<size_t>(comet_body.parent)].gm_km3_s2;
+    const double gm_sun = scene.sun_gm(); // the parent may be the planet a scene is centered on
     const State sun = scene.sun_icrf_state_at(t_tdb);
     const double r_comet = glm::length(scene.icrf_state_at(body, t_tdb).position - sun.position);
     double total = 0.0;

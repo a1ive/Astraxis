@@ -510,6 +510,8 @@ public:
     State icrf_state_at(int body, double t_tdb) const;
     // State of the sun relative to the scene origin (ICRF).
     State sun_icrf_state_at(double t_tdb) const;
+    // GM of the sun: the Star body's, or the Sun's in a scene centered on a planet.
+    double sun_gm() const;
 
     // Sun position in the display frame.
     const glm::dvec3& sun_position() const { return m_sun_position; }

@@ -143,6 +143,27 @@ void test_dust_tail()
         check(gz_anti_sun > 0.8 * glm::length(gz_mean), "Giacobini-Zinner dust tail on the anti-sun side (km)",
               gz_anti_sun);
     }
+    // Siding Spring in the Mars scene: a child of Mars (the root), whose grains still
+    // move under the Sun's gravity, not Mars'.
+    {
+        Scene mars = load_scene_or_die("mars.toml");
+        const int ss = mars.find("Siding Spring");
+        const double t_ss = tdb_from_utc_jd(jd_from_calendar({2014, 10, 19, 18, 0, 0}));
+        DustTail ss_tail;
+        ss_tail.update(mars, ss, t_ss);
+        const State ss_sun = mars.sun_icrf_state_at(t_ss);
+        const State mc = mars.icrf_state_at(ss, t_ss);
+        glm::dvec3 ss_mean(0.0);
+        double ss_total = 0.0;
+        for (const DustGrain& g : ss_tail.grains()) {
+            ss_mean += g.weight * (g.position - mc.position);
+            ss_total += g.weight;
+        }
+        ss_mean /= ss_total;
+        const double ss_anti_sun = glm::dot(ss_mean, glm::normalize(mc.position - ss_sun.position));
+        check(!ss_tail.grains().empty() && ss_anti_sun > 0.8 * glm::length(ss_mean),
+              "Siding Spring dust tail on the anti-sun side, in a Mars-centered scene (km)", ss_anti_sun);
+    }
     std::printf("info: Halley dust 1986-03-10: %zu grains, weighted center %.3g km anti-sun, %.3g km along -v "
                 "(%.1f deg behind the anti-sun line), farthest %.3g km\n",
                 grains.size(), anti_sun, -lag, std::atan2(-lag, anti_sun) / kDegToRad, far);

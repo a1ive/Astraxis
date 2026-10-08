@@ -1,5 +1,6 @@
-# Mars, Phobos and Deimos, and three orbiters: Mars Express (2003-), the Mars
-# Reconnaissance Orbiter (2006-) and MAVEN (2014-2025).
+# Mars, Phobos and Deimos, four orbiters: Mars Express (2003-), the Mars Reconnaissance
+# Orbiter (2006-), MAVEN (2014-2025) and Hope (2021-), and comet Siding Spring's pass of
+# Mars on 2014-10-19.
 #
 # Sources
 # [HZN]  JPL Horizons state vectors relative to Mars' center, baked by
@@ -8,16 +9,30 @@
 #          tracking through 2026-09-23, then ESA's prediction.
 #        - MAVEN (-202): JPL navigation, 2014-09-18 .. 2025-12-04, the end of the tracking
 #          data (contact was lost on 2025-12-06).
-#        - MRO (-74): JPL MRO navigation, two windows only (a low orbit takes many knots):
-#          2006-03-07 .. 2006-10-01 (arrival and aerobraking) and 2024-10-01 .. 2026-10-27
-#          12:08 (a planning prediction after 2026-09-27). MRO is not shown in between.
-#        - Phobos (401): only within a day of Mars Express' passes closer than 1,500 km;
-#          elsewhere the mean elements [ELEM], faded in over one day.
+#        - MRO (-74): JPL MRO navigation, three windows only (a low orbit takes many knots):
+#          2006-03-07 .. 2006-10-01 (arrival and aerobraking), 2014-10-05 .. 11-05 (the
+#          comet) and 2024-10-01 .. 2026-10-27 12:08 (a planning prediction after
+#          2026-09-27). MRO is not shown in between.
+#        - Hope (-62): 2021-02-05 .. 2027-03-04, fit to tracking data through 2026-09-03,
+#          then a prediction.
+#        - Phobos (401) and Deimos (402): only within a day of Mars Express' (Phobos) and
+#          Hope's (Deimos) passes closer than 1,500 km; elsewhere the mean elements [ELEM],
+#          faded in over one day.
+#        - Comet C/2013 A1 (Siding Spring): JPL solution c2013a1_s105_merged (Horizons
+#          1003228), 2014-08-01 .. 2014-12-31, relative to Mars (the [APX] Mars would
+#          misplace a heliocentric comet by thousands of km).
 #        Horizons notes: Mars Express "Inclination: 86.3 deg, pericentre = 258 km, Period:
 #        6h 43m, apocentre = 11 560 km"; MAVEN "took 5 weeks" from capture to its science
 #        orbit, "150 x 6200 km having a 75 degree inclination"; MRO "aerobraked for 6 months
 #        from the post-insertion 35 hour orbit", then "a 112 minute, near circular polar
-#        orbit".
+#        orbit"; Hope (EMM) "an elliptical, roughly 22000 x 44000 km orbit with a period of
+#        55 hours, 25 degree inclination", arrival 2021-02-09 15:54:46 UTC, built by the
+#        United Arab Emirates, to "create a global picture of how the martian atmosphere
+#        varies throughout the day and year".
+# [SBDB] JPL Small-Body Database, C/2013 A1 total magnitude M1 = 8.5 (+-2), K1 = 9 (solution
+#        105; M1 + 5 log delta + K1 log r). The coma color and ion tail are illustrative
+#        (its gas tail is not measured here), as are the dust tail's grain speeds and sizes
+#        (src/scene/comet.hpp defaults).
 # [APX]  E. M. Standish, Approximate Positions of the Planets, Table 2a (Mars).
 # [ELEM] JPL SSD, Planetary Satellite Mean Elements (https://ssd.jpl.nasa.gov/sats/elem/),
 #        MAR099, epoch 2000-01-01.5 TDB; how the periods are derived: solar_system.toml.
@@ -57,6 +72,26 @@
 #        [MAVS] NASA, "NASA Mission Reveals Speed of Solar Wind Stripping Martian Atmosphere"
 #          (2015-11-05): about 100 grams of gas a second, more during solar storms (March
 #          2015); loss to space likely a major cause of Mars' change in climate.
+#        [HOPE] Spaceflight Now, "Emirati orbiter captures up-close view of Martian moon Deimos"
+#          (2023-04-25), from the team's EGU results: about 100 km from Deimos on 2023-03-10,
+#          one of a series of passes after an orbit change; the first detailed images of the
+#          side facing away from Mars, which spacecraft closer in (MRO) never see; a surface
+#          like dark volcanic rock similar to Mars, no strong carbon signatures: both moons
+#          "may have formed from debris left over from an impact on Mars".
+#        [CSS] NASA/JPL, "NASA's Mars spacecraft maneuvers to prepare for close comet flyby"
+#          (2014-07): the comet "has never before entered the inner solar system"; dust at
+#          about 56 km/s; the greatest risk from 90 minutes after the closest approach, for
+#          about 20 minutes. "All Three NASA Mars Orbiters Healthy After Comet Flyby"
+#          (2014-10-19): Odyssey, MRO and MAVEN "took shelter behind Mars"; much closer than
+#          any other known comet flyby of Mars or Earth. "Mars Orbiter Image Shows Comet
+#          Nucleus is Small" (2014-10-20): HiRISE, 138 m per pixel from 138,000 km, a nucleus
+#          less than half the 1 km estimated from telescopes; a comet from the Oort Cloud.
+#        [MAVC] LASP/NASA, "Mars spacecraft reveal comet flyby effects on Martian atmosphere"
+#          (2014-11-07): dust vaporized high in the atmosphere, "likely an impressive meteor
+#          shower"; magnesium and iron ions dominated Mars' ultraviolet spectrum for hours;
+#          "Not even the most intense meteor storms on Earth have produced as strong a
+#          response"; the first direct measurements of the dust of an Oort Cloud comet; MRO's
+#          and Mars Express' radars saw a new, very strong layer of ions.
 #        Orbits as drawn: [HZN].
 #
 # Colors are sRGB and illustrative where no map is used.
@@ -143,7 +178,11 @@ color = "#8f857a"
 orbit_color = "#b0a698"
 texture = "textures/deimos.jpg"            # [THOM] Viking mosaic, assets/textures/SOURCES.md
 texture_left_lon_deg = -180.0
-[bodies.orbit]                             # [ELEM]
+[bodies.orbit]                             # [HZN] 402, near Hope
+type = "ephemeris"
+file = "ephem/deimos_emm.eph"
+fallback_blend_days = 1.0
+[bodies.orbit.fallback]                    # [ELEM]
 type = "mean_elements"
 a_km = 23457.0
 e = 0.0
@@ -184,7 +223,10 @@ trail_history_days = 0.078                 # 112 minutes
 [bodies.orbit]                             # [HZN] -74, the last two years
 type = "ephemeris"
 file = "ephem/mro_recent.eph"
-[bodies.orbit.fallback]                    # [HZN] -74, arrival and aerobraking
+[bodies.orbit.fallback]                    # [HZN] -74, the comet's month (2014-10)
+type = "ephemeris"
+file = "ephem/mro_comet.eph"
+[bodies.orbit.fallback.fallback]           # [HZN] -74, arrival and aerobraking
 type = "ephemeris"
 file = "ephem/mro_arrival.eph"
 
@@ -201,6 +243,38 @@ trail_linger_days = 30.0                   # after the end of the data, fading
 [bodies.orbit]                             # [HZN] -202
 type = "ephemeris"
 file = "ephem/maven_mars.eph"
+
+[[bodies]]
+name = "Hope"
+parent = "Mars"
+kind = "spacecraft"
+radii_km = [0.004]                         # 7.9 m with the solar panels out (Horizons notes)
+color = "#ffe08a"
+orbit_color = "#f2c94c"
+trail = "history"
+trail_history_days = 2.3                   # 55 hours
+[bodies.orbit]                             # [HZN] -62
+type = "ephemeris"
+file = "ephem/emm_mars.eph"
+
+# Comet Siding Spring, a child of Mars here (the dust tail still follows the Sun's
+# gravity: src/scene/comet.hpp). Shown only around its pass, 2014-08 .. 2014-12.
+[[bodies]]
+name = "Siding Spring"
+parent = "Mars"
+radii_km = [0.2]                           # [CSS]: under half of 1 km across (2-3 HiRISE pixels)
+color = "#cfe8ff"
+orbit_color = "#9cc8ff"
+trail = "history"
+trail_history_days = 2.0
+[bodies.comet]
+magnitude_m1_k1 = [8.5, 9.0]               # [SBDB]
+ion_tail_diameter_km = 5.0e4               # illustrative
+ion_tail_length_km = 5.0e6                 # illustrative, used as the e-folding length
+solar_wind_km_s = 400.0
+[bodies.orbit]                             # [HZN] C/2013 A1, relative to Mars
+type = "ephemeris"
+file = "ephem/siding_spring_mars.eph"
 
 # --- Events --------------------------------------------------------------------------
 # Times and distances (TDB) computed from the baked data.
@@ -278,6 +352,37 @@ caption = """\
     a 35-hour orbit. Five weeks later it will be in its working orbit, dipping to about \
     150 km at every pass, inside the air it came to study."""
 
+# Siding Spring's closest approach: 2014-10-19 18:28:34 TDB, 140,492 km from Mars' center,
+# 55.96 km/s [HZN]. From 90 to 110 minutes later, MAVEN and MRO are on the far side of Mars
+# from the comet's dust stream (along the comet's velocity); Mars Express is not.
+[[events]]
+name = "Comet Siding Spring passes Mars (2014-10-19)"
+time_tdb = "2014-10-19 17:45"
+focus = "Mars"
+distance_km = 5.0e5
+warp = 120.0
+# [CSS]
+caption = """\
+    A comet from the Oort Cloud, on its first trip into the inner solar system, passes \
+    some 140,000 km from Mars at 56 km/s: much closer than any comet seen to pass the \
+    Earth or Mars. MRO's camera found its nucleus to be less than half a kilometer \
+    across."""
+
+[[events]]
+name = "Orbiters take shelter (2014-10-19)"
+time_tdb = "2014-10-19 19:50"
+focus = "Mars"
+from_body = "Siding Spring"                # past Mars now, on the side the orbiters hide on
+distance_km = 2.5e4
+warp = 60.0
+# [CSS], [MAVC]
+caption = """\
+    The comet's dust arrives about 90 minutes after its closest approach. NASA's \
+    orbiters, MRO and MAVEN here and Odyssey (not shown), wait it out behind Mars. They \
+    came through unharmed. The dust burned up high in the atmosphere, likely an \
+    impressive meteor shower, and left a glow of magnesium and iron stronger than any \
+    meteor storm has caused on the Earth."""
+
 [[events]]
 name = "MAVEN: where the air went (2015)"
 time_tdb = "2015-03-01 00:00"
@@ -291,17 +396,48 @@ caption = """\
     storms of March 2015. Over the ages, such loss to space likely did much to change \
     the climate of Mars."""
 
+# Hope's first periapsis 2021-02-09 15:49 TDB, 1,104 km above the mean radius; captured
+# into a 34-hour orbit, in its science orbit (about 20,000 x 43,000 km, 55 h) by June [HZN].
 [[events]]
-name = "Three orbiters (2025)"
+name = "Hope arrives (2021-02-09)"
+time_tdb = "2021-02-09 13:00"
+focus = "Mars"
+distance_km = 1.2e5
+warp = 600.0
+# [HZN] (Horizons notes)
+caption = """\
+    The United Arab Emirates' Hope probe is captured by Mars. From an orbit far higher \
+    than the others, 20,000 to 43,000 km up and 55 hours around, it watches the whole \
+    planet, to build a picture of how the Martian atmosphere changes through the day \
+    and the year."""
+
+# Closest approach 2023-03-10 02:17:31 TDB, 107 km from Deimos' center (100 km above its
+# mean radius, 6.2 km [SPHY]) [HZN].
+[[events]]
+name = "Hope passes Deimos (2023-03-10, 100 km)"
+time_tdb = "2023-03-10 02:12"
+focus = "Deimos"
+distance_km = 150.0
+warp = 10.0
+# [HOPE]
+caption = """\
+    With its orbit adjusted, Hope makes a series of passes of Deimos, here 100 km away. \
+    It saw what orbiters closer to Mars never do, the side of Deimos facing away from \
+    the planet, and found it more like Martian rock than a captured asteroid: both \
+    moons may be debris from an impact on Mars."""
+
+[[events]]
+name = "Four orbiters (2025)"
 time_tdb = "2025-06-01 00:00"
 focus = "Mars"
-distance_km = 5.0e4
-warp = 300.0
+distance_km = 1.3e5
+warp = 600.0
 # [MEX], [MRO], [MAV], [HZN]
 caption = """\
-    Three orbits at three heights. MRO circles about 300 km up every two hours; MAVEN \
+    Four orbits at four heights. MRO circles about 300 km up every two hours; MAVEN \
     swings out to 4,500 km; Mars Express, here for over twenty years, out to 10,500 \
-    km, crossing the orbit of Phobos. Deimos goes round once in 30 hours."""
+    km, across the orbit of Phobos; Hope, from the orbit of Deimos outward, takes 55 \
+    hours."""
 
 [[events]]
 name = "MAVEN falls silent (2025-12)"

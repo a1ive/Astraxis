@@ -348,6 +348,12 @@ State Scene::sun_icrf_state_at(double t_tdb) const
     return {glm::dvec3(kAuKm, 0.0, 0.0), glm::dvec3(0.0)};
 }
 
+double Scene::sun_gm() const
+{
+    const int star = star_index();
+    return star >= 0 ? bodies[static_cast<size_t>(star)].gm_km3_s2 : kSunGmKm3S2;
+}
+
 FrameTransform Scene::frame_transform(double t_tdb) const
 {
     const DisplayFrame& f = frame();

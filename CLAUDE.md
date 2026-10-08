@@ -124,7 +124,7 @@ CMake 目标：
 | `core_tests.cpp` | 日历/时间尺度、星表（含重投影）与黑体颜色、银道坐标系 |
 | `ephem_tests.cpp` | 开普勒方程与传播、星历表、目视/凌星轨道约定、N 体 |
 | `planet_scene_tests.cpp` | 场景里的行星和卫星：太阳系、木星、地月、土星 |
-| `mission_tests.cpp` | 探测器：先驱者/新视野、Parker、伽利略/朱诺、Artemis/CAPSTONE/嫦娥五号 T1、卡西尼/惠更斯、信使/贝皮科伦坡、火星快车/MRO/MAVEN、ISEE-3、哈雷舰队、Rosetta、JWST |
+| `mission_tests.cpp` | 探测器：先驱者/新视野、Parker、伽利略/朱诺、Artemis/CAPSTONE/嫦娥五号 T1、卡西尼/惠更斯、信使/贝皮科伦坡、火星快车/MRO/MAVEN/希望号与赛丁泉彗星、ISEE-3、哈雷舰队、Rosetta、JWST |
 | `shape_tests.cpp` | 小天体形状模型 |
 | `appearance_tests.cpp` | 彗尾、尘埃彗尾、大气层、羽流（含各场景参数一致） |
 | `stellar_system_tests.cpp` | α Cen、TRAPPIST-1、Kepler 系统、TIC 168789840、PSR B1620-26 |
@@ -165,6 +165,7 @@ CMake 目标：
 - 不要让 SDL 包装别的进程窗口下的子窗口（屏保 `/p` 预览）：对话框在第二块屏上时 SDL 会按顶层窗口的逻辑移动并放大它，预览区只剩黑底。预览窗口现在用 GDI 画
 - TOML 的表头会“吞掉”后面的键：顶层键（如 `name`）必须写在第一个 `[table]` 之前
 - 以行星为根、没有太阳天体的场景（木星、土星、火星）里，事件不能写 `from_body = "Sun"`，加载时报 unknown body
+- 彗星可以是行星根天体的子天体（火星场景的赛丁泉），但尘埃彗尾要按太阳的 GM 传播（`Scene::sun_gm`），不能用父天体的 GM；彗星的星历要相对那颗行星烘焙，日心表减去近似根数的行星位置会差几千 km
 - 改了 `assets/` 里的场景要重新构建才生效：程序读的是构建时复制到 exe 旁的副本
 
 ### 运行、截图与 shell
@@ -222,7 +223,7 @@ CMake 目标：
 2. 标题字体加希腊字母后备（Jost 没有希腊字母，`α` 显示成 `?`）；面板打开时长标题两端会被挡住
 3. 随天体自转的参考系；Rosetta 场景加 Philae（ESA SPICE 里有着陆轨迹，Horizons 没有）
 4. 地月场景加 CE-5T1 的火箭末级：Horizons −78000（2021-10-01 到 2022-03-04 撞月，JPL 解 #23）可以直接烘焙
-5. 火星场景：加赛丁泉彗星（C/2013 A1，2014-10-19 离火星约 14 万 km，轨道器躲到火星背后）、Europa Clipper 和 Hera 的 2025 年飞掠（Horizons −159、−91）、Mars Odyssey / TGO（−53、−143）；天问一号的环绕段要按公开根数重建；事件的视角支持“从太阳方向看”（场景里没有太阳天体，`from_body` 用不了）
+5. 火星场景：加 Europa Clipper 和 Hera 的 2025 年飞掠（Horizons −159、−91）、Mars Odyssey / TGO / MOM（−53、−143、−3，赛丁泉彗星飞过时都在）；天问一号的环绕段要按公开根数重建；事件的视角支持“从太阳方向看”（场景里没有太阳天体，`from_body` 用不了）
 6. 金星场景：Venus Express（−248）、Akatsuki（−5）、Galileo/Cassini 飞掠、Solar Orbiter 与贝皮科伦坡号相隔约 33 小时的飞掠、准卫星 Zoozve（524522）
 7. 只为换轨迹长度而复制的参考系（水星场景的“Mercury-centered, 30-day trails”，Rosetta 的“67P, Sun fixed, 3 months / the whole stay”）看能否改成事件的 `[[events.trails]]`，精简参考系菜单
 8. 远期：macOS（Metal，需要 SPIR-V → MSL 和 macOS CI）；Hulse–Taylor 并合（3 亿年后 double 秒数只有约 2 s 分辨率，要做成以并合为零点的单独场景）；脉冲星自转轴的测地线进动（B1913+16 的几何解各论文不一致）

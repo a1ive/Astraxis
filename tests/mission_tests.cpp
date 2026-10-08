@@ -683,6 +683,57 @@ void test_mars_scene()
     std::printf("info: MAVEN in March 2015: %.0f x %.0f km, %.1f deg\n", low, high, incl);
     scene.update(tdb({2026, 1, 15, 0, 0, 0}));
     check(!scene.bodies[static_cast<size_t>(maven)].visible, "MAVEN gone after the tracking data");
+
+    // Hope at Deimos ([HOPE], Spaceflight Now 2023-04-25): about 100 km on 2023-03-10;
+    // Deimos' mean radius 6.2 km [SPHY]. Its orbit (Horizons notes): 55 h, 25 deg.
+    const int hope = scene.find("Hope");
+    const int deimos = scene.find("Deimos");
+    double hope_deimos = 1e300;
+    for (double t = tdb({2023, 3, 10, 2, 0, 0}); t < tdb({2023, 3, 10, 2, 40, 0}); t += 0.5) {
+        hope_deimos = std::min(hope_deimos, glm::length(at(hope, t) - at(deimos, t)));
+    }
+    check(std::abs(hope_deimos - 6.2 - 100.0) < 10.0, "Hope - Deimos 2023 (km above the mean radius)",
+          hope_deimos - 6.2);
+    const State hs = scene.icrf_state_at(hope, tdb({2022, 6, 1, 0, 0, 0}));
+    osculating_elements(hs, gm, &el);
+    const double hope_incl = std::acos(glm::dot(glm::normalize(glm::cross(hs.position, hs.velocity)), pole)) / kDegToRad;
+    check(std::abs(el.period_s / 3600.0 - 55.0) < 1.0, "Hope period (h)", el.period_s / 3600.0);
+    check(std::abs(hope_incl - 25.0) < 3.0, "Hope inclination (deg)", hope_incl);
+    std::printf("info: Hope: %.0f km from Deimos (2023), %.1f h, %.1f deg\n", hope_deimos, el.period_s / 3600.0,
+                hope_incl);
+
+    // Comet Siding Spring ([CSS], NASA/JPL 2014): dust at about 56 km/s; MRO's HiRISE
+    // imaged it from about 138,000 km at the closest; the greatest risk from 90 minutes
+    // after the closest approach for about 20 minutes, when the orbiters "took shelter
+    // behind Mars" (MRO and MAVEN here): on the far side of Mars from the dust, which
+    // moves with the comet's velocity.
+    const int comet = scene.find("Siding Spring");
+    double t_ca = 0.0;
+    double d_ca = 1e300;
+    double mro_comet = 1e300;
+    for (double t = tdb({2014, 10, 19, 17, 0, 0}); t < tdb({2014, 10, 19, 20, 0, 0}); t += 1.0) {
+        const double d = glm::length(at(comet, t));
+        if (d < d_ca) {
+            d_ca = d;
+            t_ca = t;
+        }
+        mro_comet = std::min(mro_comet, glm::length(at(comet, t) - at(mro, t)));
+    }
+    const glm::dvec3 v_comet = scene.icrf_state_at(comet, t_ca).velocity;
+    check(std::abs(glm::length(v_comet) - 56.0) < 0.5, "Siding Spring speed past Mars (km/s)", glm::length(v_comet));
+    check(std::abs(mro_comet - 138000.0) < 2000.0, "MRO - Siding Spring closest (km)", mro_comet);
+    std::printf("info: Siding Spring: %.0f km from Mars' center, %.2f km/s; %.0f km from MRO\n", d_ca,
+                glm::length(v_comet), mro_comet);
+    const glm::dvec3 stream = glm::normalize(v_comet);
+    for (const int craft : {mro, maven}) {
+        bool shielded = true;
+        for (double t = t_ca + 90.0 * 60.0; t <= t_ca + 110.0 * 60.0; t += 60.0) {
+            const glm::dvec3 p = at(craft, t);
+            const double along = glm::dot(p, stream);
+            shielded = shielded && along > 0.0 && glm::length(p - along * stream) < r_mean;
+        }
+        check(shielded, ("behind Mars during the comet's dust: " + scene.bodies[static_cast<size_t>(craft)].name).c_str());
+    }
 }
 
 // ISEE-3 / ICE, reconstructed by tools/isee3/isee3_reconstruct.py from SSCWeb positions
