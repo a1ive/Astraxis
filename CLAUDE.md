@@ -1,6 +1,6 @@
 # Astraxis
 
-用来“发呆”的天文动态背景程序：太阳系与各探测器轨迹、JWST L2 晕轨道、火星、木星和土星系统、彗星与哈雷舰队、Alpha Centauri、系外行星共振链、多星系统、脉冲星双星、Sgr A* 黑洞外观等，共 20 个场景。
+用来“发呆”的天文动态背景程序：太阳系与各探测器轨迹、JWST L2 晕轨道、金星、火星、木星和土星系统、彗星与哈雷舰队、Alpha Centauri、系外行星共振链、多星系统、脉冲星双星、Sgr A* 黑洞外观等，共 21 个场景。
 C++20 + CMake + SDL3 + SDL_GPU。Windows（D3D12）和 Linux（Vulkan）都能构建运行；Windows 上还有全屏、屏保和动态壁纸。将来做 macOS。
 
 - **目标**：安静、好看、物理上可信，主要用来发呆，交互只是辅助；功耗低，可以长时间挂在后台当壁纸；单个 exe，启动快，依赖少
@@ -124,7 +124,7 @@ CMake 目标：
 | `core_tests.cpp` | 日历/时间尺度、星表（含重投影）与黑体颜色、银道坐标系 |
 | `ephem_tests.cpp` | 开普勒方程与传播、星历表、目视/凌星轨道约定、N 体 |
 | `planet_scene_tests.cpp` | 场景里的行星和卫星：太阳系、木星、地月、土星 |
-| `mission_tests.cpp` | 探测器：先驱者/新视野、Parker、伽利略/朱诺、Artemis/CAPSTONE/嫦娥五号 T1、卡西尼/惠更斯、信使/贝皮科伦坡、火星的七个轨道器与赛丁泉彗星、ISEE-3、哈雷舰队、Rosetta、JWST |
+| `mission_tests.cpp` | 探测器：先驱者/新视野、Parker、伽利略/朱诺、Artemis/CAPSTONE/嫦娥五号 T1、卡西尼/惠更斯、信使/贝皮科伦坡、火星的七个轨道器与赛丁泉彗星、金星快车/破晓号/Zoozve、ISEE-3、哈雷舰队、Rosetta、JWST |
 | `shape_tests.cpp` | 小天体形状模型 |
 | `appearance_tests.cpp` | 彗尾、尘埃彗尾、大气层、羽流（含各场景参数一致） |
 | `stellar_system_tests.cpp` | α Cen、TRAPPIST-1、Kepler 系统、TIC 168789840、PSR B1620-26 |
@@ -176,6 +176,7 @@ CMake 目标：
 - PowerShell 的变量名不区分大小写：`$S` 和循环变量 `$s` 是同一个变量
 - PowerShell 里的 `/tmp` 是 `C:	mp`，不是 Git Bash 的 `/tmp`（在用户的 Temp 目录下）：两边交换文件用 Windows 绝对路径，`-ErrorAction SilentlyContinue` 会把拷贝失败藏起来
 - 截图要特定视角时，可以在 exe 旁的场景副本末尾临时追加 `[[events]]`（`focus` + `from_body` + `phase_deg` + `distance_km`），再用 `--event` 打开；用完从 `assets/` 拷回原文件
+- 在后台跑烘焙工具并把输出重定向到文件时，Python 会缓冲 stdout，几十分钟看不到进度：用 `python -u`
 - 从 Bash 用 `&` 启动的 exe 会随 shell 一起退出，长时间运行用 PowerShell 的 `Start-Process`；后台命令里 `cd dir && a & b &` 只有 a 在 dir 里执行，下载用 `curl -o 绝对路径`
 - Bash 工具的 heredoc 即使写成 `<<'EOF'` 也会吃掉反斜杠（`\\n` 变成 `\n`）：含反斜杠的编辑用 Edit 工具，或先用 Write 写成脚本文件。heredoc 里的中文传给 `python -` 也会变成乱码（不是 UTF-8），改中文文档同样用 Edit
 - 从 Git Bash 调 `wsl.exe`：`/mnt/c/...` 参数要加 `MSYS_NO_PATHCONV=1`；`bash -lc '...'` 里的 `$变量` 会被提前展开，脚本最好写成文件再执行
@@ -224,7 +225,7 @@ CMake 目标：
 3. 随天体自转的参考系；Rosetta 场景加 Philae（ESA SPICE 里有着陆轨迹，Horizons 没有）
 4. 地月场景加 CE-5T1 的火箭末级：Horizons −78000（2021-10-01 到 2022-03-04 撞月，JPL 解 #23）可以直接烘焙
 5. 火星场景：加 Europa Clipper 和 Hera 的 2025 年飞掠（Horizons −159、−91）；天问一号的环绕段要按公开根数重建；事件的视角支持“从太阳方向看”（场景里没有太阳天体，`from_body` 用不了）
-6. 金星场景：Venus Express（−248）、Akatsuki（−5）、Galileo/Cassini 飞掠、Solar Orbiter 与贝皮科伦坡号相隔约 33 小时的飞掠、准卫星 Zoozve（524522）
+6. 金星场景：加 Galileo（1990）、Cassini（1998、1999）、信使号（2007 年与金星快车协同观测）、Solar Orbiter 与贝皮科伦坡号相隔约 33 小时（2021-08）、Juice（2025-08-31）的金星飞掠，Horizons 都能覆盖；日心巡航段可以像破晓号那样用 `relative_to` 接金星中心的飞掠表
 7. 只为换轨迹长度而复制的参考系（水星场景的“Mercury-centered, 30-day trails”，Rosetta 的“67P, Sun fixed, 3 months / the whole stay”）看能否改成事件的 `[[events.trails]]`，精简参考系菜单
 8. 远期：macOS（Metal，需要 SPIR-V → MSL 和 macOS CI）；Hulse–Taylor 并合（3 亿年后 double 秒数只有约 2 s 分辨率，要做成以并合为零点的单独场景）；脉冲星自转轴的测地线进动（B1913+16 的几何解各论文不一致）
 

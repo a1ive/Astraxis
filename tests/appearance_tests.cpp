@@ -219,7 +219,7 @@ void test_atmospheres()
     check(pluto_ratio > 15.0 && pluto_ratio < 37.0, "Pluto haze forward/back ratio", pluto_ratio);
 
     // Scenes that repeat a body carry the same atmosphere.
-    for (const char* file : {"earth_moon.toml", "jwst.toml", "mercury.toml", "parker.toml", "saturn.toml"}) {
+    for (const char* file : {"earth_moon.toml", "jwst.toml", "mercury.toml", "parker.toml", "saturn.toml", "venus.toml"}) {
         const Scene other = load_scene_or_die(file);
         for (const Body& b : other.bodies) {
             const int k = scene.find(b.name);

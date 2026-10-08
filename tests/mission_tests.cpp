@@ -791,6 +791,201 @@ void test_mars_scene()
                 el.apoapsis_km - r_mean, el.period_s / 3600.0, mom_incl);
 }
 
+// Osculating heliocentric elements in the J2000 ecliptic (obliquity 84381.448", as the
+// SBDB and older orbit catalogs use): a (au), e, i, node, argument of perihelion, mean
+// anomaly (deg).
+struct EclipticElements {
+    double a_au, e, i_deg, node_deg, peri_deg, mean_anomaly_deg;
+};
+
+EclipticElements ecliptic_elements(const State& s, double gm)
+{
+    const double eps = 84381.448 / 3600.0 * kDegToRad;
+    auto to_ecliptic = [&](const glm::dvec3& p) {
+        return glm::dvec3(p.x, std::cos(eps) * p.y + std::sin(eps) * p.z, -std::sin(eps) * p.y + std::cos(eps) * p.z);
+    };
+    const glm::dvec3 r = to_ecliptic(s.position);
+    const glm::dvec3 v = to_ecliptic(s.velocity);
+    const double rn = glm::length(r);
+    const double a = 1.0 / (2.0 / rn - glm::dot(v, v) / gm);
+    const glm::dvec3 h = glm::cross(r, v);
+    const glm::dvec3 ev = glm::cross(v, h) / gm - r / rn;
+    const double e = glm::length(ev);
+    const glm::dvec3 node(-h.y, h.x, 0.0);
+    auto wrap = [](double deg) { return deg < 0.0 ? deg + 360.0 : deg; };
+    double peri = std::acos(glm::dot(node, ev) / (glm::length(node) * e)) * kRadToDeg;
+    peri = ev.z < 0.0 ? 360.0 - peri : peri;
+    double nu = std::acos(std::clamp(glm::dot(ev, r) / (e * rn), -1.0, 1.0));
+    nu = glm::dot(r, v) < 0.0 ? 2.0 * kPi - nu : nu;
+    const double ecc_anomaly = 2.0 * std::atan(std::sqrt((1.0 - e) / (1.0 + e)) * std::tan(nu / 2.0));
+    return {a / kAuKm,
+            e,
+            std::acos(h.z / glm::length(h)) * kRadToDeg,
+            wrap(std::atan2(node.y, node.x) * kRadToDeg),
+            peri,
+            wrap((ecc_anomaly - e * std::sin(ecc_anomaly)) * kRadToDeg)};
+}
+
+// Venus: Venus Express and Akatsuki against the orbits ESA and JAXA published, and
+// Zoozve against the elements and the behavior of Mikkola et al. 2004.
+void test_venus_scene()
+{
+    Scene scene = load_scene_or_die("venus.toml");
+    const int venus = scene.find("Venus");
+    const int vex = scene.find("Venus Express");
+    const int akatsuki = scene.find("Akatsuki");
+    const int zoozve = scene.find("Zoozve");
+    check(venus > 0 && vex > 0 && akatsuki > 0 && zoozve > 0, "venus.toml bodies");
+    auto tdb = [](const CalendarDateTime& c) { return (jd_from_calendar(c) - kJ2000Jd) * kSecondsPerDay; };
+    auto rel = [&](int body, double t) {
+        const State a = scene.icrf_state_at(body, t);
+        const State b = scene.icrf_state_at(venus, t);
+        return State{a.position - b.position, a.velocity - b.velocity};
+    };
+    const double gm = scene.bodies[static_cast<size_t>(venus)].gm_km3_s2;
+    const double rv = 6051.8; // [PCK]
+    const glm::dvec3 pole = unit_toward(272.76, 67.16);
+    OrbitElements el;
+
+    // Venus Express ([VOI], ESA): captured on 2006-04-11 into a 9-day polar orbit out to
+    // 330,000-350,000 km; after the burns of 2006-04-15 .. 05-06, the 24-hour orbit
+    // ([VEXE], ESA 2014-12-16) out to 66,000 km over the south pole, low over the north
+    // pole (pericentre latitude ~80 deg, ESA's mission catalog).
+    osculating_elements(rel(vex, tdb({2006, 4, 14, 0, 0, 0})), gm, &el);
+    check(el.apoapsis_km - rv > 3.2e5 && el.apoapsis_km - rv < 3.5e5 && std::abs(el.period_s / 86400.0 - 9.0) < 0.3,
+          "Venus Express capture orbit (apoapsis altitude, km)", el.apoapsis_km - rv);
+    const State vs = rel(vex, tdb({2007, 1, 1, 0, 0, 0}));
+    osculating_elements(vs, gm, &el);
+    const double vex_incl = std::acos(glm::dot(glm::normalize(glm::cross(vs.position, vs.velocity)), pole)) * kRadToDeg;
+    check(std::abs(el.period_s / 3600.0 - 24.0) < 0.1 && std::abs(el.apoapsis_km - rv - 66000.0) < 1000.0,
+          "Venus Express science orbit (apoapsis altitude, km)", el.apoapsis_km - rv);
+    check(std::abs(vex_incl - 90.0) < 1.5, "Venus Express polar orbit (deg)", vex_incl);
+    const std::vector<double> peri06 = scene.periapsis_times(vex, tdb({2006, 6, 1, 0, 0, 0}), tdb({2006, 6, 2, 12, 0, 0}));
+    const glm::dvec3 pp = peri06.empty() ? glm::dvec3(0.0) : rel(vex, peri06[0]).position;
+    const double peri_lat = peri06.empty() ? 0.0 : std::asin(glm::dot(glm::normalize(pp), pole)) * kRadToDeg;
+    check(std::abs(peri_lat - 80.0) < 3.0 && glm::length(pp) - rv > 200.0 && glm::length(pp) - rv < 350.0,
+          "Venus Express pericentre over the north pole (deg)", peri_lat);
+
+    // Aerobraking ([VEXE]): about 130-135 km from 18 June to 11 July 2014, then raised to
+    // about 460 km by 26 July, the period just over 22 hours.
+    int dips = 0;
+    double lowest = 1e300;
+    for (const double tp : scene.periapsis_times(vex, tdb({2014, 6, 1, 0, 0, 0}), tdb({2014, 7, 20, 0, 0, 0}))) {
+        const double h = glm::length(rel(vex, tp).position) - rv;
+        dips += h < 140.0 ? 1 : 0;
+        lowest = std::min(lowest, h);
+    }
+    check(dips >= 23 && dips <= 32 && lowest > 125.0 && lowest < 136.0, "Venus Express aerobraking (lowest, km)", lowest);
+    osculating_elements(rel(vex, tdb({2014, 7, 27, 0, 0, 0})), gm, &el);
+    check(std::abs(el.periapsis_km - rv - 460.0) < 15.0 && el.period_s / 3600.0 > 22.0 && el.period_s / 3600.0 < 23.0,
+          "Venus Express raised after aerobraking (km)", el.periapsis_km - rv);
+    std::printf("info: Venus Express: pericentre at %.1f deg N, %d passes below 140 km in 2014 (lowest %.1f km)\n",
+                peri_lat, dips, lowest);
+    // Contact was lost on 2014-11-28: shown until then.
+    scene.update(tdb({2014, 11, 27, 0, 0, 0}));
+    check(scene.bodies[static_cast<size_t>(vex)].visible, "Venus Express shown until contact was lost");
+    scene.update(tdb({2014, 12, 15, 0, 0, 0}));
+    check(!scene.bodies[static_cast<size_t>(vex)].visible, "Venus Express gone after 2014-11-28");
+
+    // Akatsuki's missed orbit insertion ([VCO]): VOI-1 on 2010-12-06 23:49 UTC; it passed
+    // 550 km above Venus (Wikipedia, "Akatsuki (spacecraft)"; the bake tool: 549 km at
+    // 2010-12-07 00:01:16 TDB), into a 203-day solar orbit of 0.61 x 0.74 au.
+    double miss = 1e300;
+    for (double t = tdb({2010, 12, 6, 23, 50, 0}); t < tdb({2010, 12, 7, 0, 15, 0}); t += 1.0) {
+        miss = std::min(miss, glm::length(rel(akatsuki, t).position));
+    }
+    check(std::abs(miss - rv - 550.0) < 10.0, "Akatsuki misses Venus in 2010 (altitude, km)", miss - rv);
+    osculating_elements(scene.icrf_state_at(akatsuki, tdb({2011, 2, 1, 0, 0, 0})), kSunGmKm3S2, &el);
+    check(std::abs(el.period_s / 86400.0 - 203.0) < 1.0 && std::abs(el.periapsis_km / kAuKm - 0.61) < 0.01 &&
+              std::abs(el.apoapsis_km / kAuKm - 0.74) < 0.01,
+          "Akatsuki's orbit around the Sun (days)", el.period_s / 86400.0);
+
+    // Captured on the second try ([AK15], JAXA 2015-12-09): about 400 x 440,000 km, 13 days
+    // 14 hours, about 3 deg to Venus' orbital plane, moving the way Venus rotates (against
+    // the IAU north pole: Venus spins retrograde).
+    const State as = rel(akatsuki, tdb({2015, 12, 9, 0, 0, 0}));
+    osculating_elements(as, gm, &el);
+    const glm::dvec3 an = glm::normalize(glm::cross(as.position, as.velocity));
+    const State venus_helio = scene.icrf_state_at(venus, tdb({2015, 12, 9, 0, 0, 0}));
+    const glm::dvec3 venus_normal = glm::normalize(glm::cross(venus_helio.position, venus_helio.velocity));
+    const double tilt = 180.0 - std::acos(glm::dot(an, venus_normal)) * kRadToDeg;
+    check(std::abs(el.periapsis_km - rv - 400.0) < 50.0 && std::abs(el.apoapsis_km - rv - 440000.0) < 10000.0,
+          "Akatsuki's capture orbit (apoapsis altitude, km)", el.apoapsis_km - rv);
+    check(std::abs(el.period_s / 86400.0 - (13.0 + 14.0 / 24.0)) < 0.5, "Akatsuki's capture orbit (days)",
+          el.period_s / 86400.0);
+    check(glm::dot(an, pole) < 0.0 && tilt < 6.0, "Akatsuki orbits the way Venus spins, near its orbital plane (deg)",
+          tilt);
+    // [VCO]: ~360,000 km and 10.5 days in early 2016; after PC1 (2016-04-04) ~370,000 km and
+    // 10.8 days.
+    osculating_elements(rel(akatsuki, tdb({2016, 1, 15, 0, 0, 0})), gm, &el);
+    check(std::abs(el.apoapsis_km - rv - 360000.0) < 10000.0 && std::abs(el.period_s / 86400.0 - 10.5) < 0.15,
+          "Akatsuki in early 2016 (days)", el.period_s / 86400.0);
+    osculating_elements(rel(akatsuki, tdb({2016, 4, 10, 0, 0, 0})), gm, &el);
+    check(std::abs(el.apoapsis_km - rv - 370000.0) < 10000.0 && std::abs(el.period_s / 86400.0 - 10.8) < 0.15,
+          "Akatsuki after PC1 (days)", el.period_s / 86400.0);
+    // The heliocentric table hands over to the Venus-centered one 600,000 km out, with a
+    // step within the tolerances of the two tables and Venus' (2 + 2 + 5 km; 4 km).
+    const double handover = tdb({2015, 12, 4, 0, 0, 0});
+    const State h0 = rel(akatsuki, handover - 30.0);
+    const double seam = glm::length(rel(akatsuki, handover + 30.0).position - h0.position - h0.velocity * 60.0);
+    check(seam < 9.0, "Akatsuki's tables join (km)", seam);
+    // The final reconstruction ends on 2024-04-26 (contact lost late in April 2024 [AKE]).
+    scene.update(tdb({2024, 4, 20, 0, 0, 0}));
+    check(scene.bodies[static_cast<size_t>(akatsuki)].visible, "Akatsuki shown until April 2024");
+    scene.update(tdb({2024, 6, 1, 0, 0, 0}));
+    check(!scene.bodies[static_cast<size_t>(akatsuki)].visible, "Akatsuki gone after its data");
+
+    // Zoozve against Mikkola et al. 2004 ([MIK], Table 1: elements at JD 2452900.5 from
+    // Lowell's astorb.dat of 2003, J2000 ecliptic), on today's JPL orbit.
+    const EclipticElements z = ecliptic_elements(scene.icrf_state_at(zoozve, tdb_from_jd_tdb(2452900.5)), kSunGmKm3S2);
+    check(std::abs(z.a_au - 0.72368870) < 1e-4 && std::abs(z.e - 0.410427) < 2e-4, "Zoozve a, e (Mikkola 2004)", z.a_au);
+    check(std::abs(z.i_deg - 8.9766) < 0.01 && std::abs(z.node_deg - 231.674) < 0.01 &&
+              std::abs(z.peri_deg - 355.528) < 0.01 && std::abs(z.mean_anomaly_deg - 318.875) < 0.1,
+          "Zoozve angles (Mikkola 2004; mean anomaly, deg)", z.mean_anomaly_deg);
+    // It stays farther than ~0.2 au from Venus ([MIK] Fig. 3) ...
+    double nearest = 1e300;
+    for (double t = tdb({1900, 1, 10, 0, 0, 0}); t < tdb({2099, 12, 20, 0, 0, 0}); t += 2.0 * kSecondsPerDay) {
+        nearest = std::min(nearest, glm::length(rel(zoozve, t).position));
+    }
+    check(nearest > 0.2 * kAuKm, "Zoozve never near Venus (au)", nearest / kAuKm);
+    // ... and, in the frame rotating with Venus, goes around it backward once a Venus year
+    // ([MIK] Fig. 1; 224.7 days, [APX]).
+    double turned = 0.0;
+    double last_angle = 0.0;
+    const double t_loop = tdb({2026, 1, 1, 0, 0, 0});
+    for (int k = 0; k <= 900; ++k) {
+        const double t = t_loop + k * 224.7 / 900.0 * kSecondsPerDay;
+        const State v = scene.icrf_state_at(venus, t);
+        const glm::dvec3 x = glm::normalize(v.position);
+        const glm::dvec3 zn = glm::normalize(glm::cross(v.position, v.velocity));
+        const glm::dvec3 d = rel(zoozve, t).position;
+        const double angle = std::atan2(glm::dot(d, glm::cross(zn, x)), glm::dot(d, x));
+        if (k > 0) {
+            turned += std::remainder(angle - last_angle, kTwoPi);
+        }
+        last_angle = angle;
+    }
+    check(std::abs(turned * kRadToDeg + 360.0) < 10.0, "Zoozve loops backward around Venus (deg per Venus year)",
+          turned * kRadToDeg);
+    // Closest to the Earth on 2026-11-02 19:10 TDB at 0.0402 au ([SBDB], close approach data;
+    // the scene's Earth is the Earth-Moon barycenter, ~4,700 km off).
+    const int earth = scene.find("Earth");
+    double t_near = 0.0;
+    double d_near = 1e300;
+    for (double t = tdb({2026, 10, 28, 0, 0, 0}); t < tdb({2026, 11, 8, 0, 0, 0}); t += 60.0) {
+        const double d = glm::length(scene.icrf_state_at(zoozve, t).position - scene.icrf_state_at(earth, t).position);
+        if (d < d_near) {
+            d_near = d;
+            t_near = t;
+        }
+    }
+    check(std::abs(d_near / kAuKm - 0.0402) < 2e-4 && std::abs(t_near - tdb({2026, 11, 2, 19, 10, 0})) < 3600.0,
+          "Zoozve passes the Earth in 2026 (au)", d_near / kAuKm);
+    std::printf("info: Akatsuki missed Venus by %.0f km (2010); Zoozve: Table 1 a %.6f e %.6f M %.3f, %.3f au from "
+                "Venus at the closest (1900-2099), %.4f au from the Earth (2026)\n",
+                miss - rv, z.a_au, z.e, z.mean_anomaly_deg, nearest / kAuKm, d_near / kAuKm);
+}
+
 // ISEE-3 / ICE, reconstructed by tools/isee3/isee3_reconstruct.py from SSCWeb positions
 // (1978-1983), the JPL navigation trajectory of the comet encounter and Horizons' 2014
 // solution. Checked against figures published independently of those data.
@@ -1215,6 +1410,7 @@ void run_mission_tests()
     test_saturn_missions();
     test_mercury_scene();
     test_mars_scene();
+    test_venus_scene();
     test_isee3_scene();
     test_rosetta_scene();
     test_halley_armada();

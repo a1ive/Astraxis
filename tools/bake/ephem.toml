@@ -1405,3 +1405,81 @@ stop = "2022-04-30"        # tag-up fits through April 2022 (contact lost)
 base_step_minutes = 10
 tolerance_km = 5.0
 radius_km = 3396.19
+
+# --- Venus (assets/scenes/venus.toml) ------------------------------------------
+# Horizons notes (2026-10-09):
+#   Venus Express (-248): 2005-Nov-09 05:05 .. 2014-Dec-31 23:40 TDB (ESA; "Reconstructed
+#                    trajectory based on tracking data to 2014-Nov-28. Predicted trajectory
+#                    thereafter."; full contact lost on 2014-11-28)
+#   Akatsuki (-5):   2010-May-21 00:52 .. 2025-Aug-24 TDB (ISAS/JAXA/JPL navigation team; "Final
+#                    reconstruction fit to tracking data up to 2024-Apr-26. Preliminary solution
+#                    2024-Apr-26 to 2025-Jul-23, prediction thereafter."; contact lost in April
+#                    2024)
+#   Zoozve (524522): JPL#86 (SBDB, 2026-10-09)
+# Venus is nearly a sphere (J2 ~ 4e-6): around its GM (DE440; it has no moons), a month of
+# Venus Express' 24-hour orbit takes ~30 knots at 5 km.
+
+[[target]]
+name = "vex_venus"
+command = "-248"
+naif_id = -248
+center = "500@299"
+center_naif_id = 299
+kepler_gm_km3_s2 = 324858.592
+start = "2006-04-08"       # three days before orbit insertion (2006-04-11 07:10 UTC)
+stop = "2014-11-28"        # end of the tracking data (contact lost on 2014-11-28)
+base_step_minutes = 5
+tolerance_km = 2.0
+verify_step_minutes = 30
+radius_km = 6051.8
+
+# Akatsuki: heliocentric from launch through the missed orbit insertion (2010-12-07) and five
+# years around the Sun; Venus-centered from three days before the second attempt
+# (2015-12-07 00:00 UTC). The scene switches tables with `relative_to`.
+[[target]]
+name = "akatsuki_helio"
+command = "-5"
+naif_id = -5
+center = "500@10"
+center_naif_id = 10
+kepler_gm_km3_s2 = 1.32712440041279419e11
+start = "2010-05-21 01:00"
+stop = "2015-12-04"
+base_step_minutes = 360
+tolerance_km = 2.0
+encounters = ["venus", "emb"]
+encounter_km = 1000000.0
+encounter_step_minutes = 30
+refine_near = ["venus"]
+refine_near_km = 100000.0
+
+[[target]]
+name = "akatsuki_venus"
+command = "-5"
+naif_id = -5
+center = "500@299"
+center_naif_id = 299
+kepler_gm_km3_s2 = 324858.592
+start = "2015-12-03"
+stop = "2024-04-26"        # end of the final reconstruction (contact lost late April 2024)
+base_step_minutes = 10
+tolerance_km = 2.0
+verify_step_minutes = 60
+radius_km = 6051.8
+
+# Zoozve, Venus' quasi-satellite: two centuries around today (it has been one for ~7000
+# years and will stay one for ~500 more, Mikkola et al. 2004).
+[[target]]
+name = "zoozve"
+command = "524522;"
+naif_id = 2524522
+center = "500@10"
+center_naif_id = 10
+kepler_gm_km3_s2 = 1.32712440041279419e11
+start = "1900-01-01"
+stop = "2099-12-31"
+base_step_minutes = 2880   # 2 d
+tolerance_km = 20.0
+encounters = ["venus", "emb"]
+encounter_km = 1.0e7
+encounter_step_minutes = 720

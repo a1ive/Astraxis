@@ -584,7 +584,7 @@ void test_body_masses()
 // Auto tour: many shots at varying times keep the camera finite and outside
 // bodies. The time warp follows the director's shot warp, as in the app.
 void test_camera_director(const char* scene_file, double base_warp, double minutes, uint32_t seed,
-                          bool* transit_seen = nullptr)
+                          bool* transit_seen = nullptr, int min_kinds = 3)
 {
     Scene scene = load_scene_or_die(scene_file);
     double t = 0.0;
@@ -636,7 +636,7 @@ void test_camera_director(const char* scene_file, double base_warp, double minut
     for (bool seen : kinds_seen) {
         distinct += seen ? 1 : 0;
     }
-    check(distinct >= 3, "director uses at least 3 shot kinds", distinct);
+    check(distinct >= min_kinds, "director uses enough shot kinds", distinct);
 }
 
 // Auto tour around Sgr A*: black hole close-ups happen, and no shot or transition
@@ -716,6 +716,11 @@ void run_scene_tests()
     }
     for (uint32_t seed : {5u, 6u}) {
         test_camera_director("mars.toml", 600.0, 10.0, seed); // Phobos: 11 km, close to Mars
+    }
+    // Venus in 2026: no spacecraft and no moons, so only overviews and planet close-ups
+    // (Zoozve, 0.1 km across, is one of the planets here).
+    for (uint32_t seed : {7u, 8u}) {
+        test_camera_director("venus.toml", 172800.0, 10.0, seed, nullptr, 2);
     }
     test_camera_director_black_hole();
 }

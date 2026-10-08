@@ -1,0 +1,471 @@
+# Venus: ESA's Venus Express (2006-2014) on its day-long polar orbit, Japan's Akatsuki,
+# which missed Venus in 2010, went five years around the Sun and was captured on its second
+# try in 2015, and Zoozve, the asteroid that circles Venus once a Venus year without being
+# bound to it.
+#
+# Sources
+# [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py (tools/bake/ephem.toml,
+#        Kepler-relative AXEPH2):
+#        - Venus (299) relative to the Sun 2004-07-01 .. 2030-01-01 (as in parker.toml); [APX]
+#          outside it. Earth-Moon barycenter 1972 .. 2100 (as in parker.toml).
+#        - Venus Express (-248) relative to Venus, 2006-04-08 .. 2014-11-28: ESA's trajectory,
+#          reconstructed from tracking to 2014-11-28, when contact was lost (Horizons'
+#          prediction afterwards is left out).
+#        - Akatsuki (-5), ISAS/JAXA/JPL navigation: relative to the Sun from 2010-05-21 to
+#          2015-12-04, then relative to Venus to 2024-04-26, the end of the final
+#          reconstruction (contact was lost late in April 2024).
+#        - 524522 Zoozve (2002 VE68), JPL solution 86, relative to the Sun, 1900 .. 2099.
+#        Horizons notes: Venus Express, launched 2005-11-09, "500 days in 24-hour elliptical,
+#        quasi-polar Venus orbit" planned, "extended to eight years"; propellant "thought ...
+#        exhausted ... about halfway through a set of maneuvers Nov 23-28 intended to raise
+#        periapse". Akatsuki: launched 2010-05-20 21:58 UTC, a box of 1.04 x 1.45 x 1.4 m with
+#        two solar array paddles; "The equatorial elongated orbit with westward revolution
+#        suits the movement and temporal variation of the Venusian atmosphere, which rotates
+#        westward"; a nominal mission of 4.5 years; "Contact was lost in April 2024 due to
+#        attitude control issues. JAXA declared mission end on September 18, 2025."
+# [APX]  E. M. Standish, Approximate Positions of the Planets, Table 2a (Mercury; Venus and the
+#        Earth outside the baked spans).
+# [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
+# [PCK]  NAIF pck00011.tpc (IAU 2015): radii, poles, prime meridians.
+# [ATM]  Atmospheres (single scattering): sources and choices in solar_system.toml.
+# [SBDB] JPL Small-Body Database, 524522 Zoozve (2026-10-09): H = 20.54 (MPO701386), rotation
+#        period 13.5 h (LCDB); close approaches (SBDB Close Approach Data, orbit 86): the Earth
+#        every 8 years, 1994-11-11 0.0323 au .. 2026-11-02 19:10 TDB 0.0402 au, 8.72 km/s.
+# [MIK]  S. Mikkola, R. Brasser, P. Wiegert, K. Innanen 2004, "Asteroid 2002 VE68, a
+#        quasi-satellite of Venus", MNRAS 351, L63: "the first object of this dynamical class to
+#        be discovered", "the first known co-orbital companion to Venus"; "in its present
+#        orbital state for about seven millennia and will stay there for five more centuries";
+#        then a Venus Trojan around L5; in the frame rotating with Venus "a retrograde elongated
+#        orbit around the planet" (Fig. 1); never closer to Venus than ~0.2 au (Fig. 3);
+#        "may have been a near-Earth asteroid, which, some 7000 yr ago, was injected into its
+#        present orbit by the action of the Earth". Table 1: elements at JD 2452900.5 (checked
+#        in tests/mission_tests.cpp).
+#
+# [CAP]  Event captions (retrieved 2026-10-09):
+#        [VOI] ESA, sci.esa.int/web/venus-express/-/38947-orbit-insertion: on 2006-04-11 the
+#          main engine burned 07:10:29 to 08:00:42 UTC (spacecraft time), about 1251 m/s, into
+#          "a highly elliptical polar orbit with a pericentre of 400 km, an apocentre of 350 000
+#          km and a period of 9 days"; apocentre lowering and trims 2006-04-15 .. 05-06.
+#        [VEXE] ESA, "Venus Express goes gently into the night" (2014-12-16): eight years in
+#          orbit; a 24-hour orbit out to 66,000 km over the south pole and within 200 km over
+#          the north pole; dipping lower in mid-2014, to about 130-135 km, the main campaign
+#          18 June to 11 July; then 15 small burns raised the low point to about 460 km by 26
+#          July, the period to just over 22 hours; raising burns 23-30 November, "full contact
+#          ... was lost on 28 November", likely out of propellant halfway through. Findings:
+#          lava flows "no more than 2.5 million years" old and varying sulphur dioxide, "the
+#          most convincing argument to date of active volcanism"; hydrogen and deuterium
+#          suggesting much more water once, possibly oceans; twice as many hydrogen as oxygen
+#          atoms escaping (water broken apart); cloud-top winds from about 300 to 400 km/h over
+#          six years; the super-rotating atmosphere about four days around against 243 days for
+#          the planet; the rotation 6.5 minutes slower than Magellan measured.
+#        [VEXF] ESA, "Venus Express factsheet": a 1.5 x 1.8 x 1.4 m box plus two solar arrays,
+#          about eight metres across with the arrays extended.
+#        [VCO] Akatsuki mission catalog (PDS, VCO SPICE archive mission.cat): VOI-1 on
+#          2010-12-06 23:49:00 UTC, the engine stopped after 158 of 718 s (135 of 748 m/s);
+#          "entered in heliocentric orbit with the period of 203 days", perihelion 0.61 au,
+#          aphelion 0.74 au; VOI-R1 2015-12-06 23:51:29 to 12-07 00:11:57 UTC, 1228 s, 134.8
+#          m/s; "apoapsis altitude was ~440,000 km with an inclination of 3 degrees and orbital
+#          period of 13 days and 14 h"; by early 2016 ~360,000 km and 10.5 days, periapsis
+#          1,000-8,000 km; PC1 on 2016-04-04 (2.2 m/s, to avoid long eclipses): ~370,000 km,
+#          periapsis 1,000-10,000 km, 10.8 days.
+#        [AK15] JAXA press release (2015-12-09): about 440,000 x 400 km, 13 days 14 hours, about
+#          3 deg to Venus' orbital plane, "flying in the same direction as that of Venus's
+#          rotation". Space.com, "Success! Japanese Spacecraft Arrives at Venus 5 Years After
+#          1st Try" (2015-12-09): its small attitude-control thrusters fired for 20 minutes.
+#        [AKW] Sky & Telescope, "Japan's Akatsuki Spies Massive Wave on Venus" (2017-01-17;
+#          Fukuhara et al. 2017, Nature Geoscience): in late December 2015 and early January 2016
+#          a bow-shaped structure "more than 6,200 miles (10,000 km) long" across both
+#          hemispheres, fixed over "the western slope of the Aphrodite Terra highlands" while
+#          the cloud tops move at about 100 m/s: air flowing over the mountains makes a
+#          gravity wave that reaches the clouds.
+#        [AKE] Universe Today, "Japan's Akatsuki Venus Orbiter Completes its Mission" (2025-09):
+#          communication lost near the end of April 2024, in a low-precision attitude mode;
+#          recovery failed; termination from 09:00 JST on 2025-09-18, far beyond its design
+#          life.
+#        [ZNAM] The Planetary Society, "Venus has a quasi-moon, and now it has a name" (K.
+#          Howells, 2024-02-12): a solar system poster with "ZOOZVE" next to Venus, the artist
+#          Alex Foster having misread "2002VE" in his notes; Radiolab's Latif Nasser asked the
+#          discoverer Brian Skiff to propose the name; announced by the IAU on 2024-02-05.
+#          Zoozve "appears to orbit Venus, but is not gravitationally bound to it".
+#        Orbits as drawn: [HZN].
+#
+# Colors are sRGB and illustrative where no map is used.
+
+name = "Venus"
+
+[view]
+focus = "Venus"
+frame = "Sun-Venus rotating"
+distance_km = 3.0e8        # Zoozve's loop around Venus, and the Earth's orbit
+pitch_deg = 60.0
+start = "now"
+warp = 172800.0            # 2 days per second: Zoozve's loop in under 2 minutes
+up = "ecliptic"
+
+[[bodies]]
+name = "Sun"
+kind = "star"
+radii_km = [695700.0]                      # [PCK]
+gm_km3_s2 = 1.32712440041279419e11         # [GM]
+pole_ra_dec_deg = [286.13, 63.87]          # [PCK]
+prime_meridian_deg = [84.176, 14.1844]
+color = "#fff4e0"
+
+[[bodies]]
+name = "Mercury"
+parent = "Sun"
+radii_km = [2440.53, 2438.26]              # [PCK]
+body_gm_km3_s2 = 22031.868551              # [GM]
+pole_ra_dec_deg = [281.0103, 61.4155]
+prime_meridian_deg = [329.5988, 6.1385108]
+color = "#9c958e"
+orbit_color = "#8f8a85"
+texture = "textures/mercury.jpg"           # assets/textures/SOURCES.md
+texture_left_lon_deg = -180.0
+[bodies.orbit]                             # [APX] Table 2a
+type = "jpl_approx_planet"
+a_au = [0.38709843, 0.00000000]
+e = [0.20563661, 0.00002123]
+i_deg = [7.00559432, -0.00590158]
+mean_longitude_deg = [252.25166724, 149472.67486623]
+lon_peri_deg = [77.45771895, 0.15940013]
+node_deg = [48.33961819, -0.12214182]
+
+# Venus as in parker.toml (keep the two in step).
+[[bodies]]
+name = "Venus"
+parent = "Sun"
+radii_km = [6051.8]                        # [PCK]
+gm_km3_s2 = 324858.592                     # [GM] (no moons): osculating orbits of the spacecraft
+body_gm_km3_s2 = 324858.592                # [GM]
+pole_ra_dec_deg = [272.76, 67.16]
+prime_meridian_deg = [160.20, -1.4813688]
+color = "#e8d6ae"
+orbit_color = "#d9c79f"
+texture = "textures/venus.jpg"             # Magellan radar, shown without the atmosphere
+texture_left_lon_deg = -180.0
+[bodies.atmosphere]                        # [ATM]
+deck_altitude_km = 74.0
+height_km = 30.0
+haze_depth = 0.1
+haze_angstrom = 1.0
+haze_scale_height_km = 3.3
+haze_albedo = 0.99
+haze_g = 0.6
+[bodies.orbit]                             # [HZN] 299 (Venus has no moon: body center)
+type = "ephemeris"
+file = "ephem/venus.eph"
+[bodies.orbit.fallback]                    # [APX] Table 2a
+type = "jpl_approx_planet"
+a_au = [0.72332102, -0.00000026]
+e = [0.00676399, -0.00005107]
+i_deg = [3.39777545, 0.00043494]
+mean_longitude_deg = [181.97970850, 58517.81560260]
+lon_peri_deg = [131.76755713, 0.05679648]
+node_deg = [76.67261496, -0.27274174]
+
+[[bodies]]
+name = "Earth"
+parent = "Sun"
+radii_km = [6378.1366, 6356.7519]          # [PCK]
+body_gm_km3_s2 = 398600.435507             # [GM]
+pole_ra_dec_deg = [0.0, 90.0]
+prime_meridian_deg = [190.147, 360.9856235]
+color = "#5b86c9"
+orbit_color = "#7fa6e0"
+texture = "textures/earth.jpg"
+texture_left_lon_deg = -180.0
+[bodies.atmosphere]                        # [ATM]
+height_km = 60.0
+rayleigh_depth = 0.1085                    # 13.56e-6 m^-1 at 550 nm x 8 km
+rayleigh_scale_height_km = 8.0
+haze_depth = 0.005328
+haze_scale_height_km = 1.2
+haze_albedo = 0.9
+haze_g = 0.8
+[bodies.orbit]                             # [HZN] Earth-Moon barycenter
+type = "ephemeris"
+file = "ephem/emb.eph"
+[bodies.orbit.fallback]                    # [APX] Table 2a, EM Bary
+type = "jpl_approx_planet"
+a_au = [1.00000018, -0.00000003]
+e = [0.01673163, -0.00003661]
+i_deg = [-0.00054346, -0.01337178]
+mean_longitude_deg = [100.46691572, 35999.37306329]
+lon_peri_deg = [102.93005885, 0.31795260]
+node_deg = [-5.11260389, -0.24123856]
+
+# Zoozve: about 200 m across (H = 20.54 [SBDB] for an assumed albedo of 0.25; its light curve
+# suggests an elongated body), drawn as a sphere.
+[[bodies]]
+name = "Zoozve"
+parent = "Sun"
+radii_km = [0.1]
+color = "#a9a196"
+orbit_color = "#c9a0e8"
+trail = "history"
+trail_history_days = 225.0                 # one loop around Venus (a Venus year)
+[bodies.orbit]                             # [HZN] 524522, JPL#86
+type = "ephemeris"
+file = "ephem/zoozve.eph"
+
+# Spacecraft [HZN], visible while their tables have data.
+
+[[bodies]]
+name = "Venus Express"
+parent = "Venus"
+kind = "spacecraft"
+radii_km = [0.004]                         # about 8 m across its solar arrays [VEXF] (drawn as a marker)
+color = "#9fd0ff"
+orbit_color = "#6fb4f0"
+trail = "history"
+trail_history_days = 1.0                   # one 24-hour orbit
+trail_linger_days = 30.0                   # after contact was lost, fading
+[bodies.orbit]                             # [HZN] -248
+type = "ephemeris"
+file = "ephem/vex_venus.eph"
+
+[[bodies]]
+name = "Akatsuki"
+parent = "Sun"
+kind = "spacecraft"
+radii_km = [0.003]                         # 1.04 x 1.45 x 1.4 m with two solar paddles ([HZN] notes)
+color = "#ffb38a"
+orbit_color = "#f2905e"
+trail = "history"
+trail_history_days = 11.0                  # one 10.8-day orbit
+trail_linger_days = 60.0                   # after the end of the data, fading
+[bodies.orbit]                             # [HZN] -5, heliocentric (to 2015-12-04)
+type = "ephemeris"
+file = "ephem/akatsuki_helio.eph"
+[bodies.orbit.fallback]                    # [HZN] -5, relative to Venus (2015-12-03 .. 2024-04-26)
+type = "ephemeris"
+file = "ephem/akatsuki_venus.eph"
+relative_to = "Venus"
+
+[[frames]]
+name = "Venus-centered"
+type = "inertial"
+origin = "Venus"
+trail_history_days = 11.0                  # Zoozve's year-long loop is for the rotating frame
+
+[[frames]]
+name = "Earth-centered"                    # Zoozve's passes of the Earth
+type = "inertial"
+origin = "Earth"
+
+[[frames]]
+name = "Sun-Venus rotating"
+type = "rotating"
+primary = "Sun"
+secondary = "Venus"                        # centered on Venus
+
+# --- Events --------------------------------------------------------------------------
+# Times and distances (TDB) computed from the baked data; altitudes above the mean radius.
+
+# Venus Express' first periapsis 2006-04-11 07:37:39 TDB, 390 km up, in the middle of the
+# capture burn (07:10 to 08:01 UTC [VOI]); then 9.1 days around, out to 332,000 km. The burns
+# of 2006-04-20 and 04-23 bring the apoapsis down to 70,000 km, and from 2006-05-07 the orbit
+# is 24.0 hours, ~250 x 66,500 km, its periapsis at 79 deg N [HZN].
+[[events]]
+name = "Venus Express arrives (2006-04-11)"
+time_tdb = "2006-04-11 06:40"
+focus = "Venus"
+frame = "Venus-centered"
+from_body = "Sun"                          # its day side
+phase_deg = 60.0
+distance_km = 6.0e4
+warp = 120.0
+# [VOI], [HZN] (Horizons notes)
+caption = """\
+    ESA's first mission to Venus fires its main engine for 50 minutes, shedding 1.25 km/s, \
+    and is captured into a long polar orbit: nine days around, swinging out some 330,000 \
+    km. It came for a global look at the atmosphere of Venus and the space around it."""
+
+[[events]]
+name = "Venus Express: from nine days to one (2006-04 .. 05)"
+time_tdb = "2006-04-12 00:00"
+focus = "Venus"
+frame = "Venus-centered"
+from_orbit_normal = "Venus Express"         # the polar orbit face-on
+distance_km = 9.0e5
+warp = 43200.0
+# [VOI], [HZN]
+caption = """\
+    Seven burns over three weeks pull the far end of the orbit in from 330,000 to 66,000 \
+    km. By 7 May Venus Express goes around once a day, passing low over the north pole \
+    and high over the south."""
+[[events.trails]]
+body = "Venus Express"
+trail_history_days = 26.0
+
+[[events]]
+name = "Venus Express: one day per orbit (2006-2014)"
+time_tdb = "2007-06-01 00:00"
+focus = "Venus"
+frame = "Venus-centered"
+from_orbit_normal = "Venus Express"         # the polar orbit face-on
+distance_km = 1.6e5
+warp = 1200.0
+# [VEXE]
+caption = """\
+    For eight years, more than 3,000 orbits. Venus Express found lava flows no more than \
+    2.5 million years old and swings in the sulphur dioxide over the clouds, the best sign \
+    yet of active volcanoes. Hydrogen and deuterium hint that Venus once had far more \
+    water, perhaps oceans, and it still loses hydrogen and oxygen to space, two to one."""
+
+# Akatsuki's closest approach 2010-12-07 00:01:16 TDB, 549 km up; then 0.611 x 0.742 au
+# around the Sun, 203 days [HZN].
+[[events]]
+name = "Akatsuki misses Venus (2010-12-07)"
+time_tdb = "2010-12-06 23:20"
+focus = "Venus"
+frame = "Venus-centered"
+distance_km = 6.0e4
+warp = 60.0
+# [VCO], [HZN]
+caption = """\
+    Japan's Akatsuki fires its main engine for a 12-minute burn into orbit. After 158 \
+    seconds the engine quits. Instead of staying, Akatsuki skims 550 km over the clouds \
+    and sails on, into an orbit around the Sun 203 days long."""
+
+# Akatsuki's orbit around the Sun lies inside Venus': it pulls ahead and laps around the far
+# side of the Sun, up to 1.33 au from Venus (mid-2013). Its period changes from 203 to 199
+# days in November 2011 [HZN].
+[[events]]
+name = "Akatsuki: five years around the Sun (2010-2015)"
+time_tdb = "2010-12-08 00:00"
+focus = "Venus"
+frame = "Sun-Venus rotating"
+from_orbit_normal = "Venus"
+distance_km = 4.0e8
+warp = 2592000.0
+# [VCO], [HZN]
+caption = """\
+    In this frame Venus stands still. On a slightly faster orbit inside Venus', Akatsuki \
+    pulls ahead, around the far side of the Sun, and slowly catches up again. Burns in \
+    late 2011 set up a second meeting with Venus, five years after the first."""
+[[events.trails]]
+body = "Akatsuki"
+trail_history_days = 1900.0
+[[events.trails]]
+body = "Zoozve"
+trail = "none"
+
+# Aerobraking: 30 periapses below 140 km from 2014-06-14 to 07-12, the lowest 129.7 km;
+# 456 km on 2014-07-27, 22.4 hours around [HZN].
+[[events]]
+name = "Venus Express dips into the air (2014-06 .. 07)"
+time_tdb = "2014-06-10 00:00"
+focus = "Venus"
+frame = "Venus-centered"
+from_body = "Sun"                          # the orbit lies near the terminator: face-on and lit
+phase_deg = 20.0
+distance_km = 4.0e4
+warp = 3600.0
+# [VEXE]
+caption = """\
+    Running low on propellant, Venus Express dives deeper at every pass, from 18 June to \
+    11 July to about 130 km above the surface. It comes through; fifteen small burns then \
+    raise its low point to 460 km, and its day-long orbit shortens to 22 hours."""
+[[events.trails]]
+body = "Venus Express"
+trail_history_days = 30.0
+
+# Periapsis raising 2014-11-23 .. 27, from 202 to 310 km [HZN].
+[[events]]
+name = "Venus Express falls silent (2014-11-28)"
+time_tdb = "2014-11-22 12:00"
+focus = "Venus"
+frame = "Venus-centered"
+from_orbit_normal = "Venus Express"         # the polar orbit face-on
+distance_km = 1.6e5
+warp = 1200.0
+# [VEXE]
+caption = """\
+    Burns to lift the orbit for one more year run the tanks dry, and contact is lost on \
+    28 November. Venus Express had seen the cloud-top winds speed up from about 300 to \
+    400 km/h in six years, and found Venus turning 6.5 minutes slower than Magellan had \
+    measured."""
+
+# Akatsuki's periapsis 2015-12-07 00:02:39 TDB, 541 km up; then 387 x 443,700 km, 13.9 days,
+# 5 deg from Venus' orbital plane and retrograde: the way Venus spins [HZN].
+[[events]]
+name = "Akatsuki's second try (2015-12-07)"
+time_tdb = "2015-12-06 23:20"
+focus = "Venus"
+frame = "Venus-centered"
+distance_km = 6.0e4
+warp = 60.0
+# [VCO], [AK15]
+caption = """\
+    Five years after the miss, Akatsuki is back. This time it fires its small \
+    attitude-control thrusters for 20 minutes, and Venus keeps it: a loose \
+    orbit out to 440,000 km and almost 14 days around, near the equator and in the \
+    direction the planet turns."""
+
+# From April 2016: 250-12,000 x ~370,000 km, 10.9 days [HZN].
+[[events]]
+name = "Akatsuki watches the clouds (2016-2024)"
+time_tdb = "2016-06-01 00:00"
+focus = "Venus"
+frame = "Venus-centered"
+from_orbit_normal = "Akatsuki"
+distance_km = 1.0e6
+warp = 21600.0
+# [VCO], [AKW]
+caption = """\
+    Every 10.8 days Akatsuki swings out to 370,000 km and back, moving with the winds of \
+    the cloud tops. Just after it arrived, its cameras saw a bow-shaped wave 10,000 km \
+    long standing still over the Aphrodite Terra highlands while the clouds raced past at \
+    100 m/s: air flowing over the mountains, rippling up to the clouds."""
+
+[[events]]
+name = "Akatsuki falls silent (2024-04)"
+time_tdb = "2024-04-08 00:00"
+focus = "Venus"
+frame = "Venus-centered"
+distance_km = 1.0e6
+warp = 21600.0
+# [AKE], [HZN] (Horizons notes)
+caption = """\
+    Late in April 2024 contact with Akatsuki is lost. Built for four and a half years, it \
+    had watched the weather of Venus for more than eight. JAXA ended the mission in \
+    September 2025."""
+
+# Zoozve in the Sun-Venus rotating frame, 2004-2030: one retrograde loop around Venus per
+# Venus year, never closer than 0.28 au (42 million km) [HZN].
+[[events]]
+name = "Zoozve, Venus' quasi-moon"
+time_tdb = "2025-06-01 00:00"
+focus = "Venus"
+frame = "Sun-Venus rotating"
+from_orbit_normal = "Venus"
+distance_km = 3.0e8
+warp = 172800.0
+# [MIK], [ZNAM]
+caption = """\
+    Zoozve orbits the Sun once a Venus year, but on a stretched, tilted orbit that reaches \
+    in past Mercury's and out to the Earth's. Seen from Venus, it seems to circle the \
+    planet backward once a year, never closer than 30 million km. Found in 2002, it was \
+    the first quasi-satellite known: one for some 7,000 years, and for 500 more."""
+
+# Zoozve's closest approaches to the Earth-Moon barycenter, every 8 years: 1978-11-12 at
+# 4.70 million km .. 2026-11-02 18:52 TDB at 6.02 million km .. 2058-10-29 at 7.44 [HZN].
+[[events]]
+name = "Zoozve passes the Earth (2026-11-02, 6 million km)"
+time_tdb = "2026-10-22 00:00"
+focus = "Earth"
+frame = "Earth-centered"
+from_orbit_normal = "Earth"
+distance_km = 4.0e7
+warp = 21600.0
+# [SBDB], [MIK], [ZNAM]
+caption = """\
+    Every eight years Zoozve passes the Earth, this time 6 million km away. A pass like \
+    this some 7,000 years ago may have set it on its path with Venus. Its name began as a \
+    misreading: an artist copying "2002 VE" onto a poster saw "Zoozve", and in 2024 the \
+    IAU made the mistake official."""
+[[events.trails]]
+body = "Zoozve"
+trail_history_days = 30.0

@@ -88,7 +88,7 @@ mean_longitude_deg = [252.25166724, 149472.67486623]
 lon_peri_deg = [77.45771895, 0.15940013]
 node_deg = [48.33961819, -0.12214182]
 
-[[bodies]]
+[[bodies]]                                 # as in venus.toml
 name = "Venus"
 parent = "Sun"
 radii_km = [6051.8]                        # [PCK]
