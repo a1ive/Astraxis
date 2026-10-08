@@ -385,84 +385,40 @@ void test_label_layout()
     labels.reset();
     labels.update(sim.scene(), view, focus, screen, font, measure, 0.0f);
     check(labels.bodies().front().text_alpha == 0.0f, "reset forgets the eased opacities");
-}
 
-// Label anchors: a label blocked at NE moves to another side instead of
-// hiding, returns to NE only after a moment once free, and stays on screen at
-// the edge.
-void test_label_anchors()
-{
-    // Identity view-projection: world x, y in [-1, 1] map straight to the screen.
-    Scene scene;
-    auto add = [&](const char* name, double radius_km) {
-        Body b;
-        b.name = name;
-        b.equatorial_radius_km = radius_km;
-        scene.bodies.push_back(std::move(b));
-    };
-    add("Alpha", 2e-6); // larger: placed first
-    add("Beta", 1e-6);
-    add("Gamma", 1e-6);
-    const glm::vec2 screen(1280.0f, 720.0f);
-    auto place = [&](int body, glm::vec2 px) {
-        scene.bodies[static_cast<size_t>(body)].world_position =
-            glm::dvec3(px.x / screen.x * 2.0 - 1.0, 1.0 - px.y / screen.y * 2.0, 0.5);
-    };
-    OutputView view;
-    view.body_fades.assign(3, 1.0f);
-    const float font = 13.0f;
-    auto measure = [&](const std::string& text) { return glm::vec2(7.0f * static_cast<float>(text.size()), font); };
-    LabelLayout labels;
-    auto mark_of = [&](int body) {
-        for (const LabelLayout::BodyMark& m : labels.bodies()) {
-            if (m.body == body) {
-                return m;
-            }
-        }
-        return LabelLayout::BodyMark{};
-    };
-    auto run = [&](float seconds) {
-        for (float t = 0.0f; t < seconds; t += 1.0f / 30.0f) {
-            labels.update(scene, view, -1, screen, font, measure, 1.0f / 30.0f);
-        }
-    };
-    // NE of a marker-sized body: left at x + 2.5 * 0.7071 + 4, top at y - that - font / 2.
-    const float ne = LabelLayout::kMarkerRadius * 0.7071f + 4.0f;
-    auto at_ne = [&](const LabelLayout::BodyMark& m) {
-        return std::abs(m.text_position.x - (m.position.x + ne)) < 0.01f &&
-               std::abs(m.text_position.y - (m.position.y - ne - 0.5f * font)) < 0.01f;
-    };
-
-    // Beta just below right of Alpha: its NE label would cover Alpha's.
-    place(0, {640.0f, 360.0f});
-    place(1, {660.0f, 370.0f});
-    place(2, {300.0f, 200.0f});
-    run(1.0f);
-    const LabelLayout::BodyMark a = mark_of(0);
-    const LabelLayout::BodyMark b = mark_of(1);
-    const glm::vec2 size_a = measure("Alpha");
-    const glm::vec2 size_b = measure("Beta");
-    const bool apart = a.text_position.x + size_a.x <= b.text_position.x ||
-                       b.text_position.x + size_b.x <= a.text_position.x ||
-                       a.text_position.y + size_a.y <= b.text_position.y ||
-                       b.text_position.y + size_b.y <= a.text_position.y;
-    check(at_ne(a) && !at_ne(b) && b.text_alpha > 0.99f && apart, "a blocked label moves instead of hiding");
-
-    // Beta moves away: NE is free, but it waits before going back.
-    place(1, {940.0f, 370.0f});
-    run(0.2f);
-    check(!at_ne(mark_of(1)), "a label does not jump back at once");
-    run(1.0f);
-    check(at_ne(mark_of(1)) && mark_of(1).text_alpha > 0.99f, "a label returns to NE once it has been free");
-
-    // At the right edge the label goes to the left, at the same height (NW).
+    // Labels covered by a huge focus label come back only after their place
+    // has stayed free for a moment, and never move relative to their body.
+    glm::vec2 label_size(5000.0f);
+    auto measure_sized = [&](const std::string&) { return label_size; };
     labels.reset();
-    place(2, {1275.0f, 200.0f});
-    run(1.0f);
-    const LabelLayout::BodyMark g = mark_of(2);
-    check(g.text_position.x + measure("Gamma").x <= screen.x && g.text_position.y < g.position.y - ne &&
-              g.text_alpha > 0.99f,
-          "a label at the screen edge stays on screen (NW)");
+    for (int k = 0; k < 30; ++k) {
+        labels.update(sim.scene(), view, focus, screen, font, measure_sized, 1.0f / 30.0f);
+    }
+    std::vector<glm::vec2> offsets(sim.scene().bodies.size(), glm::vec2(0.0f));
+    for (const LabelLayout::BodyMark& mark : labels.bodies()) {
+        offsets[static_cast<size_t>(mark.body)] = mark.text_position - mark.position;
+    }
+    label_size = glm::vec2(1.0f);
+    float waiting_max = 0.0f;
+    for (int k = 0; k < 15; ++k) {
+        labels.update(sim.scene(), view, focus, screen, font, measure_sized, 1.0f / 30.0f);
+    }
+    for (const LabelLayout::BodyMark& mark : labels.bodies()) {
+        waiting_max = mark.body == focus ? waiting_max : std::max(waiting_max, mark.text_alpha);
+    }
+    check(waiting_max == 0.0f, "uncovered labels wait before they show again", waiting_max);
+    for (int k = 0; k < 60; ++k) {
+        labels.update(sim.scene(), view, focus, screen, font, measure_sized, 1.0f / 30.0f);
+    }
+    int reshown = 0;
+    bool moved = false;
+    for (const LabelLayout::BodyMark& mark : labels.bodies()) {
+        reshown += mark.body != focus && mark.text_alpha > 0.99f * mark.fade && mark.fade > 0.05f ? 1 : 0;
+        const glm::vec2 offset = mark.text_position - mark.position;
+        moved = moved || glm::length(offset - offsets[static_cast<size_t>(mark.body)]) > 1e-3f;
+    }
+    check(reshown > 0, "uncovered labels show again after the wait", static_cast<double>(reshown));
+    check(!moved, "labels keep their place relative to their body");
 }
 
 // What the info panel describes a body as orbiting, and its osculating orbit.
@@ -677,7 +633,6 @@ void run_scene_tests()
     test_ephemeris_blends();
     test_simulation();
     test_label_layout();
-    test_label_anchors();
     test_orbit_center();
     test_body_masses();
     test_event_captions();

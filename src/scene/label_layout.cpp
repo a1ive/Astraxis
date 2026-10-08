@@ -13,39 +13,11 @@ namespace astraxis {
 namespace {
 
 constexpr float kLabelPadding = 2.0f;     // points around each label when checking overlaps
-constexpr float kLabelFadeSeconds = 0.3f; // labels ease in/out over this long
+constexpr float kLabelFadeSeconds = 0.7f; // labels ease in/out over this long
+// A label that was covered comes back only once its place has stayed free this
+// long, so that it does not blink as bodies graze each other.
+constexpr float kLabelReshowSeconds = 1.0f;
 constexpr float kPickMinAlpha = 0.3f;     // a label must be at least this visible to be picked
-constexpr float kLabelGap = 4.0f;         // points between a body (or its dot) and its label
-// A label moves back to a more preferred anchor only after it has been free
-// this long, so that labels do not hop back and forth as bodies pass; it
-// slides to a new anchor over kAnchorSlideSeconds.
-constexpr float kAnchorSettleSeconds = 0.5f;
-constexpr float kAnchorSlideSeconds = 0.2f;
-
-// Label anchors around a body (screen y down), in order of preference: the
-// diagonals first (NE, SE, NW, SW; a body at the right edge keeps its label at
-// the same height in NW), then E, W, N, S.
-constexpr int kAnchorCount = 8;
-constexpr glm::ivec2 kAnchors[kAnchorCount] = {{1, -1}, {1, 1}, {-1, -1}, {-1, 1}, {1, 0}, {-1, 0}, {0, -1}, {0, 1}};
-
-// Top left of a label of `size` at `anchor` around a body at `center` with
-// on-screen radius `radius`. Labels to the side are centered on the font's
-// line height, diagonal ones on the 45 degree point of the body's rim.
-glm::vec2 anchor_position(int anchor, glm::vec2 center, float radius, glm::vec2 size, float font_size)
-{
-    const glm::ivec2 dir = kAnchors[anchor];
-    const float r = std::max(radius, LabelLayout::kMarkerRadius);
-    const float off = dir.x != 0 && dir.y != 0 ? r * 0.7071f + kLabelGap : r + kLabelGap;
-    glm::vec2 pos;
-    if (dir.x == 0) {
-        pos.x = center.x - 0.5f * size.x;
-        pos.y = dir.y < 0 ? center.y - off - size.y : center.y + off;
-    } else {
-        pos.x = dir.x > 0 ? center.x + off : center.x - off - size.x;
-        pos.y = center.y + static_cast<float>(dir.y) * off - 0.5f * font_size;
-    }
-    return pos;
-}
 
 // True if the segment from the camera (origin) to `target` passes through a sphere.
 bool occluded(const glm::dvec3& target, const glm::dvec3& center, double radius)
@@ -102,7 +74,7 @@ void LabelLayout::update(const Scene& scene, const OutputView& view, int focus, 
         const float fade = i < view.body_fades.size() ? view.body_fades[i] : 1.0f;
         if (!body.visible || body.kind == BodyKind::Barycenter || fade <= 0.0f ||
             (!body.label && static_cast<int>(i) != focus)) {
-            m_labels[i].alpha = 0.0f;
+            m_labels[i] = {};
             continue;
         }
         const glm::dvec3 rel = body.world_position - cam;
@@ -118,7 +90,7 @@ void LabelLayout::update(const Scene& scene, const OutputView& view, int focus, 
         glm::vec2 screen;
         float w = 0.0f;
         if (hidden || !project(rel, &screen, &w)) {
-            m_labels[i].alpha = 0.0f;
+            m_labels[i] = {};
             continue;
         }
         const float radius_px =
@@ -153,78 +125,32 @@ void LabelLayout::update(const Scene& scene, const OutputView& view, int focus, 
         const Body& body = scene.bodies[i];
         const float fade = i < view.body_fades.size() ? view.body_fades[i] : 1.0f;
 
-        // Each anchor's rectangle: free if it overlaps no placed label, usable
-        // if also on screen (or if no free anchor is on screen, e.g. for a
-        // body at the edge).
+        const float offset = std::max(c.radius_px, kMarkerRadius) * 0.7071f + 4.0f;
+        const glm::vec2 text_pos(c.screen.x + offset, c.screen.y - offset - font_size * 0.5f);
         const glm::vec2 text_size = measure_text(body.name);
-        glm::vec2 positions[kAnchorCount];
-        glm::vec4 rects[kAnchorCount];
-        bool free[kAnchorCount];
-        bool on_screen[kAnchorCount];
-        bool any_on_screen = false;
-        for (int a = 0; a < kAnchorCount; ++a) {
-            const glm::vec2 p = anchor_position(a, c.screen, c.radius_px, text_size, font_size);
-            positions[a] = p;
-            rects[a] = glm::vec4(p.x - kLabelPadding, p.y - kLabelPadding, p.x + text_size.x + kLabelPadding,
-                                 p.y + text_size.y + kLabelPadding);
-            free[a] = true;
-            for (const glm::vec4& r : placed) {
-                if (rects[a].x < r.z && r.x < rects[a].z && rects[a].y < r.w && r.y < rects[a].w) {
-                    free[a] = false;
-                    break;
-                }
+        const glm::vec4 rect(text_pos.x - kLabelPadding, text_pos.y - kLabelPadding,
+                             text_pos.x + text_size.x + kLabelPadding, text_pos.y + text_size.y + kLabelPadding);
+        bool overlaps = false;
+        for (const glm::vec4& r : placed) {
+            if (rect.x < r.z && r.x < rect.z && rect.y < r.w && r.y < rect.w) {
+                overlaps = true;
+                break;
             }
-            on_screen[a] = p.x >= 0.0f && p.y >= 0.0f && p.x + text_size.x <= screen_size.x &&
-                           p.y + text_size.y <= screen_size.y;
-            any_on_screen = any_on_screen || (free[a] && on_screen[a]);
         }
-        auto usable = [&](int a) { return free[a] && (on_screen[a] || !any_on_screen); };
-        int best = -1;
-        for (int a = 0; a < kAnchorCount && best < 0; ++a) {
-            best = usable(a) ? a : -1;
-        }
-
-        // Keep the current anchor while it is usable; move at once when it is
-        // not, and back to a better one only once that has stayed free.
-        LabelState& s = m_labels[i];
-        auto move_to = [&](int a) {
-            s.from = s.anchor;
-            s.anchor = a;
-            s.slide = 0.0f;
-            s.better_for = 0.0f;
-        };
-        if (s.anchor < 0 || s.alpha <= 0.0f) {
-            s.anchor = best >= 0 ? best : 0; // not shown yet: no need to slide
-            s.from = s.anchor;
-            s.slide = 1.0f;
-            s.better_for = 0.0f;
-        } else if (!usable(s.anchor)) {
-            if (best >= 0) {
-                move_to(best);
-            }
-        } else if (best >= 0 && best < s.anchor) {
-            s.better_for += dt;
-            if (s.better_for >= kAnchorSettleSeconds) {
-                move_to(best);
-            }
-        } else {
-            s.better_for = 0.0f;
-        }
-        s.slide = std::min(s.slide + dt / kAnchorSlideSeconds, 1.0f);
-
-        const bool overlaps = !free[s.anchor];
         if (!overlaps && fade > 0.05f) {
-            placed.push_back(rects[s.anchor]);
+            placed.push_back(rect);
         }
-        s.alpha = std::clamp(s.alpha + (overlaps ? -step : step), 0.0f, 1.0f);
+        LabelState& s = m_labels[i];
+        s.wait = overlaps ? kLabelReshowSeconds : std::max(s.wait - dt, 0.0f);
+        const bool show = !overlaps && s.wait <= 0.0f;
+        s.alpha = std::clamp(s.alpha + (show ? step : -step), 0.0f, 1.0f);
 
         BodyMark mark;
         mark.body = c.body;
         mark.position = c.screen;
         mark.radius = c.radius_px;
         mark.fade = fade;
-        const float t = s.slide * s.slide * (3.0f - 2.0f * s.slide);
-        mark.text_position = glm::mix(positions[s.from], positions[s.anchor], t);
+        mark.text_position = text_pos;
         mark.text_alpha = s.alpha * fade;
         // Spacecraft and ghosts are never drawn as bodies, so they always get a dot.
         if (body.kind == BodyKind::Ghost) {

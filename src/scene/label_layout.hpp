@@ -14,11 +14,10 @@ struct OutputView;
 // Where the on-screen annotations go: scene markers (e.g. Lagrange points),
 // body markers and body labels. Labels are placed by priority (the focus,
 // stars, bodies orbiting a star, spacecraft, moons, then ghosts, larger bodies
-// first). Each label takes the first of eight anchors around its body (NE, SE,
-// NW, SW, E, W, N, S) that overlaps no label already placed and stays on
-// screen; it keeps its anchor while that works, returns to a better one only
-// after a moment, and slides between them. A label with no free anchor fades
-// out; labels ease in and out so that they do not flicker as bodies pass.
+// first); a label that would overlap one already placed fades out, and comes
+// back only after its place has stayed free for a moment (it keeps that place
+// meanwhile). Labels never move relative to their body; they only fade, slowly,
+// so that they do not draw the eye as bodies pass each other.
 //
 // Screen coordinates are in "points" from the top left, in whatever unit the
 // host draws text with (`screen_size`, `font_size` and `measure_text` agree);
@@ -50,7 +49,7 @@ public:
     // Lays out one frame. `dt`: real seconds since the last update (label easing).
     void update(const Scene& scene, const OutputView& view, int focus, glm::vec2 screen_size, float font_size,
                 const MeasureText& measure_text, float dt);
-    // Forgets the eased label opacities and anchors (e.g. on a scene change).
+    // Forgets the eased label opacities (e.g. on a scene change).
     void reset() { m_labels.clear(); }
 
     const std::vector<SceneMarker>& markers() const { return m_markers; }
@@ -64,11 +63,8 @@ public:
 
 private:
     struct LabelState {
-        float alpha = 0.0f;      // opacity, eased toward its target
-        int anchor = -1;         // current anchor; -1 before the first placement
-        int from = 0;            // the anchor it is sliding from
-        float slide = 1.0f;      // 0..1 from `from` to `anchor`
-        float better_for = 0.0f; // seconds a more preferred anchor has been free
+        float alpha = 0.0f; // opacity, eased toward its target
+        float wait = 0.0f;  // seconds before a label that was covered may show again
     };
     std::vector<LabelState> m_labels; // per body
     std::vector<SceneMarker> m_markers;
