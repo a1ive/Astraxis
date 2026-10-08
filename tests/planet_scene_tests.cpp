@@ -466,6 +466,113 @@ void test_solar_system_belts()
     check(gap < 0.3 * around, "Kirkwood gap at the 3:1 resonance", gap / around);
 }
 
+// Uranus' eccentric, inclined rings [FR24 = French et al. 2024, arXiv:2401.04634].
+void test_uranus_rings()
+{
+    Scene scene = load_scene_or_die("solar_system.toml");
+    const int uranus = scene.find("Uranus");
+    const Body& body = scene.bodies[static_cast<size_t>(uranus)];
+    const RingSystem& rings = body.rings;
+    check(rings.shaped() && std::abs(rings.epoch_tdb - tdb_from_jd_tdb(2446450.0)) < 1.0, "Uranus rings shaped");
+    auto band = [&](const char* name) -> const RingBand* {
+        for (const RingBand& b : rings.bands) {
+            if (b.name == name) {
+                return &b;
+            }
+        }
+        return nullptr;
+    };
+
+    // The apse and node rates follow from the gravity field fitted to them,
+    // [FR24] Table 17 (GM, R, adopted J2, J4, J6): the satellites' share and
+    // higher-order terms are below 0.1%. Catches mistyped rates.
+    constexpr double kGm = 5793950.3;
+    constexpr double kR = 25559.0;
+    constexpr double kJ2 = 3509.291e-6;
+    constexpr double kJ4 = -35.522e-6;
+    constexpr double kJ6 = 0.5e-6;
+    double worst = 0.0;
+    for (const RingBand& b : rings.bands) {
+        if (b.peri_rate_deg_per_day == 0.0) {
+            continue;
+        }
+        const double a = 0.5 * (b.inner_km + b.outer_km);
+        const double x = (kR / a) * (kR / a);
+        const double base = kGm / (a * a * a);
+        const double n = std::sqrt(base * (1.0 + 1.5 * kJ2 * x - 15.0 / 8.0 * kJ4 * x * x + 35.0 / 16.0 * kJ6 * x * x * x));
+        const double kappa = std::sqrt(base * (1.0 - 1.5 * kJ2 * x + 45.0 / 8.0 * kJ4 * x * x - 175.0 / 16.0 * kJ6 * x * x * x));
+        const double nu = std::sqrt(base * (1.0 + 4.5 * kJ2 * x - 75.0 / 8.0 * kJ4 * x * x + 245.0 / 16.0 * kJ6 * x * x * x));
+        const double to_deg_per_day = kSecondsPerDay / kDegToRad;
+        worst = std::max(worst, std::abs(b.peri_rate_deg_per_day / ((n - kappa) * to_deg_per_day) - 1.0));
+        if (b.a_sin_i_km > 0.0) {
+            worst = std::max(worst, std::abs(b.node_rate_deg_per_day / ((n - nu) * to_deg_per_day) - 1.0));
+        }
+    }
+    check(worst < 1e-3, "Uranian ring precession rates vs J2, J4, J6", worst);
+
+    // Widths at periapsis and apoapsis against the ranges of French et al. 1991
+    // (PDS Ring-Moon Systems Node), which are rounded to whole km.
+    struct Width {
+        const char* ring;
+        double min_km;
+        double max_km;
+    };
+    for (const Width& w : {Width{"Alpha", 4.0, 10.0}, Width{"Beta", 5.0, 11.0}, Width{"Epsilon", 20.0, 96.0}}) {
+        const RingBand* b = band(w.ring);
+        if (!b) {
+            check(false, w.ring);
+            continue;
+        }
+        const double at_peri = ring_edge_radius(b->outer_km, b->outer_ae_km, 0.0) - ring_edge_radius(b->inner_km, b->inner_ae_km, 0.0);
+        const double at_apo = ring_edge_radius(b->outer_km, b->outer_ae_km, kPi) - ring_edge_radius(b->inner_km, b->inner_ae_km, kPi);
+        check(std::abs(at_peri - w.min_km) < 1.5 && std::abs(at_apo - w.max_km) < 1.5, w.ring, at_apo);
+    }
+    // tau x width is kept: the epsilon ring's optical depth at both ends, 0.5-2.3 there.
+    if (const RingBand* b = band("Epsilon")) {
+        const double equivalent = b->optical_depth * (b->outer_km - b->inner_km);
+        const double at_peri = equivalent / (ring_edge_radius(b->outer_km, b->outer_ae_km, 0.0) -
+                                             ring_edge_radius(b->inner_km, b->inner_ae_km, 0.0));
+        const double at_apo = equivalent / (ring_edge_radius(b->outer_km, b->outer_ae_km, kPi) -
+                                            ring_edge_radius(b->inner_km, b->inner_ae_km, kPi));
+        check(std::abs(at_peri - 2.3) < 0.15 && std::abs(at_apo - 0.5) < 0.05, "epsilon ring optical depth range", at_peri);
+    }
+
+    // Longitudes: from the ascending node of the equator on the ICRF equator, about
+    // the pole of positive angular momentum, here taken from [FR24] Table 13 (the
+    // scene uses the IAU pole, 0.002 deg away). At the epoch, the epsilon ring's
+    // periapsis lies at 307.076 deg; ring 6 is highest 90 deg past its node.
+    scene.update(rings.epoch_tdb);
+    const glm::dmat3 body_to_icrf = scene.current_transform().axes * body.orientation;
+    const glm::dvec3 pole = unit_toward(77.311327, 15.172795);
+    const glm::dvec3 x = glm::normalize(glm::cross(glm::dvec3(0.0, 0.0, 1.0), pole));
+    const glm::dvec3 y = glm::cross(pole, x);
+    auto toward = [&](double longitude_deg) {
+        return std::cos(longitude_deg * kDegToRad) * x + std::sin(longitude_deg * kDegToRad) * y;
+    };
+    const RingBand* epsilon = band("Epsilon");
+    const RingBand* six = band("6");
+    if (epsilon && six) {
+        const RingBandShape shape = ring_band_shape(body, *epsilon, body_to_icrf, rings.epoch_tdb);
+        const glm::dvec3 periapsis = body_to_icrf * glm::dvec3(shape.periapsis, 0.0);
+        const double off = std::acos(std::clamp(glm::dot(periapsis, toward(307.076)), -1.0, 1.0)) / kDegToRad;
+        check(off < 0.01, "epsilon ring periapsis direction", off);
+
+        const RingBandShape tilt = ring_band_shape(body, *six, body_to_icrf, rings.epoch_tdb);
+        const glm::dvec3 u = glm::transpose(body_to_icrf) * toward(89.727 + 90.0);
+        const double height = (tilt.node.x * u.y - tilt.node.y * u.x) * glm::dot(body_to_icrf[2], pole);
+        check(std::abs(height - 44.643) < 0.01, "ring 6 height 90 deg past its node", height);
+
+        // A year later both have precessed at their rates.
+        const double t = rings.epoch_tdb + 365.0 * kSecondsPerDay;
+        scene.update(t);
+        const glm::dmat3 later = scene.current_transform().axes * body.orientation;
+        const glm::dvec3 moved = later * glm::dvec3(ring_band_shape(body, *epsilon, later, t).periapsis, 0.0);
+        const double drift =
+            std::acos(std::clamp(glm::dot(moved, toward(307.076 + 365.0 * 1.3632575)), -1.0, 1.0)) / kDegToRad;
+        check(drift < 0.01, "epsilon ring apsidal precession", drift);
+    }
+}
+
 void test_saturn_scene()
 {
     Scene scene = load_scene_or_die("saturn.toml");
@@ -603,6 +710,7 @@ void run_planet_scene_tests()
     test_solar_system_scene();
     test_solar_system_bodies();
     test_solar_system_belts();
+    test_uranus_rings();
     test_earth_moon_frame();
     test_earth_moon_rotation();
     test_saturn_scene();

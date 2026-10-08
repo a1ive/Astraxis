@@ -842,10 +842,31 @@ void Loader::parse(const toml::table& root, Scene& out)
                     fail(rctx, "band '" + band.name +
                                    "' needs radius <= inner_km < outer_km and non-negative depth and thickness");
                 }
+                band.inner_ae_km = get_double_or(*b, "inner_ae_km", 0.0);
+                band.outer_ae_km = get_double_or(*b, "outer_ae_km", 0.0);
+                band.peri_deg = get_double_or(*b, "peri_deg", 0.0);
+                band.peri_rate_deg_per_day = get_double_or(*b, "peri_rate_deg_per_day", 0.0);
+                band.a_sin_i_km = get_double_or(*b, "a_sin_i_km", 0.0);
+                band.node_deg = get_double_or(*b, "node_deg", 0.0);
+                band.node_rate_deg_per_day = get_double_or(*b, "node_rate_deg_per_day", 0.0);
+                // The edges must not cross: the width varies by the difference of their a e.
+                if (band.inner_ae_km < 0.0 || band.outer_ae_km < 0.0 || band.a_sin_i_km < 0.0 ||
+                    std::abs(band.outer_ae_km - band.inner_ae_km) >= band.outer_km - band.inner_km ||
+                    band.inner_km - band.inner_ae_km < body.equatorial_radius_km) {
+                    fail(rctx, "band '" + band.name +
+                                   "' needs non-negative a e and a sin i, edges that do not cross, and its"
+                                   " periapsis outside the planet");
+                }
                 body.rings.bands.push_back(band);
             }
             if (!body.rings.bands.empty()) {
                 rasterize_ring_bands(body.rings, kBandProfileSamples);
+            }
+            if (body.rings.shaped()) {
+                if (body.rings.bands.size() > static_cast<size_t>(kMaxShapedRingBands)) {
+                    fail(rctx, "at most " + std::to_string(kMaxShapedRingBands) + " bands with eccentric or inclined rings");
+                }
+                body.rings.epoch_tdb = (get_double(*rings, "epoch_jd_tdb", rctx) - kJ2000Jd) * kSecondsPerDay;
             }
         }
 
