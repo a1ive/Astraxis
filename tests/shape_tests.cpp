@@ -45,6 +45,61 @@ double map_u_error(const ShapeModel& shape)
     return worst;
 }
 
+// Inertia tensor per unit mass of a closed mesh of uniform density, about its centroid
+// (summed over the tetrahedra from the origin to each triangle).
+glm::dmat3 uniform_inertia(const ShapeModel& shape)
+{
+    double volume = 0.0;
+    glm::dvec3 first(0.0);
+    glm::dmat3 second(0.0); // integral of r r^T
+    for (size_t k = 0; k < shape.indices.size(); k += 3) {
+        const glm::dvec3 a(shape.positions[shape.indices[k]]);
+        const glm::dvec3 b(shape.positions[shape.indices[k + 1]]);
+        const glm::dvec3 c(shape.positions[shape.indices[k + 2]]);
+        const double v = glm::dot(a, glm::cross(b, c)) / 6.0;
+        const glm::dvec3 sum = a + b + c;
+        volume += v;
+        first += v * sum / 4.0;
+        second += v / 20.0 *
+                  (glm::outerProduct(a, a) + glm::outerProduct(b, b) + glm::outerProduct(c, c) +
+                   glm::outerProduct(sum, sum));
+    }
+    const glm::dvec3 centroid = first / volume;
+    const glm::dmat3 s = second / volume - glm::outerProduct(centroid, centroid);
+    return (s[0][0] + s[1][1] + s[2][2]) * glm::dmat3(1.0) - s;
+}
+
+// Eigenvectors (columns, by ascending eigenvalue) of a symmetric matrix, cyclic Jacobi.
+glm::dmat3 symmetric_eigen(glm::dmat3 m, glm::dvec3& values)
+{
+    glm::dmat3 vectors(1.0);
+    for (int sweep = 0; sweep < 50; ++sweep) {
+        for (int p = 0; p < 2; ++p) {
+            for (int q = p + 1; q < 3; ++q) {
+                if (std::abs(m[q][p]) <= 1e-15 * (std::abs(m[p][p]) + std::abs(m[q][q]))) {
+                    continue;
+                }
+                // Rotation in the p-q plane that zeroes m[p][q].
+                const double angle = 0.5 * std::atan2(2.0 * m[q][p], m[q][q] - m[p][p]);
+                glm::dmat3 r(1.0);
+                r[p][p] = r[q][q] = std::cos(angle);
+                r[p][q] = -std::sin(angle);
+                r[q][p] = std::sin(angle);
+                m = glm::transpose(r) * m * r;
+                vectors = vectors * r;
+            }
+        }
+    }
+    int order[3] = {0, 1, 2};
+    std::sort(order, order + 3, [&](int a, int b) { return m[a][a] < m[b][b]; });
+    glm::dmat3 sorted(1.0);
+    for (int k = 0; k < 3; ++k) {
+        sorted[k] = vectors[order[k]];
+        values[k] = m[order[k]][order[k]];
+    }
+    return sorted;
+}
+
 // Arrokoth's shape model and pole against independent numbers in Porter et al. 2024,
 // Table 2: the volume (equal-volume diameter 19.896 km) and the pole's inclination to
 // the heliocentric orbit (100.39 deg) and to New Horizons' approach direction (41.096 deg).
@@ -267,12 +322,76 @@ void test_jupiter_saturn_small_moon_shapes()
             check(extent.x > extent.y && extent.x > extent.z, (name + " long axis toward Jupiter").c_str(), extent.x);
         }
     }
+}
 
-    // Hyperion spins at |omega|/n = 4.255 (Cassini, 2005-08-16 and 2005-09-25; Harbison et
-    // al. 2011), n from [ELEM]'s mean-longitude period 21.276658 d: about 72 deg/day.
-    const Body& hyperion = saturn.bodies[static_cast<size_t>(saturn.find("Hyperion"))];
-    const double spin_over_n = hyperion.pm_rate_deg_per_day / (360.0 / 21.276658);
+// Hyperion (Saturn scene) against Harbison, Thomas & Nicholson 2011 ([HSPN]). The mesh's
+// uniform-density principal axes: Sect. 2 gives A/C = 0.58, B/C = 0.87 (+- 0.03), and
+// Table 1 the 2005-09-25 spin, i.e. the mesh's z axis, as (0.902, 0.133, 0.411) along them.
+// Table 1's Euler angles at that time (principal axes -> xyz = Rz(theta) Rx(phi) Rz(psi),
+// z = Saturn's pole, x = Saturn -> pericenter) reproduce Table 2's omega_xyz, and give the
+// orientation the scene should show when the osculating M is 303 deg.
+void test_hyperion_spin_state()
+{
+    Scene scene = load_scene_or_die("saturn.toml");
+    scene.set_active_frame(0); // inertial (ICRF axes)
+    const int hyperion = scene.find("Hyperion");
+    const Body& body = scene.bodies[static_cast<size_t>(hyperion)];
+    if (!body.shape) {
+        check(false, "Hyperion has a shape model");
+        return;
+    }
+
+    glm::dvec3 moments(0.0);
+    glm::dmat3 axes = symmetric_eigen(uniform_inertia(*body.shape), moments); // columns A, B, C
+    check(std::abs(moments.x / moments.z - 0.58) < 0.03, "Hyperion A/C (uniform density)", moments.x / moments.z);
+    check(std::abs(moments.y / moments.z - 0.87) < 0.03, "Hyperion B/C (uniform density)", moments.y / moments.z);
+    for (int k = 0; k < 3; ++k) {
+        if (axes[k].z < 0.0) { // the signs that make Table 1's spin components positive
+            axes[k] = -axes[k];
+        }
+    }
+    check(glm::dot(glm::cross(axes[0], axes[1]), axes[2]) > 0.999, "Hyperion principal axes right-handed");
+    const glm::dvec3 spin_abc = glm::normalize(glm::dvec3(0.902, 0.133, 0.411));
+    const glm::dvec3 z_abc(axes[0].z, axes[1].z, axes[2].z); // the mesh's z axis along A, B, C
+    const double z_to_spin = std::acos(std::clamp(glm::dot(z_abc, spin_abc), -1.0, 1.0)) / kDegToRad;
+    check(z_to_spin < 3.0, "Hyperion mesh z axis vs Table 1 spin direction (deg)", z_to_spin);
+
+    // The Euler angle convention: Table 1's spin along the principal axes, rotated to xyz.
+    const glm::dmat3 abc_to_xyz = rotation_z(2.989) * rotation_x(1.685) * rotation_z(1.641);
+    const glm::dvec3 omega_xyz(1.151, 2.018, 3.565); // Table 2, units of n
+    const double omega_error = glm::length(abc_to_xyz * (4.255 * spin_abc) - omega_xyz);
+    check(omega_error < 0.02, "Hyperion Table 1 Euler angles reproduce Table 2 omega (n)", omega_error);
+
+    // The epoch: osculating M = 303 deg (Horizons' GM for Saturn).
+    scene.update(tdb_from_utc_jd(jd_from_calendar({2005, 9, 25, 17, 33, 22})));
+    const Body& saturn = scene.bodies[static_cast<size_t>(scene.find("Saturn"))];
+    const glm::dvec3 r = body.icrf_position - saturn.icrf_position;
+    const glm::dvec3 v = body.icrf_velocity - saturn.icrf_velocity;
+    const glm::dvec3 h = glm::cross(r, v);
+    const glm::dvec3 ecc = glm::cross(v, h) / 3.7931206604853049e7 - glm::normalize(r);
+    const double e = glm::length(ecc);
+    const double f = std::atan2(glm::dot(glm::cross(ecc, r), glm::normalize(h)), glm::dot(ecc, r));
+    const double ea = 2.0 * std::atan(std::sqrt((1.0 - e) / (1.0 + e)) * std::tan(0.5 * f));
+    const double mean_anomaly = wrap_two_pi(ea - e * std::sin(ea)) / kDegToRad;
+    check(std::abs(mean_anomaly - 303.0) < 0.05, "Hyperion osculating M at the Table 1 epoch (deg)", mean_anomaly);
+    check(std::abs(e - 0.113) < 0.001, "Hyperion osculating e at the Table 1 epoch", e);
+
+    const glm::dvec3 z = saturn.orientation[2]; // Saturn's pole
+    const glm::dvec3 x = glm::normalize(ecc - glm::dot(ecc, z) * z);
+    const glm::dmat3 xyz_to_icrf(x, glm::cross(z, x), z);
+    const glm::dmat3 expected = xyz_to_icrf * abc_to_xyz * glm::transpose(axes); // mesh -> ICRF
+    const glm::dmat3 relative = glm::transpose(body.orientation) * expected;
+    const double trace = relative[0][0] + relative[1][1] + relative[2][2];
+    const double angle = std::acos(std::clamp(0.5 * (trace - 1.0), -1.0, 1.0)) / kDegToRad;
+    check(angle < 0.5, "Hyperion orientation at 2005-09-25 matches Table 1 (deg)", angle);
+    const glm::dvec3 omega_icrf = glm::normalize(xyz_to_icrf * omega_xyz);
+    const double pole_to_omega = std::acos(std::clamp(glm::dot(body.orientation[2], omega_icrf), -1.0, 1.0)) / kDegToRad;
+    check(pole_to_omega < 3.0, "Hyperion pole vs Table 2 spin direction (deg)", pole_to_omega);
+    const double spin_over_n = body.pm_rate_deg_per_day / 16.94; // n from Sect. 1
     check(std::abs(spin_over_n - 4.255) < 1e-4, "Hyperion spin rate / mean motion", spin_over_n);
+    std::printf("info: Hyperion A/C %.3f, B/C %.3f, mesh z %.1f deg from the Table 1 spin; orientation within %.2f deg "
+                "of Table 1, pole %.1f deg from Table 2\n",
+                moments.x / moments.z, moments.y / moments.z, z_to_spin, angle, pole_to_omega);
 }
 
 // Halley (ISEE-3 scene): Stooke's shape model ([STKS]) against Szego 1991's independent
@@ -337,5 +456,6 @@ void run_shape_tests()
     test_vesta_shape();
     test_pallas_shape();
     test_jupiter_saturn_small_moon_shapes();
+    test_hyperion_spin_state();
     test_halley_shape();
 }

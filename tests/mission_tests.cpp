@@ -374,6 +374,12 @@ void test_saturn_missions()
     check(std::abs(t70 - 880.0) < 10.0, "Cassini-Titan T70 altitude (km)", t70);
     check(std::abs(iapetus - 1640.0) < 15.0, "Cassini-Iapetus altitude (km)", iapetus);
     check(std::abs(e5 - 25.0) < 5.0, "Cassini-Enceladus E5 altitude (km)", e5);
+    // Hyperion is irregular: the distance from its center, against Horizons (-82 @ 607,
+    // 604.4 km at 2005-09-26 02:25:48 TDB; Thomas et al. 2007 give 618 km), within the
+    // 10 km tolerance of Hyperion's own table.
+    const double hyperion = altitude(cassini, "Hyperion", {2005, 9, 26, 2, 25, 48}) +
+                            scene.bodies[static_cast<size_t>(scene.find("Hyperion"))].equatorial_radius_km;
+    check(std::abs(hyperion - 604.4) < 10.0, "Cassini-Hyperion closest approach (km)", hyperion);
 
     // Huygens ends on Titan's surface.
     const int huygens = scene.find("Huygens");
