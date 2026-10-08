@@ -26,7 +26,7 @@
 # [REC]  tools/isee3/isee3_reconstruct.py (assets/ephem/SOURCES.md). Horizons only has ISEE-3
 #        in 2014, so 1978-1983 are ballistic arcs fitted to NASA GSFC SSCWeb positions and
 #        joined at the maneuvers; 1984-1985 are ballistic from the last lunar flyby with the
-#        two documented maneuvers (TDA Progress Report 42-84) solved to meet the JPL navigation
+#        documented maneuvers (1985-06-05, 09-08; [FQ01]) solved to meet the JPL navigation
 #        trajectory of the comet encounter (PDS SBN, TRAJ_ICE.TBL); 1986-2013 joins it with two
 #        impulses (1986-10-08, 1987-05-01: dates assumed) to a ballistic arc through Horizons'
 #        2014 states, with the radiation pressure fitted to SSCWeb's 2008-2013 track.
@@ -36,6 +36,12 @@
 #        geocentric Moon (moon_isee3 for 1982-06 .. 1984-01, 0.5 km), Venus (1984-12 .. 1986, for
 #        Vega 1's flyby; [APX] outside it), comet Halley (JPL#75),
 #        ISEE-3 in 2014 (-111, JPL solution s45, fitted after the lunar flyby).
+# [FQ01] R. W. Farquhar 2001, "The Flight of ISEE-3/ICE: Origins, Mission History, and a
+#        Legacy", J. Astronaut. Sci. 49, 23: the last lunar flyby (p. 45, Fig. 23: in the
+#        Moon's shadow 18:19-18:47 UTC, 28 minutes; perilune 18:45, 120 km); maneuvers on
+#        1985-06-05 (~39 m/s), 07-09 (~1 m/s), 09-08 (2.3 m/s, three days before the
+#        encounter) (pp. 47-49); ~40 m/s spent after the encounter to aim ICE at a lunar
+#        flyby on 2014-08-10 (p. 50).
 # [APX]  E. M. Standish, Approximate Positions of the Planets, Table 2a: Venus, Mars.
 # [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
 # [ELEM] JPL SSD, Planetary Satellite Mean Elements (the Moon, outside its tables).
@@ -606,8 +612,8 @@ caption = """\
     wound up in stages; the last will throw the spacecraft out of the Earth-Moon system \
     altogether."""
 
-# Closest approach 1983-12-22 18:44 UTC, 119 km above the far side; more than 30 minutes in
-# the Moon's shadow (TDA PR 42-84).
+# Closest approach 1983-12-22 18:44 UTC, 119 km above the far side; 28 minutes in the Moon's
+# shadow ([FQ01]; TDA PR 42-84 says "more than 30 minutes").
 [[events]]
 name = "Last lunar flyby: 119 km (1983-12-22)"
 time = "1983-12-22 18:10"
@@ -617,10 +623,10 @@ from_body = "Sun"
 phase_deg = 90.0           # side-on: the pass behind the Moon, through its shadow
 distance_km = 1.5e4
 warp = 30.0
-# [ISEE], [REC]
+# [ISEE], [REC], [FQ01]
 caption = """\
     The last and closest lunar flyby, 119 km above the far side, through the Moon's \
-    shadow for more than half an hour. It flings ISEE-3 out toward a comet, and the \
+    shadow for almost half an hour. It flings ISEE-3 out toward a comet, and the \
     spacecraft gets a new name: the International Cometary Explorer, ICE."""
 
 [[events]]

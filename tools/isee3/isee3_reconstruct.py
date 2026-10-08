@@ -20,9 +20,10 @@ isee3_2014), so the scene's 1978-2013 trajectory is rebuilt here from public dat
    days where they do not meet (their own data jump).
    The first arc is propagated back to perigee shortly after the launch.
 2. 1983-12-31 .. 1985-09-11: ballistic from the last arc (after the 1983-12-22 lunar flyby),
-   with two impulses: 1985-06-05, "a major trajectory maneuver" and the last trim before the
-   encounter (1985-09-06; TDA Progress Report 42-84, Fanelli & Morris 1986, p. 178). Their
-   size is solved so that the path joins the JPL navigation trajectory below.
+   with two impulses: 1985-06-05, "a major trajectory maneuver", and the last trim three days
+   before the encounter, 1985-09-08 (Farquhar 2001, J. Astronaut. Sci. 49, 23, pp. 47-49:
+   June 5 ~39 m/s, July 9 ~1 m/s - folded into the first here - and September 8 2.3 m/s).
+   Their size is solved so that the path joins the JPL navigation trajectory below.
 3. 1985-09-10 .. 14: JPL Navigation Section "save tape" (PDS SBN, ICE-C-PLAWAV-3-RDR-ESP-
    GIACOBIN-ZIN-V1.0, GEOMETRY/TRAJ_ICE.TBL): heliocentric states in the ecliptic and equinox
    of date, rotated to ICRF by matching the file's Earth (heliocentric minus geocentric
@@ -65,7 +66,7 @@ DATA_END = dt.datetime(1983, 12, 31, 18)            # later SSCWeb data jump by 
 GEO_END = dyn.utc_to_tdb(dt.datetime(1984, 1, 2))   # geocentric table end (overlaps the next)
 HELIO_START = dyn.utc_to_tdb(dt.datetime(1983, 12, 31))
 HELIO_END = dyn.utc_to_tdb(dt.datetime(2014, 1, 3))      # overlaps the Horizons 2014 table
-BURNS = [dyn.utc_to_tdb(dt.datetime(1985, 6, 5, 12)), dyn.utc_to_tdb(dt.datetime(1985, 9, 6, 12))]
+BURNS = [dyn.utc_to_tdb(dt.datetime(1985, 6, 5, 12)), dyn.utc_to_tdb(dt.datetime(1985, 9, 8, 12))]
 # After Halley: "Maneuvers in 1986 approximately targeted a 2014 August lunar swingby" (Dunham,
 # Farquhar et al., IAC-14.B6.3.4), and the thrusters fired in 2014 "for the first time since
 # 1987". Dates: the pair with the least total delta-v in a 30-day scan (big one in 1986).

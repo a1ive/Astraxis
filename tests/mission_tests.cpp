@@ -506,7 +506,8 @@ void test_isee3_scene()
     const auto [d5, t5] = closest(craft, moon, utc({1983, 12, 22, 18, 44, 0}), 3600.0, 1.0);
     check(std::abs(flyby4 - 17440.0) < 100.0, "lunar flyby 1983-10-21 (km)", flyby4);
     check(std::abs(d5 - r_moon - 119.4) < 5.0, "last lunar flyby 1983-12-22 (km above the surface)", d5 - r_moon);
-    // "spent more than 30 minutes in its shadow" (TDA Progress Report 42-84, p. 178).
+    // In the Moon's shadow 18:19-18:47 UTC, 28 minutes (Farquhar 2001, J. Astronaut. Sci. 49, 23,
+    // Fig. 23; TDA Progress Report 42-84, p. 178, says "more than 30 minutes").
     double shadow_s = 0.0;
     for (double t = t5 - 7200.0; t < t5 + 7200.0; t += 10.0) {
         const glm::dvec3 p = at(craft, t);
@@ -517,7 +518,8 @@ void test_isee3_scene()
             shadow_s += 10.0;
         }
     }
-    check(shadow_s > 25.0 * 60.0, "minutes in the Moon's shadow at the last flyby", shadow_s / 60.0);
+    check(std::abs(shadow_s - 28.0 * 60.0) < 2.0 * 60.0, "minutes in the Moon's shadow at the last flyby",
+          shadow_s / 60.0);
     std::printf("info: ISEE-3 last lunar flyby %.1f km at %s, %.0f min in the Moon's shadow\n", d5 - r_moon,
                 format_utc(t5).c_str(), shadow_s / 60.0);
 
