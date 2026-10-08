@@ -399,3 +399,6 @@ tools/isee3/cache/
 
 # Halley Armada reconstruction downloads (tools/armada/armada_reconstruct.py)
 tools/armada/cache/
+
+# Chang'e-5 T1 reconstruction downloads (tools/ce5t1/ce5t1_reconstruct.py)
+tools/ce5t1/cache/
