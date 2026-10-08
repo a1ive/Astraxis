@@ -724,8 +724,9 @@ void test_mars_scene()
     check(std::abs(mro_comet - 138000.0) < 2000.0, "MRO - Siding Spring closest (km)", mro_comet);
     std::printf("info: Siding Spring: %.0f km from Mars' center, %.2f km/s; %.0f km from MRO\n", d_ca,
                 glm::length(v_comet), mro_comet);
+    const int odyssey = scene.find("Odyssey");
     const glm::dvec3 stream = glm::normalize(v_comet);
-    for (const int craft : {mro, maven}) {
+    for (const int craft : {mro, maven, odyssey}) {
         bool shielded = true;
         for (double t = t_ca + 90.0 * 60.0; t <= t_ca + 110.0 * 60.0; t += 60.0) {
             const glm::dvec3 p = at(craft, t);
@@ -734,6 +735,60 @@ void test_mars_scene()
         }
         check(shielded, ("behind Mars during the comet's dust: " + scene.bodies[static_cast<size_t>(craft)].name).c_str());
     }
+
+    // Odyssey ([ODY], JPL mission status 2001-11-13): the period "currently 15 hours"
+    // during aerobraking.
+    osculating_elements(scene.icrf_state_at(odyssey, tdb({2001, 11, 13, 0, 0, 0})), gm, &el);
+    check(std::abs(el.period_s / 3600.0 - 15.0) < 1.0, "Odyssey period on 2001-11-13 (h)", el.period_s / 3600.0);
+
+    // TGO ([TGOA], ESA 2018-02): from a four-day orbit of about 98,000 x 200 km; aerobraking
+    // complete on 2018-02-20; a near-circular two-hour orbit about 400 km up by the end of
+    // April 2018.
+    const int tgo = scene.find("TGO");
+    osculating_elements(scene.icrf_state_at(tgo, tdb({2016, 10, 21, 0, 0, 0})), gm, &el);
+    check(std::abs(el.apoapsis_km - r_mean - 98000.0) < 1500.0 && std::abs(el.period_s / 86400.0 - 4.0) < 0.5,
+          "TGO capture orbit (apoapsis altitude, km)", el.apoapsis_km - r_mean);
+    int dips_before = 0;
+    int dips_after = 0;
+    for (const double tp : scene.periapsis_times(tgo, tdb({2018, 2, 10, 0, 0, 0}), tdb({2018, 3, 10, 0, 0, 0}))) {
+        if (glm::length(at(tgo, tp)) - r_mean < 150.0) {
+            (tp < tdb({2018, 2, 21, 0, 0, 0}) ? dips_before : dips_after) += 1;
+        }
+    }
+    check(dips_before > 50 && dips_after == 0, "TGO aerobraking ends on 2018-02-20", dips_after);
+    low = 1e300;
+    high = 0.0;
+    for (double t = tdb({2018, 4, 30, 0, 0, 0}); t < tdb({2018, 4, 30, 6, 0, 0}); t += 30.0) {
+        const double h = glm::length(at(tgo, t)) - r_mean;
+        low = std::min(low, h);
+        high = std::max(high, h);
+    }
+    osculating_elements(scene.icrf_state_at(tgo, tdb({2018, 4, 30, 0, 0, 0})), gm, &el);
+    check(std::abs(low - 400.0) < 60.0 && std::abs(high - 400.0) < 60.0 && std::abs(el.period_s / 3600.0 - 2.0) < 0.1,
+          "TGO science orbit (km)", low);
+    std::printf("info: TGO at the end of April 2018: %.0f x %.0f km, %.2f h\n", low, high, el.period_s / 3600.0);
+    // ESA's long-term predict joins the data fit on 2025-06-21 with a ~30 km step (Horizons,
+    // 16:16-16:17 TDB): bounded in the table, and TGO is shown today.
+    double tgo_step = 0.0;
+    for (double t = tdb({2025, 6, 21, 16, 0, 0}); t < tdb({2025, 6, 21, 16, 30, 0}); t += 60.0) {
+        const State s = scene.icrf_state_at(tgo, t);
+        tgo_step = std::max(tgo_step, glm::length(at(tgo, t + 60.0) - s.position - s.velocity * 60.0));
+    }
+    check(tgo_step < 45.0, "TGO data fit / predict seam (km per minute)", tgo_step);
+    scene.update(tdb({2026, 10, 1, 0, 0, 0}));
+    check(scene.bodies[static_cast<size_t>(tgo)].visible, "TGO shown in 2026 (ESA predicts)");
+
+    // MOM ([MOMI], ISRO 2014-09-24): 421.7 x 76,993.6 km, inclination 150 deg, 72 h 51 m 51 s.
+    const int mom = scene.find("MOM");
+    const State ms = scene.icrf_state_at(mom, tdb({2014, 9, 24, 12, 0, 0}));
+    osculating_elements(ms, gm, &el);
+    const double mom_incl = std::acos(glm::dot(glm::normalize(glm::cross(ms.position, ms.velocity)), pole)) / kDegToRad;
+    check(std::abs(el.periapsis_km - r_mean - 421.7) < 30.0 && std::abs(el.apoapsis_km - r_mean - 76993.6) < 300.0,
+          "MOM capture orbit (apoapsis altitude, km)", el.apoapsis_km - r_mean);
+    check(std::abs(el.period_s / 3600.0 - 72.864) < 0.3, "MOM period (h)", el.period_s / 3600.0);
+    check(std::abs(mom_incl - 150.0) < 1.0, "MOM inclination (deg)", mom_incl);
+    std::printf("info: MOM after arrival: %.0f x %.0f km, %.2f h, %.1f deg\n", el.periapsis_km - r_mean,
+                el.apoapsis_km - r_mean, el.period_s / 3600.0, mom_incl);
 }
 
 // ISEE-3 / ICE, reconstructed by tools/isee3/isee3_reconstruct.py from SSCWeb positions

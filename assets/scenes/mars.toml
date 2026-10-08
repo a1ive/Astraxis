@@ -1,6 +1,7 @@
-# Mars, Phobos and Deimos, four orbiters: Mars Express (2003-), the Mars Reconnaissance
-# Orbiter (2006-), MAVEN (2014-2025) and Hope (2021-), and comet Siding Spring's pass of
-# Mars on 2014-10-19.
+# Mars, Phobos and Deimos, seven orbiters: Mars Odyssey (2001-), Mars Express (2003-), the
+# Mars Reconnaissance Orbiter (2006-), MAVEN (2014-2025), India's Mars Orbiter Mission
+# (2014-2022), ESA's Trace Gas Orbiter (2016-) and Hope (2021-), and comet Siding Spring's
+# pass of Mars on 2014-10-19.
 #
 # Sources
 # [HZN]  JPL Horizons state vectors relative to Mars' center, baked by
@@ -15,6 +16,14 @@
 #          2026-09-27). MRO is not shown in between.
 #        - Hope (-62): 2021-02-05 .. 2027-03-04, fit to tracking data through 2026-09-03,
 #          then a prediction.
+#        - Odyssey (-53): JPL Odyssey navigation, windows as for MRO: 2001-10-20 .. 2002-02-20
+#          (arrival and aerobraking), 2014-10-05 .. 11-05 (the comet) and 2024-10-01 ..
+#          2026-12-28 (a prediction after 2026-09-23).
+#        - TGO (-143): ESA, two windows: 2016-10-15 .. 2018-05-01 (arrival and aerobraking)
+#          and 2023-06-21 .. 2026-12-31: fit to tracking data until 2025-06-21 16:14, then
+#          ESA's long-term predicts (with a 30 km step where they join).
+#        - MOM (-3): DSN/JPL tag-up fits, 2014-09-20 .. 2022-04-30 (contact was lost in April
+#          2022).
 #        - Phobos (401) and Deimos (402): only within a day of Mars Express' (Phobos) and
 #          Hope's (Deimos) passes closer than 1,500 km; elsewhere the mean elements [ELEM],
 #          faded in over one day.
@@ -28,7 +37,14 @@
 #        orbit"; Hope (EMM) "an elliptical, roughly 22000 x 44000 km orbit with a period of
 #        55 hours, 25 degree inclination", arrival 2021-02-09 15:54:46 UTC, built by the
 #        United Arab Emirates, to "create a global picture of how the martian atmosphere
-#        varies throughout the day and year".
+#        varies throughout the day and year"; Odyssey arrived 2001-10-24 02:30 UTC, found "vast
+#        amounts of water ice in the polar regions burried just beneath the surface", relayed
+#        "95% of the data from the Mars rovers"; TGO (ExoMars 2016) to search for methane and
+#        other trace gases, aerobraking during 2017 to a "circular ~400-km altitude, 74 degree
+#        inclination orbit", its lander Schiaparelli "destroyed on impact"; MOM "India's
+#        first interplanetary mission", arrival 2014-09-24, "366 x 80000 km Mars orbit with
+#        inclination 150 degrees" (the plan), 6-8 months of planned work, contact lost in
+#        April 2022 "7.5 years into a 6 month mission", formally ended 2022-10-02.
 # [SBDB] JPL Small-Body Database, C/2013 A1 total magnitude M1 = 8.5 (+-2), K1 = 9 (solution
 #        105; M1 + 5 log delta + K1 log r). The coma color and ion tail are illustrative
 #        (its gas tail is not measured here), as are the dust tail's grain speeds and sizes
@@ -92,6 +108,25 @@
 #          "Not even the most intense meteor storms on Earth have produced as strong a
 #          response"; the first direct measurements of the dust of an Oort Cloud comet; MRO's
 #          and Mars Express' radars saw a new, very strong layer of ions.
+#        [ODY] NASA/JPL, "NASA Moves Longest-Serving Mars Spacecraft for New Observations"
+#          (2014-02-12): "the longest-working spacecraft ever sent to Mars"; discoveries of
+#          "how widely water ice" is distributed; a relay for the rovers. "Mars Odyssey Mission
+#          Status" (2001-11-13): periapsis lowered to 110 km, the period "currently 15 hours",
+#          aerobraking to end in late January 2002.
+#        [SCH] ESA, "Schiaparelli landing investigation completed" (2017-05-24): a brief
+#          saturation of the inertial measurement unit made the computer conclude it was
+#          below ground; "early release of the parachute and back-shell", "free-fall from an
+#          altitude of about 3.7 km", "an estimated impact speed of 540 km/h"; TGO "was
+#          entering orbit around the Red Planet at the same time".
+#        [TGOA] ESA, "Aerobraking completed" (2018-02-21): aerobraking since the arrival in
+#          October 2016, now complete; "a near-circular two-hour orbit, about 400 km above the
+#          planet, by the end of April"; to "take a detailed inventory of the atmosphere,
+#          sniffing out gases like methane". ESA, "Surfing complete" (2018-02-20, as quoted in
+#          search results; the page refused automated access): from "a highly elliptical
+#          four-day orbit of about 98 000 x 200 km".
+#        [MOMI] ISRO, "Mars Orbiter Spacecraft Successfully Inserted into Mars Orbit"
+#          (2014-09-24, as relayed by SpaceRef): 421.7 x 76,993.6 km, inclination 150 deg,
+#          72 h 51 min 51 s.
 #        Orbits as drawn: [HZN].
 #
 # Colors are sRGB and illustrative where no map is used.
@@ -245,6 +280,55 @@ type = "ephemeris"
 file = "ephem/maven_mars.eph"
 
 [[bodies]]
+name = "Odyssey"
+parent = "Mars"
+kind = "spacecraft"
+radii_km = [0.0015]                        # 2.6 m wide (Horizons notes; drawn as a marker)
+color = "#d2c2ff"
+orbit_color = "#ad95f2"
+trail = "history"
+trail_history_days = 0.083                 # 2 hours
+[bodies.orbit]                             # [HZN] -53, the last two years
+type = "ephemeris"
+file = "ephem/odyssey_recent.eph"
+[bodies.orbit.fallback]                    # [HZN] -53, the comet's month (2014-10)
+type = "ephemeris"
+file = "ephem/odyssey_comet.eph"
+[bodies.orbit.fallback.fallback]           # [HZN] -53, arrival and aerobraking
+type = "ephemeris"
+file = "ephem/odyssey_arrival.eph"
+
+[[bodies]]
+name = "TGO"
+parent = "Mars"
+kind = "spacecraft"
+radii_km = [0.009]                         # 17.5 m tip to tip (Horizons notes)
+color = "#8ff0d8"
+orbit_color = "#5ccdb2"
+trail = "history"
+trail_history_days = 0.082                 # 2 hours
+[bodies.orbit]                             # [HZN] -143, 2023-06 .. 2026 (predicted after 2025-06-21)
+type = "ephemeris"
+file = "ephem/tgo_recent.eph"
+[bodies.orbit.fallback]                    # [HZN] -143, arrival and aerobraking
+type = "ephemeris"
+file = "ephem/tgo_arrival.eph"
+
+[[bodies]]
+name = "MOM"
+parent = "Mars"
+kind = "spacecraft"
+radii_km = [0.003]                         # a 1.5 m cube with solar panels (drawn as a marker)
+color = "#ffb38a"
+orbit_color = "#f2905e"
+trail = "history"
+trail_history_days = 3.0                   # 66-73 hours
+trail_linger_days = 30.0                   # after the end of the data, fading
+[bodies.orbit]                             # [HZN] -3
+type = "ephemeris"
+file = "ephem/mom_mars.eph"
+
+[[bodies]]
 name = "Hope"
 parent = "Mars"
 kind = "spacecraft"
@@ -281,6 +365,24 @@ file = "ephem/siding_spring_mars.eph"
 # Arrivals start a few hours before the first periapsis (when the osculating orbit
 # around Mars becomes bound): Mars Express 2003-12-25 03:08 TDB, 434 km above the
 # mean radius; MRO 2006-03-10 21:32, 444 km; MAVEN 2014-09-22 02:05, 414 km.
+
+# Odyssey's first periapsis 2001-10-24 02:31 TDB, 318 km above the mean radius; 331
+# periapses below 150 km from 2001-10-27 to 2002-01-11, then a 2-hour orbit, ~380 x 440 km
+# [HZN].
+[[events]]
+name = "Odyssey arrives (2001-10-24)"
+time_tdb = "2001-10-23 22:00"
+focus = "Mars"
+from_body = "Odyssey"                     # along its approach
+phase_deg = 20.0
+distance_km = 6.0e4
+warp = 600.0
+# [ODY], [HZN]
+caption = """\
+    NASA's Mars Odyssey brakes into orbit, then spends eleven weeks dipping into the \
+    upper atmosphere to shrink its orbit to a two-hour circle. From there it mapped \
+    water ice buried just beneath the surface, relayed most of the rovers' data home, \
+    and became the longest-working spacecraft ever sent to Mars."""
 
 [[events]]
 name = "Mars Express arrives (2003-12-25)"
@@ -352,9 +454,24 @@ caption = """\
     a 35-hour orbit. Five weeks later it will be in its working orbit, dipping to about \
     150 km at every pass, inside the air it came to study."""
 
+# MOM's first periapsis 2014-09-24 02:03 TDB, 452 km; then 423 x 76,862 km, 72.7 h [HZN].
+[[events]]
+name = "MOM arrives (2014-09-24)"
+time_tdb = "2014-09-23 22:00"
+focus = "Mars"
+distance_km = 2.0e5
+warp = 600.0
+# [HZN] (Horizons notes), [MOMI]
+caption = """\
+    Two days after MAVEN, India's Mars Orbiter Mission arrives: India's first \
+    interplanetary mission. Its long orbit reaches out to 77,000 km and runs backward, \
+    tilted 150 degrees to the equator. Planned for six to eight months of work, it kept \
+    going for seven and a half years, until contact was lost in April 2022."""
+
 # Siding Spring's closest approach: 2014-10-19 18:28:34 TDB, 140,492 km from Mars' center,
-# 55.96 km/s [HZN]. From 90 to 110 minutes later, MAVEN and MRO are on the far side of Mars
-# from the comet's dust stream (along the comet's velocity); Mars Express is not.
+# 55.96 km/s [HZN]. From 90 to 110 minutes later, MAVEN, MRO and Odyssey are on the far side
+# of Mars from the comet's dust stream (along the comet's velocity); Mars Express is not, and
+# MOM only until 105 minutes.
 [[events]]
 name = "Comet Siding Spring passes Mars (2014-10-19)"
 time_tdb = "2014-10-19 17:45"
@@ -378,7 +495,7 @@ warp = 60.0
 # [CSS], [MAVC]
 caption = """\
     The comet's dust arrives about 90 minutes after its closest approach. NASA's \
-    orbiters, MRO and MAVEN here and Odyssey (not shown), wait it out behind Mars. They \
+    orbiters, MRO, MAVEN and Odyssey, wait it out on the far side of Mars. They \
     came through unharmed. The dust burned up high in the atmosphere, likely an \
     impressive meteor shower, and left a glow of magnesium and iron stronger than any \
     meteor storm has caused on the Earth."""
@@ -398,6 +515,39 @@ caption = """\
 
 # Hope's first periapsis 2021-02-09 15:49 TDB, 1,104 km above the mean radius; captured
 # into a 34-hour orbit, in its science orbit (about 20,000 x 43,000 km, 55 h) by June [HZN].
+# TGO's first periapsis 2016-10-19 14:52 TDB, 572 km; then 329 x 98,389 km, 4.3 days.
+# Aerobraking: 950 periapses below 150 km from 2017-03-16 to 2018-02-20 [HZN].
+[[events]]
+name = "TGO arrives, Schiaparelli is lost (2016-10-19)"
+time_tdb = "2016-10-19 12:30"
+focus = "Mars"
+from_body = "TGO"                         # along its approach
+phase_deg = 35.0
+distance_km = 6.0e4
+warp = 300.0
+# [SCH], [HZN]
+caption = """\
+    ESA's Trace Gas Orbiter brakes into a four-day orbit while its lander, Schiaparelli, \
+    heads for the surface. A sensor saturated for a moment, the computer judged itself \
+    below ground and let the parachute go: Schiaparelli fell from about 3.7 km and hit \
+    at some 540 km/h."""
+
+[[events]]
+name = "TGO aerobraking (2017-03 .. 2018-02)"
+time_tdb = "2017-03-15 00:00"
+focus = "Mars"
+distance_km = 1.2e5
+warp = 172800.0
+# [TGOA], [HZN]
+caption = """\
+    For eleven months TGO skims the upper atmosphere at nearly every pass, almost a \
+    thousand times, until its day-long orbit is two hours around. Then a few burns \
+    round it out about 400 km up, where it takes inventory of the atmosphere, sniffing \
+    for gases like methane."""
+[[events.trails]]
+body = "TGO"
+trail_history_days = 15.0
+
 [[events]]
 name = "Hope arrives (2021-02-09)"
 time_tdb = "2021-02-09 13:00"
@@ -427,15 +577,15 @@ caption = """\
     moons may be debris from an impact on Mars."""
 
 [[events]]
-name = "Four orbiters (2025)"
+name = "Six orbiters (2025)"
 time_tdb = "2025-06-01 00:00"
 focus = "Mars"
 distance_km = 1.3e5
 warp = 600.0
-# [MEX], [MRO], [MAV], [HZN]
+# [MEX], [MRO], [MAV], [ODY], [TGOA], [HZN]
 caption = """\
-    Four orbits at four heights. MRO circles about 300 km up every two hours; MAVEN \
-    swings out to 4,500 km; Mars Express, here for over twenty years, out to 10,500 \
+    Six orbiters at once. MRO, Odyssey and TGO circle 250 to 440 km up, two hours a \
+    lap; MAVEN swings out to 4,500 km; Mars Express, here since 2003, out to 10,500 \
     km, across the orbit of Phobos; Hope, from the orbit of Deimos outward, takes 55 \
     hours."""
 

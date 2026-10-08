@@ -1316,3 +1316,92 @@ stop = "2014-12-31"
 base_step_minutes = 60
 tolerance_km = 5.0
 radius_km = 3396.19
+
+# Odyssey (-53): 2001-Apr-07 .. 2026-Dec-28 TDB (JPL Odyssey navigation; aerobraking file m01_ab
+#   2001-Oct-24 .. 2002-Feb-19; fit to data through 2026-Sep-23, prediction after; the
+#   Siding Spring span is reconstructed). Arrival 2001-Oct-24 02:30 UTC.
+# TGO (-143): 2016-Mar-14 08:14 .. 2039-Jan-04 TDB (ESA; data-fit through 2025-Jun-21 16:14,
+#   then long-term predicts, file flp_011_01_20250203_20390104_v01). Arrival 2016-Oct-19; aerobraking during 2017. The ESA files
+#   leave gaps (2021-04-27 .. 06-28, 2022-05-28 .. 06-20, 2022-09-26 .. 10-04), outside the
+#   windows used here.
+# MOM (-3): 2013-Nov-05 09:54 .. 2022-Nov-26 TDB (DSN/JPL tag-up fits through April 2022, when
+#   contact was lost; prediction after). Arrival 2014-Sep-24 02:10 UTC, 366 x 80000 km,
+#   inclination 150 deg, 76.7 h.
+
+[[target]]
+name = "odyssey_arrival"
+command = "-53"
+naif_id = -53
+center = "500@499"
+center_naif_id = 499
+kepler_gm_km3_s2 = 42828.375816
+start = "2001-10-20"       # four days before orbit insertion
+stop = "2002-02-20"        # end of the aerobraking file (2002-02-19)
+base_step_minutes = 5
+tolerance_km = 10.0
+radius_km = 3396.19
+
+[[target]]
+name = "odyssey_comet"
+command = "-53"
+naif_id = -53
+center = "500@499"
+center_naif_id = 499
+kepler_gm_km3_s2 = 42828.375816
+start = "2014-10-05"
+stop = "2014-11-05"
+base_step_minutes = 5
+tolerance_km = 10.0
+radius_km = 3396.19
+
+[[target]]
+name = "odyssey_recent"
+command = "-53"
+naif_id = -53
+center = "500@499"
+center_naif_id = 499
+kepler_gm_km3_s2 = 42828.375816
+start = "2024-10-01"
+stop = "2026-12-28"        # end of the data (prediction after 2026-09-23)
+base_step_minutes = 5
+tolerance_km = 10.0
+radius_km = 3396.19
+
+[[target]]
+name = "tgo_arrival"
+command = "-143"
+naif_id = -143
+center = "500@499"
+center_naif_id = 499
+kepler_gm_km3_s2 = 42828.375816
+start = "2016-10-15"       # four days before orbit insertion (2016-10-19)
+stop = "2018-05-01"        # aerobraking (2017) and the trims into the science orbit
+base_step_minutes = 5
+tolerance_km = 10.0
+radius_km = 3396.19
+
+[[target]]
+name = "tgo_recent"
+command = "-143"
+naif_id = -143
+center = "500@499"
+center_naif_id = 499
+kepler_gm_km3_s2 = 42828.375816
+start = "2023-06-21"
+stop = "2026-12-31"        # data fit to 2025-06-21 16:14, then ESA's long-term predicts
+base_step_minutes = 5
+tolerance_km = 10.0
+radius_km = 3396.19
+
+[[target]]
+name = "mom_mars"
+command = "-3"
+naif_id = -3
+center = "500@499"
+center_naif_id = 499
+kepler_gm_km3_s2 = 42828.375816
+start = "2014-09-20"       # four days before orbit insertion (2014-09-24)
+stop = "2022-04-30"        # tag-up fits through April 2022 (contact lost)
+base_step_minutes = 10
+tolerance_km = 5.0
+radius_km = 3396.19
