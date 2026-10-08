@@ -173,14 +173,31 @@ def kepler_propagate(p, v, gm, dt):
     vr0 = (p[0] * v[0] + p[1] * v[1] + p[2] * v[2]) / r0
     alpha = 2.0 / r0 - (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]) / gm
     x = sqrt_mu * abs(alpha) * dt if abs(alpha) >= 1e-12 else sqrt_mu * dt / r0
-    for _ in range(50):
+    # f(x) increases monotonically (df/dx = r >= q, the periapsis distance): steps
+    # leaving the bracket [0, sqrt(mu) dt / q] fall back to bisection (plain Newton
+    # can cycle on eccentric orbits).
+    hx = (p[1] * v[2] - p[2] * v[1], p[2] * v[0] - p[0] * v[2], p[0] * v[1] - p[1] * v[0])
+    h2 = hx[0] * hx[0] + hx[1] * hx[1] + hx[2] * hx[2]
+    q = h2 / (gm * (1.0 + math.sqrt(max(0.0, 1.0 - alpha * h2 / gm))))
+    lo, hi = 0.0, 0.0
+    if q > 0.0:
+        lo, hi = sorted((0.0, sqrt_mu * dt / q))
+    for _ in range(100):
         x2 = x * x
         z = alpha * x2
         c, sz = stumpff_c(z), stumpff_s(z)
         f = r0 * vr0 / sqrt_mu * x2 * c + (1.0 - alpha * r0) * x2 * x * sz + r0 * x - sqrt_mu * dt
         df = r0 * vr0 / sqrt_mu * x * (1.0 - z * sz) + (1.0 - alpha * r0) * x2 * c + r0
-        dx = f / df
-        x -= dx
+        nxt = x - f / df
+        if q > 0.0:
+            if f < 0.0:
+                lo = x
+            else:
+                hi = x
+            if not lo <= nxt <= hi:
+                nxt = 0.5 * (lo + hi)
+        dx = nxt - x
+        x = nxt
         if abs(dx) <= 1e-12 * max(1.0, abs(x)):
             break
     x2 = x * x

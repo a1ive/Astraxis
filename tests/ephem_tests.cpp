@@ -55,6 +55,28 @@ void test_kepler_propagation()
         check(glm::length(s2.position - s0.position) < 1e-10, "Kepler propagation round trip",
               glm::length(s2.position - s0.position));
     }
+
+    // Eccentric orbit (ARTEMIS-P1 around the Moon in 2012, e = 0.83): plain Newton
+    // cycled between two values for some steps (22,000 km off). Compare with the
+    // elements propagated by the mean anomaly, over start points around the orbit.
+    const double mu = 4902.800118;
+    KeplerElements el;
+    el.a = 10662.139;
+    el.e = 0.8319;
+    el.i = 0.3;
+    el.arg_peri = 1.1;
+    const double n = std::sqrt(mu / (el.a * el.a * el.a));
+    double worst = 0.0;
+    for (int k = 0; k < 64; ++k) {
+        el.mean_anomaly = kTwoPi * k / 64.0;
+        const State s0 = kepler_state(el, n);
+        for (double dt = -60000.0; dt <= 60000.0; dt += 371.0) {
+            KeplerElements later = el;
+            later.mean_anomaly += n * dt;
+            worst = std::max(worst, glm::length(propagate_kepler(s0, mu, dt).position - kepler_state(later, n).position));
+        }
+    }
+    check(worst < 1e-6, "Kepler propagation on an eccentric orbit (km)", worst);
 }
 
 void test_ephemeris()
