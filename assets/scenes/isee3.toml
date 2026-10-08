@@ -43,18 +43,36 @@
 # [PCK]  NAIF pck00011.tpc (IAU 2015).
 # [STKS] P. Stooke, Stooke Small Body Shape Models V2.0 (PDS SBN, small_bodies.stooke.shape-models;
 #        EAR-A-5-DDR-STOOKE-SHAPE-MODELS-V2.0), 1P/Halley (1682q1halley.tab): limb and terminator
-#        fits to the Giotto HMC and Vega 1/2 images, pointing by A. Abergel. Body z = the long axis,
-#        toward the "big end"; uncertain by 0.5-1 km (assets/shapes/SOURCES.md).
+#        fits to the Giotto HMC and Vega 1/2 images, pointing by A. Abergel, in [BLT]'s rotation
+#        state. Body z = the long axis, toward the "big end"; uncertain by 0.5-1 km. Longitudes
+#        put the sub-spacecraft point of "the first high resolution Vega 2 image (2:00:30)" at
+#        270 deg: V1.0's west longitudes (V2.0 reversed them, the label text did not change), so
+#        90 deg east in the mesh. 2:00:30 reads as the TV system's on-board time from its
+#        switch-on, which on Vega 1 puts the closest-approach image there [VTV]; taken as Vega
+#        2's image 1.5 s before its closest approach, the one [BLT] Fig. 8 compares with
+#        (assets/shapes/SOURCES.md).
 # [SZG]  K. Szego 1991, "P/Halley, the model comet, in view of the imaging experiment aboard the
 #        Vega spacecraft", Comets in the Post-Halley Era 2, 723 (sec. 2): the Vega/Giotto model
 #        fits in a 15.3 x 7.2 x 7.22 km box, volume 365 km^3.
 # [BLT]  M. J. S. Belton, W. H. Julian, A. J. Anderson, B. E. A. Mueller 1991, Icarus 93, 183
-#        (abstract): Halley's nucleus is an excited symmetric rotator (long-axis mode). The long
-#        axis is inclined by 66.0 deg to the angular momentum M and turns around it in 3.69 d;
-#        the spin about the long axis is 7.1 d (total spin 2.84 d, 21.4 deg from M). M points to
-#        RA, Dec (B1950) = 6.2, -60.7 deg = 6.785, -60.423 deg (J2000; SPICE FK4 -> J2000 rotation).
-#        The shape model's frame assumes this rotation state [STKS]. The phases of the two angles
-#        are not in the abstract, so the orientation at any moment is illustrative.
+#        ("Slow LAM", sec. 3.1): Halley's nucleus is an excited symmetric rotator (long-axis
+#        mode). The long axis is inclined by 66.0 deg to the angular momentum M and turns around
+#        it in 3.69 d; the spin about the long axis is 7.1 d (total spin 2.84 d, 21.4 deg from M).
+#        M points to RA, Dec (B1950) = 6.2, -60.7 deg = 6.785, -60.423 deg (J2000; SPICE FK4 ->
+#        J2000 rotation). Sec. 2.2: at the Vega 2 encounter (JD 2446498.80556) the long axis P
+#        pierces the "big" end toward RA, Dec (B1950) = 313.20, -7.52 deg (J2000 313.867, -7.328;
+#        66.04 deg from M), which sets the first phase. Fitted to the long axis seen at the three
+#        encounters, rms 2.5 deg; P_psi +-0.05 d and P_phi +-0.1 d, so the phases drift by about
+#        1.3 and 0.7 deg a day away from the encounters.
+# [SA91] N. H. Samarasinha, M. F. A'Hearn 1991, Icarus 93, 194, Table II: the big end of the long
+#        axis in cometocentric ecliptic (B1950) longitude, latitude, combination (2,1,2) (Vega 1
+#        reversed, Giotto mirrored, as [BLT] assumes): Vega 1 259, -15; Vega 2 310, 9; Giotto
+#        235, -32 deg, each to ~15 deg. tests/shape_tests.cpp checks [BLT]'s model against it.
+# [VTV]  PDS SBN, VEGA2-C-TVS-3-RDR-HALLEY-PROCESSED-V1.0, image headers (IKI's preliminary
+#        orbit): t01190, 1.5 s before the closest approach, 8,032 km, phase angle 28.7 deg (this
+#        scene's Vega 2: 8,030 km, 28.9). VEGA1-C-TVS-3-RDR-HALLEY-PROCESSED-V1.0: Vega 1's image
+#        6.6 s before its closest approach has the on-board time 34447 units / 4.766485 per s
+#        (+5.5 s readout) = 2:00:32 after the switch-on.
 # [SBDB] JPL Small-Body Database, comet magnitude parameters M1, K1 (total magnitude
 #        M1 + 5 log delta + K1 log r): 1P 5.5, 8.0 (ICQ 2005 Handbook); 21P 13.2, 8.25 (fit to
 #        638 observations). The coma's color and the ion tail's share of the light are
@@ -338,8 +356,8 @@ trail_history_days = 300.0
 nutation_deg = 66.0                        # long axis (body z) to M
 precession_period_days = 3.69              # long axis around M
 spin_period_days = 7.1                     # about the long axis
-epoch = "1986-03-14 00:00"                 # Giotto's encounter; phases unknown, set to zero
-phases_deg = [0.0, 0.0]
+epoch = "1986-03-09 07:20:00"              # [BLT] Vega 2's encounter, JD 2446498.80556 (UT)
+phases_deg = [-120.02, 104.84]             # [BLT] long axis at the epoch; [STKS] longitudes
 [bodies.comet]
 magnitude_m1_k1 = [5.5, 8.0]               # [SBDB]
 ion_tail_diameter_km = 1.0e5               # illustrative
@@ -831,7 +849,7 @@ caption = """\
     flowing toward Halley."""
 
 # The nucleus in the week of the Vega and Giotto flybys [STKS]. It tumbles in a long-axis
-# mode [BLT]; its phase on the day is illustrative.
+# mode [BLT], phased to the Vega 2 encounter (about 4 days earlier, so a few degrees out).
 [[events]]
 name = "Halley's nucleus (1986-03-14)"
 time = "1986-03-13 12:00"
