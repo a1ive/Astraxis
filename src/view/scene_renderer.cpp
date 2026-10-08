@@ -284,6 +284,45 @@ void add_plume_items(const Body& body, const Plume& plume, const glm::dvec3& cam
     }
 }
 
+// Seen at a low angle, an inclined ring meets the line of sight far from where
+// that crosses the equatorial plane: up to its height times this slope (the
+// shader's cap) away.
+constexpr double kMaxRingSlope = 1000.0;
+
+// Eccentric, inclined or partial rings, one by one in the body frame (camera:
+// camera position in that frame); the annulus is widened to cover them.
+void set_ring_bands(const Body& body, const glm::dmat3& body_to_icrf, double t_tdb, const glm::dvec3& camera,
+                    RingDrawItem& ring)
+{
+    static_assert(kMaxShapedRingBands <= kMaxRingBands);
+    double inner = body.rings.bands.front().inner_km;
+    double outer = 0.0;
+    double height = 0.0;
+    ring.band_count = static_cast<int>(body.rings.bands.size());
+    for (size_t k = 0; k < body.rings.bands.size(); ++k) {
+        const RingBand& band = body.rings.bands[k];
+        const RingBandShape shape = ring_band_shape(body, band, body_to_icrf, t_tdb);
+        const double width = band.outer_km - band.inner_km;
+        ring.band_edges[k] = glm::vec4(static_cast<float>(band.inner_km), static_cast<float>(band.outer_km),
+                                       static_cast<float>(band.inner_ae_km / band.inner_km),
+                                       static_cast<float>(band.outer_ae_km / band.outer_km));
+        ring.band_shape[k] = glm::vec4(glm::vec2(shape.periapsis), glm::vec2(shape.node));
+        ring.band_optics[k] = glm::vec4(static_cast<float>(band.optical_depth * band.fade(t_tdb) * width),
+                                        static_cast<float>(band.thickness_km / width),
+                                        static_cast<float>(shape.arc_center),
+                                        static_cast<float>(0.5 * band.arc_length_deg * kDegToRad));
+        inner = std::min(inner, band.inner_km - band.inner_ae_km);
+        outer = std::max(outer, band.outer_km + band.outer_ae_km);
+        height = std::max(height, band.a_sin_i_km);
+    }
+    const double slope =
+        std::min((glm::length(glm::dvec2(camera)) + outer) / std::max(std::abs(camera.z), 1e-9), kMaxRingSlope);
+    // 1% more for the antialiased edges.
+    const double reach = std::min(height * slope, outer) + 0.01 * outer;
+    ring.mesh_inner_km = static_cast<float>(std::max(inner - reach, 0.0));
+    ring.mesh_outer_km = static_cast<float>(outer + reach);
+}
+
 } // namespace
 
 bool SceneRenderer::init(const GpuDevice& gpu, SDL_GPUTextureFormat output_format, const std::filesystem::path& asset_dir)
@@ -718,7 +757,13 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
             ring.polar_radius = static_cast<float>(body.polar_radius_km);
             ring.inner_km = static_cast<float>(body.rings.inner_km);
             ring.outer_km = static_cast<float>(body.rings.outer_km);
+            ring.mesh_inner_km = ring.inner_km;
+            ring.mesh_outer_km = ring.outer_km;
             ring.profile = ring_texture;
+            if (body.rings.shaped()) {
+                set_ring_bands(body, scene.current_transform().axes * body.orientation, scene.time(),
+                               to_body * (cam - body.world_position), ring);
+            }
             m_ring_items.push_back(ring);
         }
 

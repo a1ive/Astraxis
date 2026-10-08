@@ -5,6 +5,7 @@
 #include "scene/star_catalog.hpp"
 
 #include <glm/mat3x3.hpp>
+#include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 
 #include <memory>
@@ -48,7 +49,42 @@ struct RingBand {
     double outer_km = 0.0;
     double optical_depth = 0.0; // normal optical depth
     double thickness_km = 0.0;  // vertical extent: limits the brightening seen edge-on
+
+    // Narrow eccentric or inclined rings (Uranus'): inner_km and outer_km are
+    // then the semi-major axes of the edges, ellipses with the planet at a
+    // focus. Both edges share the ring's apse and node, which precess at
+    // constant rates (self-gravity keeps a ring's apses aligned). Angles count
+    // from the ascending node of the planet's equator on the ICRF equator, in
+    // the sense of the planet's rotation, at RingSystem::epoch_tdb. The optical
+    // depth is the mean; where the ring narrows it rises (tau x width is kept).
+    double inner_ae_km = 0.0; // a * e of each edge
+    double outer_ae_km = 0.0;
+    double peri_deg = 0.0; // longitude of periapsis
+    double peri_rate_deg_per_day = 0.0;
+    double a_sin_i_km = 0.0; // height above the equator 90 deg past the node
+    double node_deg = 0.0;   // longitude of the ascending node
+    double node_rate_deg_per_day = 0.0;
+
+    // Arcs (Neptune's Adams arcs, Quaoar's dense Q1R): the band only spans
+    // arc_length_deg around a longitude that moves at arc_rate_deg_per_day
+    // (same convention as above), with soft ends. 0: a complete ring.
+    double arc_length_deg = 0.0;
+    double arc_center_deg = 0.0;
+    double arc_rate_deg_per_day = 0.0;
+    // Optional fading: the optical depth falls linearly to 0 over this span
+    // (TDB seconds since J2000; equal: never fades).
+    double fade_from_tdb = 0.0;
+    double fade_to_tdb = 0.0;
+
+    bool shaped() const
+    {
+        return inner_ae_km != 0.0 || outer_ae_km != 0.0 || a_sin_i_km != 0.0 || arc_length_deg > 0.0 ||
+               fade_to_tdb > fade_from_tdb;
+    }
+    // Fraction of the optical depth left at t_tdb.
+    double fade(double t_tdb) const;
 };
+inline constexpr int kMaxShapedRingBands = 16;
 
 // Planetary rings, drawn by single scattering for any optical depth (thin
 // dusty rings like Jupiter's, or Saturn's opaque B ring). `gain` scales the
@@ -67,14 +103,35 @@ struct RingSystem {
     double inner_km = 0.0;
     double outer_km = 0.0;
 
+    // Epoch of the band elements (TDB seconds since J2000).
+    double epoch_tdb = 0.0;
+
     // Normal optical depth at radius r (linear between samples, 0 outside).
     double optical_depth(double r_km) const;
+    // Any band eccentric or inclined: the bands are then drawn one by one in
+    // their true shapes (the profile, circular, only shades the planet).
+    bool shaped() const;
 };
 
 // Fills rings.profile from rings.bands: each sample is the optical depth
 // averaged over its cell (overlapping bands add up), so a ring narrower than a
 // sample (e.g. Uranus' 2 km rings) keeps its equivalent width, tau x width.
+// Shaped bands are taken as circles of their semi-major axes.
 void rasterize_ring_bands(RingSystem& rings, int samples);
+
+// Orientation of a shaped band at some time, in the planet's body-fixed frame
+// (x, y in the equator, z along the IAU north pole).
+struct RingBandShape {
+    glm::dvec2 periapsis{1.0, 0.0}; // unit vector toward the periapsis
+    // Toward the ascending node, of length a sin i: a point of the ring in
+    // direction u (unit) lies at height z = cross(node, u) = node.x u.y - node.y u.x.
+    glm::dvec2 node{0.0};
+    double arc_center = 0.0; // angle from the body x axis toward y (radians, -pi..pi)
+};
+
+// Radius of an edge (semi-major axis a_km, a e = ae_km) at an angle
+// `from_periapsis` past its periapsis.
+double ring_edge_radius(double a_km, double ae_km, double from_periapsis);
 
 // Effective wavelengths (nm) of the display channels R, G, B, at which
 // atmospheric optical depths are evaluated.
@@ -264,6 +321,11 @@ struct Body {
     // distance from the host if the orbit is unbound or unknown.
     double fade_radius_km = 0.0;
 };
+
+// Shape of one of the planet's shaped ring bands at t_tdb; body_to_icrf holds
+// the planet's body-fixed axes in ICRF at that time (columns).
+RingBandShape ring_band_shape(const Body& planet, const RingBand& band, const glm::dmat3& body_to_icrf,
+                              double t_tdb);
 
 // How positions are presented. Inertial frames keep ICRF axes around an origin
 // body; rotating frames turn with the primary -> secondary line (x axis) and

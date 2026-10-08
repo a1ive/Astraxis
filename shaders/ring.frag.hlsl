@@ -10,6 +10,15 @@
 // stars) shows through by that fraction. The planet's shadow is cast by its
 // ellipsoid with a penumbra from the sun's disk. Everything is in body-fixed
 // coordinates, where the ring plane is z = 0.
+//
+// Narrow eccentric, inclined or partial rings (Uranus', Neptune's arcs) are
+// instead summed band by band: each edge is an ellipse with the planet at a
+// focus, an arc spans only part of the circle (with soft ends), and the band lies
+// at height z = cross(node, u) in direction u. Along the line of sight through
+// this pixel's point on the z = 0 plane, the band's height is reached a little
+// farther on (one fixed-point step). Its optical depth is filtered with a tent
+// two pixels wide (like the profile's trilinear mipmaps), so a ring much
+// narrower than a pixel keeps its equivalent width and its edges stay smooth.
 
 #include "common.hlsli"
 
@@ -21,8 +30,14 @@ cbuffer Uniforms : register(b0, space3)
     float4 u_camera; // xyz = camera position (body frame, km)
     float4 u_color;  // rgb = sRGB tint (albedo), a = gain
     float4 u_params; // x = phase asymmetry g, y = equatorial radius, z = polar radius (km)
-    float4 u_radii;  // x = inner, y = outer radius of the profile (km)
+    float4 u_radii;  // x = inner, y = outer radius of the profile (km), z = number of bands drawn one by one
+    float4 u_band_edges[16];  // x, y = semi-major axis of the inner, outer edge (km); z, w = their eccentricity
+    float4 u_band_shape[16];  // xy = unit vector to periapsis; zw = toward the ascending node, length a sin i (km)
+    float4 u_band_optics[16]; // x = mean tau x mean width (km), y = floor for mu, z = arc center angle, w = arc half-length (0: no arc)
 };
+
+// A view along the plane would shift a ring's crossing without bound.
+static const float kMaxSlope = 1000.0;
 
 struct PSInput
 {
@@ -52,17 +67,79 @@ float planet_shadow(float3 p, float3 L)
     return smoothstep(a - penumbra, a + penumbra, perp);
 }
 
+// Integral of a unit-area tent of half-width h, centered on 0, up to x.
+float tent_cdf(float x, float h)
+{
+    float t = clamp(x / h, -1.0, 1.0);
+    return t < 0.0 ? 0.5 * (1.0 + t) * (1.0 + t) : 1.0 - 0.5 * (1.0 - t) * (1.0 - t);
+}
+
 float4 main(PSInput input) : SV_Target0
 {
-    float r = length(input.local.xy);
+    float3 p = input.local;
+    float r = length(p.xy);
     float u = (r - u_radii.x) / (u_radii.y - u_radii.x);
-    // Before any branch: implicit derivatives (mip selection) need uniform control flow.
+    // Line of sight: horizontal shift per km of height.
+    float3 ray = p - u_camera.xyz;
+    float run = max(abs(ray.z), length(ray.xy) / kMaxSlope + 1e-6);
+    float2 slope = ray.xy / (ray.z < 0.0 ? -run : run);
+    float2 radial = p.xy / max(r, 1e-6);
+    // Before any branch: implicit derivatives (mip selection, footprints) need uniform control flow.
     float2 profile = u_profile.Sample(u_sampler, float2(u, 0.5)).rg;
-    float tau = (u >= 0.0 && u <= 1.0) ? profile.r : 0.0;
+    // Per pixel, not per 2x2 quad: coarse derivatives bead a ring seen at a low angle.
+    float footprint = abs(ddx_fine(r)) + abs(ddy_fine(r));
+    float shift = dot(slope, radial);
+    float footprint_per_height = abs(ddx_fine(shift)) + abs(ddy_fine(shift));
+
+    float tau = 0.0;
+    float mu_floor = 0.0;
+    float3 shade_at = p;
+    int bands = (int)u_radii.z;
+    if (bands == 0) {
+        tau = (u >= 0.0 && u <= 1.0) ? profile.r : 0.0;
+        mu_floor = profile.g;
+    } else {
+        float floor_weighted = 0.0;
+        float3 weighted = 0.0;
+        for (int k = 0; k < bands; ++k) {
+            float4 edges = u_band_edges[k];
+            float4 shape = u_band_shape[k];
+            float2 q = p.xy;
+            float z = 0.0;
+            [unroll] for (int iteration = 0; iteration < 2; ++iteration) {
+                float2 dir = normalize(q);
+                z = shape.z * dir.y - shape.w * dir.x;
+                q = p.xy + slope * z;
+            }
+            float rq = length(q);
+            float c = dot(q / rq, shape.xy);
+            float inner = edges.x * (1.0 - edges.z * edges.z) / (1.0 + edges.z * c);
+            float outer = edges.y * (1.0 - edges.w * edges.w) / (1.0 + edges.w * c);
+            float half_width = footprint + abs(z) * footprint_per_height + 1e-3;
+            float covered = tent_cdf(outer - rq, half_width) - tent_cdf(inner - rq, half_width);
+            // tau x width is kept where the ring narrows or widens.
+            float t = u_band_optics[k].x / (outer - inner) * covered;
+            float half_length = u_band_optics[k].w;
+            if (half_length > 0.0) {
+                // Ends soft over 15% of the length on each side, keeping its integral.
+                float off = atan2(q.y, q.x) - u_band_optics[k].z;
+                off = abs(off - 6.2831853 * round(off / 6.2831853));
+                float taper = 0.3 * half_length;
+                t *= 1.0 - smoothstep(half_length - taper, half_length + taper, off);
+            }
+            tau += t;
+            floor_weighted += t * u_band_optics[k].y;
+            weighted += t * float3(q, z);
+        }
+        if (tau > 0.0) {
+            mu_floor = floor_weighted / tau;
+            shade_at = weighted / tau;
+        }
+    }
 
     float3 L = u_sun.xyz;
-    float3 V = normalize(u_camera.xyz - input.local);
-    float mu = max(abs(V.z), max(profile.g, 1e-4));
+    float3 V = normalize(u_camera.xyz - p);
+    float mu = max(abs(V.z), max(mu_floor, 1e-4));
     float mu0 = max(abs(L.z), 1e-4);
 
     float reflectance;
@@ -75,6 +152,6 @@ float4 main(PSInput input) : SV_Target0
 
     float phase = henyey_greenstein(dot(-L, V), u_params.x);
     float3 radiance = srgb_to_linear(u_color.rgb) * u_color.a * 0.25 * phase * reflectance *
-                      planet_shadow(input.local, L);
+                      planet_shadow(shade_at, L);
     return float4(radiance, exp(-tau / mu));
 }

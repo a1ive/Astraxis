@@ -38,6 +38,9 @@ struct FragmentUniforms {
     glm::vec4 color;
     glm::vec4 params;
     glm::vec4 radii;
+    std::array<glm::vec4, kMaxRingBands> band_edges;
+    std::array<glm::vec4, kMaxRingBands> band_shape;
+    std::array<glm::vec4, kMaxRingBands> band_optics;
 };
 
 } // namespace
@@ -161,13 +164,13 @@ void RingPass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const Ca
     SDL_BindGPUVertexBuffers(pass, 0, &vb, 1);
 
     for (const RingDrawItem& item : items) {
-        if (!item.profile || !(item.outer_km > item.inner_km)) {
+        if (!item.profile || !(item.mesh_outer_km > item.mesh_inner_km)) {
             continue;
         }
         VertexUniforms vu;
         vu.model = item.model;
         vu.view_proj = view.view_proj;
-        vu.radii = glm::vec4(item.inner_km, item.outer_km, 0.0f, 0.0f);
+        vu.radii = glm::vec4(item.mesh_inner_km, item.mesh_outer_km, 0.0f, 0.0f);
         SDL_PushGPUVertexUniformData(cmd, 0, &vu, sizeof(vu));
 
         FragmentUniforms fu = {};
@@ -175,7 +178,10 @@ void RingPass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const Ca
         fu.camera = glm::vec4(item.camera, 0.0f);
         fu.color = glm::vec4(item.color, item.gain);
         fu.params = glm::vec4(item.phase_g, item.equatorial_radius, item.polar_radius, 0.0f);
-        fu.radii = glm::vec4(item.inner_km, item.outer_km, 0.0f, 0.0f);
+        fu.radii = glm::vec4(item.inner_km, item.outer_km, static_cast<float>(item.band_count), 0.0f);
+        fu.band_edges = item.band_edges;
+        fu.band_shape = item.band_shape;
+        fu.band_optics = item.band_optics;
         SDL_PushGPUFragmentUniformData(cmd, 0, &fu, sizeof(fu));
 
         SDL_GPUTextureSamplerBinding tex = {.texture = item.profile, .sampler = m_sampler};

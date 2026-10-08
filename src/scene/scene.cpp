@@ -40,6 +40,50 @@ double RingSystem::optical_depth(double r_km) const
     return profile[i].x + (profile[i + 1].x - profile[i].x) * f;
 }
 
+bool RingSystem::shaped() const
+{
+    return std::any_of(bands.begin(), bands.end(), [](const RingBand& b) { return b.shaped(); });
+}
+
+double RingBand::fade(double t_tdb) const
+{
+    if (!(fade_to_tdb > fade_from_tdb)) {
+        return 1.0;
+    }
+    return std::clamp((fade_to_tdb - t_tdb) / (fade_to_tdb - fade_from_tdb), 0.0, 1.0);
+}
+
+double ring_edge_radius(double a_km, double ae_km, double from_periapsis)
+{
+    const double e = ae_km / a_km;
+    return a_km * (1.0 - e * e) / (1.0 + e * std::cos(from_periapsis));
+}
+
+RingBandShape ring_band_shape(const Body& planet, const RingBand& band, const glm::dmat3& body_to_icrf,
+                              double t_tdb)
+{
+    // The longitudes run about the spin angular momentum (opposite to the IAU
+    // north pole for Uranus), from the ascending node of the equator on the
+    // ICRF equator.
+    const double sense = planet.pm_rate_deg_per_day < 0.0 ? -1.0 : 1.0;
+    const glm::dvec3 pole = sense * body_to_icrf[2];
+    glm::dvec3 node_icrf = glm::cross(glm::dvec3(0.0, 0.0, 1.0), pole);
+    const double length = glm::length(node_icrf);
+    node_icrf = length > 1e-12 ? node_icrf / length : glm::dvec3(1.0, 0.0, 0.0);
+    const glm::dvec3 origin_body = glm::transpose(body_to_icrf) * node_icrf;
+    const double origin = std::atan2(origin_body.y, origin_body.x);
+
+    const double days = (t_tdb - planet.rings.epoch_tdb) / kSecondsPerDay;
+    const double peri = origin + sense * wrap_two_pi((band.peri_deg + band.peri_rate_deg_per_day * days) * kDegToRad);
+    const double node = origin + sense * wrap_two_pi((band.node_deg + band.node_rate_deg_per_day * days) * kDegToRad);
+    const double arc = origin + sense * wrap_two_pi((band.arc_center_deg + band.arc_rate_deg_per_day * days) * kDegToRad);
+    RingBandShape shape;
+    shape.periapsis = glm::dvec2(std::cos(peri), std::sin(peri));
+    shape.node = band.a_sin_i_km * glm::dvec2(std::cos(node), std::sin(node));
+    shape.arc_center = wrap_pi(arc);
+    return shape;
+}
+
 void rasterize_ring_bands(RingSystem& rings, int samples)
 {
     rings.profile.clear();
