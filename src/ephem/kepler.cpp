@@ -92,15 +92,35 @@ State propagate_kepler(const State& s, double mu, double dt, double* universal_a
     if (universal_anomaly && *universal_anomaly != 0.0) {
         x = *universal_anomaly;
     }
-    for (int iter = 0; iter < 50; ++iter) {
+    // f(x) increases monotonically (df/dx = r >= q, the periapsis distance), so the
+    // root lies between 0 and sqrt(mu) dt / q. Plain Newton can cycle between two
+    // values on eccentric orbits (e ~ 0.8 over a fraction of a period); steps that
+    // leave this bracket fall back to bisection.
+    const double h2 = glm::dot(glm::cross(s.position, s.velocity), glm::cross(s.position, s.velocity));
+    const double e = std::sqrt(std::max(0.0, 1.0 - alpha * h2 / mu));
+    const double q = h2 / (mu * (1.0 + e));
+    const bool bracketed = q > 0.0;
+    double lo = 0.0;
+    double hi = 0.0;
+    if (bracketed) {
+        (dt > 0.0 ? hi : lo) = sqrt_mu * dt / q;
+    }
+    for (int iter = 0; iter < 100; ++iter) {
         const double x2 = x * x;
         const double z = alpha * x2;
         const double c = stumpff_c(z);
         const double sz = stumpff_s(z);
         const double f = r0 * vr0 / sqrt_mu * x2 * c + (1.0 - alpha * r0) * x2 * x * sz + r0 * x - sqrt_mu * dt;
         const double df = r0 * vr0 / sqrt_mu * x * (1.0 - z * sz) + (1.0 - alpha * r0) * x2 * c + r0;
-        const double dx = f / df;
-        x -= dx;
+        double next = x - f / df;
+        if (bracketed) {
+            (f < 0.0 ? lo : hi) = x;
+            if (!(next >= lo && next <= hi)) {
+                next = 0.5 * (lo + hi);
+            }
+        }
+        const double dx = next - x;
+        x = next;
         if (std::abs(dx) <= 1e-12 * std::max(1.0, std::abs(x))) {
             break;
         }

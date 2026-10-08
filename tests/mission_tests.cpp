@@ -275,6 +275,64 @@ void test_earth_moon_missions()
     }
     check(peri.size() > 150 && lowest_lat > 70.0, "CAPSTONE perilunes over the north pole (deg)", lowest_lat);
 
+    // ARTEMIS [ART]: P1 orbited L2 beyond the far side (from 2010-08-25), then moved to
+    // L1 in January 2011 [ARTH]; P2 orbited L1 between the Earth and the Moon (sampled
+    // daily, a month after arrival until shortly before leaving). P1's first lunar orbit:
+    // "roughly 2,200 x 17,000 miles", which matches the distances from the Moon's center
+    // (not altitudes).
+    const int p1 = scene.find("ARTEMIS-P1");
+    const int p2 = scene.find("ARTEMIS-P2");
+    const int lcross = scene.find("LCROSS");
+    const int ladee = scene.find("LADEE");
+    check(p1 > 0 && p2 > 0 && lcross > 0 && ladee > 0, "earth_moon.toml: ARTEMIS, LCROSS, LADEE");
+    // Signed distance beyond the Moon along the Earth-Moon line (> 0: far side).
+    auto beyond_moon = [&](int craft, double t) {
+        const glm::dvec3 m = at(moon, t);
+        return glm::dot(at(craft, t) - m, glm::normalize(m));
+    };
+    auto least_beyond = [&](int craft, const CalendarDateTime& from, const CalendarDateTime& to, double sign) {
+        double least = 1e300;
+        for (double t = tdb(from); t < tdb(to); t += kSecondsPerDay) {
+            least = std::min(least, sign * beyond_moon(craft, t));
+        }
+        return least;
+    };
+    check(least_beyond(p1, {2010, 9, 25, 0, 0, 0}, {2010, 12, 25, 0, 0, 0}, 1.0) > 0.0,
+          "ARTEMIS-P1 stays beyond the Moon around L2");
+    check(least_beyond(p1, {2011, 2, 1, 0, 0, 0}, {2011, 6, 15, 0, 0, 0}, -1.0) > 0.0,
+          "ARTEMIS-P1 then stays on the Earth side around L1");
+    check(least_beyond(p2, {2010, 11, 22, 0, 0, 0}, {2011, 6, 30, 0, 0, 0}, -1.0) > 0.0,
+          "ARTEMIS-P2 stays on the Earth side around L1");
+    auto from_moon = [&](int craft) { return [&, craft](double t) { return glm::length(at(craft, t) - at(moon, t)); }; };
+    const double p1_peri = extremum(from_moon(p1), tdb({2011, 6, 27, 15, 16, 34}), 3600.0, false);
+    const double p1_apo = extremum(from_moon(p1), tdb({2011, 6, 28, 15, 25, 3}), 3600.0, true);
+    check(std::abs(p1_peri - 2200.0 * kMile) < 50.0 * kMile, "ARTEMIS-P1 first perilune (km)", p1_peri);
+    check(std::abs(p1_apo - 17000.0 * kMile) < 500.0 * kMile, "ARTEMIS-P1 first apolune (km)", p1_apo);
+
+    // LCROSS [LCR]: the table ends at the Shepherding Spacecraft's impact, 11:35:36.1 UTC
+    // (+66.18 s to TDB), 3,809 m below the mean radius at 84.719 S. The scene's lunar
+    // pole leaves out the IAU terms in E1 (up to ~4 deg), so the latitude is loose.
+    const double t_lcross = tdb({2009, 10, 9, 11, 36, 42});
+    const glm::dvec3 r_lcross = at(lcross, t_lcross - 0.5) - at(moon, t_lcross - 0.5);
+    const glm::dvec3& moon_pole = scene.bodies[static_cast<size_t>(moon)].pole;
+    const double lcross_lat = std::asin(glm::dot(glm::normalize(r_lcross), moon_pole)) * kRadToDeg;
+    check(std::abs(glm::length(r_lcross) - (moon_r - 3.809)) < 3.0, "LCROSS impact radius (km)", glm::length(r_lcross));
+    check(std::abs(lcross_lat + 84.719) < 4.5, "LCROSS impact latitude (deg)", lcross_lat);
+    scene.update(t_lcross - 60.0);
+    const bool lcross_before = scene.bodies[static_cast<size_t>(lcross)].visible;
+    scene.update(t_lcross + 60.0);
+    check(lcross_before && !scene.bodies[static_cast<size_t>(lcross)].visible, "LCROSS gone after its impact");
+
+    // LADEE [LRO]: the data end at the impact, "approximately 3,800 miles per hour
+    // (1,699 meters per second)", a few km above the mean radius.
+    const double t_ladee = tdb({2014, 4, 18, 4, 33, 0});
+    const State ladee_end = scene.icrf_state_at(ladee, t_ladee);
+    const State moon_end = scene.icrf_state_at(moon, t_ladee);
+    const double ladee_speed = glm::length(ladee_end.velocity - moon_end.velocity);
+    const double ladee_alt = glm::length(ladee_end.position - moon_end.position) - moon_r;
+    check(std::abs(ladee_speed - 1.699) < 0.02, "LADEE impact speed (km/s)", ladee_speed);
+    check(ladee_alt > 0.0 && ladee_alt < 5.0, "LADEE altitude at the end of the data (km)", ladee_alt);
+
     // After splashdown the spacecraft is gone, but its trail lingers (fading) for
     // trail_linger_days and then disappears.
     std::vector<glm::dvec3> points;

@@ -1,6 +1,9 @@
-# The Earth and the Moon with three missions: Artemis II's free-return flight
-# around the Moon (2026), Artemis I's distant retrograde orbit (2022), and CAPSTONE
-# in the near-rectilinear halo orbit planned for the Gateway (2022-2026).
+# The Earth and the Moon with seven missions: Artemis II's free-return flight
+# around the Moon (2026), Artemis I's distant retrograde orbit (2022), CAPSTONE
+# in the near-rectilinear halo orbit planned for the Gateway (2022-2026), LADEE's
+# low lunar orbits (2013-2014), the twin ARTEMIS probes moving from Earth orbit to
+# the Earth-Moon Lagrange points and into lunar orbit (2007-2019), and LCROSS's
+# impact near the lunar south pole (2009).
 #
 # The default "Earth-Moon rotating" frame keeps the Moon still on the x axis:
 # Artemis II traces a figure eight, Artemis I a loop around the Moon that runs
@@ -10,11 +13,15 @@
 #
 # Sources
 # [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py (tools/bake/ephem.toml):
-#        Moon around the Earth 2021-12-25 .. 2031-09-27; Artemis I (NASA/JSC as flown,
+#        Moon around the Earth 2007-02-18 .. 2031-09-27; Artemis I (NASA/JSC as flown,
 #        after TLI) 2022-11-16 08:47 .. 2022-12-11 17:20 TDB; Artemis II (NASA/JSC
 #        navigation, after ICPS separation) 2026-04-02 02:00 .. 2026-04-10 23:54 TDB;
 #        CAPSTONE around the Moon (tracking to 2026-07-15, then predictions) from its
-#        deployment 2022-07-04 17:16 to 2026-08-14 11:58 TDB. The Sun direction uses the
+#        deployment 2022-07-04 17:16 to 2026-08-14 11:58 TDB; ARTEMIS-P1/P2 (THEMIS-B/C,
+#        final reconstruction) 2007-02-18 .. 2019-12-31; LCROSS (JPL NAV) 2009-06-18 22:18
+#        TDB .. the impact; LADEE (NASA-Ames final definitive) 2013-09-07 03:53 .. 2014-04-18
+#        04:33 TDB, where the data end at the impact. ARTEMIS and LADEE are Moon-centered
+#        from a few days before lunar orbit insertion. The Sun direction uses the
 #        heliocentric Earth-Moon barycenter (as in jwst.toml).
 # [GM]   JPL SSD astrodynamic parameters (DE440): GM Earth 398600.435507, Moon
 #        4902.800118 km^3/s^2. Earth-Moon mass ratio for L1/L2:
@@ -22,7 +29,7 @@
 # [PCK]  NAIF pck00011.tpc (IAU 2015): radii, poles, prime meridians.
 # [SPHY] JPL SSD satellite physical parameters (Moon mean radius).
 # [ATM]  Atmospheres (single scattering): sources and choices in solar_system.toml.
-# [CAP]  Event captions (retrieved 2026-10-07):
+# [CAP]  Event captions (retrieved 2026-10-07; [LCR] and after 2026-10-08):
 #        [A2] NASA, www.nasa.gov/mission/artemis-ii/: crew Reid Wiseman, Victor Glover,
 #          Christina Koch (NASA) and Jeremy Hansen (CSA); launch 2026-04-01, splashdown
 #          04-10, 9 d 1 h 32 min.
@@ -54,6 +61,36 @@
 #          a four-month low-energy journey; insertion on 2022-11-13; the first spacecraft in a
 #          near rectilinear halo orbit, the orbit planned for the Gateway; within 1,000 miles
 #          of one pole and 43,500 miles from the other every seven days.
+#        [LCR] Horizons notes on LCROSS (-18) and its Centaur (-18900), revised 2021-02-02:
+#          launched with the Lunar Reconnaissance Orbiter on an Atlas V, 2009-06-18; a lunar
+#          flyby into a polar Earth orbit with a 37-day period; Shepherding Spacecraft and
+#          Centaur separated 2009-10-09 01:50 UTC; Centaur impact 11:31:19.5 UTC, a crater
+#          27 m across, ~350 t of debris; the Shepherding Spacecraft four minutes behind flew
+#          through the plume and hit at 11:35:36.1 UTC, 84.7 deg S; on 2009-11-13 NASA
+#          reported water.
+#        [ART] NASA, science.nasa.gov/mission/themis-artemis: THEMIS B and C renamed
+#          ARTEMIS-P1 and P2; the first mission to orbit the Moon's Lagrangian points; P1 at
+#          L2 on 2010-08-25, P2 at L1 on 2010-10-22; P1 into lunar orbit on 2011-06-27, P2 on
+#          07-17; the Moon's plasma wake in the solar wind.
+#        [ARTB] UC Berkeley news, 2011-07-13, "Twin ARTEMIS probes to study moon in 3-D": 150
+#          fuel-saving maneuvers; the transfer took about 18 months; the solar wind particles
+#          absorbed by the Moon leave a cavity behind it; the first time a lunar orbit was
+#          reached by spacecraft not designed to go there.
+#        [ARTH] Horizons notes on ARTEMIS-P1 (-192), revised 2026-10-07: THEMIS launched
+#          2007-02-17 to study magnetospheric substorms; P1 and P2 repurposed in 2009; P1 the
+#          first to orbit both L1 and L2 (in the data: L2 2010-08 .. 2011-01, then L1);
+#          tracking data through 2026-10-05.
+#        [LADEE] NASA, science.nasa.gov/mission/ladee/in-depth/: launched 2013-09-07 from
+#          Wallops, the first lunar mission launched from there; three increasingly large
+#          Earth orbits; lunar orbit insertion on 10-06; science orbit about 20 x 60 km; argon-40
+#          in the lunar atmosphere; more than 11,000 dust impacts recorded; on 2014-04-17 as
+#          low as 300 m; contact lost 04:30 UTC on 04-18; impact on the eastern rim of Sundman
+#          V. [LADEE2] NASA news release 2014-04-18, "NASA Completes LADEE Mission with
+#          Planned Impact on Moon's Surface": the far side; laser downlink at 622 Mbps.
+#          [LRO] NASA, 2014-10-28, "NASA's LRO Spacecraft Captures Images of LADEE's Impact
+#          Crater": less than 3 m across, at 1,699 m/s. [LADEEH] Horizons notes on LADEE
+#          (-12): approach from the leading edge, behind the Moon out of sight of the Earth,
+#          re-emerge, a three-minute lunar orbit insertion into an orbit of ~24 hours.
 #        Shapes of the paths in the rotating frames: [HZN] (see above).
 # Closest approaches (TDB at the spacecraft; altitude above the Moon's mean radius)
 # and the largest distances from the Earth (above its equatorial radius): computed
@@ -159,6 +196,71 @@ trail_linger_days = 30.0                   # after the data end
 type = "ephemeris"
 file = "ephem/capstone_sel.eph"
 
+[[bodies]]
+name = "LADEE"
+parent = "Earth"
+kind = "spacecraft"
+radii_km = [0.0012]                        # ~2 m across
+color = "#ffc8e8"
+orbit_color = "#ff9ccf"
+trail = "history"
+trail_history_days = 40.0                  # the phasing loops; in lunar orbit, see the Moon-centered frame
+trail_linger_days = 30.0                   # after the impact, fading
+[bodies.orbit]                             # [HZN] -12, phasing orbits around the Earth
+type = "ephemeris"
+file = "ephem/ladee_geo.eph"
+[bodies.orbit.fallback]                    # [HZN] -12, Moon-centered from a day before lunar orbit insertion
+type = "ephemeris"
+file = "ephem/ladee_sel.eph"
+relative_to = "Moon"
+
+[[bodies]]
+name = "LCROSS"
+parent = "Earth"
+kind = "spacecraft"
+radii_km = [0.007]                         # with the Centaur upper stage attached (until 9.75 h before impact)
+color = "#9fe7ff"
+orbit_color = "#5fc8f0"
+trail = "history"                          # the whole flight
+trail_linger_days = 30.0                   # after the impact, fading
+[bodies.orbit]                             # [HZN] -18 (Shepherding Spacecraft)
+type = "ephemeris"
+file = "ephem/lcross.eph"
+
+[[bodies]]
+name = "ARTEMIS-P1"
+parent = "Earth"
+kind = "spacecraft"
+radii_km = [0.001]                         # THEMIS-B: ~1 m across, without its wire booms
+color = "#b8c8ff"
+orbit_color = "#8aa2ff"
+trail = "history"
+trail_history_days = 30.0                  # two laps around L2; 60 days halves the frame rate in lunar orbit
+[bodies.orbit]                             # [HZN] -192 (THEMIS-B), around the Earth
+type = "ephemeris"
+file = "ephem/artemis_p1_geo.eph"
+[bodies.orbit.fallback]                    # [HZN] -192, Moon-centered from two days before lunar orbit insertion
+type = "ephemeris"
+file = "ephem/artemis_p1_sel.eph"
+relative_to = "Moon"
+
+[[bodies]]
+name = "ARTEMIS-P2"
+parent = "Earth"
+kind = "spacecraft"
+radii_km = [0.001]                         # THEMIS-C
+color = "#dcc0ff"
+orbit_color = "#b48aff"
+trail = "history"
+trail_history_days = 30.0
+[bodies.orbit]                             # [HZN] -193 (THEMIS-C), around the Earth
+type = "ephemeris"
+file = "ephem/artemis_p2_geo.eph"
+[bodies.orbit.fallback]                    # [HZN] -193, Moon-centered from three days before lunar orbit insertion
+type = "ephemeris"
+file = "ephem/artemis_p2_sel.eph"
+relative_to = "Moon"
+
 [[frames]]
 name = "Earth-Moon rotating"
 type = "rotating"
@@ -172,6 +274,14 @@ type = "rotating"
 primary = "Earth"
 secondary = "Moon"
 origin = "Moon"
+
+# LADEE's 113-minute orbits: a day of them (in the rotating frames, months of
+# them blur into a disk around the Moon).
+[[frames]]
+name = "Moon-centered"
+type = "inertial"
+origin = "Moon"
+trail_history_days = 1.0
 
 [[markers]]
 name = "L1"
@@ -321,3 +431,147 @@ caption = """\
     Gateway station. Every seven days it passes about 1,600 km over the Moon's north \
     pole and climbs some 70,000 km beyond the south pole. In this Moon-centered frame, \
     which turns with the Earth, the narrow loop stays put."""
+
+# --- LADEE -------------------------------------------------------------------------
+
+[[events]]
+name = "LADEE: phasing loops (2013-09)"
+time_tdb = "2013-09-07 04:00"
+focus = "Earth"
+frame = "Earth-Moon rotating"
+distance_km = 1.0e6
+warp = 43200.0
+# [LADEE], [HZN]
+caption = """\
+    Launched on 7 September 2013 from Wallops Island, Virginia, the first lunar mission \
+    to leave from there, LADEE does not head straight for the Moon. It flies three ever \
+    larger loops around the Earth, timed so that the last one meets the Moon a month \
+    later."""
+
+# Lunar orbit insertion: first perilune 2013-10-06 10:52:50 TDB, 572 km up; the
+# first orbit takes 24 hours, out to 15,600 km.
+[[events]]
+name = "LADEE: captured by the Moon (2013-10-06)"
+time_tdb = "2013-10-06 09:30"
+focus = "Moon"
+frame = "Moon-centered"
+distance_km = 4.0e4
+warp = 600.0
+# [LADEE], [LADEEH]
+caption = """\
+    LADEE swings behind the Moon, out of sight of the Earth, re-emerges and fires its \
+    engine for three minutes: captured, it settles into a day-long orbit. More burns \
+    over the next weeks bring it down to about 20 by 60 km above the surface, around \
+    the Moon's equator."""
+
+# Perilunes 15-56 km above the mean radius over 2013-12 .. 2014-02, apolunes 68-148 km.
+[[events]]
+name = "LADEE: skimming the surface (2014-01)"
+time_tdb = "2014-01-15 00:00"
+focus = "Moon"
+frame = "Moon-centered"
+distance_km = 9000.0
+warp = 120.0
+# [LADEE], [LADEE2]
+caption = """\
+    Once every two hours LADEE circles the Moon, dipping to a few tens of kilometers. It \
+    samples the Moon's wisp of an atmosphere, finding argon-40, and counts more than \
+    11,000 hits of dust grains. Its laser link sent data home at a record-breaking 622 \
+    megabits per second."""
+
+# The data end 2014-04-18 04:33:07 TDB (04:32 UTC), 1-3 km above the mean radius,
+# at 1.69 km/s relative to the Moon.
+[[events]]
+name = "LADEE: the last orbits (2014-04-18)"
+time_tdb = "2014-04-17 21:00"
+focus = "Moon"
+frame = "Moon-centered"
+distance_km = 9000.0
+warp = 300.0
+# [LADEE], [LADEE2], [LRO]
+caption = """\
+    In its final days LADEE flies lower and lower, at times only 300 m above the ground. \
+    Early on 18 April, on the far side, it hits the eastern rim of the crater Sundman V \
+    at 1.7 km/s. The Lunar Reconnaissance Orbiter later found the new crater: less than \
+    3 m across."""
+
+# --- ARTEMIS ------------------------------------------------------------------------
+
+# Lunar flybys: P1 2010-02-13 09:56 TDB (3,291 km up), P2 2010-03-28 07:59 TDB (8,201 km);
+# in between and after, loops out to ~1.5 million km from the Earth.
+[[events]]
+name = "ARTEMIS: the long way to the Moon (2010)"
+time_tdb = "2010-02-01 00:00"
+focus = "Earth"
+frame = "Earth-Moon rotating"
+distance_km = 3.5e6
+warp = 172800.0
+# [ART], [ARTB], [ARTH], [HZN]
+caption = """\
+    Two of the five THEMIS probes, which had studied substorms in the Earth's \
+    magnetosphere since 2007, set off for the Moon as ARTEMIS-P1 and P2. About 150 \
+    fuel-saving maneuvers and close passes by the Moon fling them out to 1.5 million km \
+    and back, a transfer of about 18 months."""
+
+[[events]]
+name = "ARTEMIS: around the Lagrange points (2010-2011)"
+time_tdb = "2010-11-01 00:00"
+focus = "Moon"
+frame = "Earth-Moon rotating, Moon-centered"
+distance_km = 2.5e5
+warp = 21600.0
+# [ART], [ARTB]
+caption = """\
+    On 25 August 2010 ARTEMIS-P1 became the first spacecraft to orbit an Earth-Moon \
+    Lagrange point, L2, beyond the far side; P2 reached L1, on the Earth side, in \
+    October, and in January P1 crossed over to L1 too. From both sides they study the \
+    Moon's wake: the Moon soaks up the solar wind and leaves a cavity behind it."""
+
+# First orbit of P1: 3,588 x 26,999 km from the Moon's center (perilune 2011-06-27 15:17
+# TDB). P2's insertion burn: 2011-07-18 ~00:26 TDB.
+[[events]]
+name = "ARTEMIS: into lunar orbit (2011-06-27)"
+time_tdb = "2011-06-26 00:00"
+focus = "Moon"
+frame = "Earth-Moon rotating, Moon-centered"
+distance_km = 1.2e5
+warp = 7200.0
+# [ART], [ARTB], [ARTH]
+caption = """\
+    Leaving its loops around L1, P1 drops into a stretched orbit around the Moon on 27 \
+    June 2011, about 3,500 by 27,000 km from the Moon's center; P2 follows on 17 July. \
+    Built for Earth orbit, they were never meant to go to the Moon. Both still circle \
+    it today (this scene's data end in 2019)."""
+
+# --- LCROSS -------------------------------------------------------------------------
+
+# Lunar flyby 2009-06-23 10:29:22 TDB, 3,270 km up; then an Earth orbit of ~360,000 x
+# ~580,000 km, crossing the Moon's orbit three times before the impact.
+[[events]]
+name = "LCROSS: flyby and a 37-day orbit (2009-06)"
+time_tdb = "2009-06-19 00:00"
+focus = "Earth"
+frame = "Earth-Moon rotating"
+distance_km = 1.8e6
+warp = 86400.0
+# [LCR], [HZN]
+caption = """\
+    Launched with the Lunar Reconnaissance Orbiter, LCROSS keeps its rocket's spent \
+    upper stage, the Centaur, attached. A flyby of the Moon throws them into a long \
+    polar orbit around the Earth, 37 days a lap, timed to come back and hit the Moon \
+    near its south pole after almost four months."""
+
+# Shepherding Spacecraft impact 11:35:36.1 UTC = 11:36:42 TDB, where the table ends.
+[[events]]
+name = "LCROSS: impact in Cabeus (2009-10-09)"
+time_tdb = "2009-10-09 11:15"
+focus = "LCROSS"
+from_body = "Earth"
+distance_km = 8000.0
+warp = 30.0
+# [LCR]
+caption = """\
+    The Centaur, released nearly ten hours earlier, slams into the crater Cabeus near \
+    the south pole, blasting out a 27 m crater and some 350 t of debris. Four minutes \
+    behind, LCROSS flies through the plume, collecting data, before hitting too. A \
+    month later NASA reported evidence of water."""
