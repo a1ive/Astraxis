@@ -1467,6 +1467,71 @@ tolerance_km = 2.0
 verify_step_minutes = 60
 radius_km = 6051.8
 
+# Gravity-assist flybys, relative to Venus' center, five days either side of closest approach
+# (the scene shows each spacecraft only then). Outside venus.eph (1990, 1998-1999) the scene's
+# Venus comes from the approximate elements, which does not move the flybys around Venus.
+#   Galileo (-77):   JPL navigation, interplanetary file S970311A (1989-10-19 .. 1995-07-02);
+#                    "Venus flyby: Feb 10, 1990"
+#   Cassini (-82):   navigation team post-mission reconstruction; segments 000331R_SK_LP0_V1P32
+#                    (to 1998-05-28) and 000331B_SK_V1P32_V2P12 (to 1999-07-06)
+#   Juice (-28):     ESA, "based on tracking data through September 22 [2026], prediction after
+#                    that"; "2025-Aug-31: Venus (gravity assist, 05:28:51 UTC @ 11141.1 km)"
+[[target]]
+name = "galileo_venus"
+command = "-77"
+naif_id = -77
+center = "500@299"
+center_naif_id = 299
+kepler_gm_km3_s2 = 324858.592
+start = "1990-02-05"
+stop = "1990-02-15"
+base_step_minutes = 10
+tolerance_km = 1.0
+radius_km = 6051.8
+periapsides = true
+
+[[target]]
+name = "cassini_venus1"
+command = "-82"
+naif_id = -82
+center = "500@299"
+center_naif_id = 299
+kepler_gm_km3_s2 = 324858.592
+start = "1998-04-21"
+stop = "1998-05-01"
+base_step_minutes = 10
+tolerance_km = 1.0
+radius_km = 6051.8
+periapsides = true
+
+[[target]]
+name = "cassini_venus2"
+command = "-82"
+naif_id = -82
+center = "500@299"
+center_naif_id = 299
+kepler_gm_km3_s2 = 324858.592
+start = "1999-06-19"
+stop = "1999-06-29"
+base_step_minutes = 10
+tolerance_km = 1.0
+radius_km = 6051.8
+periapsides = true
+
+[[target]]
+name = "juice_venus"
+command = "-28"
+naif_id = -28
+center = "500@299"
+center_naif_id = 299
+kepler_gm_km3_s2 = 324858.592
+start = "2025-08-26"
+stop = "2025-09-05"
+base_step_minutes = 10
+tolerance_km = 1.0
+radius_km = 6051.8
+periapsides = true
+
 # Zoozve, Venus' quasi-satellite: two centuries around today (it has been one for ~7000
 # years and will stay one for ~500 more, Mikkola et al. 2004).
 [[target]]

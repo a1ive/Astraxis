@@ -1,7 +1,8 @@
 # Venus: ESA's Venus Express (2006-2014) on its day-long polar orbit, Japan's Akatsuki,
 # which missed Venus in 2010, went five years around the Sun and was captured on its second
 # try in 2015, and Zoozve, the asteroid that circles Venus once a Venus year without being
-# bound to it.
+# bound to it. The gravity-assist flybys of Galileo (1990), Cassini (1998, 1999) and Juice
+# (2025) on their way to Jupiter and Saturn.
 #
 # Sources
 # [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py (tools/bake/ephem.toml,
@@ -15,6 +16,12 @@
 #          2015-12-04, then relative to Venus to 2024-04-26, the end of the final
 #          reconstruction (contact was lost late in April 2024).
 #        - 524522 Zoozve (2002 VE68), JPL solution 86, relative to the Sun, 1900 .. 2099.
+#        - Galileo (-77, JPL navigation), Cassini (-82, post-mission reconstruction) and Juice
+#          (-28, ESA, fit to tracking through 2026-09-22) relative to Venus, five days either
+#          side of each flyby. In 1990 and 1998-1999 Venus itself comes from [APX], which
+#          does not move the flybys around it. Juice's notes: "2025-Aug-31: Venus (gravity
+#          assist, 05:28:51 UTC @ 11141.1 km)"; Galileo's: Venus, then the Earth twice
+#          (1990-12-08, 1992-12-08), Jupiter on 1995-12-07.
 #        Horizons notes: Venus Express, launched 2005-11-09, "500 days in 24-hour elliptical,
 #        quasi-polar Venus orbit" planned, "extended to eight years"; propellant "thought ...
 #        exhausted ... about halfway through a set of maneuvers Nov 23-28 intended to raise
@@ -87,6 +94,31 @@
 #          Alex Foster having misread "2002VE" in his notes; Radiolab's Latif Nasser asked the
 #          discoverer Brian Skiff to propose the name; announced by the IAU on 2024-02-05.
 #          Zoozve "appears to orbit Venus, but is not gravitationally bound to it".
+#        [GLLV] NASA/JPL, "Galileo Swings by Venus" (1990-02): closest approach one minute
+#          before 1 a.m. EST on 1990-02-10, "about 10,000 miles above the surface", 41 deg S;
+#          Venus' gravity raised its speed by "almost 5,000 mph"; two more gravity assists,
+#          both from the Earth, still ahead; data on tape, played back later in the year.
+#        [GLLM] Galileo mission catalog (PDS, GO-L-NIMS-3-TUBE-V1.0 mission.cat): closest
+#          approach 1990-02-10 05:58:48 UTC at 16,123 km; 81 SSI images; "the plasma wave
+#          instrument saw evidence of lightning discharges"; played back in November 1990.
+#        [CAS1] NASA/JPL (ScienceDaily, 1998-04-28): about 284 km from the surface, "a boost
+#          in speed of about 7 kilometers per second"; instruments searched for lightning, the
+#          radar tested "a bounced signal off Venus's surface"; another Venus flyby in June
+#          1999, the Earth in August 1999, Jupiter in 2000.
+#        [CAS2] ESA, "Venus flyby successfully completed" (1999-06-25): about 600 km on 24 June,
+#          four flybys in all (two of Venus, the Earth, Jupiter), Huygens switched off. JPL
+#          Significant Event Report (week ending 1999-06-30): 20:29:55 UTC, 602.6 km.
+#        [CASL] NASA/JPL, "Cassini Scientists See No Sign of Lightning on Venus" (2001-01-19;
+#          Gurnett et al. 2001, Nature 409, 313): no high-frequency radio waves of lightning in
+#          either flyby, while at the Earth on 1999-08-18 the same instrument "detected
+#          lightning continuously at rates up to 70 impulses per second"; lightning on Venus
+#          "extremely rare, or very different from terrestrial lightning".
+#        [JUV] ESA, "Juice team resolves anomaly on approach to Venus" (2025-08): closest at
+#          07:28 CEST on 31 August, the second of four gravity assists; Juice needs a transfer
+#          velocity of 11 km/s, its Ariane 5 gave 2.5 km/s; the high-gain antenna used as a
+#          thermal shield, remote sensing instruments off, no images of Venus; on 16 July
+#          contact was lost, restored after almost 20 hours: a software timing bug in the
+#          function that switches the amplifier on and off.
 #        Orbits as drawn: [HZN].
 #
 # Colors are sRGB and illustrative where no map is used.
@@ -243,6 +275,53 @@ type = "ephemeris"
 file = "ephem/akatsuki_venus.eph"
 relative_to = "Venus"
 
+# Gravity-assist flybys [HZN], shown five days either side of closest approach.
+
+[[bodies]]
+name = "Galileo"
+parent = "Venus"
+kind = "spacecraft"
+radii_km = [0.0024]                        # 4.8 m high-gain antenna (still furled in 1990)
+color = "#ffd27f"
+orbit_color = "#ffbf5c"
+trail = "history"
+trail_history_days = 5.0
+trail_linger_days = 5.0
+[bodies.orbit]                             # [HZN] -77, 1990-02-05 .. 02-15
+type = "ephemeris"
+file = "ephem/galileo_venus.eph"
+
+[[bodies]]
+name = "Cassini"
+parent = "Venus"
+kind = "spacecraft"
+radii_km = [0.002]                         # 4 m high-gain antenna
+color = "#d2f59a"
+orbit_color = "#a8dc6a"
+trail = "history"
+trail_history_days = 5.0
+trail_linger_days = 5.0
+[bodies.orbit]                             # [HZN] -82, 1998-04-21 .. 05-01
+type = "ephemeris"
+file = "ephem/cassini_venus1.eph"
+[bodies.orbit.fallback]                    # [HZN] -82, 1999-06-19 .. 06-29
+type = "ephemeris"
+file = "ephem/cassini_venus2.eph"
+
+[[bodies]]
+name = "Juice"
+parent = "Venus"
+kind = "spacecraft"
+radii_km = [0.008]                         # 85 m^2 of solar panels, a 16 m radar antenna ([HZN] notes)
+color = "#b8f0e0"
+orbit_color = "#7fdcc0"
+trail = "history"
+trail_history_days = 5.0
+trail_linger_days = 5.0
+[bodies.orbit]                             # [HZN] -28, 2025-08-26 .. 09-05
+type = "ephemeris"
+file = "ephem/juice_venus.eph"
+
 [[frames]]
 name = "Venus-centered"
 type = "inertial"
@@ -262,6 +341,56 @@ secondary = "Venus"                        # centered on Venus
 
 # --- Events --------------------------------------------------------------------------
 # Times and distances (TDB) computed from the baked data; altitudes above the mean radius.
+
+# Flybys start about two hours (Cassini: under an hour) before closest approach and are seen
+# along the spacecraft's orbit normal, so the turn of the path shows.
+# Galileo's closest approach 1990-02-10 05:59:45 TDB, 22,175 km from the center (16,123 km up).
+[[events]]
+name = "Galileo swings by Venus (1990-02-10, 16,000 km)"
+time_tdb = "1990-02-10 04:00"
+focus = "Venus"
+frame = "Venus-centered"
+from_orbit_normal = "Galileo"
+distance_km = 1.5e5
+warp = 120.0
+# [GLLV], [GLLM]
+caption = """\
+    Bound for Jupiter, Galileo first falls inward to Venus, the first of three gravity \
+    assists before it has the speed to get there. It passes 16,000 km above the clouds \
+    and gains almost 8,000 km/h. Its instruments record on tape, to be played back nine \
+    months later, and its plasma wave instrument picks up signs of lightning."""
+
+# Cassini's closest approaches: 1998-04-26 13:45:44 TDB, 284 km up; 1999-06-24 20:30:59
+# TDB, 602 km up [HZN].
+[[events]]
+name = "Cassini skims Venus (1998-04-26, 284 km)"
+time_tdb = "1998-04-26 13:05"
+focus = "Venus"
+frame = "Venus-centered"
+from_orbit_normal = "Cassini"
+distance_km = 6.0e4
+warp = 30.0
+# [CAS1]
+caption = """\
+    Cassini, carrying the Huygens probe to Saturn, comes to Venus first: 284 km above the \
+    surface, a boost of about 7 km/s. It is the first of four flybys, two of Venus, one of \
+    the Earth and one of Jupiter. Its radar bounces a test signal off Venus, and its \
+    instruments listen for lightning."""
+
+[[events]]
+name = "Cassini's second pass (1999-06-24, 603 km)"
+time_tdb = "1999-06-24 19:50"
+focus = "Venus"
+frame = "Venus-centered"
+from_orbit_normal = "Cassini"
+distance_km = 6.0e4
+warp = 30.0
+# [CAS2], [CASL]
+caption = """\
+    Fourteen months later Cassini is back, 603 km up. In neither pass did it hear the \
+    radio crackle of lightning; passing the Earth two months later, the same instrument \
+    caught up to 70 flashes a second. Lightning on Venus, if there is any, must be very \
+    rare or very different from ours."""
 
 # Venus Express' first periapsis 2006-04-11 07:37:39 TDB, 390 km up, in the middle of the
 # capture burn (07:10 to 08:01 UTC [VOI]); then 9.1 days around, out to 332,000 km. The burns
@@ -449,6 +578,23 @@ caption = """\
     in past Mercury's and out to the Earth's. Seen from Venus, it seems to circle the \
     planet backward once a year, never closer than 30 million km. Found in 2002, it was \
     the first quasi-satellite known: one for some 7,000 years, and for 500 more."""
+
+# Juice's closest approach 2025-08-31 05:30:00 TDB, 11,140 km from the center (5,088 km up)
+# [HZN].
+[[events]]
+name = "Juice swings by Venus (2025-08-31, 5,100 km)"
+time_tdb = "2025-08-31 03:30"
+focus = "Venus"
+frame = "Venus-centered"
+from_orbit_normal = "Juice"
+distance_km = 1.2e5
+warp = 120.0
+# [JUV], [HZN] (Horizons notes)
+caption = """\
+    ESA's Juice needs 11 km/s to reach Jupiter; its Ariane 5 gave it 2.5. Venus is the \
+    second of four gravity assists: the Moon and the Earth in 2024, Venus now, the Earth \
+    in 2026 and 2029. So close to the Sun, Juice turns its big antenna into a sunshade and \
+    takes no pictures. Six weeks earlier it had been silent for 20 hours: a timing bug."""
 
 # Zoozve's closest approaches to the Earth-Moon barycenter, every 8 years: 1978-11-12 at
 # 4.70 million km .. 2026-11-02 18:52 TDB at 6.02 million km .. 2058-10-29 at 7.44 [HZN].

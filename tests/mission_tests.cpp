@@ -11,6 +11,8 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -981,6 +983,74 @@ void test_venus_scene()
     }
     check(std::abs(d_near / kAuKm - 0.0402) < 2e-4 && std::abs(t_near - tdb({2026, 11, 2, 19, 10, 0})) < 3600.0,
           "Zoozve passes the Earth in 2026 (au)", d_near / kAuKm);
+    // Gravity-assist flybys against the published closest approaches (UTC; distances from
+    // the center, or altitudes above 6051.8 km): Galileo 1990-02-10 05:58:48, 16,123 km up
+    // ([GLLM], PDS); Cassini 1998-04-26 about 284 km ([CAS1], JPL: 6:52 a.m. PDT received on
+    // the Earth, 7.5 light minutes away, so about 13:44:30 UTC) and 1999-06-24 20:29:55,
+    // 602.6 km ([CAS2], JPL); Juice 2025-08-31 05:28:51, 11,141.1 km from the center
+    // (Horizons notes).
+    struct Flyby {
+        int body;
+        CalendarDateTime utc;
+        double km;     // from the center
+        double tol_s;  // on the time (Cassini 1: from the Earth-received time)
+    };
+    const int galileo = scene.find("Galileo");
+    const int cassini = scene.find("Cassini");
+    const int juice = scene.find("Juice");
+    check(galileo > 0 && cassini > 0 && juice > 0, "venus.toml flyby spacecraft");
+    for (const Flyby& f : {Flyby{galileo, {1990, 2, 10, 5, 58, 48}, rv + 16123.0, 30.0},
+                           Flyby{cassini, {1998, 4, 26, 13, 44, 30}, rv + 284.0, 120.0},
+                           Flyby{cassini, {1999, 6, 24, 20, 29, 55}, rv + 602.6, 30.0},
+                           Flyby{juice, {2025, 8, 31, 5, 28, 51}, 11141.1, 30.0}}) {
+        const double t0 = tdb_from_utc_jd(jd_from_calendar(f.utc));
+        double best = 1e300;
+        double t_best = 0.0;
+        for (double t = t0 - 1800.0; t <= t0 + 1800.0; t += 0.5) {
+            const double d = glm::length(rel(f.body, t).position);
+            if (d < best) {
+                best = d;
+                t_best = t;
+            }
+        }
+        const std::string what = scene.bodies[static_cast<size_t>(f.body)].name + " at Venus " +
+                                 std::to_string(f.utc.year) + " (km from the center)";
+        check(std::abs(best - f.km) < 3.0 && std::abs(t_best - t0) < f.tol_s, what.c_str(), best);
+        std::printf("info: %s %d: %.1f km up, %+.0f s from the published time\n",
+                    scene.bodies[static_cast<size_t>(f.body)].name.c_str(), f.utc.year, best - rv, t_best - t0);
+    }
+    // The boosts, two days before to two days after, as the releases count them. Galileo
+    // ([GLLV]: "almost 5,000 mph", 2.24 km/s): the orbital energy gained around the Sun, as a
+    // change of speed at Venus' distance. Cassini ([CAS1]: "about 7 kilometers per second"):
+    // the turn of its velocity relative to Venus, |v_out - v_in| (its energy gain is 3.6 km/s).
+    const double t_gll = tdb({1990, 2, 10, 6, 0, 0});
+    auto energy = [&](int body, double t) {
+        const State s = scene.icrf_state_at(body, t);
+        return 0.5 * glm::dot(s.velocity, s.velocity) - kSunGmKm3S2 / glm::length(s.position);
+    };
+    const double r_venus = glm::length(scene.icrf_state_at(venus, t_gll).position);
+    auto speed_at_venus = [&](double e) { return std::sqrt(2.0 * (e + kSunGmKm3S2 / r_venus)); };
+    const double gll_gain = speed_at_venus(energy(galileo, t_gll + 2.0 * kSecondsPerDay)) -
+                            speed_at_venus(energy(galileo, t_gll - 2.0 * kSecondsPerDay));
+    const double t_cas = tdb({1998, 4, 26, 13, 46, 0});
+    const double cas_gain = glm::length(rel(cassini, t_cas + 2.0 * kSecondsPerDay).velocity -
+                                        rel(cassini, t_cas - 2.0 * kSecondsPerDay).velocity);
+    check(std::abs(gll_gain - 2.2) < 0.15, "Galileo's speed gain at Venus (km/s)", gll_gain);
+    check(std::abs(cas_gain - 7.0) < 0.5, "Cassini's turn at Venus 1998 (km/s)", cas_gain);
+    // Each shown only around its flybys.
+    for (const auto& [body, when, shown] :
+         {std::tuple{cassini, CalendarDateTime{1998, 4, 26, 0, 0, 0}, true},
+          std::tuple{cassini, CalendarDateTime{1999, 1, 1, 0, 0, 0}, false},
+          std::tuple{cassini, CalendarDateTime{1999, 6, 24, 0, 0, 0}, true},
+          std::tuple{galileo, CalendarDateTime{1990, 3, 1, 0, 0, 0}, false},
+          std::tuple{juice, CalendarDateTime{2025, 8, 31, 0, 0, 0}, true},
+          std::tuple{juice, CalendarDateTime{2026, 1, 1, 0, 0, 0}, false}}) {
+        scene.update(tdb(when));
+        check(scene.bodies[static_cast<size_t>(body)].visible == shown, "flyby spacecraft shown only near Venus",
+              static_cast<double>(when.year));
+    }
+    std::printf("info: speed gained at Venus: Galileo %.2f km/s, Cassini %.2f km/s\n", gll_gain, cas_gain);
+
     std::printf("info: Akatsuki missed Venus by %.0f km (2010); Zoozve: Table 1 a %.6f e %.6f M %.3f, %.3f au from "
                 "Venus at the closest (1900-2099), %.4f au from the Earth (2026)\n",
                 miss - rv, z.a_au, z.e, z.mean_anomaly_deg, nearest / kAuKm, d_near / kAuKm);
