@@ -1406,6 +1406,62 @@ base_step_minutes = 10
 tolerance_km = 5.0
 radius_km = 3396.19
 
+# Gravity-assist flybys, relative to Mars' center, five days either side of closest approach
+# (the scene shows each spacecraft only then), and Deimos near Hera (mean elements elsewhere).
+# Horizons notes (2026-10-16):
+#   Europa Clipper (-159): JPL navigation, "based on tracking data through 2026-Sep-22"; the
+#                    flyby is in trj_250215-250726-dco2504160749-cruise006-final-OD055
+#                    (2025-Feb-15 .. 2025-Mar-18); "Mars gravity assist : 2025-Mar-01"
+#   Hera (-91):      ESA, "Post-launch tracking-data based trajectory from ESA 2026-Sep-28"
+#                    (hera_fcp_000093_241007_261104_v01); "2025-Mar : Mars flyby (~6000 km from
+#                    Mars, ~1000 km from Deimos)"
+[[target]]
+name = "clipper_mars"
+command = "-159"
+naif_id = -159
+center = "500@499"
+center_naif_id = 499
+kepler_gm_km3_s2 = 42828.375816
+start = "2025-02-24 18:00"
+stop = "2025-03-06 18:00"
+base_step_minutes = 10
+tolerance_km = 1.0
+radius_km = 3396.19
+periapsides = true
+
+[[target]]
+name = "deimos_hera"
+command = "402"
+naif_id = 402
+center = "500@499"
+center_naif_id = 499
+kepler_gm_km3_s2 = 42828.375816
+start = "2025-03-07 12:00"
+stop = "2025-03-17 12:00"
+base_step_minutes = 10
+tolerance_km = 2.0
+radius_km = 6.2
+windows_near = "-91"       # only near Hera; mean elements elsewhere
+window_km = 1500.0
+window_pad_days = 1.0
+
+[[target]]
+name = "hera_mars"
+command = "-91"
+naif_id = -91
+center = "500@499"
+center_naif_id = 499
+kepler_gm_km3_s2 = 42828.375816
+start = "2025-03-07 12:00"
+stop = "2025-03-17 12:00"
+base_step_minutes = 10
+tolerance_km = 1.0
+radius_km = 3396.19
+periapsides = true
+encounters = ["deimos_hera"]
+encounter_km = 2000.0
+encounter_step_minutes = 1
+
 # --- Venus (assets/scenes/venus.toml) ------------------------------------------
 # Horizons notes (2026-10-09):
 #   Venus Express (-248): 2005-Nov-09 05:05 .. 2014-Dec-31 23:40 TDB (ESA; "Reconstructed

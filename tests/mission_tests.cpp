@@ -844,6 +844,54 @@ void test_mars_scene()
         check(scene.bodies[static_cast<size_t>(tw1)].visible == shown, "Tianwen-1 shown only where there are data",
               static_cast<double>(when.year));
     }
+
+    // Gravity-assist flybys of 2025, against the published closest approaches (UTC; heights
+    // above Mars' mean radius, 3389.5 km [SPHY]). Europa Clipper ([ECM]): 2025-03-01 17:57,
+    // 884 km. Hera ([HERA]): within 300 km of Deimos (ESA's simulation: 12:10 GMT) and about
+    // 5000 km of Mars (12:50 GMT; Horizons notes: "~6000 km from Mars").
+    const int clipper = scene.find("Europa Clipper");
+    const int hera = scene.find("Hera");
+    check(clipper > 0 && hera > 0, "mars.toml flyby spacecraft");
+    auto closest = [&](int body, int other, double t0) {
+        std::pair<double, double> best{1e300, 0.0}; // distance, time
+        for (double t = t0 - 1800.0; t <= t0 + 1800.0; t += 0.5) {
+            const glm::dvec3 d = at(body, t) - (other >= 0 ? at(other, t) : glm::dvec3(0.0));
+            best = std::min(best, std::pair{glm::length(d), t});
+        }
+        return best;
+    };
+    const double r_mars = 3389.5;
+    const double t_ecm = utc({2025, 3, 1, 17, 57, 0});
+    const auto [ecm_d, ecm_t] = closest(clipper, -1, t_ecm);
+    check(std::abs(ecm_d - r_mars - 884.0) < 3.0 && std::abs(ecm_t - t_ecm) < 60.0,
+          "Europa Clipper at Mars (km above the mean radius)", ecm_d - r_mars);
+    const double t_hd = utc({2025, 3, 12, 12, 10, 0});
+    const auto [hd_d, hd_t] = closest(hera, deimos, t_hd);
+    check(std::abs(hd_d - 300.0) < 10.0 && std::abs(hd_t - t_hd) < 90.0, "Hera - Deimos (km from the center)", hd_d);
+    const double t_hm = utc({2025, 3, 12, 12, 50, 0});
+    const auto [hm_d, hm_t] = closest(hera, -1, t_hm);
+    check(hm_d - r_mars > 5000.0 && hm_d - r_mars < 6000.0 && std::abs(hm_t - t_hm) < 90.0,
+          "Hera at Mars (km above the mean radius)", hm_d - r_mars);
+    // Europa Clipper's speed around the Sun ([ECM]): 24.5 km/s arriving, 22.5 leaving.
+    auto helio_speed = [&](int body, double t) {
+        return glm::length(scene.icrf_state_at(body, t).velocity - scene.sun_icrf_state_at(t).velocity);
+    };
+    const double v_in = helio_speed(clipper, t_ecm - 2.0 * kSecondsPerDay);
+    const double v_out = helio_speed(clipper, t_ecm + 2.0 * kSecondsPerDay);
+    check(std::abs(v_in - 24.5) < 0.1 && std::abs(v_out - 22.5) < 0.1, "Europa Clipper's speed around the Sun (km/s)",
+          v_out);
+    std::printf("info: Europa Clipper %.1f km up, %+.0f s, %.2f -> %.2f km/s around the Sun; Hera %.1f km from "
+                "Deimos (%+.0f s), %.0f km above Mars (%+.0f s)\n",
+                ecm_d - r_mars, ecm_t - t_ecm, v_in, v_out, hd_d, hd_t - t_hd, hm_d - r_mars, hm_t - t_hm);
+    // Each shown only around its flyby.
+    for (const auto& [body, when, shown] : {std::tuple{clipper, CalendarDateTime{2025, 3, 1, 0, 0, 0}, true},
+                                            std::tuple{clipper, CalendarDateTime{2025, 3, 12, 0, 0, 0}, false},
+                                            std::tuple{hera, CalendarDateTime{2025, 3, 12, 0, 0, 0}, true},
+                                            std::tuple{hera, CalendarDateTime{2025, 3, 1, 0, 0, 0}, false}}) {
+        scene.update(utc(when));
+        check(scene.bodies[static_cast<size_t>(body)].visible == shown, "flyby spacecraft shown only near Mars",
+              static_cast<double>(when.day));
+    }
 }
 
 // Osculating heliocentric elements in the J2000 ecliptic (obliquity 84381.448", as the

@@ -1,7 +1,8 @@
 # Mars, Phobos and Deimos, eight orbiters: Mars Odyssey (2001-), Mars Express (2003-), the
 # Mars Reconnaissance Orbiter (2006-), MAVEN (2014-2025), India's Mars Orbiter Mission
 # (2014-2022), ESA's Trace Gas Orbiter (2016-), Hope (2021-) and China's Tianwen-1
-# (2021-), and comet Siding Spring's pass of Mars on 2014-10-19.
+# (2021-), and comet Siding Spring's pass of Mars on 2014-10-19. The gravity-assist flybys of
+# Europa Clipper and Hera (2025), bound for Jupiter and the asteroid Didymos.
 #
 # Sources
 # [HZN]  JPL Horizons state vectors relative to Mars' center, baked by
@@ -24,9 +25,17 @@
 #          ESA's long-term predicts (with a 30 km step where they join).
 #        - MOM (-3): DSN/JPL tag-up fits, 2014-09-20 .. 2022-04-30 (contact was lost in April
 #          2022).
-#        - Phobos (401) and Deimos (402): only within a day of Mars Express' (Phobos) and
-#          Hope's (Deimos) passes closer than 1,500 km; elsewhere the mean elements [ELEM],
-#          faded in over one day.
+#        - Phobos (401) and Deimos (402): only within a day of Mars Express' (Phobos), Hope's
+#          and Hera's (Deimos) passes closer than 1,500 km; elsewhere the mean elements
+#          [ELEM], faded in over one day.
+#        - Europa Clipper (-159, JPL navigation, reconstructed: the flyby is in
+#          cruise006-final-OD055) and Hera (-91, ESA, "Post-launch tracking-data based
+#          trajectory") relative to Mars, five days either side of each flyby. Notes:
+#          Clipper "Mars gravity assist : 2025-Mar-01", "Earth gravity assist: 2026-Dec-03",
+#          arrival at Jupiter 2030-Apr-11, to "assess habitability" of Europa; 30.5 m across
+#          with its arrays out. Hera: "2025-Mar : Mars flyby (~6000 km from Mars, ~1000 km
+#          from Deimos)", Didymos in late 2026, to assess the crater DART left on Dimorphos;
+#          a 1.6 m box with two 5 m solar panel arms.
 #        - Comet C/2013 A1 (Siding Spring): JPL solution c2013a1_s105_merged (Horizons
 #          1003228), 2014-08-01 .. 2014-12-31, relative to Mars (the [APX] Mars would
 #          misplace a heliocentric comet by thousands of km).
@@ -146,6 +155,19 @@
 #        [MOMI] ISRO, "Mars Orbiter Spacecraft Successfully Inserted into Mars Orbit"
 #          (2014-09-24, as relayed by SpaceRef): 421.7 x 76,993.6 km, inclination 150 deg,
 #          72 h 51 min 51 s.
+#        [ECM] NASA/JPL, "NASA's Europa Clipper Uses Mars to Go the Distance" (2025-02-25):
+#          closest at 12:57 p.m. EST on 1 March, 884 km above the surface; arriving at 24.5
+#          km/s relative to the Sun, leaving at 22.5 km/s; the thermal imager calibrated on
+#          Mars, the radar tested near closest approach, the first time all its parts work
+#          together; the Earth in December 2026 for a boost, Jupiter in April 2030.
+#        [HERA] ESA, "Watch live: Images from Hera's Mars flyby" (2025-03-10): on 12 March
+#          "within 5000 km of the surface" of Mars and "300 km of Mars's more distant and
+#          enigmatic moon Deimos", imaging it from at least 1000 km; the Asteroid Framing
+#          Camera, the Hyperscout H hyperspectral imager (25 bands, minerals) and JAXA's
+#          Thermal Infrared Imager; to help plan JAXA's Martian Moons eXploration (MMX),
+#          which will sample Phobos; at Didymos in December 2026. ESA simulation: closest to
+#          Deimos at 12:10 GMT, to Mars at 12:50. DLR (2025-03-13): Deimos "seen crossing the
+#          face of Mars" in the framing camera's images.
 #        Orbits as drawn: [HZN].
 #
 # Colors are sRGB and illustrative where no map is used.
@@ -236,7 +258,11 @@ texture_left_lon_deg = -180.0
 type = "ephemeris"
 file = "ephem/deimos_emm.eph"
 fallback_blend_days = 1.0
-[bodies.orbit.fallback]                    # [ELEM]
+[bodies.orbit.fallback]                    # [HZN] 402, near Hera (2025-03-12)
+type = "ephemeris"
+file = "ephem/deimos_hera.eph"
+fallback_blend_days = 1.0
+[bodies.orbit.fallback.fallback]           # [ELEM]
 type = "mean_elements"
 a_km = 23457.0
 e = 0.0
@@ -372,6 +398,36 @@ trail_history_days = 2.3                   # 55 hours
 [bodies.orbit]                             # [HZN] -62
 type = "ephemeris"
 file = "ephem/emm_mars.eph"
+
+# Gravity-assist flybys [HZN], shown five days either side of closest approach.
+
+[[bodies]]
+name = "Europa Clipper"
+parent = "Mars"
+kind = "spacecraft"
+radii_km = [0.015]                         # 30.5 m with the arrays out (Horizons notes)
+color = "#c8d8ff"
+orbit_color = "#9fb4f2"
+trail = "history"
+trail_history_days = 5.0
+trail_linger_days = 5.0
+[bodies.orbit]                             # [HZN] -159, 2025-02-24 .. 03-06
+type = "ephemeris"
+file = "ephem/clipper_mars.eph"
+
+[[bodies]]
+name = "Hera"
+parent = "Mars"
+kind = "spacecraft"
+radii_km = [0.006]                         # two 5 m solar panel arms (Horizons notes)
+color = "#f5c8ff"
+orbit_color = "#d79cf0"
+trail = "history"
+trail_history_days = 5.0
+trail_linger_days = 5.0
+[bodies.orbit]                             # [HZN] -91, 2025-03-07 .. 03-17
+type = "ephemeris"
+file = "ephem/hera_mars.eph"
 
 # Comet Siding Spring, a child of Mars here (the dust tail still follows the Sun's
 # gravity: src/scene/comet.hpp). Shown only around its pass, 2014-08 .. 2014-12.
@@ -670,6 +726,38 @@ caption = """\
     It saw what orbiters closer to Mars never do, the side of Deimos facing away from \
     the planet, and found it more like Martian rock than a captured asteroid: both \
     moons may be debris from an impact on Mars."""
+
+# Europa Clipper's closest approach 2025-03-01 17:58:03 TDB, 4,274 km from the center (885 km
+# above the mean radius, 3389.5 km [SPHY]) [HZN].
+[[events]]
+name = "Europa Clipper swings by Mars (2025-03-01, 884 km)"
+time_tdb = "2025-03-01 17:20"
+focus = "Mars"
+from_orbit_normal = "Europa Clipper"
+distance_km = 3.5e4
+warp = 60.0
+# [ECM]
+caption = """\
+    Bound for Jupiter's moon Europa, the largest spacecraft NASA has built for another \
+    planet swings 884 km over Mars. Mars bends its path and slows it, from 24.5 to 22.5 \
+    km/s around the Sun; the Earth will give it a boost in December 2026, and Jupiter \
+    comes in 2030. On the way past, its radar is tried out with all its parts at once."""
+
+# Hera's closest approaches 2025-03-12: Deimos 12:11:30 TDB, 297 km from its center; Mars
+# 12:51:56 TDB, 9,060 km from the center (5,670 km above the mean radius) [HZN].
+[[events]]
+name = "Hera passes Deimos (2025-03-12, 300 km)"
+time_tdb = "2025-03-12 12:05"
+focus = "Deimos"
+from_body = "Hera"                         # Mars behind Deimos, as Hera saw it
+distance_km = 3000.0
+warp = 10.0
+# [HERA], [HZN] (Horizons notes)
+caption = """\
+    ESA's Hera, on its way to the asteroid that NASA's DART struck in 2022, swings by Mars \
+    and passes 300 km from Deimos. Its camera catches the little moon crossing the face of \
+    Mars; two more instruments, one Japanese, look at its minerals and temperature, to \
+    help plan Japan's MMX, which will bring back a sample of Phobos."""
 
 [[events]]
 name = "Seven orbiters (2025)"
