@@ -17,8 +17,9 @@ public:
     void shutdown();
 
     // Records all post passes from `targets.hdr()`; `output` is fully overwritten.
+    // `fade` scales the displayed colour (0 = black), for fades between shots.
     void run(SDL_GPUCommandBuffer* cmd, SceneTargets& targets, uint32_t width, uint32_t height,
-             SDL_GPUTexture* output, const PostSettings& settings);
+             SDL_GPUTexture* output, const PostSettings& settings, float fade = 1.0f);
 
 private:
     bool ensure_chain(BloomChain& chain, uint32_t width, uint32_t height);

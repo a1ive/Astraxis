@@ -40,6 +40,7 @@ void visit_view_keys(S& s, F&& f)
 {
     f("orbits", s.view.orbits);
     f("labels", s.labels);
+    f("captions", s.captions);
     f("belts", s.view.belts);
     f("atmospheres", s.view.atmospheres);
     f("plumes", s.view.plumes);

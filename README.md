@@ -130,6 +130,8 @@ The wallpaper pauses rendering while the session is locked or the display is off
 
 ## Controls
 
+The auto tour moves between views of the scene. Every few views it visits one of the scene's events, in time order: it slows the clock down before a flyby, frames the pass and shows the event's caption. The wallpaper and the screensaver show these captions too. Untick *Event captions* in their settings to hide them.
+
 | Input | Action |
 |---|---|
 | Left/right drag | Rotate camera |
@@ -141,6 +143,7 @@ The wallpaper pauses rendering while the session is locked or the display is off
 | `N` | Jump to the current time |
 | `A` | Toggle auto tour (starts by itself after 60 s idle) |
 | `O` / `L` / `I` | Toggle orbits / labels / the focused body's info panel |
+| `E` | Hide or show the current event's caption |
 | `P` | Toggle the volcanic and cryovolcanic plumes (Io, Enceladus, Triton) |
 | `M` | Toggle atmospheres |
 | `C` | Toggle comet comae and tails |

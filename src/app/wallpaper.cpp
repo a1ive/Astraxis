@@ -59,7 +59,7 @@ bool Wallpaper::init(const WallpaperOptions& options)
                                  "The wallpaper could not be placed on the desktop.", nullptr);
         return false;
     }
-    if (!m_host.start(m_settings, options.scene, m_settings.labels, true, &error)) {
+    if (!m_host.start(m_settings, options.scene, m_settings.labels, true, m_settings.captions, &error)) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", error.c_str());
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Astraxis", error.c_str(), nullptr);
         return false;
@@ -93,6 +93,14 @@ bool Wallpaper::build_outputs()
             continue;
         }
         out->window.set_content_scale(SDL_GetDisplayContentScale(displays[i]));
+        // The taskbar covers the bottom of the wallpaper.
+        SDL_Rect bounds = {};
+        SDL_Rect usable = {};
+        if (SDL_GetDisplayBounds(displays[i], &bounds) && SDL_GetDisplayUsableBounds(displays[i], &usable) &&
+            bounds.h > 0) {
+            const int covered = (bounds.y + bounds.h) - (usable.y + usable.h);
+            out->bottom_inset = std::clamp(static_cast<float>(covered) / static_cast<float>(bounds.h), 0.0f, 0.5f);
+        }
         if (!m_layer.attach(out->window.native_handle(), monitor)) {
             out->window.destroy();
             continue;

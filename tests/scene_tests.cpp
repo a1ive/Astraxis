@@ -694,6 +694,145 @@ void test_camera_director_black_hole()
     check(min_distance > 11.0 * m_km, "camera stays beyond 11 M of the hole", min_distance / m_km);
 }
 
+// The flyby an event shows: Galileo passing Io on arrival day, 898 km up
+// (the event's own name; Io's mean radius 1821.49 km [SPHY] as in jupiter.toml).
+void test_find_flyby()
+{
+    Scene scene = load_scene_or_die("jupiter.toml");
+    const int io = scene.find("Io");
+    const int galileo = scene.find("Galileo");
+    double t0 = 0.0;
+    parse_utc("1995-12-07 16:47", &t0);
+    const Flyby flyby = find_flyby(scene, io, t0, t0 + 7200.0, 30000.0);
+    check(flyby.body == galileo, "Galileo flies past Io", flyby.body);
+    const double altitude = flyby.distance_km - scene.bodies[static_cast<size_t>(io)].equatorial_radius_km;
+    check(std::abs(altitude - 898.0) < 20.0, "Galileo-Io closest approach altitude (km)", altitude);
+    check(flyby.t_tdb > t0 + 1800.0 && flyby.t_tdb < t0 + 5400.0, "about an hour after the event time (s)",
+          flyby.t_tdb - t0);
+    check(std::abs(glm::length(flyby.normal_icrf) - 1.0) < 1e-9, "flyby plane normal is a unit vector");
+    // The other way round: from the spacecraft, the closest body is Io.
+    check(find_flyby(scene, galileo, t0, t0 + 7200.0, 30000.0).body == io, "from Galileo: Io");
+    // Too far for the shot, or before Galileo arrived: no flyby.
+    check(find_flyby(scene, io, t0, t0 + 7200.0, 2000.0).body < 0, "no pass within 2000 km");
+    double t1990 = 0.0;
+    parse_utc("1990-01-01 00:00", &t1990);
+    check(find_flyby(scene, io, t1990, t1990 + 7200.0, 30000.0).body < 0, "no spacecraft in 1990");
+    // Still closing in at the end of the interval: not a closest approach.
+    check(find_flyby(scene, io, t0, t0 + 1800.0, 30000.0).body < 0, "approach cut off by the interval");
+}
+
+// The tour goes through the events: it fades out, moves the clock to before
+// the next event, slows down to the event's warp as the event comes (a flyby:
+// 20 s before closest approach), shows its caption, holds a flyby until after
+// closest approach and then goes on with other shots at the user's warp.
+void test_tour_events()
+{
+    Simulation sim;
+    std::string error;
+    check(sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/jupiter.toml", &error), "jupiter loads for the event tour");
+    const Scene& scene = sim.scene();
+    SimClock& clock = sim.clock();
+    parse_utc("1995-06-01 00:00", &clock.t_tdb); // before all events
+    clock.warp = 3600.0;
+    clock.paused = false;
+    clock.reverse = false;
+    sim.update(0.0);
+    sim.start_tour(11u);
+
+    // The first event in time is the Galileo tour overview, then its Io flyby.
+    const int io_event = 0;
+    check(scene.events[static_cast<size_t>(io_event)].warp == 60.0, "Io flyby event is at 1 min/s");
+    const Flyby io_flyby = find_flyby(scene, scene.find("Io"), scene.events[0].t_tdb,
+                                      scene.events[0].t_tdb + 6000.0, 30000.0);
+
+    std::vector<int> shown;
+    bool faded_out = false;
+    bool slowed_down = false;
+    bool arrived_ok = true;
+    bool caption_ok = true;
+    bool flyby_held = true;
+    double io_arrival_lead = 0.0;
+    bool warp_restored = false;
+    int last = -1;
+    bool was_arrived = false;
+    double approach_max_warp = 0.0;
+    const double dt = 0.05;
+    for (int k = 0; k < static_cast<int>(12.0 * 60.0 / dt); ++k) {
+        sim.update(dt);
+        faded_out = faded_out || sim.fade() == 0.0;
+        const int event = sim.tour_event();
+        if (event >= 0 && event != last) {
+            shown.push_back(event);
+            approach_max_warp = 0.0;
+        }
+        if (event >= 0 && !sim.tour_event_arrived() && sim.fade() == 1.0) {
+            approach_max_warp = std::max(approach_max_warp, clock.warp);
+        }
+        const bool arrived = event >= 0 && sim.tour_event_arrived();
+        if (arrived && !was_arrived) {
+            const SceneEvent& e = scene.events[static_cast<size_t>(event)];
+            const double w = e.warp > 0.0 ? e.warp : 3600.0;
+            arrived_ok = arrived_ok && clock.t_tdb >= e.t_tdb && clock.t_tdb < e.t_tdb + 100.0 * w;
+            if (event == io_event) {
+                io_arrival_lead = (io_flyby.t_tdb - clock.t_tdb) / w;
+            }
+            caption_ok = caption_ok && sim.last_event() == event && sim.event_age() == 0.0;
+            if (approach_max_warp > 4.0 * w) {
+                slowed_down = true;
+            }
+            check(clock.warp == w, "an event is held at its warp", clock.warp);
+        }
+        if (last == io_event && event != io_event && io_flyby.body >= 0) {
+            flyby_held = flyby_held && clock.t_tdb > io_flyby.t_tdb;
+        }
+        if (event < 0 && last >= 0 && sim.director().shot_warp() == 0.0) {
+            warp_restored = clock.warp == 3600.0;
+        }
+        last = event;
+        was_arrived = arrived;
+    }
+    check(shown.size() >= 3, "the tour shows several events in 12 minutes", static_cast<double>(shown.size()));
+    check(!shown.empty() && shown.front() == 1, "first the earliest event (Galileo's tour overview)",
+          shown.empty() ? -1.0 : shown.front());
+    check(shown.size() >= 2 && shown[1] == io_event, "then the next one (the Io flyby, 5 hours later)",
+          shown.size() >= 2 ? shown[1] : -1.0);
+    bool chronological = true;
+    for (size_t i = 2; i < shown.size(); ++i) {
+        chronological = chronological && scene.events[static_cast<size_t>(shown[i])].t_tdb >
+                                             scene.events[static_cast<size_t>(shown[i - 1])].t_tdb;
+    }
+    check(chronological, "events in time order");
+    check(faded_out, "moving the clock fades to black");
+    check(arrived_ok, "the clock reaches each event's time");
+    check(slowed_down, "the warp eases down to a flyby's own");
+    check(caption_ok, "arriving at an event shows its caption");
+    check(io_flyby.body >= 0 && flyby_held, "the Io flyby shot lasts until after closest approach");
+    check(std::abs(io_arrival_lead - 20.0) < 0.2, "the Io approach ends 20 s before closest approach",
+          io_arrival_lead);
+    check(warp_restored, "after an event the user's warp returns");
+    sim.stop_tour();
+    check(sim.fade() == 1.0 && sim.tour_event() < 0 && clock.warp == 3600.0, "stopping the tour ends the event");
+
+    // An event coming up anyway is reached without a jump: no fade, and the
+    // clock only moves forward.
+    parse_utc("1996-09-06 16:00", &clock.t_tdb); // 2 h before "Galileo at Ganymede"
+    clock.warp = 600.0;
+    sim.update(0.0);
+    sim.start_tour(12u);
+    const int ganymede_event = sim.tour_event();
+    check(ganymede_event == 2, "an imminent event is taken at once", ganymede_event);
+    bool no_jump = true;
+    double t_prev = clock.t_tdb;
+    for (int k = 0; k < static_cast<int>(60.0 / dt) && !sim.tour_event_arrived(); ++k) {
+        sim.update(dt);
+        no_jump = no_jump && sim.fade() == 1.0 && clock.t_tdb >= t_prev && clock.t_tdb - t_prev <= 600.0 * dt * 1.01;
+        t_prev = clock.t_tdb;
+    }
+    check(no_jump, "approached without a jump, never faster than the user's warp");
+    check(sim.tour_event_arrived() && sim.last_event() == ganymede_event, "and arrived at it");
+    sim.stop_tour();
+}
+
 } // namespace
 
 void run_scene_tests()
@@ -708,6 +847,8 @@ void run_scene_tests()
     test_orbit_center();
     test_body_masses();
     test_event_captions();
+    test_find_flyby();
+    test_tour_events();
     for (uint32_t seed : {42u, 7u, 2026u, 99u, 12345u}) {
         test_camera_director("jupiter.toml", 3600.0, 20.0, seed);
     }

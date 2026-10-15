@@ -168,7 +168,7 @@ void PostProcess::fullscreen_pass(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* tar
 }
 
 void PostProcess::run(SDL_GPUCommandBuffer* cmd, SceneTargets& targets, uint32_t width, uint32_t height,
-                      SDL_GPUTexture* output, const PostSettings& settings)
+                      SDL_GPUTexture* output, const PostSettings& settings, float fade)
 {
     SDL_GPUTexture* hdr = targets.hdr();
     std::vector<BloomChain::Level>& levels = targets.bloom.levels;
@@ -211,7 +211,7 @@ void PostProcess::run(SDL_GPUCommandBuffer* cmd, SceneTargets& targets, uint32_t
         {.texture = bloom ? levels[0].texture : hdr, .sampler = m_linear_clamp},
     };
     SDL_BindGPUFragmentSamplers(pass, 0, bindings, 2);
-    const glm::vec4 params(settings.exposure, bloom ? settings.bloom_strength : 0.0f, 0.0f, 0.0f);
+    const glm::vec4 params(settings.exposure, bloom ? settings.bloom_strength : 0.0f, fade, 0.0f);
     SDL_PushGPUFragmentUniformData(cmd, 0, &params, sizeof(params));
     SDL_DrawGPUPrimitives(pass, 3, 1, 0, 0);
     SDL_EndGPURenderPass(pass);

@@ -40,6 +40,7 @@ struct Settings {
 
     // View keys.
     bool labels = true;
+    bool captions = true; // the events' placards (the tour shows events)
     ViewOptions view;
 };
 

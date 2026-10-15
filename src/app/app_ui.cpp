@@ -291,8 +291,13 @@ void App::build_control_panel()
 
     ImGui::SeparatorText("Auto tour");
     if (m_sim.director().active()) {
-        ImGui::Text("%s  (next in %.0f s)", CameraDirector::shot_name(m_sim.director().current_shot()),
-                    std::max(0.0, m_sim.director().time_left()));
+        const CameraDirector& director = m_sim.director();
+        if (director.current_shot() == CameraDirector::ShotKind::Event && !m_sim.tour_event_arrived()) {
+            ImGui::TextUnformatted("Event (on the way)"); // until the clock reaches it
+        } else {
+            ImGui::Text("%s  (next in %.0f s)", CameraDirector::shot_name(director.current_shot()),
+                        std::max(0.0, director.time_left()));
+        }
         ImGui::SameLine();
         if (ImGui::Button("Stop")) {
             m_sim.stop_tour();
@@ -309,6 +314,9 @@ void App::build_control_panel()
     ImGui::Checkbox("Labels", &m_show_labels);
     ImGui::SameLine();
     ImGui::Checkbox("Info", &m_show_info);
+    ImGui::SameLine();
+    ImGui::Checkbox("Captions", &m_show_captions);
+    ImGui::SetItemTooltip("The events' placards, also on the tour (E dismisses one)");
     if (!scene.belts.empty()) {
         ImGui::SameLine();
         ImGui::Checkbox("Belts", &m_view_options.belts);
@@ -621,6 +629,9 @@ void App::draw_captions()
         draw_scene_title(m_fonts, m_sim.scene().name, m_sim.scene_age());
         return;
     }
+    if (!m_show_captions) {
+        return;
+    }
     // Above the time bar and as wide, clear of the panels at the sides.
     const ImGuiIO& io = ImGui::GetIO();
     const float margin = 12.0f * ImGui::GetStyle().FontScaleDpi;
@@ -644,7 +655,7 @@ void App::toggle_caption()
 
 void App::build_labels()
 {
-    draw_labels(m_labels, m_sim.scene(), m_view, m_sim.camera().target());
+    draw_labels(m_labels, m_sim.scene(), m_view, m_sim.camera().target(), static_cast<float>(m_sim.fade()));
 
     const ImGuiIO& io = ImGui::GetIO();
     if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && !io.WantCaptureMouse) {

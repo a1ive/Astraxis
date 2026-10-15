@@ -75,11 +75,12 @@ void SceneHost::remove_outputs()
 }
 
 bool SceneHost::start(const Settings& settings, const std::optional<std::string>& scene, bool labels, bool title,
-                      std::string* error)
+                      bool captions, std::string* error)
 {
     m_view_options = settings.view;
     m_show_labels = labels;
     m_show_title = title;
+    m_show_captions = captions;
 
     // All outputs share one swapchain format (SDR), and the offscreen one is
     // the same: B8G8R8A8_UNORM.
@@ -121,9 +122,9 @@ bool SceneHost::start(const Settings& settings, const std::optional<std::string>
                                 static_cast<uint32_t>(static_cast<float>(max_height) * m_render_scale));
     m_sim.start_tour();
 
-    // ImGui only draws the labels and the title: no platform backend (there
-    // is no input to pass on), one frame per output.
-    if (m_show_labels || m_show_title) {
+    // ImGui only draws the labels, the title and the captions: no platform
+    // backend (there is no input to pass on), one frame per output.
+    if (m_show_labels || m_show_title || m_show_captions) {
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
         ImGui::GetIO().IniFilename = nullptr;
@@ -240,8 +241,15 @@ void SceneHost::draw_scene(Output& out, const Frame& frame)
     m_sim.compute_view(static_cast<int>(frame.width), static_cast<int>(frame.height), scene_scale, out.view);
 
     ImDrawData* draw_data = nullptr;
-    const bool title = m_show_title && scene_title_visible(m_sim.scene_age());
-    if (m_show_labels || title) {
+    const bool title = m_show_title && m_sim.last_event() < 0 && scene_title_visible(m_sim.scene_age());
+    const SceneEvent* event = nullptr;
+    if (m_show_captions && m_sim.last_event() >= 0) {
+        event = &m_sim.scene().events[static_cast<size_t>(m_sim.last_event())];
+        if (m_sim.event_age() >= caption_times(event->caption).gone) {
+            event = nullptr;
+        }
+    }
+    if (m_show_labels || title || event) {
         // As imgui_impl_sdl3 would set it up for this window; the labels are
         // drawn at the output's full resolution.
         int w = static_cast<int>(frame.output_width);
@@ -258,10 +266,18 @@ void SceneHost::draw_scene(Output& out, const Frame& frame)
         ImGui_ImplSDLGPU3_NewFrame(); // creates the samplers on first use
         ImGui::NewFrame();
         if (m_show_labels) {
-            draw_labels(out.labels, m_sim.scene(), out.view, m_sim.camera().target());
+            draw_labels(out.labels, m_sim.scene(), out.view, m_sim.camera().target(),
+                        static_cast<float>(m_sim.fade()));
         }
         if (title) {
             draw_scene_title(m_fonts, m_sim.scene().name, m_sim.scene_age());
+        }
+        if (event) {
+            // As in the window: centred at the bottom, above the taskbar.
+            const float margin = 24.0f * scale;
+            const float width = std::min(640.0f * scale, io.DisplaySize.x - 2.0f * margin);
+            const float bottom = io.DisplaySize.y * (1.0f - out.bottom_inset) - margin;
+            draw_event_caption(m_fonts, *event, m_sim.event_age(), ImVec2(0.5f * io.DisplaySize.x, bottom), width);
         }
         ImGui::Render();
         draw_data = ImGui::GetDrawData();

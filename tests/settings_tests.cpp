@@ -32,7 +32,7 @@ void test_settings()
         std::ofstream file(path, std::ios::binary);
         file << "# by hand\n"
                 "[view]\nexposure = 2\nlabels = false\nstars = 9.0\nunknown = 1\n"
-                "[wallpaper]\nlabels = true\nscene = \"sgr_a\"\nfps = 30\n"
+                "[wallpaper]\nlabels = true\nscene = \"sgr_a\"\nfps = 30\ncaptions = false\n"
                 "[window]\nscene = \"jupiter\"\nfullscreen = true\nexposure = 0.5\n";
     }
     Settings window;
@@ -45,6 +45,7 @@ void test_settings()
     check(wallpaper.scene == "sgr_a" && wallpaper.fps == 30 && wallpaper.labels, "[wallpaper] keys");
     check(wallpaper.view.post.exposure == 2.0f, "[wallpaper] inherits [view]", wallpaper.view.post.exposure);
     check(!wallpaper.fullscreen, "[wallpaper] ignores window-only keys");
+    check(window.captions && !wallpaper.captions, "captions: on by default, off in [wallpaper]");
 
     // Saving [window] writes the view keys to [view] and drops its overrides there.
     window.view.post.exposure = 1.25f;

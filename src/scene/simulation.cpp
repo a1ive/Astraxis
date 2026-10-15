@@ -20,7 +20,85 @@ constexpr double kSatelliteHidePx = 10.0;
 constexpr double kSatelliteShowPx = 28.0;
 constexpr double kDiskMaxWarp = 60.0; // cap on the disk animation speed (ISCO period ~92 M)
 
+// Event caption timing, real seconds after the jump: the camera flies for 2 s
+// (Simulation::jump_to_event); the caption stays for a leisurely reading time.
+constexpr double kCaptionDelay = 1.5;
+constexpr double kCaptionFadeIn = 0.8;
+constexpr double kCaptionFadeOut = 1.5;
+constexpr double kCaptionWordsPerSecond = 3.0;
+constexpr double kCaptionExtraSeconds = 4.0;
+constexpr double kCaptionMinSeconds = 8.0;
+constexpr double kCaptionMaxSeconds = 45.0;
+
+// Event shots of the tour.
+constexpr double kEventFadeSeconds = 1.2; // to black, and back after the jump
+// On the approach the warp is the simulated time still to go over this many
+// real seconds: it falls exponentially, by e every kApproachSeconds...
+constexpr double kApproachSeconds = 3.0;
+// ...from at most kLeadWarpRatio times the event's warp (a flyby at 1 min/s
+// starts 3.2 hours before, at about an hour per second, and takes 12 s to
+// slow down), but no faster than kMaxLeadWarp: an event that is itself shown
+// at days per second is simply jumped to.
+constexpr double kLeadWarpRatio = 64.0;
+constexpr double kMaxLeadWarp = 86400.0;
+// An event coming up within this many real seconds at the user's warp is
+// waited for (the current shot is cut short if it would run past it).
+constexpr double kMaxWaitSeconds = 20.0;
+constexpr double kEventTransitionSeconds = 5.0; // camera flight to an event reached without a jump
+// The shot holds the event for its caption, and if a spacecraft passes
+// close by, until a little after its closest approach.
+constexpr double kMinEventSeconds = 25.0;
+constexpr double kMaxEventSeconds = 100.0;
+constexpr double kAfterFlybySeconds = 15.0;
+// The approach of a flyby ends this long (real seconds at the event's warp)
+// before closest approach, so that it comes while the caption is up. Events
+// are often set an hour or so before it.
+constexpr double kBeforeFlybySeconds = 20.0;
+// Only a pass within this fraction of the camera distance is framed as a flyby.
+constexpr double kFlybyFraction = 0.25;
+// A flyby is seen across its path, turned this far (tan) toward the sun so
+// that the body is mostly lit.
+constexpr double kFlybySunTilt = 0.6;
+constexpr double kEventDrift = 0.004; // rad/s
+
+double smoothstep(double x)
+{
+    x = std::clamp(x, 0.0, 1.0);
+    return x * x * (3.0 - 2.0 * x);
+}
+
+double event_warp(const SceneEvent& e, double user_warp)
+{
+    return e.warp > 0.0 ? e.warp : user_warp;
+}
+
+double lead_warp(double warp)
+{
+    return std::max(warp, std::min(warp * kLeadWarpRatio, kMaxLeadWarp));
+}
+
 } // namespace
+
+CaptionTimes caption_times(const std::string& caption)
+{
+    size_t words = 0;
+    bool in_word = false;
+    for (const char c : caption) {
+        const bool space = c == ' ' || c == '\n';
+        if (!space && !in_word) {
+            ++words;
+        }
+        in_word = !space;
+    }
+    const double reading = std::clamp(static_cast<double>(words) / kCaptionWordsPerSecond + kCaptionExtraSeconds,
+                                      kCaptionMinSeconds, kCaptionMaxSeconds);
+    CaptionTimes t;
+    t.fade_in = kCaptionDelay;
+    t.shown = t.fade_in + kCaptionFadeIn;
+    t.fade_out = t.shown + reading;
+    t.gone = t.fade_out + kCaptionFadeOut;
+    return t;
+}
 
 bool Simulation::load_scene(const std::filesystem::path& file, std::string* error)
 {
@@ -31,6 +109,7 @@ bool Simulation::load_scene(const std::filesystem::path& file, std::string* erro
     m_scene = std::move(scene);
     m_scene_age = 0.0;
     m_last_event = -1;
+    m_events_shown.assign(m_scene.events.size(), false);
 
     const bool touring = m_director.active();
     stop_tour();
@@ -77,10 +156,31 @@ void Simulation::update(double real_dt)
         m_animation_time = std::fmod(m_animation_time + real_dt, 1.0e6);
     }
 
-    m_director.set_time_warp(m_clock.paused ? 0.0 : m_clock.warp);
+    if (m_director.active()) {
+        const int next = next_tour_event();
+        const bool imminent = next >= 0 && event_imminent(next);
+        m_director.set_events(next >= 0, imminent);
+        // An event coming up during the shot: cut the shot short rather than run past it.
+        if (imminent && m_tour_event < 0 &&
+            m_scene.events[static_cast<size_t>(next)].t_tdb - m_clock.t_tdb < m_clock.warp * m_director.time_left()) {
+            m_director.hold_event(0.0);
+        }
+    }
+    m_director.set_time_warp(m_clock.paused ? 0.0 : user_warp());
     m_director.update(real_dt, m_scene, m_camera);
+    if (m_director.take_event_request()) {
+        begin_tour_event();
+    } else if (m_tour_event >= 0 && m_director.current_shot() != CameraDirector::ShotKind::Event) {
+        end_tour_event();
+    }
+    run_tour_event(real_dt);
     apply_tour_warp();
     m_camera.update(real_dt, m_scene);
+}
+
+double Simulation::fade() const
+{
+    return smoothstep(m_fade);
 }
 
 void Simulation::compute_view(int width, int height, double content_scale, OutputView& out) const
@@ -140,20 +240,27 @@ void Simulation::jump_to_event(size_t index)
     m_scene.set_active_event(static_cast<int>(index)); // its trails, until the frame changes
     m_scene.update(m_clock.t_tdb);
     if (e.focus >= 0) {
-        const double distance =
-            e.distance_km > 0.0 ? e.distance_km : m_camera.default_distance(e.focus, m_scene);
-        double yaw = -1.2;
-        double pitch = 0.3;
-        if (e.from_orbit_normal >= 0) {
-            m_camera.angles_for_direction(m_scene.orbit_normal(e.from_orbit_normal), &yaw, &pitch);
-        } else if (e.from_body >= 0) {
-            const glm::dvec3 to_body = m_scene.bodies[static_cast<size_t>(e.from_body)].world_position -
-                                       m_scene.bodies[static_cast<size_t>(e.focus)].world_position;
-            m_camera.angles_for_direction(to_body, &yaw, &pitch);
-            yaw += e.phase_deg * kDegToRad;
-        }
-        m_camera.fly_to({e.focus, yaw, pitch, distance, false}, 2.0, m_scene);
+        m_camera.fly_to(event_shot(index), 2.0, m_scene);
     }
+}
+
+CameraShot Simulation::event_shot(size_t index) const
+{
+    const SceneEvent& e = m_scene.events[index];
+    CameraShot shot;
+    shot.target = e.focus;
+    shot.distance = e.distance_km > 0.0 ? e.distance_km : m_camera.default_distance(e.focus, m_scene);
+    shot.yaw = -1.2;
+    shot.pitch = 0.3;
+    if (e.from_orbit_normal >= 0) {
+        m_camera.angles_for_direction(m_scene.orbit_normal(e.from_orbit_normal), &shot.yaw, &shot.pitch);
+    } else if (e.from_body >= 0) {
+        const glm::dvec3 to_body = m_scene.bodies[static_cast<size_t>(e.from_body)].world_position -
+                                   m_scene.bodies[static_cast<size_t>(e.focus)].world_position;
+        m_camera.angles_for_direction(to_body, &shot.yaw, &shot.pitch);
+        shot.yaw += e.phase_deg * kDegToRad;
+    }
+    return shot;
 }
 
 void Simulation::look_from_sun_side()
@@ -165,11 +272,21 @@ void Simulation::look_from_sun_side()
     m_camera.rotate(0.35, 0.1);
 }
 
-void Simulation::start_tour()
+void Simulation::start_tour(uint32_t seed)
 {
-    const auto ticks = std::chrono::steady_clock::now().time_since_epoch().count();
-    m_director.set_time_warp(m_clock.paused ? 0.0 : m_clock.warp);
-    m_director.start(m_scene, m_camera, static_cast<uint32_t>(ticks));
+    if (seed == 0) {
+        seed = static_cast<uint32_t>(std::chrono::steady_clock::now().time_since_epoch().count()) | 1u;
+    }
+    m_last_tour_event = -1; // a new round; the story picks up from the clock
+    m_events_shown.assign(m_scene.events.size(), false);
+    const int next = next_tour_event();
+    m_director.set_events(next >= 0, next >= 0 && event_imminent(next));
+    m_director.set_time_warp(m_clock.paused ? 0.0 : user_warp());
+    m_director.start(m_scene, m_camera, seed);
+    if (m_director.take_event_request()) {
+        begin_tour_event();
+        run_tour_event(0.0);
+    }
     apply_tour_warp();
 }
 
@@ -177,13 +294,208 @@ void Simulation::stop_tour()
 {
     if (m_director.active()) {
         m_director.stop(m_camera);
+        end_tour_event();
+        m_fade = 1.0;
         apply_tour_warp();
     }
 }
 
+bool Simulation::can_show_event(const SceneEvent& e) const
+{
+    return e.focus >= 0 && e.focus < static_cast<int>(m_scene.bodies.size());
+}
+
+int Simulation::next_tour_event() const
+{
+    if (m_clock.paused || m_clock.reverse) {
+        return -1; // events are shown going forward
+    }
+    // Events in order of time, then of the file (several may share a time).
+    const auto before = [&](int a, int b) {
+        const double ta = m_scene.events[static_cast<size_t>(a)].t_tdb;
+        const double tb = m_scene.events[static_cast<size_t>(b)].t_tdb;
+        return ta < tb || (ta == tb && a < b);
+    };
+    const auto after_cursor = [&](int k) {
+        return m_last_tour_event >= 0 ? before(m_last_tour_event, k)
+                                      : m_scene.events[static_cast<size_t>(k)].t_tdb > m_clock.t_tdb;
+    };
+    // Among the events not shown in this round; failing that (a new round), among all.
+    for (const bool new_round : {false, true}) {
+        int ahead = -1;
+        int earliest = -1;
+        for (size_t i = 0; i < m_scene.events.size(); ++i) {
+            const int k = static_cast<int>(i);
+            if (!can_show_event(m_scene.events[i]) ||
+                (!new_round && i < m_events_shown.size() && m_events_shown[i])) {
+                continue;
+            }
+            if (after_cursor(k) && (ahead < 0 || before(k, ahead))) {
+                ahead = k;
+            }
+            if (earliest < 0 || before(k, earliest)) {
+                earliest = k;
+            }
+        }
+        if (earliest >= 0) {
+            return ahead >= 0 ? ahead : earliest;
+        }
+    }
+    return -1;
+}
+
+double Simulation::approach_lead(int index) const
+{
+    return lead_warp(event_warp(m_scene.events[static_cast<size_t>(index)], user_warp())) * kApproachSeconds;
+}
+
+bool Simulation::event_imminent(int index) const
+{
+    const SceneEvent& e = m_scene.events[static_cast<size_t>(index)];
+    if (m_clock.paused || m_clock.reverse || (e.frame >= 0 ? e.frame : 0) != m_scene.active_frame()) {
+        return false;
+    }
+    const double ahead = e.t_tdb - m_clock.t_tdb;
+    return ahead > 0.0 && ahead <= std::max(approach_lead(index), user_warp() * kMaxWaitSeconds);
+}
+
+void Simulation::begin_tour_event()
+{
+    const int index = next_tour_event();
+    if (index < 0) {
+        end_tour_event();
+        m_director.skip_event(m_scene, m_camera);
+        return;
+    }
+    m_events_shown.resize(m_scene.events.size(), false);
+    if (m_events_shown[static_cast<size_t>(index)]) {
+        m_events_shown.assign(m_scene.events.size(), false); // a new round
+    }
+    m_events_shown[static_cast<size_t>(index)] = true;
+    m_last_tour_event = index;
+
+    const SceneEvent& e = m_scene.events[static_cast<size_t>(index)];
+    const bool imminent = event_imminent(index);
+    m_tour_event = index;
+    m_event_warp = event_warp(e, user_warp());
+    // Coming up anyway: only ever slowed down from the user's warp.
+    m_event_max_warp = imminent ? std::max(m_event_warp, user_warp()) : lead_warp(m_event_warp);
+    m_event_shot_warp = m_clock.warp;
+
+    // The pass the shot shows, if one comes close while it lasts.
+    const double distance = event_shot(static_cast<size_t>(index)).distance;
+    m_event_flyby = find_flyby(m_scene, e.focus, e.t_tdb, e.t_tdb + m_event_warp * kMaxEventSeconds, distance);
+    if (m_event_flyby.distance_km > kFlybyFraction * distance) {
+        m_event_flyby = Flyby{};
+    }
+    m_event_arrival = e.t_tdb;
+    if (m_event_flyby.body >= 0) {
+        m_event_arrival = std::max(e.t_tdb, m_event_flyby.t_tdb - m_event_warp * kBeforeFlybySeconds);
+    }
+
+    if (imminent) {
+        m_event_phase = EventPhase::Approach;
+        m_scene.set_active_event(index);
+        aim_at_tour_event(kEventTransitionSeconds);
+    } else {
+        m_event_phase = EventPhase::FadeOut;
+        m_fade_target = 0.0;
+    }
+}
+
+void Simulation::jump_to_tour_event()
+{
+    const SceneEvent& e = m_scene.events[static_cast<size_t>(m_tour_event)];
+    m_clock.t_tdb = m_event_arrival - approach_lead(m_tour_event);
+    set_frame(e.frame >= 0 ? e.frame : 0);
+    m_scene.set_active_event(m_tour_event);
+    m_scene.update(m_clock.t_tdb);
+    aim_at_tour_event(0.0);
+    m_event_phase = EventPhase::Approach;
+    m_fade_target = 1.0;
+}
+
+void Simulation::aim_at_tour_event(double duration)
+{
+    const SceneEvent& e = m_scene.events[static_cast<size_t>(m_tour_event)];
+    CameraShot shot = event_shot(static_cast<size_t>(m_tour_event));
+    double drift = (m_tour_event % 2 == 0 ? 1.0 : -1.0) * kEventDrift;
+    if (e.from_orbit_normal >= 0) {
+        drift = 0.0; // drift turns about the up axis, away from face-on
+    } else if (e.from_body < 0 && m_event_flyby.body >= 0 && m_event_flyby.normal_icrf != glm::dvec3(0.0)) {
+        // A flyby close-up: across the path, so that it shows as the curve it
+        // is, and turned toward the sun.
+        glm::dvec3 dir = m_scene.current_transform().direction_to_display(m_event_flyby.normal_icrf);
+        const glm::dvec3 to_light =
+            m_scene.light_position(e.focus) - m_scene.bodies[static_cast<size_t>(e.focus)].world_position;
+        if (glm::dot(to_light, to_light) > 0.0) {
+            const glm::dvec3 sun = glm::normalize(to_light);
+            dir = glm::normalize((glm::dot(dir, sun) < 0.0 ? -dir : dir) + kFlybySunTilt * sun);
+        }
+        m_camera.angles_for_direction(dir, &shot.yaw, &shot.pitch);
+        drift = 0.0;
+    }
+    m_camera.set_drift(drift);
+    m_camera.fly_to(shot, duration, m_scene);
+}
+
+void Simulation::run_tour_event(double real_dt)
+{
+    const double step = real_dt / kEventFadeSeconds;
+    m_fade = m_fade_target < m_fade ? std::max(m_fade_target, m_fade - step) : std::min(m_fade_target, m_fade + step);
+    if (m_tour_event < 0) {
+        return;
+    }
+    const SceneEvent& e = m_scene.events[static_cast<size_t>(m_tour_event)];
+    switch (m_event_phase) {
+    case EventPhase::FadeOut:
+        if (m_fade <= 0.0) {
+            jump_to_tour_event();
+        }
+        break;
+    case EventPhase::Approach: {
+        if (m_clock.paused || m_clock.reverse) {
+            m_director.hold_event(0.0); // stopped or turned back by the user: go on with the tour
+            break;
+        }
+        const double remaining = m_event_arrival - m_clock.t_tdb;
+        if (remaining > 0.0) {
+            m_event_shot_warp = std::clamp(remaining / kApproachSeconds, m_event_warp, m_event_max_warp);
+            break;
+        }
+        // Arrived: show the caption, and hold until it is read and any flyby is over.
+        m_event_phase = EventPhase::Hold;
+        m_event_shot_warp = m_event_warp;
+        m_last_event = m_tour_event;
+        m_event_age = 0.0;
+        double hold = std::clamp(caption_times(e.caption).gone + 1.0, kMinEventSeconds, kMaxEventSeconds);
+        if (m_event_flyby.body >= 0) {
+            hold = std::max(hold, (m_event_flyby.t_tdb - m_event_arrival) / m_event_warp + kAfterFlybySeconds);
+        }
+        m_director.hold_event(hold);
+        break;
+    }
+    case EventPhase::Hold:
+        break;
+    }
+}
+
+void Simulation::end_tour_event()
+{
+    m_tour_event = -1;
+    m_event_flyby = Flyby{};
+    m_fade_target = 1.0;
+}
+
 void Simulation::apply_tour_warp()
 {
-    const double want = m_director.shot_warp();
+    double want = m_director.shot_warp();
+    if (m_tour_event >= 0) {
+        if (m_event_phase == EventPhase::FadeOut) {
+            return; // the previous shot's warp until the cut
+        }
+        want = m_event_shot_warp;
+    }
     if (want == m_tour_warp) {
         return;
     }

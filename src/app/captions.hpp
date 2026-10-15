@@ -28,21 +28,10 @@ void draw_scene_title(const CaptionFonts& fonts, const std::string& title, doubl
 // False once the title has faded out.
 bool scene_title_visible(double age);
 
-// When an event's caption is shown, in real seconds after the jump: it waits
-// for the camera's flight, fades in, stays for a reading time that grows with
-// its length, and fades out.
-struct CaptionTimes {
-    double fade_in = 0.0;  // starts fading in
-    double shown = 0.0;    // fully shown
-    double fade_out = 0.0; // starts fading out
-    double gone = 0.0;
-};
-CaptionTimes caption_times(const std::string& caption);
-
 // A museum placard for an event with a caption: the event's name as a heading
 // (a trailing parenthesis, such as the date, set apart below it) and the
 // caption, on a dark card `width` wide whose bottom edge is centred on
-// `bottom_center`. `age` is in real seconds since the jump. Draws into the
+// `bottom_center`. `age` is in real seconds since the jump (caption_times). Draws into the
 // background draw list; nothing if the event has no caption.
 void draw_event_caption(const CaptionFonts& fonts, const SceneEvent& event, double age, const ImVec2& bottom_center,
                         float width);

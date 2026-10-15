@@ -21,6 +21,10 @@ constexpr double kOrbitSeconds = 25.0;
 // warp is lowered to one turn per kSpinSeconds.
 constexpr double kMinSpinSeconds = 6.0;
 constexpr double kSpinSeconds = 15.0;
+constexpr double kEventPending = 1e9; // an event shot lasts until Simulation sets its length
+// Flyby search: samples over the interval, then golden-section refinement.
+constexpr int kFlybySamples = 240;
+constexpr int kFlybyRefineSteps = 40;
 
 bool is_planet(const Body& b)
 {
@@ -47,7 +51,96 @@ double spin_period(const Body& b)
     return b.pm_rate_deg_per_day != 0.0 ? 360.0 / std::abs(b.pm_rate_deg_per_day) * kSecondsPerDay : 0.0;
 }
 
+bool valid_at(const Scene& scene, int body, double t_tdb)
+{
+    for (int b = body; b >= 0; b = scene.bodies[static_cast<size_t>(b)].parent) {
+        const MotionSource* m = scene.bodies[static_cast<size_t>(b)].motion.get();
+        if (m && !m->valid_at(t_tdb)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+double distance_at(const Scene& scene, int a, int b, double t_tdb)
+{
+    return glm::length(scene.icrf_state_at(a, t_tdb).position - scene.icrf_state_at(b, t_tdb).position);
+}
+
 } // namespace
+
+Flyby find_flyby(const Scene& scene, int body, double t0, double t1, double max_distance_km)
+{
+    Flyby best;
+    if (body < 0 || body >= static_cast<int>(scene.bodies.size()) || !(t1 > t0)) {
+        return best;
+    }
+    const bool from_craft = scene.bodies[static_cast<size_t>(body)].kind == BodyKind::Spacecraft;
+    const double step = (t1 - t0) / (kFlybySamples - 1);
+    std::vector<double> distances(kFlybySamples);
+    for (size_t i = 0; i < scene.bodies.size(); ++i) {
+        const Body& other = scene.bodies[i];
+        const int k = static_cast<int>(i);
+        const bool candidate = from_craft ? (other.kind == BodyKind::Planet || other.kind == BodyKind::Star)
+                                          : other.kind == BodyKind::Spacecraft;
+        if (k == body || !candidate || !other.motion) {
+            continue;
+        }
+        // The closest sample that is a local minimum between valid samples.
+        for (int s = 0; s < kFlybySamples; ++s) {
+            const double t = t0 + step * s;
+            distances[static_cast<size_t>(s)] =
+                valid_at(scene, k, t) && valid_at(scene, body, t) ? distance_at(scene, k, body, t) : -1.0;
+        }
+        int closest = -1;
+        double closest_d = best.body >= 0 ? best.distance_km : max_distance_km;
+        for (size_t s = 1; s + 1 < distances.size(); ++s) {
+            const double here = distances[s];
+            const double before = distances[s - 1];
+            const double after = distances[s + 1];
+            if (before >= 0.0 && after >= 0.0 && here >= 0.0 && here <= before && here <= after && here < closest_d) {
+                closest = static_cast<int>(s);
+                closest_d = here;
+            }
+        }
+        if (closest < 0) {
+            continue;
+        }
+        // Golden-section search between the neighbouring samples.
+        constexpr double kInvPhi = 0.6180339887498949;
+        double a = t0 + step * (closest - 1);
+        double b = t0 + step * (closest + 1);
+        double c = b - kInvPhi * (b - a);
+        double d = a + kInvPhi * (b - a);
+        double fc = distance_at(scene, k, body, c);
+        double fd = distance_at(scene, k, body, d);
+        for (int it = 0; it < kFlybyRefineSteps; ++it) {
+            if (fc < fd) {
+                b = d;
+                d = c;
+                fd = fc;
+                c = b - kInvPhi * (b - a);
+                fc = distance_at(scene, k, body, c);
+            } else {
+                a = c;
+                c = d;
+                fc = fd;
+                d = a + kInvPhi * (b - a);
+                fd = distance_at(scene, k, body, d);
+            }
+        }
+        const double t = 0.5 * (a + b);
+        const State sa = scene.icrf_state_at(k, t);
+        const State sb = scene.icrf_state_at(body, t);
+        const glm::dvec3 r = sa.position - sb.position;
+        const glm::dvec3 n = glm::cross(r, sa.velocity - sb.velocity);
+        best.body = k;
+        best.t_tdb = t;
+        best.distance_km = glm::length(r);
+        best.normal_icrf = glm::dot(n, n) > 0.0 ? glm::normalize(n) : glm::dvec3(0.0);
+    }
+    return best;
+}
 
 const char* CameraDirector::shot_name(ShotKind kind)
 {
@@ -66,6 +159,8 @@ const char* CameraDirector::shot_name(ShotKind kind)
         return "Black hole";
     case ShotKind::OrbitTopDown:
         return "Orbit (face-on)";
+    case ShotKind::Event:
+        return "Event";
     case ShotKind::Count:
         break;
     }
@@ -87,13 +182,33 @@ void CameraDirector::start(const Scene& scene, OrbitCamera& camera, uint32_t see
     m_active = true;
     m_rng.seed(seed);
     m_last_target = -1;
+    m_kind = ShotKind::Overview;
+    m_event_requested = false;
+    m_shots_until_event = 1; // settle in with one shot first (unless an event is imminent)
     next_shot(scene, camera);
 }
 
 void CameraDirector::stop(OrbitCamera& camera)
 {
     m_active = false;
+    m_event_requested = false;
     camera.set_drift(0.0);
+}
+
+bool CameraDirector::take_event_request()
+{
+    const bool requested = m_event_requested;
+    m_event_requested = false;
+    return requested;
+}
+
+void CameraDirector::skip_event(const Scene& scene, OrbitCamera& camera)
+{
+    m_event_requested = false;
+    const bool available = m_events_available;
+    m_events_available = false;
+    next_shot(scene, camera);
+    m_events_available = available;
 }
 
 int CameraDirector::find_shadow_transit(const Scene& scene)
@@ -133,6 +248,15 @@ void CameraDirector::next_shot(const Scene& scene, OrbitCamera& camera)
     if (scene.bodies.empty()) {
         return;
     }
+    m_shot_warp = 0.0;
+    if (m_events_available && (m_event_imminent || m_shots_until_event <= 0)) {
+        m_kind = ShotKind::Event;
+        m_event_requested = true;
+        m_time_left = kEventPending;
+        m_shots_until_event = uniform(0.0, 1.0) < 0.5 ? 1 : 2;
+        return;
+    }
+    --m_shots_until_event;
     const Body& root = scene.bodies[0];
 
     // What this scene offers right now.
@@ -227,7 +351,6 @@ void CameraDirector::next_shot(const Scene& scene, OrbitCamera& camera)
     CameraShot shot;
     double duration = 40.0;
     double drift = 0.0;
-    m_shot_warp = 0.0;
 
     // Lowers the warp (never raises it) so that something with this period
     // takes at least min_seconds, or `seconds` once slowed down.
@@ -423,6 +546,7 @@ void CameraDirector::next_shot(const Scene& scene, OrbitCamera& camera)
         break;
     }
 
+    case ShotKind::Event:
     case ShotKind::Count:
         break;
     }

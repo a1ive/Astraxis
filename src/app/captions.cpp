@@ -1,6 +1,7 @@
 #include "app/captions.hpp"
 
 #include "scene/scene.hpp"
+#include "scene/simulation.hpp"
 
 #include <imgui.h>
 
@@ -27,16 +28,6 @@ constexpr float kTitleTrackingStart = 0.20f; // letter spacing in ems; widens sl
 constexpr float kTitleTrackingEnd = 0.28f;
 constexpr float kTitleCenterY = 0.70f;       // in the lower third, clear of the focus at the centre
 constexpr float kTitleMaxWidth = 0.8f;       // fraction of the output width
-
-// Event caption timing, real seconds after the jump: the camera flies for 2 s
-// (Simulation::jump_to_event); the caption stays for a leisurely reading time.
-constexpr double kCaptionDelay = 1.5;
-constexpr double kCaptionFadeIn = 0.8;
-constexpr double kCaptionFadeOut = 1.5;
-constexpr double kCaptionWordsPerSecond = 3.0;
-constexpr double kCaptionExtraSeconds = 4.0;
-constexpr double kCaptionMinSeconds = 8.0;
-constexpr double kCaptionMaxSeconds = 45.0;
 
 // Caption sizes, relative to the UI font size (which includes the DPI scale).
 constexpr float kHeadingSize = 1.9f;
@@ -209,27 +200,6 @@ void draw_scene_title(const CaptionFonts& fonts, const std::string& title, doubl
             x += font->CalcTextSizeA(scaled, FLT_MAX, 0.0f, begin, end).x + tracking * fit;
         }
     }
-}
-
-CaptionTimes caption_times(const std::string& caption)
-{
-    size_t words = 0;
-    bool in_word = false;
-    for (const char c : caption) {
-        const bool space = c == ' ' || c == '\n';
-        if (!space && !in_word) {
-            ++words;
-        }
-        in_word = !space;
-    }
-    const double reading = std::clamp(static_cast<double>(words) / kCaptionWordsPerSecond + kCaptionExtraSeconds,
-                                      kCaptionMinSeconds, kCaptionMaxSeconds);
-    CaptionTimes t;
-    t.fade_in = kCaptionDelay;
-    t.shown = t.fade_in + kCaptionFadeIn;
-    t.fade_out = t.shown + reading;
-    t.gone = t.fade_out + kCaptionFadeOut;
-    return t;
 }
 
 void draw_event_caption(const CaptionFonts& fonts, const SceneEvent& event, double age, const ImVec2& bottom_center,

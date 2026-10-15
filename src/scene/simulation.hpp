@@ -6,11 +6,23 @@
 #include "scene/scene.hpp"
 
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <string>
 #include <vector>
 
 namespace astraxis {
+
+// When an event's caption is shown, in real seconds after the jump: it waits
+// for the camera's flight, fades in, stays for a reading time that grows with
+// its length, and fades out.
+struct CaptionTimes {
+    double fade_in = 0.0;  // starts fading in
+    double shown = 0.0;    // fully shown
+    double fade_out = 0.0; // starts fading out
+    double gone = 0.0;
+};
+CaptionTimes caption_times(const std::string& caption);
 
 // The simulation as seen on one output: the camera view at the output's size
 // and what depends on it. Each output (window, monitor) has its own.
@@ -24,6 +36,13 @@ struct OutputView {
 // camera and the auto tour, and the animation clocks of the effects. A host
 // (window, screensaver, wallpaper) drives it with real time and input, and
 // SceneRenderer draws it.
+//
+// The tour's event shots go through the scene's events in time order: the
+// picture fades to black, the clock jumps to shortly before the event (or,
+// for an event coming up anyway, just keeps going), the warp eases down to the
+// event's own as its time comes (for a flyby: shortly before closest
+// approach), the camera frames the flyby, and the event's caption is shown
+// while the shot lasts.
 class Simulation {
 public:
     // Loads a scene file and starts at the scene's own time and view; a running
@@ -43,9 +62,16 @@ public:
     // Views the focus from (slightly off) the sun's direction.
     void look_from_sun_side();
 
-    void start_tour();
+    // `seed` 0: a random tour.
+    void start_tour(uint32_t seed = 0);
     void stop_tour();
     bool touring() const { return m_director.active(); }
+    // The event the tour is showing or heading for (-1: none).
+    int tour_event() const { return m_tour_event; }
+    // The clock has reached it (its caption is up), rather than being on the way.
+    bool tour_event_arrived() const { return m_tour_event >= 0 && m_event_phase == EventPhase::Hold; }
+    // Brightness of the picture, 0..1: the tour fades to black to move the clock.
+    double fade() const;
 
     const Scene& scene() const { return m_scene; }
     SimClock& clock() { return m_clock; }
@@ -69,8 +95,35 @@ public:
     void set_event_age(double age) { m_event_age = age; }
 
 private:
+    enum class EventPhase {
+        FadeOut,  // the previous shot fades to black, then the clock jumps
+        Approach, // the clock runs up to the event, slowing down
+        Hold,     // at the event's warp, with its caption
+    };
+
     // Applies (or, when the shot ends, undoes) a time warp asked for by the tour.
     void apply_tour_warp();
+    // The warp the user chose (the tour's own warp put aside).
+    double user_warp() const { return m_tour_warp > 0.0 ? m_saved_warp : m_clock.warp; }
+
+    // Event shots of the tour.
+    bool can_show_event(const SceneEvent& e) const;
+    // The next event to show, in time order: the first not yet shown in this
+    // round after the last one the tour showed (at the start of the tour: after
+    // the clock), else the earliest not shown; -1 if none. An event shown at
+    // weeks per second runs the clock past the next ones, which are still shown.
+    int next_tour_event() const;
+    // Simulated time before the event at which the approach starts.
+    double approach_lead(int index) const;
+    // Close enough ahead to be reached without moving the clock.
+    bool event_imminent(int index) const;
+    void begin_tour_event();
+    void jump_to_tour_event();
+    void aim_at_tour_event(double duration);
+    void run_tour_event(double real_dt);
+    void end_tour_event();
+    // The camera shot of event `index` as jump_to_event frames it.
+    CameraShot event_shot(size_t index) const;
 
     Scene m_scene;
     SimClock m_clock;
@@ -79,6 +132,18 @@ private:
 
     double m_tour_warp = 0.0;  // warp currently imposed by the tour (0 = none)
     double m_saved_warp = 0.0; // the user's warp, restored afterwards
+
+    int m_tour_event = -1;
+    EventPhase m_event_phase = EventPhase::Hold;
+    double m_event_warp = 0.0;     // the event's own warp
+    double m_event_max_warp = 0.0; // the approach starts at this warp
+    double m_event_shot_warp = 0.0; // the warp now
+    Flyby m_event_flyby;           // the pass the event shows, if any
+    double m_event_arrival = 0.0;  // when the approach ends: the event's time, or shortly before the flyby
+    std::vector<bool> m_events_shown; // in this round of the tour
+    int m_last_tour_event = -1;       // the last event the tour showed (-1: none since it started)
+    double m_fade = 1.0;              // linear; fade() eases it
+    double m_fade_target = 1.0;
     double m_disk_time = 0.0;
     double m_animation_time = 0.0;
     double m_scene_age = 0.0;

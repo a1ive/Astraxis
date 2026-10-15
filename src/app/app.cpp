@@ -47,6 +47,7 @@ bool App::init(const LaunchOptions& options)
     }
     m_view_options = m_settings.view;
     m_show_labels = m_settings.labels;
+    m_show_captions = m_settings.captions;
     m_show_info = m_settings.info;
     m_auto_tour = m_settings.auto_tour;
     m_fps_limit = options.fps.value_or(m_settings.fps);
@@ -348,6 +349,7 @@ void App::save_settings()
     Settings settings = m_settings;
     settings.view = m_view_options;
     settings.labels = m_show_labels;
+    settings.captions = m_show_captions;
     settings.info = m_show_info;
     settings.auto_tour = m_auto_tour;
     // The command line's overrides stay out of the file unless changed in the app.

@@ -95,6 +95,7 @@ struct Check {
 
 constexpr Check kChecks[] = {
     {IDC_LABELS, &Settings::labels, nullptr},
+    {IDC_CAPTIONS, &Settings::captions, nullptr},
     {IDC_ORBITS, nullptr, &ViewOptions::orbits},
     {IDC_BELTS, nullptr, &ViewOptions::belts},
     {IDC_ATMOSPHERES, nullptr, &ViewOptions::atmospheres},

@@ -1172,7 +1172,8 @@ void SceneRenderer::render(const Frame& frame, const Simulation& sim, const Outp
     m_orbits.draw(frame.cmd, pass, view, options.line_width);
     SDL_EndGPURenderPass(pass);
 
-    m_post.run(frame.cmd, targets, frame.width, frame.height, frame.swapchain, options.post);
+    m_post.run(frame.cmd, targets, frame.width, frame.height, frame.swapchain, options.post,
+               static_cast<float>(sim.fade()));
 }
 
 } // namespace astraxis

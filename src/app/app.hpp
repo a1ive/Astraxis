@@ -98,6 +98,7 @@ private:
     // UI options.
     bool m_show_ui = true;
     bool m_show_labels = true;
+    bool m_show_captions = true; // event captions (E dismisses one)
     bool m_show_info = true;
     bool m_show_demo = false;
     bool m_auto_tour = true;     // start the tour after kIdleSeconds without input
