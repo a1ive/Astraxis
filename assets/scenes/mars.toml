@@ -1,7 +1,7 @@
-# Mars, Phobos and Deimos, seven orbiters: Mars Odyssey (2001-), Mars Express (2003-), the
+# Mars, Phobos and Deimos, eight orbiters: Mars Odyssey (2001-), Mars Express (2003-), the
 # Mars Reconnaissance Orbiter (2006-), MAVEN (2014-2025), India's Mars Orbiter Mission
-# (2014-2022), ESA's Trace Gas Orbiter (2016-) and Hope (2021-), and comet Siding Spring's
-# pass of Mars on 2014-10-19.
+# (2014-2022), ESA's Trace Gas Orbiter (2016-), Hope (2021-) and China's Tianwen-1
+# (2021-), and comet Siding Spring's pass of Mars on 2014-10-19.
 #
 # Sources
 # [HZN]  JPL Horizons state vectors relative to Mars' center, baked by
@@ -45,6 +45,25 @@
 #        first interplanetary mission", arrival 2014-09-24, "366 x 80000 km Mars orbit with
 #        inclination 150 degrees" (the plan), 6-8 months of planned work, contact lost in
 #        April 2022 "7.5 years into a 6 month mission", formally ended 2022-10-02.
+# [TW1]  Tianwen-1, tools/tianwen1/ (assets/ephem/SOURCES.md), Mars-centered:
+#        - 2021-02 .. 2021-11, windows around five maneuvers: D. Estevez's GMAT propagations
+#          of the state vectors in the orbiter's telemetry (decoded by amateur stations such
+#          as AMSAT-DL's 20 m dish at Bochum; github.com/daniestevez/jupyter_notebooks).
+#        - 2021-11-16 .. 2025-12-17: the orbiter's positions in the calibrated data of its
+#          magnetometer, MOMAG (USTC, http://space.ustc.edu.cn/dreams/tw1_momag/; Wang et
+#          al. 2023, Earth Planet. Phys. 7, 1; Zou et al. 2023, Sci. China Tech. Sci. 66,
+#          2396; Wang et al. 2024, JGR Space Physics 129, e2023JA031757). Data gaps of more
+#          than 2 hours (e.g. 2022-11 .. 2023-04) are gaps here: the orbiter is not shown.
+#        [AMSAT] D. Estevez, M. Lorenz and P. Gulzow, "Deep space reception of Tianwen-1 by
+#          AMSAT-DL using GNU Radio", Proc. GNU Radio Conference 6(1), 2021 (2022): the
+#          maneuvers from the telemetry: Mars orbit injection on 2021-02-10 into a 390 x
+#          182,000 km, 11 deg orbit (660 m/s); a plane change to 87 deg at the first
+#          apoapsis (128 m/s); 02-20 apoapsis lowering to 280 x 84,600 km to phase with the
+#          landing site (53 m/s); 02-23 a 2 Mars sidereal day orbit over the landing site
+#          (41 m/s); 05-14 a deorbit burn (21 m/s), the release of the lander, a collision
+#          avoidance burn back to a 2-sol orbit (61 m/s); 05-17 a 1/3-sol relay orbit.
+#        Horizons notes for Tianwen-1 (record -9901491, cruise only): science objectives
+#          "Map the morphology and geological structure", among others.
 # [SBDB] JPL Small-Body Database, C/2013 A1 total magnitude M1 = 8.5 (+-2), K1 = 9 (solution
 #        105; M1 + 5 log delta + K1 log r). The coma color and ion tail are illustrative
 #        (its gas tail is not measured here), as are the dust tail's grain speeds and sizes
@@ -329,6 +348,19 @@ type = "ephemeris"
 file = "ephem/mom_mars.eph"
 
 [[bodies]]
+name = "Tianwen-1"
+parent = "Mars"
+kind = "spacecraft"
+radii_km = [0.006]                         # meters across (drawn as a marker)
+color = "#ff8f8f"
+orbit_color = "#f06a6a"
+trail = "history"
+trail_history_days = 0.3                   # 7 hours (2-sol and 8-hour orbits in 2021: longer)
+[bodies.orbit]                             # [TW1]
+type = "ephemeris"
+file = "ephem/tianwen1_mars.eph"
+
+[[bodies]]
 name = "Hope"
 parent = "Mars"
 kind = "spacecraft"
@@ -561,6 +593,69 @@ caption = """\
     planet, to build a picture of how the Martian atmosphere changes through the day \
     and the year."""
 
+# Tianwen-1 in 2021 [TW1]: windows of a few hours around maneuvers, burns where the pre- and
+# post-burn arcs cross: plane change 2021-02-15 09:02 TDB (inclination 11 -> 87 deg about
+# the IAU 2000 pole), apoapsis lowering 2021-02-20 11:45, deorbit 2021-05-14 17:18 (periapsis
+# 36 km below the mean radius) and collision avoidance 20:56 (back to 433 km).
+[[events]]
+name = "Tianwen-1 turns over the poles (2021-02-15)"
+time_tdb = "2021-02-15 07:00"
+focus = "Tianwen-1"
+distance_km = 1.5e4
+warp = 300.0
+# [AMSAT], [TW1]
+caption = """\
+    China's first Mars mission arrived five days ago, captured into an orbit reaching \
+    182,000 km and tilted only 11 degrees to the equator. Out at its far end, a burn of \
+    128 m/s now turns the orbit over the poles. Radio amateurs worked out these orbits \
+    from the spacecraft's own telemetry, which carries its position."""
+[[events.trails]]
+body = "Tianwen-1"
+trail_history_days = 0.5
+
+[[events]]
+name = "Tianwen-1 lines up with the landing site (2021-02-20)"
+time_tdb = "2021-02-20 11:00"
+focus = "Mars"
+distance_km = 3.0e4
+warp = 120.0
+# [AMSAT], [TW1]
+caption = """\
+    At its closest pass Tianwen-1 lowers the far end of its orbit to 84,600 km, timing \
+    its passes over the planned landing site. Three days later another burn sets an \
+    orbit of exactly two Mars days, so that every low pass goes over the same spot. The \
+    landing will come nearly three months later."""
+
+[[events]]
+name = "Zhurong is released (2021-05-14)"
+time_tdb = "2021-05-14 16:30"
+focus = "Tianwen-1"
+from_body = "Mars"                         # side-on to its fall toward Mars
+phase_deg = 90.0
+distance_km = 3.0e4
+warp = 240.0
+# [AMSAT], [TW1]
+caption = """\
+    A small burn puts the whole spacecraft on a path that would hit Mars, and the lander \
+    with the rover Zhurong is let go. Then the orbiter fires again, 61 m/s, to climb \
+    back to a safe orbit. Three days later it moves to an eight-hour orbit, to relay the \
+    rover's radio signals home."""
+
+# Remote sensing orbit: burn 2021-11-08 11:31 TDB, 8.28 h -> 7.08 h; from 2021-11-16 the
+# MOMAG positions: 270 x 10,730 km on 2021-11-20 [TW1].
+[[events]]
+name = "Tianwen-1 maps the whole planet (2021-11-08)"
+time_tdb = "2021-11-08 10:45"
+focus = "Mars"
+distance_km = 3.0e4
+warp = 120.0
+# [TW1], [AMSAT]
+caption = """\
+    Tianwen-1 trims its orbit to seven hours around, about 270 by 10,700 km, to map the \
+    planet's surface and its geology. From here on its path comes from the published \
+    data of its magnetometer team, which record the orbiter's position with every \
+    measurement."""
+
 # Closest approach 2023-03-10 02:17:31 TDB, 107 km from Deimos' center (100 km above its
 # mean radius, 6.2 km [SPHY]) [HZN].
 [[events]]
@@ -577,17 +672,17 @@ caption = """\
     moons may be debris from an impact on Mars."""
 
 [[events]]
-name = "Six orbiters (2025)"
+name = "Seven orbiters (2025)"
 time_tdb = "2025-06-01 00:00"
 focus = "Mars"
 distance_km = 1.3e5
 warp = 600.0
-# [MEX], [MRO], [MAV], [ODY], [TGOA], [HZN]
+# [MEX], [MRO], [MAV], [ODY], [TGOA], [HZN], [TW1]
 caption = """\
-    Six orbiters at once. MRO, Odyssey and TGO circle 250 to 440 km up, two hours a \
-    lap; MAVEN swings out to 4,500 km; Mars Express, here since 2003, out to 10,500 \
-    km, across the orbit of Phobos; Hope, from the orbit of Deimos outward, takes 55 \
-    hours."""
+    Seven orbiters at once. MRO, Odyssey and TGO circle 250 to 440 km up, two hours a \
+    lap; MAVEN swings out to 4,500 km; Mars Express, here since 2003, and Tianwen-1 out \
+    to 10,500 and 12,000 km, across the orbit of Phobos; Hope, from the orbit of Deimos \
+    outward, takes 55 hours."""
 
 [[events]]
 name = "MAVEN falls silent (2025-12)"

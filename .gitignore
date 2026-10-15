@@ -402,3 +402,6 @@ tools/armada/cache/
 
 # Chang'e-5 T1 reconstruction downloads (tools/ce5t1/ce5t1_reconstruct.py)
 tools/ce5t1/cache/
+
+# Tianwen-1 MOMAG positions (tools/tianwen1/momag_fetch.py)
+tools/tianwen1/cache/

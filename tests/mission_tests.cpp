@@ -791,6 +791,59 @@ void test_mars_scene()
     check(std::abs(mom_incl - 150.0) < 1.0, "MOM inclination (deg)", mom_incl);
     std::printf("info: MOM after arrival: %.0f x %.0f km, %.2f h, %.1f deg\n", el.periapsis_km - r_mean,
                 el.apoapsis_km - r_mean, el.period_s / 3600.0, mom_incl);
+
+    // Tianwen-1 (tools/tianwen1/). A state vector from the orbiter's telemetry (D. Estevez,
+    // tianwen1_orbit_change_2024.script: 2024-12-18 23:24:53.892 UTC, GMAT "MarsInertial" =
+    // Mars' equator of J2000 with the IAU 2000 pole RA 317.68143, Dec 52.88650 deg)
+    // checks the MOMAG positions, which are independent of it.
+    const int tw1 = scene.find("Tianwen-1");
+    auto utc = [&](const CalendarDateTime& c) { return tdb_from_utc_jd(jd_from_calendar(c)); };
+    {
+        const double ra0 = 317.68143 * kDegToRad;
+        const double de0 = 52.88650 * kDegToRad;
+        const glm::dvec3 z(std::cos(de0) * std::cos(ra0), std::cos(de0) * std::sin(ra0), std::sin(de0));
+        const glm::dvec3 x(-std::sin(ra0), std::cos(ra0), 0.0);
+        const glm::dvec3 y = glm::cross(z, x);
+        const glm::dvec3 telemetry = 4138.192797433121 * x + 1565.165195862828 * y + 3704.175680474208 * z;
+        const double miss = glm::length(at(tw1, utc({2024, 12, 18, 23, 24, 53}) + 0.892) - telemetry);
+        check(miss < 15.0, "Tianwen-1 MOMAG positions vs a telemetry state vector (km)", miss);
+        std::printf("info: Tianwen-1 vs telemetry 2024-12-18: %.1f km\n", miss);
+    }
+    // [AMSAT] (Estevez et al., GRCon 2021): the plane change turned the orbit from 11 to 87
+    // deg (about the IAU 2000 pole; the scene's IAU 2015 pole gives 9.5 and 86.9); the
+    // apoapsis lowering of 2021-02-20 gave 280 x 84,600 km; the 2-sol orbit (2 Mars
+    // sidereal days, 49.25 h) before the landing; the deorbit burn aimed below the surface.
+    auto tw1_incl = [&](double t) {
+        const State s = scene.icrf_state_at(tw1, t);
+        return std::acos(glm::dot(glm::normalize(glm::cross(s.position, s.velocity)), pole)) / kDegToRad;
+    };
+    const double i_before = tw1_incl(utc({2021, 2, 15, 0, 0, 0}));
+    const double i_after = tw1_incl(utc({2021, 2, 15, 10, 0, 0}));
+    check(std::abs(i_before - 11.0) < 2.0 && std::abs(i_after - 87.0) < 1.5, "Tianwen-1 plane change (deg)", i_after);
+    osculating_elements(scene.icrf_state_at(tw1, utc({2021, 2, 20, 16, 0, 0})), gm, &el);
+    check(std::abs(el.periapsis_km - r_mean - 280.0) < 20.0 && std::abs(el.apoapsis_km - r_mean - 84600.0) < 400.0,
+          "Tianwen-1 after the phasing burn (apoapsis altitude, km)", el.apoapsis_km - r_mean);
+    osculating_elements(scene.icrf_state_at(tw1, utc({2021, 5, 14, 16, 0, 0})), gm, &el);
+    check(std::abs(el.period_s / 3600.0 - 49.25) < 0.1, "Tianwen-1 2-sol orbit (h)", el.period_s / 3600.0);
+    osculating_elements(scene.icrf_state_at(tw1, utc({2021, 5, 14, 19, 0, 0})), gm, &el);
+    check(el.periapsis_km < r_mean, "Tianwen-1 deorbited with the lander (periapsis below the surface, km)",
+          el.periapsis_km - r_mean);
+    osculating_elements(scene.icrf_state_at(tw1, utc({2021, 5, 14, 21, 30, 0})), gm, &el);
+    check(el.periapsis_km - r_mean > 300.0, "Tianwen-1 back in a safe orbit (km)", el.periapsis_km - r_mean);
+    // The remote-sensing orbit (CNSA via Space.com, 2021-11: 265 x ~10,700 km, 7 h 05 min)
+    // in the MOMAG positions.
+    osculating_elements(scene.icrf_state_at(tw1, utc({2021, 11, 20, 0, 0, 0})), gm, &el);
+    check(std::abs(el.period_s / 3600.0 - 7.083) < 0.05 && std::abs(el.apoapsis_km - r_mean - 10700.0) < 150.0,
+          "Tianwen-1 remote-sensing orbit (h)", el.period_s / 3600.0);
+    // Shown only where there are data: not between the 2021 windows, nor in the MOMAG gap
+    // of 2022-11 .. 2023-04.
+    for (const auto& [when, shown] : {std::pair{CalendarDateTime{2021, 3, 15, 0, 0, 0}, false},
+                                      std::pair{CalendarDateTime{2023, 1, 15, 0, 0, 0}, false},
+                                      std::pair{CalendarDateTime{2024, 6, 1, 0, 0, 0}, true}}) {
+        scene.update(utc(when));
+        check(scene.bodies[static_cast<size_t>(tw1)].visible == shown, "Tianwen-1 shown only where there are data",
+              static_cast<double>(when.year));
+    }
 }
 
 // Osculating heliocentric elements in the J2000 ecliptic (obliquity 84381.448", as the

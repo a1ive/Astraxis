@@ -124,7 +124,7 @@ CMake 目标：
 | `core_tests.cpp` | 日历/时间尺度、星表（含重投影）与黑体颜色、银道坐标系 |
 | `ephem_tests.cpp` | 开普勒方程与传播、星历表、目视/凌星轨道约定、N 体 |
 | `planet_scene_tests.cpp` | 场景里的行星和卫星：太阳系、木星、地月、土星 |
-| `mission_tests.cpp` | 探测器：先驱者/新视野、Parker、伽利略/朱诺、Artemis/CAPSTONE/嫦娥五号 T1、卡西尼/惠更斯、信使/贝皮科伦坡、火星的七个轨道器与赛丁泉彗星、金星快车/破晓号/Zoozve 与金星借力飞掠、ISEE-3、哈雷舰队、Rosetta、JWST |
+| `mission_tests.cpp` | 探测器：先驱者/新视野、Parker、伽利略/朱诺、Artemis/CAPSTONE/嫦娥五号 T1、卡西尼/惠更斯、信使/贝皮科伦坡、火星的八个轨道器与赛丁泉彗星、金星快车/破晓号/Zoozve 与金星借力飞掠、ISEE-3、哈雷舰队、Rosetta、JWST |
 | `shape_tests.cpp` | 小天体形状模型 |
 | `appearance_tests.cpp` | 彗尾、尘埃彗尾、大气层、羽流（含各场景参数一致） |
 | `stellar_system_tests.cpp` | α Cen、TRAPPIST-1、Kepler 系统、TIC 168789840、PSR B1620-26 |
@@ -141,6 +141,7 @@ CMake 目标：
 - `assets/textures/*.jpg`：`tools/textures/prepare_textures.py` 从原图缩放
 - `assets/shapes/*.mesh`（AXMESH2）：`tools/shapes/` 下按来源格式分：`make_arrokoth.py`、`make_grid_table_shape.py`（Thomas / Stooke 经纬网格表）、`make_dtm_shape.py`（DLR 全球 DTM）、`make_plate_shape.py`（板块模型、OBJ、VRML）
 - `tools/isee3/`、`tools/armada/`、`tools/ce5t1/`：ISEE-3、哈雷舰队、嫦娥五号 T1 服务舱的轨道重建（需要 numpy，下载缓存不入库），做法见 `assets/ephem/SOURCES.md`
+- `tools/tianwen1/`：天问一号环绕器。`momag_fetch.py` 从 USTC 的 MOMAG 磁强计数据下载位置（约 15 GB，每天一个文件，逐个下载后只留每分钟一个样本，`cache/` 不入库）；`tianwen1_bake.py <jupyter_notebooks/Tianwen/orbit 目录>` 把它们和 D. Estévez 的 GMAT 报告（2021 年的机动窗口）烘成 `tianwen1_mars.eph`，只用标准库
 - `tools/pdftext.py`：只用标准库从 arXiv PDF 提取文字（ar5iv 经常超时）
 - `res/astraxis.ico`：`tools/icon/make_icon.py`（需要 Inkscape）从 `res/astraxis.svg`（≥ 48 px）和 `res/astraxis-small.svg`（≤ 40 px）生成；.ico 入库，CI 不依赖 Inkscape
 
@@ -197,6 +198,11 @@ CMake 目标：
   - Kepler 相对插值的参考 GM 要准，GM 偏差会让节点暴增（卡戎用 DE440 的系统 GM 要 10390 个节点，拟合的等效值只要 277 个）；节点也可能隔好几圈，`history_times` 和烘焙工具都按平均运动细分
   - 火星低轨道每圈都要几个节点（扁率摄动），10 km 容差下 MRO 每月 43 KB，全程烘焙前先拿一个月试算大小；`encounters` 在 Python 里逐点求值，几十年的表按分钟步长扫要几十分钟
   - 绕火星的探测器吻切倾角会周期变化几度（MAVEN 在 73°–75.7° 之间），对照名义倾角时容差要放宽
+- **天问一号**：
+  - GMAT 脚本里的 `MarsInertial` 是 `BodyInertial` 轴（z 为 J2000 火星自转轴，x 为火星赤道与地球 J2000 平赤道的升交点），不是 ICRF 轴；火星极要用 GMAT 的 IAU 2000 值（317.68143°、52.88650°），用 pck00011 的极换算会差约 80 km。当成 ICRF 用时倾角会算成 74° 而不是 87°
+  - MOMAG 2021 年的文件位置单位是火星半径（3389.5 km，三位小数，3.4 km 一级），之后是 km：单位要按文件头的 `Columns` 行判断；用相邻 1 Hz 样本差分求速度只会得到量化噪声，要用前后几分钟的最小二乘拟合
+  - MOMAG 的位置是 MSO（x 指向太阳、z 沿火星公转角动量），换到惯性系时速度要加坐标系转动项 ω × r（ω = h / r²）
+  - USTC 的下载接口不支持 Range、不压缩，偶尔返回截断的文件：按文件头检查，失败就重试
 - **JPL 卫星平根数表**：
   - 各表的 P 不是同一种周期（JUP365 是平近点角周期，SAT441 是恒星周期），每张表都要对照 PCK 自转速率核实；进动周期只给绝对值，符号要自己判断（Ω+ω+M 的变化率要和同步自转速率一致）
   - 周期位数不够时（火卫、木星内侧卫星），几十年就失相：改由 PCK 的自转速率反推
@@ -224,7 +230,7 @@ CMake 目标：
 2. 标题字体加希腊字母后备（Jost 没有希腊字母，`α` 显示成 `?`）；面板打开时长标题两端会被挡住
 3. 随天体自转的参考系；Rosetta 场景加 Philae（ESA SPICE 里有着陆轨迹，Horizons 没有）
 4. 地月场景加 CE-5T1 的火箭末级：Horizons −78000（2021-10-01 到 2022-03-04 撞月，JPL 解 #23）可以直接烘焙
-5. 火星场景：加 Europa Clipper 和 Hera 的 2025 年飞掠（Horizons −159、−91）；天问一号的环绕段要按公开根数重建；事件的视角支持“从太阳方向看”（场景里没有太阳天体，`from_body` 用不了）
+5. 火星场景：加 Europa Clipper 和 Hera 的 2025 年飞掠（Horizons −159、−91）；天问一号补 2021 年的入轨（02-10）、停泊轨道（02-23）和中继轨道（05-17），可用 Estévez 仓库里的遥测向量（`tm_state_vectors/`）和 AMSAT-DL 论文的机动表外推；加星际天体 3I/ATLAS（天问一号 2025-09-30 .. 10-03 拍摄，arXiv:2603.10350）；事件的视角支持“从太阳方向看”（场景里没有太阳天体，`from_body` 用不了）
 6. 金星场景：加信使号（2007-06-05，与金星快车协同观测）、Solar Orbiter 与贝皮科伦坡号相隔约 33 小时（2021-08）的金星飞掠，做法同伽利略号/卡西尼号/Juice（金星中心、前后各 5 天的短表）；Solar Orbiter（−144）和贝皮科伦坡号同时出现在一个事件里
 7. 只为换轨迹长度而复制的参考系（水星场景的“Mercury-centered, 30-day trails”，Rosetta 的“67P, Sun fixed, 3 months / the whole stay”）看能否改成事件的 `[[events.trails]]`，精简参考系菜单
 8. 远期：macOS（Metal，需要 SPIR-V → MSL 和 macOS CI）；Hulse–Taylor 并合（3 亿年后 double 秒数只有约 2 s 分辨率，要做成以并合为零点的单独场景）；脉冲星自转轴的测地线进动（B1913+16 的几何解各论文不一致）

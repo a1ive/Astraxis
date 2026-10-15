@@ -61,6 +61,7 @@
 | `mro_arrival.eph` / `mro_comet.eph` / `mro_recent.eph` | −74 火星勘测轨道器 | 火星 | 2006-03-07 .. 2006-10-01 / 2014-10-05 .. 2014-11-05 / 2024-10-01 .. 2026-10-27 12:08 | 10 km（AXEPH2；5 分钟基础步长） | 1700 / 788 / 19246 |
 | `odyssey_arrival.eph` / `odyssey_comet.eph` / `odyssey_recent.eph` | −53 Mars Odyssey | 火星 | 2001-10-20 .. 2002-02-20 / 2014-10-05 .. 2014-11-05 / 2024-10-01 .. 2026-12-28 | 10 km（AXEPH2；5 分钟基础步长） | 1645 / 755 / 19870 |
 | `tgo_arrival.eph` / `tgo_recent.eph` | −143 ExoMars 痕量气体轨道器（TGO） | 火星 | 2016-10-15 .. 2018-05-01 / 2023-06-21 .. 2026-12-31 | 10 km（AXEPH2；5 分钟基础步长） | 3924 / 31489 |
+| `tianwen1_mars.eph` | 天问一号环绕器（MOMAG 位置、Estévez 的遥测向量外推；见“天问一号”） | 火星 | 2021-02-14 .. 2025-12-17，有空档 | 5 km（AXEPH2） | 16618 |
 | `mom_mars.eph` | −3 印度火星轨道器（MOM） | 火星 | 2014-09-20 .. 2022-04-30 | 5 km（AXEPH2；10 分钟基础步长） | 3846 |
 | `emm_mars.eph` | −62 希望号（EMM） | 火星 | 2021-02-05 .. 2027-03-04 | 5 km（AXEPH2；10 分钟基础步长） | 1374 |
 | `phobos_mex.eph` | 401 火卫一 | 火星 | 2003-12-20 .. 2029-01-01，取火星快车距火卫一 1,500 km 以内的时段（前后各 1 天） | 2 km（AXEPH2） | 9786 |
@@ -255,6 +256,50 @@ NASA 的离地距离是从地表算起的：从地心算会多出 6,378 km。CAP
 | TGO 入轨与大气制动 | 2016-10-19 14:52 第一次过近火点（572 km），之后 329 × 98,389 km、4.3 天；2017-03-16 .. 2018-02-20 共 950 次近火点低于 150 km；2018-04-30 为 362 × 417 km、1.97 h | ESA：四天、约 98,000 × 200 km 的初始轨道；2018-02-20 宣布大气制动完成；4 月底进入约 400 km、两小时的近圆轨道 |
 | MOM 入轨 | 2014-09-24 02:03 第一次过近火点（452 km）；当天 428 × 76,860 km、72.70 h、倾角 150.4° | ISRO（2014-09-24，经 SpaceRef 转载）：421.7 × 76,993.6 km、72 h 51 m 51 s、150° |
 | 彗星尘埃 | 最近点后 90–110 分钟，MAVEN、MRO 和 Odyssey 都在火星背向尘埃流（沿彗星速度方向）的一侧，火星快车不在，MOM 只到 105 分钟 | NASA/JPL：最危险的时段从最近点后约 90 分钟开始，持续约 20 分钟；Odyssey、MRO、MAVEN 躲到火星背后 |
+
+## 天问一号（`mars.toml`，`tools/tianwen1/`）
+
+Horizons 里的天问一号（−9901491）只有业余爱好者测定的巡航段，到达火星就结束了。`tianwen1_mars.eph` 由 `tools/tianwen1/` 用两种数据拼成，都以火星中心为原点、ICRF 坐标、TDB 时间（UTC + 69.184 s）：
+
+- **2021-02 .. 2021-11，五个机动窗口**：Daniel Estévez 的 GMAT 报告（<https://github.com/daniestevez/jupyter_notebooks>，`Tianwen/orbit/*/Tianwen1_pre_*.txt`、`_post_*.txt`）。天问一号的遥测里带着星上自己的位置速度，AMSAT-DL 用 Bochum 天文台 20 m 天线等业余站收下来，由 Estévez 解码；他把机动前后的状态向量分别向后、向前外推几小时，两段轨迹的交点就是机动时刻。烘焙工具在交点之前用机动前的弧段，之后用机动后的弧段：
+
+  | 窗口 | 数据范围（TDB） | 机动时刻（交点处两弧相距） |
+  |---|---|---|
+  | 变轨面 | 2021-02-14 23:46 .. 02-15 10:25 | 02-15 09:02:13（0.36 km） |
+  | 调相 | 2021-02-20 10:43 .. 16:34 | 11:45:26（0.66 km） |
+  | 释放着陆器（降轨、规避） | 2021-05-14 15:54 .. 21:37 | 17:18:37、20:55:44（0.02 km） |
+  | 转入遥感轨道 | 2021-11-08 10:22 .. 13:11 | 11:31:11（2.74 km） |
+
+  降轨报告和规避报告之间的 1 小时 58 分钟（同一条轨道，没有机动）由插值连起来。机动后的报告只向前推了几小时，所以窗口很短。
+
+  **坐标系**：GMAT 脚本里的 `MarsInertial` 是 `BodyInertial` 轴：z 轴为 J2000 时刻的火星自转轴，x 轴指向火星赤道与地球 J2000 平赤道的升交点。火星极要用 GMAT 采用的 IAU 2000 值（RA 317.68143°、Dec 52.88650°）：这样换算后，2024-12-18 23:24:53 UTC 的遥测向量与 MOMAG 位置相差 5.7 km；用 pck00011（IAU 2015）的极则差 81 km。按这个坐标系算，变轨面前后的倾角是 11.0° 和 87.3°，与 AMSAT-DL 论文给的 11° 和 87° 一致。
+- **2021-11-16 .. 2025-12-17，连续的数据**：天问一号环绕器磁强计（MOMAG）团队公开的定标数据（中国科学技术大学，<http://space.ustc.edu.cn/dreams/tw1_momag/>），每天一个 1 Hz 文件，每行带有环绕器在 MSO 坐标系里的位置。`momag_fetch.py` 逐个下载 1,209 个日文件（每个约 12.5 MB，共约 15 GB；服务器不压缩，也不支持按字节范围下载），每分钟取一个样本，用前后 2 分钟内 1 Hz 数据的最小二乘三次多项式求位置和速度，结果存在 `tools/tianwen1/cache/`（不入库），原文件不保留。
+  - 2021 年的文件位置单位是火星半径（文件头：`Position_MSO (x,y,z) (R_M)`、`R_M: Mars mean radius = 3389.5 km`），只有三位小数，即 3.4 km 一级；之后的文件单位是 km，六位小数。三次拟合把 2021 年数据的台阶平滑到留一法误差中位数 0.04 km、最大 0.5 km。工具按文件头判断单位。
+  - MSO：原点在火星中心，x 轴指向太阳，z 轴沿火星公转角动量，y = z × x。`tianwen1_bake.py` 用 Horizons 的火星日心状态（499 @ 太阳，每小时一个，线性插值）换到 ICRF，速度加上 MSO 坐标系转动的 ω × r（ω = h / r²，在 1.2 万 km 处约 1 m/s）。
+  - 服务器偶尔会返回截断的文件（2025-09-10 第一次下载时文件头没有 `Columns` 行），工具会重试三次，仍不行就跳过并记录。
+  - 2025-01-08 等个别日期网站上没有文件，2022-11-04 .. 2023-04-05、2023-10-31 .. 2023-11-30（日凌）、2024-12-19 .. 27 和 2025-01-08 .. 21（两次抬高远火点前后）也没有数据。
+
+超过 2 小时的数据空档在表里是无数据区间（文件头的最大节点间距 7200 s），场景在这些时段不显示天问一号；短于 2 小时的空档由插值连起来，节点间距也限制在 2 小时以内。容差 5 km（AXEPH2，火星系统 GM），共 91 段、覆盖 1,184 天，16,618 个节点，908 KB。
+
+对照（`test_mars_scene`）：
+
+| 项目 | 表 | 对照 |
+|---|---|---|
+| 2024-12-18 23:24:53.892 UTC 的位置 | 与遥测向量相差 5.9 km | Estévez 解码的遥测状态向量（`tianwen1_orbit_change_2024.script`），与 MOMAG 无关 |
+| 变轨面（2021-02-15） | 倾角 11.0° → 87.3°（IAU 2000 极） | AMSAT-DL：11° → 87°，128 m/s |
+| 调相后（2021-02-20） | 280 × 84,600 km | AMSAT-DL：280 × 84,600 km |
+| 着陆前的停泊轨道 | 49.22 h | AMSAT-DL：2 个火星恒星日（49.25 h） |
+| 释放着陆器 | 降轨后近火点在平均半径以下 36 km，规避后 433 km | AMSAT-DL：降轨 21 m/s，规避 61 m/s 回到 2 sol 轨道 |
+| 遥感轨道（2021-11-20） | 270 × 10,730 km，7.08 h | 据 Space.com 报道：265 × 约 10,700 km，7 h 05 min |
+| 2025 年 | 约 270 × 11,950 km，7.82 h | Estévez 2025-01-08 机动后的向量：274 × 11,949 km，7.82 h |
+
+致谢与引用：天问一号环绕器磁强计（MOMAG）的数据由中国科学技术大学 MOMAG 团队（负责人汪毓明教授）提供：
+
+1. Wang, Y., Zhang, T., Wang, G., Xiao, S., Zou, Z., Cheng, L., Pan, Z., Liu, K., Hao, X., Li, Y., Chen, M., Zhang, Z., Yan, W., Su, Z., Wu, Z., Shen, C., Chi, Y., Xu, M., Guo, J., & Du, Y. (2023). The Mars Orbiter Magnetometer of Tianwen-1: In-flight Performance and First Science Results. *Earth and Planetary Physics*, 7, 1–13. <https://doi.org/10.26464/epp2023028>
+2. Zou, Z., Wang, Y., Zhang, T., Wang, G., Xiao, S., Pan, Z., Zhang, Z., Yan, W., Du, Y., Chi, Y., Cheng, L., Wu, Z., Hao, X., Li, Y., Liu, K., Chen, M., Su, Z., Shen, C., Xu, M., & Guo, J. (2023). In-flight Calibration of the Magnetometer on the Mars Orbiter of Tianwen-1. *Science China Technological Sciences*, 66, 2396–2405. <https://doi.org/10.1007/s11431-023-2401-2>
+3. Wang, G., Xiao, S., Wu, M., Zhao, Y., Jiang, S., Pan, Z., Hao, X., Li, Y., Liu, K., Chi, Y., Zou, Z., Chen, M., Su, Z., Shen, C., Guo, J., Cheng, L., Wu, Z., Xu, M., Wang, Y., & Zhang, T. (2024). Calibration of the zero offset of the Fluxgate Magnetometer on board the Tianwen-1 orbiter in the Martian Magnetosheath. *Journal of Geophysical Research: Space Physics*, 129, e2023JA031757. <https://doi.org/10.1029/2023JA031757>
+
+2021 年的窗口和机动列表另见：D. Estévez, M. Lorenz, P. Gülzow, “Deep space reception of Tianwen-1 by AMSAT-DL using GNU Radio”, *Proceedings of the GNU Radio Conference* 6(1), 2021（2022 年出版）。
 
 ## 金星任务与 Zoozve（`venus.toml`）
 
