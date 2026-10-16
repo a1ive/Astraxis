@@ -157,6 +157,14 @@ radii_km = [3396.19, 3376.20]              # [PCK]
 body_gm_km3_s2 = 42828.37362               # [SPHY] (MAR097)
 pole_ra_dec_deg = [317.269202, 54.432516]
 prime_meridian_deg = [176.049863, 350.891982443297]
+pole_rate_deg_per_century = [-0.10927547, -0.05827105]
+# pck00011's long-period terms (about 71,000 years; at J2000 the pole is 317.681, 52.886):
+# its ~0.0002 deg terms (under 15 m at the surface) are left out, so these angles are not
+# BODY4_NUT_PREC_ANGLES.
+nut_prec_angles = [[79.398797, 0.5042615], [166.325722, 0.5042615], [95.391654, 0.5042615]]
+nut_prec_ra = [0.419057]
+nut_prec_dec = [0.0, 1.591274]
+nut_prec_pm = [0.0, 0.0, 0.584542]
 color = "#c1673e"
 orbit_color = "#c98a6e"
 texture = "textures/mars.jpg"              # assets/textures/SOURCES.md

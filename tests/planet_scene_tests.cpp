@@ -1,5 +1,5 @@
 // Tests for the planets and their moons in the scenes: Solar System, Jupiter,
-// Earth-Moon, Saturn.
+// Earth-Moon, Saturn, Mars' rotation.
 
 #include "test_util.hpp"
 
@@ -752,6 +752,34 @@ void test_earth_moon_rotation()
     }
 }
 
+// Mars' axes in every scene that shows it: pck00011 with its long-period terms (the
+// constant terms alone put the pole 1.5 deg off and the prime meridian 1-1.4 deg off).
+// Checked against the IAU 2009 model (the "old values" in pck00011: pole 317.68143 -
+// 0.1061 T, 52.88650 - 0.0609 T, W = 176.630 + 350.89198226 d), which has no such
+// terms; the two agree to 0.003 deg.
+void test_mars_rotation()
+{
+    for (const char* file : {"mars.toml", "solar_system.toml", "isee3.toml", "mercury.toml", "parker.toml",
+                             "rosetta.toml"}) {
+        Scene scene = load_scene_or_die(file);
+        const int mars = scene.find("Mars");
+        check(mars >= 0, "Mars in the scene");
+        double worst = 0.0;
+        for (const double jd : {2451545.0, 2459256.0, 2466000.0}) { // J2000, 2021-02-10, 2039-06
+            const double d = jd - kJ2000Jd;
+            const double centuries = d / kDaysPerJulianCentury;
+            const glm::dmat3 iau2009 =
+                iau_pole_frame((317.68143 - 0.1061 * centuries) * kDegToRad, (52.88650 - 0.0609 * centuries) * kDegToRad) *
+                rotation_z(std::fmod(176.630 + 350.89198226 * d, 360.0) * kDegToRad);
+            const glm::dmat3 axes = scene.body_to_icrf(scene.bodies[static_cast<size_t>(mars)], d * kSecondsPerDay);
+            for (int c = 0; c < 3; ++c) {
+                worst = std::max(worst, std::acos(std::min(1.0, glm::dot(axes[c], iau2009[c]))) * kRadToDeg);
+            }
+        }
+        check(worst < 0.005, (std::string("Mars' axes match IAU 2009 (deg): ") + file).c_str(), worst);
+    }
+}
+
 } // namespace
 
 void run_planet_scene_tests()
@@ -768,5 +796,6 @@ void run_planet_scene_tests()
     test_ring_arcs();
     test_earth_moon_frame();
     test_earth_moon_rotation();
+    test_mars_rotation();
     test_saturn_scene();
 }

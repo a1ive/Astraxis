@@ -650,11 +650,9 @@ void test_mars_scene()
     const double gm = scene.bodies[static_cast<size_t>(mars)].gm_km3_s2;
     const double r_mean = scene.bodies[static_cast<size_t>(mars)].equatorial_radius_km;
 
-    // Altitude above the IAU ellipsoid (3396.19 x 3376.20 km, pole RA 317.269202,
-    // Dec 54.432516 deg, pck00011; latitude geocentric, close enough at these heights).
-    const double ra = 317.269202 * kDegToRad;
-    const double dec = 54.432516 * kDegToRad;
-    const glm::dvec3 pole(std::cos(dec) * std::cos(ra), std::cos(dec) * std::sin(ra), std::sin(dec));
+    // Altitude above the IAU ellipsoid (3396.19 x 3376.20 km, the scene's pck00011 pole, which
+    // moves 0.1 deg a century: taken in 2015; latitude geocentric, close enough at these heights).
+    const glm::dvec3 pole = scene.body_to_icrf(scene.bodies[static_cast<size_t>(mars)], tdb({2015, 1, 1, 0, 0, 0}))[2];
     auto ellipsoid_altitude = [&](const glm::dvec3& p) {
         const double r = glm::length(p);
         const double s = glm::dot(p, pole) / r;
@@ -870,9 +868,10 @@ void test_mars_scene()
         std::printf("info: Tianwen-1 vs telemetry 2024-12-18: %.1f km\n", miss);
     }
     // [AMSAT] (Estevez et al., GRCon 2021): the plane change turned the orbit from 11 to 87
-    // deg (about the IAU 2000 pole; the scene's IAU 2015 pole gives 9.5 and 86.9); the
-    // apoapsis lowering of 2021-02-20 gave 280 x 84,600 km; the 2-sol orbit (2 Mars
-    // sidereal days, 49.25 h) before the landing; the deorbit burn aimed below the surface.
+    // deg (about the IAU 2000 pole; the scene's pck00011 pole, with its long-period terms, is
+    // within 0.001 deg of it and gives 11.0 and 87.3); the apoapsis lowering of 2021-02-20
+    // gave 280 x 84,600 km; the 2-sol orbit (2 Mars sidereal days, 49.25 h) before the
+    // landing; the deorbit burn aimed below the surface.
     auto tw1_incl = [&](double t) {
         const State s = scene.icrf_state_at(tw1, t);
         return std::acos(glm::dot(glm::normalize(glm::cross(s.position, s.velocity)), pole)) / kDegToRad;
@@ -886,7 +885,8 @@ void test_mars_scene()
     std::printf("info: Tianwen-1 capture orbit: %.0f x %.0f km\n", el.periapsis_km - r_mean, el.apoapsis_km - r_mean);
     const double i_before = tw1_incl(utc({2021, 2, 15, 0, 0, 0}));
     const double i_after = tw1_incl(utc({2021, 2, 15, 10, 0, 0}));
-    check(std::abs(i_before - 11.0) < 2.0 && std::abs(i_after - 87.0) < 1.5, "Tianwen-1 plane change (deg)", i_after);
+    check(std::abs(i_before - 11.0) < 0.5 && std::abs(i_after - 87.0) < 0.5, "Tianwen-1 plane change (deg)", i_after);
+    std::printf("info: Tianwen-1 plane change: %.1f -> %.1f deg\n", i_before, i_after);
     osculating_elements(scene.icrf_state_at(tw1, utc({2021, 2, 20, 16, 0, 0})), gm, &el);
     check(std::abs(el.periapsis_km - r_mean - 280.0) < 20.0 && std::abs(el.apoapsis_km - r_mean - 84600.0) < 400.0,
           "Tianwen-1 after the phasing burn (apoapsis altitude, km)", el.apoapsis_km - r_mean);
