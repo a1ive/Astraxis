@@ -7,35 +7,35 @@
 </div>
 <br />
 
-Astraxis shows planets, spacecraft and stars in motion using orbital data and physical simulations. Run it in a window or full screen, or use it on Windows as a live wallpaper behind desktop icons or as a screensaver. Leave it running in the background when you want something to watch.
+Astraxis is an astronomy background app with planets, spacecraft and stars animated from orbital data and physical simulations. Run it in a window or full screen, or use it as a live wallpaper or screensaver on Windows.
 
 ## Scenes
 
-| Scene | What you see | Motion source |
-|---|---|---|
-| Solar System (default) | The Sun, planets, major moons, dwarf planets and largest asteroids | JPL Horizons ephemerides, JPL mean orbital elements, JPL Small-Body Database |
-| Jupiter | Jupiter, its faint rings, the Galilean and four inner moons, the orbits of Galileo (1995 to 2003) and Juno (2016 onward), and Cassini's flyby (2000 to 2001) | JPL Horizons ephemerides, JPL mean orbital elements |
-| JWST | JWST's halo orbit around Sun-Earth L2 | JPL Horizons ephemerides |
-| Earth-Moon | Artemis II's free-return flight, Artemis I's distant retrograde orbit, CAPSTONE's near-rectilinear halo orbit, the ARTEMIS probes at the Earth-Moon Lagrange points, Chang'e 5-T1's swing-by into an L2 orbit, LADEE's low lunar orbits and LCROSS's impact, in the Earth-Moon rotating frame | JPL Horizons ephemerides; Chang'e 5-T1 reconstructed from the published state and maneuvers (Liu & Li 2016) |
-| Saturn | Saturn's rings (Cassini radio-occultation optical depths), the seven major moons, Cassini's tour and Huygens' descent to Titan | JPL Horizons ephemerides, JPL mean orbital elements (phases fitted to Horizons) |
-| Mercury: MESSENGER & BepiColombo | Both spacecraft on their cruises to Mercury with Earth, Venus and Mercury gravity assists, MESSENGER's four years in orbit and impact, BepiColombo's capture (Nov 2026) and science orbit | JPL Horizons ephemerides |
-| Venus | ESA's Venus Express on its day-long polar orbit (2006 to 2014), with its aerobraking dips; Japan's Akatsuki, which missed Venus in 2010, went five years around the Sun and was captured on its second try (2015 to 2024); the asteroid Zoozve, which loops around Venus once a Venus year without being bound to it, in the Sun-Venus rotating frame; and the gravity-assist flybys of Galileo (1990), Cassini (1998, 1999) and Juice (2025) | JPL Horizons ephemerides |
-| Mars | Mars, Phobos and Deimos, and eight orbiters: Mars Express (2003 onward, with its 45 km pass of Phobos), MAVEN (2014 to 2025), India's Mars Orbiter Mission (2014 to 2022) and Hope (2021 onward, with its 100 km pass of Deimos) over their whole missions; Odyssey, MRO and ESA's Trace Gas Orbiter at their arrivals and aerobraking and in recent years; China's Tianwen-1 at its 2021 maneuvers, including the release of the Zhurong lander, and in its remote-sensing orbit (2021 to 2025). Comet Siding Spring passes Mars (2014) while the orbiters hide behind the planet from its dust; the gravity-assist flybys of Europa Clipper and Hera (2025), Hera passing 300 km from Deimos. Turning with Mars, Phobos rises in the west | JPL Horizons ephemerides, JPL mean orbital elements; Tianwen-1 from its magnetometer team's data (USTC) and amateur-decoded telemetry |
-| Rosetta & 67P | Earth, Mars and two more Earth gravity assists, the asteroids Steins and Lutetia, then two years at comet 67P: the arrival triangles, Philae's descent and bounces, the flybys, perihelion and the descent to the surface, on the OSIRIS shape models | JPL Horizons ephemerides; Philae from ESA's SPICE kernels (descent by CNES, bounces reconstructed by Grieger et al.); ESA/OSIRIS shape models (PDS) |
-| ISEE-3 / ICE | The first halo orbit around Sun-Earth L1 (1978-1982), the geotail passes and five lunar flybys of 1983, the first comet flyby (Giacobini-Zinner, 1985), the pass between the Sun and Halley (1986), and 28 years around the Sun back to the Earth and Moon (2014) | Reconstructed from NASA SSCWeb positions and the JPL navigation trajectory (PDS); JPL Horizons for 2014 |
-| Parker Solar Probe | Seven Venus gravity assists lower the perihelion to 9.86 solar radii. The trajectory forms petals in the Sun-Venus rotating frame | JPL Horizons ephemerides |
-| Alpha Centauri | A, B and Proxima | Newtonian N-body integration |
-| Sgr A* | The Galactic Centre black hole, the star S2 and 25 other S-stars, under the sky of the nuclear star cluster | Kerr geodesics (S2) and Keplerian orbits (the others) + GPU ray-traced black hole |
-| TRAPPIST-1 | Seven Earth-sized planets in a resonant chain around an ultracool dwarf | Newtonian N-body integration from transit-timing fits |
-| Kepler-223 | Four sub-Neptunes in a 3:4:6:8 resonant chain | Newtonian N-body integration from transit-timing fits |
-| Kepler-47 | Three planets orbiting an eclipsing binary: a Sun-like star and a red dwarf | Newtonian N-body integration from a photodynamical fit |
-| Kepler-64 / PH1 | A Neptune-sized planet orbiting an eclipsing binary, with another pair of stars about 1,300 au away | Newtonian N-body integration for the inner binary and planet; assumed Keplerian orbits for the distant pair |
-| TIC 168789840 | Six stars in three eclipsing binaries. Two pairs orbit each other, with the third pair about 250 au away | Nested Keplerian orbits from eclipse observations, with an assumed outer orbit |
-| PSR B1620-26 | A pulsar, a white dwarf and a planet in the globular cluster M4 | Nested Keplerian orbits from pulsar timing |
-| PSR B1913+16 (Hulse-Taylor) | Two neutron stars on a 7.75-hour orbit whose periastron has turned about 220° since its discovery in 1974. Grey ellipses show the orbit Newtonian gravity predicts from 1974 | Relativistic pulsar-timing orbit (periastron advance, orbital decay) |
-| PSR J1141-6545 | A young pulsar and a massive white dwarf on a 4.7-hour orbit. The periastron advances 5.3° a year; grey ellipses show the Newtonian orbit from 1999 | Relativistic pulsar-timing orbit (periastron advance, orbital decay) |
+| Scene | Highlights |
+|---|---|
+| Solar System (default) | Planets, moons, dwarf planets and asteroids |
+| Jupiter | Rings and moons, Galileo and Juno orbits, Cassini flyby |
+| JWST | Halo orbit around Sun-Earth L2 |
+| Earth-Moon | Artemis missions, CAPSTONE and other lunar spacecraft |
+| Saturn | Rings, major moons, Cassini's tour and Huygens' descent |
+| Mercury: MESSENGER & BepiColombo | Gravity assists and orbits around Mercury |
+| Venus | Venus Express, Akatsuki, Zoozve and spacecraft flybys |
+| Mars | Phobos, Deimos, eight orbiters and comet Siding Spring |
+| Rosetta & 67P | Journey to comet 67P, Rosetta's orbits and Philae's landing |
+| ISEE-3 / ICE | L1 halo orbit, lunar flybys and comet encounters |
+| Parker Solar Probe | Venus gravity assists and close passes of the Sun |
+| Alpha Centauri | A, B and Proxima in an N-body simulation |
+| Sgr A* | Ray-traced Galactic Centre black hole and orbiting S-stars |
+| TRAPPIST-1 | Seven Earth-sized planets in a resonant chain |
+| Kepler-223 | Four sub-Neptunes in a 3:4:6:8 resonant chain |
+| Kepler-47 | Three planets orbiting an eclipsing binary |
+| Kepler-64 / PH1 | A planet in a four-star system |
+| TIC 168789840 | Six stars in three eclipsing binaries |
+| PSR B1620-26 | A pulsar, white dwarf and planet in the M4 cluster |
+| PSR B1913+16 (Hulse-Taylor) | Binary neutron stars with relativistic orbital precession |
+| PSR J1141-6545 | A pulsar and white dwarf with relativistic orbital precession |
 
-Add scenes by writing TOML files in `assets/scenes/`. The scene files cite sources for physical constants and orbital elements. Each `assets/*/SOURCES.md` lists the data licenses.
+Add scenes with TOML files in [assets/scenes](assets/scenes/). These files cite the orbital data and physical constants. Data licenses are listed in `assets/*/SOURCES.md`; modeling assumptions are documented in [limitations.md](limitations.md).
 
 ## Preview
 
@@ -63,17 +63,15 @@ cmake --build --preset win-msvc-debug
 
 Run the app with `build/win-msvc/Debug/astraxis.exe` and the unit tests with `build/win-msvc/Debug/astraxis_tests.exe`. The build also places `astraxis.scr` (the screensaver) and `astraxis_wallpaper.exe` (the wallpaper launcher and settings dialog) next to `astraxis.exe`.
 
-Windows MSVC builds use [VC-LTL5 v5.3.1](https://github.com/Chuyu-Team/VC-LTL5/tree/v5.3.1) by default for non-Debug configurations. VC-LTL uses the Windows 10 system `ucrtbase.dll` to reduce the runtime footprint. CMake downloads the pinned binary package and checks its SHA-256. To build the CI Release configuration locally:
+Windows MSVC builds use [VC-LTL5 v5.3.1](https://github.com/Chuyu-Team/VC-LTL5/tree/v5.3.1) for non-Debug configurations to reduce the runtime footprint. Debug uses the standard Debug CRT. Set `-DASTRAXIS_USE_VC_LTL=OFF` to disable VC-LTL, or pass `-DASTRAXIS_USE_VC_LTL=ON` to enable it in an existing build directory.
+
+To build and test the CI Release configuration locally:
 
 ```bash
 cmake --preset win-msvc -B build/win-vcltl -DASTRAXIS_USE_VC_LTL=ON -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
 cmake --build build/win-vcltl --config Release
 ctest --test-dir build/win-vcltl -C Release --output-on-failure
 ```
-
-`ASTRAXIS_USE_VC_LTL` defaults to `ON` for Windows MSVC and `OFF` elsewhere. Debug builds use the standard CRT with Debug heap support, even when the option is `ON`. Set `-DASTRAXIS_USE_VC_LTL=OFF` to disable VC-LTL for non-Debug builds too.
-
-Existing CMake build directories keep their cached setting. To enable VC-LTL in an existing build directory, pass `-DASTRAXIS_USE_VC_LTL=ON`. VC-LTL requires Windows and MSVC. The app still requires a Windows version that supports its graphics backend.
 
 ### Linux x64 (Vulkan)
 
@@ -104,15 +102,13 @@ astraxis --scene sgr_a --event 1
 | `--fps <n>` | Frame rate cap (0: the display's refresh rate) |
 | `--config <path>` | Use a settings file other than `config.toml` |
 
-Command-line options override settings for the current run. The settings file keeps its saved values.
+Command-line options apply to the current run and leave saved settings unchanged.
 
 ## Settings
 
-Astraxis stores settings in `config.toml` next to the executable. Copy this folder to take your settings with you. When the app window closes, it saves changes made in its panel: the scene, display, full-screen mode, visible elements, image adjustments and performance options. Wallpaper and screensaver settings use separate sections in the same file, edited through their settings dialogs. Display options without a separate setting in those dialogs use the window's settings.
+Settings are stored in `config.toml` next to the executable. The window saves panel changes when it closes. Wallpaper and screensaver settings have separate sections, edited through their settings dialogs, and inherit display options they do not override. Saving requires a writable folder.
 
-If the folder is read-only (for example under `Program Files`), nothing is saved.
-
-On slower graphics, such as integrated GPUs or high-resolution displays, lower the performance options: the window's panel and the settings dialogs have them under *Performance*. *Antialiasing* is 4x MSAA by default, and 2x or off are faster. It only smooths the edges of planets and other bodies, because orbit lines, rings and stars are smoothed without it. *Resolution* renders the scene at 75% or 50% of the display's resolution and scales it up, which is faster but softer. A frame rate cap (in the settings dialogs, or `--fps`) also saves power.
+Under *Performance*, lower *Antialiasing* from the default 4x MSAA to 2x or off, or set *Resolution* to 75% or 50% for faster, softer rendering. A frame rate cap also reduces power use.
 
 ## Wallpaper and screensaver (Windows)
 
@@ -120,19 +116,19 @@ Both run on Windows 10 and Windows 11.
 
 ### Live wallpaper
 
-Run `astraxis_wallpaper.exe`, choose a scene and displays, and click Apply. The wallpaper tours the scene behind the desktop icons, one view per display. Use its notification-area icon to open settings, pause the wallpaper or stop it. Tick *Start with Windows* to start it when you sign in. The wallpaper resumes automatically after Explorer restarts or the display setup changes. Stopping it restores the Windows wallpaper.
+Run `astraxis_wallpaper.exe`, choose a scene and displays, and click Apply. Use the notification-area icon to open settings, pause or stop. Enable *Start with Windows* to launch at sign-in. The wallpaper recovers after Explorer restarts or displays change; stopping it restores the Windows wallpaper.
 
 ### Screensaver
 
-Right-click `astraxis.scr` and choose *Install*. Keep it next to `astraxis.exe` and the `assets` folder so it can find its data. Copying the `.scr` file alone to `System32` prevents it from finding those resources. *Settings* in the Screen Saver Settings dialog opens the screensaver's settings.
+Right-click `astraxis.scr` and choose *Install*. Keep it beside `astraxis.exe` and the `assets` folder so it can find its resources. Open *Settings* in Windows' Screen Saver Settings dialog to configure it.
 
 ### Power use
 
-The wallpaper pauses rendering while the session is locked or the display is off. It also pauses rendering on displays covered by a maximized or full-screen window. In both settings dialogs you can lower the rendering resolution, cap the frame rate, and choose what happens on battery or with the battery saver on: keep running, at most 30 FPS (the default), or pause.
+The wallpaper pauses rendering while the session is locked or the display is off. It also pauses on individual displays covered by a maximized or full-screen window. Both settings dialogs offer resolution and frame rate controls, plus battery and battery-saver options: keep running, cap at 30 FPS (default), or pause.
 
 ## Controls
 
-The auto tour moves between views of the scene. Every few views it visits one of the scene's events, in time order: it slows the clock down before a flyby, frames the pass and shows the event's caption. The wallpaper and the screensaver show these captions too. Untick *Event captions* in their settings to hide them.
+The auto tour switches views and visits events in time order, slowing down for flybys and showing captions. In wallpaper and screensaver mode, turn off *Event captions* in settings to hide them.
 
 | Input | Action |
 |---|---|
