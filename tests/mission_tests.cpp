@@ -104,6 +104,81 @@ void test_solar_system_missions()
           "Jupiter in 1973 comes from the baked table, not the fallback");
 }
 
+// The interstellar comet 3I/ATLAS in the Solar System scene: the heliocentric table
+// against Horizons' elements (JPL#54) and the Mars-centered values of Ren et al. 2026.
+void test_solar_system_atlas()
+{
+    Scene scene = load_scene_or_die("solar_system.toml");
+    const int atlas = scene.find("3I/ATLAS");
+    check(atlas > 0, "solar_system.toml has 3I/ATLAS");
+    auto at = [&](const char* name, double t) { return scene.icrf_state_at(scene.find(name), t).position; };
+    auto utc = [](const CalendarDateTime& c) { return tdb_from_utc_jd(jd_from_calendar(c)); };
+    auto scan_min = [](double t0, double t1, double step, auto&& f) {
+        std::pair<double, double> best{1e300, 0.0}; // value, time
+        for (double t = t0; t <= t1; t += step) {
+            best = std::min(best, std::pair{f(t), t});
+        }
+        return best;
+    };
+
+    // Perihelion: Horizons JPL#54 osculating elements at 2025-10-29 00:00 TDB, QR =
+    // 202,921,707 km (1.356448 au), Tp = JD 2460977.98225 TDB (11:34). (The elements at the
+    // solution epoch, 2026-02-19, give 1.356481 au and Tp 0.013 d later.)
+    const auto [q, t_q] = scan_min(utc({2025, 10, 25, 0, 0, 0}), utc({2025, 11, 3, 0, 0, 0}), 60.0,
+                                   [&](double t) { return glm::length(at("3I/ATLAS", t) - at("Sun", t)); });
+    check(std::abs(q - 202921707.0) < 100.0, "3I/ATLAS perihelion distance (km)", q);
+    check(std::abs(t_q - tdb_from_jd_tdb(2460977.98225)) < 0.01 * kSecondsPerDay, "3I/ATLAS perihelion time (d)",
+          (t_q - tdb_from_jd_tdb(2460977.98225)) / kSecondsPerDay);
+    // Osculating there: e 6.1393, inclination 175.113 deg to the J2000 ecliptic (Horizons);
+    // [REN]: 6.14 and 175 deg. 58.0 km/s from afar and 68.3 km/s at perihelion, as the
+    // scene's notes and captions say.
+    const State s = scene.icrf_state_at(atlas, t_q);
+    const State sun = scene.icrf_state_at(scene.find("Sun"), t_q);
+    const State rel{s.position - sun.position, s.velocity - sun.velocity};
+    const double gm_sun = 1.32712440041279419e11; // [GM]
+    OrbitElements el;
+    osculating_elements(rel, gm_sun, &el);
+    const double obliquity = 84381.448 / 3600.0 * kDegToRad; // IAU 1976, J2000
+    const glm::dvec3 ecliptic_pole(0.0, -std::sin(obliquity), std::cos(obliquity));
+    const double incl = std::acos(glm::dot(glm::normalize(glm::cross(rel.position, rel.velocity)), ecliptic_pole)) / kDegToRad;
+    const double v_q = glm::length(rel.velocity);
+    const double v_inf = std::sqrt(v_q * v_q - 2.0 * gm_sun / glm::length(rel.position));
+    check(std::abs(el.eccentricity - 6.1393) < 0.002, "3I/ATLAS eccentricity", el.eccentricity);
+    check(std::abs(incl - 175.113) < 0.01, "3I/ATLAS inclination to the ecliptic (deg)", incl);
+    check(std::abs(v_q - 68.3) < 0.1 && std::abs(v_inf - 58.0) < 0.1, "3I/ATLAS speed at perihelion (km/s)", v_q);
+
+    // [REN]: closest to Mars on 2025-10-03 04:38 UT at 0.194 au; Mars here is [APX], good
+    // to far better than the 0.001 au tolerance.
+    const auto [d_mars, t_mars] = scan_min(utc({2025, 10, 2, 0, 0, 0}), utc({2025, 10, 4, 12, 0, 0}), 60.0,
+                                           [&](double t) { return glm::length(at("3I/ATLAS", t) - at("Mars", t)); });
+    check(std::abs(d_mars / kAuKm - 0.194) < 0.001, "3I/ATLAS closest to Mars in the Solar System scene (au)",
+          d_mars / kAuKm);
+    check(std::abs(t_mars - utc({2025, 10, 3, 4, 38, 0})) < 2.0 * 3600.0, "3I/ATLAS closest to Mars (h from 04:38 UT)",
+          (t_mars - utc({2025, 10, 3, 4, 38, 0})) / 3600.0);
+
+    // [REN]: in solar conjunction, seen from the Earth, around 10-21 (the perihelion event).
+    const auto [elong, t_conj] = scan_min(utc({2025, 10, 10, 0, 0, 0}), utc({2025, 11, 1, 0, 0, 0}), 600.0, [&](double t) {
+        const glm::dvec3 e = at("Earth", t);
+        return std::acos(glm::dot(glm::normalize(at("Sun", t) - e), glm::normalize(at("3I/ATLAS", t) - e)));
+    });
+    check(std::abs(t_conj - utc({2025, 10, 21, 12, 0, 0})) < 2.0 * kSecondsPerDay,
+          "3I/ATLAS solar conjunction from the Earth (d from 10-21)",
+          (t_conj - utc({2025, 10, 21, 12, 0, 0})) / kSecondsPerDay);
+    std::printf("info: 3I/ATLAS: perihelion %.6f au, e %.4f, i %.3f deg, %.2f / %.2f km/s; Mars %.4f au; "
+                "conjunction %.1f deg on day %.2f of October\n",
+                q / kAuKm, el.eccentricity, incl, v_q, v_inf, d_mars / kAuKm, elong / kDegToRad,
+                (t_conj - utc({2025, 10, 1, 0, 0, 0})) / kSecondsPerDay + 1.0);
+
+    // Shown only where the table is (2024-01-01 .. 2027-12-31).
+    for (const auto& [when, shown] : {std::pair{"2023-12-01", false}, std::pair{"2024-02-01", true},
+                                      std::pair{"2027-12-01", true}, std::pair{"2028-02-01", false}}) {
+        double t = 0.0;
+        parse_utc(when, &t);
+        scene.update(t);
+        check(scene.bodies[static_cast<size_t>(atlas)].visible == shown, "3I/ATLAS shown only where the table is");
+    }
+}
+
 void test_parker_scene()
 {
     Scene scene = load_scene_or_die("parker.toml");
@@ -1751,6 +1826,7 @@ void test_jwst_scene()
 void run_mission_tests()
 {
     test_solar_system_missions();
+    test_solar_system_atlas();
     test_parker_scene();
     test_jupiter_missions();
     test_earth_moon_missions();

@@ -928,6 +928,22 @@ base_step_minutes = 14400
 tolerance_km = 50.0
 kepler_gm_km3_s2 = 1.32712440041279419e11
 
+# 3I/ATLAS (C/2025 N1), heliocentric: the same JPL#54 solution as atlas3i_mars below
+# (Horizons record 90004937, data arc 2025-05-15 .. 2026-02-19, CO2-like non-gravitational
+# accelerations), integrated by Horizons outside the arc. About two years either side of
+# perihelion (2025-10-29). Plain Hermite: Kepler-relative knots on a hyperbola would be
+# months apart, and history trails are drawn as chords between knots.
+[[target]]
+name = "atlas3i"
+command = "DES=C/2025 N1;"
+naif_id = 1004083
+center = "500@10"
+center_naif_id = 10
+start = "2024-01-01"
+stop = "2027-12-31"
+base_step_minutes = 1440
+tolerance_km = 50.0
+
 # New Horizons comes last: its refinement needs the Pluto and Arrokoth tables.
 [[target]]
 name = "new_horizons"

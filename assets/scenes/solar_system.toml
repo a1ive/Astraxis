@@ -1,7 +1,7 @@
 # The Solar System: the Sun, the planets, the major moons, the dwarf planets and the
 # largest asteroids (radius > 400 km, plus Phobos, Deimos, Vesta, Pallas, Enceladus,
-# Mimas and Miranda, and Arrokoth), and the Pioneer, Voyager and New Horizons probes,
-# 1972 onward.
+# Mimas and Miranda, and Arrokoth), the interstellar comet 3I/ATLAS, and the Pioneer,
+# Voyager and New Horizons probes, 1972 onward.
 #
 # Sources
 # [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py (tools/bake/ephem.toml):
@@ -21,6 +21,9 @@
 #          jupiter.toml / saturn.toml; see the notes there), while the planets here are
 #          system barycenters: offsets of a few hundred km. Phobos and Deimos near
 #          Mars Express', Hope's and Hera's close passes (copied from mars.toml).
+#        - 3I/ATLAS (C/2025 N1): JPL#54, the solution of mars.toml's Mars-centered table
+#          (data arc 2025-05-15 .. 2026-02-19, CO2-like non-gravitational accelerations),
+#          2024-01-01 .. 2027-12-31 (Hermite); shown only there.
 # [APX]  E. M. Standish, Approximate Positions of the Planets, Table 2a (+2b), used for
 #        Mercury, Venus and Mars, and outside the baked span for the others.
 # [ELEM] JPL SSD, Planetary Satellite Mean Elements (https://ssd.jpl.nasa.gov/sats/elem/),
@@ -33,6 +36,7 @@
 #        Quaoar (JPL IOM 392R-22-003, Brozovic 2022). No GM is given for Makemake,
 #        Gonggong, Sedna or Arrokoth, so the info panel shows no mass for them.
 # [SBDB] JPL Small-Body Database (https://ssd-api.jpl.nasa.gov/sbdb.api).
+#        3I/ATLAS: K1 = 4.5 (solution 54; its M1 = 12.5 is replaced as in mars.toml).
 # [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
 # [PCK]  NAIF pck00011.tpc (IAU 2015): radii, poles, prime meridians (T terms ignored
 #        unless given).
@@ -199,6 +203,16 @@
 #          instrument saw the crossing; it took about a day.
 #        [MK20] McKinnon et al. 2020, Science 367, eaay6620: Arrokoth is a contact binary
 #          from a gentle, low-speed merger in the early solar system.
+#        [REN] X. Ren, W. Yan, R. Zhao et al., "Interstellar Object 3I/ATLAS Observed from
+#          Mars by China's Tianwen-1 Spacecraft", ApJ Letters (accepted 2026-04-21),
+#          arXiv:2603.10350v3 (more in mars.toml): discovered 2025-07-01; eccentricity
+#          6.14, inclination 175 deg, close to the ecliptic; closest to Mars 2025-10-03
+#          at 0.194 au; solar conjunction (from the Earth) around 10-21; perihelion 1.36
+#          au on 10-30 (Horizons, JPL#54: 2025-10-29 11:53 TDB, 1.3565 au); Tianwen-1
+#          imaged it from 0.2 au, 36-44 deg south of its orbital plane. Nucleus radius
+#          1.3 +- 0.2 km (Hui et al. 2026, as quoted there).
+#        3I/ATLAS from [HZN] (JPL#54, a = -0.26384 au): 58.0 km/s from afar,
+#          sqrt(GM_sun / |a|); 68.3 km/s at perihelion.
 #        Heights of the plumes: [PLM]; Arrokoth's size: [ARRO].
 # Flyby times/distances: computed from the baked data by the bake tool (TDB).
 # Mission timeline events: Horizons spacecraft notes.
@@ -1772,6 +1786,32 @@ type = "ephemeris"
 file = "ephem/arrokoth.eph"
 extrapolate = "kepler"                     # two-body orbit from the nearer end of the table
 
+# --- Interstellar objects ----------------------------------------------------------
+# Shown about two years either side of perihelion, where the tables are; unbound, so
+# the trail is the path behind them.
+
+# 3I/ATLAS: the appearance as in mars.toml (Ren et al. 2026 from Tianwen-1).
+[[bodies]]
+name = "3I/ATLAS"
+parent = "Sun"
+radii_km = [1.3]                           # [REN], quoting Hui et al. 2026: 1.3 +- 0.2 km
+color = "#e8e0d0"
+orbit_color = "#d8b98c"
+trail = "history"
+trail_history_days = 1461.0                # the whole table
+[bodies.comet]
+magnitude_m1_k1 = [9.1, 4.5]               # M1 from [REN] Table 1, the slope K1 [SBDB] (see mars.toml)
+ion_tail_diameter_km = 5.0e4               # illustrative
+ion_tail_length_km = 5.0e6                 # illustrative, used as the e-folding length
+solar_wind_km_s = 400.0
+dust_beta_range = [1.0e-3, 1.0e-2]         # [REN]: large grains, a few 100 um
+dust_speed_km_s = 0.13                     # 3.2-10 m/s for those betas at 1.7 au ([REN]: 3-10 m/s)
+dust_tail_days = 150.0                     # [REN]: dust from 300 to 50 days before
+coma_color = "#e6dccb"                     # illustrative: [REN] sees a dust coma in white light
+[bodies.orbit]                             # [HZN] C/2025 N1 (JPL#54), 2024-2027
+type = "ephemeris"
+file = "ephem/atlas3i.eph"
+
 # --- Spacecraft --------------------------------------------------------------------
 
 [[bodies]]
@@ -2176,3 +2216,35 @@ caption = """\
     The view of New Horizons' sharpest image of the whole body, taken 6,600 km away \
     shortly before closest approach. The shape is the model built from all the flyby \
     images; the color is uniform, as no map of the surface is used."""
+
+# 3I/ATLAS, seen from the ecliptic's north (along the Earth's orbit normal): the planets
+# go round counterclockwise, 3I clockwise; the camera rides along with it from discovery to
+# perihelion, two minutes.
+[[events]]
+name = "Interstellar comet 3I/ATLAS found (2025-07-01)"
+time = "2025-07-01"
+focus = "3I/ATLAS"
+from_orbit_normal = "Earth-Moon barycenter"
+distance_km = 1.5e9
+warp = 86400.0
+# [REN], [HZN]
+caption = """\
+    The third visitor known to come from another star. Its path around the Sun is not \
+    an ellipse but an open hyperbola: it falls in at 58 km/s, swings past once and \
+    leaves for good. It keeps close to the plane of the planets, but goes round the \
+    wrong way, against them."""
+
+# Around 2025-10-21 the Earth, the Sun and 3I lie almost in a line (tests/mission_tests.cpp).
+[[events]]
+name = "3I/ATLAS behind the Sun at perihelion (2025-10-29)"
+time = "2025-10-14"
+focus = "Sun"
+from_orbit_normal = "Earth-Moon barycenter"
+distance_km = 6.5e8
+warp = 21600.0
+# [REN], [HZN]
+caption = """\
+    From the Earth, 3I/ATLAS slips behind the Sun just as it swings closest, 1.36 au \
+    from the Sun at 68 km/s, just inside the orbit of Mars. Telescopes on the Earth \
+    cannot follow it here. Four weeks before, it had passed Mars, where Tianwen-1 \
+    photographed it from 0.2 au, and from 40 degrees out of the plane of its path."""

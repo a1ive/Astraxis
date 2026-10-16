@@ -13,7 +13,7 @@ Astraxis is an astronomy background app with planets, spacecraft and stars anima
 
 | Scene | Highlights |
 |---|---|
-| Solar System (default) | Planets, moons, dwarf planets and asteroids |
+| Solar System (default) | Planets, moons, dwarf planets, asteroids and interstellar comet 3I/ATLAS |
 | Jupiter | Rings and moons, Galileo and Juno orbits, Cassini flyby |
 | JWST | Halo orbit around Sun-Earth L2 |
 | Earth-Moon | Artemis missions, CAPSTONE and other lunar spacecraft |
