@@ -253,7 +253,8 @@ struct Body {
     std::shared_ptr<const SpinTable> spin_table;
 
     // Instead of the IAU model: torque-free precession of an axially symmetric
-    // body (comet Halley's long-axis mode). The angular momentum M is fixed
+    // body (comet Halley's long-axis mode; 'Oumuamua's short-axis mode, body z
+    // its disc's normal, spinning backward). The angular momentum M is fixed
     // along `pole`; the body z axis is inclined to it by `nutation` and turns
     // around it at precession_rate while the body rotates about z at spin_rate
     // (z-x-z Euler angles phi, theta, psi):

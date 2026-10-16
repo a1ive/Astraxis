@@ -1,7 +1,7 @@
 # The Solar System: the Sun, the planets, the major moons, the dwarf planets and the
 # largest asteroids (radius > 400 km, plus Phobos, Deimos, Vesta, Pallas, Enceladus,
-# Mimas and Miranda, and Arrokoth), the interstellar comet 3I/ATLAS, and the Pioneer,
-# Voyager and New Horizons probes, 1972 onward.
+# Mimas and Miranda, and Arrokoth), the interstellar objects 1I/'Oumuamua and 3I/ATLAS,
+# and the Pioneer, Voyager and New Horizons probes, 1972 onward.
 #
 # Sources
 # [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py (tools/bake/ephem.toml):
@@ -24,6 +24,12 @@
 #        - 3I/ATLAS (C/2025 N1): JPL#54, the solution of mars.toml's Mars-centered table
 #          (data arc 2025-05-15 .. 2026-02-19, CO2-like non-gravitational accelerations),
 #          2024-01-01 .. 2027-12-31 (Hermite); shown only there.
+#        - 1I/'Oumuamua (A/2017 U1): JPL#16, Micheli et al. 2018 (Nature,
+#          doi:10.1038/s41586-018-0254-4), whose mostly radial non-gravitational
+#          acceleration it includes; data arc 2017-10-14 ..
+#          2018-01-02, "predictions outside this time interval, especially prior to October
+#          2017, could be much more uncertain" (Horizons notes). 2015-09-01 .. 2019-09-30
+#          (Hermite); shown only there.
 # [APX]  E. M. Standish, Approximate Positions of the Planets, Table 2a (+2b), used for
 #        Mercury, Venus and Mars, and outside the baked span for the others.
 # [ELEM] JPL SSD, Planetary Satellite Mean Elements (https://ssd.jpl.nasa.gov/sats/elem/),
@@ -208,11 +214,29 @@
 #          arXiv:2603.10350v3 (more in mars.toml): discovered 2025-07-01; eccentricity
 #          6.14, inclination 175 deg, close to the ecliptic; closest to Mars 2025-10-03
 #          at 0.194 au; solar conjunction (from the Earth) around 10-21; perihelion 1.36
-#          au on 10-30 (Horizons, JPL#54: 2025-10-29 11:53 TDB, 1.3565 au); Tianwen-1
+#          au on 10-30 (Horizons, JPL#54, osculating then: 2025-10-29 11:34 TDB, 1.35645
+#          au); Tianwen-1
 #          imaged it from 0.2 au, 36-44 deg south of its orbital plane. Nucleus radius
 #          1.3 +- 0.2 km (Hui et al. 2026, as quoted there).
 #        3I/ATLAS from [HZN] (JPL#54, a = -0.26384 au): 58.0 km/s from afar,
 #          sqrt(GM_sun / |a|); 68.3 km/s at perihelion.
+#        [JEW] D. Jewitt, J. Luu, J. Rajagopal et al. 2017, ApJL 850, L36 (arXiv:1711.05687):
+#          discovered receding from the Sun on UT 2017 October 18.5, five weeks after
+#          perihelion (2017 September 09); no coma; colors like the D-type Jovian Trojans,
+#          "slightly red".
+#        [MSH] S. Mashchenko 2019, MNRAS 489, 3003 (arXiv:1906.03696): the light curve of
+#          2017-10-25 .. 30 is best fit by a thin disc, 115 x 111 x 19 m for a geometric
+#          albedo of 0.1, tumbling: a long-axis mode with rotation and precession periods
+#          of 51.8 and 10.8 h, which a torque turns within five days into a short-axis
+#          mode of 32.3 h (precession unchanged). Table 1, model DISC: periods 32.28 and
+#          10.81 h at the end; c = 0.16293, b = 0.96427 (a = 1); initial angular momentum at
+#          polar angle 2.27661 rad and azimuth 1.61185 rad in the "SSB coordinates" of the
+#          Horizons vectors used, read here as the J2000 ecliptic (Horizons' default; the
+#          paper does not say), i.e. RA 91.872, Dec -17.016 deg; model start MJD 58053.31317.
+#        1I/'Oumuamua from [HZN] (JPL#16, osculating at perihelion: q = 38,304,506 km,
+#          a = -192,069,272 km, 2017-09-09 11:53 TDB): 26.3 km/s from afar, 87.3 km/s at
+#          perihelion; closest to the Earth on 2017-10-14 at 0.1617 au (Horizons observer
+#          table, hourly).
 #        Heights of the plumes: [PLM]; Arrokoth's size: [ARRO].
 # Flyby times/distances: computed from the baked data by the bake tool (TDB).
 # Mission timeline events: Horizons spacecraft notes.
@@ -1790,6 +1814,30 @@ extrapolate = "kepler"                     # two-body orbit from the nearer end 
 # Shown about two years either side of perihelion, where the tables are; unbound, so
 # the trail is the path behind them.
 
+# 1I/'Oumuamua (ASCII apostrophe: the labels' font has no okina), no coma [JEW]. The
+# thin disc of [MSH], tumbling: the free precession of a symmetric top stands in for
+# its torqued triaxial model, with the periods of its final, short-axis mode. The
+# disc's normal (body z) circles the angular momentum at the nutation angle a
+# homogeneous body of these axes needs for that ratio of periods: cos(theta) =
+# (P_phi / |P_psi|) / (1 - I1 / I3), I1 = (I_a + I_b) / 2, which gives 46.5 deg.
+[[bodies]]
+name = "1I/'Oumuamua"
+parent = "Sun"
+radii_km = [0.0575, 0.0555, 0.0095]        # [MSH] 115 x 111 x 19 m (geometric albedo 0.1)
+pole_ra_dec_deg = [91.872, -17.016]        # [MSH] initial angular momentum (see the note there)
+color = "#a89482"                          # illustrative: [JEW] slightly red, like D-type Trojans
+orbit_color = "#b8a48c"
+trail = "history"
+trail_history_days = 1490.0                # the whole table
+[bodies.free_precession]                   # [MSH] short-axis mode after the first five days
+nutation_deg = 46.5                        # disc normal to the angular momentum (see above)
+precession_period_days = 0.450417          # 10.81 h
+spin_period_days = -1.345                  # 32.28 h, retrograde about the normal (oblate top)
+epoch = "2017-10-27 07:30:58"              # [MSH] start of the model, MJD 58053.31317; phases arbitrary
+[bodies.orbit]                             # [HZN] 1I (JPL#16), 2015-2019
+type = "ephemeris"
+file = "ephem/oumuamua.eph"
+
 # 3I/ATLAS: the appearance as in mars.toml (Ren et al. 2026 from Tianwen-1).
 [[bodies]]
 name = "3I/ATLAS"
@@ -2174,6 +2222,43 @@ caption = """\
     Pluto, the Sun and the stars wheel by while Charon hangs still. Sputnik Planitia, \
     the heart's western lobe, lies almost opposite Charon, probably not by chance: its \
     extra mass may have rolled Pluto round until the basin lay opposite Charon."""
+
+# 1I/'Oumuamua, face-on to its path: it falls in from high above the plane of the planets
+# (inclination 123 deg), turns at 0.256 au, inside Mercury's orbit, and passes the Earth on
+# its way out.
+[[events]]
+name = "1I/'Oumuamua, the first interstellar visitor (perihelion 2017-09-09)"
+time = "2017-08-10"
+focus = "Sun"
+from_orbit_normal = "1I/'Oumuamua"
+distance_km = 4.0e8
+warp = 86400.0
+# [JEW], [HZN]
+caption = """\
+    The first object known to come from another star. It fell in from high above the \
+    planets at 26 km/s, whipped round the Sun inside the orbit of Mercury at 87 km/s, \
+    and was only spotted five weeks later, on its way out, after passing the Earth. \
+    No coma was ever seen on it, yet its path bent slightly away from the Sun, as a \
+    comet's does when it gives off gas."""
+
+# The light curve model of [MSH] at its start, seen along the normal of 1I's path, with
+# the Sun to one side: the light on the disc comes and goes as it tumbles. Looking away
+# from the ecliptic (1I is above it), few orbit lines cross the view. One precession of
+# the disc's normal (10.8 h) takes 65 s.
+[[events]]
+name = "1I/'Oumuamua as a tumbling disc (model of 2017-10-27)"
+time = "2017-10-27 07:31"
+focus = "1I/'Oumuamua"
+from_orbit_normal = "1I/'Oumuamua"
+distance_km = 0.5
+warp = 600.0
+# [MSH], [JEW]
+caption = """\
+    No telescope saw 'Oumuamua as more than a point of light, but its brightness swung \
+    more than sixfold every few hours: it must be very flat or very long. The best fit \
+    to that light curve is a thin disc about 115 m across and 19 m thick, wobbling as \
+    it tumbles instead of turning steadily about one axis. This is that model; the \
+    reddish tint is a guess."""
 
 [[events]]
 name = "Voyager 2 crosses the heliopause (2018-11-05)"

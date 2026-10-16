@@ -944,6 +944,22 @@ stop = "2027-12-31"
 base_step_minutes = 1440
 tolerance_km = 50.0
 
+# 1I/'Oumuamua (A/2017 U1, SPK 50788063), heliocentric: JPL#16 (Horizons record 50323640),
+# Micheli et al. 2018's solution 7c with a mostly radial non-gravitational acceleration; data arc
+# 2017-10-14 .. 2018-01-02 ("predictions outside this time interval, especially prior to
+# October 2017, could be much more uncertain", Horizons notes). About two years either
+# side of perihelion (2017-09-09), Hermite as for 3I/ATLAS.
+[[target]]
+name = "oumuamua"
+command = "DES=1I;"
+naif_id = 50788063
+center = "500@10"
+center_naif_id = 10
+start = "2015-09-01"
+stop = "2019-09-30"
+base_step_minutes = 1440
+tolerance_km = 50.0
+
 # New Horizons comes last: its refinement needs the Pluto and Arrokoth tables.
 [[target]]
 name = "new_horizons"

@@ -611,8 +611,11 @@ void App::build_info_panel()
                 const Body::FreePrecession& fp = body.free_precession;
                 format_duration(360.0 / fp.precession_deg_per_day * kSecondsPerDay, buf, sizeof(buf));
                 info_row("Precession", "%s, at %.1f deg", buf, fp.nutation_deg);
-                format_duration(360.0 / fp.spin_deg_per_day * kSecondsPerDay, buf, sizeof(buf));
-                info_row("Spin (long axis)", "%s", buf);
+                // About body z: Halley's long axis, 'Oumuamua's short one (a disc's normal).
+                const bool long_axis = body.polar_radius_km > body.equatorial_radius_km;
+                format_duration(360.0 / std::fabs(fp.spin_deg_per_day) * kSecondsPerDay, buf, sizeof(buf));
+                info_row(long_axis ? "Spin (long axis)" : "Spin (short axis)", "%s%s", buf,
+                         fp.spin_deg_per_day < 0.0 ? " (retrograde)" : "");
             }
             if (body.kind == BodyKind::Star) {
                 info_row("Temperature", "%.0f K", body.temperature_k);

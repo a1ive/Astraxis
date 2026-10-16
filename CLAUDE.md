@@ -124,7 +124,7 @@ CMake 目标：
 | `core_tests.cpp` | 日历/时间尺度、星表（含重投影）与黑体颜色、银道坐标系 |
 | `ephem_tests.cpp` | 开普勒方程与传播、星历表、目视/凌星轨道约定、N 体 |
 | `planet_scene_tests.cpp` | 场景里的行星和卫星：太阳系、木星、地月、土星 |
-| `mission_tests.cpp` | 探测器：先驱者/新视野、Parker、伽利略/朱诺、Artemis/CAPSTONE/嫦娥五号 T1 及其火箭末级、卡西尼/惠更斯、信使/贝皮科伦坡、火星的八个轨道器（含天问一号 2021 年的重建）、赛丁泉彗星与 3I/ATLAS、Europa Clipper/Hera 飞掠、金星快车/破晓号/Zoozve 与金星借力飞掠、ISEE-3、哈雷舰队、Rosetta/Philae、JWST |
+| `mission_tests.cpp` | 探测器：先驱者/新视野、Parker、伽利略/朱诺、Artemis/CAPSTONE/嫦娥五号 T1 及其火箭末级、卡西尼/惠更斯、信使/贝皮科伦坡、火星的八个轨道器（含天问一号 2021 年的重建）、赛丁泉彗星与 3I/ATLAS、太阳系场景的 1I/3I、Europa Clipper/Hera 飞掠、金星快车/破晓号/Zoozve 与金星借力飞掠、ISEE-3、哈雷舰队、Rosetta/Philae、JWST |
 | `shape_tests.cpp` | 小天体形状模型 |
 | `appearance_tests.cpp` | 彗尾、尘埃彗尾、大气层、羽流（含各场景参数一致） |
 | `stellar_system_tests.cpp` | α Cen、TRAPPIST-1、Kepler 系统、TIC 168789840、PSR B1620-26 |
@@ -185,7 +185,8 @@ CMake 目标：
 - Bash 工具的 heredoc 即使写成 `<<'EOF'` 也会吃掉反斜杠（`\\n` 变成 `\n`）：含反斜杠的编辑用 Edit 工具，或先用 Write 写成脚本文件。heredoc 里的中文传给 `python -` 也会变成乱码（不是 UTF-8），改中文文档同样用 Edit；几百行、夹着 C++ 代码的 heredoc 还可能整段报 `unexpected EOF while looking for matching`，批量改代码的脚本一律先 Write 到 scratchpad 再 `python <文件>`
 - WSL 里用 Clang 再建一个构建目录时，`linux` 预设把 `FETCHCONTENT_BASE_DIR` 固定在 `build/linux/_deps`，两个编译器会共用依赖的构建目录（SDL 的预编译头互相覆盖，报 `cmake_pch.h has been modified`）。Clang 构建要另给 `-DFETCHCONTENT_BASE_DIR`，再用 `-DFETCHCONTENT_SOURCE_DIR_<SDL3|GLM|IMGUI|STB|TOMLPLUSPLUS|DXC>` 指向已下载的源码
 - 用 `python -I` 跑读下载文件的工具时，脚本自己的目录不在 `sys.path` 上：同目录的模块（如 `tools/philae/spk.py`）要在脚本里显式 `sys.path.insert`
-- Windows 上 Python 的控制台编码是 GBK，打印 PDF 提取的文字会 `UnicodeEncodeError`：加 `PYTHONIOENCODING=utf-8`（grep 这类文件要 `grep -a`）
+- Windows 上 Python 的控制台编码是 GBK，打印 PDF 提取的文字会 `UnicodeEncodeError`：加 `PYTHONIOENCODING=utf-8`（grep 这类文件要 `grep -a`）。`python -I` 会忽略 `PYTHON*` 环境变量，这时在脚本里 `sys.stdout.reconfigure(encoding='utf-8')`
+- 标签、信息面板用 ImGui 的默认字体，只有 Latin-1：天体名里的 ʻ（U+02BB）等字符会显示成“?”，名字用 ASCII（`1I/'Oumuamua`，和 Horizons 一样）；展签字体 Jost 另有希腊字母
 - 从 Git Bash 调 `wsl.exe`：`/mnt/c/...` 参数要加 `MSYS_NO_PATHCONV=1`；`bash -lc '...'` 里的 `$变量` 会被提前展开，脚本最好写成文件再执行
 
 ### 数据源
@@ -237,7 +238,7 @@ CMake 目标：
 按容易程度排：
 
 1. Dear ImGui 等 1.93.x 补丁版出来再从 v1.92.9b 升级（1.93.0 重写了 ImDrawList，刚发布）。SDL3/SDLGPU3 后端和用到的 API 都兼容，要截图核对的是：`label_overlay.cpp` 的空心圆点（`AddCircle` 半径不再减 0.5、默认内侧描边）和标记菱形（`AddQuad`）、`captions.cpp`/`app_ui.cpp` 里非整数坐标的 `AddRectFilled`（现在有抗锯齿边缘）、`StyleColorsDark()` 改过的面板配色
-2. 太阳系场景再加 1I/ʻOumuamua 和 2I/Borisov，做法同 3I/ATLAS（日心 Hermite 表，近日点前后各约两年，只在表内显示，各一两个事件）：ʻOumuamua 没有彗发，画成扁平小天体（Mashchenko 2019 约 115 × 111 × 19 m），只有非引力加速度，翻滚自转简化处理并写进 limitations；Borisov 是富 CO 的普通彗星，M1/K1 和尘埃参数要从论文里找出处
+2. 太阳系场景再加 2I/Borisov，做法同 1I、3I（日心 Hermite 表，近日点前后各约两年，只在表内显示，一两个事件，测试放进 `test_solar_system_interstellar`）：富 CO 的普通彗星，M1/K1、尘埃和彗核大小要从论文里找出处
 3. 火卫一、火卫二的自转周期项（pck00011）：火卫一的极随轨道交点摆 1.8°（2.3 年），本初子午线有 1.1° 的天平动（用的第 5 个角带二次项，`nut_prec_angles` 目前只支持一次项）；火卫二的极摆 3.1°（55 年，2025 年偏约 3°）。火星的 `nut_prec_angles` 只列了长周期项，不是 BODY4 的整张表，卫星要在自己身上写角度
 4. 金星场景：加信使号（2007-06-05，与金星快车协同观测）、Solar Orbiter 与贝皮科伦坡号相隔约 33 小时（2021-08）的金星飞掠，做法同伽利略号/卡西尼号/Juice（金星中心、前后各 5 天的短表）；Solar Orbiter（−144）和贝皮科伦坡号同时出现在一个事件里
 5. 只为换轨迹长度而复制的参考系（水星场景的“Mercury-centered, 30-day trails”，Rosetta 的“67P, Sun fixed, 3 months / the whole stay”）看能否改成事件的 `[[events.trails]]`，精简参考系菜单
