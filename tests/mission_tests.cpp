@@ -425,6 +425,39 @@ void test_earth_moon_missions()
     }
     check(ce5_low > 150.0 && ce5_high < 250.0, "Chang'e 5-T1 final orbit about 200 km (km, highest)", ce5_high);
 
+    // Chang'e 5-T1's rocket stage (WE0913A): close Earth flybys on 2022-01-20 and 02-08
+    // [WE]; the table ends where it reaches the elevation of the impact site, 1,863 m above
+    // the mean radius at 5.226 N, 234.486 E [LROC], ~15 deg off vertical [WE]. The site
+    // checks the JPL fit against the crater found afterwards: 5.26 N, 234.89 E here,
+    // although the scene's lunar rotation leaves out the IAU periodic terms (up to ~4 deg).
+    const int stage = scene.find("Chang'e 5-T1 booster");
+    check(stage > 0, "earth_moon.toml: Chang'e 5-T1 booster");
+    auto from_earth = [&](double t) { return glm::length(at(stage, t)); };
+    const double stage_peri1 = extremum(from_earth, tdb({2022, 1, 20, 23, 48, 0}), 1800.0, false);
+    const double stage_peri2 = extremum(from_earth, tdb({2022, 2, 8, 21, 2, 0}), 1800.0, false);
+    check(stage_peri1 < 40000.0 && stage_peri2 < 50000.0, "Chang'e 5-T1 booster Earth flybys (km, first)", stage_peri1);
+    const double t_stage = tdb({2022, 3, 4, 12, 26, 36});
+    const State stage_end = scene.icrf_state_at(stage, t_stage - 0.5);
+    const State moon_stage = scene.icrf_state_at(moon, t_stage - 0.5);
+    const glm::dvec3 r_stage = stage_end.position - moon_stage.position;
+    const glm::dvec3 v_stage = stage_end.velocity - moon_stage.velocity;
+    // Half a second before the end it is 1.3 km higher (2.5 km/s down); the Moon's own
+    // table adds up to 2 km.
+    const double stage_elev = glm::length(r_stage) - moon_r;
+    check(stage_elev > 1.863 && stage_elev < 1.863 + 1.3 + 2.0, "Chang'e 5-T1 booster impact elevation (km)",
+          stage_elev);
+    const double stage_angle =
+        std::asin(-glm::dot(glm::normalize(r_stage), glm::normalize(v_stage))) * kRadToDeg;
+    check(std::abs(stage_angle - 75.0) < 3.0, "Chang'e 5-T1 booster impact angle (deg from horizontal)", stage_angle);
+    const glm::dvec3 site = glm::transpose(body_rotation(scene.bodies[static_cast<size_t>(moon)], {}, t_stage)) *
+                            glm::normalize(r_stage);
+    const double site_lat = std::asin(site.z) * kRadToDeg;
+    const double site_lon = std::atan2(site.y, site.x) * kRadToDeg + 360.0;
+    check(std::abs(site_lat - 5.226) < 1.0 && std::abs(site_lon - 234.486) < 1.0,
+          "Chang'e 5-T1 booster impact site (deg, longitude)", site_lon);
+    scene.update(t_stage + 60.0);
+    check(!scene.bodies[static_cast<size_t>(stage)].visible, "Chang'e 5-T1 booster gone after its impact");
+
     // After splashdown the spacecraft is gone, but its trail lingers (fading) for
     // trail_linger_days and then disappears.
     std::vector<glm::dvec3> points;

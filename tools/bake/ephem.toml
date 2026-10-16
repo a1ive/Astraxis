@@ -590,6 +590,29 @@ stop = "2014-04-18 04:33"    # end of the data at the impact (contact lost 04:30
 base_step_minutes = 1
 tolerance_km = 2.0
 
+# Chang'e 5-T1's Long March 3C third stage (WE0913A): a single JPL fit (solution #23,
+# S. Chesley, 2022-02-18) from 2021-10-01, the start of the data. Horizons continues
+# below the surface to 12:33:45 TDB; the stop is where the data reach the impact
+# site's elevation (1,863 m above the mean radius, LROC), 12:26:36 TDB.
+[[target]]
+name = "ce5t1_booster"
+command = "-78000"
+naif_id = -78000
+center = "500@399"
+center_naif_id = 399
+kepler_gm_km3_s2 = 398600.435507
+start = "2021-10-01 00:00"
+stop = "2022-03-04 12:26:36"
+base_step_minutes = 10
+tolerance_km = 2.0
+verify_step_minutes = 3
+encounters = ["moon_geo"]
+encounter_km = 100000.0
+encounter_step_minutes = 10
+refine_near = ["moon_geo"]
+refine_near_km = 70000.0
+refine_near_step_minutes = 10
+
 # --- Saturn-centered (center: Saturn body center, 500@699) -----------------
 #
 # Cassini's tour, the Huygens probe, and the seven major moons over the same span

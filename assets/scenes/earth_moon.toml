@@ -5,6 +5,7 @@
 # back into lunar orbit (2014-2015), LADEE's low lunar orbits (2013-2014), the twin
 # ARTEMIS probes moving from Earth orbit to the Earth-Moon Lagrange points and into
 # lunar orbit (2007-2019), and LCROSS's impact near the lunar south pole (2009).
+# Chang'e 5-T1's rocket stage, adrift since 2014, hits the far side (2022).
 #
 # The default "Earth-Moon rotating" frame keeps the Moon still on the x axis:
 # Artemis II traces a figure eight, Artemis I a loop around the Moon that runs
@@ -21,7 +22,10 @@
 #        deployment 2022-07-04 17:16 to 2026-08-14 11:58 TDB; ARTEMIS-P1/P2 (THEMIS-B/C,
 #        final reconstruction) 2007-02-18 .. 2019-12-31; LCROSS (JPL NAV) 2009-06-18 22:18
 #        TDB .. the impact; LADEE (NASA-Ames final definitive) 2013-09-07 03:53 .. 2014-04-18
-#        04:33 TDB, where the data end at the impact. ARTEMIS and LADEE are Moon-centered
+#        04:33 TDB, where the data end at the impact; Chang'e 5-T1's rocket stage (-78000,
+#        WE0913A; JPL solution #23, S. Chesley, the last before the impact) 2021-10-01 ..
+#        2022-03-04 12:26:36 TDB, where the data reach the elevation of the impact site
+#        ([LROC]; Horizons has no data before 2021-10-01). ARTEMIS and LADEE are Moon-centered
 #        from a few days before lunar orbit insertion. The Sun direction uses the
 #        heliocentric Earth-Moon barycenter (as in jwst.toml).
 # [L16]  Liu & Li 2016, "CHANG'E-5T1 extended mission: The first lunar libration point
@@ -102,6 +106,22 @@
 #          Crater": less than 3 m across, at 1,699 m/s. [LADEEH] Horizons notes on LADEE
 #          (-12): approach from the leading edge, behind the Moon out of sight of the Earth,
 #          re-emerge, a three-minute lunar orbit insertion into an orbit of ~24 hours.
+#        [WE] (retrieved 2026-10-16) Campbell et al. 2023, "Physical Characterization of
+#          Moon Impactor WE0913A", Planet. Sci. J. 4, 217: Chang'e 5-T1 launched 2014-10-23 on
+#          a Long March 3C (Sec. 3); WE0913A discovered by the Catalina Sky Survey on
+#          2015-03-14, a lunar flyby on 2015-02-13, observed over the next 6 years, first
+#          linked to the DSCOVR Falcon 9 stage; on 2022-02-12 Jon Giorgini (JPL) saw that the
+#          DSCOVR stage had not passed close to the Moon, and the object was traced to the Long
+#          March 3C of Chang'e 5-T1 (Sec. 1); close Earth flybys on 2022-01-20 and 02-08,
+#          spin periods 185 s and 178 s from light curves (Abstract, Sec. 5); impact on 03-04,
+#          ~15 deg off vertical; two craters side by side, perhaps from additional mass at the
+#          front of the stage (Sec. 9, Abstract).
+#        [LROC] M. Robinson, LROC, 2022-06-23, "Mystery Rocket Body Found!" and NASA,
+#          2022-06-24, "NASA's Lunar Reconnaissance Orbiter Spots Rocket Impact Site on Moon":
+#          near the crater Hertzsprung, 5.226 N, 234.486 E, elevation 1,863 m; an eastern
+#          crater 18 m across superimposed on a western one 16 m across; "unexpected".
+#        [CGWIC] China Great Wall Industry Corporation, LM-3C launch vehicle page: third
+#          stage 12.375 m long, 3.00 m in diameter.
 #        Shapes of the paths in the rotating frames: [HZN] (see above).
 # Closest approaches (TDB at the spacecraft; altitude above the Moon's mean radius)
 # and the largest distances from the Earth (above its equatorial radius): computed
@@ -242,6 +262,20 @@ file = "ephem/ce5t1_geo.eph"
 type = "ephemeris"
 file = "ephem/ce5t1_sel.eph"
 relative_to = "Moon"
+
+[[bodies]]
+name = "Chang'e 5-T1 booster"
+parent = "Earth"
+kind = "spacecraft"
+radii_km = [0.006]                         # Long March 3C third stage, 12.4 m long [CGWIC]
+color = "#f0dcb8"
+orbit_color = "#d2ae78"
+trail = "history"
+trail_history_days = 45.0                  # two loops around the Earth
+trail_linger_days = 30.0                   # after the impact, fading
+[bodies.orbit]                             # [HZN] -78000
+type = "ephemeris"
+file = "ephem/ce5t1_booster.eph"
 
 [[bodies]]
 name = "LCROSS"
@@ -527,6 +561,57 @@ caption = """\
     each at the same low point 200 km above the surface, a day apart. The orbit shrinks \
     from long ellipses to a circle about 200 km up, where it tests technology for the \
     rendezvous and docking in lunar orbit that Chang'e 5 would need."""
+
+# --- Chang'e 5-T1's rocket stage ------------------------------------------------------
+
+# From the baked data ([HZN]): perigees 137,000-155,000 km from the Earth's center, apogees
+# 514,000-534,000 km (2021-10 .. 2021-12); lunar flyby 2022-01-05 12:20:42 TDB, 9,596 km
+# up; then perigees 2022-01-20 23:48 TDB, 32,601 km, and 02-08 21:02, 46,910 km; apogee
+# 02-22, 695,000 km; impact 2022-03-04 12:26:36 TDB at 2.60 km/s, 75 deg from horizontal.
+[[events]]
+name = "Chang'e 5-T1's rocket stage: adrift since 2014 (2021-10)"
+time_tdb = "2021-10-01 00:00"
+focus = "Earth"
+frame = "Earth-Moon rotating"
+distance_km = 2.0e6
+warp = 86400.0
+# [WE], [CGWIC]
+caption = """\
+    The Long March 3C that launched Chang'e 5-T1 in October 2014 sent its third stage, a \
+    tube 12 m long, on toward the Moon too. A lunar flyby in 2015 left it on long loops around \
+    the Earth. Astronomers found it in March 2015 and followed it as WE0913A for years, \
+    first taking it for a SpaceX Falcon 9 stage."""
+
+[[events]]
+name = "Chang'e 5-T1's rocket stage: a pass by the Moon (2022-01-05)"
+time_tdb = "2022-01-05 11:20"
+focus = "Moon"
+flyby = "Chang'e 5-T1 booster"
+frame = "Earth-Moon rotating, Moon-centered"
+distance_km = 6.0e4
+warp = 300.0
+# [WE], [HZN]
+caption = """\
+    The stage passes 9,600 km above the Moon, which bends its orbit: two weeks later it \
+    swings by the Earth at 33,000 km instead of the usual 140,000. Watching it pass \
+    then and again on 8 February, telescopes saw its light flicker as it tumbled, once \
+    every three minutes."""
+
+[[events]]
+name = "Chang'e 5-T1's rocket stage: impact on the far side (2022-03-04)"
+time_tdb = "2022-03-04 11:30"
+focus = "Moon"
+frame = "Moon-centered"
+from_body = "Earth"
+phase_deg = 180.0                          # from beyond the far side, where the stage comes down
+distance_km = 2.0e4
+warp = 60.0
+# [WE], [LROC], [HZN]
+caption = """\
+    In February Jon Giorgini of JPL noticed that the Falcon 9 stage had never come close \
+    to the Moon, and the object was traced back to Chang'e 5-T1. On 4 March it hits the \
+    far side near the crater Hertzsprung at 2.6 km/s. The Lunar Reconnaissance Orbiter \
+    found not one crater but two, 18 and 16 m across: extra mass at one end, perhaps."""
 
 # --- LADEE -------------------------------------------------------------------------
 
