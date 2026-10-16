@@ -54,8 +54,9 @@ constexpr double kAfterFlybySeconds = 15.0;
 // before closest approach, so that it comes while the caption is up. Events
 // are often set an hour or so before it.
 constexpr double kBeforeFlybySeconds = 20.0;
-// Only a pass within this fraction of the camera distance is framed as a flyby.
-constexpr double kFlybyFraction = 0.25;
+// An event's flyby is looked for this long (real seconds at the event's
+// warp) after the event's time: some are set hours before closest approach.
+constexpr double kFlybySearchSeconds = 300.0;
 // A flyby is seen across its path, turned this far (tan) toward the sun so
 // that the body is mostly lit.
 constexpr double kFlybySunTilt = 0.6;
@@ -240,11 +241,21 @@ void Simulation::jump_to_event(size_t index)
     m_scene.set_active_event(static_cast<int>(index)); // its trails, until the frame changes
     m_scene.update(m_clock.t_tdb);
     if (e.focus >= 0) {
-        m_camera.fly_to(event_shot(index), 2.0, m_scene);
+        m_camera.set_drift(0.0);
+        m_camera.fly_to(event_shot(index, event_flyby(index, m_clock.warp)), 2.0, m_scene);
     }
 }
 
-CameraShot Simulation::event_shot(size_t index) const
+Flyby Simulation::event_flyby(size_t index, double warp) const
+{
+    const SceneEvent& e = m_scene.events[index];
+    if (e.focus < 0 || e.flyby < 0) {
+        return {};
+    }
+    return find_flyby(m_scene, e.focus, e.flyby, e.t_tdb, e.t_tdb + warp * kFlybySearchSeconds);
+}
+
+CameraShot Simulation::event_shot(size_t index, const Flyby& flyby) const
 {
     const SceneEvent& e = m_scene.events[index];
     CameraShot shot;
@@ -259,6 +270,17 @@ CameraShot Simulation::event_shot(size_t index) const
                                    m_scene.bodies[static_cast<size_t>(e.focus)].world_position;
         m_camera.angles_for_direction(to_body, &shot.yaw, &shot.pitch);
         shot.yaw += e.phase_deg * kDegToRad;
+    } else if (flyby.body >= 0 && flyby.normal_icrf != glm::dvec3(0.0)) {
+        // A flyby close-up: across the path, so that it shows as the curve it
+        // is, and turned toward the sun.
+        glm::dvec3 dir = m_scene.current_transform().direction_to_display(flyby.normal_icrf);
+        const glm::dvec3 to_light =
+            m_scene.light_position(e.focus) - m_scene.bodies[static_cast<size_t>(e.focus)].world_position;
+        if (glm::dot(to_light, to_light) > 0.0) {
+            const glm::dvec3 sun = glm::normalize(to_light);
+            dir = glm::normalize((glm::dot(dir, sun) < 0.0 ? -dir : dir) + kFlybySunTilt * sun);
+        }
+        m_camera.angles_for_direction(dir, &shot.yaw, &shot.pitch);
     }
     return shot;
 }
@@ -383,11 +405,7 @@ void Simulation::begin_tour_event()
     m_event_shot_warp = m_clock.warp;
 
     // The pass the shot shows, if one comes close while it lasts.
-    const double distance = event_shot(static_cast<size_t>(index)).distance;
-    m_event_flyby = find_flyby(m_scene, e.focus, e.t_tdb, e.t_tdb + m_event_warp * kMaxEventSeconds, distance);
-    if (m_event_flyby.distance_km > kFlybyFraction * distance) {
-        m_event_flyby = Flyby{};
-    }
+    m_event_flyby = event_flyby(static_cast<size_t>(index), m_event_warp);
     m_event_arrival = e.t_tdb;
     if (m_event_flyby.body >= 0) {
         m_event_arrival = std::max(e.t_tdb, m_event_flyby.t_tdb - m_event_warp * kBeforeFlybySeconds);
@@ -418,22 +436,10 @@ void Simulation::jump_to_tour_event()
 void Simulation::aim_at_tour_event(double duration)
 {
     const SceneEvent& e = m_scene.events[static_cast<size_t>(m_tour_event)];
-    CameraShot shot = event_shot(static_cast<size_t>(m_tour_event));
+    const CameraShot shot = event_shot(static_cast<size_t>(m_tour_event), m_event_flyby);
     double drift = (m_tour_event % 2 == 0 ? 1.0 : -1.0) * kEventDrift;
-    if (e.from_orbit_normal >= 0) {
+    if (e.from_orbit_normal >= 0 || (e.from_body < 0 && m_event_flyby.body >= 0)) {
         drift = 0.0; // drift turns about the up axis, away from face-on
-    } else if (e.from_body < 0 && m_event_flyby.body >= 0 && m_event_flyby.normal_icrf != glm::dvec3(0.0)) {
-        // A flyby close-up: across the path, so that it shows as the curve it
-        // is, and turned toward the sun.
-        glm::dvec3 dir = m_scene.current_transform().direction_to_display(m_event_flyby.normal_icrf);
-        const glm::dvec3 to_light =
-            m_scene.light_position(e.focus) - m_scene.bodies[static_cast<size_t>(e.focus)].world_position;
-        if (glm::dot(to_light, to_light) > 0.0) {
-            const glm::dvec3 sun = glm::normalize(to_light);
-            dir = glm::normalize((glm::dot(dir, sun) < 0.0 ? -dir : dir) + kFlybySunTilt * sun);
-        }
-        m_camera.angles_for_direction(dir, &shot.yaw, &shot.pitch);
-        drift = 0.0;
     }
     m_camera.set_drift(drift);
     m_camera.fly_to(shot, duration, m_scene);

@@ -490,6 +490,7 @@ file = "ephem/huygens_sat.eph"
 name = "Cassini arrives: orbit insertion through the ring plane (2004-07-01)"
 time_tdb = "2004-06-30 22:00"
 focus = "Saturn"
+flyby = "Cassini"
 distance_km = 5.0e5
 warp = 600.0
 # [SOI], [CAS]
@@ -529,6 +530,7 @@ caption = """\
 name = "Cassini at Tethys (2005-09-24, 1,489 km)"
 time_tdb = "2005-09-24 01:43"
 focus = "Tethys"
+flyby = "Cassini"
 distance_km = 2.0e4
 warp = 60.0
 # [TET], [SPHY]
@@ -541,6 +543,7 @@ caption = """\
 name = "Cassini at Hyperion (2005-09-26, 469 km)"
 time_tdb = "2005-09-26 01:26"
 focus = "Hyperion"
+flyby = "Cassini"
 from_body = "Cassini"                      # Cassini's approach view
 distance_km = 3000.0
 warp = 30.0
@@ -555,6 +558,7 @@ caption = """\
 name = "Cassini at Iapetus (2007-09-10, 1,633 km)"
 time_tdb = "2007-09-10 13:17"
 focus = "Iapetus"
+flyby = "Cassini"
 distance_km = 2.0e4
 warp = 60.0
 # [IAP]
@@ -567,6 +571,7 @@ caption = """\
 name = "Cassini through Enceladus' plumes (2008-10-09, 23 km)"
 time_tdb = "2008-10-09 18:08"
 focus = "Enceladus"
+flyby = "Cassini"
 distance_km = 5000.0
 warp = 30.0
 # [E5], [CAS], [PLM]
@@ -594,6 +599,7 @@ caption = """\
 name = "Cassini at Mimas (2010-02-13, 9,548 km)"
 time_tdb = "2010-02-13 16:23"
 focus = "Mimas"
+flyby = "Cassini"
 distance_km = 3.0e4
 warp = 60.0
 # [PAC]
@@ -607,6 +613,7 @@ caption = """\
 name = "Cassini at Titan, lowest pass (2010-06-21, 878 km)"
 time_tdb = "2010-06-21 00:29"
 focus = "Titan"
+flyby = "Cassini"
 distance_km = 2.0e4
 warp = 60.0
 # [T70]
@@ -619,6 +626,7 @@ caption = """\
 name = "Cassini at Rhea (2011-01-11, 66 km)"
 time_tdb = "2011-01-11 03:55"
 focus = "Rhea"
+flyby = "Cassini"
 distance_km = 8000.0
 warp = 30.0
 # [RHE]
@@ -631,6 +639,7 @@ caption = """\
 name = "Cassini at Dione (2011-12-12, 94 km)"
 time_tdb = "2011-12-12 08:40"
 focus = "Dione"
+flyby = "Cassini"
 distance_km = 8000.0
 warp = 30.0
 # [DIO], [SPHY]
@@ -645,6 +654,7 @@ caption = """\
 name = "Grand Finale: first dive inside the rings (2017-04-26)"
 time_tdb = "2017-04-26 03:00"
 focus = "Saturn"
+flyby = "Cassini"
 distance_km = 3.0e5
 warp = 600.0
 # [GF], [CAS]

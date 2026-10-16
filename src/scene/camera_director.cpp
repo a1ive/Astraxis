@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <vector>
 
 namespace astraxis {
@@ -69,77 +70,68 @@ double distance_at(const Scene& scene, int a, int b, double t_tdb)
 
 } // namespace
 
-Flyby find_flyby(const Scene& scene, int body, double t0, double t1, double max_distance_km)
+Flyby find_flyby(const Scene& scene, int body, int other, double t0, double t1)
 {
-    Flyby best;
-    if (body < 0 || body >= static_cast<int>(scene.bodies.size()) || !(t1 > t0)) {
-        return best;
+    Flyby flyby;
+    const int count = static_cast<int>(scene.bodies.size());
+    if (body < 0 || body >= count || other < 0 || other >= count || other == body || !(t1 > t0)) {
+        return flyby;
     }
-    const bool from_craft = scene.bodies[static_cast<size_t>(body)].kind == BodyKind::Spacecraft;
+    // The closest sample that is a local minimum between valid samples.
     const double step = (t1 - t0) / (kFlybySamples - 1);
     std::vector<double> distances(kFlybySamples);
-    for (size_t i = 0; i < scene.bodies.size(); ++i) {
-        const Body& other = scene.bodies[i];
-        const int k = static_cast<int>(i);
-        const bool candidate = from_craft ? (other.kind == BodyKind::Planet || other.kind == BodyKind::Star)
-                                          : other.kind == BodyKind::Spacecraft;
-        if (k == body || !candidate || !other.motion) {
-            continue;
-        }
-        // The closest sample that is a local minimum between valid samples.
-        for (int s = 0; s < kFlybySamples; ++s) {
-            const double t = t0 + step * s;
-            distances[static_cast<size_t>(s)] =
-                valid_at(scene, k, t) && valid_at(scene, body, t) ? distance_at(scene, k, body, t) : -1.0;
-        }
-        int closest = -1;
-        double closest_d = best.body >= 0 ? best.distance_km : max_distance_km;
-        for (size_t s = 1; s + 1 < distances.size(); ++s) {
-            const double here = distances[s];
-            const double before = distances[s - 1];
-            const double after = distances[s + 1];
-            if (before >= 0.0 && after >= 0.0 && here >= 0.0 && here <= before && here <= after && here < closest_d) {
-                closest = static_cast<int>(s);
-                closest_d = here;
-            }
-        }
-        if (closest < 0) {
-            continue;
-        }
-        // Golden-section search between the neighbouring samples.
-        constexpr double kInvPhi = 0.6180339887498949;
-        double a = t0 + step * (closest - 1);
-        double b = t0 + step * (closest + 1);
-        double c = b - kInvPhi * (b - a);
-        double d = a + kInvPhi * (b - a);
-        double fc = distance_at(scene, k, body, c);
-        double fd = distance_at(scene, k, body, d);
-        for (int it = 0; it < kFlybyRefineSteps; ++it) {
-            if (fc < fd) {
-                b = d;
-                d = c;
-                fd = fc;
-                c = b - kInvPhi * (b - a);
-                fc = distance_at(scene, k, body, c);
-            } else {
-                a = c;
-                c = d;
-                fc = fd;
-                d = a + kInvPhi * (b - a);
-                fd = distance_at(scene, k, body, d);
-            }
-        }
-        const double t = 0.5 * (a + b);
-        const State sa = scene.icrf_state_at(k, t);
-        const State sb = scene.icrf_state_at(body, t);
-        const glm::dvec3 r = sa.position - sb.position;
-        const glm::dvec3 n = glm::cross(r, sa.velocity - sb.velocity);
-        best.body = k;
-        best.t_tdb = t;
-        best.distance_km = glm::length(r);
-        best.normal_icrf = glm::dot(n, n) > 0.0 ? glm::normalize(n) : glm::dvec3(0.0);
+    for (int s = 0; s < kFlybySamples; ++s) {
+        const double t = t0 + step * s;
+        distances[static_cast<size_t>(s)] =
+            valid_at(scene, other, t) && valid_at(scene, body, t) ? distance_at(scene, other, body, t) : -1.0;
     }
-    return best;
+    int closest = -1;
+    double closest_d = std::numeric_limits<double>::max();
+    for (size_t s = 1; s + 1 < distances.size(); ++s) {
+        const double here = distances[s];
+        const double before = distances[s - 1];
+        const double after = distances[s + 1];
+        if (before >= 0.0 && after >= 0.0 && here >= 0.0 && here <= before && here <= after && here < closest_d) {
+            closest = static_cast<int>(s);
+            closest_d = here;
+        }
+    }
+    if (closest < 0) {
+        return flyby;
+    }
+    // Golden-section search between the neighbouring samples.
+    constexpr double kInvPhi = 0.6180339887498949;
+    double a = t0 + step * (closest - 1);
+    double b = t0 + step * (closest + 1);
+    double c = b - kInvPhi * (b - a);
+    double d = a + kInvPhi * (b - a);
+    double fc = distance_at(scene, other, body, c);
+    double fd = distance_at(scene, other, body, d);
+    for (int it = 0; it < kFlybyRefineSteps; ++it) {
+        if (fc < fd) {
+            b = d;
+            d = c;
+            fd = fc;
+            c = b - kInvPhi * (b - a);
+            fc = distance_at(scene, other, body, c);
+        } else {
+            a = c;
+            c = d;
+            fc = fd;
+            d = a + kInvPhi * (b - a);
+            fd = distance_at(scene, other, body, d);
+        }
+    }
+    const double t = 0.5 * (a + b);
+    const State sa = scene.icrf_state_at(other, t);
+    const State sb = scene.icrf_state_at(body, t);
+    const glm::dvec3 r = sa.position - sb.position;
+    const glm::dvec3 n = glm::cross(r, sa.velocity - sb.velocity);
+    flyby.body = other;
+    flyby.t_tdb = t;
+    flyby.distance_km = glm::length(r);
+    flyby.normal_icrf = glm::dot(n, n) > 0.0 ? glm::normalize(n) : glm::dvec3(0.0);
+    return flyby;
 }
 
 const char* CameraDirector::shot_name(ShotKind kind)

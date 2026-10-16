@@ -58,7 +58,12 @@ public:
     void reset_to_now();
     void set_focus(int body); // stops the tour
     void set_frame(int frame);
+    // Jumps to an event and frames it as the tour does (across the flyby).
     void jump_to_event(size_t index);
+    // The closest approach of the event's `flyby` body to its focus, within
+    // 300 s at `warp` (simulated seconds per second) after the event's time;
+    // none if the event names no flyby.
+    Flyby event_flyby(size_t index, double warp) const;
     // Views the focus from (slightly off) the sun's direction.
     void look_from_sun_side();
 
@@ -122,8 +127,10 @@ private:
     void aim_at_tour_event(double duration);
     void run_tour_event(double real_dt);
     void end_tour_event();
-    // The camera shot of event `index` as jump_to_event frames it.
-    CameraShot event_shot(size_t index) const;
+    // The camera shot of event `index`: from where the event says, else
+    // across the path of `flyby` (if any) turned toward the sun, else from
+    // the default angles. The scene must be at about the event's time.
+    CameraShot event_shot(size_t index, const Flyby& flyby) const;
 
     Scene m_scene;
     SimClock m_clock;

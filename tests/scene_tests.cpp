@@ -703,22 +703,76 @@ void test_find_flyby()
     const int galileo = scene.find("Galileo");
     double t0 = 0.0;
     parse_utc("1995-12-07 16:47", &t0);
-    const Flyby flyby = find_flyby(scene, io, t0, t0 + 7200.0, 30000.0);
+    const Flyby flyby = find_flyby(scene, io, galileo, t0, t0 + 7200.0);
     check(flyby.body == galileo, "Galileo flies past Io", flyby.body);
     const double altitude = flyby.distance_km - scene.bodies[static_cast<size_t>(io)].equatorial_radius_km;
     check(std::abs(altitude - 898.0) < 20.0, "Galileo-Io closest approach altitude (km)", altitude);
     check(flyby.t_tdb > t0 + 1800.0 && flyby.t_tdb < t0 + 5400.0, "about an hour after the event time (s)",
           flyby.t_tdb - t0);
     check(std::abs(glm::length(flyby.normal_icrf) - 1.0) < 1e-9, "flyby plane normal is a unit vector");
-    // The other way round: from the spacecraft, the closest body is Io.
-    check(find_flyby(scene, galileo, t0, t0 + 7200.0, 30000.0).body == io, "from Galileo: Io");
-    // Too far for the shot, or before Galileo arrived: no flyby.
-    check(find_flyby(scene, io, t0, t0 + 7200.0, 2000.0).body < 0, "no pass within 2000 km");
+    // The other way round: the same pass.
+    const Flyby reverse = find_flyby(scene, galileo, io, t0, t0 + 7200.0);
+    check(reverse.body == io && std::abs(reverse.t_tdb - flyby.t_tdb) < 1.0, "from Galileo: Io, at the same time");
+    // Before Galileo arrived: no flyby.
     double t1990 = 0.0;
     parse_utc("1990-01-01 00:00", &t1990);
-    check(find_flyby(scene, io, t1990, t1990 + 7200.0, 30000.0).body < 0, "no spacecraft in 1990");
+    check(find_flyby(scene, io, galileo, t1990, t1990 + 7200.0).body < 0, "no Galileo in 1990");
     // Still closing in at the end of the interval: not a closest approach.
-    check(find_flyby(scene, io, t0, t0 + 1800.0, 30000.0).body < 0, "approach cut off by the interval");
+    check(find_flyby(scene, io, galileo, t0, t0 + 1800.0).body < 0, "approach cut off by the interval");
+}
+
+// Every event that names a flyby shows it: the body passes the focus, closer
+// than the camera, within the search after the event's time. A jump to the
+// event looks across the pass, as the tour does.
+void test_event_flybys()
+{
+    int named = 0;
+    for (const auto& [stem, scene_ptr] : all_scenes()) {
+        const Scene& scene = *scene_ptr;
+        if (std::none_of(scene.events.begin(), scene.events.end(), [](const SceneEvent& e) { return e.flyby >= 0; })) {
+            continue;
+        }
+        Simulation sim;
+        std::string error;
+        check(sim.load_scene(std::string(ASTRAXIS_ASSET_DIR "/scenes/") + stem + ".toml", &error),
+              (stem + " loads").c_str());
+        for (size_t i = 0; i < sim.scene().events.size(); ++i) {
+            const SceneEvent& e = sim.scene().events[i];
+            if (e.flyby < 0) {
+                continue;
+            }
+            ++named;
+            const std::string what = stem + " / " + e.name;
+            const double warp = e.warp > 0.0 ? e.warp : sim.scene().view.warp;
+            const Flyby flyby = sim.event_flyby(i, warp);
+            check(flyby.body == e.flyby, (what + ": the named flyby is found").c_str());
+            if (flyby.body < 0) {
+                continue;
+            }
+            const double distance = e.distance_km > 0.0 ? e.distance_km : 0.0;
+            check(distance <= 0.0 || flyby.distance_km < distance, (what + ": passes within the shot (km)").c_str(),
+                  flyby.distance_km);
+
+            if (e.from_body >= 0 || e.from_orbit_normal >= 0) {
+                continue;
+            }
+            // The jump's view: the camera on the side of the pass's normal
+            // (turned at most ~31 deg toward the sun).
+            sim.jump_to_event(i);
+            sim.clock().paused = true;
+            for (int k = 0; k < 40; ++k) {
+                sim.update(0.1);
+            }
+            const Scene& s = sim.scene();
+            const glm::dvec3 normal = s.current_transform().direction_to_display(flyby.normal_icrf);
+            const glm::dvec3 from_focus = glm::normalize(sim.camera().view(1920, 1080).position -
+                                                         s.bodies[static_cast<size_t>(e.focus)].world_position);
+            check(std::abs(glm::dot(from_focus, normal)) > 0.85, (what + ": seen across the pass").c_str(),
+                  glm::dot(from_focus, normal));
+            sim.clock().paused = false;
+        }
+    }
+    check(named >= 80, "events name their flybys", named);
 }
 
 // The tour goes through the events: it fades out, moves the clock to before
@@ -742,8 +796,8 @@ void test_tour_events()
     // The first event in time is the Galileo tour overview, then its Io flyby.
     const int io_event = 0;
     check(scene.events[static_cast<size_t>(io_event)].warp == 60.0, "Io flyby event is at 1 min/s");
-    const Flyby io_flyby = find_flyby(scene, scene.find("Io"), scene.events[0].t_tdb,
-                                      scene.events[0].t_tdb + 6000.0, 30000.0);
+    const Flyby io_flyby = find_flyby(scene, scene.find("Io"), scene.find("Galileo"), scene.events[0].t_tdb,
+                                      scene.events[0].t_tdb + 6000.0);
 
     std::vector<int> shown;
     bool faded_out = false;
@@ -848,6 +902,7 @@ void run_scene_tests()
     test_body_masses();
     test_event_captions();
     test_find_flyby();
+    test_event_flybys();
     test_tour_events();
     for (uint32_t seed : {42u, 7u, 2026u, 99u, 12345u}) {
         test_camera_director("jupiter.toml", 3600.0, 20.0, seed);

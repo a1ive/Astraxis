@@ -71,7 +71,7 @@ CMake 目标：
 核心抽象：所有天体运动都实现 `MotionSource::eval(t_tdb) -> State`，返回相对父天体的 ICRF 状态，场景层不关心来源是解析、星历还是积分。`Scene::update` 先按父子链算出 ICRF 位置（`icrf_position`），再经当前显示参考系（`FrameTransform`）变换成 `world_position`。渲染、相机、标签、导演都只用 `world_position`。
 
 渲染层的 pass 只接收 `CameraView` 和简单的 draw item，由 `src/view/` 的 `SceneRenderer` 把 scene 转换成这些数据。宿主无关的部分：
-- `Simulation`（`scene/simulation.hpp`，不依赖 SDL）持有 Scene、时钟、相机和导览；`compute_view` 给每个输出算一份 `OutputView`（相机视图、卫星淡出、content scale）。导览的普通镜头由 `CameraDirector` 选；每隔一两个镜头插一个事件镜头，因为要动时钟，由 `Simulation` 执行：按时间顺序取下一个事件，淡出黑场后把时钟跳到事件前（快到的事件不跳），倍速按剩余时间指数降到事件自己的倍速（飞掠降到最近点前 20 s），显示展签，飞掠镜头持续到最近点之后。黑场用 `Simulation::fade()`，在后处理合成和标签里乘上
+- `Simulation`（`scene/simulation.hpp`，不依赖 SDL）持有 Scene、时钟、相机和导览；`compute_view` 给每个输出算一份 `OutputView`（相机视图、卫星淡出、content scale）。导览的普通镜头由 `CameraDirector` 选；每隔一两个镜头插一个事件镜头，因为要动时钟，由 `Simulation` 执行：按时间顺序取下一个事件，淡出黑场后把时钟跳到事件前（快到的事件不跳），倍速按剩余时间指数降到事件自己的倍速（飞掠降到最近点前 20 s），显示展签，飞掠镜头持续到最近点之后。飞掠体由事件的 `flyby` 指定（自动找最近的探测器在多探测器场景里常挑错，比如“MRO arrives”找到 Mars Express），`--event` 和导览用同一个视角（`Simulation::event_shot`）。黑场用 `Simulation::fade()`，在后处理合成和标签里乘上
 - `LabelLayout`（`scene/label_layout.hpp`）算标签和标记放在哪里（优先级、避让、渐隐、拾取），不负责绘制；`App` 用 ImGui 画
 - `SceneRenderer` 持有 pass 和每个场景的 GPU 资源，显示选项通过 `ViewOptions` 传入
 - GPU 分两层：`GpuDevice` 只有一个；`RenderOutput` 每个窗口一个，持有交换链和本输出的 `SceneTargets`。`Frame` 的 `width/height` 是场景尺寸，`output_width/output_height` 是交换链尺寸，两者在有渲染缩放（`render_scale`，各模式都有）时不同。MSAA 采样数（`msaa` 设置：1/2/4，`GpuDevice::set_msaa` 按硬件支持往下取）存在 `GpuDevice` 的 `SceneTargetFormat` 里，各 pass 的管线和 `SceneTargets` 都依赖它：运行时切换要调 `SceneRenderer::refresh_pipelines()` 重建管线，`SceneTargets::ensure` 发现采样数变了会自己重建。新 pass 要实现 `set_format`，并加进 `refresh_pipelines`。所有和输出尺寸相关的纹理（MSAA/HDR/深度、泛光链、黑洞追踪目标）都放在 `SceneTargets` 里，pass 内部不要再缓存按尺寸分配的纹理，否则多个不同尺寸的输出轮流渲染时会反复重建。各输出都用 SDR 交换链，格式相同，共用一个 `SceneRenderer`
@@ -230,14 +230,13 @@ CMake 目标：
 按容易程度排：
 
 1. 标题字体加希腊字母后备（Jost 没有希腊字母，`α` 显示成 `?`）；面板打开时长标题两端会被挡住
-2. 导览的事件镜头：飞掠的探测器现在是自动找的（焦点天体在事件后 100 s 真实时间内、相机距离 1/4 以内最近的探测器），可以让事件写明 `flyby = "<探测器>"`，避免找错；事件没写视角时，导览从飞掠路径的法向偏向太阳看，`--event` 跳转仍用默认视角，两者可以统一
-3. 黑洞透镜区的星：现在来自立方体贴图，重采样后比直接画的星点软、暗，爱因斯坦环附近还会被拉成弧（见 limitations.md）。可以把亮星按透镜映射画成点：在 prepass 的方向网格里找落进每个网格的星，按放大率加亮。另外 12 M 的最近距离下阴影已接近占满竖直视场，看是否加大 `kBlackHoleClearance`
-4. 随天体自转的参考系；Rosetta 场景加 Philae（ESA SPICE 里有着陆轨迹，Horizons 没有）
-5. 地月场景加 CE-5T1 的火箭末级：Horizons −78000（2021-10-01 到 2022-03-04 撞月，JPL 解 #23）可以直接烘焙
-6. 火星场景：天问一号补 2021 年的入轨（02-10）、停泊轨道（02-23）和中继轨道（05-17），可用 Estévez 仓库里的遥测向量（`tm_state_vectors/`）和 AMSAT-DL 论文的机动表外推；加星际天体 3I/ATLAS（天问一号 2025-09-30 .. 10-03 拍摄，arXiv:2603.10350）；事件的视角支持“从太阳方向看”（场景里没有太阳天体，`from_body` 用不了）
-7. 金星场景：加信使号（2007-06-05，与金星快车协同观测）、Solar Orbiter 与贝皮科伦坡号相隔约 33 小时（2021-08）的金星飞掠，做法同伽利略号/卡西尼号/Juice（金星中心、前后各 5 天的短表）；Solar Orbiter（−144）和贝皮科伦坡号同时出现在一个事件里
-8. 只为换轨迹长度而复制的参考系（水星场景的“Mercury-centered, 30-day trails”，Rosetta 的“67P, Sun fixed, 3 months / the whole stay”）看能否改成事件的 `[[events.trails]]`，精简参考系菜单
-9. 远期：macOS（Metal，需要 SPIR-V → MSL 和 macOS CI）；Hulse–Taylor 并合（3 亿年后 double 秒数只有约 2 s 分辨率，要做成以并合为零点的单独场景）；脉冲星自转轴的测地线进动（B1913+16 的几何解各论文不一致）
+2. 黑洞透镜区的星：现在来自立方体贴图，重采样后比直接画的星点软、暗，爱因斯坦环附近还会被拉成弧（见 limitations.md）。可以把亮星按透镜映射画成点：在 prepass 的方向网格里找落进每个网格的星，按放大率加亮。另外 12 M 的最近距离下阴影已接近占满竖直视场，看是否加大 `kBlackHoleClearance`
+3. 随天体自转的参考系；Rosetta 场景加 Philae（ESA SPICE 里有着陆轨迹，Horizons 没有）
+4. 地月场景加 CE-5T1 的火箭末级：Horizons −78000（2021-10-01 到 2022-03-04 撞月，JPL 解 #23）可以直接烘焙
+5. 火星场景：天问一号补 2021 年的入轨（02-10）、停泊轨道（02-23）和中继轨道（05-17），可用 Estévez 仓库里的遥测向量（`tm_state_vectors/`）和 AMSAT-DL 论文的机动表外推；加星际天体 3I/ATLAS（天问一号 2025-09-30 .. 10-03 拍摄，arXiv:2603.10350）；事件的视角支持“从太阳方向看”（场景里没有太阳天体，`from_body` 用不了）
+6. 金星场景：加信使号（2007-06-05，与金星快车协同观测）、Solar Orbiter 与贝皮科伦坡号相隔约 33 小时（2021-08）的金星飞掠，做法同伽利略号/卡西尼号/Juice（金星中心、前后各 5 天的短表）；Solar Orbiter（−144）和贝皮科伦坡号同时出现在一个事件里
+7. 只为换轨迹长度而复制的参考系（水星场景的“Mercury-centered, 30-day trails”，Rosetta 的“67P, Sun fixed, 3 months / the whole stay”）看能否改成事件的 `[[events.trails]]`，精简参考系菜单
+8. 远期：macOS（Metal，需要 SPIR-V → MSL 和 macOS CI）；Hulse–Taylor 并合（3 亿年后 double 秒数只有约 2 s 分辨率，要做成以并合为零点的单独场景）；脉冲星自转轴的测地线进动（B1913+16 的几何解各论文不一致）
 
 ## 不要做
 

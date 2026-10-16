@@ -91,16 +91,16 @@ private:
     int m_shots_until_event = 1;
 };
 
-// The closest approach to `body` during [t0, t1]: of a spacecraft, or, if
-// `body` is a spacecraft itself, of a planet, moon or star. Only passes within
-// `max_distance_km` of its center count, and only true minima (not at either
-// end of the interval, where the distance is still falling or already rising).
+// The closest approach of `other` to `body` during [t0, t1] (the closest of
+// several). Only true minima count, not either end of the interval (where the
+// distance is still falling or already rising), nor times when either body
+// does not exist.
 struct Flyby {
     int body = -1; // the body passing by; -1 = none
     double t_tdb = 0.0;
     double distance_km = 0.0;
     glm::dvec3 normal_icrf{0.0}; // unit normal of the relative path (r x v)
 };
-Flyby find_flyby(const Scene& scene, int body, double t0, double t1, double max_distance_km);
+Flyby find_flyby(const Scene& scene, int body, int other, double t0, double t1);
 
 } // namespace astraxis

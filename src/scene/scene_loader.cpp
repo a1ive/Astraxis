@@ -1102,6 +1102,12 @@ void Loader::parse(const toml::table& root, Scene& out)
                     fail(ctx, "from_body needs a focus (other than itself) and no from_orbit_normal");
                 }
             }
+            if (t->contains("flyby")) {
+                e.flyby = body_ref(out, *t, "flyby", ctx, false);
+                if (e.focus < 0 || e.flyby == e.focus) {
+                    fail(ctx, "flyby needs a focus (other than itself)");
+                }
+            }
             e.phase_deg = get_double_or(*t, "phase_deg", 0.0);
             if (e.phase_deg != 0.0 && e.from_body < 0) {
                 fail(ctx, "phase_deg needs from_body");

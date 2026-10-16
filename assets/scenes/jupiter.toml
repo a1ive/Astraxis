@@ -480,11 +480,16 @@ file = "ephem/cassini_jup.eph"
 # Events. Closest approaches (TDB at the spacecraft) and distances from the bake tool
 # (tools/bake/ephem.toml encounters; altitudes above the moons' mean radii [SPHY]).
 # Flybys start an hour before closest approach.
+# `flyby` names the body whose pass of the focus an event shows (searched for in the 300 s
+# after the event's time, at its warp): the view is then across the pass, turned toward the
+# sun (unless from_body or from_orbit_normal say otherwise), and the auto tour slows down to
+# arrive 20 s before closest approach and stays until after it.
 
 [[events]]
 name = "Galileo arrives: Io flyby (1995-12-07, 898 km)"
 time_tdb = "1995-12-07 16:47"
 focus = "Io"
+flyby = "Galileo"
 distance_km = 30000.0
 warp = 60.0
 # [GLL]
@@ -511,6 +516,7 @@ caption = """\
 name = "Galileo at Ganymede (1996-09-06, 267 km)"
 time_tdb = "1996-09-06 18:00"
 focus = "Ganymede"
+flyby = "Galileo"
 distance_km = 30000.0
 warp = 60.0
 # [GLL], [SPHY] (radii)
@@ -523,6 +529,7 @@ caption = """\
 name = "Galileo at Europa (1997-12-16, 204 km)"
 time_tdb = "1997-12-16 11:04"
 focus = "Europa"
+flyby = "Galileo"
 distance_km = 30000.0
 warp = 60.0
 # [GLL]
@@ -550,6 +557,7 @@ caption = """\
 name = "Galileo at Callisto (2001-05-25, 129 km)"
 time_tdb = "2001-05-25 10:25"
 focus = "Callisto"
+flyby = "Galileo"
 distance_km = 30000.0
 warp = 60.0
 # [GLL]
@@ -562,6 +570,7 @@ caption = """\
 name = "Galileo at Io (2002-01-17, 100 km)"
 time_tdb = "2002-01-17 13:09"
 focus = "Io"
+flyby = "Galileo"
 distance_km = 30000.0
 warp = 60.0
 # [GLL], [PLM]
@@ -586,6 +595,7 @@ caption = """\
 name = "Juno arrives: orbit insertion (2016-07-05)"
 time_tdb = "2016-07-04 20:48"
 focus = "Jupiter"
+flyby = "Juno"
 distance_km = 6.0e5
 warp = 600.0
 # [JUNO]
@@ -611,6 +621,7 @@ caption = """\
 name = "Juno at Ganymede (2021-06-07, 1,035 km)"
 time_tdb = "2021-06-07 15:57"
 focus = "Ganymede"
+flyby = "Juno"
 distance_km = 30000.0
 warp = 60.0
 # [JUNO]
@@ -623,6 +634,7 @@ caption = """\
 name = "Juno at Europa (2022-09-29, 347 km)"
 time_tdb = "2022-09-29 08:38"
 focus = "Europa"
+flyby = "Juno"
 distance_km = 30000.0
 warp = 60.0
 # [JUNE]
@@ -635,6 +647,7 @@ caption = """\
 name = "Juno at Io (2023-12-30, 1,500 km)"
 time_tdb = "2023-12-30 07:37"
 focus = "Io"
+flyby = "Juno"
 distance_km = 30000.0
 warp = 60.0
 # [JUNI]
