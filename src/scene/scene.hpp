@@ -330,9 +330,12 @@ RingBandShape ring_band_shape(const Body& planet, const RingBand& band, const gl
 // How positions are presented. Inertial frames keep ICRF axes around an origin
 // body; rotating frames turn with the primary -> secondary line (x axis) and
 // the secondary's orbit normal (z axis), e.g. the Sun-Earth frame in which
-// JWST's halo orbit around L2 is a closed loop.
+// JWST's halo orbit around L2 is a closed loop; body-fixed frames turn with
+// the origin body's own axes (its IAU rotation model: z along the north pole,
+// x through the prime meridian), so that its surface stands still, e.g. the
+// Pluto-fixed frame in which Charon hangs over one hemisphere.
 struct DisplayFrame {
-    enum class Type { Inertial, Rotating };
+    enum class Type { Inertial, Rotating, BodyFixed };
     std::string name;
     Type type = Type::Inertial;
     int origin = 0;
@@ -503,8 +506,13 @@ public:
     void set_active_event(int index);
     int active_event() const { return m_active_event; }
     const DisplayFrame& frame() const { return frames[static_cast<size_t>(m_active_frame)]; }
-    bool frame_is_rotating() const { return frame().type == DisplayFrame::Type::Rotating; }
+    // Whether the axes of the active frame turn (rotating or body-fixed): its
+    // z axis is then "up", and orbits are drawn as history trails.
+    bool frame_is_rotating() const { return frame().type != DisplayFrame::Type::Inertial; }
     FrameTransform frame_transform(double t_tdb) const;
+    // Body-fixed axes of a body in ICRF (columns) at t_tdb: its IAU rotation
+    // model, or its free precession.
+    glm::dmat3 body_to_icrf(const Body& body, double t_tdb) const;
     const FrameTransform& current_transform() const { return m_transform; }
 
     // State of a body relative to the scene origin (ICRF) at any time.
@@ -539,7 +547,8 @@ public:
     double trail_history_days(int body) const;
 
     // Trail of a body in the display frame at t: head (current position) first,
-    // going back in time, with fade 0 at the head and 1 at the tail.
+    // going back in time, with fade 0 at the head and 1 at the tail. A
+    // body-fixed frame shows only the trails of its origin's system.
     void trail(int body, double t_tdb, int max_points, std::vector<glm::dvec3>& points,
                std::vector<float>& fades) const;
 
@@ -556,6 +565,10 @@ public:
     bool osculating_apsides(int body, double* periapsis_km, double* apoapsis_km, double* period_s) const;
 
 private:
+    // Whether a body belongs to the system of the active frame's origin: the
+    // origin and its satellites, or everything around its barycenter.
+    bool in_frame_system(int body) const;
+
     double m_time = 0.0;
     int m_active_frame = 0;
     int m_active_event = -1;

@@ -1032,8 +1032,11 @@ void Loader::parse(const toml::table& root, Scene& out)
                 f.primary = body_ref(out, *t, "primary", ctx, true);
                 f.secondary = body_ref(out, *t, "secondary", ctx, false);
                 f.origin = t->contains("origin") ? body_ref(out, *t, "origin", ctx, false) : f.secondary;
+            } else if (type == "body_fixed") {
+                f.type = DisplayFrame::Type::BodyFixed;
+                f.origin = body_ref(out, *t, "origin", ctx, false);
             } else {
-                fail(ctx, "type must be \"inertial\" or \"rotating\"");
+                fail(ctx, "type must be \"inertial\", \"rotating\" or \"body_fixed\"");
             }
             f.trail_history_days = get_double_or(*t, "trail_history_days", 0.0);
             if (f.trail_history_days < 0.0) {

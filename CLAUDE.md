@@ -68,7 +68,7 @@ CMake 目标：
 - `astraxis_wallpaper`：仅 Windows，壁纸的设置对话框和启动器，和 astraxis.exe 放在同一目录
 - `astraxis_tests`：单元测试
 
-核心抽象：所有天体运动都实现 `MotionSource::eval(t_tdb) -> State`，返回相对父天体的 ICRF 状态，场景层不关心来源是解析、星历还是积分。`Scene::update` 先按父子链算出 ICRF 位置（`icrf_position`），再经当前显示参考系（`FrameTransform`）变换成 `world_position`。渲染、相机、标签、导演都只用 `world_position`。
+核心抽象：所有天体运动都实现 `MotionSource::eval(t_tdb) -> State`，返回相对父天体的 ICRF 状态，场景层不关心来源是解析、星历还是积分。`Scene::update` 先按父子链算出 ICRF 位置（`icrf_position`），再经当前显示参考系（`FrameTransform`：惯性、主–次天体连线旋转、随天体自转三种）变换成 `world_position`。渲染、相机、标签、导演都只用 `world_position`。
 
 渲染层的 pass 只接收 `CameraView` 和简单的 draw item，由 `src/view/` 的 `SceneRenderer` 把 scene 转换成这些数据。宿主无关的部分：
 - `Simulation`（`scene/simulation.hpp`，不依赖 SDL）持有 Scene、时钟、相机和导览；`compute_view` 给每个输出算一份 `OutputView`（相机视图、卫星淡出、content scale）。导览的普通镜头由 `CameraDirector` 选；每隔一两个镜头插一个事件镜头，因为要动时钟，由 `Simulation` 执行：按时间顺序取下一个事件，淡出黑场后把时钟跳到事件前（快到的事件不跳），倍速按剩余时间指数降到事件自己的倍速（飞掠降到最近点前 20 s），显示展签，飞掠镜头持续到最近点之后。飞掠体由事件的 `flyby` 指定（自动找最近的探测器在多探测器场景里常挑错，比如“MRO arrives”找到 Mars Express），`--event` 和导览用同一个视角（`Simulation::event_shot`）。黑场用 `Simulation::fade()`，在后处理合成和标签里乘上
@@ -129,7 +129,7 @@ CMake 目标：
 | `appearance_tests.cpp` | 彗尾、尘埃彗尾、大气层、羽流（含各场景参数一致） |
 | `stellar_system_tests.cpp` | α Cen、TRAPPIST-1、Kepler 系统、TIC 168789840、PSR B1620-26 |
 | `relativity_tests.cpp` | Kerr 测地线（类时/类光）、后开普勒双脉冲星、Sgr A* |
-| `scene_tests.cpp` | 场景加载、Simulation、标签布局、跨场景一致性（同一天体在各场景的轨道参数）、相机导演、事件说明 |
+| `scene_tests.cpp` | 场景加载、Simulation、随天体自转的参考系、标签布局、跨场景一致性（同一天体在各场景的轨道参数）、相机导演、事件说明 |
 | `settings_tests.cpp` | `config.toml` 读写与场景列表 |
 
 ## 资源与工具
@@ -230,7 +230,7 @@ CMake 目标：
 按容易程度排：
 
 1. 标题字体加希腊字母后备（Jost 没有希腊字母，`α` 显示成 `?`）；面板打开时长标题两端会被挡住
-2. 随天体自转的参考系；Rosetta 场景加 Philae（ESA SPICE 里有着陆轨迹，Horizons 没有）
+2. Rosetta 场景加 Philae（ESA SPICE 里有着陆轨迹，Horizons 没有）；要在 67P 固定系（`type = "body_fixed"`）里看着陆，先给 67P 换随时间变化的自转（过近日点后周期从 12.40 h 缩到约 12.06 h，见 limitations.md）
 3. 地月场景加 CE-5T1 的火箭末级：Horizons −78000（2021-10-01 到 2022-03-04 撞月，JPL 解 #23）可以直接烘焙
 4. 火星场景：天问一号补 2021 年的入轨（02-10）、停泊轨道（02-23）和中继轨道（05-17），可用 Estévez 仓库里的遥测向量（`tm_state_vectors/`）和 AMSAT-DL 论文的机动表外推；加星际天体 3I/ATLAS（天问一号 2025-09-30 .. 10-03 拍摄，arXiv:2603.10350）；事件的视角支持“从太阳方向看”（场景里没有太阳天体，`from_body` 用不了）
 5. 金星场景：加信使号（2007-06-05，与金星快车协同观测）、Solar Orbiter 与贝皮科伦坡号相隔约 33 小时（2021-08）的金星飞掠，做法同伽利略号/卡西尼号/Juice（金星中心、前后各 5 天的短表）；Solar Orbiter（−144）和贝皮科伦坡号同时出现在一个事件里

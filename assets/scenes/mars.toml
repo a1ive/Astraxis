@@ -448,6 +448,13 @@ solar_wind_km_s = 400.0
 type = "ephemeris"
 file = "ephem/siding_spring_mars.eph"
 
+# Turning with Mars, the moons move as they do across its sky: Phobos eastward (it goes
+# round faster than Mars turns, so it rises in the west), Deimos slowly westward.
+[[frames]]
+name = "Mars-fixed"
+type = "body_fixed"
+origin = "Mars"
+
 # --- Events --------------------------------------------------------------------------
 # Times and distances (TDB) computed from the baked data.
 # Arrivals start a few hours before the first periapsis (when the osculating orbit
@@ -783,6 +790,25 @@ caption = """\
     lap; MAVEN swings out to 4,500 km; Mars Express, here since 2003, and Tianwen-1 out \
     to 10,500 and 12,000 km, across the orbit of Phobos; Hope, from the orbit of Deimos \
     outward, takes 55 hours."""
+
+# Periods from the [PCK] rotation rates (Phobos and Deimos rotate synchronously): Mars
+# 24 h 37 min, Phobos 7 h 39 min, Deimos 30 h 18 min. Phobos comes round again every
+# 11.1 h in the Mars-fixed frame, Deimos every 5.48 days; seen from the equator they are
+# up for 4.2 h and 2.5 days (the arc above the horizon, 2 acos(R / a), with the [PCK]
+# radius and the [ELEM] a). Phobos laps the frame in 67 s at this warp.
+[[events]]
+name = "Phobos rises in the west"
+time_tdb = "2025-06-03 00:00"
+focus = "Mars"
+frame = "Mars-fixed"
+distance_km = 6.0e4
+warp = 600.0
+# [PCK], [ELEM]
+caption = """\
+    Turning with Mars, as if standing on it. Phobos goes round in 7 h 39 min, faster than \
+    Mars turns in 24 h 37 min, so it rises in the west and sets in the east, crossing the \
+    sky in about four hours, twice a day. Deimos, at 30 h 18 min, lags just behind the \
+    turning planet: it creeps from east to west and stays up for two and a half days."""
 
 [[events]]
 name = "MAVEN falls silent (2025-12)"

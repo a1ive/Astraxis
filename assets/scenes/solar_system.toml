@@ -183,6 +183,10 @@
 #          glacier; a possible ocean; Arrokoth "the most distant target in history").
 #        [IAU06] IAU 2006 General Assembly, Resolutions B5 and B6 (Pluto a dwarf planet,
 #          24 August 2006).
+#        [NI16] Nimmo et al. 2016, Nature 540, 94: Sputnik Planitia lies close to the
+#          anti-Charon point, likely not by chance; a mass excess there, most simply from
+#          a subsurface ocean, would have reoriented Pluto to put it on the tidal axis.
+#          (Keane et al. 2016, Nature 540, 90: the same reorientation, from volatile ices.)
 #        [ST13] Stone et al. 2013, Science 341, 150: on 25 August 2012, at 122 au, the
 #          low-energy ions Voyager 1 had seen for 6 years dropped away; cosmic rays rose.
 #        [GU13] Gurnett et al. 2013, Science 341, 1489: from 9 April 2013, plasma
@@ -1878,6 +1882,12 @@ name = "Pluto-Charon barycentric"
 type = "inertial"
 origin = "Pluto system"
 
+# Turning with Pluto: Charon, locked to the same 6.4-day period, stands still.
+[[frames]]
+name = "Pluto-fixed"
+type = "body_fixed"
+origin = "Pluto"
+
 # Flybys start about a day before closest approach (closest-approach times from the
 # bake tool, TDB; distances from the planet's system barycenter; Pluto and Arrokoth:
 # from Horizons relative to the body's center, starting 6 h / 20 min before). The
@@ -2096,6 +2106,26 @@ caption = """\
     found a vast heart-shaped glacier of nitrogen ice, named Sputnik Planitia after the \
     first artificial satellite, and signs that Pluto may still hide an ocean of liquid \
     water beneath its ice. The maps on both bodies come from this flyby."""
+
+# Pluto turns in 6.387 days ([PCK]: 360 / 56.3625225 deg/day) and Charon goes round in
+# the same time; in the Pluto-fixed frame it stays within ~0.1 deg of 1.5 deg east
+# (tests/scene_tests.cpp). A turn takes 55 s at this warp.
+[[events]]
+name = "Pluto and Charon, face to face"
+time_tdb = "2015-07-14 18:00"
+focus = "Pluto"
+frame = "Pluto-fixed"
+from_body = "Charon"
+phase_deg = 70.0
+distance_km = 6.0e4
+warp = 10000.0
+# [PCK], [NI16], [NH]
+caption = """\
+    Pluto turns once every 6.4 days, and Charon goes round it in just that time, turning \
+    with the same period: the two keep the same faces toward each other. Turning with \
+    Pluto, the Sun and the stars wheel by while Charon hangs still. Sputnik Planitia, \
+    the heart's western lobe, lies almost opposite Charon, probably not by chance: its \
+    extra mass may have rolled Pluto round until the basin lay opposite Charon."""
 
 [[events]]
 name = "Voyager 2 crosses the heliopause (2018-11-05)"

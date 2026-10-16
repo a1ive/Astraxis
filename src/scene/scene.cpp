@@ -26,6 +26,17 @@ constexpr double kDefaultHistoryDays = 365.0;
 constexpr double kTrailMaxSag = 0.01;
 constexpr int kTrailRefineDepth = 6;
 constexpr size_t kTrailRefineBudget = 4;
+// Default history length for orbit-trail bodies shown in a body-fixed frame,
+// in rotations of the frame's body: a moon's path over a couple of its days.
+constexpr double kBodyFixedTrailRotations = 2.0;
+
+// Sidereal rotation period (days) of a body's prime meridian, or of its spin
+// about the body axis under free precession; 0 if it does not rotate.
+double rotation_period_days(const Body& body)
+{
+    const double rate = body.free_precession.enabled ? body.free_precession.spin_deg_per_day : body.pm_rate_deg_per_day;
+    return rate != 0.0 ? 360.0 / std::abs(rate) : 0.0;
+}
 
 } // namespace
 
@@ -354,12 +365,49 @@ double Scene::sun_gm() const
     return star >= 0 ? bodies[static_cast<size_t>(star)].gm_km3_s2 : kSunGmKm3S2;
 }
 
+glm::dmat3 Scene::body_to_icrf(const Body& body, double t_tdb) const
+{
+    const double days = t_tdb / kSecondsPerDay;
+    double ra = body.pole_ra;
+    double dec = body.pole_dec;
+    double w_deg = body.pm_w0_deg + body.pm_rate_deg_per_day * days;
+    if (body.nut_prec_source >= 0 || body.pole_rate_deg_per_century != glm::dvec2(0.0)) {
+        const double centuries = days / kDaysPerJulianCentury;
+        ra += body.pole_rate_deg_per_century.x * centuries * kDegToRad;
+        dec += body.pole_rate_deg_per_century.y * centuries * kDegToRad;
+        if (body.nut_prec_source >= 0) {
+            const auto& angles = bodies[static_cast<size_t>(body.nut_prec_source)].nut_prec_angles;
+            for (size_t k = 0; k < angles.size(); ++k) {
+                const double theta = (angles[k].x + angles[k].y * centuries) * kDegToRad;
+                if (k < body.nut_prec_ra.size()) {
+                    ra += body.nut_prec_ra[k] * std::sin(theta) * kDegToRad;
+                }
+                if (k < body.nut_prec_dec.size()) {
+                    dec += body.nut_prec_dec[k] * std::cos(theta) * kDegToRad;
+                }
+                if (k < body.nut_prec_pm.size()) {
+                    w_deg += body.nut_prec_pm[k] * std::sin(theta);
+                }
+            }
+        }
+    }
+    if (const Body::FreePrecession& fp = body.free_precession; fp.enabled) {
+        const double since = (t_tdb - fp.epoch_tdb) / kSecondsPerDay;
+        const double phi = wrap_two_pi((fp.phi0_deg + fp.precession_deg_per_day * since) * kDegToRad);
+        const double psi = wrap_two_pi((fp.psi0_deg + fp.spin_deg_per_day * since) * kDegToRad);
+        return iau_pole_frame(ra, dec) * rotation_z(phi) * rotation_x(fp.nutation_deg * kDegToRad) * rotation_z(psi);
+    }
+    return iau_pole_frame(ra, dec) * rotation_z(wrap_two_pi(w_deg * kDegToRad));
+}
+
 FrameTransform Scene::frame_transform(double t_tdb) const
 {
     const DisplayFrame& f = frame();
     FrameTransform out;
     out.origin = icrf_state_at(f.origin, t_tdb).position;
-    if (f.type == DisplayFrame::Type::Rotating) {
+    if (f.type == DisplayFrame::Type::BodyFixed) {
+        out.axes = body_to_icrf(bodies[static_cast<size_t>(f.origin)], t_tdb);
+    } else if (f.type == DisplayFrame::Type::Rotating) {
         const State primary = f.primary >= 0 ? icrf_state_at(f.primary, t_tdb) : sun_icrf_state_at(t_tdb);
         const State secondary = icrf_state_at(f.secondary, t_tdb);
         const glm::dvec3 r = secondary.position - primary.position;
@@ -374,7 +422,6 @@ FrameTransform Scene::frame_transform(double t_tdb) const
 void Scene::update(double t_tdb)
 {
     m_time = t_tdb;
-    const double days = t_tdb / kSecondsPerDay;
     m_transform = frame_transform(t_tdb);
 
     double extent = 0.0;
@@ -398,41 +445,7 @@ void Scene::update(double t_tdb)
         body.icrf_velocity = vel;
         body.visible = visible;
         body.world_position = m_transform.to_display(pos);
-
-        double ra = body.pole_ra;
-        double dec = body.pole_dec;
-        double w_deg = body.pm_w0_deg + body.pm_rate_deg_per_day * days;
-        if (body.nut_prec_source >= 0 || body.pole_rate_deg_per_century != glm::dvec2(0.0)) {
-            const double centuries = days / kDaysPerJulianCentury;
-            ra += body.pole_rate_deg_per_century.x * centuries * kDegToRad;
-            dec += body.pole_rate_deg_per_century.y * centuries * kDegToRad;
-            if (body.nut_prec_source >= 0) {
-                const auto& angles = bodies[static_cast<size_t>(body.nut_prec_source)].nut_prec_angles;
-                for (size_t k = 0; k < angles.size(); ++k) {
-                    const double theta = (angles[k].x + angles[k].y * centuries) * kDegToRad;
-                    if (k < body.nut_prec_ra.size()) {
-                        ra += body.nut_prec_ra[k] * std::sin(theta) * kDegToRad;
-                    }
-                    if (k < body.nut_prec_dec.size()) {
-                        dec += body.nut_prec_dec[k] * std::cos(theta) * kDegToRad;
-                    }
-                    if (k < body.nut_prec_pm.size()) {
-                        w_deg += body.nut_prec_pm[k] * std::sin(theta);
-                    }
-                }
-            }
-        }
-        glm::dmat3 body_to_icrf;
-        if (const Body::FreePrecession& fp = body.free_precession; fp.enabled) {
-            const double since = (t_tdb - fp.epoch_tdb) / kSecondsPerDay;
-            const double phi = wrap_two_pi((fp.phi0_deg + fp.precession_deg_per_day * since) * kDegToRad);
-            const double psi = wrap_two_pi((fp.psi0_deg + fp.spin_deg_per_day * since) * kDegToRad);
-            body_to_icrf = iau_pole_frame(ra, dec) * rotation_z(phi) * rotation_x(fp.nutation_deg * kDegToRad) *
-                           rotation_z(psi);
-        } else {
-            body_to_icrf = iau_pole_frame(ra, dec) * rotation_z(wrap_two_pi(w_deg * kDegToRad));
-        }
-        body.orientation = glm::transpose(m_transform.axes) * body_to_icrf;
+        body.orientation = glm::transpose(m_transform.axes) * body_to_icrf(body, t_tdb);
 
         if (visible && body.kind != BodyKind::Star) {
             extent = std::max(extent, glm::length(pos) + body.equatorial_radius_km);
@@ -637,6 +650,20 @@ glm::dvec3 Scene::up_axis() const
     return glm::normalize(m_transform.direction_to_display(up));
 }
 
+bool Scene::in_frame_system(int body) const
+{
+    const int origin = frame().origin;
+    const int parent = bodies[static_cast<size_t>(origin)].parent;
+    const int system =
+        parent >= 0 && bodies[static_cast<size_t>(parent)].kind == BodyKind::Barycenter ? parent : origin;
+    for (int b = body; b >= 0; b = bodies[static_cast<size_t>(b)].parent) {
+        if (b == system) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void Scene::trail(int body_index, double t_tdb, int max_points, std::vector<glm::dvec3>& points,
                   std::vector<float>& fades) const
 {
@@ -681,9 +708,17 @@ void Scene::trail(int body_index, double t_tdb, int max_points, std::vector<glm:
         linger = (t_tdb - t_head) / window;
     }
 
+    if (frame().type == DisplayFrame::Type::BodyFixed && !in_frame_system(body_index)) {
+        return; // a path far away sweeps a circle as wide as its distance each turn
+    }
     if (frame_is_rotating() && mode == TrailMode::Orbit) {
         mode = TrailMode::History;
-        history_days = history_days > 0.0 ? history_days : kRotatingTrailDays;
+        if (history_days <= 0.0) {
+            const double period = frame().type == DisplayFrame::Type::BodyFixed
+                                      ? rotation_period_days(bodies[static_cast<size_t>(frame().origin)])
+                                      : 0.0;
+            history_days = period > 0.0 ? kBodyFixedTrailRotations * period : kRotatingTrailDays;
+        }
     }
     if (const double cap = frame().trail_history_days; cap > 0.0 && mode == TrailMode::History) {
         history_days = history_days > 0.0 ? std::min(history_days, cap) : cap;
@@ -721,8 +756,8 @@ void Scene::trail(int body_index, double t_tdb, int max_points, std::vector<glm:
         }
         t0 = lo;
     }
-    if (t0 >= t_head) {
-        return;
+    if (t0 >= t_head || body_index == frame().origin) {
+        return; // the origin's own path stays at the origin
     }
 
     body.motion->history_times(t0, t_head, max_points, m_scratch_times);

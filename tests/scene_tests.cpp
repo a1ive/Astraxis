@@ -332,6 +332,128 @@ void test_simulation()
     check(!sim.touring(), "set_focus stops the tour");
 }
 
+int find_frame(const Scene& scene, std::string_view name)
+{
+    for (size_t i = 0; i < scene.frames.size(); ++i) {
+        if (scene.frames[i].name == name) {
+            return static_cast<int>(i);
+        }
+    }
+    return -1;
+}
+
+// East longitude (degrees, -180..180) of a display-frame position in a body-fixed frame.
+double fixed_longitude(const glm::dvec3& p)
+{
+    return std::atan2(p.y, p.x) * kRadToDeg;
+}
+
+// Body-fixed frames turn with the origin's IAU axes: the body itself stands
+// still, and its moons move across it at their rate relative to its rotation.
+void test_body_fixed_frames()
+{
+    {
+        Scene scene = load_scene_or_die("mars.toml");
+        const int frame = find_frame(scene, "Mars-fixed");
+        const int mars = scene.find("Mars");
+        const int phobos = scene.find("Phobos");
+        const int deimos = scene.find("Deimos");
+        check(frame > 0 && scene.frames[static_cast<size_t>(frame)].type == DisplayFrame::Type::BodyFixed,
+              "mars.toml has a Mars-fixed frame");
+        scene.set_active_frame(frame);
+        check(scene.frame_is_rotating(), "a body-fixed frame turns");
+        const double t0 = tdb_from_jd_tdb(2460827.5); // 2025-06-01
+        scene.update(t0);
+        const Body& m = scene.bodies[static_cast<size_t>(mars)];
+        double off_identity = 0.0;
+        for (int c = 0; c < 3; ++c) {
+            off_identity = std::max(off_identity, glm::length(m.orientation[c] - glm::dmat3(1.0)[c]));
+        }
+        check(off_identity < 1e-12, "Mars' own axes are the frame's", off_identity);
+        check(glm::length(m.world_position) < 1e-6, "Mars at the origin of its fixed frame");
+        check(glm::length(scene.up_axis() - glm::dvec3(0.0, 0.0, 1.0)) < 1e-12, "up is Mars' north pole");
+        const glm::dmat3 axes = scene.body_to_icrf(m, t0);
+        const Body& p = scene.bodies[static_cast<size_t>(phobos)];
+        check(glm::length(p.world_position - glm::transpose(axes) * (p.icrf_position - m.icrf_position)) < 1e-6,
+              "positions in the Mars-fixed frame");
+
+        // Over an hour: Phobos gains on Mars' rotation (pole and prime meridian rates
+        // of the scene's [PCK] values: 1128.845 - 350.892 = 777.95 deg/day eastward),
+        // Deimos falls behind (285.162 - 350.892 = -65.73 deg/day).
+        const glm::dvec3 phobos0 = p.world_position;
+        const glm::dvec3 deimos0 = scene.bodies[static_cast<size_t>(deimos)].world_position;
+        scene.update(t0 + 3600.0);
+        const double phobos_rate =
+            wrap_pi((fixed_longitude(p.world_position) - fixed_longitude(phobos0)) * kDegToRad) * kRadToDeg * 24.0;
+        const double deimos_rate =
+            wrap_pi((fixed_longitude(scene.bodies[static_cast<size_t>(deimos)].world_position) -
+                     fixed_longitude(deimos0)) *
+                    kDegToRad) *
+            kRadToDeg * 24.0;
+        check(std::abs(phobos_rate / 777.95 - 1.0) < 0.1, "Phobos moves east across Mars", phobos_rate);
+        check(std::abs(deimos_rate / -65.73 - 1.0) < 0.1, "Deimos drifts west across Mars", deimos_rate);
+
+        // Phobos' orbit becomes a history trail of two Mars days: about 4.4 laps of
+        // the same near-circle, starting at Phobos.
+        std::vector<glm::dvec3> points;
+        std::vector<float> fades;
+        scene.trail(phobos, scene.time(), 512, points, fades);
+        const double a = 9375.0; // Phobos' a_km in mars.toml [ELEM]
+        double worst = 0.0;
+        double turned = 0.0;
+        for (size_t k = 0; k < points.size(); ++k) {
+            worst = std::max(worst, std::abs(glm::length(points[k]) / a - 1.0));
+            if (k > 0) {
+                turned += std::abs(wrap_pi((fixed_longitude(points[k]) - fixed_longitude(points[k - 1])) * kDegToRad));
+            }
+        }
+        check(!points.empty() && glm::length(points[0] - p.world_position) < 1.0, "Phobos' trail starts at Phobos");
+        check(worst < 0.03, "Phobos' trail circles Mars", worst);
+        const double laps = turned / kTwoPi;
+        check(std::abs(laps / (2.0 * 777.95 / 350.892) - 1.0) < 0.05, "two Mars days of Phobos' trail", laps);
+    }
+    {
+        // Pluto and Charon are mutually locked: in the Pluto-fixed frame Charon stays put,
+        // over the mean sub-Charon meridian (the zero of Pluto's longitudes; Charon's [PCK]
+        // prime meridian is Pluto's plus 180 deg, facing Pluto). It holds from 1990 to 2050:
+        // the PCK rotation and the Horizons orbit agree.
+        Scene scene = load_scene_or_die("solar_system.toml");
+        const int frame = find_frame(scene, "Pluto-fixed");
+        const int charon = scene.find("Charon");
+        check(frame > 0, "solar_system.toml has a Pluto-fixed frame");
+        scene.set_active_frame(frame);
+        for (double jd : {2447892.5, 2457218.0, 2469807.5}) { // 1990, 2015-07-14, 2050
+            double lon_min = 1e9;
+            double lon_max = -1e9;
+            double lat_max = 0.0;
+            for (int k = 0; k <= 8; ++k) { // one rotation
+                scene.update(tdb_from_jd_tdb(jd) + k * 6.387 / 8.0 * kSecondsPerDay);
+                const glm::dvec3 c = scene.bodies[static_cast<size_t>(charon)].world_position;
+                const double lon = fixed_longitude(c);
+                lon_min = std::min(lon_min, lon);
+                lon_max = std::max(lon_max, lon);
+                lat_max = std::max(lat_max, std::abs(std::asin(c.z / glm::length(c))) * kRadToDeg);
+            }
+            std::printf("info: Charon over Pluto from JD %.1f: east longitude %.2f .. %.2f, latitude < %.2f deg\n",
+                        jd, lon_min, lon_max, lat_max);
+            check(lon_max - lon_min < 0.2, "Charon stands still over Pluto", lon_max - lon_min);
+            check(std::abs(lon_min) < 3.0 && std::abs(lon_max) < 3.0, "Charon over Pluto's prime meridian", lon_min);
+            check(lat_max < 1.0, "Charon over Pluto's equator", lat_max);
+        }
+
+        // Only the Pluto system leaves trails: a planet's would sweep a circle tens of au
+        // wide every 6.4 days, and Pluto's own stays at the origin.
+        std::vector<glm::dvec3> points;
+        std::vector<float> fades;
+        scene.trail(charon, scene.time(), 256, points, fades);
+        check(points.size() > 1, "Charon's trail in the Pluto-fixed frame");
+        scene.trail(scene.find("Neptune"), scene.time(), 256, points, fades);
+        check(points.empty(), "no Neptune trail in the Pluto-fixed frame");
+        scene.trail(scene.find("Pluto"), scene.time(), 256, points, fades);
+        check(points.empty(), "no trail for the frame's own body");
+    }
+}
+
 // An event can shorten a trail while its frame is shown: in Parker's
 // Venus-centered frame, the earlier flybys would otherwise cross Venus.
 void test_event_trails()
@@ -349,18 +471,10 @@ void test_event_trails()
         }
         return scene.events.size();
     };
-    auto find_frame = [&](std::string_view name) {
-        for (size_t i = 0; i < scene.frames.size(); ++i) {
-            if (scene.frames[i].name == name) {
-                return static_cast<int>(i);
-            }
-        }
-        return -1;
-    };
     const size_t flyby2 = find_event("Venus flyby 2");
     const size_t perihelion1 = find_event("Perihelion 1");
-    const int venus_frame = find_frame("Venus-centered");
-    const int rotating = find_frame("Sun-Venus rotating");
+    const int venus_frame = find_frame(scene, "Venus-centered");
+    const int rotating = find_frame(scene, "Sun-Venus rotating");
     check(parker > 0 && flyby2 < scene.events.size() && perihelion1 < scene.events.size() && venus_frame > 0 &&
               rotating > 0,
           "parker events and frames");
@@ -897,6 +1011,7 @@ void run_scene_tests()
     test_ephemeris_blends();
     test_simulation();
     test_event_trails();
+    test_body_fixed_frames();
     test_label_layout();
     test_orbit_center();
     test_body_masses();
