@@ -1617,6 +1617,10 @@ radius_km = 6051.8
 #                    (to 1998-05-28) and 000331B_SK_V1P32_V2P12 (to 1999-07-06)
 #   Juice (-28):     ESA, "based on tracking data through September 22 [2026], prediction after
 #                    that"; "2025-Aug-31: Venus (gravity assist, 05:28:51 UTC @ 11141.1 km)"
+#   MESSENGER (-236): JHU/APL trajectory delivered 2015-04-02 (as messenger_helio)
+#   Solar Orbiter (-144): ESA, solo_ANC_soc-orbit-stp_20200210-20301120_431_V1_00582,
+#                    "Tracking data fit up to 2026-Sep-17, prediction thereafter"
+#   BepiColombo (-121): ESA, bc_mpo_fcp_00236_20181020_20270411_v01 (as bepi_helio)
 [[target]]
 name = "galileo_venus"
 command = "-77"
@@ -1668,6 +1672,48 @@ center_naif_id = 299
 kepler_gm_km3_s2 = 324858.592
 start = "2025-08-26"
 stop = "2025-09-05"
+base_step_minutes = 10
+tolerance_km = 1.0
+radius_km = 6051.8
+periapsides = true
+
+[[target]]
+name = "messenger_venus"
+command = "-236"
+naif_id = -236
+center = "500@299"
+center_naif_id = 299
+kepler_gm_km3_s2 = 324858.592
+start = "2007-05-31"
+stop = "2007-06-10"
+base_step_minutes = 10
+tolerance_km = 1.0
+radius_km = 6051.8
+periapsides = true
+
+[[target]]
+name = "solo_venus"
+command = "-144"
+naif_id = -144
+center = "500@299"
+center_naif_id = 299
+kepler_gm_km3_s2 = 324858.592
+start = "2021-08-04"
+stop = "2021-08-14"
+base_step_minutes = 10
+tolerance_km = 1.0
+radius_km = 6051.8
+periapsides = true
+
+[[target]]
+name = "bepi_venus"
+command = "-121"
+naif_id = -121
+center = "500@299"
+center_naif_id = 299
+kepler_gm_km3_s2 = 324858.592
+start = "2021-08-05"
+stop = "2021-08-15"
 base_step_minutes = 10
 tolerance_km = 1.0
 radius_km = 6051.8

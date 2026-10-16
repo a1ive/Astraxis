@@ -2,7 +2,9 @@
 # which missed Venus in 2010, went five years around the Sun and was captured on its second
 # try in 2015, and Zoozve, the asteroid that circles Venus once a Venus year without being
 # bound to it. The gravity-assist flybys of Galileo (1990), Cassini (1998, 1999) and Juice
-# (2025) on their way to Jupiter and Saturn.
+# (2025) on their way to Jupiter and Saturn, of MESSENGER (2007, with Venus Express in orbit)
+# and BepiColombo (2021) on their way to Mercury, and of Solar Orbiter (2021), 33 hours
+# before BepiColombo.
 #
 # Sources
 # [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py (tools/bake/ephem.toml,
@@ -22,6 +24,11 @@
 #          does not move the flybys around it. Juice's notes: "2025-Aug-31: Venus (gravity
 #          assist, 05:28:51 UTC @ 11141.1 km)"; Galileo's: Venus, then the Earth twice
 #          (1990-12-08, 1992-12-08), Jupiter on 1995-12-07.
+#        - MESSENGER (-236, JHU/APL), Solar Orbiter (-144, ESA, fit to tracking through
+#          2026-09-17) and BepiColombo (-121, ESA MPO trajectory) relative to Venus, five days
+#          either side of their flybys of 2007-06-05, 2021-08-09 and 2021-08-10. Solar
+#          Orbiter's notes: a box of 2.5 x 3.0 x 2.5 m at launch, Venus flybys "increase its
+#          inclination with respect to the solar equator over time, reaching up to 24 deg."
 #        Horizons notes: Venus Express, launched 2005-11-09, "500 days in 24-hour elliptical,
 #        quasi-polar Venus orbit" planned, "extended to eight years"; propellant "thought ...
 #        exhausted ... about halfway through a set of maneuvers Nov 23-28 intended to raise
@@ -48,7 +55,7 @@
 #        present orbit by the action of the Earth". Table 1: elements at JD 2452900.5 (checked
 #        in tests/mission_tests.cpp).
 #
-# [CAP]  Event captions (retrieved 2026-10-09):
+# [CAP]  Event captions (retrieved 2026-10-09; the 2007 and 2021 flybys 2026-10-17):
 #        [VOI] ESA, sci.esa.int/web/venus-express/-/38947-orbit-insertion: on 2006-04-11 the
 #          main engine burned 07:10:29 to 08:00:42 UTC (spacecraft time), about 1251 m/s, into
 #          "a highly elliptical polar orbit with a pericentre of 400 km, an apocentre of 350 000
@@ -119,6 +126,35 @@
 #          thermal shield, remote sensing instruments off, no images of Venus; on 16 July
 #          contact was lost, restored after almost 20 hours: a software timing bug in the
 #          function that switches the amplifier on and off.
+#        [MESF] NASA/JHUAPL, "MESSENGER Completes Second Flyby of Venus" (2007-06-05): closest
+#          at 23:08 UTC, within 200 miles of the surface at more than 30,000 mph; "nearly
+#          15,000 mph", the largest change of velocity of the mission, shrinking its orbit
+#          around the Sun toward Mercury's; 20 minutes in Venus' shadow on battery; all seven
+#          instruments observing together for the first time, as they will at Mercury; with
+#          Venus Express, the first chance to measure the space around Venus from two
+#          spacecraft at once.
+#        [MESS] J. A. Slavin et al. 2008, "MESSENGER and Venus Express observations of the
+#          near-tail of Venus", EGU2008-A-04403: "At 23:08 UT on 5 June 2007 ... its closest
+#          approach altitude (338 km)"; "no measurements were collected during MESSENGER's
+#          first Venus flyby in October 2006"; the near-tail at 300 to 1000 km, a flux rope in
+#          the current sheet; "simultaneous Venus Express upstream measurements".
+#        [DVF] ESA, "ESA gets ready for double Venus flyby" (2021-08): Solar Orbiter on 9 August
+#          at 04:42 UTC, 7995 km; BepiColombo on 10 August, about 550 km; 33 hours apart, and
+#          "more than 575 000 km apart" even at their closest. Each flyby takes orbital energy
+#          away; Solar Orbiter's also tilt its orbit out of the ecliptic, toward the first
+#          views of the Sun's poles. Neither science camera can image Venus; BepiColombo's
+#          monitoring cameras take 1024 x 1024 black-and-white snapshots.
+#        [BCV2] ESA, BepiColombo Venus flybys (cosmos.esa.int): 2021-08-10 13:51 UTC, 552 km;
+#          "BepiColombo's second Venus flyby in images": 13:51:54 UTC, 89 images from the
+#          three monitoring cameras, Venus filling the frame two seconds after closest approach.
+#        [PER] Europlanet/JAXA press release (2023-01-26) on M. Persson et al. 2022, "BepiColombo
+#          mission confirms stagnation region of Venus and reveals its large extent", Nature
+#          Communications 13, 7743: how Venus keeps its atmosphere without a global magnetic
+#          field; eight sensors on the two spacecraft; Solar Orbiter, upstream, saw a stable solar wind while
+#          BepiColombo "swooped along the long tail of the magnetosheath"; the stagnation
+#          region, where the solar wind slows, extends about 1,900 km above the surface, farther
+#          than expected; the induced magnetosphere "provides a stable barrier" for the
+#          atmosphere even at solar minimum.
 #        Orbits as drawn: [HZN].
 #
 # Colors are sRGB and illustrative where no map is used.
@@ -322,6 +358,49 @@ trail_linger_days = 5.0
 type = "ephemeris"
 file = "ephem/juice_venus.eph"
 
+# MESSENGER and BepiColombo in the colors of mercury.toml.
+[[bodies]]
+name = "MESSENGER"
+parent = "Venus"
+kind = "spacecraft"
+radii_km = [0.003]                         # a few meters across (drawn as a marker)
+color = "#ffd27f"
+orbit_color = "#ffb347"
+trail = "history"
+trail_history_days = 5.0
+trail_linger_days = 5.0
+[bodies.orbit]                             # [HZN] -236, 2007-05-31 .. 06-10
+type = "ephemeris"
+file = "ephem/messenger_venus.eph"
+
+[[bodies]]
+name = "Solar Orbiter"
+parent = "Venus"
+kind = "spacecraft"
+radii_km = [0.003]                         # 2.5 x 3.0 x 2.5 m at launch ([HZN] notes; drawn as a marker)
+color = "#ffb8d0"
+orbit_color = "#f088aa"
+trail = "history"
+trail_history_days = 5.0
+trail_linger_days = 5.0
+[bodies.orbit]                             # [HZN] -144, 2021-08-04 .. 08-14
+type = "ephemeris"
+file = "ephem/solo_venus.eph"
+
+[[bodies]]
+name = "BepiColombo"
+parent = "Venus"
+kind = "spacecraft"
+radii_km = [0.015]                         # tens of meters across its solar arrays (drawn as a marker)
+color = "#9fe7ff"
+orbit_color = "#6fc8ff"
+trail = "history"
+trail_history_days = 5.0
+trail_linger_days = 5.0
+[bodies.orbit]                             # [HZN] -121, 2021-08-05 .. 08-15
+type = "ephemeris"
+file = "ephem/bepi_venus.eph"
+
 [[frames]]
 name = "Venus-centered"
 type = "inertial"
@@ -342,8 +421,8 @@ secondary = "Venus"                        # centered on Venus
 # --- Events --------------------------------------------------------------------------
 # Times and distances (TDB) computed from the baked data; altitudes above the mean radius.
 
-# Flybys start about two hours (Cassini: under an hour) before closest approach and are seen
-# along the spacecraft's orbit normal, so the turn of the path shows.
+# Flybys start one to two hours (the lowest: under an hour) before closest approach and are
+# seen along the spacecraft's orbit normal, so the turn of the path shows.
 # Galileo's closest approach 1990-02-10 05:59:45 TDB, 22,175 km from the center (16,123 km up).
 [[events]]
 name = "Galileo swings by Venus (1990-02-10, 16,000 km)"
@@ -446,6 +525,25 @@ caption = """\
     2.5 million years old and swings in the sulphur dioxide over the clouds, the best sign \
     yet of active volcanoes. Hydrogen and deuterium hint that Venus once had far more \
     water, perhaps oceans, and it still loses hydrogen and oxygen to space, two to one."""
+
+# MESSENGER's closest approach 2007-06-05 23:09:23 TDB, 338 km up, over the night side; its
+# orbital energy around the Sun drops by 6.6 km/s of speed at Venus' distance. Venus Express
+# is near the far end of its orbit, 66,000 km out [HZN].
+[[events]]
+name = "MESSENGER skims Venus (2007-06-05, 338 km)"
+time_tdb = "2007-06-05 22:30"
+focus = "Venus"
+flyby = "MESSENGER"
+frame = "Venus-centered"
+from_orbit_normal = "MESSENGER"
+distance_km = 6.0e4
+warp = 30.0
+# [MESF], [MESS]
+caption = """\
+    On its way to Mercury, MESSENGER skims 338 km over the night side of Venus. The pass \
+    bends its path more than any other of the trip and pulls its orbit in toward \
+    Mercury's. All seven instruments work together for the first time, while Venus \
+    Express, in orbit, measures the solar wind upstream: two spacecraft at Venus at once."""
 
 # Akatsuki's closest approach 2010-12-07 00:01:16 TDB, 549 km up; then 0.611 x 0.742 au
 # around the Sun, 203 days [HZN].
@@ -554,6 +652,58 @@ caption = """\
     the cloud tops. Just after it arrived, its cameras saw a bow-shaped wave 10,000 km \
     long standing still over the Aphrodite Terra highlands while the clouds raced past at \
     100 m/s: air flowing over the mountains, rippling up to the clouds."""
+
+# Solar Orbiter's closest approach 2021-08-09 04:42:17 TDB, 14,047 km from the center (7,995
+# km up); BepiColombo's 2021-08-10 13:53:02 TDB, 552 km up, 33.2 hours later. The two paths
+# lie almost in one plane (orbit normals 166 deg apart), the spacecraft no closer to each other
+# than 575,000 km (2021-08-06) [HZN].
+[[events]]
+name = "Solar Orbiter swings by Venus (2021-08-09, 8,000 km)"
+time_tdb = "2021-08-09 03:10"
+focus = "Venus"
+flyby = "Solar Orbiter"
+frame = "Venus-centered"
+from_orbit_normal = "Solar Orbiter"
+distance_km = 1.2e5
+warp = 120.0
+# [DVF]
+caption = """\
+    Solar Orbiter passes 8,000 km from Venus. Each of its Venus flybys takes away a little \
+    orbital energy, letting it fall closer to the Sun, and tilts its orbit a little more \
+    out of the plane of the planets, toward the first views of the Sun's poles. Always \
+    facing the Sun, its cameras cannot turn to Venus."""
+
+[[events]]
+name = "Two spacecraft, 33 hours apart (2021-08-09 .. 10)"
+time_tdb = "2021-08-08 00:00"
+focus = "Venus"
+frame = "Venus-centered"
+from_orbit_normal = "Solar Orbiter"
+distance_km = 3.0e6
+warp = 3600.0
+# [DVF], [PER]
+caption = """\
+    Solar Orbiter and BepiColombo pass Venus 33 hours apart, never closer to each other \
+    than 575,000 km. Solar Orbiter, upstream, watches a steady solar wind, while \
+    BepiColombo runs up the long wake of Venus and out through its nose. Where the solar \
+    wind stalls reaches 1,900 km above the surface, farther than thought: a steady shield \
+    for the air of Venus, which has no magnetic field of its own."""
+
+[[events]]
+name = "BepiColombo skims Venus (2021-08-10, 552 km)"
+time_tdb = "2021-08-10 13:10"
+focus = "Venus"
+flyby = "BepiColombo"
+frame = "Venus-centered"
+from_orbit_normal = "BepiColombo"
+distance_km = 6.0e4
+warp = 30.0
+# [DVF], [BCV2]
+caption = """\
+    A day and a half later BepiColombo, bound for Mercury, comes in from the night side, \
+    552 km above the clouds, its second and last pass of Venus. Its science cameras \
+    cannot see Venus from inside the stack; three small monitoring cameras take 89 \
+    black-and-white snapshots, Venus filling the frame two seconds after the closest point."""
 
 [[events]]
 name = "Akatsuki falls silent (2024-04)"

@@ -1368,7 +1368,9 @@ void test_venus_scene()
     // ([GLLM], PDS); Cassini 1998-04-26 about 284 km ([CAS1], JPL: 6:52 a.m. PDT received on
     // the Earth, 7.5 light minutes away, so about 13:44:30 UTC) and 1999-06-24 20:29:55,
     // 602.6 km ([CAS2], JPL); Juice 2025-08-31 05:28:51, 11,141.1 km from the center
-    // (Horizons notes).
+    // (Horizons notes); MESSENGER 2007-06-05 23:08, 338 km ([MESS]); Solar Orbiter 2021-08-09
+    // 04:42, 7995 km ([DVF], ESA's prediction a week before); BepiColombo 2021-08-10
+    // 13:51:54, 552 km ([BCV2], ESA).
     struct Flyby {
         int body;
         CalendarDateTime utc;
@@ -1378,10 +1380,17 @@ void test_venus_scene()
     const int galileo = scene.find("Galileo");
     const int cassini = scene.find("Cassini");
     const int juice = scene.find("Juice");
-    check(galileo > 0 && cassini > 0 && juice > 0, "venus.toml flyby spacecraft");
+    const int messenger = scene.find("MESSENGER");
+    const int solo = scene.find("Solar Orbiter");
+    const int bepi = scene.find("BepiColombo");
+    check(galileo > 0 && cassini > 0 && juice > 0 && messenger > 0 && solo > 0 && bepi > 0,
+          "venus.toml flyby spacecraft");
     for (const Flyby& f : {Flyby{galileo, {1990, 2, 10, 5, 58, 48}, rv + 16123.0, 30.0},
                            Flyby{cassini, {1998, 4, 26, 13, 44, 30}, rv + 284.0, 120.0},
                            Flyby{cassini, {1999, 6, 24, 20, 29, 55}, rv + 602.6, 30.0},
+                           Flyby{messenger, {2007, 6, 5, 23, 8, 0}, rv + 338.0, 60.0},
+                           Flyby{solo, {2021, 8, 9, 4, 42, 0}, rv + 7995.0, 90.0},
+                           Flyby{bepi, {2021, 8, 10, 13, 51, 54}, rv + 552.0, 30.0},
                            Flyby{juice, {2025, 8, 31, 5, 28, 51}, 11141.1, 30.0}}) {
         const double t0 = tdb_from_utc_jd(jd_from_calendar(f.utc));
         double best = 1e300;
@@ -1417,6 +1426,40 @@ void test_venus_scene()
                                         rel(cassini, t_cas - 2.0 * kSecondsPerDay).velocity);
     check(std::abs(gll_gain - 2.2) < 0.15, "Galileo's speed gain at Venus (km/s)", gll_gain);
     check(std::abs(cas_gain - 7.0) < 0.5, "Cassini's turn at Venus 1998 (km/s)", cas_gain);
+    // MESSENGER ([MESF]: "nearly 15,000 mph", 6.7 km/s), counted the same way as Galileo's.
+    const double t_mes = tdb({2007, 6, 5, 23, 9, 0});
+    const double r_venus_mes = glm::length(scene.icrf_state_at(venus, t_mes).position);
+    auto speed_at_venus_mes = [&](double e) { return std::sqrt(2.0 * (e + kSunGmKm3S2 / r_venus_mes)); };
+    const double mes_turn = speed_at_venus_mes(energy(messenger, t_mes - 2.0 * kSecondsPerDay)) -
+                            speed_at_venus_mes(energy(messenger, t_mes + 2.0 * kSecondsPerDay));
+    check(mes_turn > 6.0 && mes_turn < 6.71, "MESSENGER's speed loss at Venus 2007 (km/s)", mes_turn);
+    // Venus Express is in orbit meanwhile, far out ([MESS]: its "upstream measurements").
+    const double vex_out = glm::length(rel(vex, t_mes).position);
+    check(vex_out > 3.0e4, "Venus Express out in its orbit (km)", vex_out);
+    // Solar Orbiter and BepiColombo, "more than 575 000 km apart" at their closest ([DVF]).
+    double closest_pair = 1e300;
+    for (double t = tdb({2021, 8, 5, 0, 0, 0}); t < tdb({2021, 8, 14, 0, 0, 0}); t += 600.0) {
+        closest_pair = std::min(closest_pair, glm::length(scene.icrf_state_at(solo, t).position -
+                                                          scene.icrf_state_at(bepi, t).position));
+    }
+    check(closest_pair > 5.75e5 && closest_pair < 5.85e5, "Solar Orbiter and BepiColombo at their closest (km)",
+          closest_pair);
+    // The short tables against mercury.toml's heliocentric cruise tables, near the flybys.
+    {
+        Scene merc = load_scene_or_die("mercury.toml");
+        const int m_venus = merc.find("Venus");
+        double worst = 0.0;
+        for (const auto& [name, mid] :
+             {std::pair{"MESSENGER", t_mes}, std::pair{"BepiColombo", tdb({2021, 8, 10, 13, 53, 0})}}) {
+            const int here = scene.find(name);
+            const int there = merc.find(name);
+            for (double t = mid - 86400.0; t <= mid + 86400.0; t += 600.0) {
+                const glm::dvec3 d = merc.icrf_state_at(there, t).position - merc.icrf_state_at(m_venus, t).position;
+                worst = std::max(worst, glm::length(rel(here, t).position - d));
+            }
+        }
+        check(worst < 10.0, "Venus flybys match mercury.toml's cruise (km)", worst);
+    }
     // Each shown only around its flybys.
     for (const auto& [body, when, shown] :
          {std::tuple{cassini, CalendarDateTime{1998, 4, 26, 0, 0, 0}, true},
@@ -1424,12 +1467,19 @@ void test_venus_scene()
           std::tuple{cassini, CalendarDateTime{1999, 6, 24, 0, 0, 0}, true},
           std::tuple{galileo, CalendarDateTime{1990, 3, 1, 0, 0, 0}, false},
           std::tuple{juice, CalendarDateTime{2025, 8, 31, 0, 0, 0}, true},
-          std::tuple{juice, CalendarDateTime{2026, 1, 1, 0, 0, 0}, false}}) {
+          std::tuple{juice, CalendarDateTime{2026, 1, 1, 0, 0, 0}, false},
+          std::tuple{messenger, CalendarDateTime{2007, 6, 5, 0, 0, 0}, true},
+          std::tuple{messenger, CalendarDateTime{2007, 7, 1, 0, 0, 0}, false},
+          std::tuple{solo, CalendarDateTime{2021, 8, 10, 0, 0, 0}, true},
+          std::tuple{bepi, CalendarDateTime{2021, 8, 10, 0, 0, 0}, true},
+          std::tuple{bepi, CalendarDateTime{2021, 9, 1, 0, 0, 0}, false}}) {
         scene.update(tdb(when));
         check(scene.bodies[static_cast<size_t>(body)].visible == shown, "flyby spacecraft shown only near Venus",
               static_cast<double>(when.year));
     }
-    std::printf("info: speed gained at Venus: Galileo %.2f km/s, Cassini %.2f km/s\n", gll_gain, cas_gain);
+    std::printf("info: speed gained at Venus: Galileo %.2f km/s, Cassini %.2f km/s; MESSENGER lost %.2f km/s, "
+                "Venus Express %.0f km out; Solar Orbiter and BepiColombo %.0f km apart at the closest\n",
+                gll_gain, cas_gain, mes_turn, vex_out, closest_pair);
 
     std::printf("info: Akatsuki missed Venus by %.0f km (2010); Zoozve: Table 1 a %.6f e %.6f M %.3f, %.3f au from "
                 "Venus at the closest (1900-2099), %.4f au from the Earth (2026)\n",
