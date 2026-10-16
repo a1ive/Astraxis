@@ -38,6 +38,20 @@ public:
     bool render_cubemap(SDL_GPUTexture* cube, uint32_t size, uint32_t levels, SDL_GPUTextureFormat format,
                         double screen_pixel, float brightness) const;
 
+    // The stars for shaders that look them up around a direction (lensing):
+    // 32 bytes each (unit direction, size in pixels, linear color, intensity),
+    // sorted into a kSkyGrid^3 grid of cells over [-1, 1]^3 by direction;
+    // sky_cells() holds the index of each cell's first star (kSkyGrid^3 + 1
+    // uints, x fastest). Cells are 2 / kSkyGrid wide: a lookup of the 2 x 2 x 2
+    // cells nearest to a direction finds every star within 1 / kSkyGrid of it.
+    static constexpr uint32_t kSkyGrid = 96;
+    SDL_GPUBuffer* sky_stars() const { return m_instances; }
+    SDL_GPUBuffer* sky_cells() const { return m_cells; }
+    float max_star_size() const { return m_max_size; } // pixels
+
+    SDL_GPUTexture* milky_way() const { return m_milky_way; }
+    float milky_way_brightness() const { return m_milky_way_brightness; }
+
 private:
     // pixel_angle: angular size of a target pixel (radians), selects the map's mip level.
     void draw_milky_way(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, SDL_GPUGraphicsPipeline* pipeline,
@@ -50,8 +64,10 @@ private:
     SDL_GPUTexture* m_milky_way = nullptr;
     uint32_t m_milky_way_width = 0;
     float m_milky_way_brightness = 0.0f;
-    SDL_GPUBuffer* m_instances = nullptr;
+    SDL_GPUBuffer* m_instances = nullptr; // also the sky_stars() storage buffer
+    SDL_GPUBuffer* m_cells = nullptr;
     uint32_t m_count = 0;
+    float m_max_size = 0.0f;
 };
 
 } // namespace astraxis

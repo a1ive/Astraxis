@@ -66,6 +66,8 @@ bool BlackHolePass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
         info.enable_anisotropy = true;
         info.max_lod = 1000.0f;
         m_sky_sampler = SDL_CreateGPUSampler(device, &info);
+        info.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
+        m_milky_way_sampler = SDL_CreateGPUSampler(device, &info);
     }
 
     // Blackbody chromaticity (linear sRGB, max component 1) on a log temperature axis.
@@ -79,7 +81,7 @@ bool BlackHolePass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
         lut[i * 4 + 3] = 255;
     }
     m_blackbody = create_texture_rgba8(device, lut.data(), kLutSize, 1, false);
-    return m_linear && m_point && m_sky_sampler && m_blackbody;
+    return m_linear && m_point && m_sky_sampler && m_milky_way_sampler && m_blackbody;
 }
 
 bool BlackHolePass::set_format(const SceneTargetFormat& format)
@@ -104,7 +106,8 @@ bool BlackHolePass::create_pipelines(const SceneTargetFormat& format)
     SDL_GPUShader* composite_fs = create_shader(device, {.dxil = kBlackHoleCompositeFragDxil,
                                                          .spirv = kBlackHoleCompositeFragSpirv,
                                                          .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
-                                                         .num_samplers = 4,
+                                                         .num_samplers = 5,
+                                                         .num_storage_buffers = 2,
                                                          .num_uniform_buffers = 1});
     if (!vs || !trace_fs || !composite_fs) {
         SDL_ReleaseGPUShader(device, vs);
@@ -179,12 +182,14 @@ void BlackHolePass::shutdown()
     SDL_ReleaseGPUSampler(m_device, m_linear);
     SDL_ReleaseGPUSampler(m_device, m_point);
     SDL_ReleaseGPUSampler(m_device, m_sky_sampler);
+    SDL_ReleaseGPUSampler(m_device, m_milky_way_sampler);
     SDL_ReleaseGPUTexture(m_device, m_blackbody);
     m_trace_pipeline = nullptr;
     m_composite_pipeline = nullptr;
     m_linear = nullptr;
     m_point = nullptr;
     m_sky_sampler = nullptr;
+    m_milky_way_sampler = nullptr;
     m_blackbody = nullptr;
     m_device = nullptr;
 }
@@ -264,13 +269,17 @@ void BlackHolePass::composite(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass
         return;
     }
     SDL_BindGPUGraphicsPipeline(pass, m_composite_pipeline);
-    const SDL_GPUTextureSamplerBinding bindings[4] = {
+    // Without a Milky Way map any texture will do: its brightness is 0.
+    const SDL_GPUTextureSamplerBinding bindings[5] = {
         {.texture = m_sky, .sampler = m_sky_sampler},
         {.texture = m_blackbody, .sampler = m_linear},
         {.texture = targets.color, .sampler = m_point},
         {.texture = targets.sky, .sampler = m_point},
+        {.texture = m_milky_way ? m_milky_way : m_blackbody, .sampler = m_milky_way_sampler},
     };
-    SDL_BindGPUFragmentSamplers(pass, 0, bindings, 4);
+    SDL_BindGPUFragmentSamplers(pass, 0, bindings, 5);
+    SDL_GPUBuffer* const storage[2] = {m_stars, m_cells};
+    SDL_BindGPUFragmentStorageBuffers(pass, 0, storage, 2);
     SDL_PushGPUFragmentUniformData(cmd, 0, &targets.uniforms, sizeof(targets.uniforms));
     SDL_DrawGPUPrimitives(pass, 3, 1, 0, 0);
     targets.traced = false; // one composite per trace

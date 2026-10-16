@@ -61,8 +61,8 @@ private:
     void create_sky_cube();
     void release_body_textures();
     // Traces the (first visible) black hole off-screen; composited in the scene pass.
-    void trace_black_hole(SDL_GPUCommandBuffer* cmd, uint32_t width, uint32_t height, const Simulation& sim,
-                          const OutputView& view, BlackHoleTargets& targets);
+    void trace_black_hole(SDL_GPUCommandBuffer* cmd, uint32_t width, uint32_t height, float star_brightness,
+                          const Simulation& sim, const OutputView& view, BlackHoleTargets& targets);
 
     void build_body_items(const Simulation& sim, const OutputView& view, const ViewOptions& options);
     void build_orbit_lines(const Simulation& sim, const OutputView& view, const ViewOptions& options);

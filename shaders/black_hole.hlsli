@@ -24,7 +24,7 @@
 
 #include "common.hlsli"
 
-FRAGMENT_TEXTURE(TextureCube, u_sky, u_sky_sampler, 0);     // starfield in ICRF directions (mipmapped)
+FRAGMENT_TEXTURE(TextureCube, u_sky, u_sky_sampler, 0);     // Milky Way and stars in ICRF directions, mipmapped (where lensing squeezes the sky)
 FRAGMENT_TEXTURE(Texture2D, u_blackbody, u_lut_sampler, 1); // log-temperature -> linear color
 
 cbuffer Uniforms : register(b0, space3)
@@ -42,6 +42,8 @@ cbuffer Uniforms : register(b0, space3)
     float4 u_params;   // x = b_max, y = depth of the hole, z = disk brightness, w = disk time (M)
     float4 u_disk;     // x = peak temperature (K), y = 1 / max of the temperature profile, z = max steps, w = edge fade start (fraction of b_max)
     float4 u_targets;  // xy = size of the traced (reduced) targets, zw = scene size, in pixels
+    float4 u_stars;    // x = sky grid cells per axis, y = star brightness, z = Milky Way brightness (0: none)
+    float4 u_sky_params; // x = largest star dot half size (pixels), y = largest magnification of a star image
 };
 
 static const float kPi = 3.14159265;

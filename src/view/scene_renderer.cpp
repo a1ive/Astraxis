@@ -45,6 +45,11 @@ constexpr int kStyleBlackHole = 3;
 constexpr float kRayIntegrationRadius = 150.0f; // M; rays with b < 0.8 of it are integrated inside it, analytic beyond
 constexpr float kRayMaxSteps = 400.0f;
 constexpr float kLensEdgeFade = 0.6f;     // fade the lensed region over its outer 40%
+// Cap on the brightening of a lensed star: a point source on a caustic would be
+// infinitely bright (a real star, having a finite size, stays finite).
+constexpr float kMaxStarMagnification = 20.0f;
+// Lensed sky where it is squeezed (the stars average out there; elsewhere they are drawn as points).
+constexpr uint32_t kSkyCubeSize = 1024;
 // Pulsar beams: drawn as long as the camera is far (shorter, and the far end
 // could pass behind the camera), and the star flashes when a beam sweeps over
 // the camera.
@@ -498,10 +503,9 @@ void SceneRenderer::create_sky_cube()
     SDL_GPUDevice* device = m_device->device();
     const SDL_GPUTextureUsageFlags usage = SDL_GPU_TEXTUREUSAGE_SAMPLER | SDL_GPU_TEXTUREUSAGE_COLOR_TARGET;
     SDL_GPUTextureFormat format = SDL_GPU_TEXTUREFORMAT_R11G11B10_UFLOAT;
-    uint32_t size = 2048;
+    const uint32_t size = kSkyCubeSize;
     if (!SDL_GPUTextureSupportsFormat(device, format, SDL_GPU_TEXTURETYPE_CUBE, usage)) {
         format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
-        size = 1024;
     }
     SDL_GPUTextureCreateInfo info = {};
     info.type = SDL_GPU_TEXTURETYPE_CUBE;
@@ -525,9 +529,10 @@ void SceneRenderer::create_sky_cube()
     SDL_LogInfo(SDL_LOG_CATEGORY_GPU, "Sky cube map %u px", size);
 }
 
-void SceneRenderer::trace_black_hole(SDL_GPUCommandBuffer* cmd, uint32_t width, uint32_t height, const Simulation& sim,
-                                     const OutputView& output_view, BlackHoleTargets& targets)
+void SceneRenderer::trace_black_hole(SDL_GPUCommandBuffer* cmd, uint32_t width, uint32_t height, float star_brightness,
+                                     const Simulation& sim, const OutputView& output_view, BlackHoleTargets& targets)
 {
+    m_black_hole.set_stars(m_starfield.sky_stars(), m_starfield.sky_cells(), m_starfield.milky_way());
     if (!m_black_hole.ready()) {
         return;
     }
@@ -592,6 +597,10 @@ void SceneRenderer::trace_black_hole(SDL_GPUCommandBuffer* cmd, uint32_t width, 
                              static_cast<float>(sim.disk_time()));
         u.disk = glm::vec4(static_cast<float>(body.disk_temperature_k), static_cast<float>(1.0 / profile_max),
                            kRayMaxSteps, kLensEdgeFade);
+        const SDL_GPUTexture* milky_way = m_starfield.milky_way();
+        u.stars = glm::vec4(static_cast<float>(StarfieldPass::kSkyGrid), star_brightness,
+                            milky_way ? m_starfield.milky_way_brightness() : 0.0f, 0.0f);
+        u.sky = glm::vec4(0.5f * m_starfield.max_star_size(), kMaxStarMagnification, 0.0f, 0.0f);
         m_black_hole.trace(cmd, width, height, u, targets);
         return; // one hole per scene: the trace targets hold a single result
     }
@@ -1167,7 +1176,8 @@ void SceneRenderer::render(const Frame& frame, const Simulation& sim, const Outp
     // Uploads (copy passes) must precede the render passes.
     m_orbits.upload(frame.cmd);
     m_dust.upload(frame.cmd);
-    trace_black_hole(frame.cmd, frame.width, frame.height, sim, output_view, targets.black_hole);
+    trace_black_hole(frame.cmd, frame.width, frame.height, options.star_brightness, sim, output_view,
+                     targets.black_hole);
 
     SDL_GPURenderPass* pass = targets.begin_scene_pass(frame.cmd, {0.0f, 0.0f, 0.0f, 1.0f});
     m_starfield.draw(frame.cmd, pass, view, options.star_brightness);

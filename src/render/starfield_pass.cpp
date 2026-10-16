@@ -35,6 +35,7 @@ struct StarInstance {
     float color[3];
     float intensity;
 };
+static_assert(sizeof(StarInstance) == 32, "read as two float4 by black_hole_composite.frag.hlsl");
 
 struct Uniforms {
     glm::mat4 view_proj;
@@ -281,15 +282,42 @@ bool StarfieldPass::set_format(const SceneTargetFormat& format)
 
 bool StarfieldPass::set_stars(std::span<const CatalogStar> catalog)
 {
-    if (m_instances) {
-        SDL_ReleaseGPUBuffer(m_device, m_instances);
-        m_instances = nullptr;
-    }
-    const std::vector<StarInstance> stars = catalog.empty() ? generate_stars() : stars_from_catalog(catalog);
+    SDL_ReleaseGPUBuffer(m_device, m_instances);
+    SDL_ReleaseGPUBuffer(m_device, m_cells);
+    m_instances = nullptr;
+    m_cells = nullptr;
+    std::vector<StarInstance> stars = catalog.empty() ? generate_stars() : stars_from_catalog(catalog);
     m_count = static_cast<uint32_t>(stars.size());
-    m_instances = create_static_buffer(m_device, SDL_GPU_BUFFERUSAGE_VERTEX, stars.data(),
-                                       static_cast<uint32_t>(stars.size() * sizeof(StarInstance)));
-    return m_instances != nullptr;
+    m_max_size = 0.0f;
+    for (const StarInstance& s : stars) {
+        m_max_size = std::max(m_max_size, s.size_px);
+    }
+
+    // Sorted into the sky grid (the draw order of the additive dots does not matter).
+    constexpr uint32_t g = kSkyGrid;
+    auto cell_of = [](const StarInstance& s) {
+        uint32_t c[3];
+        for (int k = 0; k < 3; ++k) {
+            const float q = std::floor((s.dir[k] * 0.5f + 0.5f) * static_cast<float>(g));
+            c[k] = static_cast<uint32_t>(std::clamp(q, 0.0f, static_cast<float>(g - 1)));
+        }
+        return (c[2] * g + c[1]) * g + c[0];
+    };
+    std::stable_sort(stars.begin(), stars.end(),
+                     [&](const StarInstance& a, const StarInstance& b) { return cell_of(a) < cell_of(b); });
+    std::vector<uint32_t> cells(static_cast<size_t>(g) * g * g + 1, 0);
+    for (const StarInstance& s : stars) {
+        ++cells[cell_of(s) + 1];
+    }
+    for (size_t i = 1; i < cells.size(); ++i) {
+        cells[i] += cells[i - 1];
+    }
+
+    m_instances = create_static_buffer(m_device, SDL_GPU_BUFFERUSAGE_VERTEX | SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ,
+                                       stars.data(), static_cast<uint32_t>(stars.size() * sizeof(StarInstance)));
+    m_cells = create_static_buffer(m_device, SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ, cells.data(),
+                                   static_cast<uint32_t>(cells.size() * sizeof(uint32_t)));
+    return m_instances != nullptr && m_cells != nullptr;
 }
 
 void StarfieldPass::shutdown()
@@ -298,10 +326,12 @@ void StarfieldPass::shutdown()
         return;
     }
     SDL_ReleaseGPUBuffer(m_device, m_instances);
+    SDL_ReleaseGPUBuffer(m_device, m_cells);
     SDL_ReleaseGPUGraphicsPipeline(m_device, m_pipeline);
     SDL_ReleaseGPUGraphicsPipeline(m_device, m_milky_way_pipeline);
     SDL_ReleaseGPUSampler(m_device, m_sampler);
     m_instances = nullptr;
+    m_cells = nullptr;
     m_pipeline = nullptr;
     m_milky_way_pipeline = nullptr;
     m_sampler = nullptr;
