@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cfloat>
+#include <span>
 #include <system_error>
 #include <utility>
 #include <vector>
@@ -27,7 +28,8 @@ constexpr float kTitleHeight = 0.06f;        // cap-to-descender size, fraction 
 constexpr float kTitleTrackingStart = 0.20f; // letter spacing in ems; widens slowly while shown
 constexpr float kTitleTrackingEnd = 0.28f;
 constexpr float kTitleCenterY = 0.70f;       // in the lower third, clear of the focus at the centre
-constexpr float kTitleMaxWidth = 0.8f;       // fraction of the output width
+constexpr float kTitleMaxWidth = 0.8f;       // fraction of the output width, centred
+constexpr float kTitleMinWidth = 0.33f;      // shrunk no further to keep clear of the panels
 
 // Caption sizes, relative to the UI font size (which includes the DPI scale).
 constexpr float kHeadingSize = 1.9f;
@@ -46,7 +48,18 @@ double smoothstep(double edge0, double edge1, double x)
     return t * t * (3.0 - 2.0 * t);
 }
 
-ImFont* add_font(const std::filesystem::path& file)
+constexpr float kFontSize = 24.0f; // reference size only: the atlas bakes glyphs at the size they are drawn
+
+// Jost has no Greek letters, only a few as symbols (Ω, π). The Greek block
+// comes from Didact Gothic, another geometric sans, so that a name mixes no
+// styles. Scaled to Jost's x-height, since lower-case Greek is what star
+// names use: ImGui sizes a font by ascender - descender (hhea), and the
+// x-heights (OS/2 sxHeight) per that height are Jost 460 / (1070 + 375) and
+// Didact Gothic 468 / (1046 + 265).
+constexpr ImWchar kGreek[] = {0x0370, 0x03FF, 0};
+constexpr float kGreekScale = (460.0f / 1445.0f) / (468.0f / 1311.0f);
+
+ImFont* add_font(const std::filesystem::path& file, float size, const ImFontConfig& config)
 {
     std::error_code ec;
     if (!std::filesystem::is_regular_file(file, ec)) {
@@ -55,7 +68,21 @@ ImFont* add_font(const std::filesystem::path& file)
     // ImGui opens it as UTF-8. The atlas is dynamic (ImGui 1.92): glyphs are
     // baked at whatever size they are drawn.
     const std::u8string path = file.u8string();
-    return ImGui::GetIO().Fonts->AddFontFromFileTTF(reinterpret_cast<const char*>(path.c_str()), 24.0f);
+    return ImGui::GetIO().Fonts->AddFontFromFileTTF(reinterpret_cast<const char*>(path.c_str()), size, &config);
+}
+
+// A Jost face with the Greek of Didact Gothic merged into it.
+ImFont* add_caption_font(const std::filesystem::path& dir, const char* jost)
+{
+    ImFontConfig base;
+    base.GlyphExcludeRanges = kGreek;
+    ImFont* font = add_font(dir / jost, kFontSize, base);
+    if (font) {
+        ImFontConfig greek;
+        greek.MergeMode = true;
+        add_font(dir / "DidactGothic-Regular.ttf", kFontSize * kGreekScale, greek);
+    }
+    return font;
 }
 
 bool is_continuation(char c)
@@ -132,8 +159,8 @@ CaptionFonts load_fonts(const std::filesystem::path& asset_dir)
 {
     ImGui::GetIO().Fonts->AddFontDefault();
     CaptionFonts fonts;
-    fonts.light = add_font(asset_dir / "fonts" / "Jost-300-Light.ttf");
-    fonts.book = add_font(asset_dir / "fonts" / "Jost-400-Book.ttf");
+    fonts.light = add_caption_font(asset_dir / "fonts", "Jost-300-Light.ttf");
+    fonts.book = add_caption_font(asset_dir / "fonts", "Jost-400-Book.ttf");
     return fonts;
 }
 
@@ -142,7 +169,8 @@ bool scene_title_visible(double age)
     return age < kTitleEnd;
 }
 
-void draw_scene_title(const CaptionFonts& fonts, const std::string& title, double age)
+void draw_scene_title(const CaptionFonts& fonts, const std::string& title, double age,
+                      std::span<const ScreenRect> avoid)
 {
     if (title.empty() || !scene_title_visible(age)) {
         return;
@@ -178,12 +206,39 @@ void draw_scene_title(const CaptionFonts& fonts, const std::string& title, doubl
         width += font->CalcTextSizeA(size, FLT_MAX, 0.0f, begin, end).x;
     }
     width += tracking * static_cast<float>(glyphs.size() - 1);
-    // A long title in a narrow output: shrink to fit.
-    const float fit = std::min(1.0f, kTitleMaxWidth * io.DisplaySize.x / std::max(width, 1.0f));
 
+    // The room for the title: the middle of the output, narrowed by the panels
+    // beside its line, each kept half a line away. A panel left of the centre
+    // bounds it on the left, and so on.
+    const float center_y = kTitleCenterY * io.DisplaySize.y;
+    float room_left = 0.5f * (1.0f - kTitleMaxWidth) * io.DisplaySize.x;
+    float room_right = io.DisplaySize.x - room_left;
+    for (const ScreenRect& r : avoid) {
+        if (r.max_y < center_y - 0.5f * size || r.min_y > center_y + 0.5f * size) {
+            continue;
+        }
+        if (r.min_x + r.max_x < io.DisplaySize.x) {
+            room_left = std::max(room_left, r.max_x + 0.5f * size);
+        } else {
+            room_right = std::min(room_right, r.min_x - 0.5f * size);
+        }
+    }
+    // A long title in a narrow output or between the panels: shrink to fit,
+    // but no smaller than a third of the output (it overlaps the panels then).
+    const float room = std::max(room_right - room_left, kTitleMinWidth * io.DisplaySize.x);
+    const float fit = std::min(1.0f, room / std::max(width, 1.0f));
+
+    // Centred on the output if it fits there, else as near as it can be.
     const float scaled = size * fit;
-    const float left = 0.5f * (io.DisplaySize.x - width * fit);
-    const float top = kTitleCenterY * io.DisplaySize.y - 0.5f * scaled;
+    const float fitted = width * fit;
+    float left = 0.5f * (io.DisplaySize.x - fitted);
+    if (fitted <= room_right - room_left) {
+        // Not std::clamp: rounding can put the bounds a hair the wrong way round.
+        left = std::max(room_left, std::min(left, room_right - fitted));
+    } else {
+        left = std::max(0.0f, std::min(0.5f * (room_left + room_right - fitted), io.DisplaySize.x - fitted));
+    }
+    const float top = center_y - 0.5f * scaled;
     ImDrawList* draw = ImGui::GetBackgroundDrawList();
 
     const float r = std::max(1.0f, 0.04f * scaled);

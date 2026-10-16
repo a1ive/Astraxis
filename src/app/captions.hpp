@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <span>
 #include <string>
 
 struct ImFont;
@@ -10,7 +11,8 @@ namespace astraxis {
 
 struct SceneEvent;
 
-// The fonts of the title card and the event captions (assets/fonts). Either
+// The fonts of the title card and the event captions (assets/fonts: Jost,
+// with the Greek letters of Didact Gothic merged in). Either
 // may be nullptr if its file could not be read; the default font is used then.
 struct CaptionFonts {
     ImFont* light = nullptr; // titles and headings
@@ -21,10 +23,21 @@ struct CaptionFonts {
 // context, so the UI keeps the default.
 CaptionFonts load_fonts(const std::filesystem::path& asset_dir);
 
+// A rectangle on the output, in pixels.
+struct ScreenRect {
+    float min_x = 0.0f;
+    float min_y = 0.0f;
+    float max_x = 0.0f;
+    float max_y = 0.0f;
+};
+
 // The scene's name as a film's title card: large and letter-spaced, fading in
 // and out over the first seconds after the scene is loaded (`age`, real
-// seconds; Simulation::scene_age). Draws into the background draw list.
-void draw_scene_title(const CaptionFonts& fonts, const std::string& title, double age);
+// seconds; Simulation::scene_age). Draws into the background draw list, so
+// it moves aside from the `avoid` rectangles (the open panels) beside its
+// line, and shrinks if the room between them is narrow.
+void draw_scene_title(const CaptionFonts& fonts, const std::string& title, double age,
+                      std::span<const ScreenRect> avoid = {});
 // False once the title has faded out.
 bool scene_title_visible(double age);
 

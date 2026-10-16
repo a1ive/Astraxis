@@ -23,6 +23,14 @@ namespace astraxis {
 
 namespace {
 
+// The current window's rectangle, between Begin and End.
+ScreenRect window_rect()
+{
+    const ImVec2 pos = ImGui::GetWindowPos();
+    const ImVec2 size = ImGui::GetWindowSize();
+    return {pos.x, pos.y, pos.x + size.x, pos.y + size.y};
+}
+
 constexpr float kLabelPickRadius = 10.0f; // points
 
 // "1 s = 2.5 h" style description of a time warp.
@@ -170,6 +178,7 @@ void App::build_ui()
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
 
+    m_panel_rects.clear();
     if (m_show_labels) {
         build_labels();
     }
@@ -397,6 +406,7 @@ void App::build_control_panel()
     ImGui::TextDisabled("E event caption");
     ImGui::TextDisabled("F11 fullscreen  Esc quit");
 
+    m_panel_rects.push_back(window_rect());
     ImGui::End();
 }
 
@@ -649,6 +659,7 @@ void App::build_info_panel()
         }
     }
 
+    m_panel_rects.push_back(window_rect());
     ImGui::End();
 }
 
@@ -657,7 +668,7 @@ void App::draw_captions()
     // A jump to an event (e.g. --event at startup) takes over from the title card.
     const int event = m_sim.last_event();
     if (event < 0) {
-        draw_scene_title(m_fonts, m_sim.scene().name, m_sim.scene_age());
+        draw_scene_title(m_fonts, m_sim.scene().name, m_sim.scene_age(), m_panel_rects);
         return;
     }
     if (!m_show_captions) {

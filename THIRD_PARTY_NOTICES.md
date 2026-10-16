@@ -53,6 +53,7 @@ Per-file details, original download URLs and processing steps are in each direct
 | `assets/textures/earth.jpg` | NASA Earth Observatory, Blue Marble Next Generation (Reto Stöckli) | Public domain; credit: NASA Earth Observatory |
 | `assets/textures/moon.jpg` | NASA's Scientific Visualization Studio, CGI Moon Kit (LRO data) | Public domain; credit: NASA's Scientific Visualization Studio |
 | `assets/fonts/Jost-{300-Light,400-Book}.ttf` | Jost* 3.5 by indestructible type* (Owen Earl), <https://github.com/indestructible-type/Jost>, unmodified | SIL Open Font License 1.1; full text in `assets/fonts/OFL.txt` |
+| `assets/fonts/DidactGothic-Regular.ttf` | Didact Gothic by Daniel Johnson, from Google Fonts (<https://github.com/google/fonts/tree/main/ofl/didactgothic>), unmodified; only its Greek letters are used | SIL Open Font License 1.1; full text in `assets/fonts/DidactGothic-OFL.txt` |
 | `assets/textures/milky_way.jpg` | NASA/GSFC Scientific Visualization Studio, Deep Star Maps 2020 | Public domain; credit: NASA/Goddard Space Flight Center Scientific Visualization Studio. Gaia DR2: ESA/Gaia/DPAC |
 
 ---
@@ -187,6 +188,16 @@ Copyright 2019 indestructible type* (https://github.com/indestructible-type)
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 The full license text is in assets/fonts/OFL.txt, distributed with the font.
+```
+
+### Didact Gothic font
+
+```text
+Copyright (c) 2009, 2010, 2011 Daniel Johnson (<il.basso.buffo@gmail.com>).
+Copyright 2016 The Didact Gothic Project Authors (il.basso.buffo@gmail.com)
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+The full license text is in assets/fonts/DidactGothic-OFL.txt, distributed with the font.
 ```
 
 ### toml++

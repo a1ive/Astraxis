@@ -97,7 +97,8 @@ private:
     bool m_dragging = false;
     uint64_t m_last_counter = 0;
 
-    float m_time_bar_top = 0.0f; // where the time bar was last drawn (event captions stand above it)
+    float m_time_bar_top = 0.0f;          // where the time bar was last drawn (event captions stand above it)
+    std::vector<ScreenRect> m_panel_rects; // the side panels drawn this frame (the title card moves aside)
 
     // UI options.
     bool m_show_ui = true;
