@@ -173,10 +173,10 @@ distance_km = 8.0e6
 warp = 1800.0
 # [WH16], [DA15], [NOB93]
 caption = """\
-    Two neutron stars, each about 1.4 times the Sun's mass, whirl around each other \
-    every 7.75 hours. Found at Arecibo in 1974, the first binary pulsar became a \
-    laboratory for Einstein's gravity and won Hulse and Taylor the 1993 Nobel Prize. The \
-    grey ellipse is Newton's."""
+    Two neutron stars, each about 1.4 times the Sun's mass, orbit each other every \
+    7.75 hours. Found at Arecibo in 1974, the first binary pulsar provided a test \
+    of Einstein's gravity and won Hulse and Taylor the 1993 Nobel Prize. The grey \
+    ellipse shows the Newtonian orbit."""
 
 [[events]]
 name = "1974 to today: the periastron turns 220 deg, Newton's orbit stays put"
@@ -187,9 +187,9 @@ distance_km = 8.0e6
 warp = 15778800.0              # half a year per second: 4.2 deg in 2 s
 # [WH16]
 caption = """\
-    Watch from 1974: the real orbit's long axis turns 4.2 degrees a year, 35,000 times \
-    faster than Mercury's, while Newton's ellipse stays fixed. By today the two have \
-    parted by some 220 degrees."""
+    Starting in 1974, the relativistic orbit's long axis turns 4.2 degrees a year, \
+    35,000 times faster than Mercury's, while Newton's ellipse stays fixed. By \
+    today the two have parted by some 220 degrees."""
 
 [[events]]
 name = "Periastron: 746,000 km apart, 450 km/s each"
@@ -199,9 +199,10 @@ distance_km = 2.5e6
 warp = 60.0
 # [WH16]
 caption = """\
-    At closest approach the stars are 746,000 km apart, about twice the distance to the \
-    Moon, and each moves at 450 km/s. The delays that relativity puts into the pulsar's \
-    ticking here are what allowed both stars to be weighed."""
+    At closest approach the stars are 746,000 km apart, about twice the distance \
+    to the Moon, and each moves at 450 km/s. Relativistic delays in the pulsar's \
+    signals at this part of the orbit allowed astronomers to determine both stars' \
+    masses."""
 
 [[events]]
 name = "Pulsar beams (drawn slowed down: really 17 turns a second)"
@@ -224,7 +225,7 @@ distance_km = 8.0e6
 warp = 1.0e8
 # [WH16], [NOB93]
 caption = """\
-    At three years per second the orbit swings all the way round in under half a minute: \
-    a full turn takes 85 years. Meanwhile it shrinks, too slowly to see here, as \
-    gravitational waves carry energy away, exactly as general relativity predicts: the \
-    first evidence that they exist."""
+    At three years per second the orbit swings all the way round in under half a \
+    minute: a full turn takes 85 years. Gravitational waves also carry energy \
+    away, shrinking the orbit too slowly to see here. This matches the prediction \
+    of general relativity and provided the first evidence for gravitational waves."""

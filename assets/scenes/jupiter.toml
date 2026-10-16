@@ -494,9 +494,10 @@ distance_km = 30000.0
 warp = 60.0
 # [GLL]
 caption = """\
-    Arrival day was crowded. Galileo flies past Io here, under 900 km up; the same day \
-    its probe plunges into Jupiter at 170,000 km/h and radios back for 58 minutes, and \
-    Galileo fires its engine to become the first spacecraft to orbit an outer planet."""
+    Galileo passes under 900 km above Io on arrival day. Its probe enters \
+    Jupiter's atmosphere at 170,000 km/h and radios back for 58 minutes. That same \
+    day, Galileo fires its engine and becomes the first spacecraft to orbit an \
+    outer planet."""
 
 [[events]]
 name = "Galileo's tour, 1995-2003"
@@ -507,10 +508,9 @@ distance_km = 4.5e7
 warp = 604800.0
 # [GLL], [HZN]
 caption = """\
-    Eight years and 34 orbits. Every flyby of a moon reshapes the next orbit, so the \
-    loops wander: watch them swing and stretch. Galileo did all this with its main \
-    antenna stuck half-open, sending its discoveries home through a small antenna, \
-    slowly."""
+    Over eight years, Galileo completes 34 orbits. Each moon flyby changes the \
+    shape of the next orbit. With its main antenna stuck half-open, the spacecraft \
+    sends its data home slowly through a small antenna."""
 
 [[events]]
 name = "Galileo at Ganymede (1996-09-06, 267 km)"
@@ -534,9 +534,9 @@ distance_km = 30000.0
 warp = 60.0
 # [GLL]
 caption = """\
-    About 200 km over Europa's cracked ice. Galileo's measurements made the case for a \
-    salty ocean beneath the ice, and that ocean is why, at the end, Galileo was kept \
-    from ever hitting Europa."""
+    About 200 km over Europa's cracked ice. Galileo's measurements supported the \
+    presence of a salty ocean beneath the ice. The mission's end was planned to \
+    protect that ocean from a possible impact by the spacecraft."""
 
 # Cassini's closest approach: 2000-12-30 10:05:24 TDB, 9,794,455 km from Jupiter's center.
 [[events]]
@@ -548,10 +548,10 @@ distance_km = 7.0e7
 warp = 86400.0
 # [CJUP], [HZN]
 caption = """\
-    Galileo swings in on its orbit as Cassini, bound for Saturn, sweeps past about 9.7 \
-    million km out, slung onward by Jupiter's gravity. With one craft inside Jupiter's \
-    magnetic bubble and one outside, they caught its edge shrinking under a gust of \
-    solar wind. Cassini took some 26,000 images in six months."""
+    Galileo swings in on its orbit as Cassini, bound for Saturn, sweeps past about \
+    9.7 million km out, redirected by Jupiter's gravity. With one craft inside \
+    Jupiter's magnetic bubble and one outside, they caught its edge shrinking \
+    under a gust of solar wind. Cassini took some 26,000 images in six months."""
 
 [[events]]
 name = "Galileo at Callisto (2001-05-25, 129 km)"
@@ -562,9 +562,9 @@ distance_km = 30000.0
 warp = 60.0
 # [GLL]
 caption = """\
-    Callisto's dark, crater-covered face, about 130 km below. Even this ancient, \
-    battered moon gave Galileo signs of a layer of salty liquid water deep beneath the \
-    surface, as Europa and Ganymede did."""
+    Callisto's dark, crater-covered face, about 130 km below. Galileo found signs \
+    of a layer of salty liquid water deep beneath this ancient surface, as it did \
+    at Europa and Ganymede."""
 
 [[events]]
 name = "Galileo at Io (2002-01-17, 100 km)"
@@ -587,9 +587,10 @@ distance_km = 4.0e5
 warp = 60.0
 # [GLL]
 caption = """\
-    Almost out of propellant, Galileo is steered into Jupiter on purpose: left in orbit, \
-    it might one day have crashed on Europa and contaminated its ocean with life from \
-    the Earth. Instead it burns up in Jupiter's atmosphere."""
+    With Galileo almost out of propellant, mission controllers steer it into \
+    Jupiter's atmosphere, where it burns up. The planned impact protects Europa's \
+    ocean from contamination by life from the Earth if the spacecraft were to \
+    crash there later."""
 
 [[events]]
 name = "Juno arrives: orbit insertion (2016-07-05)"
@@ -612,10 +613,11 @@ distance_km = 2.5e7
 warp = 604800.0
 # [JUNO], [HZN]
 caption = """\
-    Juno's orbits run over the poles, unlike the moons', and dive to within about 3,500 \
-    km of the cloud tops, slipping between Jupiter and its worst radiation. Over the \
-    years the low point drifts north. Juno found that the cloud bands reach some 3,000 \
-    km deep, and eight cyclones circling one at the north pole."""
+    Juno follows polar orbits, while the moons orbit closer to the equatorial \
+    plane. It passes within about 3,500 km of the cloud tops, between Jupiter and \
+    its strongest radiation belts. Over the years the low point drifts north. Juno \
+    found that the cloud bands reach some 3,000 km deep, and eight cyclones \
+    circling one at the north pole."""
 
 [[events]]
 name = "Juno at Ganymede (2021-06-07, 1,035 km)"
@@ -652,6 +654,6 @@ distance_km = 30000.0
 warp = 60.0
 # [JUNI]
 caption = """\
-    About 1,500 km above Io, the closest in over twenty years. Juno caught Loki Patera, \
-    a lava lake 200 km long dotted with islands, so smooth that it mirrored the Sun like \
-    glass."""
+    About 1,500 km above Io, the closest in over twenty years. Juno caught Loki \
+    Patera, a lava lake 200 km long dotted with islands, with a surface so smooth \
+    that it reflected the Sun like glass."""

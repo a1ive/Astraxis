@@ -183,10 +183,10 @@ distance_km = 6.0e7
 warp = 43200.0
 # [MI16]
 caption = """\
-    Four planets a little smaller than Neptune, locked in step: for every three laps of \
-    the outermost, the others make four, six and eight. Such a chain forms when young \
-    planets drift inward through the gas disk around their star, and this one survives \
-    as a relic of that time."""
+    Four planets a little smaller than Neptune orbit in resonance: for every three \
+    laps of the outermost, the others make four, six and eight. Such a chain forms \
+    when young planets drift inward through the gas disk around their star, and \
+    this system has kept that arrangement."""
 
 [[events]]
 name = "Edge-on, as Kepler saw it (2011-05)"
@@ -198,6 +198,6 @@ warp = 21600.0
 # [MI16], [GAIA]
 caption = """\
     From the Earth, 2,000 parsecs away, the orbits are seen almost edge-on, so the \
-    planets cross the face of their star. The Kepler telescope timed those transits; the \
-    small shifts in their timing, as the planets tug at one another, revealed the \
-    resonant chain and the planets' masses."""
+    planets cross the face of their star. The Kepler telescope measured small \
+    shifts in transit times caused by the planets' mutual gravity. These shifts \
+    revealed the resonant chain and the planets' masses."""

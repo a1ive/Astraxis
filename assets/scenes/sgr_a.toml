@@ -674,9 +674,10 @@ distance_km = 3.8e8            # ~60 M
 warp = 60.0
 # [GR20], [EHT22]
 caption = """\
-    Four million suns in a black hole at the center of our Galaxy, 27,000 light years \
-    away. Light bends around it: a dark shadow, the sky warped into rings, and a disk \
-    drawn for show (the real flow is hot and thick). In 2022 the Event Horizon Telescope \
+    This black hole at the center of our Galaxy has the mass of four million suns \
+    and lies 27,000 light years away. Its gravity bends light, producing a dark \
+    shadow and distorting the sky into rings. The disk shown here is illustrative; \
+    the real accretion flow is hot and thick. In 2022 the Event Horizon Telescope \
     imaged its shadow."""
 
 [[events]]
@@ -700,8 +701,8 @@ warp = 86400.0
 # [GR20]
 caption = """\
     S2's next close pass. Each 16-year orbit turns by about 12 arcminutes, the \
-    Schwarzschild precession GRAVITY measured in 2020: watch the real orbit slowly part \
-    from Newton's grey ellipse."""
+    Schwarzschild precession GRAVITY measured in 2020. The relativistic orbit \
+    gradually diverges from the grey Newtonian ellipse."""
 
 [[events]]
 name = "Death Star: apsidal advance (top-down)"
@@ -712,10 +713,10 @@ warp = 7200.0                  # one orbit (~2.35 d) in ~28 s
 from_orbit_normal = "Death Star"
 # (Death Star notes above)
 caption = """\
-    Not a real object: an imaginary body on a tight orbit, 40 gravitational radii from \
-    the hole at its closest, where relativity is strong. Its orbit turns about 18 \
-    degrees each lap; the line drawn at every closest approach fans out like the petals \
-    of a flower."""
+    This imaginary body follows a tight orbit, 40 gravitational radii from the \
+    hole at its closest, where relativity is strong. Its orbit turns about 18 \
+    degrees each lap. Lines marking successive closest approaches show how the \
+    orbit rotates."""
 
 [[events]]
 name = "Death Star at periapsis (40 M, 0.2 c)"
@@ -725,6 +726,6 @@ distance_km = 3.0e7
 warp = 60.0
 # (Death Star notes above)
 caption = """\
-    At closest approach the imaginary body races along at a fifth of the speed of light, \
-    lit only by the accretion disk, and Newton's grey ellipse is soon left far behind. \
-    Its size is exaggerated thirty-thousand-fold so that it can be seen."""
+    At closest approach the imaginary body moves at a fifth of the speed of light, \
+    lit only by the accretion disk. Its path soon diverges from the grey Newtonian \
+    ellipse. Its size is exaggerated thirty-thousand-fold so that it can be seen."""

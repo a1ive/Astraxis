@@ -2057,10 +2057,9 @@ distance_km = 6.0e7
 warp = 86400.0
 # [P10]
 caption = """\
-    Pioneer 10 sets out on a path no spacecraft had taken before. It will be the first \
-    to cross the main asteroid belt, the first to fly past Jupiter, and the first sent \
-    on a course out of the solar system. Watch its track pull away from the Earth's \
-    orbit toward the outer planets."""
+    Pioneer 10 will be the first to cross the main asteroid belt, the first to fly \
+    past Jupiter, and the first sent on a course out of the solar system. Its path \
+    leads away from the Earth's orbit toward the outer planets."""
 
 [[events]]
 name = "Pioneer 10 at Jupiter (CA 1973-12-04 02:26, 202,870 km)"
@@ -2087,10 +2086,9 @@ distance_km = 3.0e6
 warp = 1200.0
 # [P11]
 caption = """\
-    A year after its twin, Pioneer 11 skimmed about 42,500 km above Jupiter's clouds. \
-    The pass was aimed so that the planet's gravity would swing it back across the solar \
-    system toward Saturn, nearly five years away. Follow the bend of its path around \
-    Jupiter."""
+    A year after its twin, Pioneer 11 skimmed about 42,500 km above Jupiter's \
+    clouds. The pass was aimed so that the planet's gravity would swing it back \
+    across the solar system toward Saturn, nearly five years away."""
 
 [[events]]
 name = "Voyager 2 launch (1977-08-20)"
@@ -2100,10 +2098,11 @@ distance_km = 6.0e7
 warp = 86400.0
 # [VPV]
 caption = """\
-    Voyager 2 actually left first; Voyager 1 followed on 5 September on a faster, \
-    shorter path. Both rode an arrangement of Jupiter, Saturn, Uranus and Neptune that \
-    comes around about every 175 years and lets one spacecraft swing from each planet on \
-    to the next. Only Voyager 2 would take the whole tour."""
+    Voyager 2 launched first; Voyager 1 followed on 5 September on a faster, \
+    shorter path. Both took advantage of an arrangement of Jupiter, Saturn, Uranus \
+    and Neptune that comes around about every 175 years and lets one spacecraft \
+    swing from each planet on to the next. Only Voyager 2 would take the whole \
+    tour."""
 
 [[events]]
 name = "Voyager 1 at Jupiter (CA 1979-03-05 12:05, 348,066 km)"
@@ -2115,9 +2114,9 @@ distance_km = 4.0e6
 warp = 1200.0
 # [VPV], [PLM] (Pele)
 caption = """\
-    Voyager 1's greatest surprise was the moon Io: active volcanoes, the first ever seen \
-    on another world. The plume of one of them, Pele, rose about 300 km above the \
-    surface. Focus on Io to see it drawn at that height (P shows or hides the plumes)."""
+    Voyager 1 found active volcanoes on Io, the first ever seen on another world. \
+    The plume of one of them, Pele, rose about 300 km above the surface. Focus on \
+    Io to see it drawn at that height (P shows or hides the plumes)."""
 
 [[events]]
 name = "Voyager 2 at Jupiter (CA 1979-07-09 22:30, 720,883 km)"
@@ -2144,9 +2143,10 @@ distance_km = 2.5e6
 warp = 1200.0
 # [P11]
 caption = """\
-    The first visit to Saturn. Pioneer 11 crossed the plane of the rings just outside \
-    them, finding a narrow new ring beyond the A ring, the F ring, and a small new moon. \
-    A brief burst of data on Titan put its average temperature near -193 C."""
+    The first visit to Saturn. Pioneer 11 crossed the plane of the rings just \
+    outside them, discovering the narrow F ring beyond the A ring, along with a \
+    small new moon. A brief burst of data on Titan put its average temperature \
+    near -193 C."""
 
 [[events]]
 name = "Voyager 1 at Saturn (CA 1980-11-12 23:46, 183,555 km)"
@@ -2158,10 +2158,10 @@ distance_km = 2.5e6
 warp = 1200.0
 # [VPV], [V1]
 caption = """\
-    Voyager 1 was aimed close past the giant moon Titan and behind Saturn's rings, and \
-    that pass bent its path northward, out of the plane of the planets. Titan's thick \
-    haze hid its surface completely. The price of Titan: Voyager 1 would visit no more \
-    planets. Its climb away from the ecliptic starts here."""
+    Voyager 1 was aimed close past the giant moon Titan and behind Saturn's rings, \
+    and that pass bent its path northward, out of the plane of the planets. \
+    Titan's thick haze hid its surface completely. This trajectory ended Voyager \
+    1's planetary visits as it climbed away from the ecliptic."""
 
 [[events]]
 name = "Voyager 2 at Saturn (CA 1981-08-26 03:24, 159,764 km)"
@@ -2173,9 +2173,9 @@ distance_km = 2.5e6
 warp = 1200.0
 # [V1], [VPV]
 caption = """\
-    With Voyager 1 spent on Titan, the rest of the grand tour fell to Voyager 2. \
-    Saturn's gravity turned it toward Uranus, which it would reach in January 1986, more \
-    than four years later."""
+    After Voyager 1's Titan encounter, Voyager 2 continued the remaining planetary \
+    tour. Saturn's gravity turned it toward Uranus, which it would reach in \
+    January 1986, more than four years later."""
 
 [[events]]
 name = "Voyager 2 at Uranus (CA 1986-01-24 17:58, 102,180 km)"
@@ -2214,9 +2214,10 @@ distance_km = 6.0e7
 warp = 86400.0
 # [NH], [IAU06]
 caption = """\
-    New Horizons left the Earth faster than any spacecraft before it, at about 58,500 \
-    km/h. Pluto was still a planet on launch day; seven months later it was a dwarf \
-    planet. The flyby was nine and a half years away."""
+    New Horizons left the Earth faster than any spacecraft before it, at about \
+    58,500 km/h. Pluto was still classified as a planet on launch day; seven \
+    months later it was reclassified as a dwarf planet. The flyby was nine and a \
+    half years away."""
 
 [[events]]
 name = "New Horizons at Jupiter (CA 2007-02-28 05:45, 2,304,686 km)"
@@ -2241,11 +2242,12 @@ distance_km = 5.0e9
 warp = 2629800.0
 # [ST13], [GU13]
 caption = """\
-    Nothing on the screen marks this boundary, and nothing out here could be seen. On \
-    this day, 122 au from the Sun, the particles from the Sun around Voyager 1 suddenly \
-    fell away and cosmic rays from the Galaxy rose. Its plasma instrument had failed in \
-    1980, so proof waited until April 2013, when plasma waves showed a density forty \
-    times that expected inside: Voyager 1 was in interstellar space."""
+    The boundary crossed here is invisible, so the view has no marker for it. On \
+    this day, 122 au from the Sun, Voyager 1 measured a sudden drop in solar \
+    particles and a rise in cosmic rays from the Galaxy. Its plasma instrument had \
+    failed in 1980, so confirmation came in April 2013, when plasma waves revealed \
+    a density forty times that expected inside. Voyager 1 had entered interstellar \
+    space."""
 
 [[events]]
 name = "New Horizons at Pluto (CA 2015-07-14 11:50, 13,676 km)"
@@ -2276,11 +2278,11 @@ distance_km = 6.0e4
 warp = 10000.0
 # [PCK], [NI16], [NH]
 caption = """\
-    Pluto turns once every 6.4 days, and Charon goes round it in just that time, turning \
-    with the same period: the two keep the same faces toward each other. Turning with \
-    Pluto, the Sun and the stars wheel by while Charon hangs still. Sputnik Planitia, \
-    the heart's western lobe, lies almost opposite Charon, probably not by chance: its \
-    extra mass may have rolled Pluto round until the basin lay opposite Charon."""
+    Pluto rotates once every 6.4 days, the same time Charon takes to orbit it and \
+    rotate. The two bodies keep the same faces toward each other. Turning with \
+    Pluto, the Sun and the stars wheel by while Charon hangs still. Sputnik \
+    Planitia, the heart's western lobe, lies almost opposite Charon. Its extra \
+    mass may have reoriented Pluto to bring the basin to this position."""
 
 # 1I/'Oumuamua, face-on to its path: it falls in from high above the plane of the planets
 # (inclination 123 deg), turns at 0.256 au, inside Mercury's orbit, and passes the Earth on
@@ -2313,11 +2315,11 @@ distance_km = 0.5
 warp = 600.0
 # [MSH], [JEW]
 caption = """\
-    No telescope saw 'Oumuamua as more than a point of light, but its brightness swung \
-    more than sixfold every few hours: it must be very flat or very long. The best fit \
-    to that light curve is a thin disc about 115 m across and 19 m thick, wobbling as \
-    it tumbles instead of turning steadily about one axis. This is that model; the \
-    reddish tint is a guess."""
+    No telescope saw 'Oumuamua as more than a point of light, but its brightness \
+    swung more than sixfold every few hours: it must be very flat or very long. \
+    The best fit to that light curve is a thin disc about 115 m across and 19 m \
+    thick, wobbling as it tumbles instead of turning steadily about one axis. That \
+    model is shown here with a speculative reddish tint."""
 
 [[events]]
 name = "Voyager 2 crosses the heliopause (2018-11-05)"
@@ -2357,9 +2359,9 @@ distance_km = 90.0
 warp = 1.0
 # [ARRO]
 caption = """\
-    The view of New Horizons' sharpest image of the whole body, taken 6,600 km away \
-    shortly before closest approach. The shape is the model built from all the flyby \
-    images; the color is uniform, as no map of the surface is used."""
+    The view of New Horizons' sharpest image of the whole body, taken 6,600 km \
+    away shortly before closest approach. The shape model uses all the flyby \
+    images. The surface has a uniform color without a mapped texture."""
 
 # 2I/Borisov, face-on to its path (inclination 44 deg), with the camera riding along from
 # discovery (2.98 au) to perihelion (2.01 au), a hundred days in under two minutes.
@@ -2372,10 +2374,10 @@ distance_km = 1.0e9
 warp = 86400.0
 # [GUZ], [YE], [HZN]
 caption = """\
-    The second visitor from another star, and the first that looked like a comet: a \
-    coma and a tail of dust, colors and all, much like comets from the Sun's own Oort \
-    cloud. Old survey images show it already active in December 2018, at 7.8 au. It \
-    came in at 32 km/s and will never return."""
+    The second visitor from another star, and the first that looked like a comet: \
+    its coma, dust tail and colors resembled those of comets from the Sun's own \
+    Oort cloud. Old survey images show it already active in December 2018, at 7.8 \
+    au. It came in at 32 km/s and will never return."""
 
 # Perihelion close-up, side-on to the Sun line. The coma of a comet this faint (M1 12.2)
 # shows only from close by; the tails of its large, slow grains ([HUI], [KIM]) stay faint.
@@ -2390,10 +2392,10 @@ warp = 3600.0
 # [BOD], [COR], [JEW20], [KIM]
 caption = """\
     Closest to the Sun, 2 au out. The nucleus, hidden in the dust, is less than a \
-    kilometre across; its dust grains are large, a tenth of a millimetre, and drift off \
-    no faster than a bicycle. But its gas was strange: about as much carbon monoxide as \
-    water, or more, a higher share than in any comet seen this close to the Sun. It \
-    formed somewhere very cold, around another star."""
+    kilometre across; its dust grains are large, a tenth of a millimetre, and \
+    drift off no faster than a bicycle. Its gas contained about as much carbon \
+    monoxide as water, or more, a higher share than in any comet observed this \
+    close to the Sun. It formed somewhere very cold, around another star."""
 
 # 3I/ATLAS, seen from the ecliptic's north (along the Earth's orbit normal): the planets
 # go round counterclockwise, 3I clockwise; the camera rides along with it from discovery to
@@ -2407,10 +2409,10 @@ distance_km = 1.5e9
 warp = 86400.0
 # [REN], [HZN]
 caption = """\
-    The third visitor known to come from another star. Its path around the Sun is not \
-    an ellipse but an open hyperbola: it falls in at 58 km/s, swings past once and \
-    leaves for good. It keeps close to the plane of the planets, but goes round the \
-    wrong way, against them."""
+    The third visitor known to come from another star. Its path around the Sun is \
+    an open hyperbola: it falls in at 58 km/s, swings past once and leaves for \
+    good. It keeps close to the plane of the planets, traveling in the opposite \
+    direction to them."""
 
 # Around 2025-10-21 the Earth, the Sun and 3I lie almost in a line (tests/mission_tests.cpp).
 [[events]]

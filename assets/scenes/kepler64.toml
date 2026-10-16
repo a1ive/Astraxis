@@ -251,9 +251,9 @@ distance_km = 8.0e7
 warp = 21600.0                 # 6 hours per second: one orbit in 80 s
 # [SC13]
 caption = """\
-    The planet's two suns: an F star of 1.4 solar masses and a red dwarf of under 0.4, \
-    on an eccentric 20-day orbit that brings them in and out again. Seen from the Earth \
-    they eclipse each other on every lap."""
+    The planet's two suns: an F star of 1.4 solar masses and a red dwarf of under \
+    0.4, on an eccentric 20-day orbit that brings them closer together and then \
+    farther apart. Seen from the Earth they eclipse each other on every lap."""
 
 [[events]]
 name = "Kepler-64 b under its two suns"
@@ -265,9 +265,10 @@ distance_km = 2.0e5
 warp = 3600.0
 # [SC13]
 caption = """\
-    A world about six times the Earth's size, its mass known only to be below 169 Earth \
-    masses, lit by two suns: an F star almost five times as luminous as the Sun and its \
-    dim red companion. Its look here is an artist's guess."""
+    A world about six times the Earth's size, its mass known only to be below 169 \
+    Earth masses, lit by two suns: an F star almost five times as luminous as the \
+    Sun and its dim red companion. Its appearance here is an artist's \
+    interpretation."""
 
 [[events]]
 name = "Edge-on, as Kepler saw it (2011)"
@@ -291,9 +292,9 @@ distance_km = 3.0e10
 warp = 315576000.0             # 10 years per second: one orbit in 38 s (Ba, Bb are Keplerian)
 # [SC13]
 caption = """\
-    The second pair: a Sun-like star and a red dwarf, roughly 60 au apart, about 1,300 \
-    au from the planet's stars. Their orbit has not been measured, so the circle drawn \
-    here is an assumption."""
+    The second pair: a Sun-like star and a red dwarf, roughly 60 au apart, about \
+    1,300 au from the planet's stars. The circular orbit shown here is assumed; \
+    their orbit has yet to be measured."""
 
 [[events]]
 name = "All four stars: the two pairs 1300 au apart"
@@ -303,6 +304,6 @@ distance_km = 6.0e11
 warp = 2629800.0               # 1 month per second: the integration ends in 2060
 # [SC13], [GAIA]
 caption = """\
-    The whole quadruple: the planet's eclipsing pair and the second pair, about 1,300 au \
-    apart on the sky. On the assumed circular orbit drawn here, the two pairs would take \
-    some 27,000 years to go around each other."""
+    All four stars: the planet's eclipsing pair and the second pair, about 1,300 \
+    au apart on the sky. On the assumed circular orbit drawn here, the two pairs \
+    would take some 27,000 years to go around each other."""

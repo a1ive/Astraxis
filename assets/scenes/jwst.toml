@@ -131,10 +131,11 @@ distance_km = 3.0e5
 warp = 3600.0
 # [JW], [JWF]
 caption = """\
-    Webb leaves on an Ariane 5, aimed so precisely that its course corrections needed \
-    less propellant than planned: enough, NASA found four days later, for significantly \
-    more than a ten-year science life. A month of coasting brings it to its post, 1.5 \
-    million km from the Earth."""
+    Ariane 5 places Webb on a trajectory so precise that its course corrections \
+    use less propellant than planned. Four days later, NASA found that the \
+    remaining propellant could support significantly more than ten years of \
+    science. Webb reaches its destination, 1.5 million km from the Earth, after a \
+    month of coasting."""
 
 [[events]]
 name = "The full mission so far, from L2"
@@ -145,8 +146,8 @@ distance_km = 4.0e6
 warp = 604800.0
 # [JW], [JWO], [JWL2], [HZN]
 caption = """\
-    Webb does not sit at L2: it circles it, one loop of its halo orbit about every six \
-    months, and small burns keep it there. From out here the Sun, the Earth and the Moon \
-    all stay on one side, behind its sunshield, so the telescope can stay cold enough to \
-    see in the infrared. In this frame, which turns with the Earth, the loops stay in \
+    Webb circles L2 in a halo orbit about every six months, with small burns to \
+    maintain its course. From out here the Sun, the Earth and the Moon all stay on \
+    one side, behind its sunshield, so the telescope can stay cold enough to see \
+    in the infrared. In this frame, which turns with the Earth, the loops stay in \
     place."""

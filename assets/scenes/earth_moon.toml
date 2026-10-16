@@ -373,11 +373,11 @@ distance_km = 7.0e5
 warp = 3600.0
 # [A2], [A2B], [A2PK]
 caption = """\
-    Reid Wiseman, Victor Glover, Christina Koch and Jeremy Hansen are on their way, the \
-    first crew bound for the Moon since Apollo 17 in 1972. The translunar injection burn \
-    was the last big engine firing: on this free-return path, gravity alone will bring \
-    Orion home. In this frame, which holds the Moon still, the flight traces a figure \
-    eight."""
+    Reid Wiseman, Victor Glover, Christina Koch and Jeremy Hansen are the first \
+    crew heading for the Moon since Apollo 17 in 1972. The translunar injection \
+    burn was the last big engine firing: on this free-return path, gravity alone \
+    will bring Orion home. In this frame, which holds the Moon still, the flight \
+    traces a figure eight."""
 
 # Closest approach 2026-04-06 23:01:49 TDB, 6,543 km above the far side; farthest
 # from the Earth 4 minutes later, 23:06:12 TDB, 406,765 km above its surface.
@@ -405,9 +405,9 @@ distance_km = 1.2e5
 warp = 300.0
 # [A2], [A2Q], [A2PK]
 caption = """\
-    Pulled back by the Earth's gravity, Orion returns at nearly 35 times the speed of \
-    sound and splashes down in the Pacific off San Diego, nine days, one hour and 32 \
-    minutes after launch: the first crewed flight of Orion is over."""
+    Pulled back by the Earth's gravity, Orion returns at nearly 35 times the speed \
+    of sound and splashes down in the Pacific off San Diego, nine days, one hour \
+    and 32 minutes after launch, completing Orion's first crewed flight."""
 
 # --- Artemis I -------------------------------------------------------------------
 
@@ -420,10 +420,10 @@ distance_km = 8.0e5
 warp = 7200.0
 # [A1], [DRO]
 caption = """\
-    The first flight of NASA's new Moon rocket and an uncrewed Orion: a 25-day test of \
-    rocket, spacecraft and ground systems before anyone flew. In this frame, which holds \
-    the Moon still, watch Orion's path loop around the Moon against the Moon's own \
-    motion: the distant retrograde orbit."""
+    The first flight of NASA's new Moon rocket and an uncrewed Orion: a 25-day \
+    test of rocket, spacecraft and ground systems before anyone flew. In this \
+    frame, which holds the Moon still, Orion loops around it against the Moon's \
+    own motion on a distant retrograde orbit."""
 
 [[events]]
 name = "Artemis I: outbound flyby (2022-11-21, 131 km)"
@@ -479,9 +479,9 @@ distance_km = 3.5e6
 warp = 86400.0
 # [CAP1], [HZN]
 caption = """\
-    A CubeSat the size of a microwave oven takes the long way to the Moon: not three \
-    days but four months on a low-energy path, which swings far out beyond the Moon's \
-    orbit before falling back to meet it. The trip costs time instead of fuel."""
+    A CubeSat the size of a microwave oven takes four months to reach the Moon on \
+    a low-energy path. The route swings far beyond the Moon's orbit before \
+    returning to meet it, saving fuel compared with a three-day trip."""
 
 # First perilune in the halo orbit 2022-11-14 00:39:27 TDB, 3,486 km from the Moon's center.
 [[events]]
@@ -528,10 +528,11 @@ distance_km = 1.5e5
 warp = 1800.0
 # [L16]
 caption = """\
-    The service module skims a few hundred km over the Moon and brakes at the lowest \
-    point. The swing-by sends it on to L2, 65,000 km beyond the far side, where it \
-    settles into an orbit around the empty point: the first spacecraft to get there by a \
-    lunar swing-by, and the second ever to orbit an Earth-Moon libration point."""
+    The service module skims a few hundred km over the Moon and brakes at the \
+    lowest point. The swing-by sends it on to L2, 65,000 km beyond the far side, \
+    where it settles into orbit around that point: the first spacecraft to get \
+    there by a lunar swing-by, and the second ever to orbit an Earth-Moon \
+    libration point."""
 
 [[events]]
 name = "Chang'e 5-T1: around L2 (2014-12)"
@@ -542,9 +543,9 @@ distance_km = 2.5e5
 warp = 21600.0
 # [L16]
 caption = """\
-    For five weeks the module loops around L2, a point where nothing holds it: orbits \
-    there are barely stable and easily lost. Three small burns, of 2 to 10 m/s, keep it \
-    on track. On 4 January it fires its engine once more and falls back towards the \
+    For five weeks the module loops around L2, where its orbit is barely stable \
+    and needs frequent corrections. Three small burns, of 2 to 10 m/s, keep it on \
+    track. On 4 January it fires its engine once more and falls back towards the \
     Moon."""
 
 [[events]]
@@ -557,10 +558,11 @@ distance_km = 2.0e4
 warp = 600.0
 # [L16]
 caption = """\
-    Its engine is too weak to brake into orbit at once, so the module brakes three times, \
-    each at the same low point 200 km above the surface, a day apart. The orbit shrinks \
-    from long ellipses to a circle about 200 km up, where it tests technology for the \
-    rendezvous and docking in lunar orbit that Chang'e 5 would need."""
+    The module's engine needs three burns to enter its intended orbit. Each burn \
+    is a day apart, at the same low point 200 km above the surface. The orbit \
+    shrinks from long ellipses to a circle about 200 km up, where it tests \
+    technology for the rendezvous and docking in lunar orbit that Chang'e 5 would \
+    need."""
 
 # --- Chang'e 5-T1's rocket stage ------------------------------------------------------
 
@@ -608,10 +610,11 @@ distance_km = 2.0e4
 warp = 60.0
 # [WE], [LROC], [HZN]
 caption = """\
-    In February Jon Giorgini of JPL noticed that the Falcon 9 stage had never come close \
-    to the Moon, and the object was traced back to Chang'e 5-T1. On 4 March it hits the \
-    far side near the crater Hertzsprung at 2.6 km/s. The Lunar Reconnaissance Orbiter \
-    found not one crater but two, 18 and 16 m across: extra mass at one end, perhaps."""
+    In February Jon Giorgini of JPL noticed that the Falcon 9 stage had never come \
+    close to the Moon, and the object was traced back to Chang'e 5-T1. On 4 March \
+    it hits the far side near the crater Hertzsprung at 2.6 km/s. The Lunar \
+    Reconnaissance Orbiter found two craters, 18 and 16 m across, perhaps caused \
+    by extra mass at one end of the stage."""
 
 # --- LADEE -------------------------------------------------------------------------
 
@@ -624,10 +627,9 @@ distance_km = 1.0e6
 warp = 43200.0
 # [LADEE], [HZN]
 caption = """\
-    Launched on 7 September 2013 from Wallops Island, Virginia, the first lunar mission \
-    to leave from there, LADEE does not head straight for the Moon. It flies three ever \
-    larger loops around the Earth, timed so that the last one meets the Moon a month \
-    later."""
+    LADEE launched on 7 September 2013 from Wallops Island, Virginia, the first \
+    lunar mission to leave from there. It flies three increasingly large loops \
+    around the Earth, timed to meet the Moon on the last loop a month later."""
 
 # Lunar orbit insertion: first perilune 2013-10-06 10:52:50 TDB, 572 km up; the
 # first orbit takes 24 hours, out to 15,600 km.
@@ -641,10 +643,10 @@ distance_km = 4.0e4
 warp = 600.0
 # [LADEE], [LADEEH]
 caption = """\
-    LADEE swings behind the Moon, out of sight of the Earth, re-emerges and fires its \
-    engine for three minutes: captured, it settles into a day-long orbit. More burns \
-    over the next weeks bring it down to about 20 by 60 km above the surface, around \
-    the Moon's equator."""
+    LADEE swings behind the Moon, out of sight of the Earth, re-emerges and fires \
+    its engine for three minutes to enter a day-long orbit. More burns over the \
+    next weeks bring it down to about 20 by 60 km above the surface, around the \
+    Moon's equator."""
 
 # Perilunes 15-56 km above the mean radius over 2013-12 .. 2014-02, apolunes 68-148 km.
 [[events]]
@@ -656,10 +658,10 @@ distance_km = 9000.0
 warp = 120.0
 # [LADEE], [LADEE2]
 caption = """\
-    Once every two hours LADEE circles the Moon, dipping to a few tens of kilometers. It \
-    samples the Moon's wisp of an atmosphere, finding argon-40, and counts more than \
-    11,000 hits of dust grains. Its laser link sent data home at a record-breaking 622 \
-    megabits per second."""
+    Once every two hours LADEE circles the Moon, dipping to a few tens of \
+    kilometers. It detects argon-40 in the Moon's thin atmosphere and counts more \
+    than 11,000 dust-grain impacts. Its laser link sent data home at a \
+    record-breaking 622 megabits per second."""
 
 # The data end 2014-04-18 04:33:07 TDB (04:32 UTC), 1-3 km above the mean radius,
 # at 1.69 km/s relative to the Moon.
@@ -692,8 +694,8 @@ warp = 172800.0
 caption = """\
     Two of the five THEMIS probes, which had studied substorms in the Earth's \
     magnetosphere since 2007, set off for the Moon as ARTEMIS-P1 and P2. About 150 \
-    fuel-saving maneuvers and close passes by the Moon fling them out to 1.5 million km \
-    and back, a transfer of about 18 months."""
+    fuel-saving maneuvers and lunar flybys send them out to 1.5 million km and \
+    back, a transfer of about 18 months."""
 
 [[events]]
 name = "ARTEMIS: around the Lagrange points (2010-2011)"
@@ -704,10 +706,11 @@ distance_km = 2.5e5
 warp = 21600.0
 # [ART], [ARTB]
 caption = """\
-    On 25 August 2010 ARTEMIS-P1 became the first spacecraft to orbit an Earth-Moon \
-    Lagrange point, L2, beyond the far side; P2 reached L1, on the Earth side, in \
-    October, and in January P1 crossed over to L1 too. From both sides they study the \
-    Moon's wake: the Moon soaks up the solar wind and leaves a cavity behind it."""
+    On 25 August 2010 ARTEMIS-P1 became the first spacecraft to orbit an \
+    Earth-Moon Lagrange point, L2, beyond the far side; P2 reached L1, on the \
+    Earth side, in October, and in January P1 crossed over to L1 too. From both \
+    sides they study the Moon's wake: the Moon absorbs the solar wind and leaves a \
+    cavity behind it."""
 
 # First orbit of P1: 3,588 x 26,999 km from the Moon's center (perilune 2011-06-27 15:17
 # TDB). P2's insertion burn: 2011-07-18 ~00:26 TDB.
@@ -721,9 +724,9 @@ distance_km = 1.2e5
 warp = 7200.0
 # [ART], [ARTB], [ARTH]
 caption = """\
-    Leaving its loops around L1, P1 drops into a stretched orbit around the Moon on 27 \
-    June 2011, about 3,500 by 27,000 km from the Moon's center; P2 follows on 17 July. \
-    Built for Earth orbit, they were never meant to go to the Moon. Both still circle \
+    Leaving its loops around L1, P1 drops into a stretched orbit around the Moon \
+    on 27 June 2011, about 3,500 by 27,000 km from the Moon's center; P2 follows \
+    on 17 July. Both spacecraft were designed for Earth orbit. Both still circle \
     it today (this scene's data end in 2019)."""
 
 # --- LCROSS -------------------------------------------------------------------------
@@ -754,7 +757,7 @@ distance_km = 8000.0
 warp = 30.0
 # [LCR]
 caption = """\
-    The Centaur, released nearly ten hours earlier, slams into the crater Cabeus near \
-    the south pole, blasting out a 27 m crater and some 350 t of debris. Four minutes \
-    behind, LCROSS flies through the plume, collecting data, before hitting too. A \
-    month later NASA reported evidence of water."""
+    The Centaur, released nearly ten hours earlier, strikes the crater Cabeus near \
+    the south pole, excavating a 27 m crater and ejecting some 350 t of debris. \
+    Four minutes behind, LCROSS flies through the plume, collecting data, before \
+    hitting too. A month later NASA reported evidence of water."""

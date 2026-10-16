@@ -237,9 +237,10 @@ distance_km = 1.0e10
 warp = 3155760.0
 # [AK21]
 caption = """\
-    Alpha Centauri A and B at their farthest apart, about 35 au, on the 80-year orbit \
-    measured to high precision with ALMA. A is a little larger and brighter than the \
-    Sun, B a little smaller and cooler; together they shine 4.3 light years from us."""
+    Alpha Centauri A and B are about 35 au apart at the widest point of their \
+    80-year orbit, measured precisely with ALMA. A is a little larger and brighter \
+    than the Sun. B is a little smaller and cooler. The pair is 4.3 light years \
+    away."""
 
 [[events]]
 name = "Next periastron (2035-04, 11.2 au apart)"
@@ -249,9 +250,9 @@ distance_km = 5.0e9
 warp = 1209600.0
 # [AK21]
 caption = """\
-    In 2035 the two stars swing to their closest, 11.2 au apart, a little more than \
-    Saturn's distance from the Sun and three times closer than at apastron. Watch the \
-    pair speed up as they round each other."""
+    In 2035 the two stars come within 11.2 au of each other, a little more than \
+    Saturn's distance from the Sun and about a third of their widest separation. \
+    They move faster through this part of their orbit."""
 
 [[events]]
 name = "Proxima d and b, 0.03 and 0.05 au from their star"
@@ -262,10 +263,10 @@ warp = 21600.0                 # 6 hours per second: b orbits in 45 s, d in 20 s
 frame = "Proxima Centauri-centered"
 # [AE16], [SM25]
 caption = """\
-    Proxima Centauri, the Sun's closest stellar neighbor, is a red dwarf that gives off \
-    less than 0.2% of the Sun's light, so its planets huddle close: d circles in 5 days, \
-    b in 11.2. Proxima b, found in 2016, gets about the warmth needed for liquid water, \
-    if it has any."""
+    Proxima Centauri, the Sun's closest stellar neighbor, is a red dwarf that \
+    gives off less than 0.2% of the Sun's light. Its planets orbit close to the \
+    star: d takes 5 days, b takes 11.2. Proxima b, found in 2016, receives roughly \
+    enough warmth for any water on its surface to be liquid."""
 
 [[events]]
 name = "Proxima c (unconfirmed), 1.5 au out"
@@ -276,9 +277,9 @@ warp = 2592000.0               # 30 days per second: c orbits in 63 s
 frame = "Proxima Centauri-centered"
 # [DA20], [SM25]
 caption = """\
-    A candidate third planet, c, proposed in 2020 on a 1,900-day orbit about 1.5 au out. \
-    Later data have not confirmed it, so it is drawn here, with its assumed orientation, \
-    as unconfirmed."""
+    A third planet, c, was proposed in 2020 on a 1,900-day orbit about 1.5 au from \
+    Proxima. It remains unconfirmed by later data. The orientation of its orbit \
+    here is assumed."""
 
 [[events]]
 name = "Proxima and the pair, from afar"
@@ -288,6 +289,6 @@ distance_km = 4.0e12
 warp = 31557600.0
 # [KE17], [AK21]
 caption = """\
-    Proxima is not just nearby: it is bound to A and B, wandering some 13,000 au from \
-    them on an orbit of about half a million years. From out here the 80-year dance of A \
-    and B shrinks to a single point of light."""
+    Proxima is gravitationally bound to A and B, some 13,000 au away on an orbit \
+    lasting about half a million years. At this distance, the pair's 80-year orbit \
+    appears as a single point of light."""

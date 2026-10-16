@@ -322,9 +322,9 @@ distance_km = 6.0e5
 warp = 3600.0
 # [MES]
 caption = """\
-    MESSENGER heads for Mercury, but not directly. Falling toward the Sun only speeds a \
-    spacecraft up, so it will spend six and a half years and six flybys, of the Earth, \
-    Venus twice and Mercury three times, shedding speed until Mercury can hold on to it."""
+    MESSENGER needs six and a half years to enter orbit around Mercury. Falling \
+    toward the Sun speeds a spacecraft up, so it uses six flybys to slow down \
+    enough for capture: one of the Earth, two of Venus and three of Mercury."""
 
 [[events]]
 name = "MESSENGER: Earth flyby (2005-08-02)"
@@ -349,8 +349,8 @@ warp = 120.0
 # [MES], [MESV]
 caption = """\
     About 340 km above Venus, the second pass of the planet. ESA's Venus Express, \
-    already in orbit there, looked at the same regions before and after, so the two \
-    spacecraft could compare notes on the clouds and the atmosphere."""
+    already in orbit there, looked at the same regions before and after, allowing \
+    a comparison of both spacecraft's measurements of the clouds and atmosphere."""
 
 [[events]]
 name = "MESSENGER: first Mercury flyby (2008-01-14, 200 km)"
@@ -362,10 +362,10 @@ distance_km = 2.0e4
 warp = 60.0
 # [MES1]
 caption = """\
-    The first visit to Mercury in almost 33 years, since Mariner 10 in 1975. Mariner 10 \
-    had seen less than half the planet; skimming 200 km above the surface, MESSENGER \
-    photographed about a fifth more of it, never seen before. Two more flybys follow \
-    before it can stay."""
+    The first visit to Mercury in almost 33 years, since Mariner 10 in 1975. \
+    Mariner 10 had seen less than half the planet; skimming 200 km above the \
+    surface, MESSENGER photographed about a fifth more of it, never seen before. \
+    Two more flybys follow before MESSENGER can enter orbit."""
 
 [[events]]
 name = "MESSENGER: the cruise, 2004-2011"
@@ -405,10 +405,10 @@ distance_km = 3.0e4
 warp = 1800.0
 # [MES]
 caption = """\
-    From this orbit, MESSENGER found water ice in craters near Mercury's poles, which \
-    the Sun never reaches, and strange shallow "hollows" on the surface, and showed that \
-    the planet's magnetic field is offset well to the north of its center. It sent some \
-    275,000 images in all."""
+    From this orbit, MESSENGER found water ice in craters near Mercury's poles, \
+    which the Sun never reaches, and shallow surface features called \"hollows\". \
+    It also showed that the planet's magnetic field is offset well to the north of \
+    its center. It sent some 275,000 images in all."""
 
 # Impact: the mean surface is reached at ~2015-04-30 19:27:55 TDB.
 [[events]]
@@ -445,9 +445,9 @@ distance_km = 8.0e4
 warp = 120.0
 # [BCE]
 caption = """\
-    BepiColombo passes 12,700 km from the Earth on its last visit home, and swings onto \
-    a path toward Venus. With Europe in lockdown, the flyby was flown by a reduced team \
-    at ESA's control centre, keeping their distance."""
+    BepiColombo passes 12,700 km from the Earth on its last visit home, and swings \
+    onto a path toward Venus. With Europe in lockdown, a reduced team at ESA's \
+    control centre managed the flyby while observing physical distancing."""
 
 [[events]]
 name = "BepiColombo: Venus flyby 2 (2021-08-10, 549 km)"
@@ -458,9 +458,9 @@ distance_km = 4.0e4
 warp = 120.0
 # [BC], [HZN]
 caption = """\
-    About 550 km above Venus, the second and last pass of the planet. From here on \
-    Mercury itself does the braking: six flybys of it over the next three years, the \
-    first only seven weeks away."""
+    About 550 km above Venus, the second and last pass of the planet. Six Mercury \
+    flybys over the next three years will slow the spacecraft further. The first \
+    is only seven weeks away."""
 
 [[events]]
 name = "BepiColombo: first Mercury flyby (2021-10-01, 198 km)"
@@ -500,9 +500,9 @@ distance_km = 6.0e5
 warp = 7200.0
 # [BCA], [HZN]
 caption = """\
-    The transfer module, its work done, was cast off on 3 September 2026. If all goes to \
-    plan, MPO with Mio still attached slips into orbit on 21 November 2026; these are \
-    the planned trajectories, ahead of the real ones."""
+    The transfer module was released on 3 September 2026. If all goes to plan, MPO \
+    with Mio still attached slips into orbit on 21 November 2026; the trajectories \
+    shown here are predictions."""
 [[events.trails]]                          # the weeks-long capture loops
 body = "BepiColombo"
 trail_history_days = 30.0
@@ -517,6 +517,7 @@ distance_km = 1.5e4
 warp = 120.0
 # [BCA], [HZN]
 caption = """\
-    The plan from here: the two orbiters part in December 2026, and science should begin \
-    in April 2027. Shown is ESA's MPO in its planned polar orbit, about 2.3 hours \
-    around; Japan's Mio, which will study Mercury's magnetosphere, is not in the data."""
+    The two orbiters are scheduled to separate in December 2026, and science \
+    should begin in April 2027. Shown is ESA's MPO in its planned polar orbit, \
+    about 2.3 hours around; Japan's Mio, which will study Mercury's magnetosphere, \
+    is not in the data."""

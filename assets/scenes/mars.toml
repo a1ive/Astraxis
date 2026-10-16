@@ -557,9 +557,9 @@ distance_km = 8.0e4
 warp = 600.0
 # [MRO], [MROS], [HZN]
 caption = """\
-    NASA's Mars Reconnaissance Orbiter brakes into a long, loose orbit: 35 hours around, \
-    swinging out 45,000 km. Its working orbit is to be a low circle, two hours around, \
-    and it will get there by skimming the top of the atmosphere."""
+    NASA's Mars Reconnaissance Orbiter brakes into an elongated orbit lasting 35 \
+    hours and reaching out to 45,000 km. Its working orbit is to be a low circle, \
+    two hours around, and it will get there by skimming the top of the atmosphere."""
 
 # Aerobraking: 427 periapses below 130 km above the mean radius between 2006-04-06 and
 # 08-30 [HZN] ([MROS]: 426 passes); the lowest is 79 km above the mean radius, ~99 km
@@ -572,9 +572,10 @@ distance_km = 1.3e5
 warp = 86400.0
 # [MROS], [HZN]
 caption = """\
-    One pass at a time, about 100 km up, the thin air drags on MRO and the far end of \
-    its orbit sinks: from 45,000 km to under 500 km in 426 passes, and from 35 hours \
-    around to under two. Rocket fuel would have cost some 600 kg more."""
+    MRO skims the thin atmosphere about 100 km above the surface. Over 426 passes, \
+    drag lowers the far end of its orbit from 45,000 km to under 500 km and \
+    shortens its period from 35 hours to under two. Using rocket thrust would have \
+    required some 600 kg more fuel."""
 [[events.trails]]
 body = "MRO"
 trail_history_days = 15.0
@@ -590,10 +591,10 @@ distance_km = 400.0
 warp = 3.0
 # [MEXP]
 caption = """\
-    Mars Express passes 45 km above Phobos, its closest ever: too close and fast for \
-    pictures. Instead, the tug of Phobos on the spacecraft, read from its radio signal, \
-    weighs the moon. Earlier passes suggested that Phobos may be a quarter to a third \
-    empty space, a pile of rubble."""
+    Mars Express passes 45 km above Phobos, its closest ever: too close and fast \
+    for pictures. Changes in the spacecraft's radio signal reveal Phobos' \
+    gravitational pull and allow its mass to be measured. Earlier passes suggested \
+    that Phobos may be a quarter to a third empty space, a pile of rubble."""
 
 [[events]]
 name = "MAVEN arrives (2014-09-22)"
@@ -604,9 +605,10 @@ distance_km = 7.0e4
 warp = 600.0
 # [MAV]
 caption = """\
-    MAVEN, the first spacecraft devoted to the upper atmosphere of Mars, is captured into \
-    a 35-hour orbit. Five weeks later it will be in its working orbit, dipping to about \
-    150 km at every pass, inside the air it came to study."""
+    MAVEN, the first spacecraft devoted to the upper atmosphere of Mars, is \
+    captured into a 35-hour orbit. Five weeks later it will be in its working \
+    orbit, dipping to about 150 km at every pass, within the upper atmosphere it \
+    will study."""
 
 # MOM's first periapsis 2014-09-24 02:03 TDB, 452 km; then 423 x 76,862 km, 72.7 h [HZN].
 [[events]]
@@ -652,9 +654,9 @@ warp = 60.0
 caption = """\
     The comet's dust arrives about 90 minutes after its closest approach. NASA's \
     orbiters, MRO, MAVEN and Odyssey, wait it out on the far side of Mars. They \
-    came through unharmed. The dust burned up high in the atmosphere, likely an \
-    impressive meteor shower, and left a glow of magnesium and iron stronger than any \
-    meteor storm has caused on the Earth."""
+    came through unharmed. The dust burned up high in the atmosphere, likely \
+    producing a strong meteor shower, and left a glow of magnesium and iron \
+    stronger than any meteor storm has caused on the Earth."""
 
 [[events]]
 name = "MAVEN: where the air went (2015)"
@@ -684,10 +686,10 @@ distance_km = 6.0e4
 warp = 300.0
 # [SCH], [HZN]
 caption = """\
-    ESA's Trace Gas Orbiter brakes into a four-day orbit while its lander, Schiaparelli, \
-    heads for the surface. A sensor saturated for a moment, the computer judged itself \
-    below ground and let the parachute go: Schiaparelli fell from about 3.7 km and hit \
-    at some 540 km/h."""
+    ESA's Trace Gas Orbiter brakes into a four-day orbit while its lander, \
+    Schiaparelli, heads for the surface. A brief sensor saturation led the \
+    computer to calculate a position below ground and release the parachute. \
+    Schiaparelli fell from about 3.7 km and hit at some 540 km/h."""
 
 [[events]]
 name = "TGO aerobraking (2017-03 .. 2018-02)"
@@ -697,10 +699,10 @@ distance_km = 1.2e5
 warp = 172800.0
 # [TGOA], [HZN]
 caption = """\
-    For eleven months TGO skims the upper atmosphere at nearly every pass, almost a \
-    thousand times, until its day-long orbit is two hours around. Then a few burns \
-    round it out about 400 km up, where it takes inventory of the atmosphere, sniffing \
-    for gases like methane."""
+    For eleven months TGO skims the upper atmosphere at nearly every pass, almost \
+    a thousand times, until its day-long orbit is two hours around. Then a few \
+    burns round it out about 400 km up, where it measures the atmosphere's \
+    composition, searching for gases such as methane."""
 [[events.trails]]
 body = "TGO"
 trail_history_days = 15.0
@@ -714,10 +716,10 @@ distance_km = 1.2e5
 warp = 600.0
 # [HZN] (Horizons notes)
 caption = """\
-    The United Arab Emirates' Hope probe is captured by Mars. From an orbit far higher \
-    than the others, 20,000 to 43,000 km up and 55 hours around, it watches the whole \
-    planet, to build a picture of how the Martian atmosphere changes through the day \
-    and the year."""
+    The United Arab Emirates' Hope probe is captured by Mars. From an orbit far \
+    higher than the others, 20,000 to 43,000 km up and 55 hours around, it \
+    observes the whole planet to study how the Martian atmosphere changes through \
+    the day and the year."""
 
 # Tianwen-1 in 2021 [TW1]: the telemetry vectors propagated (tools/tianwen1/
 # tianwen1_reconstruct.py). Orbit insertion 2021-02-10 11:54:04 .. 12:08:52 TDB (Estevez's
@@ -750,9 +752,10 @@ warp = 300.0
 # [AMSAT], [TW1]
 caption = """\
     Five days after arriving, out at the far end of its orbit, Tianwen-1 fires its \
-    engine for 128 m/s and turns the orbit from 11 degrees to the equator to 87, over \
-    the poles. Far out the spacecraft moves slowly, so a turn here costs little; from a \
-    polar orbit the whole planet passes beneath it, the landing site too."""
+    engine for 128 m/s and turns the orbit from 11 degrees to the equator to 87, \
+    over the poles. The spacecraft moves slowly this far out, so changing its \
+    orbital plane takes little fuel. The polar orbit will carry it over the whole \
+    planet, including the landing site."""
 [[events.trails]]
 body = "Tianwen-1"
 trail_history_days = 0.5
@@ -778,10 +781,10 @@ distance_km = 6.0e4
 warp = 120.0
 # [AMSAT], [TW1]
 caption = """\
-    Over the landing site, Tianwen-1 trims its orbit to exactly two Mars days, 49 hours \
-    and 15 minutes, so that every low pass comes back over the same spot as Mars turns \
-    beneath it. It will wait here for almost three months, at least four small burns \
-    keeping it on time, before letting the lander go."""
+    Over the landing site, Tianwen-1 trims its orbit to exactly two Mars days, 49 \
+    hours and 15 minutes, so that every low pass comes back over the same spot as \
+    Mars turns beneath it. It will stay here for almost three months before \
+    releasing the lander, with at least four small burns to maintain the timing."""
 [[events.trails]]
 body = "Tianwen-1"
 trail_history_days = 2.1
@@ -809,10 +812,10 @@ distance_km = 6.0e4
 warp = 120.0
 # [AMSAT], [TW1]
 caption = """\
-    Three days after letting the lander go, the orbiter brakes hard at its closest pass, \
-    some 350 m/s, and shrinks its orbit to a third of a Mars day, 8 hours 12 \
-    minutes. The orbit repeats over the rover every day, to pick up its radio signals \
-    and relay them to the Earth."""
+    Three days after letting the lander go, the orbiter slows by some 350 m/s at \
+    its closest pass and shrinks its orbit to a third of a Mars day, 8 hours 12 \
+    minutes. The orbit repeats over the rover every day, to pick up its radio \
+    signals and relay them to the Earth."""
 [[events.trails]]
 body = "Tianwen-1"
 trail_history_days = 2.1
@@ -843,10 +846,11 @@ distance_km = 150.0
 warp = 10.0
 # [HOPE]
 caption = """\
-    With its orbit adjusted, Hope makes a series of passes of Deimos, here 100 km away. \
-    It saw what orbiters closer to Mars never do, the side of Deimos facing away from \
-    the planet, and found it more like Martian rock than a captured asteroid: both \
-    moons may be debris from an impact on Mars."""
+    With its orbit adjusted, Hope makes a series of passes of Deimos, here 100 km \
+    away. It observed the side of Deimos facing away from Mars, beyond the view of \
+    the lower orbiters. Its composition resembled Martian rock more than a \
+    captured asteroid, suggesting that both moons may be debris from an impact on \
+    Mars."""
 
 # Europa Clipper's closest approach 2025-03-01 17:58:03 TDB, 4,274 km from the center (885 km
 # above the mean radius, 3389.5 km [SPHY]) [HZN].
@@ -860,10 +864,11 @@ distance_km = 3.5e4
 warp = 60.0
 # [ECM]
 caption = """\
-    Bound for Jupiter's moon Europa, the largest spacecraft NASA has built for another \
-    planet swings 884 km over Mars. Mars bends its path and slows it, from 24.5 to 22.5 \
-    km/s around the Sun; the Earth will give it a boost in December 2026, and Jupiter \
-    comes in 2030. On the way past, its radar is tried out with all its parts at once."""
+    Bound for Jupiter's moon Europa, the largest spacecraft NASA has built for \
+    another planet swings 884 km over Mars. Mars bends its path and slows it, from \
+    24.5 to 22.5 km/s around the Sun; the Earth will give it a boost in December \
+    2026, and Jupiter comes in 2030. The flyby also provides a test of the \
+    complete radar system."""
 
 # Hera's closest approaches 2025-03-12: Deimos 12:11:30 TDB, 297 km from its center; Mars
 # 12:51:56 TDB, 9,060 km from the center (5,670 km above the mean radius) [HZN].
@@ -890,10 +895,11 @@ distance_km = 1.3e5
 warp = 600.0
 # [MEX], [MRO], [MAV], [ODY], [TGOA], [HZN], [TW1]
 caption = """\
-    Seven orbiters at once. MRO, Odyssey and TGO circle 250 to 440 km up, two hours a \
-    lap; MAVEN swings out to 4,500 km; Mars Express, here since 2003, and Tianwen-1 out \
-    to 10,500 and 12,000 km, across the orbit of Phobos; Hope, from the orbit of Deimos \
-    outward, takes 55 hours."""
+    Seven orbiters share the Martian sky. MRO, Odyssey and TGO circle 250 to 440 \
+    km above the surface every two hours. MAVEN reaches out to 4,500 km. Mars \
+    Express, here since 2003, reaches 10,500 km, and Tianwen-1 reaches 12,000 km, \
+    both crossing Phobos' orbit. Hope takes 55 hours on an orbit extending outward \
+    from Deimos'."""
 
 # Periods from the [PCK] rotation rates (Phobos and Deimos rotate synchronously): Mars
 # 24 h 37 min, Phobos 7 h 39 min, Deimos 30 h 18 min. Phobos comes round again every
@@ -909,10 +915,11 @@ distance_km = 6.0e4
 warp = 600.0
 # [PCK], [ELEM]
 caption = """\
-    Turning with Mars, as if standing on it. Phobos goes round in 7 h 39 min, faster than \
-    Mars turns in 24 h 37 min, so it rises in the west and sets in the east, crossing the \
-    sky in about four hours, twice a day. Deimos, at 30 h 18 min, lags just behind the \
-    turning planet: it creeps from east to west and stays up for two and a half days."""
+    This view turns with Mars, as though seen from its surface. Phobos goes round \
+    in 7 h 39 min, faster than Mars turns in 24 h 37 min, so it rises in the west \
+    and sets in the east, crossing the sky in about four hours, twice a day. \
+    Deimos, at 30 h 18 min, lags just behind the turning planet: it creeps from \
+    east to west and stays up for two and a half days."""
 
 # [REN] Table 1, second epoch: 2025-10-01 16:00 UTC, 0.208 au from Tianwen-1.
 [[events]]
@@ -925,10 +932,11 @@ warp = 60.0
 # [REN]
 caption = """\
     From Mars, 31 million km away, Tianwen-1 turns the small camera of its \
-    high-resolution imager, built for a surface ten thousand times brighter, on the \
-    comet. It sees 3I from 40 degrees out of the plane of its orbit, as no telescope \
-    near the Earth can: a fan of dust grains a few tenths of a millimeter across, puffed \
-    toward the Sun at a few meters per second and only slowly blown back."""
+    high-resolution imager, built for a surface ten thousand times brighter, on \
+    the comet. It sees 3I from 40 degrees out of the plane of its orbit, a view \
+    unavailable to telescopes near the Earth: a fan of dust grains a few tenths of \
+    a millimeter across, puffed toward the Sun at a few meters per second and only \
+    slowly blown back."""
 
 # 3I/ATLAS closest to Mars 2025-10-03 04:38 TDB, 28.97 million km [HZN]. Seen from the side of
 # the Sun line (from_body = "Sun": the scene has no Sun body, the sun's direction is used),
@@ -943,11 +951,11 @@ distance_km = 7.0e7
 warp = 3600.0
 # [REN], [HZN]
 caption = """\
-    Only the third object known to come from another star, 3I/ATLAS was found in July \
-    2025. Its path is a hyperbola so open that it barely bends; it runs backward around \
-    the Sun, close to the plane of the planets, and passes 29 million km from Mars at 86 \
-    km/s. Seen from the Earth it is heading into the Sun's glare; from Mars it is in \
-    the night sky, far from the Sun."""
+    The third object known to come from another star, 3I/ATLAS was found in July \
+    2025. Its path is a broad hyperbola with little curvature; it runs backward \
+    around the Sun, close to the plane of the planets, and passes 29 million km \
+    from Mars at 86 km/s. Seen from the Earth it is heading into the Sun's glare; \
+    from Mars it is in the night sky, far from the Sun."""
 [[events.trails]]
 body = "3I/ATLAS"
 trail_history_days = 30.0
@@ -960,6 +968,6 @@ distance_km = 2.5e4
 warp = 1200.0
 # [MAV], [HZN]
 caption = """\
-    MAVEN's last orbits as tracked from the Earth. On 6 December 2025 it passed behind \
-    Mars and never called again; NASA ended the mission in June 2026, after more than \
-    eleven years at Mars, ten beyond its planned one."""
+    MAVEN's last orbits as tracked from the Earth. On 6 December 2025 it passed \
+    behind Mars and never re-established contact; NASA ended the mission in June \
+    2026, after more than eleven years at Mars, ten beyond its planned one."""

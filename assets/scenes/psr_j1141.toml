@@ -175,8 +175,8 @@ distance_km = 5.5e6
 warp = 1200.0
 # [VK20]
 caption = """\
-    An unusual pair: a young pulsar and a massive white dwarf on a 4.7-hour orbit. The \
-    white dwarf formed first, and matter from the pulsar's progenitor spun it up to a \
+    A young pulsar and a massive white dwarf share a 4.7-hour orbit. The white \
+    dwarf formed first, and matter from the pulsar's progenitor spun it up to a \
     turn every few minutes; the pulsar, never spun up, still turns slowly."""
 
 [[events]]
@@ -202,10 +202,10 @@ distance_km = 4.0e4
 warp = 60.0
 # [VK20]
 caption = """\
-    A Sun's worth of mass in a ball smaller than the Earth. Spinning in minutes, it \
-    drags space around with it and slowly tilts the orbit: timing the pulsar over twenty \
-    years revealed this frame dragging, the Lense-Thirring effect, the pulsar shining \
-    just beyond."""
+    The white dwarf packs a Sun's worth of mass into a body smaller than the \
+    Earth. It spins in minutes, dragging space around with it and slowly tilting \
+    the orbit. Twenty years of timing the pulsar, visible just beyond it, revealed \
+    this frame dragging, the Lense-Thirring effect."""
 
 [[events]]
 name = "Pulsar beams (drawn slowed down: really 2.5 turns a second)"
@@ -215,9 +215,9 @@ distance_km = 3.0e5
 warp = 30.0
 # [VK20]
 caption = """\
-    The pulsar turns 2.5 times a second, slow for a pulsar: having formed after its \
-    companion, it was never spun up by its matter. The beams are radio, drawn here and \
-    slowed down."""
+    The pulsar turns 2.5 times a second, slow for a pulsar: having formed after \
+    its companion, it was never spun up by its matter. The radio beams are shown \
+    here with their motion slowed down."""
 
 [[events]]
 name = "Centuries at 3 years per second: the orbit spins, Newton's does not"
@@ -228,6 +228,6 @@ distance_km = 5.5e6
 warp = 1.0e8
 # [BBV08]
 caption = """\
-    At three years per second the orbit turns a full circle in about 68 years while \
-    Newton's ellipse stands still. The tilting by frame dragging, under 2 arcseconds a \
-    year, is far too small to show."""
+    At three years per second the orbit turns a full circle in about 68 years \
+    while Newton's ellipse stands still. Frame dragging tilts the orbit by under 2 \
+    arcseconds a year, too little to see at this scale."""

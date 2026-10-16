@@ -435,10 +435,10 @@ distance_km = 1.5e5
 warp = 120.0
 # [GLLV], [GLLM]
 caption = """\
-    Bound for Jupiter, Galileo first falls inward to Venus, the first of three gravity \
-    assists before it has the speed to get there. It passes 16,000 km above the clouds \
-    and gains almost 8,000 km/h. Its instruments record on tape, to be played back nine \
-    months later, and its plasma wave instrument picks up signs of lightning."""
+    Bound for Jupiter, Galileo first falls inward to Venus, the first of three \
+    gravity assists needed to reach Jupiter. It passes 16,000 km above the clouds \
+    and gains almost 8,000 km/h. Its instruments record on tape, to be played back \
+    nine months later, and its plasma wave instrument picks up signs of lightning."""
 
 # Cassini's closest approaches: 1998-04-26 13:45:44 TDB, 284 km up; 1999-06-24 20:30:59
 # TDB, 602 km up [HZN].
@@ -469,10 +469,10 @@ distance_km = 6.0e4
 warp = 30.0
 # [CAS2], [CASL]
 caption = """\
-    Fourteen months later Cassini is back, 603 km up. In neither pass did it hear the \
-    radio crackle of lightning; passing the Earth two months later, the same instrument \
-    caught up to 70 flashes a second. Lightning on Venus, if there is any, must be very \
-    rare or very different from ours."""
+    Fourteen months later Cassini is back, 603 km up. It detected no radio signals \
+    from lightning on either pass; passing the Earth two months later, the same \
+    instrument caught up to 70 flashes a second. Lightning on Venus, if there is \
+    any, must be very rare or very different from ours."""
 
 # Venus Express' first periapsis 2006-04-11 07:37:39 TDB, 390 km up, in the middle of the
 # capture burn (07:10 to 08:01 UTC [VOI]); then 9.1 days around, out to 332,000 km. The burns
@@ -490,9 +490,10 @@ distance_km = 6.0e4
 warp = 120.0
 # [VOI], [HZN] (Horizons notes)
 caption = """\
-    ESA's first mission to Venus fires its main engine for 50 minutes, shedding 1.25 km/s, \
-    and is captured into a long polar orbit: nine days around, swinging out some 330,000 \
-    km. It came for a global look at the atmosphere of Venus and the space around it."""
+    ESA's first mission to Venus fires its main engine for 50 minutes, slowing by \
+    1.25 km/s to enter an elongated polar orbit lasting nine days and reaching out \
+    some 330,000 km. Its mission is to study Venus' atmosphere and the surrounding \
+    space."""
 
 [[events]]
 name = "Venus Express: from nine days to one (2006-04 .. 05)"
@@ -521,10 +522,11 @@ distance_km = 1.6e5
 warp = 1200.0
 # [VEXE]
 caption = """\
-    For eight years, more than 3,000 orbits. Venus Express found lava flows no more than \
-    2.5 million years old and swings in the sulphur dioxide over the clouds, the best sign \
-    yet of active volcanoes. Hydrogen and deuterium hint that Venus once had far more \
-    water, perhaps oceans, and it still loses hydrogen and oxygen to space, two to one."""
+    Over eight years and more than 3,000 orbits, Venus Express found lava flows no \
+    more than 2.5 million years old and changes in sulphur dioxide above the \
+    clouds, the best sign yet of active volcanoes. Hydrogen and deuterium hint \
+    that Venus once had far more water, perhaps oceans, and it still loses \
+    hydrogen and oxygen to space, two to one."""
 
 # MESSENGER's closest approach 2007-06-05 23:09:23 TDB, 338 km up, over the night side; its
 # orbital energy around the Sun drops by 6.6 km/s of speed at Venus' distance. Venus Express
@@ -540,10 +542,10 @@ distance_km = 6.0e4
 warp = 30.0
 # [MESF], [MESS]
 caption = """\
-    On its way to Mercury, MESSENGER skims 338 km over the night side of Venus. The pass \
-    bends its path more than any other of the trip and pulls its orbit in toward \
-    Mercury's. All seven instruments work together for the first time, while Venus \
-    Express, in orbit, measures the solar wind upstream: two spacecraft at Venus at once."""
+    On its way to Mercury, MESSENGER skims 338 km over the night side of Venus. \
+    The pass bends its path more than any other of the trip and pulls its orbit in \
+    toward Mercury's. All seven instruments work together for the first time, \
+    while Venus Express, in orbit, measures the solar wind upstream."""
 
 # Akatsuki's closest approach 2010-12-07 00:01:16 TDB, 549 km up; then 0.611 x 0.742 au
 # around the Sun, 203 days [HZN].
@@ -557,9 +559,9 @@ distance_km = 6.0e4
 warp = 60.0
 # [VCO], [HZN]
 caption = """\
-    Japan's Akatsuki fires its main engine for a 12-minute burn into orbit. After 158 \
-    seconds the engine quits. Instead of staying, Akatsuki skims 550 km over the clouds \
-    and sails on, into an orbit around the Sun 203 days long."""
+    Japan's Akatsuki fires its main engine for a 12-minute burn into orbit. The \
+    engine stops after 158 seconds. Akatsuki passes 550 km above the clouds and \
+    continues into a 203-day orbit around the Sun."""
 
 # Akatsuki's orbit around the Sun lies inside Venus': it pulls ahead and laps around the far
 # side of the Sun, up to 1.33 au from Venus (mid-2013). Its period changes from 203 to 199
@@ -597,9 +599,10 @@ distance_km = 4.0e4
 warp = 3600.0
 # [VEXE]
 caption = """\
-    Running low on propellant, Venus Express dives deeper at every pass, from 18 June to \
-    11 July to about 130 km above the surface. It comes through; fifteen small burns then \
-    raise its low point to 460 km, and its day-long orbit shortens to 22 hours."""
+    Running low on propellant, Venus Express dives deeper at every pass, from 18 \
+    June to 11 July to about 130 km above the surface. The spacecraft survives \
+    these passes. Fifteen small burns then raise its low point to 460 km, and its \
+    day-long orbit shortens to 22 hours."""
 [[events.trails]]
 body = "Venus Express"
 trail_history_days = 30.0
@@ -633,9 +636,9 @@ warp = 60.0
 # [VCO], [AK15]
 caption = """\
     Five years after the miss, Akatsuki is back. This time it fires its small \
-    attitude-control thrusters for 20 minutes, and Venus keeps it: a loose \
-    orbit out to 440,000 km and almost 14 days around, near the equator and in the \
-    direction the planet turns."""
+    attitude-control thrusters for 20 minutes and enters an elongated orbit \
+    reaching 440,000 km and lasting almost 14 days, near the equator and in the \
+    direction of Venus' rotation."""
 
 # From April 2016: 250-12,000 x ~370,000 km, 10.9 days [HZN].
 [[events]]
@@ -683,11 +686,12 @@ distance_km = 3.0e6
 warp = 3600.0
 # [DVF], [PER]
 caption = """\
-    Solar Orbiter and BepiColombo pass Venus 33 hours apart, never closer to each other \
-    than 575,000 km. Solar Orbiter, upstream, watches a steady solar wind, while \
-    BepiColombo runs up the long wake of Venus and out through its nose. Where the solar \
-    wind stalls reaches 1,900 km above the surface, farther than thought: a steady shield \
-    for the air of Venus, which has no magnetic field of its own."""
+    Solar Orbiter and BepiColombo pass Venus 33 hours apart, never closer to each \
+    other than 575,000 km. Solar Orbiter, upstream, watches a steady solar wind, \
+    while BepiColombo travels along Venus' long wake and emerges on the sunward \
+    side. The region where the solar wind stalls extends to 1,900 km above the \
+    surface, farther than expected. It steadily shields Venus' atmosphere, despite \
+    the planet having no magnetic field of its own."""
 
 [[events]]
 name = "BepiColombo skims Venus (2021-08-10, 552 km)"
@@ -700,10 +704,11 @@ distance_km = 6.0e4
 warp = 30.0
 # [DVF], [BCV2]
 caption = """\
-    A day and a half later BepiColombo, bound for Mercury, comes in from the night side, \
-    552 km above the clouds, its second and last pass of Venus. Its science cameras \
-    cannot see Venus from inside the stack; three small monitoring cameras take 89 \
-    black-and-white snapshots, Venus filling the frame two seconds after the closest point."""
+    A day and a half later BepiColombo, bound for Mercury, comes in from the night \
+    side, 552 km above the clouds, its second and last pass of Venus. Its science \
+    cameras are obscured by the spacecraft stack; three small monitoring cameras \
+    take 89 black-and-white snapshots, Venus filling the frame two seconds after \
+    the closest point."""
 
 [[events]]
 name = "Akatsuki falls silent (2024-04)"
@@ -730,10 +735,11 @@ distance_km = 3.0e8
 warp = 172800.0
 # [MIK], [ZNAM]
 caption = """\
-    Zoozve orbits the Sun once a Venus year, but on a stretched, tilted orbit that reaches \
-    in past Mercury's and out to the Earth's. Seen from Venus, it seems to circle the \
-    planet backward once a year, never closer than 30 million km. Found in 2002, it was \
-    the first quasi-satellite known: one for some 7,000 years, and for 500 more."""
+    Zoozve orbits the Sun once a Venus year, but on a stretched, tilted orbit that \
+    reaches in past Mercury's and out to the Earth's. Seen from Venus, it seems to \
+    circle the planet backward once a year, never closer than 30 million km. \
+    Discovered in 2002, it was the first known quasi-satellite. It has followed \
+    this path for some 7,000 years and will do so for another 500."""
 
 # Juice's closest approach 2025-08-31 05:30:00 TDB, 11,140 km from the center (5,088 km up)
 # [HZN].
@@ -748,10 +754,11 @@ distance_km = 1.2e5
 warp = 120.0
 # [JUV], [HZN] (Horizons notes)
 caption = """\
-    ESA's Juice needs 11 km/s to reach Jupiter; its Ariane 5 gave it 2.5. Venus is the \
-    second of four gravity assists: the Moon and the Earth in 2024, Venus now, the Earth \
-    in 2026 and 2029. So close to the Sun, Juice turns its big antenna into a sunshade and \
-    takes no pictures. Six weeks earlier it had been silent for 20 hours: a timing bug."""
+    ESA's Juice needs 11 km/s to reach Jupiter; its Ariane 5 gave it 2.5. Venus is \
+    the second of four gravity assists: the Moon and the Earth in 2024, Venus now, \
+    the Earth in 2026 and 2029. So close to the Sun, Juice turns its big antenna \
+    into a sunshade and takes no pictures. Six weeks earlier, a timing bug had \
+    interrupted contact for 20 hours."""
 
 # Zoozve's closest approaches to the Earth-Moon barycenter, every 8 years: 1978-11-12 at
 # 4.70 million km .. 2026-11-02 18:52 TDB at 6.02 million km .. 2058-10-29 at 7.44 [HZN].
@@ -765,10 +772,10 @@ distance_km = 4.0e7
 warp = 21600.0
 # [SBDB], [MIK], [ZNAM]
 caption = """\
-    Every eight years Zoozve passes the Earth, this time 6 million km away. A pass like \
-    this some 7,000 years ago may have set it on its path with Venus. Its name began as a \
-    misreading: an artist copying "2002 VE" onto a poster saw "Zoozve", and in 2024 the \
-    IAU made the mistake official."""
+    Every eight years Zoozve passes the Earth, this time 6 million km away. A pass \
+    like this some 7,000 years ago may have set it on its path with Venus. Its \
+    name began as a misreading: an artist copying \"2002 VE\" onto a poster saw \
+    \"Zoozve\", and in 2024 the IAU adopted that name."""
 [[events.trails]]
 body = "Zoozve"
 trail_history_days = 30.0

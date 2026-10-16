@@ -198,9 +198,9 @@ distance_km = 6.0e8
 warp = 345600.0
 # [TH99], [SI03]
 caption = """\
-    A pulsar, the collapsed core of a massive star, spinning 90 times a second, circles \
-    a white dwarf every 191 days. Timing its pulses precisely traces this orbit, and a \
-    slow extra wobble from something farther out: the planet."""
+    A pulsar, the collapsed core of a massive star, spinning 90 times a second, \
+    circles a white dwarf every 191 days. Precise measurements of its pulse times \
+    reveal this orbit and a slower wobble caused by the more distant planet."""
 
 [[events]]
 name = "Pulsar beams sweeping (drawn slowed down: really 90 turns a second)"
@@ -210,9 +210,10 @@ distance_km = 2.0e6
 warp = 600.0
 # [TH99]
 caption = """\
-    Radio beams from the pulsar's magnetic poles sweep around as it spins; each sweep \
-    across the Earth is a pulse. Here they are drawn visible and slowed down: the real \
-    pulsar, spun up long ago by matter from a companion, turns 90 times a second."""
+    Radio beams from the pulsar's magnetic poles sweep around as it spins; each \
+    sweep across the Earth is a pulse. The beams are shown here with their motion \
+    slowed down: the real pulsar, spun up long ago by matter from a companion, \
+    turns 90 times a second."""
 
 [[events]]
 name = "The planet's 62-year orbit, tilted 40 deg to the binary's"
@@ -238,9 +239,9 @@ distance_km = 3.5e5
 warp = 3600.0
 # [SI03], [HUB03]
 caption = """\
-    Near the planet: its "suns" are a dim white dwarf and a neutron star, and its sky is \
-    crowded with the stars of the globular cluster M4. It formed when the Universe was \
-    young; its color here is a guess."""
+    Near the planet: its \"suns\" are a dim white dwarf and a neutron star, and \
+    its sky is crowded with the stars of the globular cluster M4. It formed when \
+    the Universe was young; its color here is speculative."""
 
 [[events]]
 name = "Toward the core of M4, 0.4 pc away"
@@ -252,6 +253,7 @@ distance_km = 6.0e8
 warp = 345600.0
 # [SI03], [HUB03]
 caption = """\
-    From the pulsar, about 0.4 parsecs from the cluster's center, the sky is full of \
-    M4's stars, over thirteen thousand of them drawn from Gaia's measurements. M4 lies \
-    5,600 light years from the Earth; seen from here, our Sun would be lost among them."""
+    From the pulsar, about 0.4 parsecs from the cluster's center, the sky is full \
+    of M4's stars. Over thirteen thousand are shown here using Gaia's \
+    measurements. M4 lies 5,600 light years from the Earth; seen from here, our \
+    Sun would be lost among them."""
