@@ -8,8 +8,9 @@
 # Around the comet, the "67P, Sun fixed" frames keep the Sun along one axis (as Rosetta's own
 # comet-centred solar orbital frame did): there the arrival legs show up as the triangles at
 # 100 and 50 km (hyperbolic arcs joined by small burns), and the later flybys and
-# excursions as fans and petals. The comet's own spin (12.4 h) is drawn on its shape model;
-# a frame turning with the nucleus would wind these days-long legs into spirals.
+# excursions as fans and petals. The comet's own spin (12.4 h, 12.06 h after perihelion) is
+# drawn on its shape model; a frame turning with the nucleus would wind these days-long legs
+# into spirals.
 #
 # Sources
 # [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py (tools/bake/ephem.toml):
@@ -27,11 +28,16 @@
 # [ELEM] JPL SSD, Planetary Satellite Mean Elements (the Moon, outside its table).
 # [ATM]  Atmospheres (single scattering): sources and choices in solar_system.toml.
 # [PCK]  NAIF pck00011.tpc (IAU 2015).
-# [CHP]  67P rotation: Scholten, Preusker, Jorda & Hviid, "Reference frames and mapping
+# [CHP]  67P frame: Scholten, Preusker, Jorda & Hviid, "Reference frames and mapping
 #        schemes of comet 67P" v2 (2015-09-24), PDS SBN RO-C-MULTI-5-67P-SHAPE-V2.0,
-#        DOCUMENT/CHEOPS_REF_FRAME_V1.PDF: pole (69.54, 64.11) deg, W = 114.69 deg +
-#        696.543884683 deg/d (12.4041 h), radii (2.40, 1.55, 1.20) km; valid Aug-Sep 2014 (the
-#        spin later sped up to ~12.06 h, not modelled; the 0.14 deg precession is left out).
+#        DOCUMENT/CHEOPS_REF_FRAME_V1.PDF: radii (2.40, 1.55, 1.20) km along the axes of the
+#        Cheops frame (its rotation, pole (69.54, 64.11) deg and W = 114.69 deg +
+#        696.543884683 deg/d, held for Aug-Sep 2014 only).
+# [CK67] 67P rotation: ESA's comet attitude kernels (frame 67P/C-G_CK; ESA SPICE Service,
+#        spiftp.esac.esa.int/data/SPICE/ROSETTA/kernels/ck/, the three CATT_DV kernels of the
+#        meta-kernel ROS_OPS.TM), fitted by tools/philae/c67p_spin.py
+#        (assets/ephem/SOURCES.md): 12.404 h in 2014, 12.43 h before perihelion, 12.055 h
+#        in 2016; the pole wanders by about half a degree. 2014-2016; outside, the end rates.
 # [PHL]  Philae (-226800): ESA SPICE Service kernels (spiftp.esac.esa.int/data/SPICE/ROSETTA/
 #        kernels/spk/), baked by tools/philae/philae_bake.py (assets/ephem/SOURCES.md):
 #        LORB_SUN_J2000_SDL_V1_1 (separation and descent, SONC-FD/CNES) and
@@ -278,8 +284,7 @@ parent = "Sun"
 shape = "shapes/67p.mesh"                  # [SH67]
 radii_km = [2.40, 1.55, 1.20]              # [CHP]
 body_gm_km3_s2 = 6.622e-7                  # [HZP]
-pole_ra_dec_deg = [69.54, 64.11]           # [CHP]
-prime_meridian_deg = [114.69, 696.543884683]
+spin_table = "ephem/c67p_spin.toml"        # [CK67]
 color = "#5e5a56"                          # dark (illustrative tone; albedo ~6%)
 orbit_color = "#b8c8e8"
 trail = "history"
@@ -375,8 +380,8 @@ type = "inertial"
 origin = "67P"
 trail_history_days = 2.0
 
-# Turning with the nucleus (its 2014 rotation, [CHP]): the surface stands still, for
-# Philae's landing. Rosetta's days-long legs would wind into spirals: no trail here.
+# Turning with the nucleus ([CK67]): the surface stands still. Rosetta's days-long legs
+# would wind into spirals: no trail here.
 [[frames]]
 name = "67P-fixed"
 type = "body_fixed"

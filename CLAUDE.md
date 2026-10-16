@@ -142,7 +142,7 @@ CMake 目标：
 - `assets/shapes/*.mesh`（AXMESH2）：`tools/shapes/` 下按来源格式分：`make_arrokoth.py`、`make_grid_table_shape.py`（Thomas / Stooke 经纬网格表）、`make_dtm_shape.py`（DLR 全球 DTM）、`make_plate_shape.py`（板块模型、OBJ、VRML）
 - `tools/isee3/`、`tools/armada/`、`tools/ce5t1/`：ISEE-3、哈雷舰队、嫦娥五号 T1 服务舱的轨道重建（需要 numpy，下载缓存不入库），做法见 `assets/ephem/SOURCES.md`
 - `tools/tianwen1/`：天问一号环绕器。`momag_fetch.py` 从 USTC 的 MOMAG 磁强计数据下载位置（约 15 GB，每天一个文件，逐个下载后只留每分钟一个样本，`cache/` 不入库）；`tianwen1_bake.py <jupyter_notebooks/Tianwen/orbit 目录>` 把它们和 D. Estévez 的 GMAT 报告（2021 年的机动窗口）烘成 `tianwen1_mars.eph`，只用标准库
-- `tools/philae/`：Philae 的下降、弹跳和静止点。`philae_bake.py <目录>` 读 ESA SPICE Service 的两个着陆器 SPK（`spk.py` 是只用标准库的 SPK 读取器，支持 5 型和 18 型段），换到 67P 本体系烘成 `philae_67p.eph`，下载地址和做法见 `assets/ephem/SOURCES.md`
+- `tools/philae/`：67P 的自转和 Philae（只用标准库，`daf.py`、`spk.py`、`ck.py` 读 SPICE 的 DAF、SPK 5/18 型段和 CK 5 型段）。`c67p_spin.py <目录>` 把 ESA 的三个彗核姿态 CK 拟合成 `c67p_spin.toml`（场景里 67P 的 `spin_table`）；`philae_bake.py <目录>` 读两个着陆器 SPK，用这张表换到 67P 本体系烘成 `philae_67p.eph`，所以改了自转表要重新烘 Philae。下载地址和做法见 `assets/ephem/SOURCES.md`
 - `tools/pdftext.py`：只用标准库从 arXiv PDF 提取文字（ar5iv 经常超时）
 - `res/astraxis.ico`：`tools/icon/make_icon.py`（需要 Inkscape）从 `res/astraxis.svg`（≥ 48 px）和 `res/astraxis-small.svg`（≤ 40 px）生成；.ico 入库，CI 不依赖 Inkscape
 
@@ -184,6 +184,7 @@ CMake 目标：
 - Bash 工具的 heredoc 即使写成 `<<'EOF'` 也会吃掉反斜杠（`\\n` 变成 `\n`）：含反斜杠的编辑用 Edit 工具，或先用 Write 写成脚本文件。heredoc 里的中文传给 `python -` 也会变成乱码（不是 UTF-8），改中文文档同样用 Edit；几百行、夹着 C++ 代码的 heredoc 还可能整段报 `unexpected EOF while looking for matching`，批量改代码的脚本一律先 Write 到 scratchpad 再 `python <文件>`
 - WSL 里用 Clang 再建一个构建目录时，`linux` 预设把 `FETCHCONTENT_BASE_DIR` 固定在 `build/linux/_deps`，两个编译器会共用依赖的构建目录（SDL 的预编译头互相覆盖，报 `cmake_pch.h has been modified`）。Clang 构建要另给 `-DFETCHCONTENT_BASE_DIR`，再用 `-DFETCHCONTENT_SOURCE_DIR_<SDL3|GLM|IMGUI|STB|TOMLPLUSPLUS|DXC>` 指向已下载的源码
 - 用 `python -I` 跑读下载文件的工具时，脚本自己的目录不在 `sys.path` 上：同目录的模块（如 `tools/philae/spk.py`）要在脚本里显式 `sys.path.insert`
+- Windows 上 Python 的控制台编码是 GBK，打印 PDF 提取的文字会 `UnicodeEncodeError`：加 `PYTHONIOENCODING=utf-8`（grep 这类文件要 `grep -a`）
 - 从 Git Bash 调 `wsl.exe`：`/mnt/c/...` 参数要加 `MSYS_NO_PATHCONV=1`；`bash -lc '...'` 里的 `$变量` 会被提前展开，脚本最好写成文件再执行
 
 ### 数据源
@@ -211,6 +212,7 @@ CMake 目标：
   - 各表的 P 不是同一种周期（JUP365 是平近点角周期，SAT441 是恒星周期），每张表都要对照 PCK 自转速率核实；进动周期只给绝对值，符号要自己判断（Ω+ω+M 的变化率要和同步自转速率一致）
   - 周期位数不够时（火卫、木星内侧卫星），几十年就失相：改由 PCK 的自转速率反推
   - 天王星卫星的“equatorial”平面以天王星的正极为极，与 PCK 的北极相反；海卫一的交点周期约是实际值的一半；SAT441 的平根数相位对不上 SAT441 本身，土星卫星的相位用 `fit_moon_phase.py` 对 Horizons 拟合
+- **ESA SPICE 的 Rosetta CK**：`ck/` 下的最新 CATT（彗核姿态）只覆盖 2015-12 以后，早的在 `former_versions/`，该用哪几个、谁优先看 `mk/ROS_OPS.TM`（后加载的优先）；同一文件里相邻段共用端点但值不同（导航解交接处跳到 0.5°），要按“后一段优先”去重，否则插值时除以零的时间差。CATT 的时钟是人造 SCLK（`ROS_V38.TF`），计数单位是 1/65536 s
 - **IAU 本体坐标系**：W 从本体赤道与 ICRF 赤道的升交点（RA = α₀+90°）起量；极轴在 Dec=90° 时叉积退化，用 `iau_pole_frame(α₀, δ₀)`
 - **USGS 地图**：元数据写的“positive west”不可信，图像实际是东经向右递增。拼接图服务器跳转到 S3，用 `?list-type=2&prefix=mosaic/<名称>` 列文件
 - **PDS Rings Node** 拒绝 Python urllib 的默认 User-Agent（403）
@@ -232,12 +234,11 @@ CMake 目标：
 按容易程度排：
 
 1. 标题字体加希腊字母后备（Jost 没有希腊字母，`α` 显示成 `?`）；面板打开时长标题两端会被挡住
-2. 67P 换随时间变化的自转（过近日点后周期从 12.40 h 缩到约 12.06 h，见 limitations.md），之后“67P-fixed”参考系才能看整个任务（Rosetta 绕彗核飞、2016 年落在 Ma'at），Philae 在惯性空间里的朝向也不再越来越偏：ESA SPICE 有彗核的姿态 CK（`67P/C-G_CK` 系），可以拟合成分段的自转相位
-3. 地月场景加 CE-5T1 的火箭末级：Horizons −78000（2021-10-01 到 2022-03-04 撞月，JPL 解 #23）可以直接烘焙
-4. 火星场景：天问一号补 2021 年的入轨（02-10）、停泊轨道（02-23）和中继轨道（05-17），可用 Estévez 仓库里的遥测向量（`tm_state_vectors/`）和 AMSAT-DL 论文的机动表外推；加星际天体 3I/ATLAS（天问一号 2025-09-30 .. 10-03 拍摄，arXiv:2603.10350）；事件的视角支持“从太阳方向看”（场景里没有太阳天体，`from_body` 用不了）
-5. 金星场景：加信使号（2007-06-05，与金星快车协同观测）、Solar Orbiter 与贝皮科伦坡号相隔约 33 小时（2021-08）的金星飞掠，做法同伽利略号/卡西尼号/Juice（金星中心、前后各 5 天的短表）；Solar Orbiter（−144）和贝皮科伦坡号同时出现在一个事件里
-6. 只为换轨迹长度而复制的参考系（水星场景的“Mercury-centered, 30-day trails”，Rosetta 的“67P, Sun fixed, 3 months / the whole stay”）看能否改成事件的 `[[events.trails]]`，精简参考系菜单
-7. 远期：macOS（Metal，需要 SPIR-V → MSL 和 macOS CI）；Hulse–Taylor 并合（3 亿年后 double 秒数只有约 2 s 分辨率，要做成以并合为零点的单独场景）；脉冲星自转轴的测地线进动（B1913+16 的几何解各论文不一致）
+2. 地月场景加 CE-5T1 的火箭末级：Horizons −78000（2021-10-01 到 2022-03-04 撞月，JPL 解 #23）可以直接烘焙
+3. 火星场景：天问一号补 2021 年的入轨（02-10）、停泊轨道（02-23）和中继轨道（05-17），可用 Estévez 仓库里的遥测向量（`tm_state_vectors/`）和 AMSAT-DL 论文的机动表外推；加星际天体 3I/ATLAS（天问一号 2025-09-30 .. 10-03 拍摄，arXiv:2603.10350）；事件的视角支持“从太阳方向看”（场景里没有太阳天体，`from_body` 用不了）
+4. 金星场景：加信使号（2007-06-05，与金星快车协同观测）、Solar Orbiter 与贝皮科伦坡号相隔约 33 小时（2021-08）的金星飞掠，做法同伽利略号/卡西尼号/Juice（金星中心、前后各 5 天的短表）；Solar Orbiter（−144）和贝皮科伦坡号同时出现在一个事件里
+5. 只为换轨迹长度而复制的参考系（水星场景的“Mercury-centered, 30-day trails”，Rosetta 的“67P, Sun fixed, 3 months / the whole stay”）看能否改成事件的 `[[events.trails]]`，精简参考系菜单
+6. 远期：macOS（Metal，需要 SPIR-V → MSL 和 macOS CI）；Hulse–Taylor 并合（3 亿年后 double 秒数只有约 2 s 分辨率，要做成以并合为零点的单独场景）；脉冲星自转轴的测地线进动（B1913+16 的几何解各论文不一致）
 
 ## 不要做
 

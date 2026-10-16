@@ -15,9 +15,10 @@ The table is in 67P's body-fixed frame (the scene's `body_fixed = true`), so tha
 Philae touches down and rests on the drawn shape whatever the comet's rotation:
   - descent: Philae minus 67P (assets/ephem/c67p.eph, the ESA comet solution
     from Horizons that the scene uses), turned into the body frame with the
-    scene's rotation model of 67P (rosetta.toml, [CHP]). It ends 33 m from the
-    7Dwarfs touchdown point; that offset is taken up linearly over the descent
-    (1.3 mm/s, from nothing at the release to all of it at touchdown);
+    scene's rotation of 67P (its spin_table, fitted by c67p_spin.py to the
+    attitude kernels of the same frame as the bounces). The small offset left
+    from the 7Dwarfs touchdown point is taken up linearly over the descent
+    (from nothing at the release to all of it at touchdown);
   - bounces: the 7Dwarfs states;
   - rest: the last 7Dwarfs position, held (zero velocity) until 2100.
 Knots are reduced to 0.5 m (cubic Hermite, as at run time).
@@ -34,6 +35,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, os.path.join(REPO, 'tools', 'bake'))
 sys.path.insert(0, HERE)
+import c67p_spin  # noqa: E402
 import horizons_bake as hb  # noqa: E402
 import spk  # noqa: E402
 
@@ -45,22 +47,11 @@ HOLD_UNTIL_TDB = (2488069.5 - 2451545.0) * 86400.0  # 2100-01-01 TDB
 
 
 def comet_rotation(scene_path):
-    """Body axes in ICRF at t, and the spin vector (rad/s, ICRF), from the scene's 67P."""
+    """The scene's spin table of 67P."""
     with open(scene_path, 'rb') as f:
         scene = tomllib.load(f)
     body = next(b for b in scene['bodies'] if b['name'] == '67P')
-    ra, dec = (math.radians(x) for x in body['pole_ra_dec_deg'])
-    w0, rate = body['prime_meridian_deg']
-    z = (math.cos(dec) * math.cos(ra), math.cos(dec) * math.sin(ra), math.sin(dec))
-    x = (-math.sin(ra), math.cos(ra), 0.0)
-    y = (z[1] * x[2] - z[2] * x[1], z[2] * x[0] - z[0] * x[2], z[0] * x[1] - z[1] * x[0])
-    spin = tuple(math.radians(rate) / 86400.0 * c for c in z)
-
-    def axes(t):
-        w = math.radians((w0 + rate * t / 86400.0) % 360.0)
-        c, s = math.cos(w), math.sin(w)
-        return (tuple(c * x[i] + s * y[i] for i in range(3)), tuple(-s * x[i] + c * y[i] for i in range(3)), z)
-    return axes, spin
+    return c67p_spin.Table.load(os.path.join(REPO, 'assets', body['spin_table']))
 
 
 def dot(a, b):
@@ -78,7 +69,7 @@ def main():
     sdl = spk.Spk(os.path.join(kernels, 'LORB_SUN_J2000_SDL_V1_1.BSP'))
     rbd = spk.Spk(os.path.join(kernels, 'LORB_C_G_FIXED_RBD_7_V2_0.BSP'))
     comet = hb.read_eph(os.path.join(REPO, 'assets', 'ephem', 'c67p.eph'))
-    axes, spin = comet_rotation(os.path.join(REPO, 'assets', 'scenes', 'rosetta.toml'))
+    rotation = comet_rotation(os.path.join(REPO, 'assets', 'scenes', 'rosetta.toml'))
     for seg in rbd.segments:
         if seg.target != LANDER_ID or seg.center != COMET_ID:
             sys.exit('unexpected segment in the bounce kernel')
@@ -92,8 +83,8 @@ def main():
         lp, lv = sdl.state(t)
         cp, cv = comet_state(t)
         r = tuple(lp[i] - cp[i] for i in range(3))
-        v = tuple(lv[i] - cv[i] - cross(spin, r)[i] for i in range(3))
-        ax = axes(t)
+        v = tuple(lv[i] - cv[i] - cross(rotation.spin(t), r)[i] for i in range(3))
+        ax = rotation.axes(t)
         return tuple(dot(a, r) for a in ax), tuple(dot(a, v) for a in ax)
 
     release, _ = sdl.span()

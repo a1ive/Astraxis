@@ -10,7 +10,8 @@ Only the Python standard library is used.
 """
 
 import bisect
-import struct
+
+from daf import Daf
 
 
 class Segment:
@@ -31,28 +32,12 @@ class Segment:
 
 class Spk:
     def __init__(self, path):
-        with open(path, 'rb') as f:
-            data = f.read()
-        if not data.startswith(b'DAF/SPK'):
-            raise ValueError(path + ': not an SPK file')
-        end = '<' if data[88:96].startswith(b'LTL') else '>'
-        nd, ni = struct.unpack(end + 'ii', data[8:16])
-        fward = struct.unpack(end + 'i', data[76:80])[0]
-        # The comment area: records 2 .. fward - 1, lines ended by NUL.
-        self.comments = data[1024:(fward - 1) * 1024].replace(b'\0', b'\n').decode('latin-1')
-        words = lambda a, b: struct.unpack(end + '%dd' % (b - a + 1), data[(a - 1) * 8:b * 8])  # noqa: E731
+        daf = Daf(path, b'DAF/SPK')
+        self.comments = daf.comments
         self.segments = []
-        record = fward
-        summary_size = nd + (ni + 1) // 2
-        while record:
-            base = (record - 1) * 1024
-            nxt, _, count = struct.unpack(end + 'ddd', data[base:base + 24])
-            for i in range(int(count)):
-                off = base + 24 + i * summary_size * 8
-                ic = struct.unpack(end + '%di' % ni, data[off + nd * 8:off + nd * 8 + ni * 4])
-                target, center, frame, kind, first, last = ic
-                self.segments.append(self._segment(target, center, frame, kind, words(first, last)))
-            record = int(nxt)
+        for _, ic, words in daf.segments:
+            target, center, frame, kind = ic[:4]
+            self.segments.append(self._segment(target, center, frame, kind, words))
         self.segments.sort(key=lambda s: s.start())
 
     @staticmethod

@@ -372,8 +372,46 @@ glm::dmat3 Scene::body_to_icrf(const Body& body, double t_tdb) const
     return body_rotation(body, source >= 0 ? bodies[static_cast<size_t>(source)].nut_prec_angles : kNone, t_tdb);
 }
 
+SpinTable::Knot SpinTable::at(double t_tdb) const
+{
+    const Knot& first = knots.front();
+    const Knot& last = knots.back();
+    if (t_tdb <= first.t_tdb || t_tdb >= last.t_tdb) {
+        Knot out = t_tdb <= first.t_tdb ? first : last;
+        out.w_deg += out.rate_deg_per_day * (t_tdb - out.t_tdb) / kSecondsPerDay;
+        out.t_tdb = t_tdb;
+        return out;
+    }
+    const auto next =
+        std::upper_bound(knots.begin(), knots.end(), t_tdb, [](double t, const Knot& k) { return t < k.t_tdb; });
+    const Knot& a = *(next - 1);
+    const Knot& b = *next;
+    const double h = (b.t_tdb - a.t_tdb) / kSecondsPerDay;
+    const double s = (t_tdb - a.t_tdb) / (b.t_tdb - a.t_tdb);
+    const double s2 = s * s;
+    const double s3 = s2 * s;
+    Knot out;
+    out.t_tdb = t_tdb;
+    out.pole_ra = a.pole_ra + (b.pole_ra - a.pole_ra) * s;
+    out.pole_dec = a.pole_dec + (b.pole_dec - a.pole_dec) * s;
+    out.w_deg = (2.0 * s3 - 3.0 * s2 + 1.0) * a.w_deg + (s3 - 2.0 * s2 + s) * h * a.rate_deg_per_day +
+                (-2.0 * s3 + 3.0 * s2) * b.w_deg + (s3 - s2) * h * b.rate_deg_per_day;
+    out.rate_deg_per_day = (6.0 * s2 - 6.0 * s) * (a.w_deg - b.w_deg) / h +
+                           (3.0 * s2 - 4.0 * s + 1.0) * a.rate_deg_per_day + (3.0 * s2 - 2.0 * s) * b.rate_deg_per_day;
+    return out;
+}
+
+double prime_meridian_rate(const Body& body, double t_tdb)
+{
+    return body.spin_table ? body.spin_table->at(t_tdb).rate_deg_per_day : body.pm_rate_deg_per_day;
+}
+
 glm::dmat3 body_rotation(const Body& body, const std::vector<glm::dvec2>& angles, double t_tdb)
 {
+    if (body.spin_table) {
+        const SpinTable::Knot k = body.spin_table->at(t_tdb);
+        return iau_pole_frame(k.pole_ra, k.pole_dec) * rotation_z(std::fmod(k.w_deg, 360.0) * kDegToRad);
+    }
     const double days = t_tdb / kSecondsPerDay;
     double ra = body.pole_ra;
     double dec = body.pole_dec;

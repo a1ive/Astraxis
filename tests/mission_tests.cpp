@@ -1455,6 +1455,42 @@ void test_rosetta_scene()
                           (at(philae, t_rest - 1.0) - at(comet, t_rest - 1.0));
     check(glm::length(v - dp / 2.0) < 1e-7 && glm::length(v) > 1e-4, "Philae's velocity at rest (km/s)",
           glm::length(v));
+
+    // 67P's rotation (spin_table, fitted to ESA's attitude kernels) against the periods of
+    // Jorda et al. 2016 (Icarus 277, 257) as summed up by Kokotanekova et al. 2017 (MNRAS 471,
+    // 2974, Sec. 2.1.6): 12.4041 h from July to October 2014, 12.4304 h on 2015-05-19,
+    // 12.305 h just before perihelion on 2015-08-10, and ESA's 12.055 h at the end.
+    auto period_h = [&](double t) { return 360.0 / prime_meridian_rate(nucleus, t) * 24.0; };
+    const double p2014 = period_h(utc({2014, 9, 1, 0, 0, 0}));
+    const double p_may = period_h(utc({2015, 5, 19, 0, 0, 0}));
+    const double p_aug = period_h(utc({2015, 8, 10, 0, 0, 0}));
+    const double p_end = period_h(utc({2016, 9, 30, 0, 0, 0}));
+    check(std::abs(p2014 - 12.4041) < 0.0005, "67P period in 2014 (h)", p2014);
+    check(std::abs(p_may - 12.4304) < 0.003, "67P period on 2015-05-19 (h)", p_may);
+    check(std::abs(p_aug - 12.305) < 0.01, "67P period on 2015-08-10 (h)", p_aug);
+    check(std::abs(p_end - 12.055) < 0.001, "67P period in 2016 (h)", p_end);
+    std::printf("info: 67P period %.4f h (2014), %.4f h (2015-05-19), %.4f h (2015-08-10), %.4f h (2016)\n",
+                p2014, p_may, p_aug, p_end);
+    // In August-September 2014 it is the rotation of the Cheops frame (Scholten et al. 2015,
+    // CHEOPS_REF_FRAME_V1.PDF: pole (69.54, 64.11) deg, W = 114.69 deg + 696.543884683 deg/d),
+    // whose axes the shape model uses.
+    double cheops = 0.0;
+    for (double t = utc({2014, 8, 1, 0, 0, 0}); t < utc({2014, 10, 1, 0, 0, 0}); t += 0.37 * kSecondsPerDay) {
+        const glm::dmat3 model = iau_pole_frame(69.54 * kDegToRad, 64.11 * kDegToRad) *
+                                 rotation_z(wrap_two_pi((114.69 + 696.543884683 * t / kSecondsPerDay) * kDegToRad));
+        const glm::dmat3 d = glm::transpose(model) * scene.body_to_icrf(nucleus, t);
+        cheops = std::max(cheops, std::acos(std::clamp((d[0][0] + d[1][1] + d[2][2] - 1.0) / 2.0, -1.0, 1.0)));
+    }
+    check(cheops * kRadToDeg < 0.3, "67P against the Cheops frame in Aug-Sep 2014 (deg)", cheops * kRadToDeg);
+    // Rosetta's last state (Horizons, relative to 67P, 10:38:52 UTC, ~36 s before it touched
+    // down): just above the drawn surface, which it could only reach with the rotation right.
+    const double t_last = utc({2016, 9, 30, 10, 38, 50});
+    const double rosetta_altitude =
+        altitude(glm::transpose(scene.body_to_icrf(nucleus, t_last)) * (at(craft, t_last) - at(comet, t_last)));
+    check(rosetta_altitude > -0.03 && rosetta_altitude < 0.06, "Rosetta above the shape before touchdown (km)",
+          rosetta_altitude);
+    std::printf("info: 67P against the Cheops frame %.2f deg; Rosetta %.0f m above the shape at 10:38:50 UTC\n",
+                cheops * kRadToDeg, 1000.0 * rosetta_altitude);
 }
 
 // The Halley Armada in the ISEE-3 scene, reconstructed by tools/armada/armada_reconstruct.py

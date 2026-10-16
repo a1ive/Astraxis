@@ -592,9 +592,10 @@ void App::build_info_panel()
                     info_row("Surface gravity", "%.3g m/s^2", gm / (mean_radius * mean_radius) * 1e3);
                 }
             }
-            if (has_surface && body.pm_rate_deg_per_day != 0.0 && !body.pulsar.enabled) {
-                format_duration(360.0 / std::fabs(body.pm_rate_deg_per_day) * kSecondsPerDay, buf, sizeof(buf));
-                info_row("Rotation", "%s%s", buf, body.pm_rate_deg_per_day < 0.0 ? " (retrograde)" : "");
+            if (const double rate = prime_meridian_rate(body, scene.time());
+                has_surface && rate != 0.0 && !body.pulsar.enabled) {
+                format_duration(360.0 / std::fabs(rate) * kSecondsPerDay, buf, sizeof(buf));
+                info_row("Rotation", "%s%s", buf, rate < 0.0 ? " (retrograde)" : "");
             }
             if (has_surface && body.free_precession.enabled) {
                 const Body::FreePrecession& fp = body.free_precession;

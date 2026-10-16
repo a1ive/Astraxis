@@ -185,6 +185,25 @@ struct Plume {
 };
 inline constexpr int kMaxPlumeJets = 12;
 
+// A rotation fitted to attitude data, for a spin that changes (comet 67P,
+// which turned faster after perihelion): knots of the pole and of the prime
+// meridian angle W with its rate. Between knots the pole is interpolated
+// linearly and W by cubic Hermite; before the first knot and after the last,
+// the pole stays and W turns at the end rate (tools/philae/c67p_spin.py).
+struct SpinTable {
+    struct Knot {
+        double t_tdb = 0.0;
+        double pole_ra = 0.0; // radians
+        double pole_dec = 0.0;
+        double w_deg = 0.0; // counted on without wrapping
+        double rate_deg_per_day = 0.0;
+    };
+    std::vector<Knot> knots; // ascending, at least one
+
+    // Pole, W and dW/dt at t_tdb.
+    Knot at(double t_tdb) const;
+};
+
 struct Body {
     std::string name;
     int parent = -1; // index into Scene::bodies; must precede this body
@@ -229,6 +248,9 @@ struct Body {
     std::vector<double> nut_prec_dec;
     std::vector<double> nut_prec_pm;
     int nut_prec_source = -1; // body whose nut_prec_angles apply (-1: none)
+    // Instead of the IAU model: the pole and W from a table. pole_ra, pole_dec
+    // and pm_rate_deg_per_day then hold the first knot (the nominal rotation).
+    std::shared_ptr<const SpinTable> spin_table;
 
     // Instead of the IAU model: torque-free precession of an axially symmetric
     // body (comet Halley's long-axis mode). The angular momentum M is fixed
@@ -324,8 +346,12 @@ struct Body {
 
 // Body-fixed axes of a body in ICRF (columns) at t_tdb from its rotation
 // model: IAU pole and prime meridian (periodic terms with `nut_prec_angles`,
-// those of its nut_prec_source; empty: none), or free precession.
+// those of its nut_prec_source; empty: none), free precession or a spin table.
 glm::dmat3 body_rotation(const Body& body, const std::vector<glm::dvec2>& nut_prec_angles, double t_tdb);
+
+// Rate of the prime meridian (deg/day, negative if retrograde) at t_tdb: the
+// spin table's, else the IAU model's constant rate.
+double prime_meridian_rate(const Body& body, double t_tdb);
 
 // Shape of one of the planet's shaped ring bands at t_tdb; body_to_icrf holds
 // the planet's body-fixed axes in ICRF at that time (columns).

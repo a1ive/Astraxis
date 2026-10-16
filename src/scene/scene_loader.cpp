@@ -324,6 +324,7 @@ private:
     std::shared_ptr<const EphemerisTable> load_table(const std::string& file, const std::string& ctx);
     void load_ring_profile(const std::string& file, const std::string& ctx, RingSystem& rings) const;
     void load_belt(const std::string& file, const std::string& ctx, SceneBelt& belt) const;
+    std::shared_ptr<const SpinTable> load_spin_table(const std::string& file, const std::string& ctx) const;
     int body_ref(const Scene& scene, const toml::table& t, std::string_view key, const std::string& ctx,
                  bool allow_sun) const;
 
@@ -346,6 +347,47 @@ std::shared_ptr<const EphemerisTable> Loader::load_table(const std::string& file
         fail(ctx, error);
     }
     m_tables[file] = table;
+    return table;
+}
+
+// Spin table (tools/philae/c67p_spin.py): TOML with
+//   knots = [[JD TDB, pole RA (deg), pole Dec (deg), W (deg, not wrapped), dW/dt (deg/day)], ...]
+// in ascending time.
+std::shared_ptr<const SpinTable> Loader::load_spin_table(const std::string& file, const std::string& ctx) const
+{
+    const std::string file_ctx = ctx + " spin_table '" + file + "'";
+    toml::table root;
+    try {
+        root = toml::parse_file((m_asset_root / file).string());
+    } catch (const toml::parse_error& e) {
+        fail(file_ctx, std::to_string(e.source().begin.line) + ": " + std::string(e.description()));
+    }
+    const toml::array* knots = root["knots"].as_array();
+    if (!knots || knots->empty()) {
+        fail(file_ctx, "missing 'knots'");
+    }
+    auto table = std::make_shared<SpinTable>();
+    for (const auto& node : *knots) {
+        const toml::array* k = node.as_array();
+        double v[5];
+        for (size_t i = 0; i < 5; ++i) {
+            const toml::node* x = k && k->size() == 5 ? k->get(i) : nullptr;
+            if (!x || !x->is_number()) {
+                fail(file_ctx, "each knot must be [JD TDB, RA, Dec, W, dW/dt]");
+            }
+            v[i] = x->value<double>().value_or(0.0);
+        }
+        SpinTable::Knot knot;
+        knot.t_tdb = (v[0] - kJ2000Jd) * kSecondsPerDay;
+        knot.pole_ra = v[1] * kDegToRad;
+        knot.pole_dec = v[2] * kDegToRad;
+        knot.w_deg = v[3];
+        knot.rate_deg_per_day = v[4];
+        if (!table->knots.empty() && knot.t_tdb <= table->knots.back().t_tdb) {
+            fail(file_ctx, "knots must be in ascending time");
+        }
+        table->knots.push_back(knot);
+    }
     return table;
 }
 
@@ -721,6 +763,18 @@ void Loader::parse(const toml::table& root, Scene& out)
             motion.phi0_deg = phases[0];
             motion.psi0_deg = phases[1];
         }
+        if (t->contains("spin_table")) {
+            if (t->contains("pole_ra_dec_deg") || t->contains("prime_meridian_deg") || body.free_precession.enabled) {
+                fail(ctx, "spin_table replaces pole_ra_dec_deg, prime_meridian_deg and free_precession");
+            }
+            body.spin_table = load_spin_table(get_string(*t, "spin_table", ctx), ctx);
+            const SpinTable::Knot& first = body.spin_table->knots.front();
+            body.pole_ra = first.pole_ra;
+            body.pole_dec = first.pole_dec;
+            body.pole = unit_from_ra_dec(body.pole_ra, body.pole_dec);
+            body.pm_w0_deg = std::fmod(first.w_deg - first.rate_deg_per_day * first.t_tdb / kSecondsPerDay, 360.0);
+            body.pm_rate_deg_per_day = first.rate_deg_per_day;
+        }
         if (t->contains("pole_rate_deg_per_century")) {
             double rate[2];
             get_array(*t, "pole_rate_deg_per_century", ctx, rate, 2, 2);
@@ -973,6 +1027,7 @@ void Loader::parse(const toml::table& root, Scene& out)
                 rotation->nut_prec_dec = parent.nut_prec_dec;
                 rotation->nut_prec_pm = parent.nut_prec_pm;
                 rotation->free_precession = parent.free_precession;
+                rotation->spin_table = parent.spin_table;
                 std::vector<glm::dvec2> angles;
                 if (parent.nut_prec_source >= 0) {
                     angles = out.bodies[static_cast<size_t>(parent.nut_prec_source)].nut_prec_angles;
