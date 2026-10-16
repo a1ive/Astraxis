@@ -8,6 +8,7 @@
 #define IDC_FPS 1003
 #define IDC_RENDER_SCALE 1004
 #define IDC_BATTERY 1005
+#define IDC_MSAA 1006
 #define IDC_LABELS 1010
 #define IDC_ORBITS 1011
 #define IDC_BELTS 1012

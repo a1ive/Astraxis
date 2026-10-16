@@ -61,6 +61,10 @@ bool App::init(const LaunchOptions& options)
     if (!m_gpu.init(kGpuDebug) || !m_output.init(m_gpu, m_window.handle())) {
         return false;
     }
+    m_msaa = m_settings.msaa;
+    m_gpu.set_msaa(m_msaa);
+    m_render_scale = m_settings.render_scale;
+    m_output.set_render_scale(m_render_scale);
     m_asset_dir = asset_directory();
     SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Assets: %s", m_asset_dir.string().c_str());
 
@@ -337,8 +341,28 @@ bool App::load_scene(size_t index)
     SDL_GetWindowSizeInPixels(m_window.handle(), &width, &height);
     // The frame drawn next must not see the previous scene's bodies.
     m_sim.compute_view(width, height, m_window.content_scale(), m_view);
-    m_scene_renderer.load_scene(m_sim.scene(), m_view_options, static_cast<uint32_t>(std::max(height, 0)));
+    m_scene_renderer.load_scene(m_sim.scene(), m_view_options,
+                                static_cast<uint32_t>(static_cast<float>(std::max(height, 0)) * m_render_scale));
     return true;
+}
+
+void App::set_msaa(int samples)
+{
+    m_msaa = samples;
+    if (m_gpu.set_msaa(samples)) {
+        SDL_WaitForGPUIdle(m_gpu.device());
+        if (!m_scene_renderer.refresh_pipelines()) {
+            SDL_LogError(SDL_LOG_CATEGORY_GPU, "MSAA %dx: the pipelines could not be recreated", m_gpu.msaa());
+            m_gpu.set_msaa(1);
+            m_scene_renderer.refresh_pipelines();
+        }
+    }
+}
+
+void App::set_render_scale(float scale)
+{
+    m_render_scale = scale;
+    m_output.set_render_scale(scale);
 }
 
 void App::save_settings()
@@ -352,6 +376,8 @@ void App::save_settings()
     settings.captions = m_show_captions;
     settings.info = m_show_info;
     settings.auto_tour = m_auto_tour;
+    settings.msaa = m_msaa;
+    settings.render_scale = m_render_scale;
     // The command line's overrides stay out of the file unless changed in the app.
     const std::string scene = m_scene_files[m_scene_index].stem().string();
     if (scene != m_start_scene) {

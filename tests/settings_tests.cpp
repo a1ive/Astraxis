@@ -117,11 +117,13 @@ void test_settings()
               saver_again.view.star_brightness == 1.0f,
           "dialog settings read back");
 
-    // Power keys: [wallpaper] / [screensaver] only; unknown battery names are ignored.
+    // Power keys: battery ones in [wallpaper] / [screensaver] only, render
+    // scale and MSAA in every mode; unknown battery names are ignored.
     {
         std::ofstream file(path, std::ios::binary);
-        file << "[wallpaper]\nrender_scale = 0.1\nbattery = \"pause\"\npause_covered = false\n"
-                "[screensaver]\nbattery = \"sometimes\"\n[window]\nrender_scale = 0.5\n";
+        file << "[wallpaper]\nrender_scale = 0.1\nmsaa = 3\nbattery = \"pause\"\npause_covered = false\n"
+                "[screensaver]\nbattery = \"sometimes\"\nmsaa = 0\n"
+                "[window]\nrender_scale = 0.5\nmsaa = 8\nbattery = \"pause\"\n";
     }
     Settings wall;
     Settings saver2;
@@ -129,17 +131,27 @@ void test_settings()
     load_settings(path, SettingsSection::Wallpaper, wall);
     load_settings(path, SettingsSection::Screensaver, saver2);
     load_settings(path, SettingsSection::Window, win);
-    check(wall.render_scale == 0.25f && wall.battery == BatteryPolicy::Pause && !wall.pause_covered,
-          "power keys read (render scale clamped)");
-    check(saver2.battery == BatteryPolicy::Limit, "unknown battery policy keeps the default");
-    check(win.render_scale == 1.0f, "[window] ignores render_scale");
+    check(wall.render_scale == 0.25f && wall.msaa == 2 && wall.battery == BatteryPolicy::Pause && !wall.pause_covered,
+          "power keys read (render scale clamped, MSAA rounded down)");
+    check(saver2.battery == BatteryPolicy::Limit && saver2.msaa == 1,
+          "unknown battery policy keeps the default; MSAA 0 is off");
+    check(win.render_scale == 0.5f && win.msaa == 4 && win.battery == BatteryPolicy::Limit,
+          "[window] reads render_scale and MSAA (clamped), not battery");
     wall.battery = BatteryPolicy::Run;
     wall.render_scale = 0.5f;
+    wall.msaa = 1;
     save_settings(path, SettingsSection::Wallpaper, wall, nullptr, ViewScope::Overrides);
+    win.render_scale = 0.75f;
+    win.msaa = 2;
+    save_settings(path, SettingsSection::Window, win);
     Settings wall_again;
+    Settings win_again;
     load_settings(path, SettingsSection::Wallpaper, wall_again);
-    check(wall_again.battery == BatteryPolicy::Run && wall_again.render_scale == 0.5f && !wall_again.pause_covered,
+    load_settings(path, SettingsSection::Window, win_again);
+    check(wall_again.battery == BatteryPolicy::Run && wall_again.render_scale == 0.5f && wall_again.msaa == 1 &&
+              !wall_again.pause_covered,
           "power keys saved");
+    check(win_again.render_scale == 0.75f && win_again.msaa == 2, "[window] render scale and MSAA saved");
 
     // Scene names for the dialog.
     const std::vector<SceneEntry> scenes = list_scenes(ASTRAXIS_ASSET_DIR);

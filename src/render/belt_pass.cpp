@@ -37,6 +37,19 @@ struct FragmentUniforms {
 bool BeltPass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
 {
     m_device = device;
+    return create_pipelines(format);
+}
+
+bool BeltPass::set_format(const SceneTargetFormat& format)
+{
+    SDL_ReleaseGPUGraphicsPipeline(m_device, m_pipeline);
+    m_pipeline = nullptr;
+    return create_pipelines(format);
+}
+
+bool BeltPass::create_pipelines(const SceneTargetFormat& format)
+{
+    SDL_GPUDevice* device = m_device;
     SDL_GPUShader* vs = create_shader(device, {.dxil = kBeltVertDxil,
                                                .spirv = kBeltVertSpirv,
                                                .stage = SDL_GPU_SHADERSTAGE_VERTEX,

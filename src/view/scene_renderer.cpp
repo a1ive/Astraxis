@@ -348,6 +348,15 @@ bool SceneRenderer::init(const GpuDevice& gpu, SDL_GPUTextureFormat output_forma
            m_black_hole.init(device, format) && m_post.init(device, format.color, output_format);
 }
 
+bool SceneRenderer::refresh_pipelines()
+{
+    const SceneTargetFormat& format = m_device->scene_format();
+    return m_starfield.set_format(format) && m_bodies.set_format(format) && m_rings.set_format(format) &&
+           m_atmospheres.set_format(format) && m_plumes.set_format(format) && m_comets.set_format(format) &&
+           m_dust.set_format(format) && m_orbits.set_format(format) && m_belts.set_format(format) &&
+           m_sun.set_format(format) && m_beams.set_format(format) && m_black_hole.set_format(format);
+}
+
 void SceneRenderer::shutdown()
 {
     if (!m_device) {

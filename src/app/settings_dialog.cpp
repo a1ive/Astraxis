@@ -29,6 +29,9 @@ constexpr const wchar_t* kTrayClass = L"AstraxisTray"; // the running wallpaper'
 constexpr UINT_PTR kStatusTimer = 1;
 constexpr int kFpsChoices[] = {0, 60, 30, 24, 15};
 constexpr float kScaleChoices[] = {1.0f, 0.75f, 0.5f};
+constexpr int kMsaaChoices[] = {4, 2, 1};
+constexpr const wchar_t* kMsaaLabels[] = {L"4x MSAA (if the GPU supports it)", L"2x MSAA (faster)",
+                                          L"Off (fastest, jagged edges)"}; // kMsaaChoices order
 constexpr const wchar_t* kBatteryLabels[] = {L"Keep running", L"At most 30 FPS", L"Pause"}; // BatteryPolicy order
 
 std::wstring widen(const std::string& utf8)
@@ -316,6 +319,14 @@ void init_dialog(HWND dialog, DialogState& state)
     const auto scale_item = std::find(state.scale_values.begin(), state.scale_values.end(), s.render_scale);
     SendMessageW(scale, CB_SETCURSEL, static_cast<WPARAM>(scale_item - state.scale_values.begin()), 0);
 
+    // Antialiasing.
+    const HWND msaa = GetDlgItem(dialog, IDC_MSAA);
+    for (const wchar_t* label : kMsaaLabels) {
+        SendMessageW(msaa, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(label));
+    }
+    const auto msaa_item = std::find(std::begin(kMsaaChoices), std::end(kMsaaChoices), s.msaa);
+    SendMessageW(msaa, CB_SETCURSEL, static_cast<WPARAM>(msaa_item - std::begin(kMsaaChoices)), 0);
+
     // On battery.
     const HWND battery = GetDlgItem(dialog, IDC_BATTERY);
     for (const wchar_t* label : kBatteryLabels) {
@@ -374,6 +385,10 @@ void read_dialog(HWND dialog, DialogState& state)
     const LRESULT scale = SendDlgItemMessageW(dialog, IDC_RENDER_SCALE, CB_GETCURSEL, 0, 0);
     if (scale >= 0 && static_cast<size_t>(scale) < state.scale_values.size()) {
         s.render_scale = state.scale_values[static_cast<size_t>(scale)];
+    }
+    const LRESULT msaa = SendDlgItemMessageW(dialog, IDC_MSAA, CB_GETCURSEL, 0, 0);
+    if (msaa >= 0 && static_cast<size_t>(msaa) < std::size(kMsaaChoices)) {
+        s.msaa = kMsaaChoices[static_cast<size_t>(msaa)];
     }
     const LRESULT battery = SendDlgItemMessageW(dialog, IDC_BATTERY, CB_GETCURSEL, 0, 0);
     if (battery >= 0 && static_cast<size_t>(battery) < std::size(kBatteryLabels)) {

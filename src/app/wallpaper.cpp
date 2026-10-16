@@ -54,7 +54,7 @@ bool Wallpaper::init(const WallpaperOptions& options)
         m_display = display_index(find_display(m_settings.display, m_settings.display_name));
     }
 
-    if (!m_host.init_gpu() || !build_outputs()) {
+    if (!m_host.init_gpu(m_settings.msaa) || !build_outputs()) {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Astraxis",
                                  "The wallpaper could not be placed on the desktop.", nullptr);
         return false;

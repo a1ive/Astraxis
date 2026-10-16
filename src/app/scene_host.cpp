@@ -25,9 +25,13 @@ constexpr bool kGpuDebug = true;
 
 } // namespace
 
-bool SceneHost::init_gpu()
+bool SceneHost::init_gpu(int msaa)
 {
-    return m_gpu.init(kGpuDebug);
+    if (!m_gpu.init(kGpuDebug)) {
+        return false;
+    }
+    m_gpu.set_msaa(msaa);
+    return true;
 }
 
 bool SceneHost::add_output(std::unique_ptr<Output> out)

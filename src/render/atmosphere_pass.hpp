@@ -44,11 +44,15 @@ class AtmospherePass {
 public:
     bool init(SDL_GPUDevice* device, const SceneTargetFormat& format);
     void shutdown();
+    // Recreates the pipelines for another scene format (e.g. MSAA sample count).
+    bool set_format(const SceneTargetFormat& format);
 
     void draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const CameraView& view,
               std::span<const AtmosphereDrawItem> items) const;
 
 private:
+    bool create_pipelines(const SceneTargetFormat& format);
+
     SDL_GPUDevice* m_device = nullptr;
     // Camera outside the shell: front faces, depth-tested. Inside (or near
     // enough for the front faces to be clipped): back faces, not depth-tested,

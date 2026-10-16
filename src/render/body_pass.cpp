@@ -80,6 +80,56 @@ bool BodyPass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
 {
     m_device = device;
 
+    if (!create_pipelines(format)) {
+        return false;
+    }
+
+    std::vector<BodyVertex> vertices;
+    std::vector<uint32_t> indices;
+    build_sphere(vertices, indices);
+    m_sphere.index_count = static_cast<uint32_t>(indices.size());
+    m_sphere.vertices = create_static_buffer(device, SDL_GPU_BUFFERUSAGE_VERTEX, vertices.data(),
+                                             static_cast<uint32_t>(vertices.size() * sizeof(BodyVertex)));
+    m_sphere.indices = create_static_buffer(device, SDL_GPU_BUFFERUSAGE_INDEX, indices.data(),
+                                            static_cast<uint32_t>(indices.size() * sizeof(uint32_t)));
+
+    SDL_GPUSamplerCreateInfo sampler = {};
+    sampler.min_filter = SDL_GPU_FILTER_LINEAR;
+    sampler.mag_filter = SDL_GPU_FILTER_LINEAR;
+    sampler.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
+    sampler.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
+    sampler.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+    sampler.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+    sampler.max_anisotropy = 8.0f;
+    sampler.enable_anisotropy = true;
+    sampler.max_lod = 1000.0f;
+    m_sampler = SDL_CreateGPUSampler(device, &sampler);
+    m_white = create_solid_texture(device, 255, 255, 255, 255);
+
+    SDL_GPUSamplerCreateInfo profile = {};
+    profile.min_filter = SDL_GPU_FILTER_LINEAR;
+    profile.mag_filter = SDL_GPU_FILTER_LINEAR;
+    profile.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
+    profile.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+    profile.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+    profile.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+    profile.max_lod = 1000.0f;
+    m_profile_sampler = SDL_CreateGPUSampler(device, &profile);
+    m_no_rings = create_profile_texture(device, {glm::vec2(0.0f)});
+
+    return m_sphere.vertices && m_sphere.indices && m_sampler && m_white && m_profile_sampler && m_no_rings;
+}
+
+bool BodyPass::set_format(const SceneTargetFormat& format)
+{
+    SDL_ReleaseGPUGraphicsPipeline(m_device, m_pipeline);
+    m_pipeline = nullptr;
+    return create_pipelines(format);
+}
+
+bool BodyPass::create_pipelines(const SceneTargetFormat& format)
+{
+    SDL_GPUDevice* device = m_device;
     SDL_GPUShader* vs = create_shader(device, {.dxil = kBodyVertDxil,
                                                .spirv = kBodyVertSpirv,
                                                .stage = SDL_GPU_SHADERSTAGE_VERTEX,
@@ -140,41 +190,7 @@ bool BodyPass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
         SDL_LogError(SDL_LOG_CATEGORY_GPU, "Body pipeline creation failed: %s", SDL_GetError());
         return false;
     }
-
-    std::vector<BodyVertex> vertices;
-    std::vector<uint32_t> indices;
-    build_sphere(vertices, indices);
-    m_sphere.index_count = static_cast<uint32_t>(indices.size());
-    m_sphere.vertices = create_static_buffer(device, SDL_GPU_BUFFERUSAGE_VERTEX, vertices.data(),
-                                             static_cast<uint32_t>(vertices.size() * sizeof(BodyVertex)));
-    m_sphere.indices = create_static_buffer(device, SDL_GPU_BUFFERUSAGE_INDEX, indices.data(),
-                                            static_cast<uint32_t>(indices.size() * sizeof(uint32_t)));
-
-    SDL_GPUSamplerCreateInfo sampler = {};
-    sampler.min_filter = SDL_GPU_FILTER_LINEAR;
-    sampler.mag_filter = SDL_GPU_FILTER_LINEAR;
-    sampler.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
-    sampler.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
-    sampler.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-    sampler.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-    sampler.max_anisotropy = 8.0f;
-    sampler.enable_anisotropy = true;
-    sampler.max_lod = 1000.0f;
-    m_sampler = SDL_CreateGPUSampler(device, &sampler);
-    m_white = create_solid_texture(device, 255, 255, 255, 255);
-
-    SDL_GPUSamplerCreateInfo profile = {};
-    profile.min_filter = SDL_GPU_FILTER_LINEAR;
-    profile.mag_filter = SDL_GPU_FILTER_LINEAR;
-    profile.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
-    profile.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-    profile.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-    profile.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-    profile.max_lod = 1000.0f;
-    m_profile_sampler = SDL_CreateGPUSampler(device, &profile);
-    m_no_rings = create_profile_texture(device, {glm::vec2(0.0f)});
-
-    return m_sphere.vertices && m_sphere.indices && m_sampler && m_white && m_profile_sampler && m_no_rings;
+    return true;
 }
 
 void BodyPass::shutdown()

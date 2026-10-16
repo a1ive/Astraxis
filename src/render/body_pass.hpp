@@ -58,6 +58,8 @@ class BodyPass {
 public:
     bool init(SDL_GPUDevice* device, const SceneTargetFormat& format);
     void shutdown();
+    // Recreates the pipelines for another scene format (e.g. MSAA sample count).
+    bool set_format(const SceneTargetFormat& format);
 
     // Meshes (shape models) are uploaded once, when a scene is loaded: positions in
     // km in the body-fixed frame, unit normals, albedo relative to the body color,
@@ -71,6 +73,8 @@ public:
               std::span<const BodyDrawItem> items) const;
 
 private:
+    bool create_pipelines(const SceneTargetFormat& format);
+
     struct Mesh {
         SDL_GPUBuffer* vertices = nullptr;
         SDL_GPUBuffer* indices = nullptr; // 32-bit

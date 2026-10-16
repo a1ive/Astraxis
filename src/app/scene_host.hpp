@@ -37,7 +37,8 @@ public:
         uint64_t frames = 0; // frames presented, for the frame rate log
     };
 
-    bool init_gpu();
+    // `msaa`: the scene's MSAA samples (1, 2 or 4; fewer if unsupported).
+    bool init_gpu(int msaa);
     // Takes an output whose window the host has created and claims it for the
     // GPU (or sets up the offscreen output). False if that fails.
     bool add_output(std::unique_ptr<Output> out);

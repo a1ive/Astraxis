@@ -30,11 +30,12 @@ struct Settings {
     int display = 0;          // n = the n-th display (1-based); 0 = primary ([window]) or all displays
     std::string display_name; // finds the display again if the order changes
     int fps = 0;              // frame rate cap, 0 = none (the display's refresh rate)
+    float render_scale = 1.0f; // the scene's resolution relative to the display's (0.25-1)
+    int msaa = 4;              // MSAA samples: 1 (off), 2 or 4 (at most what the GPU supports)
     bool fullscreen = false;  // [window] only
     bool auto_tour = true;    // [window] only: "Start when idle"
     bool info = true;         // [window] only: the focused body's info panel
     // [wallpaper] and [screensaver] only:
-    float render_scale = 1.0f; // the scene's resolution relative to the display's (0.25-1)
     BatteryPolicy battery = BatteryPolicy::Limit;
     bool pause_covered = true; // [wallpaper]: stop drawing a display a maximized or full-screen window covers
 

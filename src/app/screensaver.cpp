@@ -47,7 +47,7 @@ bool Screensaver::init(const ScreensaverOptions& options)
         m_host.set_render_scale(settings.render_scale);
     }
 
-    if (!m_host.init_gpu()) {
+    if (!m_host.init_gpu(settings.msaa)) {
         return false;
     }
     int display = options.display.value_or(0);

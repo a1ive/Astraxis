@@ -95,25 +95,7 @@ bool AtmospherePass::init(SDL_GPUDevice* device, const SceneTargetFormat& format
 {
     m_device = device;
 
-    SDL_GPUShader* vs = create_shader(device, {.dxil = kAtmosphereVertDxil,
-                                               .spirv = kAtmosphereVertSpirv,
-                                               .stage = SDL_GPU_SHADERSTAGE_VERTEX,
-                                               .num_uniform_buffers = 1});
-    SDL_GPUShader* fs = create_shader(device, {.dxil = kAtmosphereFragDxil,
-                                               .spirv = kAtmosphereFragSpirv,
-                                               .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
-                                               .num_uniform_buffers = 1});
-    if (!vs || !fs) {
-        SDL_ReleaseGPUShader(device, vs);
-        SDL_ReleaseGPUShader(device, fs);
-        return false;
-    }
-    m_outside = create_pipeline(device, format, vs, fs, false);
-    m_inside = create_pipeline(device, format, vs, fs, true);
-    SDL_ReleaseGPUShader(device, vs);
-    SDL_ReleaseGPUShader(device, fs);
-    if (!m_outside || !m_inside) {
-        SDL_LogError(SDL_LOG_CATEGORY_GPU, "Atmosphere pipeline creation failed: %s", SDL_GetError());
+    if (!create_pipelines(format)) {
         return false;
     }
 
@@ -144,6 +126,42 @@ bool AtmospherePass::init(SDL_GPUDevice* device, const SceneTargetFormat& format
     m_indices = create_static_buffer(device, SDL_GPU_BUFFERUSAGE_INDEX, indices.data(),
                                      static_cast<uint32_t>(indices.size() * sizeof(uint32_t)));
     return m_vertices && m_indices;
+}
+
+bool AtmospherePass::set_format(const SceneTargetFormat& format)
+{
+    SDL_ReleaseGPUGraphicsPipeline(m_device, m_outside);
+    m_outside = nullptr;
+    SDL_ReleaseGPUGraphicsPipeline(m_device, m_inside);
+    m_inside = nullptr;
+    return create_pipelines(format);
+}
+
+bool AtmospherePass::create_pipelines(const SceneTargetFormat& format)
+{
+    SDL_GPUDevice* device = m_device;
+    SDL_GPUShader* vs = create_shader(device, {.dxil = kAtmosphereVertDxil,
+                                               .spirv = kAtmosphereVertSpirv,
+                                               .stage = SDL_GPU_SHADERSTAGE_VERTEX,
+                                               .num_uniform_buffers = 1});
+    SDL_GPUShader* fs = create_shader(device, {.dxil = kAtmosphereFragDxil,
+                                               .spirv = kAtmosphereFragSpirv,
+                                               .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
+                                               .num_uniform_buffers = 1});
+    if (!vs || !fs) {
+        SDL_ReleaseGPUShader(device, vs);
+        SDL_ReleaseGPUShader(device, fs);
+        return false;
+    }
+    m_outside = create_pipeline(device, format, vs, fs, false);
+    m_inside = create_pipeline(device, format, vs, fs, true);
+    SDL_ReleaseGPUShader(device, vs);
+    SDL_ReleaseGPUShader(device, fs);
+    if (!m_outside || !m_inside) {
+        SDL_LogError(SDL_LOG_CATEGORY_GPU, "Atmosphere pipeline creation failed: %s", SDL_GetError());
+        return false;
+    }
+    return true;
 }
 
 void AtmospherePass::shutdown()

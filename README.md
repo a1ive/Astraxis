@@ -108,9 +108,11 @@ Command-line options override settings for the current run. The settings file ke
 
 ## Settings
 
-Astraxis stores settings in `config.toml` next to the executable. Copy this folder to take your settings with you. When the app window closes, it saves changes made in its panel: the scene, display, full-screen mode, visible elements and image adjustments. Wallpaper and screensaver settings use separate sections in the same file, edited through their settings dialogs. Display options without a separate setting in those dialogs use the window's settings.
+Astraxis stores settings in `config.toml` next to the executable. Copy this folder to take your settings with you. When the app window closes, it saves changes made in its panel: the scene, display, full-screen mode, visible elements, image adjustments and performance options. Wallpaper and screensaver settings use separate sections in the same file, edited through their settings dialogs. Display options without a separate setting in those dialogs use the window's settings.
 
 If the folder is read-only (for example under `Program Files`), nothing is saved.
+
+On slower graphics, such as integrated GPUs or high-resolution displays, lower the performance options: the window's panel and the settings dialogs have them under *Performance*. *Antialiasing* is 4x MSAA by default, and 2x or off are faster. It only smooths the edges of planets and other bodies, because orbit lines, rings and stars are smoothed without it. *Resolution* renders the scene at 75% or 50% of the display's resolution and scales it up, which is faster but softer. A frame rate cap (in the settings dialogs, or `--fps`) also saves power.
 
 ## Wallpaper and screensaver (Windows)
 

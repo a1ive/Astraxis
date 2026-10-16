@@ -51,12 +51,16 @@ class PlumePass {
 public:
     bool init(SDL_GPUDevice* device, const SceneTargetFormat& format);
     void shutdown();
+    // Recreates the pipelines for another scene format (e.g. MSAA sample count).
+    bool set_format(const SceneTargetFormat& format);
 
     // `time`: seconds for the plumes' slow animation.
     void draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const CameraView& view, float time,
               std::span<const PlumeDrawItem> items) const;
 
 private:
+    bool create_pipelines(const SceneTargetFormat& format);
+
     SDL_GPUDevice* m_device = nullptr;
     // Camera outside the box: front faces, depth-tested. Inside (or close):
     // back faces, not depth-tested, with the rays starting at the camera.

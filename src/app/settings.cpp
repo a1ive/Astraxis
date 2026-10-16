@@ -59,12 +59,13 @@ void visit_mode_keys(S& s, SettingsSection section, F&& f)
     f("display", s.display, 0, 64);
     f("display_name", s.display_name);
     f("fps", s.fps, 0, 1000);
+    f("render_scale", s.render_scale, 0.25f, 1.0f);
+    f("msaa", s.msaa, 1, 4);
     if (section == SettingsSection::Window) {
         f("fullscreen", s.fullscreen);
         f("auto_tour", s.auto_tour);
         f("info", s.info);
     } else {
-        f("render_scale", s.render_scale, 0.25f, 1.0f);
         f("battery", s.battery);
         if (section == SettingsSection::Wallpaper) {
             f("pause_covered", s.pause_covered);
@@ -231,6 +232,9 @@ bool load_settings(const std::filesystem::path& path, SettingsSection section, S
     if (const toml::table* mode = root[section_name(section)].as_table()) {
         visit_view_keys(out, Reader{*mode});
         visit_mode_keys(out, section, Reader{*mode});
+    }
+    if (out.msaa == 3) {
+        out.msaa = 2; // sample counts are powers of two
     }
     return true;
 }

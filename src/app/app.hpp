@@ -48,6 +48,8 @@ private:
     void build_labels();
     void draw_captions();  // the scene title card and the last event's caption
     void toggle_caption(); // dismisses the event caption, or shows it again
+    void set_msaa(int samples);
+    void set_render_scale(float scale);
     void render();
 
     bool load_scene(size_t index);
@@ -79,6 +81,8 @@ private:
     bool m_start_fullscreen = false;
     int m_fps_limit = 0;
     uint64_t m_frame_start_ns = 0;
+    int m_msaa = 4;              // as chosen (the device may use fewer samples)
+    float m_render_scale = 1.0f;
 
     std::filesystem::path m_asset_dir;
     std::vector<std::filesystem::path> m_scene_files;

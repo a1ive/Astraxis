@@ -30,6 +30,8 @@ class BeltPass {
 public:
     bool init(SDL_GPUDevice* device, const SceneTargetFormat& format);
     void shutdown();
+    // Recreates the pipelines for another scene format (e.g. MSAA sample count).
+    bool set_format(const SceneTargetFormat& format);
 
     void clear();
     // `elements`: 7 floats per object (a au, e, i, node, arg_peri, mean anomaly rad, H).
@@ -39,6 +41,8 @@ public:
               const std::vector<BeltDrawItem>& items) const;
 
 private:
+    bool create_pipelines(const SceneTargetFormat& format);
+
     struct Belt {
         SDL_GPUBuffer* buffer = nullptr;
         uint32_t count = 0;

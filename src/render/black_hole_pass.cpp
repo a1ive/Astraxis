@@ -46,6 +46,39 @@ bool BlackHolePass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
 {
     m_device = device;
 
+    if (!create_pipelines(format)) {
+        return false;
+    }
+
+    m_linear = create_sampler(device, SDL_GPU_FILTER_LINEAR);
+    m_point = create_sampler(device, SDL_GPU_FILTER_NEAREST);
+
+    // Blackbody chromaticity (linear sRGB, max component 1) on a log temperature axis.
+    std::vector<uint8_t> lut(kLutSize * 4);
+    for (int i = 0; i < kLutSize; ++i) {
+        const double t = kLutMinK * std::pow(kLutMaxK / kLutMinK, static_cast<double>(i) / (kLutSize - 1));
+        const glm::dvec3 c = blackbody_linear_srgb(t);
+        for (int k = 0; k < 3; ++k) {
+            lut[i * 4 + k] = static_cast<uint8_t>(std::lround(std::clamp(c[k], 0.0, 1.0) * 255.0));
+        }
+        lut[i * 4 + 3] = 255;
+    }
+    m_blackbody = create_texture_rgba8(device, lut.data(), kLutSize, 1, false);
+    return m_linear && m_point && m_blackbody;
+}
+
+bool BlackHolePass::set_format(const SceneTargetFormat& format)
+{
+    SDL_ReleaseGPUGraphicsPipeline(m_device, m_trace_pipeline);
+    m_trace_pipeline = nullptr;
+    SDL_ReleaseGPUGraphicsPipeline(m_device, m_composite_pipeline);
+    m_composite_pipeline = nullptr;
+    return create_pipelines(format);
+}
+
+bool BlackHolePass::create_pipelines(const SceneTargetFormat& format)
+{
+    SDL_GPUDevice* device = m_device;
     SDL_GPUShader* vs = create_shader(
         device, {.dxil = kFullscreenVertDxil, .spirv = kFullscreenVertSpirv, .stage = SDL_GPU_SHADERSTAGE_VERTEX});
     SDL_GPUShader* trace_fs = create_shader(device, {.dxil = kBlackHoleFragDxil,
@@ -118,22 +151,7 @@ bool BlackHolePass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
         SDL_LogError(SDL_LOG_CATEGORY_GPU, "Black hole pipeline creation failed: %s", SDL_GetError());
         return false;
     }
-
-    m_linear = create_sampler(device, SDL_GPU_FILTER_LINEAR);
-    m_point = create_sampler(device, SDL_GPU_FILTER_NEAREST);
-
-    // Blackbody chromaticity (linear sRGB, max component 1) on a log temperature axis.
-    std::vector<uint8_t> lut(kLutSize * 4);
-    for (int i = 0; i < kLutSize; ++i) {
-        const double t = kLutMinK * std::pow(kLutMaxK / kLutMinK, static_cast<double>(i) / (kLutSize - 1));
-        const glm::dvec3 c = blackbody_linear_srgb(t);
-        for (int k = 0; k < 3; ++k) {
-            lut[i * 4 + k] = static_cast<uint8_t>(std::lround(std::clamp(c[k], 0.0, 1.0) * 255.0));
-        }
-        lut[i * 4 + 3] = 255;
-    }
-    m_blackbody = create_texture_rgba8(device, lut.data(), kLutSize, 1, false);
-    return m_linear && m_point && m_blackbody;
+    return true;
 }
 
 void BlackHolePass::shutdown()

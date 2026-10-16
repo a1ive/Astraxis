@@ -358,6 +358,36 @@ void App::build_control_panel()
     ImGui::SetNextItemWidth(160.0f * ImGui::GetStyle().FontScaleDpi);
     ImGui::SliderFloat("Bloom", &m_view_options.post.bloom_strength, 0.0f, 0.2f, "%.3f");
 
+    ImGui::SeparatorText("Performance");
+    static constexpr const char* kMsaaNames[] = {"Off", "2x", "4x"};
+    static constexpr int kMsaaSamples[] = {1, 2, 4};
+    const int msaa = m_gpu.msaa();
+    ImGui::SetNextItemWidth(80.0f * ImGui::GetStyle().FontScaleDpi);
+    if (ImGui::BeginCombo("Antialiasing", kMsaaNames[msaa == 4 ? 2 : msaa - 1])) {
+        for (size_t i = 0; i < std::size(kMsaaSamples) && kMsaaSamples[i] <= m_gpu.max_msaa(); ++i) {
+            if (ImGui::Selectable(kMsaaNames[i], kMsaaSamples[i] == msaa)) {
+                set_msaa(kMsaaSamples[i]);
+            }
+        }
+        ImGui::EndCombo();
+    }
+    ImGui::SetItemTooltip("MSAA for the edges of bodies (lines and stars are smooth without it)");
+    ImGui::SameLine();
+    static constexpr float kScales[] = {1.0f, 0.75f, 0.5f};
+    char scale_text[16];
+    std::snprintf(scale_text, sizeof(scale_text), "%.0f%%", static_cast<double>(m_render_scale) * 100.0);
+    ImGui::SetNextItemWidth(80.0f * ImGui::GetStyle().FontScaleDpi);
+    if (ImGui::BeginCombo("Resolution", scale_text)) {
+        for (float scale : kScales) {
+            std::snprintf(scale_text, sizeof(scale_text), "%.0f%%", static_cast<double>(scale) * 100.0);
+            if (ImGui::Selectable(scale_text, scale == m_render_scale)) {
+                set_render_scale(scale);
+            }
+        }
+        ImGui::EndCombo();
+    }
+    ImGui::SetItemTooltip("The scene's resolution relative to the window's: lower is faster and softer");
+
     ImGui::Separator();
     ImGui::TextDisabled("%.0f FPS  |  %s", io.Framerate, m_gpu.driver_name());
     ImGui::TextDisabled("Drag: rotate   Wheel: zoom");

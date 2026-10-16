@@ -49,6 +49,45 @@ bool RingPass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
 {
     m_device = device;
 
+    if (!create_pipelines(format)) {
+        return false;
+    }
+
+    std::vector<RingVertex> vertices;
+    vertices.reserve(kSegments * 6);
+    for (int i = 0; i < kSegments; ++i) {
+        const double a0 = kTwoPi * i / kSegments;
+        const double a1 = kTwoPi * (i + 1) / kSegments;
+        const glm::vec2 d0(static_cast<float>(std::cos(a0)), static_cast<float>(std::sin(a0)));
+        const glm::vec2 d1(static_cast<float>(std::cos(a1)), static_cast<float>(std::sin(a1)));
+        vertices.insert(vertices.end(), {{d0, 0.0f}, {d1, 0.0f}, {d1, 1.0f}, {d0, 0.0f}, {d1, 1.0f}, {d0, 1.0f}});
+    }
+    m_vertex_count = static_cast<uint32_t>(vertices.size());
+    m_vertices = create_static_buffer(device, SDL_GPU_BUFFERUSAGE_VERTEX, vertices.data(),
+                                      static_cast<uint32_t>(vertices.size() * sizeof(RingVertex)));
+
+    SDL_GPUSamplerCreateInfo sampler = {};
+    sampler.min_filter = SDL_GPU_FILTER_LINEAR;
+    sampler.mag_filter = SDL_GPU_FILTER_LINEAR;
+    sampler.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
+    sampler.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+    sampler.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+    sampler.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+    sampler.max_lod = 1000.0f;
+    m_sampler = SDL_CreateGPUSampler(device, &sampler);
+    return m_vertices != nullptr && m_sampler != nullptr;
+}
+
+bool RingPass::set_format(const SceneTargetFormat& format)
+{
+    SDL_ReleaseGPUGraphicsPipeline(m_device, m_pipeline);
+    m_pipeline = nullptr;
+    return create_pipelines(format);
+}
+
+bool RingPass::create_pipelines(const SceneTargetFormat& format)
+{
+    SDL_GPUDevice* device = m_device;
     SDL_GPUShader* vs = create_shader(device, {.dxil = kRingVertDxil,
                                                .spirv = kRingVertSpirv,
                                                .stage = SDL_GPU_SHADERSTAGE_VERTEX,
@@ -112,30 +151,7 @@ bool RingPass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
         SDL_LogError(SDL_LOG_CATEGORY_GPU, "Ring pipeline creation failed: %s", SDL_GetError());
         return false;
     }
-
-    std::vector<RingVertex> vertices;
-    vertices.reserve(kSegments * 6);
-    for (int i = 0; i < kSegments; ++i) {
-        const double a0 = kTwoPi * i / kSegments;
-        const double a1 = kTwoPi * (i + 1) / kSegments;
-        const glm::vec2 d0(static_cast<float>(std::cos(a0)), static_cast<float>(std::sin(a0)));
-        const glm::vec2 d1(static_cast<float>(std::cos(a1)), static_cast<float>(std::sin(a1)));
-        vertices.insert(vertices.end(), {{d0, 0.0f}, {d1, 0.0f}, {d1, 1.0f}, {d0, 0.0f}, {d1, 1.0f}, {d0, 1.0f}});
-    }
-    m_vertex_count = static_cast<uint32_t>(vertices.size());
-    m_vertices = create_static_buffer(device, SDL_GPU_BUFFERUSAGE_VERTEX, vertices.data(),
-                                      static_cast<uint32_t>(vertices.size() * sizeof(RingVertex)));
-
-    SDL_GPUSamplerCreateInfo sampler = {};
-    sampler.min_filter = SDL_GPU_FILTER_LINEAR;
-    sampler.mag_filter = SDL_GPU_FILTER_LINEAR;
-    sampler.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
-    sampler.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-    sampler.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-    sampler.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-    sampler.max_lod = 1000.0f;
-    m_sampler = SDL_CreateGPUSampler(device, &sampler);
-    return m_vertices != nullptr && m_sampler != nullptr;
+    return true;
 }
 
 void RingPass::shutdown()

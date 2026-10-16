@@ -6,7 +6,7 @@ namespace astraxis {
 
 bool SceneTargets::ensure(SDL_GPUDevice* device, const SceneTargetFormat& format, uint32_t width, uint32_t height)
 {
-    if (m_depth && device == m_device && width == m_width && height == m_height) {
+    if (m_depth && device == m_device && width == m_width && height == m_height && format.samples == m_samples) {
         return true;
     }
     release_scene();
@@ -52,6 +52,7 @@ bool SceneTargets::ensure(SDL_GPUDevice* device, const SceneTargetFormat& format
 
     m_width = width;
     m_height = height;
+    m_samples = format.samples;
     return true;
 }
 

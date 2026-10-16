@@ -18,6 +18,8 @@ class StarfieldPass {
 public:
     bool init(SDL_GPUDevice* device, const SceneTargetFormat& format, std::span<const CatalogStar> catalog);
     void shutdown();
+    // Recreates the pipelines for another scene format (e.g. MSAA sample count).
+    bool set_format(const SceneTargetFormat& format);
 
     // Replaces the stars (empty: generated ones), e.g. for a scene with its own sky.
     bool set_stars(std::span<const CatalogStar> catalog);

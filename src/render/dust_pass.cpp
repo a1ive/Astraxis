@@ -24,7 +24,19 @@ bool DustPass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
 {
     m_device = device;
     m_buffer.init(device, SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ);
+    return create_pipelines(format);
+}
 
+bool DustPass::set_format(const SceneTargetFormat& format)
+{
+    SDL_ReleaseGPUGraphicsPipeline(m_device, m_pipeline);
+    m_pipeline = nullptr;
+    return create_pipelines(format);
+}
+
+bool DustPass::create_pipelines(const SceneTargetFormat& format)
+{
+    SDL_GPUDevice* device = m_device;
     SDL_GPUShader* vs = create_shader(device, {.dxil = kDustVertDxil,
                                                .spirv = kDustVertSpirv,
                                                .stage = SDL_GPU_SHADERSTAGE_VERTEX,

@@ -49,11 +49,15 @@ class RingPass {
 public:
     bool init(SDL_GPUDevice* device, const SceneTargetFormat& format);
     void shutdown();
+    // Recreates the pipelines for another scene format (e.g. MSAA sample count).
+    bool set_format(const SceneTargetFormat& format);
 
     void draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const CameraView& view,
               std::span<const RingDrawItem> items) const;
 
 private:
+    bool create_pipelines(const SceneTargetFormat& format);
+
     SDL_GPUDevice* m_device = nullptr;
     SDL_GPUGraphicsPipeline* m_pipeline = nullptr;
     SDL_GPUBuffer* m_vertices = nullptr;

@@ -33,7 +33,19 @@ bool OrbitLinePass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
 {
     m_device = device;
     m_points_buffer.init(device, SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ);
+    return create_pipelines(format);
+}
 
+bool OrbitLinePass::set_format(const SceneTargetFormat& format)
+{
+    SDL_ReleaseGPUGraphicsPipeline(m_device, m_pipeline);
+    m_pipeline = nullptr;
+    return create_pipelines(format);
+}
+
+bool OrbitLinePass::create_pipelines(const SceneTargetFormat& format)
+{
+    SDL_GPUDevice* device = m_device;
     SDL_GPUShader* vs = create_shader(device, {.dxil = kOrbitLineVertDxil,
                                                .spirv = kOrbitLineVertSpirv,
                                                .stage = SDL_GPU_SHADERSTAGE_VERTEX,

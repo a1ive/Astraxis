@@ -17,6 +17,8 @@ class SunPass {
 public:
     bool init(SDL_GPUDevice* device, const SceneTargetFormat& format);
     void shutdown();
+    // Recreates the pipelines for another scene format (e.g. MSAA sample count).
+    bool set_format(const SceneTargetFormat& format);
 
     struct Star {
         glm::vec3 position{0.0f};  // camera-relative (km) when finite, else unit direction
@@ -29,6 +31,8 @@ public:
     void draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const CameraView& view, const Star& star) const;
 
 private:
+    bool create_pipelines(const SceneTargetFormat& format);
+
     SDL_GPUDevice* m_device = nullptr;
     SDL_GPUGraphicsPipeline* m_pipeline = nullptr;
 };

@@ -24,10 +24,14 @@ class BeamPass {
 public:
     bool init(SDL_GPUDevice* device, const SceneTargetFormat& format);
     void shutdown();
+    // Recreates the pipelines for another scene format (e.g. MSAA sample count).
+    bool set_format(const SceneTargetFormat& format);
     void draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const CameraView& view,
               std::span<const BeamDrawItem> items) const;
 
 private:
+    bool create_pipelines(const SceneTargetFormat& format);
+
     SDL_GPUDevice* m_device = nullptr;
     SDL_GPUGraphicsPipeline* m_pipeline = nullptr;
 };

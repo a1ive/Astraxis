@@ -17,6 +17,8 @@ class OrbitLinePass {
 public:
     bool init(SDL_GPUDevice* device, const SceneTargetFormat& format);
     void shutdown();
+    // Recreates the pipelines for another scene format (e.g. MSAA sample count).
+    bool set_format(const SceneTargetFormat& format);
 
     void begin();
     // `points`: xyz = camera-relative position, w = fade (0 head .. 1 tail).
@@ -25,6 +27,8 @@ public:
     void draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const CameraView& view, float width_px) const;
 
 private:
+    bool create_pipelines(const SceneTargetFormat& format);
+
     struct Line {
         uint32_t first = 0;
         uint32_t count = 0;

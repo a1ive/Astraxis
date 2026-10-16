@@ -89,6 +89,37 @@ bool CometPass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
 {
     m_device = device;
 
+    if (!create_pipelines(format)) {
+        return false;
+    }
+
+    // Unit cube, counter-clockwise when seen from outside.
+    const glm::vec3 c[8] = {{0, 0, 0}, {1, 0, 0}, {1, 1, 0}, {0, 1, 0}, {0, 0, 1}, {1, 0, 1}, {1, 1, 1}, {0, 1, 1}};
+    const int faces[6][4] = {{0, 3, 2, 1}, {4, 5, 6, 7}, {0, 1, 5, 4}, {2, 3, 7, 6}, {1, 2, 6, 5}, {0, 4, 7, 3}};
+    std::vector<glm::vec3> vertices;
+    for (const auto& f : faces) {
+        for (int k : {f[0], f[1], f[2], f[0], f[2], f[3]}) {
+            vertices.push_back(c[k]);
+        }
+    }
+    m_vertex_count = static_cast<uint32_t>(vertices.size());
+    m_vertices = create_static_buffer(device, SDL_GPU_BUFFERUSAGE_VERTEX, vertices.data(),
+                                      static_cast<uint32_t>(vertices.size() * sizeof(glm::vec3)));
+    return m_vertices != nullptr;
+}
+
+bool CometPass::set_format(const SceneTargetFormat& format)
+{
+    SDL_ReleaseGPUGraphicsPipeline(m_device, m_outside);
+    m_outside = nullptr;
+    SDL_ReleaseGPUGraphicsPipeline(m_device, m_inside);
+    m_inside = nullptr;
+    return create_pipelines(format);
+}
+
+bool CometPass::create_pipelines(const SceneTargetFormat& format)
+{
+    SDL_GPUDevice* device = m_device;
     SDL_GPUShader* vs = create_shader(device, {.dxil = kPlumeVertDxil,
                                                .spirv = kPlumeVertSpirv,
                                                .stage = SDL_GPU_SHADERSTAGE_VERTEX,
@@ -110,20 +141,7 @@ bool CometPass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
         SDL_LogError(SDL_LOG_CATEGORY_GPU, "Comet pipeline creation failed: %s", SDL_GetError());
         return false;
     }
-
-    // Unit cube, counter-clockwise when seen from outside.
-    const glm::vec3 c[8] = {{0, 0, 0}, {1, 0, 0}, {1, 1, 0}, {0, 1, 0}, {0, 0, 1}, {1, 0, 1}, {1, 1, 1}, {0, 1, 1}};
-    const int faces[6][4] = {{0, 3, 2, 1}, {4, 5, 6, 7}, {0, 1, 5, 4}, {2, 3, 7, 6}, {1, 2, 6, 5}, {0, 4, 7, 3}};
-    std::vector<glm::vec3> vertices;
-    for (const auto& f : faces) {
-        for (int k : {f[0], f[1], f[2], f[0], f[2], f[3]}) {
-            vertices.push_back(c[k]);
-        }
-    }
-    m_vertex_count = static_cast<uint32_t>(vertices.size());
-    m_vertices = create_static_buffer(device, SDL_GPU_BUFFERUSAGE_VERTEX, vertices.data(),
-                                      static_cast<uint32_t>(vertices.size() * sizeof(glm::vec3)));
-    return m_vertices != nullptr;
+    return true;
 }
 
 void CometPass::shutdown()

@@ -37,7 +37,8 @@ struct BlackHoleTargets {
 // passes reallocate every frame.
 class SceneTargets {
 public:
-    // (Re)creates the scene targets for `width` x `height` pixels if needed.
+    // (Re)creates the scene targets for `width` x `height` pixels (and the
+    // format's sample count) if needed.
     bool ensure(SDL_GPUDevice* device, const SceneTargetFormat& format, uint32_t width, uint32_t height);
     // Releases every texture, the passes' included.
     void release();
@@ -59,6 +60,7 @@ private:
     SDL_GPUTexture* m_depth = nullptr;
     uint32_t m_width = 0;
     uint32_t m_height = 0;
+    SDL_GPUSampleCount m_samples = SDL_GPU_SAMPLECOUNT_1;
 };
 
 } // namespace astraxis

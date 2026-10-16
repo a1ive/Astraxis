@@ -42,6 +42,9 @@ public:
     // `output_format`: the outputs' swapchain format.
     bool init(const GpuDevice& gpu, SDL_GPUTextureFormat output_format, const std::filesystem::path& asset_dir);
     void shutdown();
+    // Recreates the scene pipelines for the device's current scene format
+    // (after GpuDevice::set_msaa).
+    bool refresh_pipelines();
 
     // Replaces the GPU resources of the previous scene (textures, meshes, belts,
     // sky). `output_height` (pixels) sizes the stars of the black-hole lensing sky.

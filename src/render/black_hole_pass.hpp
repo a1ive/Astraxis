@@ -32,6 +32,8 @@ class BlackHolePass {
 public:
     bool init(SDL_GPUDevice* device, const SceneTargetFormat& format);
     void shutdown();
+    // Recreates the pipelines for another scene format (e.g. MSAA sample count).
+    bool set_format(const SceneTargetFormat& format);
 
     // The lensed sky (cube texture in ICRF directions); not owned.
     void set_sky(SDL_GPUTexture* cube) { m_sky = cube; }
@@ -44,6 +46,8 @@ public:
     void composite(SDL_GPURenderPass* pass, BlackHoleTargets& targets);
 
 private:
+    bool create_pipelines(const SceneTargetFormat& format);
+
     bool ensure_targets(BlackHoleTargets& targets, uint32_t width, uint32_t height);
 
     SDL_GPUDevice* m_device = nullptr;

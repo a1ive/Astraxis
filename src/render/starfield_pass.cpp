@@ -250,9 +250,7 @@ bool StarfieldPass::init(SDL_GPUDevice* device, const SceneTargetFormat& format,
                          std::span<const CatalogStar> catalog)
 {
     m_device = device;
-    m_pipeline = create_starfield_pipeline(device, format.color, format.samples, format.depth);
-    m_milky_way_pipeline = create_milky_way_pipeline(device, format.color, format.samples, format.depth);
-    if (!m_pipeline || !m_milky_way_pipeline) {
+    if (!set_format(format)) {
         return false;
     }
 
@@ -270,6 +268,15 @@ bool StarfieldPass::init(SDL_GPUDevice* device, const SceneTargetFormat& format,
     }
 
     return set_stars(catalog);
+}
+
+bool StarfieldPass::set_format(const SceneTargetFormat& format)
+{
+    SDL_ReleaseGPUGraphicsPipeline(m_device, m_pipeline);
+    SDL_ReleaseGPUGraphicsPipeline(m_device, m_milky_way_pipeline);
+    m_pipeline = create_starfield_pipeline(m_device, format.color, format.samples, format.depth);
+    m_milky_way_pipeline = create_milky_way_pipeline(m_device, format.color, format.samples, format.depth);
+    return m_pipeline && m_milky_way_pipeline;
 }
 
 bool StarfieldPass::set_stars(std::span<const CatalogStar> catalog)
