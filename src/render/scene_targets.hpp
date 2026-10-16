@@ -1,5 +1,6 @@
 #pragma once
 
+#include "render/black_hole_uniforms.hpp"
 #include "render/gpu_device.hpp"
 
 #include <SDL3/SDL_gpu.h>
@@ -23,11 +24,12 @@ struct BloomChain {
 
 // BlackHolePass's off-screen trace result (reduced resolution).
 struct BlackHoleTargets {
-    SDL_GPUTexture* color = nullptr; // premultiplied color + coverage
-    SDL_GPUTexture* depth = nullptr; // R32F scene depth to write
+    SDL_GPUTexture* color = nullptr; // RGBA16F: disk light * fade, sky transmission * fade
+    SDL_GPUTexture* sky = nullptr;   // RGBA32F: sky direction, fade (negative where opaque)
     uint32_t width = 0;
     uint32_t height = 0;
-    bool traced = false; // a trace waits to be composited
+    bool traced = false;         // a trace waits to be composited
+    BlackHoleUniforms uniforms;  // of that trace (the composite traces again at edges)
 };
 
 // The render targets of one output, all of its size: MSAA HDR color resolved

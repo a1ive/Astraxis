@@ -79,7 +79,7 @@ CMake 目标：
 宿主（`App`、屏保、壁纸）只负责窗口、输入、UI 和闲置策略，不要把仿真或渲染逻辑放回 `src/app/`。宿主每帧只 `sim.update` 一次，再对每个输出调用 `SceneRenderer::render`；与相机无关的工作（例如尘埃彗尾的传播）不要每个输出重做一遍。
 
 渲染流程：
-1. 黑洞光追（有黑洞时）：在屏幕外以半分辨率追踪
+1. 黑洞光追（有黑洞时）：在屏幕外以半分辨率追踪，记下每条光线的天空方向和盘的光（`shaders/black_hole.hlsli` 是两边共用的追踪代码）；第 2 步的黑洞合成按全分辨率逐像素插值方向、采样带 mip 的天空立方体，相邻光线不一致处（阴影边缘、光子环附近）在合成着色器里重新追踪
 2. 场景 pass，渲染到 HDR（RGBA16F + MSAA）：银河 → 星空 → 天体 → 大气层 → 羽流 → 彗发/离子彗尾 → 尘埃彗尾 → 行星环 → 黑洞合成 → 太阳 → 脉冲星光束 → 轨道线
 3. `PostProcess`：泛光 → ACES → sRGB → 交换链
 4. ImGui 叠加 pass
@@ -160,6 +160,7 @@ CMake 目标：
 - 大的时钟值进着色器前要先 `frac` 再放大，否则 float 精度不够会闪烁
 - 在片元着色器里按像素足迹解析地滤波细线（如天王星的窄环）：足迹用 `ddx_fine`/`ddy_fine`，`fwidth` 是 2×2 粗导数，低角度看的细线会变成 2 像素一节的珠串；滤波核只有 1 像素宽的盒子时边缘呈阶梯，用 2 像素宽的三角核（与纹理 mip 三线性过滤相当）
 - ImGui 的 sdlgpu3 后端在 D3D12 上用 DXBC，建设备时要同时声明 `DXIL | DXBC`
+- 不要用 `SDL_GenerateMipmapsForGPUTexture` 给星空立方体贴图生成 mip：各面是按 Direct3D 面布局、用镜像投影画的，SDL 生成的 mip 和本层对不上，天空在面的交界处出现亮度台阶。`StarfieldPass::render_cubemap` 直接画每一级 mip
 - 不用平台后端时也要调用 `ImGui_ImplSDLGPU3_NewFrame()`（第一次调用时创建采样器）；漏了 Debug 能跑，Release 在 `SDL_BindGPUFragmentSamplers` 里崩
 - ImGui 开了 `NavEnableKeyboard` 后，有窗口获得焦点时 `WantCaptureKeyboard` 就是 true，全局快捷键只看 `WantTextInput`
 - 多输出时不要每个输出都阻塞等一次 VSYNC，用不阻塞的 `SDL_AcquireGPUSwapchainTexture`
@@ -230,7 +231,7 @@ CMake 目标：
 
 1. 标题字体加希腊字母后备（Jost 没有希腊字母，`α` 显示成 `?`）；面板打开时长标题两端会被挡住
 2. 导览的事件镜头：飞掠的探测器现在是自动找的（焦点天体在事件后 100 s 真实时间内、相机距离 1/4 以内最近的探测器），可以让事件写明 `flyby = "<探测器>"`，避免找错；事件没写视角时，导览从飞掠路径的法向偏向太阳看，`--event` 跳转仍用默认视角，两者可以统一
-3. 黑洞半分辨率追踪：近景时透镜区占满全屏，整片星空都是半分辨率立方体贴图双线性放大（星点发糊，落在采样点之间的星会随相机漂移闪烁）。prepass 改为输出逃逸方向和状态，全分辨率逐像素采样带 mip 的天空立方体（LOD 按方向的屏幕导数），状态或方向突变处再全分辨率重追踪（参考 NPGS 的 `BlackHole_composite.frag.glsl`）。另外 12 M 的最近距离下阴影已接近占满竖直视场，看是否加大 `kBlackHoleClearance`
+3. 黑洞透镜区的星：现在来自立方体贴图，重采样后比直接画的星点软、暗，爱因斯坦环附近还会被拉成弧（见 limitations.md）。可以把亮星按透镜映射画成点：在 prepass 的方向网格里找落进每个网格的星，按放大率加亮。另外 12 M 的最近距离下阴影已接近占满竖直视场，看是否加大 `kBlackHoleClearance`
 4. 随天体自转的参考系；Rosetta 场景加 Philae（ESA SPICE 里有着陆轨迹，Horizons 没有）
 5. 地月场景加 CE-5T1 的火箭末级：Horizons −78000（2021-10-01 到 2022-03-04 撞月，JPL 解 #23）可以直接烘焙
 6. 火星场景：天问一号补 2021 年的入轨（02-10）、停泊轨道（02-23）和中继轨道（05-17），可用 Estévez 仓库里的遥测向量（`tm_state_vectors/`）和 AMSAT-DL 论文的机动表外推；加星际天体 3I/ATLAS（天问一号 2025-09-30 .. 10-03 拍摄，arXiv:2603.10350）；事件的视角支持“从太阳方向看”（场景里没有太阳天体，`from_body` 用不了）

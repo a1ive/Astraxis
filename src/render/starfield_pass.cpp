@@ -309,8 +309,8 @@ void StarfieldPass::shutdown()
     m_device = nullptr;
 }
 
-bool StarfieldPass::render_cubemap(SDL_GPUTexture* cube, uint32_t size, SDL_GPUTextureFormat format,
-                                   float brightness, float size_scale) const
+bool StarfieldPass::render_cubemap(SDL_GPUTexture* cube, uint32_t size, uint32_t levels, SDL_GPUTextureFormat format,
+                                   double screen_pixel, float brightness) const
 {
     SDL_GPUGraphicsPipeline* pipeline =
         create_starfield_pipeline(m_device, format, SDL_GPU_SAMPLECOUNT_1, SDL_GPU_TEXTUREFORMAT_INVALID);
@@ -334,28 +334,39 @@ bool StarfieldPass::render_cubemap(SDL_GPUTexture* cube, uint32_t size, SDL_GPUT
     proj[3][2] = 1.0f;
 
     SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(m_device);
-    for (uint32_t face = 0; face < 6; ++face) {
-        SDL_GPUColorTargetInfo target = {};
-        target.texture = cube;
-        target.layer_or_depth_plane = face;
-        target.clear_color = {0.0f, 0.0f, 0.0f, 1.0f};
-        target.load_op = SDL_GPU_LOADOP_CLEAR;
-        target.store_op = SDL_GPU_STOREOP_STORE;
-        SDL_GPURenderPass* pass = SDL_BeginGPURenderPass(cmd, &target, 1, nullptr);
+    for (uint32_t level = 0; level < levels; ++level) {
+        const uint32_t level_size = std::max(size >> level, 1u);
+        // Same angular size as on screen where the texels allow (never below 0.8
+        // texel), same total flux (intensity x angular area). Texel at a face
+        // centre = 2 / level_size. The Milky Way is a radiance and needs no such scaling.
+        const double texel = 2.0 / level_size;
+        const double size_scale = std::max(0.8, screen_pixel / texel);
+        const double flux_scale = std::pow(screen_pixel / (size_scale * texel), 2.0);
+        for (uint32_t face = 0; face < 6; ++face) {
+            SDL_GPUColorTargetInfo target = {};
+            target.texture = cube;
+            target.mip_level = level;
+            target.layer_or_depth_plane = face;
+            target.clear_color = {0.0f, 0.0f, 0.0f, 1.0f};
+            target.load_op = SDL_GPU_LOADOP_CLEAR;
+            target.store_op = SDL_GPU_STOREOP_STORE;
+            SDL_GPURenderPass* pass = SDL_BeginGPURenderPass(cmd, &target, 1, nullptr);
 
-        Uniforms u;
-        u.view_proj = proj * glm::lookAt(glm::vec3(0.0f), forward[face], up[face]);
-        if (milky_way_pipeline) {
-            draw_milky_way(cmd, pass, milky_way_pipeline, u.view_proj, 2.0f / static_cast<float>(size));
+            Uniforms u;
+            u.view_proj = proj * glm::lookAt(glm::vec3(0.0f), forward[face], up[face]);
+            if (milky_way_pipeline) {
+                draw_milky_way(cmd, pass, milky_way_pipeline, u.view_proj, static_cast<float>(texel));
+            }
+            u.viewport = glm::vec4(static_cast<float>(level_size), static_cast<float>(level_size), 0.0f, 0.0f);
+            u.params =
+                glm::vec4(static_cast<float>(brightness * flux_scale), static_cast<float>(size_scale), 0.0f, 0.0f);
+            SDL_BindGPUGraphicsPipeline(pass, pipeline);
+            SDL_PushGPUVertexUniformData(cmd, 0, &u, sizeof(u));
+            SDL_GPUBufferBinding binding = {.buffer = m_instances, .offset = 0};
+            SDL_BindGPUVertexBuffers(pass, 0, &binding, 1);
+            SDL_DrawGPUPrimitives(pass, 6, m_count, 0, 0);
+            SDL_EndGPURenderPass(pass);
         }
-        u.viewport = glm::vec4(static_cast<float>(size), static_cast<float>(size), 0.0f, 0.0f);
-        u.params = glm::vec4(brightness, size_scale, 0.0f, 0.0f);
-        SDL_BindGPUGraphicsPipeline(pass, pipeline);
-        SDL_PushGPUVertexUniformData(cmd, 0, &u, sizeof(u));
-        SDL_GPUBufferBinding binding = {.buffer = m_instances, .offset = 0};
-        SDL_BindGPUVertexBuffers(pass, 0, &binding, 1);
-        SDL_DrawGPUPrimitives(pass, 6, m_count, 0, 0);
-        SDL_EndGPURenderPass(pass);
     }
     SDL_SubmitGPUCommandBuffer(cmd);
     SDL_ReleaseGPUGraphicsPipeline(m_device, pipeline);

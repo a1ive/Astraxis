@@ -152,6 +152,7 @@ add_executable(astraxis
     src/render/belt_pass.hpp
     src/render/black_hole_pass.cpp
     src/render/black_hole_pass.hpp
+    src/render/black_hole_uniforms.hpp
     src/render/body_pass.cpp
     src/render/body_pass.hpp
     src/render/comet_pass.cpp

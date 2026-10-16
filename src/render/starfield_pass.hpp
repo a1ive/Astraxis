@@ -31,9 +31,12 @@ public:
 
     // Renders the stars into a cube texture (ICRF directions, Direct3D face
     // layout) for effects that look up the sky in arbitrary directions, such as
-    // gravitational lensing. Submits its own command buffer.
-    bool render_cubemap(SDL_GPUTexture* cube, uint32_t size, SDL_GPUTextureFormat format, float brightness,
-                        float size_scale) const;
+    // gravitational lensing: each of its `levels` mip levels drawn directly
+    // (SDL's mipmap generation does not keep this face layout), the stars as
+    // large as on a screen with pixels of `screen_pixel` radians where the
+    // texels allow and with the same flux. Submits its own command buffer.
+    bool render_cubemap(SDL_GPUTexture* cube, uint32_t size, uint32_t levels, SDL_GPUTextureFormat format,
+                        double screen_pixel, float brightness) const;
 
 private:
     // pixel_angle: angular size of a target pixel (radians), selects the map's mip level.

@@ -67,7 +67,7 @@ void SceneTargets::release()
     }
     bloom = {};
     SDL_ReleaseGPUTexture(m_device, black_hole.color);
-    SDL_ReleaseGPUTexture(m_device, black_hole.depth);
+    SDL_ReleaseGPUTexture(m_device, black_hole.sky);
     black_hole = {};
     m_device = nullptr;
 }

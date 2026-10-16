@@ -485,18 +485,11 @@ void SceneRenderer::update_sky_cube(uint32_t output_height, float star_brightnes
             return;
         }
     }
-    const uint32_t size = m_sky_cube_size;
-
-    // Match the on-screen stars: same angular size where possible, same total
-    // flux (intensity x angular area). Screen pixel ~ 2 tan(fov/2) / height;
-    // cube texel at a face centre = 2 / size. The Milky Way is a radiance and
-    // needs no such scaling.
+    // Match the on-screen stars (screen pixel ~ 2 tan(fov/2) / height). Mipmaps:
+    // lensing squeezes the sky, down to all of it in a few pixels near the photon ring.
     const double screen_px = 2.0 * std::tan(22.5 * kDegToRad) / std::max(output_height, 1u);
-    const double texel = 2.0 / size;
-    const double size_scale = std::max(0.8, screen_px / texel);
-    const double flux_scale = std::pow(screen_px / (size_scale * texel), 2.0);
-    m_starfield.render_cubemap(m_sky_cube, size, m_sky_cube_format, static_cast<float>(star_brightness * flux_scale),
-                               static_cast<float>(size_scale));
+    m_starfield.render_cubemap(m_sky_cube, m_sky_cube_size, m_sky_cube_levels, m_sky_cube_format, screen_px,
+                               star_brightness);
     m_black_hole.set_sky(m_sky_cube);
 }
 
@@ -518,6 +511,9 @@ void SceneRenderer::create_sky_cube()
     info.height = size;
     info.layer_count_or_depth = 6;
     info.num_levels = 1;
+    while ((size >> info.num_levels) > 0) {
+        ++info.num_levels; // down to 1 x 1
+    }
     m_sky_cube = SDL_CreateGPUTexture(device, &info);
     if (!m_sky_cube) {
         SDL_LogError(SDL_LOG_CATEGORY_GPU, "Sky cube map creation failed: %s", SDL_GetError());
@@ -525,6 +521,7 @@ void SceneRenderer::create_sky_cube()
     }
     m_sky_cube_format = format;
     m_sky_cube_size = size;
+    m_sky_cube_levels = info.num_levels;
     SDL_LogInfo(SDL_LOG_CATEGORY_GPU, "Sky cube map %u px", size);
 }
 
@@ -1185,7 +1182,7 @@ void SceneRenderer::render(const Frame& frame, const Simulation& sim, const Outp
     m_rings.draw(frame.cmd, pass, view, m_ring_items);
     build_belt_items(sim, output_view, options);
     m_belts.draw(frame.cmd, pass, view, m_belt_items);
-    m_black_hole.composite(pass, targets.black_hole);
+    m_black_hole.composite(frame.cmd, pass, targets.black_hole);
     draw_stars(frame.cmd, pass, sim, output_view);
     m_beams.draw(frame.cmd, pass, view, m_beam_items);
     m_orbits.draw(frame.cmd, pass, view, options.line_width);

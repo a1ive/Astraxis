@@ -23,10 +23,11 @@ constexpr double kLutMinK = 1000.0;
 constexpr double kLutMaxK = 40000.0; // the shader maps log(T / 1000 K) / log(40)
 
 // Rays are traced at 1/kTraceDivisor of the scene resolution per axis; the
-// disk and shadow are smooth enough, and the lensed stars are bilinearly upsampled.
+// composite interpolates them and samples the sky at full resolution, and
+// traces again only where neighbouring rays disagree.
 constexpr uint32_t kTraceDivisor = 2;
 constexpr SDL_GPUTextureFormat kTraceColorFormat = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
-constexpr SDL_GPUTextureFormat kTraceDepthFormat = SDL_GPU_TEXTUREFORMAT_R32_FLOAT;
+constexpr SDL_GPUTextureFormat kTraceSkyFormat = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT; // directions to ~1e-7
 
 SDL_GPUSampler* create_sampler(SDL_GPUDevice* device, SDL_GPUFilter filter)
 {
@@ -52,6 +53,20 @@ bool BlackHolePass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
 
     m_linear = create_sampler(device, SDL_GPU_FILTER_LINEAR);
     m_point = create_sampler(device, SDL_GPU_FILTER_NEAREST);
+    {
+        // Lensing stretches and squeezes the sky: trilinear and anisotropic over its mipmaps.
+        SDL_GPUSamplerCreateInfo info = {};
+        info.min_filter = SDL_GPU_FILTER_LINEAR;
+        info.mag_filter = SDL_GPU_FILTER_LINEAR;
+        info.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
+        info.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+        info.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+        info.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+        info.max_anisotropy = 8.0f;
+        info.enable_anisotropy = true;
+        info.max_lod = 1000.0f;
+        m_sky_sampler = SDL_CreateGPUSampler(device, &info);
+    }
 
     // Blackbody chromaticity (linear sRGB, max component 1) on a log temperature axis.
     std::vector<uint8_t> lut(kLutSize * 4);
@@ -64,7 +79,7 @@ bool BlackHolePass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
         lut[i * 4 + 3] = 255;
     }
     m_blackbody = create_texture_rgba8(device, lut.data(), kLutSize, 1, false);
-    return m_linear && m_point && m_blackbody;
+    return m_linear && m_point && m_sky_sampler && m_blackbody;
 }
 
 bool BlackHolePass::set_format(const SceneTargetFormat& format)
@@ -86,11 +101,11 @@ bool BlackHolePass::create_pipelines(const SceneTargetFormat& format)
                                                      .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
                                                      .num_samplers = 2,
                                                      .num_uniform_buffers = 1});
-    SDL_GPUShader* composite_fs = create_shader(
-        device, {.dxil = kBlackHoleCompositeFragDxil,
-                 .spirv = kBlackHoleCompositeFragSpirv,
-                 .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
-                 .num_samplers = 2});
+    SDL_GPUShader* composite_fs = create_shader(device, {.dxil = kBlackHoleCompositeFragDxil,
+                                                         .spirv = kBlackHoleCompositeFragSpirv,
+                                                         .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
+                                                         .num_samplers = 4,
+                                                         .num_uniform_buffers = 1});
     if (!vs || !trace_fs || !composite_fs) {
         SDL_ReleaseGPUShader(device, vs);
         SDL_ReleaseGPUShader(device, trace_fs);
@@ -102,7 +117,7 @@ bool BlackHolePass::create_pipelines(const SceneTargetFormat& format)
     {
         SDL_GPUColorTargetDescription targets[2] = {};
         targets[0].format = kTraceColorFormat;
-        targets[1].format = kTraceDepthFormat;
+        targets[1].format = kTraceSkyFormat;
 
         SDL_GPUGraphicsPipelineCreateInfo info = {};
         info.vertex_shader = vs;
@@ -116,7 +131,7 @@ bool BlackHolePass::create_pipelines(const SceneTargetFormat& format)
 
     // Composite: premultiplied color over the scene; SV_Depth from the trace, so the
     // shadow and disk occlude what lies behind the hole while the lensed sky (depth 0)
-    // only replaces empty background.
+    // only replaces empty background. Runs per pixel, not per MSAA sample.
     {
         SDL_GPUColorTargetDescription color = {};
         color.format = format.color;
@@ -163,11 +178,13 @@ void BlackHolePass::shutdown()
     SDL_ReleaseGPUGraphicsPipeline(m_device, m_composite_pipeline);
     SDL_ReleaseGPUSampler(m_device, m_linear);
     SDL_ReleaseGPUSampler(m_device, m_point);
+    SDL_ReleaseGPUSampler(m_device, m_sky_sampler);
     SDL_ReleaseGPUTexture(m_device, m_blackbody);
     m_trace_pipeline = nullptr;
     m_composite_pipeline = nullptr;
     m_linear = nullptr;
     m_point = nullptr;
+    m_sky_sampler = nullptr;
     m_blackbody = nullptr;
     m_device = nullptr;
 }
@@ -178,7 +195,7 @@ bool BlackHolePass::ensure_targets(BlackHoleTargets& targets, uint32_t width, ui
         return true;
     }
     SDL_ReleaseGPUTexture(m_device, targets.color);
-    SDL_ReleaseGPUTexture(m_device, targets.depth);
+    SDL_ReleaseGPUTexture(m_device, targets.sky);
     targets = {};
 
     SDL_GPUTextureCreateInfo info = {};
@@ -190,12 +207,12 @@ bool BlackHolePass::ensure_targets(BlackHoleTargets& targets, uint32_t width, ui
     info.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
     info.format = kTraceColorFormat;
     targets.color = SDL_CreateGPUTexture(m_device, &info);
-    info.format = kTraceDepthFormat;
-    targets.depth = SDL_CreateGPUTexture(m_device, &info);
-    if (!targets.color || !targets.depth) {
+    info.format = kTraceSkyFormat;
+    targets.sky = SDL_CreateGPUTexture(m_device, &info);
+    if (!targets.color || !targets.sky) {
         SDL_LogError(SDL_LOG_CATEGORY_GPU, "Black hole trace targets: %s", SDL_GetError());
         SDL_ReleaseGPUTexture(m_device, targets.color);
-        SDL_ReleaseGPUTexture(m_device, targets.depth);
+        SDL_ReleaseGPUTexture(m_device, targets.sky);
         targets = {};
         return false;
     }
@@ -214,11 +231,15 @@ void BlackHolePass::trace(SDL_GPUCommandBuffer* cmd, uint32_t width, uint32_t he
         return;
     }
 
+    targets.uniforms = u;
+    targets.uniforms.targets = glm::vec4(static_cast<float>(w), static_cast<float>(h), static_cast<float>(width),
+                                         static_cast<float>(height));
+
     SDL_GPUColorTargetInfo color[2] = {};
     color[0].texture = targets.color;
-    color[0].load_op = SDL_GPU_LOADOP_CLEAR; // transparent where the shader discards
+    color[0].load_op = SDL_GPU_LOADOP_CLEAR; // zero where the shader discards (outside the lensed region)
     color[0].store_op = SDL_GPU_STOREOP_STORE;
-    color[1].texture = targets.depth;
+    color[1].texture = targets.sky;
     color[1].load_op = SDL_GPU_LOADOP_CLEAR;
     color[1].store_op = SDL_GPU_STOREOP_STORE;
     SDL_GPURenderPass* pass = SDL_BeginGPURenderPass(cmd, color, 2, nullptr);
@@ -227,27 +248,30 @@ void BlackHolePass::trace(SDL_GPUCommandBuffer* cmd, uint32_t width, uint32_t he
     }
     SDL_BindGPUGraphicsPipeline(pass, m_trace_pipeline);
     const SDL_GPUTextureSamplerBinding bindings[2] = {
-        {.texture = m_sky, .sampler = m_linear},
+        {.texture = m_sky, .sampler = m_sky_sampler},
         {.texture = m_blackbody, .sampler = m_linear},
     };
     SDL_BindGPUFragmentSamplers(pass, 0, bindings, 2);
-    SDL_PushGPUFragmentUniformData(cmd, 0, &u, sizeof(u));
+    SDL_PushGPUFragmentUniformData(cmd, 0, &targets.uniforms, sizeof(targets.uniforms));
     SDL_DrawGPUPrimitives(pass, 3, 1, 0, 0);
     SDL_EndGPURenderPass(pass);
     targets.traced = true;
 }
 
-void BlackHolePass::composite(SDL_GPURenderPass* pass, BlackHoleTargets& targets)
+void BlackHolePass::composite(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, BlackHoleTargets& targets)
 {
     if (!targets.traced) {
         return;
     }
     SDL_BindGPUGraphicsPipeline(pass, m_composite_pipeline);
-    const SDL_GPUTextureSamplerBinding bindings[2] = {
-        {.texture = targets.color, .sampler = m_linear},
-        {.texture = targets.depth, .sampler = m_point},
+    const SDL_GPUTextureSamplerBinding bindings[4] = {
+        {.texture = m_sky, .sampler = m_sky_sampler},
+        {.texture = m_blackbody, .sampler = m_linear},
+        {.texture = targets.color, .sampler = m_point},
+        {.texture = targets.sky, .sampler = m_point},
     };
-    SDL_BindGPUFragmentSamplers(pass, 0, bindings, 2);
+    SDL_BindGPUFragmentSamplers(pass, 0, bindings, 4);
+    SDL_PushGPUFragmentUniformData(cmd, 0, &targets.uniforms, sizeof(targets.uniforms));
     SDL_DrawGPUPrimitives(pass, 3, 1, 0, 0);
     targets.traced = false; // one composite per trace
 }
