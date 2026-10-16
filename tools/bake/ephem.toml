@@ -1340,6 +1340,22 @@ base_step_minutes = 60
 tolerance_km = 5.0
 radius_km = 3396.19
 
+# 3I/ATLAS (C/2025 N1), the third interstellar object, relative to Mars as above: JPL
+# solution 54 (Horizons record 90004937; data arc 2025-05-15 .. 2026-02-19, with
+# non-gravitational accelerations for CO2 outgassing). It passed Mars on 2025-10-03 at
+# 0.19 au; the table starts with the data arc, early enough for the dust tail's grains.
+[[target]]
+name = "atlas3i_mars"
+command = "DES=C/2025 N1;"
+naif_id = 1004083
+center = "500@499"
+center_naif_id = 499
+start = "2025-05-15"
+stop = "2025-12-31"
+base_step_minutes = 60
+tolerance_km = 5.0
+radius_km = 3396.19
+
 # Odyssey (-53): 2001-Apr-07 .. 2026-Dec-28 TDB (JPL Odyssey navigation; aerobraking file m01_ab
 #   2001-Oct-24 .. 2002-Feb-19; fit to data through 2026-Sep-23, prediction after; the
 #   Siding Spring span is reconstructed). Arrival 2001-Oct-24 02:30 UTC.

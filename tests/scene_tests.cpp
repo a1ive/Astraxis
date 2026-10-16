@@ -516,6 +516,41 @@ void test_event_trails()
           "an event without trails keeps the body's own");
 }
 
+// from_body = "Sun" in a scene centered on a planet (no Sun body): the event's view is
+// from the sun's direction, turned by phase_deg about the up axis.
+void test_event_from_sun()
+{
+    Simulation sim;
+    std::string error;
+    check(sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/mars.toml", &error), "mars.toml loads");
+    const Scene& scene = sim.scene();
+    size_t index = scene.events.size();
+    for (size_t i = 0; i < scene.events.size() && index == scene.events.size(); ++i) {
+        index = scene.events[i].from_sun ? i : index;
+    }
+    check(scene.find("Sun") < 0 && index < scene.events.size(), "mars.toml has an event seen from the sun");
+    if (index == scene.events.size()) {
+        return;
+    }
+    const SceneEvent& e = scene.events[index];
+    check(e.from_body < 0 && e.phase_deg != 0.0, "seen from the sun: no from_body, turned by a phase");
+    sim.jump_to_event(index);
+    sim.clock().paused = true;
+    for (int k = 0; k < 40; ++k) {
+        sim.update(0.1);
+    }
+    const glm::dvec3 focus = scene.bodies[static_cast<size_t>(e.focus)].world_position;
+    double yaw = 0.0;
+    double pitch = 0.0;
+    double sun_yaw = 0.0;
+    double sun_pitch = 0.0;
+    sim.camera().angles_for_direction(sim.camera().view(1920, 1080).position - focus, &yaw, &pitch);
+    sim.camera().angles_for_direction(scene.sun_position() - focus, &sun_yaw, &sun_pitch);
+    const double turn = std::remainder(yaw - sun_yaw, kTwoPi) / kDegToRad;
+    check(std::abs(pitch - sun_pitch) < 1e-3 && std::abs(turn - e.phase_deg) < 0.1,
+          "the camera is turned from the sun's direction by phase_deg (deg)", turn);
+}
+
 // Label layout: priority order, easing, no overlapping labels once settled, picking.
 void test_label_layout()
 {
@@ -867,7 +902,7 @@ void test_event_flybys()
             check(distance <= 0.0 || flyby.distance_km < distance, (what + ": passes within the shot (km)").c_str(),
                   flyby.distance_km);
 
-            if (e.from_body >= 0 || e.from_orbit_normal >= 0) {
+            if (e.from_body >= 0 || e.from_sun || e.from_orbit_normal >= 0) {
                 continue;
             }
             // The jump's view: the camera on the side of the pass's normal
@@ -1011,6 +1046,7 @@ void run_scene_tests()
     test_ephemeris_blends();
     test_simulation();
     test_event_trails();
+    test_event_from_sun();
     test_body_fixed_frames();
     test_label_layout();
     test_orbit_center();

@@ -1,19 +1,12 @@
 """Bake the Tianwen-1 orbiter's path around Mars (assets/ephem/tianwen1_mars.eph).
 
 Usage:
-    python tianwen1_bake.py [path to the jupyter_notebooks/Tianwen/orbit folder]
+    python tianwen1_bake.py
 
 Sources (see assets/ephem/SOURCES.md):
-  - 2021-02 .. 2021-11: D. Estevez's GMAT reports around the maneuvers (github.com/
-    daniestevez/jupyter_notebooks, Tianwen/orbit/*/Tianwen1_pre_*.txt and _post_*.txt):
-    trajectories propagated from the state vectors in the spacecraft's telemetry,
-    forward from before a burn and backward from after it. They cross at the burn; each
-    window takes the pre-burn arc up to there and the post-burn arc after it. Columns:
-    UTC modified Julian date (GMAT, JD - 2430000), position and velocity in GMAT's
-    "MarsInertial" frame, whose axes are BodyInertial: z along Mars' spin axis at J2000
-    (IAU 2000: RA 317.68143, Dec 52.88650 deg, the pole GMAT uses; with it a telemetry
-    vector agrees with MOMAG to 6 km, with the IAU 2015 pole to 81 km), x toward the
-    ascending node of Mars' equator on the Earth's mean equator of J2000.
+  - 2021-02-08 .. 2021-11-16: tianwen1_reconstruct.py's path (cache/tw1_2021.txt), the
+    state vectors in the spacecraft's telemetry (decoded by D. Estevez) propagated and
+    joined at the maneuvers.
   - 2021-11-16 .. 2025-12-17: the MOMAG positions (momag_fetch.py, cache/), MSO
     converted to ICRF with Mars' heliocentric state from JPL Horizons.
 
@@ -35,21 +28,13 @@ import horizons_bake as hb  # noqa: E402
 
 GM_MARS = 42828.375816            # DE440 Mars system GM (JPL SSD astrodynamic parameters)
 TDB_MINUS_UTC = 69.184            # 37 leap seconds (since 2017) + 32.184 s
-GMAT_MJD_OFFSET = 2430000.0       # GMAT's UTCModJulian = JD - 2430000
-POLE_RA_DEC_IAU2000 = (317.68143, 52.88650)
 TOL_KM = 5.0
 GAP_S = 7200.0                    # longer data gaps are gaps in the table
 MAX_SPAN_S = GAP_S - 300.0        # knot spacing inside a segment stays below GAP_S
 DECIMATE_EVERY = 2                # use every 2nd cached (1-minute) MOMAG sample
 OUT = os.path.join(ROOT, 'assets', 'ephem', 'tianwen1_mars.eph')
 NAIF_ID = -9901491                # Horizons' (unofficial) Tianwen-1 record
-WINDOWS = [                        # (folder, pre file, post file)
-    ('plane_change', 'Tianwen1_pre_planechange.txt', 'Tianwen1_post_planechange.txt'),
-    ('phasing', 'Tianwen1_pre_phasing.txt', 'Tianwen1_post_phasing.txt'),
-    ('deorbit', 'Tianwen1_pre_deorbit.txt', 'Tianwen1_post_deorbit.txt'),
-    ('avoidance', 'Tianwen1_pre_avoidance.txt', 'Tianwen1_post_avoidance.txt'),
-    ('remote_sensing', 'Tianwen1_pre_remote_sensing.txt', 'Tianwen1_post_remote_sensing.txt'),
-]
+RECONSTRUCTED = os.path.join(HERE, 'cache', 'tw1_2021.txt')
 
 J2000 = datetime.datetime(2000, 1, 1, 12)
 
@@ -59,14 +44,6 @@ def tdb_from_utc(dt):
 
 
 # --- Frames -------------------------------------------------------------------
-
-def body_inertial_axes(ra_deg, dec_deg):
-    ra, dec = math.radians(ra_deg), math.radians(dec_deg)
-    z = (math.cos(dec) * math.cos(ra), math.cos(dec) * math.sin(ra), math.sin(dec))
-    x = (-math.sin(ra), math.cos(ra), 0.0)
-    y = (z[1] * x[2] - z[2] * x[1], z[2] * x[0] - z[0] * x[2], z[0] * x[1] - z[1] * x[0])
-    return x, y, z
-
 
 def combine(axes, v):
     x, y, z = axes
@@ -112,46 +89,20 @@ class MarsHelio:
 
 # --- Sources ------------------------------------------------------------------
 
-def read_gmat_report(path):
+def reconstructed_rows():
+    """tianwen1_reconstruct.py's 2021 path (already ICRF, TDB), one row a minute."""
     rows = []
-    for line in open(path):
-        f = line.split()
-        if len(f) < 7:
+    for line in open(RECONSTRUCTED):
+        if line.startswith('#'):
             continue
-        mjd = float(f[0])
-        t = (mjd + GMAT_MJD_OFFSET - hb.J2000_JD) * 86400.0 + TDB_MINUS_UTC
-        rows.append((t, tuple(float(c) for c in f[1:4]), tuple(float(c) for c in f[4:7])))
-    rows.sort(key=lambda r: r[0])
-    # Consecutive propagation commands repeat their boundary sample.
-    return [r for i, r in enumerate(rows) if i == 0 or r[0] - rows[i - 1][0] > 1e-3]
-
-
-def window(folder, pre_name, post_name, orbit_dir):
-    """Pre-burn arc up to the burn, post-burn arc from it (ICRF). The burn: the time of
-    closest approach of the two arcs where both exist."""
-    axes = body_inertial_axes(*POLE_RA_DEC_IAU2000)
-    pre = read_gmat_report(os.path.join(orbit_dir, folder, pre_name))
-    post = read_gmat_report(os.path.join(orbit_dir, folder, post_name))
-    t_lo, t_hi = max(pre[0][0], post[0][0]), min(pre[-1][0], post[-1][0])
-    post_table = hb.Table(post)
-    best = None
-    for t, p, _ in pre:
-        if t_lo <= t <= t_hi:
-            d = hb.dist(p, hb.eval_eph(post_table, t))
-            if best is None or d < best[0]:
-                best = (d, t)
-    if best is None:  # no overlap (the deorbit arcs): join where one ends
-        t_burn = pre[-1][0]
-        print(f'  {folder}: arcs do not overlap; joined at {hb.calendar(t_burn)}')
-    else:
-        t_burn = best[1]
-        print(f'  {folder}: burn at {hb.calendar(t_burn)} (arcs {best[0]:.2f} km apart there)')
-    rows = [r for r in pre if r[0] < t_burn] + [r for r in post if r[0] >= t_burn]
-    return [(t, combine(axes, p), combine(axes, v)) for t, p, v in rows]
+        f = [float(c) for c in line.split()]
+        rows.append((f[0], tuple(f[1:4]), tuple(f[4:7])))
+    print(f'2021 reconstruction: {len(rows)} rows, {hb.calendar(rows[0][0])} .. {hb.calendar(rows[-1][0])}')
+    return rows
 
 
 def momag_rows():
-    files = sorted(glob.glob(os.path.join(HERE, 'cache', '*.txt')))
+    files = sorted(glob.glob(os.path.join(HERE, 'cache', '[0-9]' * 8 + '.txt')))   # one a day
     raw = []
     for path in files:
         for line in open(path, encoding='ascii'):
@@ -216,12 +167,8 @@ def decimate_capped(rows, tol_km, interp, max_span_s):
 
 
 def main():
-    orbit_dir = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, 'cache', 'estevez_orbit')
     interp = hb.make_interp(GM_MARS)
-    rows = []
-    print('Estevez windows:')
-    for w in WINDOWS:
-        rows.extend(window(*w, orbit_dir))
+    rows = reconstructed_rows()
     momag = momag_rows()
     rows.extend(momag[::DECIMATE_EVERY] if DECIMATE_EVERY > 1 else momag)
     rows.sort(key=lambda r: r[0])

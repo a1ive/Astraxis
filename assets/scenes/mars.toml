@@ -2,7 +2,8 @@
 # Mars Reconnaissance Orbiter (2006-), MAVEN (2014-2025), India's Mars Orbiter Mission
 # (2014-2022), ESA's Trace Gas Orbiter (2016-), Hope (2021-) and China's Tianwen-1
 # (2021-), and comet Siding Spring's pass of Mars on 2014-10-19. The gravity-assist flybys of
-# Europa Clipper and Hera (2025), bound for Jupiter and the asteroid Didymos.
+# Europa Clipper and Hera (2025), bound for Jupiter and the asteroid Didymos. The interstellar
+# comet 3I/ATLAS, which Tianwen-1 photographed as it passed Mars in October 2025.
 #
 # Sources
 # [HZN]  JPL Horizons state vectors relative to Mars' center, baked by
@@ -39,6 +40,9 @@
 #        - Comet C/2013 A1 (Siding Spring): JPL solution c2013a1_s105_merged (Horizons
 #          1003228), 2014-08-01 .. 2014-12-31, relative to Mars (the [APX] Mars would
 #          misplace a heliocentric comet by thousands of km).
+#        - 3I/ATLAS (C/2025 N1): JPL solution 54 (Horizons 90004937, non-gravitational
+#          accelerations for CO2), 2025-05-15 .. 2025-12-31, relative to Mars. Closest
+#          2025-10-03 04:38 TDB, 28.97 million km (0.1937 au), 86.1 km/s.
 #        Horizons notes: Mars Express "Inclination: 86.3 deg, pericentre = 258 km, Period:
 #        6h 43m, apocentre = 11 560 km"; MAVEN "took 5 weeks" from capture to its science
 #        orbit, "150 x 6200 km having a 75 degree inclination"; MRO "aerobraked for 6 months
@@ -55,9 +59,12 @@
 #        inclination 150 degrees" (the plan), 6-8 months of planned work, contact lost in
 #        April 2022 "7.5 years into a 6 month mission", formally ended 2022-10-02.
 # [TW1]  Tianwen-1, tools/tianwen1/ (assets/ephem/SOURCES.md), Mars-centered:
-#        - 2021-02 .. 2021-11, windows around five maneuvers: D. Estevez's GMAT propagations
-#          of the state vectors in the orbiter's telemetry (decoded by amateur stations such
-#          as AMSAT-DL's 20 m dish at Bochum; github.com/daniestevez/jupyter_notebooks).
+#        - 2021-02-08 .. 2021-11-16: the state vectors in the orbiter's telemetry (decoded by
+#          D. Estevez from amateur stations such as AMSAT-DL's 20 m dish at Bochum;
+#          github.com/daniestevez/jupyter_notebooks), propagated and joined at the
+#          maneuvers: orbit insertion as Estevez modeled it; the burns into the parking
+#          orbit (02-23) and the relay orbit (05-17), which no vectors bracket closely,
+#          fitted to the next vectors (02-21 .. 05-14 and 05-14 .. 06-03 have none).
 #        - 2021-11-16 .. 2025-12-17: the orbiter's positions in the calibrated data of its
 #          magnetometer, MOMAG (USTC, http://space.ustc.edu.cn/dreams/tw1_momag/; Wang et
 #          al. 2023, Earth Planet. Phys. 7, 1; Zou et al. 2023, Sci. China Tech. Sci. 66,
@@ -76,7 +83,23 @@
 # [SBDB] JPL Small-Body Database, C/2013 A1 total magnitude M1 = 8.5 (+-2), K1 = 9 (solution
 #        105; M1 + 5 log delta + K1 log r). The coma color and ion tail are illustrative
 #        (its gas tail is not measured here), as are the dust tail's grain speeds and sizes
-#        (src/scene/comet.hpp defaults).
+#        (src/scene/comet.hpp defaults). 3I/ATLAS: M1 = 12.5 (+-0.9), K1 = 4.5 (solution 54,
+#        a fit to 733 observations); it was 3 magnitudes brighter than that from Mars [REN],
+#        whose photometry gives M1 here.
+# [REN]  X. Ren, W. Yan, R. Zhao et al., "Interstellar Object 3I/ATLAS Observed from Mars by
+#        China's Tianwen-1 Spacecraft", ApJ Letters (accepted 2026-04-21), arXiv:2603.10350v3:
+#        discovered 2025-07-01; eccentricity 6.14, inclination 175 deg, so that it stays close
+#        to the ecliptic and every view from the Earth or near it is close to its orbital
+#        plane; closest to Mars 2025-10-03 04:38 UT at 0.194 au (~30 million km), ~86 km/s
+#        relative velocity; solar conjunction (from the Earth) around 10-21, perihelion 1.36
+#        au on 10-30. Tianwen-1 imaged it with the CMOS camera of its High-Resolution Imaging
+#        Camera (HiRIC): 3 epochs from 09-30 to 10-03 (Table 1: 09-30 16:00, 10-01 16:00 and
+#        10-03 05:47 UTC), 19 exposures of 1.34 s in 30 s each; China's first deep-space
+#        observation of an astronomical object, and the first images of 3I from well out of
+#        its orbital plane (36-44 deg south). The coma is dominated by large grains (beta
+#        ~1e-3 to 1e-2, a few 100 um), sunward ejection at 3-10 m/s; Finson-Probstein
+#        synchrones from 300 to 50 days before; dust mass loss ~10^3 kg/s. Nucleus radius
+#        1.3 +- 0.2 km (Hui et al. 2026, as quoted there).
 # [APX]  E. M. Standish, Approximate Positions of the Planets, Table 2a (Mars).
 # [ELEM] JPL SSD, Planetary Satellite Mean Elements (https://ssd.jpl.nasa.gov/sats/elem/),
 #        MAR099, epoch 2000-01-01.5 TDB; how the periods are derived: solar_system.toml.
@@ -448,6 +471,29 @@ solar_wind_km_s = 400.0
 type = "ephemeris"
 file = "ephem/siding_spring_mars.eph"
 
+# The interstellar comet 3I/ATLAS, also a child of Mars. Shown 2025-05-15 .. 2025-12-31.
+[[bodies]]
+name = "3I/ATLAS"
+parent = "Mars"
+radii_km = [1.3]                           # [REN], quoting Hui et al. 2026: 1.3 +- 0.2 km
+color = "#e8e0d0"
+orbit_color = "#d8b98c"
+trail = "history"
+trail_history_days = 10.0
+[bodies.comet]
+magnitude_m1_k1 = [9.1, 4.5]               # M1 from [REN] Table 1 (2025-10-01: G = 6.7 +- 0.1 at
+                                           # r 1.694, delta 0.208 au), the slope K1 [SBDB]
+ion_tail_diameter_km = 5.0e4               # illustrative
+ion_tail_length_km = 5.0e6                 # illustrative, used as the e-folding length
+solar_wind_km_s = 400.0
+dust_beta_range = [1.0e-3, 1.0e-2]         # [REN]: large grains, a few 100 um
+dust_speed_km_s = 0.13                     # 3.2-10 m/s for those betas at 1.7 au ([REN]: 3-10 m/s)
+dust_tail_days = 150.0                     # [REN]: dust from 300 to 50 days before
+coma_color = "#e6dccb"                     # illustrative: [REN] sees a dust coma in white light
+[bodies.orbit]                             # [HZN] C/2025 N1, relative to Mars
+type = "ephemeris"
+file = "ephem/atlas3i_mars.eph"
+
 # Turning with Mars, the moons move as they do across its sky: Phobos eastward (it goes
 # round faster than Mars turns, so it rises in the west), Deimos slowly westward.
 [[frames]]
@@ -665,10 +711,28 @@ caption = """\
     planet, to build a picture of how the Martian atmosphere changes through the day \
     and the year."""
 
-# Tianwen-1 in 2021 [TW1]: windows of a few hours around maneuvers, burns where the pre- and
-# post-burn arcs cross: plane change 2021-02-15 09:02 TDB (inclination 11 -> 87 deg about
-# the IAU 2000 pole), apoapsis lowering 2021-02-20 11:45, deorbit 2021-05-14 17:18 (periapsis
-# 36 km below the mean radius) and collision avoidance 20:56 (back to 433 km).
+# Tianwen-1 in 2021 [TW1]: the telemetry vectors propagated (tools/tianwen1/
+# tianwen1_reconstruct.py). Orbit insertion 2021-02-10 11:54:04 .. 12:08:52 TDB (Estevez's
+# burn model: 888 s, 668 m/s), then 404 x 184,500 km, 11.0 deg (about the IAU 2000 pole);
+# plane change 2021-02-15 09:02 TDB (128 m/s, to 87.3 deg); apoapsis lowering 2021-02-20
+# 11:45 (53 m/s); parking orbit 2021-02-23 22:33 (41 m/s, Estevez's prediction); deorbit
+# 2021-05-14 17:18 (periapsis 29 km below the mean radius) and collision avoidance 20:56
+# (back to 440 km); relay orbit 2021-05-17 00:30 (348 m/s, to the energy of the 06-03 orbit).
+[[events]]
+name = "Tianwen-1 arrives (2021-02-10)"
+time_tdb = "2021-02-10 10:30"
+focus = "Mars"
+flyby = "Tianwen-1"
+distance_km = 4.0e4
+warp = 300.0
+# [AMSAT], [TW1]
+caption = """\
+    China's first Mars mission arrives, orbiter, lander and the rover Zhurong still one \
+    spacecraft. Near its closest pass the 3 kN engine fires for nearly 15 minutes, and \
+    Mars captures it into a long orbit reaching out to 182,000 km, tilted only 11 degrees \
+    to the equator. Radio amateurs follow it in the spacecraft's own telemetry, which \
+    carries its position."""
+
 [[events]]
 name = "Tianwen-1 turns over the poles (2021-02-15)"
 time_tdb = "2021-02-15 07:00"
@@ -677,10 +741,10 @@ distance_km = 1.5e4
 warp = 300.0
 # [AMSAT], [TW1]
 caption = """\
-    China's first Mars mission arrived five days ago, captured into an orbit reaching \
-    182,000 km and tilted only 11 degrees to the equator. Out at its far end, a burn of \
-    128 m/s now turns the orbit over the poles. Radio amateurs worked out these orbits \
-    from the spacecraft's own telemetry, which carries its position."""
+    Five days after arriving, out at the far end of its orbit, Tianwen-1 fires its \
+    engine for 128 m/s and turns the orbit from 11 degrees to the equator to 87, over \
+    the poles. Far out the spacecraft moves slowly, so a turn here costs little; from a \
+    polar orbit the whole planet passes beneath it, the landing site too."""
 [[events.trails]]
 body = "Tianwen-1"
 trail_history_days = 0.5
@@ -693,10 +757,26 @@ distance_km = 3.0e4
 warp = 120.0
 # [AMSAT], [TW1]
 caption = """\
-    At its closest pass Tianwen-1 lowers the far end of its orbit to 84,600 km, timing \
-    its passes over the planned landing site. Three days later another burn sets an \
-    orbit of exactly two Mars days, so that every low pass goes over the same spot. The \
-    landing will come nearly three months later."""
+    At its closest pass Tianwen-1 brings the far end of its orbit in from 189,000 to \
+    84,600 km. The new orbit is timed so that three days from now its low pass will come \
+    over the planned landing site."""
+
+[[events]]
+name = "Tianwen-1 waits over the landing site (2021-02-24)"
+time_tdb = "2021-02-23 21:50"
+focus = "Mars"
+from_orbit_normal = "Tianwen-1"           # its polar orbit face-on
+distance_km = 6.0e4
+warp = 120.0
+# [AMSAT], [TW1]
+caption = """\
+    Over the landing site, Tianwen-1 trims its orbit to exactly two Mars days, 49 hours \
+    and 15 minutes, so that every low pass comes back over the same spot as Mars turns \
+    beneath it. It will wait here for almost three months, at least four small burns \
+    keeping it on time, before letting the lander go."""
+[[events.trails]]
+body = "Tianwen-1"
+trail_history_days = 2.1
 
 [[events]]
 name = "Zhurong is released (2021-05-14)"
@@ -710,8 +790,24 @@ warp = 240.0
 caption = """\
     A small burn puts the whole spacecraft on a path that would hit Mars, and the lander \
     with the rover Zhurong is let go. Then the orbiter fires again, 61 m/s, to climb \
-    back to a safe orbit. Three days later it moves to an eight-hour orbit, to relay the \
-    rover's radio signals home."""
+    back to its two-day orbit, while the lander falls on toward the surface."""
+
+[[events]]
+name = "Tianwen-1 becomes a relay (2021-05-17)"
+time_tdb = "2021-05-16 23:50"
+focus = "Mars"
+from_orbit_normal = "Tianwen-1"           # its polar orbit face-on
+distance_km = 6.0e4
+warp = 120.0
+# [AMSAT], [TW1]
+caption = """\
+    Three days after letting the lander go, the orbiter brakes hard at its closest pass, \
+    some 350 m/s, and shrinks its orbit to a third of a Mars day, 8 hours 12 \
+    minutes. The orbit repeats over the rover every day, to pick up its radio signals \
+    and relay them to the Earth."""
+[[events.trails]]
+body = "Tianwen-1"
+trail_history_days = 2.1
 
 # Remote sensing orbit: burn 2021-11-08 11:31 TDB, 8.28 h -> 7.08 h; from 2021-11-16 the
 # MOMAG positions: 270 x 10,730 km on 2021-11-20 [TW1].
@@ -809,6 +905,44 @@ caption = """\
     Mars turns in 24 h 37 min, so it rises in the west and sets in the east, crossing the \
     sky in about four hours, twice a day. Deimos, at 30 h 18 min, lags just behind the \
     turning planet: it creeps from east to west and stays up for two and a half days."""
+
+# [REN] Table 1, second epoch: 2025-10-01 16:00 UTC, 0.208 au from Tianwen-1.
+[[events]]
+name = "Tianwen-1 photographs 3I/ATLAS (2025-10-01)"
+time_tdb = "2025-10-01 15:50"
+focus = "3I/ATLAS"
+from_body = "Mars"                         # as Tianwen-1 saw it
+distance_km = 5.0e5                         # outside the coma (closer in it is drawn dimmed)
+warp = 60.0
+# [REN]
+caption = """\
+    From Mars, 31 million km away, Tianwen-1 turns the small camera of its \
+    high-resolution imager, built for a surface ten thousand times brighter, on the \
+    comet. It sees 3I from 40 degrees out of the plane of its orbit, as no telescope \
+    near the Earth can: a fan of dust grains a few tenths of a millimeter across, puffed \
+    toward the Sun at a few meters per second and only slowly blown back."""
+
+# 3I/ATLAS closest to Mars 2025-10-03 04:38 TDB, 28.97 million km [HZN]. Seen from the side of
+# the Sun line (from_body = "Sun": the scene has no Sun body, the sun's direction is used),
+# with its path across the view and the tail pointing away from the Sun.
+[[events]]
+name = "Interstellar comet 3I/ATLAS passes Mars (2025-10-03)"
+time_tdb = "2025-10-02 06:00"
+focus = "Mars"
+from_body = "Sun"
+phase_deg = 90.0
+distance_km = 7.0e7
+warp = 3600.0
+# [REN], [HZN]
+caption = """\
+    Only the third object known to come from another star, 3I/ATLAS was found in July \
+    2025. Its path is a hyperbola so open that it barely bends; it runs backward around \
+    the Sun, close to the plane of the planets, and passes 29 million km from Mars at 86 \
+    km/s. Seen from the Earth it is heading into the Sun's glare; from Mars it is in \
+    the night sky, far from the Sun."""
+[[events.trails]]
+body = "3I/ATLAS"
+trail_history_days = 30.0
 
 [[events]]
 name = "MAVEN falls silent (2025-12)"

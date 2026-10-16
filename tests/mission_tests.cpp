@@ -877,6 +877,13 @@ void test_mars_scene()
         const State s = scene.icrf_state_at(tw1, t);
         return std::acos(glm::dot(glm::normalize(glm::cross(s.position, s.velocity)), pole)) / kDegToRad;
     };
+    // The capture orbit ([AMSAT]: 390 x 182,000 km, 11 deg).
+    osculating_elements(scene.icrf_state_at(tw1, utc({2021, 2, 12, 0, 0, 0})), gm, &el);
+    check(std::abs(el.periapsis_km - r_mean - 390.0) < 30.0 && std::abs(el.apoapsis_km - r_mean - 182000.0) < 3000.0,
+          "Tianwen-1 capture orbit (apoapsis altitude, km)", el.apoapsis_km - r_mean);
+    check(std::abs(tw1_incl(utc({2021, 2, 12, 0, 0, 0})) - 11.0) < 2.0, "Tianwen-1 capture orbit (deg)",
+          tw1_incl(utc({2021, 2, 12, 0, 0, 0})));
+    std::printf("info: Tianwen-1 capture orbit: %.0f x %.0f km\n", el.periapsis_km - r_mean, el.apoapsis_km - r_mean);
     const double i_before = tw1_incl(utc({2021, 2, 15, 0, 0, 0}));
     const double i_after = tw1_incl(utc({2021, 2, 15, 10, 0, 0}));
     check(std::abs(i_before - 11.0) < 2.0 && std::abs(i_after - 87.0) < 1.5, "Tianwen-1 plane change (deg)", i_after);
@@ -885,25 +892,63 @@ void test_mars_scene()
           "Tianwen-1 after the phasing burn (apoapsis altitude, km)", el.apoapsis_km - r_mean);
     osculating_elements(scene.icrf_state_at(tw1, utc({2021, 5, 14, 16, 0, 0})), gm, &el);
     check(std::abs(el.period_s / 3600.0 - 49.25) < 0.1, "Tianwen-1 2-sol orbit (h)", el.period_s / 3600.0);
+    // ... and in between (the 02-23 burn as Estevez predicted it, and the 05-14 vector's arc).
+    for (const CalendarDateTime& when : {CalendarDateTime{2021, 3, 1, 0, 0, 0}, CalendarDateTime{2021, 4, 20, 0, 0, 0}}) {
+        osculating_elements(scene.icrf_state_at(tw1, utc(when)), gm, &el);
+        check(std::abs(el.period_s / 3600.0 - 49.25) < 1.5, "Tianwen-1 in the 2-sol parking orbit (h)",
+              el.period_s / 3600.0);
+    }
     osculating_elements(scene.icrf_state_at(tw1, utc({2021, 5, 14, 19, 0, 0})), gm, &el);
     check(el.periapsis_km < r_mean, "Tianwen-1 deorbited with the lander (periapsis below the surface, km)",
           el.periapsis_km - r_mean);
     osculating_elements(scene.icrf_state_at(tw1, utc({2021, 5, 14, 21, 30, 0})), gm, &el);
     check(el.periapsis_km - r_mean > 300.0, "Tianwen-1 back in a safe orbit (km)", el.periapsis_km - r_mean);
+    // The relay orbit from 2021-05-17 ([AMSAT]: 1/3 Mars sidereal day, 8.21 h).
+    for (const CalendarDateTime& when : {CalendarDateTime{2021, 5, 25, 0, 0, 0}, CalendarDateTime{2021, 8, 1, 0, 0, 0}}) {
+        osculating_elements(scene.icrf_state_at(tw1, utc(when)), gm, &el);
+        check(std::abs(el.period_s / 3600.0 - 8.21) < 0.15, "Tianwen-1 relay orbit (h)", el.period_s / 3600.0);
+    }
     // The remote-sensing orbit (CNSA via Space.com, 2021-11: 265 x ~10,700 km, 7 h 05 min)
     // in the MOMAG positions.
     osculating_elements(scene.icrf_state_at(tw1, utc({2021, 11, 20, 0, 0, 0})), gm, &el);
     check(std::abs(el.period_s / 3600.0 - 7.083) < 0.05 && std::abs(el.apoapsis_km - r_mean - 10700.0) < 150.0,
           "Tianwen-1 remote-sensing orbit (h)", el.period_s / 3600.0);
-    // Shown only where there are data: not between the 2021 windows, nor in the MOMAG gap
-    // of 2022-11 .. 2023-04.
-    for (const auto& [when, shown] : {std::pair{CalendarDateTime{2021, 3, 15, 0, 0, 0}, false},
+    // Shown only where there are data: from the approach (2021-02-08) on, but not in the
+    // MOMAG gap of 2022-11 .. 2023-04.
+    for (const auto& [when, shown] : {std::pair{CalendarDateTime{2021, 2, 8, 0, 0, 0}, false},
+                                      std::pair{CalendarDateTime{2021, 3, 15, 0, 0, 0}, true},
+                                      std::pair{CalendarDateTime{2021, 9, 1, 0, 0, 0}, true},
                                       std::pair{CalendarDateTime{2023, 1, 15, 0, 0, 0}, false},
                                       std::pair{CalendarDateTime{2024, 6, 1, 0, 0, 0}, true}}) {
         scene.update(utc(when));
         check(scene.bodies[static_cast<size_t>(tw1)].visible == shown, "Tianwen-1 shown only where there are data",
               static_cast<double>(when.year));
     }
+
+    // 3I/ATLAS ([REN], Ren et al. 2026): closest to Mars 2025-10-03 04:38 UT at 0.194 au,
+    // ~86 km/s; 0.208 au from Tianwen-1 at the second imaging epoch, 2025-10-01 16:00 UTC
+    // (Table 1).
+    const int atlas = scene.find("3I/ATLAS");
+    check(atlas > 0, "mars.toml has 3I/ATLAS");
+    double t_atlas = 0.0;
+    double d_atlas = 1e300;
+    for (double t = utc({2025, 10, 3, 3, 0, 0}); t < utc({2025, 10, 3, 6, 0, 0}); t += 10.0) {
+        const double d = glm::length(at(atlas, t));
+        if (d < d_atlas) {
+            d_atlas = d;
+            t_atlas = t;
+        }
+    }
+    const double v_atlas = glm::length(scene.icrf_state_at(atlas, t_atlas).velocity);
+    check(std::abs(t_atlas - utc({2025, 10, 3, 4, 38, 0})) < 120.0, "3I/ATLAS closest to Mars (s from 04:38 UT)",
+          t_atlas - utc({2025, 10, 3, 4, 38, 0}));
+    check(std::abs(d_atlas / kAuKm - 0.194) < 0.001 && std::abs(v_atlas - 86.0) < 1.0,
+          "3I/ATLAS distance from Mars (au)", d_atlas / kAuKm);
+    const double t_epoch2 = utc({2025, 10, 1, 16, 0, 0});
+    const double atlas_tw1 = glm::length(at(atlas, t_epoch2) - at(tw1, t_epoch2)) / kAuKm;
+    check(std::abs(atlas_tw1 - 0.208) < 0.001, "3I/ATLAS seen from Tianwen-1 (au)", atlas_tw1);
+    std::printf("info: 3I/ATLAS: %.4f au from Mars, %.2f km/s; %.4f au from Tianwen-1 on 2025-10-01\n",
+                d_atlas / kAuKm, v_atlas, atlas_tw1);
 
     // Gravity-assist flybys of 2025, against the published closest approaches (UTC; heights
     // above Mars' mean radius, 3389.5 km [SPHY]). Europa Clipper ([ECM]): 2025-03-01 17:57,

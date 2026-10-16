@@ -265,9 +265,10 @@ CameraShot Simulation::event_shot(size_t index, const Flyby& flyby) const
     shot.pitch = 0.3;
     if (e.from_orbit_normal >= 0) {
         m_camera.angles_for_direction(m_scene.orbit_normal(e.from_orbit_normal), &shot.yaw, &shot.pitch);
-    } else if (e.from_body >= 0) {
-        const glm::dvec3 to_body = m_scene.bodies[static_cast<size_t>(e.from_body)].world_position -
-                                   m_scene.bodies[static_cast<size_t>(e.focus)].world_position;
+    } else if (e.from_body >= 0 || e.from_sun) {
+        const glm::dvec3 from = e.from_sun ? m_scene.sun_position()
+                                           : m_scene.bodies[static_cast<size_t>(e.from_body)].world_position;
+        const glm::dvec3 to_body = from - m_scene.bodies[static_cast<size_t>(e.focus)].world_position;
         m_camera.angles_for_direction(to_body, &shot.yaw, &shot.pitch);
         shot.yaw += e.phase_deg * kDegToRad;
     } else if (flyby.body >= 0 && flyby.normal_icrf != glm::dvec3(0.0)) {
@@ -438,7 +439,7 @@ void Simulation::aim_at_tour_event(double duration)
     const SceneEvent& e = m_scene.events[static_cast<size_t>(m_tour_event)];
     const CameraShot shot = event_shot(static_cast<size_t>(m_tour_event), m_event_flyby);
     double drift = (m_tour_event % 2 == 0 ? 1.0 : -1.0) * kEventDrift;
-    if (e.from_orbit_normal >= 0 || (e.from_body < 0 && m_event_flyby.body >= 0)) {
+    if (e.from_orbit_normal >= 0 || (e.from_body < 0 && !e.from_sun && m_event_flyby.body >= 0)) {
         drift = 0.0; // drift turns about the up axis, away from face-on
     }
     m_camera.set_drift(drift);

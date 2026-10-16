@@ -1177,7 +1177,12 @@ void Loader::parse(const toml::table& root, Scene& out)
                 }
             }
             if (t->contains("from_body")) {
-                e.from_body = body_ref(out, *t, "from_body", ctx, false);
+                // A scene centered on a planet has no Sun body; its direction is known all the same.
+                if (get_string(*t, "from_body", ctx) == "Sun" && out.find("Sun") < 0) {
+                    e.from_sun = true;
+                } else {
+                    e.from_body = body_ref(out, *t, "from_body", ctx, false);
+                }
                 if (e.focus < 0 || e.from_body == e.focus || e.from_orbit_normal >= 0) {
                     fail(ctx, "from_body needs a focus (other than itself) and no from_orbit_normal");
                 }
@@ -1189,7 +1194,7 @@ void Loader::parse(const toml::table& root, Scene& out)
                 }
             }
             e.phase_deg = get_double_or(*t, "phase_deg", 0.0);
-            if (e.phase_deg != 0.0 && e.from_body < 0) {
+            if (e.phase_deg != 0.0 && e.from_body < 0 && !e.from_sun) {
                 fail(ctx, "phase_deg needs from_body");
             }
             e.caption = get_string_or(*t, "caption", "");

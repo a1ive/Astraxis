@@ -445,6 +445,8 @@ struct SceneEvent {
     int frame = -1;             // -1 = keep
     int from_orbit_normal = -1; // >= 0: view along this body's orbit normal (face-on orbit)
     int from_body = -1;         // >= 0: view from this body's direction (e.g. the Sun: as seen from Earth)
+    bool from_sun = false;      // view from the sun's direction in a scene without a Sun body
+                                // (centered on a planet; from_body = "Sun" in the file)
     double phase_deg = 0.0;     // with from_body: turned this far around the up axis (180 = from behind)
     int flyby = -1;             // >= 0: the body whose pass of the focus the event shows (-1: looked for)
     std::string caption;        // a museum-style note on why the view is worth seeing; may be empty
