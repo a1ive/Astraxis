@@ -960,6 +960,20 @@ stop = "2019-09-30"
 base_step_minutes = 1440
 tolerance_km = 50.0
 
+# 2I/Borisov (C/2019 Q4, SPK 1003639), heliocentric: JPL#54 (Horizons record 90004570),
+# data arc 2019-02-24 .. 2020-09-30 with non-gravitational accelerations. About two years
+# either side of perihelion (2019-12-08), Hermite as for 3I/ATLAS.
+[[target]]
+name = "borisov"
+command = "DES=2I;"
+naif_id = 1003639
+center = "500@10"
+center_naif_id = 10
+start = "2017-12-01"
+stop = "2021-12-31"
+base_step_minutes = 1440
+tolerance_km = 50.0
+
 # New Horizons comes last: its refinement needs the Pluto and Arrokoth tables.
 [[target]]
 name = "new_horizons"

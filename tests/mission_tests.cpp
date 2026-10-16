@@ -187,12 +187,13 @@ void test_solar_system_interstellar()
     check(std::abs(p1.q_km / kAuKm - 0.254) < 0.003 && std::abs(p1.e - 1.197) < 0.003 &&
               std::abs(p1.incl_deg - 122.6) < 0.2,
           "1I/'Oumuamua against the early orbit of Jewitt et al. 2017");
-    // Closest to the Earth: Horizons observer table, 2017-10-14 ~17:50 UT, 0.16174 au.
+    // Closest to the Earth: Horizons geocentric vectors without light-time correction,
+    // hourly, 2017-10-14 ~18:00 UT, 0.161754 au.
     const auto [d_earth, t_earth] = scan_min(utc({2017, 10, 13, 0, 0, 0}), utc({2017, 10, 16, 0, 0, 0}), 60.0,
                                              [&](double t) { return glm::length(at("1I/'Oumuamua", t) - at("Earth", t)); });
-    check(std::abs(d_earth / kAuKm - 0.16174) < 0.0001, "1I/'Oumuamua closest to the Earth (au)", d_earth / kAuKm);
-    check(std::abs(t_earth - utc({2017, 10, 14, 17, 50, 0})) < 3.0 * 3600.0,
-          "1I/'Oumuamua closest to the Earth (h from 17:50 UT)", (t_earth - utc({2017, 10, 14, 17, 50, 0})) / 3600.0);
+    check(std::abs(d_earth / kAuKm - 0.161754) < 0.00001, "1I/'Oumuamua closest to the Earth (au)", d_earth / kAuKm);
+    check(std::abs(t_earth - utc({2017, 10, 14, 18, 0, 0})) < 3.0 * 3600.0,
+          "1I/'Oumuamua closest to the Earth (h from 18:00 UT)", (t_earth - utc({2017, 10, 14, 18, 0, 0})) / 3600.0);
     // The tumbling disc ([MSH]): its normal keeps 46.5 deg from the angular momentum and
     // circles it every 10.81 h, so it is back after one period and 93 deg away after half.
     const Body& disc = scene.bodies[static_cast<size_t>(oumuamua)];
@@ -212,6 +213,31 @@ void test_solar_system_interstellar()
                 p1.q_km / kAuKm, p1.e, p1.incl_deg, p1.v_km_s, p1.v_inf_km_s, d_earth / kAuKm);
     shown_only_in(oumuamua, "1I/'Oumuamua shown only where the table is (2015-09-01 .. 2019-09-30)",
                   {{"2015-08-01", false}, {"2015-10-01", true}, {"2019-09-01", true}, {"2019-11-01", false}});
+
+    // 2I/Borisov. Horizons JPL#54 osculating elements at 2019-12-08 00:00 TDB: QR =
+    // 300,171,607 km, Tp = JD 2458826.05364 TDB (13:17), e 3.356479, i 44.0526 deg; 32.3 km/s
+    // from afar ([GUZ]: ~32 km/s from the first orbit) and 43.9 km/s at perihelion.
+    const int borisov = scene.find("2I/Borisov");
+    check(borisov > 0, "solar_system.toml has 2I/Borisov");
+    const Perihelion p2 = find_perihelion(scene, borisov, utc({2019, 12, 5, 0, 0, 0}), utc({2019, 12, 12, 0, 0, 0}));
+    check(std::abs(p2.q_km - 300171607.0) < 100.0, "2I/Borisov perihelion distance (km)", p2.q_km);
+    check(std::abs(p2.t - tdb_from_jd_tdb(2458826.05364)) < 0.01 * kSecondsPerDay, "2I/Borisov perihelion time (d)",
+          (p2.t - tdb_from_jd_tdb(2458826.05364)) / kSecondsPerDay);
+    check(std::abs(p2.e - 3.356479) < 0.0005 && std::abs(p2.incl_deg - 44.0526) < 0.01,
+          "2I/Borisov eccentricity and inclination", p2.incl_deg);
+    check(std::abs(p2.v_km_s - 43.9) < 0.1 && std::abs(p2.v_inf_km_s - 32.3) < 0.1, "2I/Borisov speeds (km/s)",
+          p2.v_km_s);
+    // Closest to the Earth: Horizons geocentric vectors without light-time correction,
+    // hourly, 2019-12-28 ~04:00 UT, 1.936902 au.
+    const auto [d_earth2, t_earth2] = scan_min(utc({2019, 12, 25, 0, 0, 0}), utc({2019, 12, 31, 0, 0, 0}), 600.0,
+                                               [&](double t) { return glm::length(at("2I/Borisov", t) - at("Earth", t)); });
+    check(std::abs(d_earth2 / kAuKm - 1.936902) < 0.00001, "2I/Borisov closest to the Earth (au)", d_earth2 / kAuKm);
+    check(std::abs(t_earth2 - utc({2019, 12, 28, 4, 0, 0})) < 6.0 * 3600.0,
+          "2I/Borisov closest to the Earth (h from 04:00 UT)", (t_earth2 - utc({2019, 12, 28, 4, 0, 0})) / 3600.0);
+    std::printf("info: 2I/Borisov: perihelion %.6f au, e %.6f, i %.3f deg, %.2f / %.2f km/s; Earth %.5f au\n",
+                p2.q_km / kAuKm, p2.e, p2.incl_deg, p2.v_km_s, p2.v_inf_km_s, d_earth2 / kAuKm);
+    shown_only_in(borisov, "2I/Borisov shown only where the table is (2017-12-01 .. 2021-12-31)",
+                  {{"2017-11-01", false}, {"2018-01-01", true}, {"2021-12-01", true}, {"2022-02-01", false}});
 
     // 3I/ATLAS. Horizons JPL#54 osculating elements at 2025-10-29 00:00 TDB: QR =
     // 202,921,707 km (1.356448 au), Tp = JD 2460977.98225 TDB (11:34). (The elements at the

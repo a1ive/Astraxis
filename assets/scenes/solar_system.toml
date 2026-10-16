@@ -1,7 +1,7 @@
 # The Solar System: the Sun, the planets, the major moons, the dwarf planets and the
 # largest asteroids (radius > 400 km, plus Phobos, Deimos, Vesta, Pallas, Enceladus,
-# Mimas and Miranda, and Arrokoth), the interstellar objects 1I/'Oumuamua and 3I/ATLAS,
-# and the Pioneer, Voyager and New Horizons probes, 1972 onward.
+# Mimas and Miranda, and Arrokoth), the interstellar objects 1I/'Oumuamua, 2I/Borisov and
+# 3I/ATLAS, and the Pioneer, Voyager and New Horizons probes, 1972 onward.
 #
 # Sources
 # [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py (tools/bake/ephem.toml):
@@ -30,6 +30,9 @@
 #          2018-01-02, "predictions outside this time interval, especially prior to October
 #          2017, could be much more uncertain" (Horizons notes). 2015-09-01 .. 2019-09-30
 #          (Hermite); shown only there.
+#        - 2I/Borisov (C/2019 Q4): JPL#54, data arc 2019-02-24 .. 2020-09-30 (with the
+#          pre-discovery images of [YE]), non-gravitational accelerations;
+#          2017-12-01 .. 2021-12-31 (Hermite); shown only there.
 # [APX]  E. M. Standish, Approximate Positions of the Planets, Table 2a (+2b), used for
 #        Mercury, Venus and Mars, and outside the baked span for the others.
 # [ELEM] JPL SSD, Planetary Satellite Mean Elements (https://ssd.jpl.nasa.gov/sats/elem/),
@@ -235,8 +238,40 @@
 #          paper does not say), i.e. RA 91.872, Dec -17.016 deg; model start MJD 58053.31317.
 #        1I/'Oumuamua from [HZN] (JPL#16, osculating at perihelion: q = 38,304,506 km,
 #          a = -192,069,272 km, 2017-09-09 11:53 TDB): 26.3 km/s from afar, 87.3 km/s at
-#          perihelion; closest to the Earth on 2017-10-14 at 0.1617 au (Horizons observer
-#          table, hourly).
+#          perihelion; closest to the Earth on 2017-10-14 at 0.1618 au (Horizons geocentric
+#          vectors, hourly).
+#        [GUZ] P. Guzik, M. Drahus, K. Rusek et al. 2020, Nature Astronomy 4, 53
+#          (arXiv:1909.05851): discovered by Gennady Borisov on 30 August 2019 UT; a coma
+#          and a faint, broad tail; slightly red; "2I/Borisov appears indistinguishable from
+#          the native Solar System comets".
+#        [YE] Q. Ye, M. S. Kelley, B. T. Bolin et al. 2020, AJ 159, 77 (arXiv:1911.05902):
+#          found in images back to 2018 December 13, at 7.8 au, but not in November 2018 at
+#          8.6 au; the inbound light curve fits m = M1 + 5 log delta + K1 log r + beta
+#          alpha with M1 = 12.2 +- 0.1, K1 = 5.3 +- 0.2 for beta = 0.04 mag/deg (Fig. 6; r
+#          band): a shallow slope, as for dynamically new comets.
+#        [JL19] D. Jewitt, J. Luu 2019, ApJL 886, L29 (arXiv:1910.02547): dust colors like
+#          those of long-period comets; particles ~100 um, from the length of the tail and
+#          a ~100-day lifetime.
+#        [JEW20] D. Jewitt, M.-T. Hui, Y. Kim et al. 2020, ApJL 888, L23
+#          (arXiv:1912.05422): Hubble images; nucleus radius 0.2 < r < 0.5 km.
+#        [HUI] M.-T. Hui, Q. Ye, D. Fohring et al. 2020 (arXiv:2003.14064v3):
+#          slightly red (g - r = 0.68); nucleus likely <~ 0.4 km; its brightness fell
+#          steadily from September 2019 to January 2020; Table 3: reference dust ejection
+#          speed (beta = 1, 1 au) 70, 80, 100, 140 m/s on 2019 Sep 27, Oct 29, Nov 27, 2020
+#          Jan 25, i.e. ~4 m/s rising to ~7 m/s near perihelion for the dominant beta ~0.01
+#          grains (0.1 mm).
+#        [KIM] Y. Kim, D. Jewitt, M. Mutchler et al. 2020, ApJL 895, L34 (arXiv:2005.02468):
+#          large (>~ 100 um) grains at <~ 9 m/s near perihelion; pole RA 205, Dec 52 deg.
+#        [BOD] D. Bodewits, J. W. Noonan, P. D. Feldman et al. 2020, Nature Astronomy 4, 867
+#          (arXiv:2004.08972): at least 173% as much CO as water, more than three times any
+#          comet measured inside 2.5 au.
+#        [COR] M. A. Cordiner, S. N. Milam, N. Biver et al. 2020, Nature Astronomy 4, 861
+#          (arXiv:2004.09586): ALMA, 2019-12-15/16: CO 35-105% of water, among the highest
+#          in any comet within 2 au.
+#        2I/Borisov from [HZN] (JPL#54, osculating at perihelion: q = 300,171,607 km, a =
+#          -127,381,384 km, 2019-12-08 13:17 TDB): 32.3 km/s from afar ([GUZ]: ~32 km/s
+#          from the first orbit), 43.9 km/s at perihelion; closest to the Earth on
+#          2019-12-28 at 1.9369 au (Horizons geocentric vectors, hourly).
 #        Heights of the plumes: [PLM]; Arrokoth's size: [ARRO].
 # Flyby times/distances: computed from the baked data by the bake tool (TDB).
 # Mission timeline events: Horizons spacecraft notes.
@@ -1838,6 +1873,30 @@ epoch = "2017-10-27 07:30:58"              # [MSH] start of the model, MJD 58053
 type = "ephemeris"
 file = "ephem/oumuamua.eph"
 
+# 2I/Borisov: a comet like those of the Sun's own Oort cloud [GUZ], but rich in CO
+# [BOD], [COR]. No rotation model: Kim et al. 2020 give only a pole, and the nucleus
+# hides in the coma.
+[[bodies]]
+name = "2I/Borisov"
+parent = "Sun"
+radii_km = [0.4]                           # [JEW20] 0.2 < r < 0.5 km; [HUI] <~ 0.4 km
+color = "#c8bcb0"
+orbit_color = "#c8b4a0"
+trail = "history"
+trail_history_days = 1491.0                # the whole table
+[bodies.comet]
+magnitude_m1_k1 = [12.2, 5.3]              # [YE] r band, inbound (phase coefficient 0.04 mag/deg)
+ion_tail_diameter_km = 5.0e4               # illustrative, as for 3I/ATLAS
+ion_tail_length_km = 5.0e6                 # illustrative, used as the e-folding length
+solar_wind_km_s = 400.0
+dust_beta_range = [1.0e-3, 1.0e-2]         # [HUI] beta ~0.01 dominates (0.1 mm); [KIM] >~ 0.1 mm
+dust_speed_km_s = 0.1                      # [HUI] Table 3: 0.07 (Sep) .. 0.10 (Nov) .. 0.14 (Jan)
+dust_tail_days = 100.0                     # [JL19] the tail's length: grains ~100 days old
+coma_color = "#e6d6c6"                     # illustrative: [HUI], [JL19] slightly red dust
+[bodies.orbit]                             # [HZN] 2I (JPL#54), 2017-2021
+type = "ephemeris"
+file = "ephem/borisov.eph"
+
 # 3I/ATLAS: the appearance as in mars.toml (Ren et al. 2026 from Tianwen-1).
 [[bodies]]
 name = "3I/ATLAS"
@@ -2301,6 +2360,40 @@ caption = """\
     The view of New Horizons' sharpest image of the whole body, taken 6,600 km away \
     shortly before closest approach. The shape is the model built from all the flyby \
     images; the color is uniform, as no map of the surface is used."""
+
+# 2I/Borisov, face-on to its path (inclination 44 deg), with the camera riding along from
+# discovery (2.98 au) to perihelion (2.01 au), a hundred days in under two minutes.
+[[events]]
+name = "Interstellar comet 2I/Borisov found (2019-08-30)"
+time = "2019-08-30"
+focus = "2I/Borisov"
+from_orbit_normal = "2I/Borisov"
+distance_km = 1.0e9
+warp = 86400.0
+# [GUZ], [YE], [HZN]
+caption = """\
+    The second visitor from another star, and the first that looked like a comet: a \
+    coma and a tail of dust, colors and all, much like comets from the Sun's own Oort \
+    cloud. Old survey images show it already active in December 2018, at 7.8 au. It \
+    came in at 32 km/s and will never return."""
+
+# Perihelion close-up, side-on to the Sun line. The coma of a comet this faint (M1 12.2)
+# shows only from close by; the tails of its large, slow grains ([HUI], [KIM]) stay faint.
+[[events]]
+name = "2I/Borisov at perihelion (2019-12-08)"
+time_tdb = "2019-12-06"
+focus = "2I/Borisov"
+from_body = "Sun"
+phase_deg = 90.0
+distance_km = 1.5e5
+warp = 3600.0
+# [BOD], [COR], [JEW20], [KIM]
+caption = """\
+    Closest to the Sun, 2 au out. The nucleus, hidden in the dust, is less than a \
+    kilometre across; its dust grains are large, a tenth of a millimetre, and drift off \
+    no faster than a bicycle. But its gas was strange: about as much carbon monoxide as \
+    water, or more, a higher share than in any comet seen this close to the Sun. It \
+    formed somewhere very cold, around another star."""
 
 # 3I/ATLAS, seen from the ecliptic's north (along the Earth's orbit normal): the planets
 # go round counterclockwise, 3I clockwise; the camera rides along with it from discovery to
