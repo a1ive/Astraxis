@@ -3,12 +3,18 @@
 // with a thin accretion disk in the z = 0 plane and the lensed starfield.
 // Same formulas as the CPU reference src/ephem/kerr_null.cpp (tested there).
 //
-// Far from the hole (impact parameter b > R_s) rays are not integrated: the
-// weak-field deflection 4/b + 15 pi / (4 b^2) is applied instead, and the
-// integrated rays get the weak-field deflection accumulated outside R_s on
-// their way in and out, so the two regions join without a seam. The region
-// ends where the deflection drops below about half a pixel (b_max), with a
-// soft edge blending into the normally drawn starfield.
+// Pixel directions are angles in the rest frame of a static camera: the
+// photon's momentum is a linear combination of the camera's orthonormal frame
+// (ObserverFrame, built on the CPU), so it is null and has observed energy 1.
+//
+// Only rays with impact parameter b = L / E < 0.8 R_s are integrated, inside
+// the radius R_s; outside it the weak field is handled analytically in these
+// (areal radius) coordinates: the swept angle of a leg (weak_leg_angle), the
+// exact entry point into R_s, and the deflection of rays that pass farther out
+// (weak_pass_deflection). The CPU reference of the whole ray is
+// trace_camera_ray(). The lensed region ends where the deflection drops below
+// about half a pixel (b_max), with a soft edge blending into the normally
+// drawn starfield.
 //
 // Rendered off-screen (possibly at reduced resolution) into a color target and
 // a depth target; black_hole_composite.frag.hlsl then writes both into the scene.
@@ -20,11 +26,15 @@ FRAGMENT_TEXTURE(Texture2D, u_blackbody, u_lut_sampler, 1); // log-temperature -
 
 cbuffer Uniforms : register(b0, space3)
 {
-    float4 u_cam;      // xyz = camera position (hole frame, units of M), w = spin a
-    float4 u_right;    // xyz = camera right * tan(fov/2) * aspect (hole frame)
-    float4 u_up;       // xyz = camera up * tan(fov/2)
-    float4 u_forward;  // xyz = camera forward
-    float4x4 u_to_sky; // hole frame -> ICRF (rotation)
+    float4 u_cam;         // xyz = camera position (hole frame, units of M), w = spin a
+    float4 u_right;       // covariant right axis of the camera's frame * tan(fov/2) * aspect (w = t component)
+    float4 u_up;          // covariant up axis * tan(fov/2)
+    float4 u_forward;     // covariant forward axis
+    float4 u_observer;    // covariant 4-velocity of the camera
+    float4 u_right_dir;   // xyz = coordinate direction of the right axis * tan(fov/2) * aspect, w = tan(fov/2) * aspect
+    float4 u_up_dir;      // xyz = ... of the up axis * tan(fov/2), w = tan(fov/2)
+    float4 u_forward_dir; // xyz = ... of the forward axis, w = u^t of the camera
+    float4x4 u_to_sky;    // hole frame -> ICRF (rotation)
     float4 u_radii;    // x = horizon r+, y = disk inner radius, z = disk outer radius, w = integration radius R_s
     float4 u_params;   // x = b_max, y = depth of the hole, z = disk brightness, w = disk time (M)
     float4 u_disk;     // x = peak temperature (K), y = 1 / max of the temperature profile, z = max steps, w = edge fade start (fraction of b_max)
@@ -110,18 +120,39 @@ float null_pt(float3 x, float3 p, float a)
     return (f * L + sqrt(max(disc, 0.0))) / (1.0 + f);
 }
 
-// Rotates d toward the hole (the closest-approach point c) by angle alpha.
-float3 bend(float3 d, float3 c, float alpha)
+// v rotated by angle about the unit axis (v perpendicular to it).
+float3 rotate_in_plane(float3 v, float3 axis, float angle)
 {
-    float3 n = -normalize(c);
-    return normalize(d * cos(alpha) + n * sin(alpha));
+    return v * cos(angle) + cross(axis, v) * sin(angle);
 }
 
-// Weak-field deflection accumulated beyond radius R on one leg of a ray with
-// impact parameter b: (2 / b) (1 - sqrt(R^2 - b^2) / R).
-float outer_leg_deflection(float b, float R)
+// Angle swept between infinity and r = b / w along a monotonic leg (w <= ~0.8),
+// to second order in M / r. See weak_leg_angle() in kerr_null.cpp.
+float weak_leg_angle(float w, float b)
 {
-    return 2.0 / b * (1.0 - sqrt(max(R * R - b * b, 0.0)) / R);
+    float th = asin(w);
+    float c = cos(th);
+    float one_minus_c = w * w / (1.0 + c);
+    float k1 = one_minus_c * one_minus_c / c;
+    float t = w / c;
+    float k2 = t * t * t / 3.0 - 2.0 * t + 2.5 * th - 0.5 * w * c;
+    return th - k1 / b + 1.5 * k2 / (b * b);
+}
+
+// Deflection still to come from the tangent at radius r (b >~ 100); see
+// weak_pass_deflection() in kerr_null.cpp.
+float weak_pass_deflection(float r, float b, bool inward)
+{
+    float s_in = -4.0 / (b + sqrt(b * b + 8.0));
+    float phi_in = asin(s_in);
+    float phi_out = kPi - phi_in;
+    float s = 2.0 * (b * b / r - 2.0) / (b + sqrt(max(b * b * (1.0 - 4.0 / r) + 8.0, 0.0)));
+    s = clamp(s, -1.0, 1.0);
+    float phi = inward ? asin(s) : kPi - asin(s);
+    float u = sin(phi) / b + (1.0 + cos(phi) * cos(phi)) / (b * b);
+    float du = cos(phi) * (1.0 / b - 2.0 * sin(phi) / (b * b));
+    float first = phi_out - phi - atan2(u, -du);
+    return first + (phi_out - phi) / (phi_out - phi_in) * 15.0 * kPi / (4.0 * b * b);
 }
 
 float3 blackbody(float t)
@@ -184,7 +215,8 @@ float3 disk_emission(float3 c, float3 p, float pt, float a, out float alpha)
     float lv = 1.0 + omega * (-c.y * l.x + c.x * l.y);
     float gvv = -1.0 + omega * omega * dot(c.xy, c.xy) + f * lv * lv;
     float ut = 1.0 / sqrt(max(-gvv, 1e-6));
-    float g = pt / (ut * (pt - omega * c.y * p.x + omega * c.x * p.y));
+    // u_forward_dir.w = u^t of the (static) camera: p.u_camera = p_t u^t.
+    float g = pt * u_forward_dir.w / (ut * (pt - omega * c.y * p.x + omega * c.x * p.y));
     g = clamp(g, 0.0, 5.0);
 
     // Thin-disk temperature profile T ~ r^-3/4 (1 - sqrt(r_in / r))^1/4.
@@ -209,36 +241,54 @@ PSOutput main(PSInput input)
     PSOutput output;
     float a = u_cam.w;
     float2 ndc = float2(input.uv.x * 2.0 - 1.0, 1.0 - input.uv.y * 2.0);
-    float3 d = normalize(u_forward.xyz + ndc.x * u_right.xyz + ndc.y * u_up.xyz);
     float3 o = u_cam.xyz;
+    float dist = length(o);
 
-    // Closest approach of the straight ray, and its impact parameter.
-    float tc = -dot(o, d);
-    float3 c0 = o + max(tc, 0.0) * d;
-    float b = length(c0);
-    if (b > u_params.x) {
-        discard;
-    }
-    float fade = 1.0 - smoothstep(u_disk.w * u_params.x, u_params.x, b);
+    // Photon from this pixel's direction in the camera's frame (traced backward):
+    // its covariant momentum, coordinate direction and impact parameter L / E.
+    float2 screen = ndc * float2(u_right_dir.w, u_up_dir.w);
+    float4 pc = (u_forward + ndc.x * u_right + ndc.y * u_up) * rsqrt(1.0 + dot(screen, screen)) - u_observer;
+    float3 d = normalize(u_forward_dir.xyz + ndc.x * u_right_dir.xyz + ndc.y * u_up_dir.xyz);
+    float3 l_vec = cross(o, pc.xyz);
+    float b = length(l_vec) / pc.w;
+    float3 axis = l_vec / max(length(l_vec), 1e-30);
+    float cos_in = -dot(o, d) / dist; // > 0: heading inward
+    bool inward = cos_in > 0.0;
 
     float R = u_radii.w;
+    bool integrate = b < 0.8 * R && (inward || dist <= R);
+    // Lensed region: where the deflection still to come, ~(2 / b) (1 + cos_in), exceeds
+    // about half a pixel (b_eff = 4 / deflection < b_max).
+    float b_eff = integrate ? b : 2.0 * b / max(1.0 + cos_in, 1e-6);
+    if (b_eff > u_params.x) {
+        discard;
+    }
+    float fade = 1.0 - smoothstep(u_disk.w * u_params.x, u_params.x, b_eff);
+
     float3 color = 0.0;
     float transmit = 1.0;
     bool opaque = false;
     float3 sky_dir = d;
 
-    if (b > R || (tc < 0.0 && length(o) > R)) {
-        // Weak field: rays passing the hole ahead are bent toward it.
-        float alpha = tc > 0.0 ? 4.0 / b + 15.0 * kPi / (4.0 * b * b) : 0.0;
-        sky_dir = bend(d, c0, alpha);
+    if (!integrate) {
+        // Weak field: passing beyond 0.8 R_s, or receding from a camera outside R_s.
+        sky_dir = b >= 0.8 * R ? rotate_in_plane(d, axis, weak_pass_deflection(dist, b, inward))
+                               : rotate_in_plane(o / dist, axis, weak_leg_angle(b / dist, b));
     } else {
         float3 x = o;
-        if (length(o) > R) {
-            x = o + (tc - sqrt(R * R - b * b)) * d;
-            d = bend(d, c0, outer_leg_deflection(b, R));
+        float3 p = pc.xyz;
+        float pt = pc.w;
+        if (dist > R) {
+            // Enter R_s where the ray crosses it: swept angle of the leg, tangential p = L / R,
+            // radial p from H = 0 (Schwarzschild, f = 2 / R), then p_t made exactly null.
+            float3 xr = rotate_in_plane(o / dist, axis, weak_leg_angle(b / R, b) - weak_leg_angle(b / dist, b));
+            float f = 2.0 / R;
+            float p_tan = b * pt / R;
+            float p_rad = (-f * pt - sqrt(max(pt * pt - (1.0 - f) * p_tan * p_tan, 0.0))) / (1.0 - f);
+            x = R * xr;
+            p = p_rad * xr + p_tan * cross(axis, xr);
+            pt = null_pt(x, p, a);
         }
-        float3 p = d;
-        float pt = null_pt(x, p, a);
         float r_plus = u_radii.x;
         bool escaped = false;
         int max_steps = (int)u_disk.z;
@@ -274,14 +324,12 @@ PSOutput main(PSInput input)
                 break;
             }
             if (dot(x, x) > R * R * 1.0001 && dot(x, p) > 0.0) {
-                float3 dx;
-                float3 dp;
-                derivatives(x, p, pt, a, dx, dp);
-                sky_dir = normalize(dx);
-                // Deflection still to come beyond R on the way out.
-                float3 cx = x - dot(x, sky_dir) * sky_dir;
-                float b_out = length(cx);
-                sky_dir = bend(sky_dir, cx, outer_leg_deflection(b_out, length(x)));
+                // The rest of the way out, analytically.
+                float3 l_out = cross(x, p);
+                float rx = length(x);
+                float b_out = length(l_out) / pt;
+                sky_dir = rotate_in_plane(x / rx, l_out / max(length(l_out), 1e-30),
+                                          weak_leg_angle(min(b_out / rx, 0.95), b_out));
                 escaped = true;
                 break;
             }
@@ -296,7 +344,7 @@ PSOutput main(PSInput input)
     }
 
     if (transmit > 0.0) {
-        float3 sky = mul((float3x3)u_to_sky, sky_dir);
+        float3 sky = mul((float3x3)u_to_sky, normalize(sky_dir));
         color += transmit * u_sky.SampleLevel(u_sky_sampler, sky, 0).rgb;
     }
 

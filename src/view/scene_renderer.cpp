@@ -42,7 +42,7 @@ constexpr int kStyleStar = 2;
 constexpr int kStyleBlackHole = 3;
 
 // Black hole rendering.
-constexpr float kRayIntegrationRadius = 150.0f; // M; weak-field deflection beyond
+constexpr float kRayIntegrationRadius = 150.0f; // M; rays with b < 0.8 of it are integrated inside it, analytic beyond
 constexpr float kRayMaxSteps = 400.0f;
 constexpr float kLensEdgeFade = 0.6f;     // fade the lensed region over its outer 40%
 // Pulsar beams: drawn as long as the camera is far (shorter, and the far end
@@ -561,11 +561,21 @@ void SceneRenderer::trace_black_hole(SDL_GPUCommandBuffer* cmd, uint32_t width, 
         const glm::dvec3 rel = view.position - body.world_position;
         const double distance = glm::length(rel);
 
+        // Screen directions are angles in the frame of a camera at rest relative to the hole
+        // (its own motion is not physical: no aberration).
+        const glm::dvec3 cam = to_hole * rel / m_km;
+        const ObserverFrame obs = static_observer_frame(cam, a, to_hole * forward, to_hole * up, to_hole * right);
+        const double sx = tan_half * aspect;
+        const double sy = tan_half;
         BlackHoleUniforms u;
-        u.camera = glm::vec4(glm::vec3(to_hole * rel / m_km), static_cast<float>(a));
-        u.right = glm::vec4(glm::vec3(to_hole * right * (tan_half * aspect)), 0.0f);
-        u.up = glm::vec4(glm::vec3(to_hole * up * tan_half), 0.0f);
-        u.forward = glm::vec4(glm::vec3(to_hole * forward), 0.0f);
+        u.camera = glm::vec4(glm::vec3(cam), static_cast<float>(a));
+        u.right = glm::vec4(obs.right * sx);
+        u.up = glm::vec4(obs.up * sy);
+        u.forward = glm::vec4(obs.forward);
+        u.observer = glm::vec4(obs.u);
+        u.right_dir = glm::vec4(glm::vec3(obs.right_dir * sx), static_cast<float>(sx));
+        u.up_dir = glm::vec4(glm::vec3(obs.up_dir * sy), static_cast<float>(sy));
+        u.forward_dir = glm::vec4(glm::vec3(obs.forward_dir), static_cast<float>(obs.ut));
         u.to_sky = glm::mat4(glm::mat3(frame.axes * hole));
 
         const double r_in = isco_radius(a);

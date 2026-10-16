@@ -1,5 +1,7 @@
 #include "ephem/kerr_null.hpp"
 
+#include "core/math.hpp"
+
 #include <glm/geometric.hpp>
 
 #include <algorithm>
@@ -77,6 +79,77 @@ double hamiltonian(const Photon& ph, double a)
     return 0.5 * (-ph.pt * ph.pt + glm::dot(ph.p, ph.p) - k.f * L * L);
 }
 
+double covector_dot(const glm::dvec3& x, double a, const glm::dvec4& p, const glm::dvec4& q)
+{
+    // g^mn = eta^mn - f l^m l^n with l^t = -1, l^i = l_i.
+    const KerrSchild k = kerr_schild(x, a);
+    const double lp = -p.w + glm::dot(k.l, glm::dvec3(p));
+    const double lq = -q.w + glm::dot(k.l, glm::dvec3(q));
+    return -p.w * q.w + glm::dot(glm::dvec3(p), glm::dvec3(q)) - k.f * lp * lq;
+}
+
+namespace {
+
+// V_m = eta_mn V^n + f l_m (l_n V^n) for a vector V^m (w = t), with l_t = 1.
+glm::dvec4 lower(const KerrSchild& k, const glm::dvec4& v)
+{
+    const double lv = v.w + glm::dot(k.l, glm::dvec3(v));
+    return glm::dvec4(glm::dvec3(v) + k.f * lv * k.l, -v.w + k.f * lv);
+}
+
+// g_mn V^m W^n.
+double metric_dot(const KerrSchild& k, const glm::dvec4& v, const glm::dvec4& w)
+{
+    return glm::dot(lower(k, v), w);
+}
+
+} // namespace
+
+ObserverFrame static_observer_frame(const glm::dvec3& x, double a, const glm::dvec3& forward, const glm::dvec3& up,
+                                    const glm::dvec3& right)
+{
+    const KerrSchild k = kerr_schild(x, a);
+    // g_tt = -1 + f; the camera keeps out of the ergosphere (f < 1), the clamp only avoids NaN.
+    const double ut = 1.0 / std::sqrt(std::max(1.0 - k.f, 1e-9));
+    const glm::dvec4 u(0.0, 0.0, 0.0, ut);
+
+    auto axis = [&](const glm::dvec3& v, const glm::dvec4* basis, int n) {
+        glm::dvec4 e(v, 0.0);
+        e += metric_dot(k, e, u) * u; // g(u, u) = -1
+        for (int i = 0; i < n; ++i) {
+            e -= metric_dot(k, e, basis[i]) * basis[i];
+        }
+        return e / std::sqrt(metric_dot(k, e, e));
+    };
+    glm::dvec4 e[3];
+    e[0] = axis(forward, e, 0);
+    e[1] = axis(up, e, 1);
+    e[2] = axis(right, e, 2);
+
+    ObserverFrame frame;
+    frame.u = lower(k, u);
+    frame.forward = lower(k, e[0]);
+    frame.up = lower(k, e[1]);
+    frame.right = lower(k, e[2]);
+    frame.forward_dir = glm::dvec3(e[0]);
+    frame.up_dir = glm::dvec3(e[1]);
+    frame.right_dir = glm::dvec3(e[2]);
+    frame.ut = ut;
+    return frame;
+}
+
+Photon frame_photon(const glm::dvec3& x, const ObserverFrame& frame, const glm::dvec3& n)
+{
+    // Arriving photon k = u - n (observed energy -k.u = 1); traced backward: p = -k.
+    const glm::dvec3 m = glm::normalize(n);
+    const glm::dvec4 p = m.x * frame.right + m.y * frame.up + m.z * frame.forward - frame.u;
+    Photon ph;
+    ph.x = x;
+    ph.p = glm::dvec3(p);
+    ph.pt = p.w;
+    return ph;
+}
+
 namespace {
 
 void derivatives(const glm::dvec3& x, const glm::dvec3& p, double pt, double a, glm::dvec3& dx, glm::dvec3& dp)
@@ -124,8 +197,12 @@ double ray_step(const glm::dvec3& x, double a)
 RayResult trace_ray(const glm::dvec3& x, const glm::dvec3& dir, double a, double escape_radius, double disk_r_in,
                     double disk_r_out, int max_steps)
 {
+    return trace_ray(make_photon(x, dir, a), a, escape_radius, disk_r_in, disk_r_out, max_steps);
+}
+
+RayResult trace_ray(Photon ph, double a, double escape_radius, double disk_r_in, double disk_r_out, int max_steps)
+{
     RayResult out;
-    Photon ph = make_photon(x, dir, a);
     const double r_plus = horizon_radius(a);
     for (int i = 0; i < max_steps; ++i) {
         out.steps = i + 1;
@@ -146,6 +223,7 @@ RayResult trace_ray(const glm::dvec3& x, const glm::dvec3& dir, double a, double
         const double r = kerr_schild_r(ph.x, a);
         if (r < r_plus + 0.02) {
             out.outcome = RayOutcome::Captured;
+            out.photon = ph;
             return out;
         }
         if (glm::length(ph.x) > escape_radius && glm::dot(ph.x, ph.p) > 0.0) {
@@ -154,14 +232,112 @@ RayResult trace_ray(const glm::dvec3& x, const glm::dvec3& dir, double a, double
             derivatives(ph.x, ph.p, ph.pt, a, dx, dp);
             out.outcome = RayOutcome::Escaped;
             out.direction = glm::normalize(dx);
+            out.photon = ph;
             return out;
         }
+    }
+    out.photon = ph;
+    return out;
+}
+
+double weak_leg_angle(double w, double b)
+{
+    // phi = int_0^w dw' / sqrt(1 - w'^2 + e w'^3), e = 2 / b, expanded to e^2 with
+    // w' = sin(th): int cos / sqrt(cos^2 + e sin^3) = th - (e/2) K1 + (3/8) e^2 K2,
+    // K1 = int sin^3 / cos^2 = (1 - c)^2 / c, K2 = int sin^6 / cos^4 = tan^3 / 3 - 2 tan + 5/2 th - sin cos / 2.
+    const double th = std::asin(w);
+    const double c = std::cos(th);
+    const double one_minus_c = w * w / (1.0 + c);
+    const double k1 = one_minus_c * one_minus_c / c;
+    const double t = std::tan(th);
+    const double k2 = t * t * t / 3.0 - 2.0 * t + 2.5 * th - 0.5 * w * c;
+    return th - k1 / b + 1.5 * k2 / (b * b);
+}
+
+double weak_pass_deflection(double r, double b, bool inward)
+{
+    // First-order orbit u(phi) = sin(phi) / b + (1 + cos^2 phi) / b^2, phi from the
+    // incoming asymptote (u = 0 at phi_in ~ -2/b) to the outgoing one (pi - phi_in).
+    // sin(phi) at u = 1/r: the small root of s^2 - b s + b^2 / r - 2 = 0.
+    const double s_in = -4.0 / (b + std::sqrt(b * b + 8.0));
+    const double phi_in = std::asin(s_in);
+    const double phi_out = kPi - phi_in;
+    double s = 2.0 * (b * b / r - 2.0) / (b + std::sqrt(std::max(b * b * (1.0 - 4.0 / r) + 8.0, 0.0)));
+    s = std::clamp(s, -1.0, 1.0);
+    const double phi = inward ? std::asin(s) : kPi - std::asin(s);
+    // Tangent direction at phi: dx/dphi ~ u e_phi - u' e_r, at atan2(u, -u') from the radius.
+    const double u = std::sin(phi) / b + (1.0 + std::cos(phi) * std::cos(phi)) / (b * b);
+    const double du = std::cos(phi) * (1.0 / b - 2.0 * std::sin(phi) / (b * b));
+    const double first = phi_out - phi - std::atan2(u, -du);
+    // Second order: the whole pass bends by 15 pi / (4 b^2) more, shared out by the angle swept.
+    return first + (phi_out - phi) / (phi_out - phi_in) * 15.0 * kPi / (4.0 * b * b);
+}
+
+namespace {
+
+// v rotated by angle about the unit axis (v perpendicular to the axis).
+glm::dvec3 rotate_in_plane(const glm::dvec3& v, const glm::dvec3& axis, double angle)
+{
+    return v * std::cos(angle) + glm::cross(axis, v) * std::sin(angle);
+}
+
+// Asymptotic direction of a ray leaving radius |x| outward (weak field beyond).
+glm::dvec3 outgoing_direction(const Photon& ph)
+{
+    const glm::dvec3 l = glm::cross(ph.x, ph.p);
+    const double r = glm::length(ph.x);
+    const double b = glm::length(l) / ph.pt;
+    const glm::dvec3 axis = l / std::max(glm::length(l), 1e-300);
+    return rotate_in_plane(ph.x / r, axis, weak_leg_angle(std::min(b / r, 0.95), b));
+}
+
+} // namespace
+
+RayResult trace_camera_ray(const glm::dvec3& cam, const ObserverFrame& frame, const glm::dvec3& n, double a,
+                           double r_int, double disk_r_in, double disk_r_out, int max_steps)
+{
+    const Photon pc = frame_photon(cam, frame, n);
+    const glm::dvec3 d = glm::normalize(n.x * frame.right_dir + n.y * frame.up_dir + n.z * frame.forward_dir);
+    const double dist = glm::length(cam);
+    const glm::dvec3 l = glm::cross(cam, pc.p);
+    const double b = glm::length(l) / pc.pt; // L / E
+    const glm::dvec3 axis = l / std::max(glm::length(l), 1e-300);
+    const bool inward = glm::dot(cam, d) < 0.0;
+    const double b_int = 0.8 * r_int; // beyond: legs with b / r > 0.8, where the expansion fails
+
+    RayResult out;
+    if (b >= b_int) {
+        out.outcome = RayOutcome::Escaped;
+        out.direction = glm::normalize(rotate_in_plane(d, axis, weak_pass_deflection(dist, b, inward)));
+        return out;
+    }
+    Photon ph = pc;
+    if (dist > r_int) {
+        if (!inward) {
+            out.outcome = RayOutcome::Escaped;
+            out.direction = glm::normalize(rotate_in_plane(cam / dist, axis, weak_leg_angle(b / dist, b)));
+            return out;
+        }
+        // Enter the integration sphere where the exact (Schwarzschild) ray crosses it:
+        // swept angle from the leg formula, tangential p = L / r, radial p from H = 0.
+        const double shift = weak_leg_angle(b / r_int, b) - weak_leg_angle(b / dist, b);
+        const glm::dvec3 xr = rotate_in_plane(cam / dist, axis, shift);
+        const double f = 2.0 / r_int;
+        const double e = pc.pt;
+        const double p_t = b * e / r_int;
+        const double p_r = (-f * e - std::sqrt(std::max(e * e - (1.0 - f) * p_t * p_t, 0.0))) / (1.0 - f);
+        ph = make_photon(r_int * xr, p_r * xr + p_t * glm::cross(axis, xr), a);
+    }
+    out = trace_ray(ph, a, r_int, disk_r_in, disk_r_out, max_steps);
+    if (out.outcome == RayOutcome::Escaped) {
+        out.direction = glm::normalize(outgoing_direction(out.photon));
     }
     return out;
 }
 
-double disk_redshift(const Photon& ph, double a)
+double disk_redshift(const Photon& ph, double a, double observer_ut)
 {
+    // nu_obs / nu_emit = (p.u_observer) / (p.u_emitter); a static observer has p.u = p_t u^t.
     const glm::dvec3 x(ph.x.x, ph.x.y, 0.0);
     const KerrSchild k = kerr_schild(x, a);
     const double r = k.r;
@@ -171,7 +347,7 @@ double disk_redshift(const Photon& ph, double a)
     const double gvv = -1.0 + omega * omega * (x.x * x.x + x.y * x.y) + k.f * lv * lv;
     const double ut = 1.0 / std::sqrt(-gvv);
     const double pu_emitter = ut * (ph.pt - omega * x.y * ph.p.x + omega * x.x * ph.p.y);
-    return ph.pt / pu_emitter;
+    return observer_ut * ph.pt / pu_emitter;
 }
 
 } // namespace astraxis

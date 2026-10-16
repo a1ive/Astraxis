@@ -44,6 +44,36 @@ Photon make_photon(const glm::dvec3& x, const glm::dvec3& dir, double a);
 
 double hamiltonian(const Photon& ph, double a);
 
+// g^mn p_m q_n of two covectors at x (w = t component).
+double covector_dot(const glm::dvec3& x, double a, const glm::dvec4& p, const glm::dvec4& q);
+
+// Orthonormal frame of a static observer at x: at rest in these coordinates,
+// u along the Killing vector d/dt (exists outside the ergosphere). The camera's
+// axes (Euclidean unit vectors in the coordinates) are made orthonormal in the
+// metric - components along u removed, then Gram-Schmidt in the order forward,
+// up, right - so that screen directions are angles in the observer's rest frame.
+// Covariant components, w = t; e_t = 0 for all three axes since they are
+// orthogonal to u.
+struct ObserverFrame {
+    glm::dvec4 u{0.0};
+    glm::dvec4 right{0.0};
+    glm::dvec4 up{0.0};
+    glm::dvec4 forward{0.0};
+    // Spatial contravariant parts of the axes: coordinate directions of rays.
+    glm::dvec3 right_dir{0.0};
+    glm::dvec3 up_dir{0.0};
+    glm::dvec3 forward_dir{0.0};
+    double ut = 1.0; // u^t = 1 / sqrt(1 - f): observed / emitted energy of light from rest at infinity
+};
+
+ObserverFrame static_observer_frame(const glm::dvec3& x, double a, const glm::dvec3& forward, const glm::dvec3& up,
+                                    const glm::dvec3& right);
+
+// Time-reversed photon arriving at the observer from the local direction
+// n = (right, up, forward) components (normalized here), with observed energy 1.
+// Linear in the frame vectors, as evaluated per pixel in the shader.
+Photon frame_photon(const glm::dvec3& x, const ObserverFrame& frame, const glm::dvec3& n);
+
 // One RK4 step of affine length h.
 void rk4_step(Photon& ph, double a, double h);
 
@@ -59,19 +89,44 @@ struct RayResult {
     int disk_crossings = 0;    // z = 0 crossings inside [r_in, r_out]
     double first_crossing_r = 0.0;
     int steps = 0;
+    Photon photon; // state at the end
 };
 
 // Traces a ray from x along dir (both in Kerr-Schild Cartesian, M = 1) into the
 // past until it falls into the hole or escapes beyond `escape_radius`.
 RayResult trace_ray(const glm::dvec3& x, const glm::dvec3& dir, double a, double escape_radius, double disk_r_in,
                     double disk_r_out, int max_steps = 4000);
+// The same from a given photon (e.g. frame_photon()).
+RayResult trace_ray(Photon ph, double a, double escape_radius, double disk_r_in, double disk_r_out,
+                    int max_steps = 4000);
+
+// Weak field beyond the integration radius, exact for Schwarzschild in these
+// (areal radius) coordinates to second order in M / r; spin is neglected there.
+//
+// Angle swept around the hole between infinity and radius r = b / w along a ray
+// with impact parameter b = L / E, on a leg where r changes monotonically
+// (w <= ~0.8: the expansion breaks down near the periapsis).
+double weak_leg_angle(double w, double b);
+// For rays passing far from the hole (b >~ 100): how much the direction still
+// turns from its tangent at radius r to the outgoing asymptote, moving inward
+// (before the periapsis) or outward. Total over a pass: 4/b + 15 pi / (4 b^2).
+double weak_pass_deflection(double r, double b, bool inward);
+
+// A camera ray as the shader traces it: the photon from local direction n
+// (frame_photon) is integrated inside r_int (entering it on the exact ray when
+// the camera is outside) and continued analytically beyond; rays with
+// b >= 0.8 r_int are not integrated at all. direction: at infinity.
+RayResult trace_camera_ray(const glm::dvec3& cam, const ObserverFrame& frame, const glm::dvec3& n, double a,
+                           double r_int, double disk_r_in, double disk_r_out, int max_steps = 4000);
 
 // Step length used by trace_ray (also mirrored in the shader).
 double ray_step(const glm::dvec3& x, double a);
 
 // Redshift factor g = nu_observed / nu_emitted for a photon (traced backward,
 // at the disk point x on z = 0) emitted by matter on a prograde circular
-// Keplerian orbit, received by a static observer far away.
-double disk_redshift(const Photon& ph, double a);
+// Keplerian orbit, received by a static observer with u^t = observer_ut
+// (1: far away; ObserverFrame::ut for a camera nearby). Independent of the
+// photon's normalization.
+double disk_redshift(const Photon& ph, double a, double observer_ut = 1.0);
 
 } // namespace astraxis

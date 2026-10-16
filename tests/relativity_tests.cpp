@@ -448,6 +448,141 @@ void test_kerr_null_geodesics()
           disk_redshift(face_on, 0.0));
 }
 
+// Local angle from the camera's forward axis at which rays stop being captured
+// (bisection), for rays in the plane of forward and `side` (a unit 2-vector in
+// the (right, up) screen components).
+double shadow_edge_angle(const glm::dvec3& cam, double a, const ObserverFrame& frame, const glm::dvec2& side)
+{
+    double lo = 0.0;      // captured
+    double hi = kPi / 2.0; // escapes
+    for (int i = 0; i < 40; ++i) {
+        const double t = 0.5 * (lo + hi);
+        const glm::dvec3 n(std::sin(t) * side.x, std::sin(t) * side.y, std::cos(t));
+        const RayResult r = trace_ray(frame_photon(cam, frame, n), a, 1000.0, 0.0, 0.0, 20000);
+        (r.outcome == RayOutcome::Escaped ? hi : lo) = t;
+    }
+    return 0.5 * (lo + hi);
+}
+
+void test_observer_frame()
+{
+    // The frame is orthonormal in the metric, and its photons are null with observed energy 1.
+    const double a = 0.9;
+    const glm::dvec3 x(7.0, -3.0, 2.0);
+    const glm::dvec3 fwd = glm::normalize(-x);
+    const glm::dvec3 up = glm::normalize(glm::cross(glm::cross(fwd, glm::dvec3(0.0, 0.0, 1.0)), fwd));
+    const ObserverFrame frame = static_observer_frame(x, a, fwd, up, glm::cross(fwd, up));
+    const glm::dvec4 basis[4] = {frame.u, frame.right, frame.up, frame.forward};
+    double worst = 0.0;
+    for (int i = 0; i < 4; ++i) {
+        for (int j = 0; j < 4; ++j) {
+            const double expected = i == j ? (i == 0 ? -1.0 : 1.0) : 0.0;
+            worst = std::max(worst, std::abs(covector_dot(x, a, basis[i], basis[j]) - expected));
+        }
+    }
+    check(worst < 1e-12, "static observer frame orthonormal", worst);
+    const Photon ph = frame_photon(x, frame, glm::dvec3(0.3, -0.2, 0.9));
+    check(std::abs(hamiltonian(ph, a)) < 1e-12, "frame photon is null", hamiltonian(ph, a));
+    check(std::abs(ph.pt * frame.ut - 1.0) < 1e-12, "frame photon observed energy 1", ph.pt * frame.ut);
+
+    // Far away the frame is the coordinate one.
+    const glm::dvec3 far_x(0.0, 3e6, 1e6);
+    const glm::dvec3 far_fwd = glm::normalize(-far_x);
+    const glm::dvec3 far_up = glm::normalize(glm::cross(glm::cross(far_fwd, glm::dvec3(1.0, 0.0, 0.0)), far_fwd));
+    const ObserverFrame far = static_observer_frame(far_x, a, far_fwd, far_up, glm::cross(far_fwd, far_up));
+    const glm::dvec3 n(0.1, 0.05, 1.0);
+    const glm::dvec3 coordinate = glm::normalize(n.x * glm::cross(far_fwd, far_up) + n.y * far_up + n.z * far_fwd);
+    const double far_diff = glm::length(glm::normalize(frame_photon(far_x, far, n).p) - coordinate);
+    check(far_diff < 1e-6, "observer frame far away = coordinate directions", far_diff);
+
+    // Schwarzschild shadow seen by a static observer at r: sin(alpha) = 3 sqrt(3) sqrt(1 - 2/r) / r
+    // (Synge 1966); the coordinate directions used before gave 18.4 deg instead of 23.3 at r = 12.
+    for (const double r : {4.0, 12.0, 30.0}) {
+        const glm::dvec3 cam = r * glm::normalize(glm::dvec3(1.0, 2.0, 0.5));
+        const glm::dvec3 f = glm::normalize(-cam);
+        const glm::dvec3 u = glm::normalize(glm::cross(glm::cross(f, glm::dvec3(0.0, 0.0, 1.0)), f));
+        const ObserverFrame fr = static_observer_frame(cam, 0.0, f, u, glm::cross(f, u));
+        const double expected = std::asin(3.0 * std::sqrt(3.0) * std::sqrt(1.0 - 2.0 / r) / r);
+        const double edge = shadow_edge_angle(cam, 0.0, fr, glm::normalize(glm::dvec2(1.0, 0.6)));
+        check(std::abs(edge - expected) < 1e-4, "Schwarzschild shadow radius for a static observer (rad)",
+              edge - expected);
+    }
+
+    // Kerr, observer on the spin axis at r = 12: photons asymptotic to the spherical photon
+    // orbit with L_z = 0, where r^3 - 3 r^2 + a^2 r + a^2 = 0 and the Carter constant is
+    // Q = -r^3 (r^3 - 6 r^2 + 9 r - 4 a^2) / (a^2 (r - 1)^2) (Teo 2003, GRG 35, 1909: Phi(r) = 0
+    // and Q(r) of the spherical photon orbits). For L_z = 0, R(r) = (r^2 + a^2)^2 - Delta (Q + a^2); on the axis the
+    // static observer measures cos(alpha) = sqrt(R) / (r^2 + a^2), so
+    // sin(alpha) = sqrt(Delta (Q + a^2)) / (r^2 + a^2). The shadow is a circle.
+    double rp = 3.0;
+    for (int i = 0; i < 50; ++i) {
+        rp -= (rp * rp * rp - 3.0 * rp * rp + a * a * rp + a * a) / (3.0 * rp * rp - 6.0 * rp + a * a);
+    }
+    const double q = -rp * rp * rp * (rp * rp * rp - 6.0 * rp * rp + 9.0 * rp - 4.0 * a * a) /
+                     (a * a * (rp - 1.0) * (rp - 1.0));
+    const double r_obs = 12.0;
+    const double delta = r_obs * r_obs - 2.0 * r_obs + a * a;
+    const double expected_pole = std::asin(std::sqrt(delta * (q + a * a)) / (r_obs * r_obs + a * a));
+    const glm::dvec3 pole_cam(0.0, 0.0, r_obs);
+    const ObserverFrame pole = static_observer_frame(pole_cam, a, glm::dvec3(0.0, 0.0, -1.0),
+                                                     glm::dvec3(1.0, 0.0, 0.0), glm::dvec3(0.0, -1.0, 0.0));
+    for (const glm::dvec2 side : {glm::dvec2(1.0, 0.0), glm::dvec2(-0.6, 0.8)}) {
+        const double edge = shadow_edge_angle(pole_cam, a, pole, side);
+        check(std::abs(edge - expected_pole) < 1e-4, "Kerr a = 0.9 shadow radius on the axis (rad)",
+              edge - expected_pole);
+    }
+
+    // Weak-field legs vs. quadrature of dphi = dw / sqrt(1 - w^2 + 2 w^3 / b) (Schwarzschild):
+    // from infinity to r = 150, b = 6 sweeps 0.040010568 rad and b = 100 0.728861494 rad
+    // (Gauss-Legendre); a whole pass at b = 300 bends by 0.0134658 rad.
+    check(std::abs(weak_leg_angle(6.0 / 150.0, 6.0) - 0.040010568) < 1e-8, "weak leg b = 6",
+          weak_leg_angle(6.0 / 150.0, 6.0));
+    check(std::abs(weak_leg_angle(100.0 / 150.0, 100.0) - 0.728861494) < 1e-7, "weak leg b = 100",
+          weak_leg_angle(100.0 / 150.0, 100.0));
+    const double pass = weak_pass_deflection(1e9, 300.0, true);
+    check(std::abs(pass - 0.0134658) < 3e-6, "weak pass deflection b = 300", pass);
+
+    // Camera rays as the shader traces them (integration inside 150 M, exact entry and
+    // analytic legs outside) vs. integrating all the way from the camera to 1e7 M.
+    for (const double spin : {0.0, 0.6}) {
+        for (const double dist : {40.0, 400.0, 3000.0}) {
+            const glm::dvec3 cam = dist * glm::normalize(glm::dvec3(0.3, -1.0, 0.25));
+            const glm::dvec3 f = glm::normalize(-cam);
+            const glm::dvec3 u = glm::normalize(glm::cross(glm::cross(f, glm::dvec3(0.0, 0.0, 1.0)), f));
+            const ObserverFrame fr = static_observer_frame(cam, spin, f, u, glm::cross(f, u));
+            double worst_dir = 0.0;
+            int mismatched = 0;
+            int compared = 0;
+            const double max_angle = std::min(1.4, 400.0 / dist); // out to b ~ 400 M
+            for (int i = 0; i <= 40; ++i) {
+                for (int k = 0; k < 3; ++k) {
+                    const double t = max_angle * i / 40.0;
+                    const double az = 0.4 + 2.1 * k;
+                    const glm::dvec3 dir(std::sin(t) * std::cos(az), std::sin(t) * std::sin(az), std::cos(t));
+                    const RayResult fast = trace_camera_ray(cam, fr, dir, spin, 150.0, 0.0, 0.0, 20000);
+                    const RayResult full = trace_ray(frame_photon(cam, fr, dir), spin, 1e7, 0.0, 0.0, 20000);
+                    if (fast.outcome != full.outcome) {
+                        ++mismatched;
+                    } else if (fast.outcome == RayOutcome::Escaped) {
+                        ++compared;
+                        worst_dir = std::max(worst_dir, std::atan2(glm::length(glm::cross(fast.direction, full.direction)),
+                                                                   glm::dot(fast.direction, full.direction)));
+                    }
+                }
+            }
+            std::printf("info: camera ray a = %.1f at %.0f M: %d escaped, worst %.2e rad, %d outcomes differ\n", spin,
+                        dist, compared, worst_dir, mismatched);
+            check(mismatched == 0 && worst_dir < (spin == 0.0 ? 1.5e-4 : 4e-4),
+                  "camera rays: analytic far field matches full integration (rad)", worst_dir);
+        }
+    }
+
+    // Disk seen by a nearby static observer: blueshifted by u^t relative to infinity.
+    const Photon face_on = make_photon(glm::dvec3(10.0, 0.0, 0.0), glm::dvec3(0.0, 0.0, 1.0), 0.0);
+    check(std::abs(disk_redshift(face_on, 0.0, 1.25) / disk_redshift(face_on, 0.0) - 1.25) < 1e-12,
+          "disk redshift scales with the observer's u^t");
+}
+
 void test_sgr_a_scene()
 {
     Scene scene = load_scene_or_die("sgr_a.toml");
@@ -610,6 +745,7 @@ void run_relativity_tests()
     test_psr_b1913_scene();
     test_psr_j1141_scene();
     test_kerr_null_geodesics();
+    test_observer_frame();
     test_sgr_a_scene();
     test_death_star_precession();
     test_sgr_a_ghosts();
