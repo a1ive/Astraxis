@@ -514,6 +514,37 @@ void test_event_trails()
     sim.jump_to_event(perihelion1);
     check(scene.active_event() == static_cast<int>(perihelion1) && scene.trail_history_days(parker) == 0.0,
           "an event without trails keeps the body's own");
+
+    // An event's trail is not cut by its frame's cap (20 days in Rosetta's Sun-fixed
+    // frame): the whole stay at 67P reaches back to the approach, millions of km out.
+    // Picking the frame again ends the event's trails.
+    Simulation rosetta_sim;
+    check(rosetta_sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/rosetta.toml", &error), "rosetta.toml loads");
+    const Scene& rosetta_scene = rosetta_sim.scene();
+    const int rosetta = rosetta_scene.find("Rosetta");
+    size_t whole_stay = rosetta_scene.events.size();
+    for (size_t i = 0; i < rosetta_scene.events.size(); ++i) {
+        if (rosetta_scene.events[i].name.starts_with("The whole stay")) {
+            whole_stay = i;
+        }
+    }
+    check(rosetta > 0 && whole_stay < rosetta_scene.events.size(), "rosetta's whole-stay event");
+    auto farthest = [&] {
+        rosetta_scene.trail(rosetta, rosetta_sim.clock().t_tdb, 2048, points, fades);
+        double far = 0.0;
+        for (const glm::dvec3& p : points) {
+            far = std::max(far, glm::length(p)); // 67P at the frame's origin
+        }
+        return far;
+    };
+    rosetta_sim.jump_to_event(whole_stay);
+    const double with_trail = farthest();
+    check(rosetta_scene.frame().trail_history_days == 20.0 && with_trail > 1.0e6,
+          "the event's 1000-day trail is not capped by the frame (km)", with_trail);
+    rosetta_sim.set_frame(rosetta_scene.active_frame());
+    const double capped = farthest();
+    check(rosetta_scene.active_event() == -1 && capped < 2000.0, "the frame picked again caps the trail (km)",
+          capped);
 }
 
 // from_body = "Sun" in a scene centered on a planet (no Sun body): the event's view is

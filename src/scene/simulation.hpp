@@ -57,6 +57,7 @@ public:
 
     void reset_to_now();
     void set_focus(int body); // stops the tour
+    // Ends the active event's trails, also when `frame` is already active.
     void set_frame(int frame);
     // Jumps to an event and frames it as the tour does (across the flyby).
     void jump_to_event(size_t index);

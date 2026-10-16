@@ -930,7 +930,7 @@ caption = """\
 name = "The long way back to the Earth (1986-2014)"
 time = "1986-06-01 00:00"
 focus = "Sun"
-frame = "Sun-Earth rotating, whole mission"
+frame = "Sun-Earth rotating"
 from_orbit_normal = "Earth-Moon barycenter"
 distance_km = 4.0e8
 warp = 5184000.0           # 60 days per second: 28 years in under 3 minutes
@@ -939,6 +939,9 @@ caption = """\
     On a 355-day orbit, ICE drifts away from the Earth and goes once around the Sun \
     relative to it, a 28-year loop back to the Earth and the Moon. Maneuvers in 1986 and \
     1987 had aimed it at a lunar flyby in 2014. NASA stopped listening in 1997."""
+[[events.trails]]                          # the whole mission, not the frame's year
+body = "ISEE-3"
+trail_history_days = 13300.0
 
 # The ISEE-3 Reboot Project took control in late May 2014; the thrusters fired on 2014-07-02
 # and failed on 2014-07-08 (no pressurant left).
@@ -977,7 +980,7 @@ caption = """\
 name = "The whole journey, Earth fixed (1978-2014)"
 time = "2014-12-31 00:00"
 focus = "Sun"
-frame = "Sun-Earth rotating, whole mission"
+frame = "Sun-Earth rotating"
 from_orbit_normal = "Earth-Moon barycenter"
 distance_km = 4.0e8
 warp = 86400.0
@@ -986,3 +989,6 @@ caption = """\
     Thirty-six years in one view, in a frame that holds the Earth still: the halo loops \
     at L1, the petals of the tail passes, the escape, and the long loop around the Sun \
     and back to the Earth."""
+[[events.trails]]
+body = "ISEE-3"
+trail_history_days = 13300.0

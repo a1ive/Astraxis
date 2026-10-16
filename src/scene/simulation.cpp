@@ -220,6 +220,7 @@ void Simulation::set_focus(int body)
 void Simulation::set_frame(int frame)
 {
     if (frame == m_scene.active_frame()) {
+        m_scene.set_active_event(-1); // picked again: its own trails, not the event's
         return;
     }
     m_scene.set_active_frame(frame);

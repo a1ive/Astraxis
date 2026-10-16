@@ -364,23 +364,7 @@ type = "rotating"
 primary = "Sun"
 secondary = "67P"
 origin = "67P"
-trail_history_days = 20.0
-
-[[frames]]
-name = "67P, Sun fixed, 3 months"
-type = "rotating"
-primary = "Sun"
-secondary = "67P"
-origin = "67P"
-trail_history_days = 90.0
-
-[[frames]]
-name = "67P, Sun fixed, the whole stay"
-type = "rotating"
-primary = "Sun"
-secondary = "67P"
-origin = "67P"
-trail_history_days = 1000.0
+trail_history_days = 20.0                  # longer in some events (events.trails)
 
 [[frames]]
 name = "67P-centered"
@@ -621,7 +605,7 @@ caption = """\
 name = "Fans and petals (2015)"
 time = "2015-01-15 00:00"
 focus = "67P"
-frame = "67P, Sun fixed, 3 months"
+frame = "67P, Sun fixed"
 distance_km = 800.0
 warp = 86400.0
 # [ROSF], [ROSP], [HZN]
@@ -629,6 +613,9 @@ caption = """\
     As the comet warms toward the Sun, Rosetta flies past it again and again rather than \
     orbiting. In this frame, which keeps the Sun in one direction, the passes fan out \
     into petals, pushed farther out as the dust grows and the star trackers struggle."""
+[[events.trails]]                          # three months of flybys
+body = "Rosetta"
+trail_history_days = 90.0
 
 [[events]]
 name = "Perihelion (2015-08-13)"
@@ -648,13 +635,16 @@ caption = """\
 name = "Tail excursion (2016-03 .. 04)"
 time = "2016-03-25 00:00"
 focus = "67P"
-frame = "67P, Sun fixed, 3 months"
+frame = "67P, Sun fixed"
 distance_km = 3000.0
 warp = 21600.0
 # [ROSX], [HZN]
 caption = """\
     Rosetta heads about 1,000 km out on the night side, away from the Sun, spending two \
     weeks studying the comet's tail, its outer coma and the plasma around it."""
+[[events.trails]]                          # the excursion and the weeks before
+body = "Rosetta"
+trail_history_days = 90.0
 
 # The last burn 2016-09-29 20:50 UTC from 19 km; touchdown in Ma'at 2016-09-30 10:39:28 UTC.
 [[events]]
@@ -675,7 +665,7 @@ caption = """\
 name = "The whole stay at 67P (2014-2016)"
 time = "2016-09-30 10:00"
 focus = "67P"
-frame = "67P, Sun fixed, the whole stay"
+frame = "67P, Sun fixed"
 distance_km = 4000.0
 warp = 3600.0
 # [ROS], [HZN]
@@ -683,3 +673,6 @@ caption = """\
     More than two years beside one comet, from the triangles of arrival through the \
     flybys, perihelion and the tail excursion, to the final descent: the first \
     spacecraft to orbit a comet and land on it, in one view."""
+[[events.trails]]                          # from the arrival on
+body = "Rosetta"
+trail_history_days = 1000.0

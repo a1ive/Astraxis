@@ -309,28 +309,28 @@ void Scene::set_active_event(int index)
     m_active_event = index >= 0 && index < static_cast<int>(events.size()) ? index : -1;
 }
 
-TrailMode Scene::trail_mode(int body) const
+const SceneEvent::Trail* Scene::event_trail(int body) const
 {
     if (m_active_event >= 0) {
         for (const SceneEvent::Trail& t : events[static_cast<size_t>(m_active_event)].trails) {
             if (t.body == body) {
-                return t.mode;
+                return &t;
             }
         }
     }
-    return bodies[static_cast<size_t>(body)].trail;
+    return nullptr;
+}
+
+TrailMode Scene::trail_mode(int body) const
+{
+    const SceneEvent::Trail* t = event_trail(body);
+    return t ? t->mode : bodies[static_cast<size_t>(body)].trail;
 }
 
 double Scene::trail_history_days(int body) const
 {
-    if (m_active_event >= 0) {
-        for (const SceneEvent::Trail& t : events[static_cast<size_t>(m_active_event)].trails) {
-            if (t.body == body) {
-                return t.history_days;
-            }
-        }
-    }
-    return bodies[static_cast<size_t>(body)].trail_history_days;
+    const SceneEvent::Trail* t = event_trail(body);
+    return t ? t->history_days : bodies[static_cast<size_t>(body)].trail_history_days;
 }
 
 State Scene::icrf_state_at(int body, double t_tdb) const
@@ -762,7 +762,9 @@ void Scene::trail(int body_index, double t_tdb, int max_points, std::vector<glm:
             history_days = period > 0.0 ? kBodyFixedTrailRotations * period : kRotatingTrailDays;
         }
     }
-    if (const double cap = frame().trail_history_days; cap > 0.0 && mode == TrailMode::History) {
+    // The frame's cap, unless the event set this trail (for its own frame).
+    if (const double cap = frame().trail_history_days;
+        cap > 0.0 && mode == TrailMode::History && !event_trail(body_index)) {
         history_days = history_days > 0.0 ? std::min(history_days, cap) : cap;
     }
 

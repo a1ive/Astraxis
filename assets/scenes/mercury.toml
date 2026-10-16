@@ -261,7 +261,8 @@ node_deg = [49.71320984, -0.26852431]
 # --- Spacecraft ---------------------------------------------------------------------
 # Children of the Sun; the orbital phases are tables relative to Mercury, added to
 # Mercury's position (relative_to). The cruise trail stays (the whole tour since
-# launch); in the Mercury-centered frames trails are cut to the last day (or month).
+# launch); in the Mercury-centered frame trails are cut to the last day (the capture
+# event shows a month).
 
 [[bodies]]
 name = "MESSENGER"
@@ -302,12 +303,6 @@ name = "Mercury-centered"
 type = "inertial"
 origin = "Mercury"
 trail_history_days = 1.0                   # a day of orbits, not years of them
-
-[[frames]]
-name = "Mercury-centered, 30-day trails"   # for the weeks-long capture loops
-type = "inertial"
-origin = "Mercury"
-trail_history_days = 30.0
 
 [[frames]]
 name = "Sun-Mercury rotating"
@@ -500,7 +495,7 @@ name = "BepiColombo: capture by Mercury (2026-11)"
 time_tdb = "2026-10-26 00:00"
 focus = "Mercury"
 flyby = "BepiColombo"
-frame = "Mercury-centered, 30-day trails"
+frame = "Mercury-centered"
 distance_km = 6.0e5
 warp = 7200.0
 # [BCA], [HZN]
@@ -508,6 +503,9 @@ caption = """\
     The transfer module, its work done, was cast off on 3 September 2026. If all goes to \
     plan, MPO with Mio still attached slips into orbit on 21 November 2026; these are \
     the planned trajectories, ahead of the real ones."""
+[[events.trails]]                          # the weeks-long capture loops
+body = "BepiColombo"
+trail_history_days = 30.0
 
 # Science orbit (480 x 1500 km, 2.3 h, polar) from mid-February 2027.
 [[events]]

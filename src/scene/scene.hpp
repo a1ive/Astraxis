@@ -454,7 +454,9 @@ struct SceneEvent {
 
     // Trail settings that replace a body's own while the event is active
     // (Scene::set_active_event), e.g. a short trail for a flyby close-up in a
-    // planet-centered frame, where the earlier flybys would cross the planet.
+    // planet-centered frame, where the earlier flybys would cross the planet,
+    // or a long one where the frame caps trails short. The frame's cap does
+    // not apply to them.
     struct Trail {
         int body = -1;
         TrailMode mode = TrailMode::History;
@@ -576,7 +578,7 @@ public:
 
     // A body's trail settings: its own, or the active event's for it. The
     // trail drawn may still differ (a rotating frame turns orbits into history
-    // trails, and a frame may cap their length).
+    // trails, and a frame may cap the length of those not set by the event).
     TrailMode trail_mode(int body) const;
     double trail_history_days(int body) const;
 
@@ -602,6 +604,8 @@ private:
     // Whether a body belongs to the system of the active frame's origin: the
     // origin and its satellites, or everything around its barycenter.
     bool in_frame_system(int body) const;
+    // The active event's trail settings for a body, or null.
+    const SceneEvent::Trail* event_trail(int body) const;
 
     double m_time = 0.0;
     int m_active_frame = 0;
