@@ -1,7 +1,9 @@
 #pragma once
 
+#include <glm/mat3x3.hpp>
 #include <glm/vec3.hpp>
 
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -44,6 +46,37 @@ public:
             out.push_back(t0 + (t1 - t0) * static_cast<double>(i) / static_cast<double>(n - 1));
         }
     }
+};
+
+// Another motion given in a frame that turns with the parent, e.g. a lander's
+// path in the comet's body-fixed frame: `to_icrf(t)` holds that frame's axes in
+// ICRF (columns). Velocities include the frame's rotation.
+class BodyFixedMotion final : public MotionSource {
+public:
+    BodyFixedMotion(std::unique_ptr<MotionSource> inner, std::function<glm::dmat3(double)> to_icrf)
+        : m_inner(std::move(inner))
+        , m_to_icrf(std::move(to_icrf))
+    {
+    }
+    State eval(double t_tdb) const override
+    {
+        const State s = m_inner->eval(t_tdb);
+        // dR/dt by central difference: over 2 s a rotation turns far less than
+        // a degree, so the truncation error is negligible.
+        constexpr double kStep = 1.0;
+        const glm::dmat3 rate = (m_to_icrf(t_tdb + kStep) - m_to_icrf(t_tdb - kStep)) / (2.0 * kStep);
+        const glm::dmat3 r = m_to_icrf(t_tdb);
+        return {r * s.position, r * s.velocity + rate * s.position};
+    }
+    bool valid_at(double t_tdb) const override { return m_inner->valid_at(t_tdb); }
+    void history_times(double t0, double t1, int max_points, std::vector<double>& out) const override
+    {
+        m_inner->history_times(t0, t1, max_points, out);
+    }
+
+private:
+    std::unique_ptr<MotionSource> m_inner;
+    std::function<glm::dmat3(double)> m_to_icrf;
 };
 
 // Another motion scaled by a constant. Places both bodies of a pair around

@@ -959,6 +959,28 @@ void Loader::parse(const toml::table& root, Scene& out)
             }
             m_current_body = static_cast<int>(out.bodies.size());
             body.motion = parse_motion(*orbit, ctx + " orbit", &out.bodies[static_cast<size_t>(body.parent)]);
+            if ((*orbit)["body_fixed"].value<bool>().value_or(false)) {
+                // States in the parent's body-fixed frame (a lander on a comet), turned by the
+                // parent's own rotation model, so that the path stays on the drawn surface.
+                const Body& parent = out.bodies[static_cast<size_t>(body.parent)];
+                auto rotation = std::make_shared<Body>();
+                rotation->pole_ra = parent.pole_ra;
+                rotation->pole_dec = parent.pole_dec;
+                rotation->pm_w0_deg = parent.pm_w0_deg;
+                rotation->pm_rate_deg_per_day = parent.pm_rate_deg_per_day;
+                rotation->pole_rate_deg_per_century = parent.pole_rate_deg_per_century;
+                rotation->nut_prec_ra = parent.nut_prec_ra;
+                rotation->nut_prec_dec = parent.nut_prec_dec;
+                rotation->nut_prec_pm = parent.nut_prec_pm;
+                rotation->free_precession = parent.free_precession;
+                std::vector<glm::dvec2> angles;
+                if (parent.nut_prec_source >= 0) {
+                    angles = out.bodies[static_cast<size_t>(parent.nut_prec_source)].nut_prec_angles;
+                }
+                body.motion = std::make_unique<BodyFixedMotion>(
+                    std::move(body.motion),
+                    [rotation, angles](double t) { return body_rotation(*rotation, angles, t); });
+            }
             // `scale` applies to the whole motion (fallback included).
             if (orbit->contains("scale")) {
                 const double scale = get_double(*orbit, "scale", ctx);

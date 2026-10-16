@@ -367,27 +367,31 @@ double Scene::sun_gm() const
 
 glm::dmat3 Scene::body_to_icrf(const Body& body, double t_tdb) const
 {
+    static const std::vector<glm::dvec2> kNone;
+    const int source = body.nut_prec_source;
+    return body_rotation(body, source >= 0 ? bodies[static_cast<size_t>(source)].nut_prec_angles : kNone, t_tdb);
+}
+
+glm::dmat3 body_rotation(const Body& body, const std::vector<glm::dvec2>& angles, double t_tdb)
+{
     const double days = t_tdb / kSecondsPerDay;
     double ra = body.pole_ra;
     double dec = body.pole_dec;
     double w_deg = body.pm_w0_deg + body.pm_rate_deg_per_day * days;
-    if (body.nut_prec_source >= 0 || body.pole_rate_deg_per_century != glm::dvec2(0.0)) {
+    if (!angles.empty() || body.pole_rate_deg_per_century != glm::dvec2(0.0)) {
         const double centuries = days / kDaysPerJulianCentury;
         ra += body.pole_rate_deg_per_century.x * centuries * kDegToRad;
         dec += body.pole_rate_deg_per_century.y * centuries * kDegToRad;
-        if (body.nut_prec_source >= 0) {
-            const auto& angles = bodies[static_cast<size_t>(body.nut_prec_source)].nut_prec_angles;
-            for (size_t k = 0; k < angles.size(); ++k) {
-                const double theta = (angles[k].x + angles[k].y * centuries) * kDegToRad;
-                if (k < body.nut_prec_ra.size()) {
-                    ra += body.nut_prec_ra[k] * std::sin(theta) * kDegToRad;
-                }
-                if (k < body.nut_prec_dec.size()) {
-                    dec += body.nut_prec_dec[k] * std::cos(theta) * kDegToRad;
-                }
-                if (k < body.nut_prec_pm.size()) {
-                    w_deg += body.nut_prec_pm[k] * std::sin(theta);
-                }
+        for (size_t k = 0; k < angles.size(); ++k) {
+            const double theta = (angles[k].x + angles[k].y * centuries) * kDegToRad;
+            if (k < body.nut_prec_ra.size()) {
+                ra += body.nut_prec_ra[k] * std::sin(theta) * kDegToRad;
+            }
+            if (k < body.nut_prec_dec.size()) {
+                dec += body.nut_prec_dec[k] * std::cos(theta) * kDegToRad;
+            }
+            if (k < body.nut_prec_pm.size()) {
+                w_deg += body.nut_prec_pm[k] * std::sin(theta);
             }
         }
     }

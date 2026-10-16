@@ -565,4 +565,17 @@ Horizons 里没有嫦娥系列的探测器（只有 CE-5T1、CE-3、CE-4 的火�
   - 2015-02-14 近距离飞掠，最近 7.94 km（12:42 UTC，“离表面 6 km”）
   - 2016-09-30 撞击前一分钟离彗心不到 3 km，之后消失
 - **结束**：Rosetta 2016-09-30 10:39:28 UTC（10:40:36 TDB）落在 Ma'at 区，表截到 10:40 TDB；之后 Horizons 的数据是贴在地面上随彗核转动的。
-- Philae 不在 Horizons 里，场景中没有画。
+
+### Philae（`tools/philae/`）
+
+Philae 不在 Horizons 里，用 ESA SPICE Service 的着陆器星历（<https://spiftp.esac.esa.int/data/SPICE/ROSETTA/kernels/spk/>，下载后 `python tools/philae/philae_bake.py <目录>`，只用标准库，`tools/philae/spk.py` 读 SPK 的 5 型和 18 型段）：
+
+| 文件 | 目标 | 中心 | 时间范围 | 容差 | 节点数 |
+|---|---|---|---|---|---|
+| `philae_67p.eph` | −226800 Philae | 67P（1000012），**67P 本体固定系**（场景里 `body_fixed = true`） | 2014-11-12 08:36:07 TDB（释放）.. 2100-01-01 | 0.5 m（AXEPH1） | 25 |
+
+- **下降**：`LORB_SUN_J2000_SDL_V1_1.BSP`（SONC-FD/CNES 用多面体引力场从释放点推算到表面；他们说落点离估计的触地点 11 m、晚 5.1 s），是**相对太阳、J2000** 的。减去场景用的 67P（`c67p.eph`，同一个 ESA 彗星解：释放时离 Rosetta 的表 34 m），再用场景里 67P 的自转模型（[CHP]）转到本体系。终点离 7Dwarfs 的第一次触地点 33 m，这个差在 7 小时下降里按时间线性补上（1.3 mm/s）。
+- **弹跳**：`LORB_C_G_FIXED_RBD_7_V2_0.BSP`（Grieger 和 7Dwarfs 组，2019，取代 SONC-FD 的 6 条候选 `RBD_1..6`），已经是 67P/C-G_CK 本体系，相对 67P，1 s 一个状态（5 型）。从速度跳变读出的时刻（UTC）：Agilkia 触地 15:34:04（表开始），16:20:01 撞到地面，17:25:27 再次触地，17:31:17 静止（表结束），离 Agilkia 1.27 km。
+- **静止**：最后一个位置（速度置 0）一直保持到 2100 年。
+- **对照**（`test_rosetta_scene`）：在 SHAP5 形状上，Agilkia 点比表面高 0.9 m，静止点低 3.0 m（卡在裂缝里），两份不同来源的数据对得上。
+- 释放前 Philae 装在 Rosetta 上（`LORB_ROS_SC_PRESEP`），没有画。

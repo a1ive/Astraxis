@@ -322,6 +322,11 @@ struct Body {
     double fade_radius_km = 0.0;
 };
 
+// Body-fixed axes of a body in ICRF (columns) at t_tdb from its rotation
+// model: IAU pole and prime meridian (periodic terms with `nut_prec_angles`,
+// those of its nut_prec_source; empty: none), or free precession.
+glm::dmat3 body_rotation(const Body& body, const std::vector<glm::dvec2>& nut_prec_angles, double t_tdb);
+
 // Shape of one of the planet's shaped ring bands at t_tdb; body_to_icrf holds
 // the planet's body-fixed axes in ICRF at that time (columns).
 RingBandShape ring_band_shape(const Body& planet, const RingBand& band, const glm::dmat3& body_to_icrf,

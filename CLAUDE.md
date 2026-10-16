@@ -124,7 +124,7 @@ CMake 目标：
 | `core_tests.cpp` | 日历/时间尺度、星表（含重投影）与黑体颜色、银道坐标系 |
 | `ephem_tests.cpp` | 开普勒方程与传播、星历表、目视/凌星轨道约定、N 体 |
 | `planet_scene_tests.cpp` | 场景里的行星和卫星：太阳系、木星、地月、土星 |
-| `mission_tests.cpp` | 探测器：先驱者/新视野、Parker、伽利略/朱诺、Artemis/CAPSTONE/嫦娥五号 T1、卡西尼/惠更斯、信使/贝皮科伦坡、火星的八个轨道器、赛丁泉彗星与 Europa Clipper/Hera 飞掠、金星快车/破晓号/Zoozve 与金星借力飞掠、ISEE-3、哈雷舰队、Rosetta、JWST |
+| `mission_tests.cpp` | 探测器：先驱者/新视野、Parker、伽利略/朱诺、Artemis/CAPSTONE/嫦娥五号 T1、卡西尼/惠更斯、信使/贝皮科伦坡、火星的八个轨道器、赛丁泉彗星与 Europa Clipper/Hera 飞掠、金星快车/破晓号/Zoozve 与金星借力飞掠、ISEE-3、哈雷舰队、Rosetta/Philae、JWST |
 | `shape_tests.cpp` | 小天体形状模型 |
 | `appearance_tests.cpp` | 彗尾、尘埃彗尾、大气层、羽流（含各场景参数一致） |
 | `stellar_system_tests.cpp` | α Cen、TRAPPIST-1、Kepler 系统、TIC 168789840、PSR B1620-26 |
@@ -142,6 +142,7 @@ CMake 目标：
 - `assets/shapes/*.mesh`（AXMESH2）：`tools/shapes/` 下按来源格式分：`make_arrokoth.py`、`make_grid_table_shape.py`（Thomas / Stooke 经纬网格表）、`make_dtm_shape.py`（DLR 全球 DTM）、`make_plate_shape.py`（板块模型、OBJ、VRML）
 - `tools/isee3/`、`tools/armada/`、`tools/ce5t1/`：ISEE-3、哈雷舰队、嫦娥五号 T1 服务舱的轨道重建（需要 numpy，下载缓存不入库），做法见 `assets/ephem/SOURCES.md`
 - `tools/tianwen1/`：天问一号环绕器。`momag_fetch.py` 从 USTC 的 MOMAG 磁强计数据下载位置（约 15 GB，每天一个文件，逐个下载后只留每分钟一个样本，`cache/` 不入库）；`tianwen1_bake.py <jupyter_notebooks/Tianwen/orbit 目录>` 把它们和 D. Estévez 的 GMAT 报告（2021 年的机动窗口）烘成 `tianwen1_mars.eph`，只用标准库
+- `tools/philae/`：Philae 的下降、弹跳和静止点。`philae_bake.py <目录>` 读 ESA SPICE Service 的两个着陆器 SPK（`spk.py` 是只用标准库的 SPK 读取器，支持 5 型和 18 型段），换到 67P 本体系烘成 `philae_67p.eph`，下载地址和做法见 `assets/ephem/SOURCES.md`
 - `tools/pdftext.py`：只用标准库从 arXiv PDF 提取文字（ar5iv 经常超时）
 - `res/astraxis.ico`：`tools/icon/make_icon.py`（需要 Inkscape）从 `res/astraxis.svg`（≥ 48 px）和 `res/astraxis-small.svg`（≤ 40 px）生成；.ico 入库，CI 不依赖 Inkscape
 
@@ -182,6 +183,7 @@ CMake 目标：
 - 从 Bash 用 `&` 启动的 exe 会随 shell 一起退出，长时间运行用 PowerShell 的 `Start-Process`；后台命令里 `cd dir && a & b &` 只有 a 在 dir 里执行，下载用 `curl -o 绝对路径`
 - Bash 工具的 heredoc 即使写成 `<<'EOF'` 也会吃掉反斜杠（`\\n` 变成 `\n`）：含反斜杠的编辑用 Edit 工具，或先用 Write 写成脚本文件。heredoc 里的中文传给 `python -` 也会变成乱码（不是 UTF-8），改中文文档同样用 Edit；几百行、夹着 C++ 代码的 heredoc 还可能整段报 `unexpected EOF while looking for matching`，批量改代码的脚本一律先 Write 到 scratchpad 再 `python <文件>`
 - WSL 里用 Clang 再建一个构建目录时，`linux` 预设把 `FETCHCONTENT_BASE_DIR` 固定在 `build/linux/_deps`，两个编译器会共用依赖的构建目录（SDL 的预编译头互相覆盖，报 `cmake_pch.h has been modified`）。Clang 构建要另给 `-DFETCHCONTENT_BASE_DIR`，再用 `-DFETCHCONTENT_SOURCE_DIR_<SDL3|GLM|IMGUI|STB|TOMLPLUSPLUS|DXC>` 指向已下载的源码
+- 用 `python -I` 跑读下载文件的工具时，脚本自己的目录不在 `sys.path` 上：同目录的模块（如 `tools/philae/spk.py`）要在脚本里显式 `sys.path.insert`
 - 从 Git Bash 调 `wsl.exe`：`/mnt/c/...` 参数要加 `MSYS_NO_PATHCONV=1`；`bash -lc '...'` 里的 `$变量` 会被提前展开，脚本最好写成文件再执行
 
 ### 数据源
@@ -230,7 +232,7 @@ CMake 目标：
 按容易程度排：
 
 1. 标题字体加希腊字母后备（Jost 没有希腊字母，`α` 显示成 `?`）；面板打开时长标题两端会被挡住
-2. Rosetta 场景加 Philae（ESA SPICE 里有着陆轨迹，Horizons 没有）；要在 67P 固定系（`type = "body_fixed"`）里看着陆，先给 67P 换随时间变化的自转（过近日点后周期从 12.40 h 缩到约 12.06 h，见 limitations.md）
+2. 67P 换随时间变化的自转（过近日点后周期从 12.40 h 缩到约 12.06 h，见 limitations.md），之后“67P-fixed”参考系才能看整个任务（Rosetta 绕彗核飞、2016 年落在 Ma'at），Philae 在惯性空间里的朝向也不再越来越偏：ESA SPICE 有彗核的姿态 CK（`67P/C-G_CK` 系），可以拟合成分段的自转相位
 3. 地月场景加 CE-5T1 的火箭末级：Horizons −78000（2021-10-01 到 2022-03-04 撞月，JPL 解 #23）可以直接烘焙
 4. 火星场景：天问一号补 2021 年的入轨（02-10）、停泊轨道（02-23）和中继轨道（05-17），可用 Estévez 仓库里的遥测向量（`tm_state_vectors/`）和 AMSAT-DL 论文的机动表外推；加星际天体 3I/ATLAS（天问一号 2025-09-30 .. 10-03 拍摄，arXiv:2603.10350）；事件的视角支持“从太阳方向看”（场景里没有太阳天体，`from_body` 用不了）
 5. 金星场景：加信使号（2007-06-05，与金星快车协同观测）、Solar Orbiter 与贝皮科伦坡号相隔约 33 小时（2021-08）的金星飞掠，做法同伽利略号/卡西尼号/Juice（金星中心、前后各 5 天的短表）；Solar Orbiter（−144）和贝皮科伦坡号同时出现在一个事件里

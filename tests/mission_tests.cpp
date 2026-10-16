@@ -20,6 +20,33 @@ using namespace astraxis;
 
 namespace {
 
+// Distance from the origin to the outermost surface of a shape along the direction of p (km).
+double shape_radius(const ShapeModel& shape, const glm::dvec3& p)
+{
+    const glm::dvec3 d = glm::normalize(p);
+    double best = 0.0;
+    for (size_t i = 0; i + 2 < shape.indices.size(); i += 3) {
+        const glm::dvec3 a(shape.positions[shape.indices[i]]);
+        const glm::dvec3 e1 = glm::dvec3(shape.positions[shape.indices[i + 1]]) - a;
+        const glm::dvec3 e2 = glm::dvec3(shape.positions[shape.indices[i + 2]]) - a;
+        // Moller-Trumbore, ray from the origin.
+        const glm::dvec3 h = glm::cross(d, e2);
+        const double det = glm::dot(e1, h);
+        if (std::abs(det) < 1e-15) {
+            continue;
+        }
+        const glm::dvec3 s = -a;
+        const double u = glm::dot(s, h) / det;
+        const glm::dvec3 q = glm::cross(s, e1);
+        const double w = glm::dot(d, q) / det;
+        if (u < 0.0 || w < 0.0 || u + w > 1.0) {
+            continue;
+        }
+        best = std::max(best, glm::dot(e2, q) / det);
+    }
+    return best;
+}
+
 // Solar System scene: Pioneer 10/11 and New Horizons, and the planets baked
 // back to 1972 for the Pioneer flybys.
 void test_solar_system_missions()
@@ -1393,6 +1420,41 @@ void test_rosetta_scene()
         worst = std::max(worst, glm::length(at(craft, t + 600.0) - a.position - a.velocity * 600.0));
     }
     check(worst < 5.0, "Rosetta hand-over to the comet-relative table (km per 10 min)", worst);
+
+    // Philae (tools/philae/philae_bake.py), in 67P's body-fixed frame: released from Rosetta
+    // 2014-11-12 08:35 UTC; on the drawn shape at its first touchdown (Agilkia, 15:34:04 UTC)
+    // and at rest (Abydos, 17:31:17 UTC), 1.27 km apart, and still there in 2016.
+    const int philae = scene.find("Philae");
+    check(philae > 0, "rosetta.toml has Philae");
+    const Body& nucleus = scene.bodies[static_cast<size_t>(comet)];
+    auto body_frame = [&](double t) {
+        return glm::transpose(scene.body_to_icrf(nucleus, t)) * (at(philae, t) - at(comet, t));
+    };
+    auto altitude = [&](const glm::dvec3& p) { return glm::length(p) - shape_radius(*nucleus.shape, p); };
+    scene.update(utc({2014, 11, 12, 8, 30, 0}));
+    check(!scene.bodies[static_cast<size_t>(philae)].visible, "Philae not yet released");
+    scene.update(utc({2014, 11, 12, 8, 40, 0}));
+    check(scene.bodies[static_cast<size_t>(philae)].visible, "Philae released");
+    const double t_sep = utc({2014, 11, 12, 8, 36, 0});
+    check(glm::length(at(philae, t_sep) - at(craft, t_sep)) < 0.1, "Philae leaves from Rosetta (km)",
+          glm::length(at(philae, t_sep) - at(craft, t_sep)));
+    const glm::dvec3 agilkia = body_frame(utc({2014, 11, 12, 15, 34, 4}));
+    const glm::dvec3 abydos = body_frame(utc({2014, 11, 12, 17, 32, 0}));
+    const glm::dvec3 abydos_2016 = body_frame(utc({2016, 9, 30, 12, 0, 0}));
+    check(std::abs(altitude(agilkia)) < 0.01, "Philae's first touchdown on the shape (km)", altitude(agilkia));
+    check(std::abs(altitude(abydos)) < 0.01, "Philae at rest on the shape (km)", altitude(abydos));
+    check(std::abs(glm::length(abydos - agilkia) - 1.27) < 0.02, "Agilkia to Abydos (km)",
+          glm::length(abydos - agilkia));
+    check(glm::length(abydos_2016 - abydos) < 1e-6, "Philae stays at Abydos", glm::length(abydos_2016 - abydos));
+    std::printf("info: Philae on the 67P shape: Agilkia %+.1f m, Abydos %+.1f m, %.3f km apart\n",
+                1000.0 * altitude(agilkia), 1000.0 * altitude(abydos), glm::length(abydos - agilkia));
+    // At rest it turns with the comet: the velocity is the rotation's.
+    const double t_rest = utc({2015, 3, 1, 0, 0, 0});
+    const glm::dvec3 v = scene.icrf_state_at(philae, t_rest).velocity - scene.icrf_state_at(comet, t_rest).velocity;
+    const glm::dvec3 dp = (at(philae, t_rest + 1.0) - at(comet, t_rest + 1.0)) -
+                          (at(philae, t_rest - 1.0) - at(comet, t_rest - 1.0));
+    check(glm::length(v - dp / 2.0) < 1e-7 && glm::length(v) > 1e-4, "Philae's velocity at rest (km/s)",
+          glm::length(v));
 }
 
 // The Halley Armada in the ISEE-3 scene, reconstructed by tools/armada/armada_reconstruct.py
