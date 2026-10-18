@@ -52,7 +52,7 @@ build/linux/Debug/astraxis_tests
 src/app/       宿主：main、窗口（App）、屏保（Screensaver）、壁纸（Wallpaper，仅 Windows）；后两者共用 SceneHost
 src/platform/  SDL 窗口、路径；Win32 的壁纸挂载（WallpaperLayer）和托盘图标
 src/view/      SceneRenderer：把 Simulation 转成 draw item，编排各 pass 和后处理
-src/render/    SDL_GPU 封装与各渲染 pass（星空、天体、轨道线、标记）
+src/render/    SDL_GPU 封装与各渲染 pass（星空、天体、大气层、彗星、行星环、黑洞、轨道线等）
 src/scene/     天体、参考系、相机、场景定义；Simulation（场景 + 时钟 + 相机 + 导览）
 src/ephem/     运动来源：解析开普勒 / 星历插值 / N 体（Yoshida）/ GR（Kerr 测地线，IMR）
 src/core/      时间、单位、double 数学 —— 不依赖 SDL 和 GPU
@@ -80,7 +80,7 @@ CMake 目标：
 
 渲染流程：
 1. 黑洞光追（有黑洞时）：在屏幕外以半分辨率追踪，记下每条光线的天空方向和盘的光（`shaders/black_hole.hlsli` 是两边共用的追踪代码）；第 2 步的黑洞合成按全分辨率逐像素插值方向，相邻光线不一致处（阴影边缘、光子环附近）在合成着色器里重新追踪；天空逐像素查：星按局部线性化的透镜映射画成点（`StarfieldPass` 把星按方向排进网格，供合成着色器查找），银河直接采样它自己的贴图，天空被压缩到星点超出网格查找范围处（光子环附近）改用带 mip 的立方体贴图
-2. 场景 pass，渲染到 HDR（RGBA16F + MSAA）：银河 → 星空 → 天体 → 大气层 → 羽流 → 彗发/离子彗尾 → 尘埃彗尾 → 行星环 → 黑洞合成 → 太阳 → 脉冲星光束 → 轨道线
+2. 场景 pass，渲染到 HDR（RGBA16F + MSAA）：银河 → 星空 → 天体 → 大气层 → 羽流 → 彗发/离子彗尾 → 尘埃彗尾 → 行星环 → 小行星带/柯伊伯带 → 黑洞合成 → 恒星 → 脉冲星光束 → 轨道线
 3. `PostProcess`：泛光 → ACES → sRGB → 交换链
 4. ImGui 叠加 pass
 
@@ -164,7 +164,7 @@ CMake 目标：
 - 不要用 `SDL_GenerateMipmapsForGPUTexture` 给星空立方体贴图生成 mip：各面是按 Direct3D 面布局、用镜像投影画的，SDL 生成的 mip 和本层对不上，天空在面的交界处出现亮度台阶。`StarfieldPass::render_cubemap` 直接画每一级 mip
 - 不用平台后端时也要调用 `ImGui_ImplSDLGPU3_NewFrame()`（第一次调用时创建采样器）；漏了 Debug 能跑，Release 在 `SDL_BindGPUFragmentSamplers` 里崩
 - ImGui 开了 `NavEnableKeyboard` 后，有窗口获得焦点时 `WantCaptureKeyboard` 就是 true，全局快捷键只看 `WantTextInput`
-- 多输出时不要每个输出都阻塞等一次 VSYNC，用不阻塞的 `SDL_AcquireGPUSwapchainTexture`
+- 多输出时每个输出都要等自己的交换链（`SDL_WaitAndAcquireGPUSwapchainTexture`）
 - 不要让 SDL 包装别的进程窗口下的子窗口（屏保 `/p` 预览）：对话框在第二块屏上时 SDL 会按顶层窗口的逻辑移动并放大它，预览区只剩黑底。预览窗口现在用 GDI 画
 - TOML 的表头会“吞掉”后面的键：顶层键（如 `name`）必须写在第一个 `[table]` 之前
 - 以行星为根、没有太阳天体的场景（木星、土星、火星）里，事件的 `from_body = "Sun"` 指太阳方向（`SceneEvent::from_sun`，用 `Scene::sun_position()`），不是天体；这类场景里不要再加名叫 Sun 的天体
@@ -241,7 +241,8 @@ CMake 目标：
 按容易程度排：
 
 1. Dear ImGui 等 1.93.x 补丁版出来再从 v1.92.9b 升级（1.93.0 重写了 ImDrawList，刚发布）。SDL3/SDLGPU3 后端和用到的 API 都兼容，要截图核对的是：`label_overlay.cpp` 的空心圆点（`AddCircle` 半径不再减 0.5、默认内侧描边）和标记菱形（`AddQuad`）、`captions.cpp`/`app_ui.cpp` 里非整数坐标的 `AddRectFilled`（现在有抗锯齿边缘）、`StyleColorsDark()` 改过的面板配色
-2. 远期：macOS（Metal，需要 SPIR-V → MSL 和 macOS CI）；Hulse–Taylor 并合（3 亿年后 double 秒数只有约 2 s 分辨率，要做成以并合为零点的单独场景）；脉冲星自转轴的测地线进动（B1913+16 的几何解各论文不一致）
+2. B1913+16 自转轴的测地线进动：用 Weisberg & Taylor 2002（astro-ph/0205280）表 1 的解 1（i = 47.2°，与场景一致；δ = 21.1°、α = 157.5°、T0 = 1981.0）；Kramer 1998 表 1 的解 I 是同一几何（δ = 22°，α = 27° 即自转反向）。速率由质量按 Barker & O'Connell 算（1.215°/年，对照 WT02 的 1.213°/年写测试），自转轴绕轨道法线走半角 δ 的锥；画面上只有 ζ(t)（自转轴与视线的夹角）可见，它只依赖 cos Φ，不受进动方向和假设的天空节点影响，测试对照 WT02 的公式。`pulsar_beams` 要多传仿真时间。再加一个从地球方向（视线）看的事件，事件视角目前只有 `from_orbit_normal`、`from_body`，要新增一种：现有的“光束扫过相机时闪一下”会一直闪到约 2025 年（Kramer 的预测）后停下；停下的时刻取决于光束宽度（现在是示意的 10°，WT02 的光束是轴比 1.59 的沙漏形），要调或注明。2019 年以后没找到观测文献，展签写成“预测”。[WH16] 4.4 节说各家几何解“不一致”，是指精度不够扣除光行差，不影响画面
+3. 远期：macOS（Metal，需要 SPIR-V → MSL 和 macOS CI）；J1141-6545 的自转轴进动（Venkatraman Krishnan 2019 表 1：α ≈ 89°，δ 各模型从 35° 到 155° 不等，倾向的模型 3 是 91° ± 60°；Manchester 2010 约 110°），等几何解定下来再做
 
 ## 不要做
 

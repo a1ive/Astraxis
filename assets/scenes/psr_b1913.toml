@@ -20,8 +20,10 @@
 #        companion 1.390 M_sun, sin i = 0.7327 +- 0.0004.
 #        Sec. 7: Pb_dot(GR) = -2.40263e-12, against an intrinsic (galaxy-corrected)
 #        -2.398e-12. The pulsar's spin frequency f = 16.9405 Hz (59 ms).
-#        Sec. 6.2: geodetic precession of the pulsar's spin axis changes its pulse
-#        profile, but published fits of the spin geometry disagree.
+#        Sec. 2: geodetic precession of the pulsar's spin axis changes its pulse
+#        profile, more and more as our line of sight nears the edge of the beam.
+#        Sec. 4.4: the published fits of the spin geometry are inconsistent (too
+#        much so to correct the timing for aberration).
 # [DA15] Damour 2015, Class. Quantum Grav. 32, 124009 (arXiv:1411.3930): discovered
 #        at Arecibo on 1974 July 2 (the binary nature found that September).
 # [CAP]  Event captions (retrieved 2026-10-07), besides the sources above:
@@ -40,7 +42,7 @@
 # only mirrors the orbit); neutron stars 12 km in radius at 1e5 K (L = 2.7e-5 L_sun).
 # The pulsar's spin axis is taken along the orbit normal, magnetic axis 45 deg from it,
 # beams 10 deg wide. In reality the spin axis is tilted to the orbit and precesses
-# (see [WH16] Sec. 6.2) - which may soon turn the beam away from Earth; that is not
+# (see [WH16] Sec. 2) - which may soon turn the beam away from Earth; that is not
 # shown. The beams are radio and invisible; they are drawn bluish and turn once every
 # 2 s of real time (the true 59 ms cannot be shown), stopping when the clock is paused.
 # Times are those of the timing model, i.e. as seen from the solar system barycentre
