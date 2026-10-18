@@ -230,20 +230,23 @@ struct Body {
     double luminosity_solar = 1.0;
 
     // IAU rotation model: spin pole in ICRF and prime meridian angle
-    // W = pm_w0_deg + pm_rate_deg_per_day * days since J2000, plus (optional)
-    // linear pole drift and the periodic terms of the IAU/PCK model:
+    // W = pm_w0_deg + pm_rate_deg_per_day * d + pm_accel_deg_per_day2 * d^2
+    // (d days since J2000), plus (optional) linear pole drift and the periodic
+    // terms of the IAU/PCK model:
     //   RA  += ra_rate * T + sum nut_prec_ra[i]  * sin(theta_i)
     //   Dec += dec_rate * T + sum nut_prec_dec[i] * cos(theta_i)
     //   W   += sum nut_prec_pm[i] * sin(theta_i)
-    // with T in Julian centuries since J2000 and theta_i = a + b T from
-    // `nut_prec_angles` of the nearest ancestor that has them (the planet).
+    // with T in Julian centuries since J2000 and theta_i = a + b T + c T^2 from
+    // `nut_prec_angles` of the body itself or else the nearest ancestor that
+    // has them (the planet).
     glm::dvec3 pole{0.0, 0.0, 1.0}; // at J2000, without periodic terms
     double pole_ra = 0.0; // radians; with pole_dec defines the IAU node direction
     double pole_dec = 1.5707963267948966;
     double pm_w0_deg = 0.0;
     double pm_rate_deg_per_day = 0.0;
+    double pm_accel_deg_per_day2 = 0.0;        // Phobos' tidal acceleration
     glm::dvec2 pole_rate_deg_per_century{0.0}; // RA, Dec
-    std::vector<glm::dvec2> nut_prec_angles;   // planets: (a deg, b deg per century) for each theta_i
+    std::vector<glm::dvec3> nut_prec_angles;   // (a deg, b deg per century, c deg per century^2) for each theta_i
     std::vector<double> nut_prec_ra;           // degrees, one per theta_i (trailing ones may be left out)
     std::vector<double> nut_prec_dec;
     std::vector<double> nut_prec_pm;
@@ -348,10 +351,10 @@ struct Body {
 // Body-fixed axes of a body in ICRF (columns) at t_tdb from its rotation
 // model: IAU pole and prime meridian (periodic terms with `nut_prec_angles`,
 // those of its nut_prec_source; empty: none), free precession or a spin table.
-glm::dmat3 body_rotation(const Body& body, const std::vector<glm::dvec2>& nut_prec_angles, double t_tdb);
+glm::dmat3 body_rotation(const Body& body, const std::vector<glm::dvec3>& nut_prec_angles, double t_tdb);
 
 // Rate of the prime meridian (deg/day, negative if retrograde) at t_tdb: the
-// spin table's, else the IAU model's constant rate.
+// spin table's, else the IAU model's secular rate (without periodic terms).
 double prime_meridian_rate(const Body& body, double t_tdb);
 
 // Shape of one of the planet's shaped ring bands at t_tdb; body_to_icrf holds

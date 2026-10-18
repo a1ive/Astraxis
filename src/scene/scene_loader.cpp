@@ -738,12 +738,13 @@ void Loader::parse(const toml::table& root, Scene& out)
         body.pole_dec = pole[1] * kDegToRad;
         body.pole = unit_from_ra_dec(body.pole_ra, body.pole_dec);
 
-        double pm[2] = {0.0, 0.0};
+        double pm[3] = {0.0, 0.0, 0.0}; // W0 deg, deg/day, optional deg/day^2
         if (t->contains("prime_meridian_deg")) {
-            get_array(*t, "prime_meridian_deg", ctx, pm, 2, 2);
+            get_array(*t, "prime_meridian_deg", ctx, pm, 2, 3);
         }
         body.pm_w0_deg = pm[0];
         body.pm_rate_deg_per_day = pm[1];
+        body.pm_accel_deg_per_day2 = pm[2];
         // pole_ra_dec_deg is then the angular momentum direction.
         if (const toml::table* fp = (*t)["free_precession"].as_table()) {
             const std::string fp_ctx = ctx + ".free_precession";
@@ -782,12 +783,14 @@ void Loader::parse(const toml::table& root, Scene& out)
         }
         if (const toml::array* angles = (*t)["nut_prec_angles"].as_array()) {
             for (const auto& node : *angles) {
-                const toml::array* pair = node.as_array();
-                if (!pair || pair->size() != 2 || !(*pair)[0].is_number() || !(*pair)[1].is_number()) {
-                    fail(ctx, "nut_prec_angles must be [deg, deg per century] pairs");
+                const toml::array* terms = node.as_array();
+                if (!terms || terms->size() < 2 || terms->size() > 3 ||
+                    !std::all_of(terms->begin(), terms->end(), [](const toml::node& n) { return n.is_number(); })) {
+                    fail(ctx, "nut_prec_angles must be [deg, deg per century(, deg per century^2)] arrays");
                 }
-                body.nut_prec_angles.emplace_back((*pair)[0].value<double>().value_or(0.0),
-                                                  (*pair)[1].value<double>().value_or(0.0));
+                body.nut_prec_angles.emplace_back((*terms)[0].value<double>().value_or(0.0),
+                                                  (*terms)[1].value<double>().value_or(0.0),
+                                                  terms->size() > 2 ? (*terms)[2].value<double>().value_or(0.0) : 0.0);
             }
         }
         for (const auto& [key, terms] : {std::pair<const char*, std::vector<double>*>{"nut_prec_ra", &body.nut_prec_ra},
@@ -1022,13 +1025,14 @@ void Loader::parse(const toml::table& root, Scene& out)
                 rotation->pole_dec = parent.pole_dec;
                 rotation->pm_w0_deg = parent.pm_w0_deg;
                 rotation->pm_rate_deg_per_day = parent.pm_rate_deg_per_day;
+                rotation->pm_accel_deg_per_day2 = parent.pm_accel_deg_per_day2;
                 rotation->pole_rate_deg_per_century = parent.pole_rate_deg_per_century;
                 rotation->nut_prec_ra = parent.nut_prec_ra;
                 rotation->nut_prec_dec = parent.nut_prec_dec;
                 rotation->nut_prec_pm = parent.nut_prec_pm;
                 rotation->free_precession = parent.free_precession;
                 rotation->spin_table = parent.spin_table;
-                std::vector<glm::dvec2> angles;
+                std::vector<glm::dvec3> angles;
                 if (parent.nut_prec_source >= 0) {
                     angles = out.bodies[static_cast<size_t>(parent.nut_prec_source)].nut_prec_angles;
                 }

@@ -286,8 +286,8 @@ void test_solar_system_bodies()
         double max_deg;
     };
     const Ref refs[] = {
-        {"Phobos", "Mars", {-2628.223, -8355.790, -2928.529}, 4.3},
-        {"Deimos", "Mars", {10863.689, 20169.954, 5021.957}, 0.7},
+        {"Phobos", "Mars", {-2628.223, -8355.790, -2928.529}, 0.4}, // 4.3 with [ELEM]'s rates
+        {"Deimos", "Mars", {10863.689, 20169.954, 5021.957}, 0.5},
         {"Miranda", "Uranus", {113206.352, -45282.815, 44805.770}, 4.4},
         {"Ariel", "Uranus", {173540.311, -55002.747, 57468.461}, 1.0},
         {"Umbriel", "Uranus", {-52480.299, -58662.732, 253016.586}, 0.3},
@@ -780,6 +780,55 @@ void test_mars_rotation()
     }
 }
 
+// Phobos and Deimos rotate synchronously in Cassini states: pck00011's periodic
+// terms swing their spin poles around the Laplace poles with the orbits' nodes, so
+// the poles stay close to the orbit normals (with the mean poles alone they are off
+// by the inclinations, 1.1 and 1.8 deg). Phobos' long axis swings away from Mars by
+// the optical libration (2e = 1.72 deg) plus its forced libration (1.143 deg), which
+// is in antiphase: the orbital forcing is faster than its free libration. In phase it
+// would be 0.6 deg, a quarter period off 2.1 deg; without the quadratic PM term the
+// axis would lag by 12.7 deg in 2100. Deimos' orbit is nearly circular. Orbits from the
+// baked tables and the mean elements alike (within 0.3 and 0.5 deg of Horizons), 1972-2100.
+void test_mars_moon_rotation()
+{
+    for (const char* file : {"mars.toml", "solar_system.toml"}) {
+        Scene scene = load_scene_or_die(file);
+        const int mars = scene.find("Mars");
+        struct Moon {
+            const char* name;
+            double max_pole_deg;
+            double axis_deg; // expected worst angle of the long axis from Mars
+            double axis_tolerance_deg;
+        };
+        for (const Moon& m : {Moon{"Phobos", 0.15, 1.72 + 1.143, 0.35}, Moon{"Deimos", 0.15, 0.0, 0.5}}) {
+            const int moon = scene.find(m.name);
+            check(moon >= 0 && mars >= 0, m.name);
+            if (moon < 0 || mars < 0) {
+                continue;
+            }
+            double worst_pole = 0.0;
+            double worst_axis = 0.0;
+            for (double jd = 2441317.5; jd < 2488069.5; jd += 9.7) { // 1972-01-01 .. 2100
+                const double t = tdb_from_jd_tdb(jd);
+                const State a = scene.icrf_state_at(mars, t);
+                const State b = scene.icrf_state_at(moon, t);
+                const glm::dvec3 r = b.position - a.position;
+                const glm::dvec3 normal = glm::normalize(glm::cross(r, b.velocity - a.velocity));
+                const glm::dmat3 axes = scene.body_to_icrf(scene.bodies[static_cast<size_t>(moon)], t);
+                worst_pole = std::max(worst_pole, std::acos(std::min(1.0, glm::dot(axes[2], normal))) * kRadToDeg);
+                const glm::dvec3 to_mars = glm::transpose(axes) * -r;
+                worst_axis = std::max(worst_axis, std::abs(std::atan2(to_mars.y, to_mars.x)) * kRadToDeg);
+            }
+            const std::string where = std::string(m.name) + ", " + file;
+            check(worst_pole < m.max_pole_deg, ("spin pole along the orbit normal (deg): " + where).c_str(), worst_pole);
+            check(std::abs(worst_axis - m.axis_deg) < m.axis_tolerance_deg,
+                  ("long axis toward Mars, librating (deg): " + where).c_str(), worst_axis);
+            std::printf("info: %s: pole within %.3f deg of the orbit normal, long axis within %.2f deg of Mars\n",
+                        where.c_str(), worst_pole, worst_axis);
+        }
+    }
+}
+
 } // namespace
 
 void run_planet_scene_tests()
@@ -797,5 +846,6 @@ void run_planet_scene_tests()
     test_earth_moon_frame();
     test_earth_moon_rotation();
     test_mars_rotation();
+    test_mars_moon_rotation();
     test_saturn_scene();
 }

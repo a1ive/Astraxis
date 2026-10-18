@@ -248,8 +248,16 @@ shape = "shapes/phobos.mesh"                # [THOM] 2-deg grid; assets/shapes/S
 radii_km = [13.0, 11.4, 9.1]               # [PCK], long axis toward Mars (shadows, camera distances)
 body_gm_km3_s2 = 0.0007087                 # [SPHY] (MAR097)
 pole_ra_dec_deg = [317.67071657, 52.88627266]  # [PCK]
-prime_meridian_deg = [35.18774440, 1128.84475928]
+prime_meridian_deg = [35.18774440, 1128.84475928, 9.536137031212154e-09]  # W0, deg/day, deg/day^2
 pole_rate_deg_per_century = [-0.10844326, -0.06134706]
+# [PCK] BODY4_NUT_PREC_ANGLES M1-M5 (M5 with its quadratic term) and BODY401_NUT_PREC_*:
+# the pole circles the Laplace pole with the node (2.26 years), W librates by 1.143 deg.
+nut_prec_angles = [[190.72646643, 15917.10818695], [21.46892470, 31834.27934054],
+                   [332.86082793, 19139.89694742], [394.93256437, 38280.79631835],
+                   [189.63271560, 41215158.18420050, 12.711923222]]
+nut_prec_ra = [-1.78428399, 0.02212824, -0.01028251, -0.00475595]
+nut_prec_dec = [-1.07516537, 0.00668626, -0.00648740, 0.00281576]
+nut_prec_pm = [1.42421769, -0.02273783, 0.00410711, 0.00631964, -1.143]
 color = "#7d746b"
 orbit_color = "#a0968c"
 texture = "textures/phobos.jpg"            # [THOM] Viking mosaic, assets/textures/SOURCES.md
@@ -266,10 +274,10 @@ arg_peri_deg = 216.3
 mean_anomaly_deg = 189.7
 i_deg = 1.1
 node_deg = 169.2
-period_days = 0.319042230                  # from the PCK spin rate; [ELEM] P = 0.3187
+period_days = 0.319033108                  # M5 of the [PCK]; [ELEM] P = 0.3187
 mean_anomaly_accel_deg_per_day2 = 9.536137031212154e-09   # [PCK] quadratic PM term
-apsis_period_years = 1.1
-node_period_years = -2.3
+apsis_period_years = 1.13159               # from the [PCK] (solar_system.toml); [ELEM] 1.1
+node_period_years = -2.26172               # M1 of the [PCK]; [ELEM] 2.3
 laplace_pole_ra_dec_deg = [317.7, 52.9]
 
 [[bodies]]
@@ -281,6 +289,14 @@ body_gm_km3_s2 = 0.0000962                 # [SPHY] (MAR097)
 pole_ra_dec_deg = [316.65705808, 53.50992033]  # [PCK]
 prime_meridian_deg = [79.39932954, 285.16188899]
 pole_rate_deg_per_century = [-0.10518014, -0.05979094]
+# [PCK] BODY4_NUT_PREC_ANGLES M6-M10 and BODY402_NUT_PREC_*: the pole circles the Laplace
+# pole with the node (54.5 years).
+nut_prec_angles = [[121.46893664, 660.22803474], [231.05028581, 660.99123540],
+                   [251.37314025, 1320.50145245], [217.98635955, 38279.96125550],
+                   [196.19729402, 19139.83628608]]
+nut_prec_ra = [3.09217726, 0.22980637, 0.06418655, 0.02533537, 0.00778695]
+nut_prec_dec = [1.83936004, 0.14325320, 0.01911409, -0.01482590, 0.00192430]
+nut_prec_pm = [-2.73954829, -0.39968606, -0.06563259, -0.02912940, 0.01699160]
 color = "#8f857a"
 orbit_color = "#b0a698"
 texture = "textures/deimos.jpg"            # [THOM] Viking mosaic, assets/textures/SOURCES.md
@@ -301,8 +317,8 @@ arg_peri_deg = 0.0
 mean_anomaly_deg = 205.0
 i_deg = 1.8
 node_deg = 54.3
-period_days = 1.262363152                  # from the PCK spin rate; [ELEM] P = 1.2625
-node_period_years = -56.2
+period_days = 1.262360769                  # from the [PCK] (solar_system.toml); [ELEM] P = 1.2625
+node_period_years = -54.5266               # M6 of the [PCK]; [ELEM] 56.2
 laplace_pole_ra_dec_deg = [316.6, 53.5]
 
 # Spacecraft [HZN], visible while their tables have data. Trails show about one
