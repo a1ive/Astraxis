@@ -1122,6 +1122,8 @@ nut_prec_angles = [[115.75, 54991.87], [141.69, 41887.66], [135.03, 29927.35], [
                    [101.81, 12872.63], [138.64, 8061.81], [102.23, -2024.22], [316.41, 2863.96],
                    [304.01, -51.94], [308.71, -93.17], [340.82, -75.32], [259.14, -504.81],
                    [204.46, -4048.44], [632.82, 5727.92]]  # [PCK] BODY7 (U1..U16, 2 U11, 2 U12), for the moons
+texture = "textures/uranus.jpg"            # Hubble OPAL zonal profile, assets/textures/SOURCES.md
+texture_left_lon_deg = 0.0
 color = "#a9d8e0"
 orbit_color = "#9fcbd4"
 [bodies.orbit]                             # [HZN] Uranus barycenter
@@ -1416,6 +1418,8 @@ nut_prec_angles = [[357.85, 52.316], [323.92, 62606.6], [220.51, 55064.2], [354.
 nut_prec_ra = [0.70]
 nut_prec_dec = [-0.51]
 nut_prec_pm = [-0.48]
+texture = "textures/neptune.jpg"           # Hubble OPAL zonal profile, assets/textures/SOURCES.md
+texture_left_lon_deg = 0.0
 color = "#5b7fd6"
 orbit_color = "#7b98e0"
 [bodies.orbit]                             # [HZN] Neptune barycenter

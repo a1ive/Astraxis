@@ -138,7 +138,7 @@ CMake 目标：
 - `assets/stars/hyg.csv`：`tools/stars/convert_hyg.py`（HYG v4.4，带距离，供近邻系统重投影）；M4 星团天空：`tools/stars/make_m4.py`（Gaia DR3）
 - `assets/sky/`：远处场景和银心的模型星空，`tools/sky/make_galaxy_sky.py`（需要 numpy；先 `calibrate` 对照 `milky_way.jpg` 标定，结果在 `tools/sky/galaxy_calibration.json`，再 `render <场景.toml>`，一个场景约 10 分钟，银心约 20 分钟）。改了模型或标定要重新生成全部场景。工具用 multiprocessing：Windows 上子进程重新导入模块，在主进程里改的模块全局变量传不过去，参数要经 `_init` 传
 - `assets/belts/*.bin`：`tools/belts/make_belts.py`（JPL SBDB，主带 H < 15、全部 TNO）
-- `assets/textures/*.jpg`：`tools/textures/prepare_textures.py` 从原图缩放
+- `assets/textures/*.jpg`：`tools/textures/prepare_textures.py` 从原图缩放；`uranus.jpg`、`neptune.jpg` 由 `tools/textures/make_ice_giant_textures.py` 从哈勃 OPAL 的 FITS 图合成（纬向剖面加一张真实图，需要 numpy）
 - `assets/shapes/*.mesh`（AXMESH2）：`tools/shapes/` 下按来源格式分：`make_arrokoth.py`、`make_grid_table_shape.py`（Thomas / Stooke 经纬网格表）、`make_dtm_shape.py`（DLR 全球 DTM）、`make_plate_shape.py`（板块模型、OBJ、VRML）
 - `tools/bake/rejoin_burn.py`：把表里的入轨点火接到其后接缝处的下一段弧上（希望号，见 `assets/ephem/SOURCES.md`），烘焙之后运行
 - `tools/isee3/`、`tools/armada/`、`tools/ce5t1/`：ISEE-3、哈雷舰队、嫦娥五号 T1 服务舱的轨道重建（需要 numpy，下载缓存不入库），做法见 `assets/ephem/SOURCES.md`

@@ -30,6 +30,7 @@
 | `venus.jpg` | USGS Astrogeology，Venus Magellan Global C3-MDIR Synthetic Color Mosaic 4641m（麦哲伦号合成孔径雷达 C3-MIDR 拼接图的合成彩色版，颜色是模拟的地表色调；关闭大气层时显示），<https://astrogeology.usgs.gov/search/map/venus_magellan_global_c3_mdir_synthetic_color_mosaic_4641m> | 公有领域（Use Constraints: None） |
 | `titan.jpg` | USGS Astrogeology / Cassini ISS Team，Titan Cassini ISS Global Mosaic 4005m（2015-06，938 nm 甲烷窗口，数据截至 2014-04 的 T100 飞掠，灰度；关闭大气层时显示；有几块均匀灰色的填补区），<https://astrogeology.usgs.gov/search/map/titan_cassini_iss_global_mosaic_4005m> | 公有领域（请引用作者） |
 | `ceres.jpg` | USGS Astrogeology / DLR，Ceres Dawn FC Global Mosaic 400m（2015-10，`Ceres_Dawn_FC_DLR_global_20ppd_Oct2015.tif`），<https://astrogeology.usgs.gov/search/map/ceres_dawn_fc_global_mosaic_400m> | 公有领域（请引用作者） |
+| `uranus.jpg` / `neptune.jpg` | 哈勃 OPAL（Outer Planet Atmospheres Legacy，PI A. Simon），MAST 高级科学产品，<https://archive.stsci.edu/hlsp/opal>，DOI 10.17909/T9G593。用的是 2015–2025 年每次自转的 F657N、F547M、F467M 全球图（FITS），不是 TIF 预览图。由 `tools/textures/make_ice_giant_textures.py` 生成，做法见下文 | CC BY 4.0（FITS 头的 `LICENSE`），署名 NASA, ESA, A.A. Simon, M.H. Wong |
 
 原始下载地址：
 
@@ -56,6 +57,20 @@
 - Titan：<https://planetarymaps.usgs.gov/mosaic/Titan_ISS_P19658_Mosaic_Global_4km.tif>（8 MB）。
 - Phobos、Deimos：<https://sbnarchive.psi.edu/pds4/non_mission/ast-sat.thomas.shape-models_V1_0/data/m1phobosm.fit>（17 MB）、`m2deimosm.fit`（1 MB），8 位 FITS。
 - 天王星卫星：<https://space.jpl.nasa.gov/tmaps/pix/ura1vuu2.tif> .. `ura5vuu2.tif`（各 0.2 至 0.4 MB；1 Ariel、2 Umbriel、3 Titania、4 Oberon、5 Miranda）。
+
+## 天王星和海王星（OPAL）
+
+OPAL 每年观测两次左右完整自转，每次自转每个滤镜一张简单圆柱图（721×361，每度 2 像素，行星图形纬度），已做过 Minnaert 改正（扣除临边昏暗）。每张图只覆盖朝向地球的半球，边缘（出射角很大处）被拉成彩色条纹，单张图做不了纹理。所以：
+
+- FITS 值乘各年 README 里的 I/F 系数得到线性 I/F，F657N、F547M、F467M 当作红、绿、蓝。I/F 是相对阳光的反射率，直接当反照率用，不另调颜色
+- 去掉离图像边缘纬度 22° 以内（或离经度空缺 22° 以内）的像素，每次自转取纬向中值，再对所有自转取中值，得到纬度剖面
+- 没有观测的纬度（天王星 35.5°S 以南、海王星 48.5°N 以北）取对称纬度的剖面，在边界处乘一个比例接上，比例在 20° 内渐变为 1。天王星南半球因此有和北极一样的亮极冠（旅行者 2 号 1986 年看到的南极区也偏亮），海王星北极同理
+- 叠加一张真实图相对它自己纬向中值的起伏，离覆盖边缘 8° 内渐隐：天王星用 2025a，乘 0.75；海王星用 2019a，不缩放（原始对比度），图里有北半球暗斑 NDS-2018（约 20°N，F467M 里暗 15% 左右，真彩色下不明显）和旁边的亮伴云。2018b 也能看到这个暗斑，但它旁边有一条拼接缝，缝的条纹伸进来 30°
+- 从行星图形纬度重采样到行星中心纬度（场景按行星中心纬度取纹理），左边缘 0°E、东经向右递增：天王星 2021 年以后的图是“右边缘 0°E，向左递增”，要左右翻转；海王星的图是“左边缘 360°W，向右递减”，不用翻
+
+天王星 2022b 的 F657N 比 2022a 和其他年份亮 1.4 倍（README 里 I/F 系数相同），合成后偏粉，工具里排除了。
+
+下载：每个周期的页面（如 <https://archive.stsci.edu/hlsp/opal/opal-uranus-cycle-33>）列出文件，FITS 和 README 都在 `https://archive.stsci.edu/missions/hlsp/opal/cycle<N>/<planet>/` 下（周期 22–33，约 140 MB）。把各年的 `*_f467m_v1_globalmap.fits`、`*_f547m_*`、`*_f657n_*` 和 `*_all_v*_readme.txt` 放进同一个目录，再运行 `python make_ice_giant_textures.py <目录> <输出目录>`。
 
 ## 经度约定
 

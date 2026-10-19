@@ -34,6 +34,7 @@ Per-file details, original download URLs and processing steps are in each direct
 | `assets/sky/*_stars.csv` | Statistical stars made by `tools/sky/make_galaxy_sky.py`, with absolute magnitudes and colours drawn from the HYG database v4.4 (astronexus) | CC BY-SA 4.0; credit: astronexus / HYG database |
 | `assets/stars/m4.csv` | Gaia DR3 (ESA/Gaia/DPAC), CDS catalogue I/355, members of M4 selected and processed by `tools/stars/make_m4.py` | CC BY-NC 3.0 IGO; credit: ESA/Gaia/DPAC. Non-commercial use only |
 | `assets/textures/jupiter.jpg` | NASA/JPL/Space Science Institute, PIA07782 | Public domain |
+| `assets/textures/{uranus,neptune}.jpg` | Hubble Space Telescope OPAL program (PI: A. Simon, GO 13937), archived by STScI/MAST (https://archive.stsci.edu/hlsp/opal, DOI 10.17909/T9G593); zonal profiles and blended maps made by `tools/textures/make_ice_giant_textures.py` | CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/); credit: NASA, ESA, A.A. Simon, M.H. Wong. Changes: averaged along longitude, filled unobserved latitudes, reprojected |
 | `assets/textures/{io,europa,ganymede,callisto}.jpg` | USGS Astrogeology Science Center, Galileo/Voyager global mosaics | Public domain |
 | `assets/textures/{mimas,enceladus,tethys,dione,rhea,iapetus}.jpg` | USGS Astrogeology Science Center / DLR, Cassini ISS (and Voyager) global mosaics | Public domain |
 | `assets/textures/{ariel,umbriel,titania,oberon,miranda}.jpg` | USGS Voyager 2 global mosaics, distributed by the JPL Solar System Simulator (Caltech/JPL/USGS) | Public domain (U.S. Government work) |
