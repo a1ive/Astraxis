@@ -1209,6 +1209,20 @@ void test_mars_scene()
         check(total > 1.5 && total < 1.6, "TGO orbit insertion delta-v (km/s)", total);
     }
     check_insertion_ghost(scene, "Hope", 0.0, 0.0);
+    // Hope's capture orbit right after the burn: the orbit reached, "as close to Mars' planetary
+    // surface as 1,063 kilometres" and "as far away as 42,461" [EMMO], not Horizons' arc through
+    // the burn, which holds the planned burn (1,081 x 50,073 km; tools/bake/rejoin_burn.py). 30 km:
+    // altitudes here are above the equatorial radius.
+    {
+        const double t_capture = tdb({2021, 2, 9, 20, 0, 0});
+        const State a = scene.icrf_state_at(hope, t_capture);
+        const State b = scene.icrf_state_at(mars, t_capture);
+        OrbitElements capture;
+        osculating_elements(State{a.position - b.position, a.velocity - b.velocity}, gm, &capture);
+        check(std::abs(capture.periapsis_km - r_mean - 1063.0) < 30.0 &&
+                  std::abs(capture.apoapsis_km - r_mean - 42461.0) < 30.0,
+              "Hope's capture orbit (apoapsis altitude, km)", capture.apoapsis_km - r_mean);
+    }
 
     // 3I/ATLAS ([REN], Ren et al. 2026): closest to Mars 2025-10-03 04:38 UT at 0.194 au,
     // ~86 km/s; 0.208 au from Tianwen-1 at the second imaging epoch, 2025-10-01 16:00 UTC

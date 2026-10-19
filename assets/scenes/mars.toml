@@ -17,7 +17,12 @@
 #          comet) and 2024-10-01 .. 2026-10-27 12:08 (a planning prediction after
 #          2026-09-27). MRO is not shown in between.
 #        - Hope (-62): 2021-02-05 .. 2027-03-04, fit to tracking data through 2026-09-03,
-#          then a prediction.
+#          then a prediction: a chain of arcs fitted to tracking ("tag-up fit"). The arc
+#          through the orbit insertion burn holds the planned burn (to 1,081 x 50,073 km
+#          above the mean radius, 41.6 h [EMMF]); the next, from 2021-02-10 00:04:59 TDB, the
+#          orbit reached (1,079 x 42,447 km, 33.7 h [EMMO]), 2,397 km and 126 m/s off it.
+#          tools/bake/rejoin_burn.py takes the later arc back to the burn and fits the burn
+#          to it: 985 m/s instead of 958.
 #        - Odyssey (-53): JPL Odyssey navigation, windows as for MRO: 2001-10-20 .. 2002-02-20
 #          (arrival and aerobraking), 2014-10-05 .. 11-05 (the comet) and 2024-10-01 ..
 #          2026-12-28 (a prediction after 2026-09-23).
@@ -147,7 +152,11 @@
 #        [EMMF] MBRSC, "Mars Orbital Insertion Factsheet" (January 2021): "The burn ... will
 #          commence at 19:30GST and end at 19:57 GST" (spacecraft time; Gulf Standard Time,
 #          UTC+4) on 2021-02-09, "27 minutes' duration", six thrusters, "some 650 Newtons";
-#          confirmation "eleven minutes later". No delta-v given.
+#          confirmation "eleven minutes later"; the capture orbit 1,000 x 49,380 km above
+#          the surface. No delta-v given.
+#        [EMMO] UAE Government Media Office, "Emirates Mars Mission Hope Probe Ready for
+#          Science Data Gathering" (2021-03-09): the capture orbit reaches "as close to Mars'
+#          planetary surface as 1,063 kilometres" and "as far away as 42,461 kilometres".
 #
 # [CAP]  Event captions (retrieved 2026-10-08):
 #        [MEX] ESA, Mars Express mission page (esa.int/Science_Exploration/Space_Science/
@@ -821,7 +830,8 @@ caption = """\
     higher than the others, 20,000 to 43,000 km up and 55 hours around, it \
     observes the whole planet to study how the Martian atmosphere changes through \
     the day and the year."""
-# The burn [EMMF]: 19:30 to 19:57 GST (15:30 to 15:57 UTC); the table reads 957 m/s.
+# The burn [EMMF]: 19:30 to 19:57 GST (15:30 to 15:57 UTC); the table reads 985 m/s, the
+# burn fitted to the orbit reached ([HZN] Hope).
 [events.ghost]
 body = "Hope"
 name = "Hope without the burn"

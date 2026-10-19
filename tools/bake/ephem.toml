@@ -1372,6 +1372,9 @@ stop = "2027-03-04"        # end of the data (prediction after 2026-09-03)
 base_step_minutes = 10
 tolerance_km = 5.0
 keep_all = [["2021-02-09 15:29", "2021-02-09 16:01"]]  # the orbit insertion burn (the scene reads its delta-v)
+# After baking: the arc through the burn holds the planned burn, the next one (2021-02-10 00:04:59)
+# the orbit reached, 2,397 km off. Join them (assets/ephem/SOURCES.md, Hope):
+#   python tools/bake/rejoin_burn.py tools/bake/ephem.toml emm_mars "2021-02-09 15:29" "2021-02-09 16:01" "2021-02-10 00:04"
 radius_km = 3396.19
 encounters = ["deimos_emm"]
 encounter_km = 1000.0
