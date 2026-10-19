@@ -4,6 +4,7 @@
 #include "core/time.hpp"
 #include "ephem/ephemeris.hpp"
 #include "ephem/jpl_approx_planet.hpp"
+#include "ephem/kepler.hpp"
 #include "ephem/kerr_orbit.hpp"
 #include "ephem/mean_element_orbit.hpp"
 #include "ephem/nbody.hpp"
@@ -321,6 +322,7 @@ public:
 private:
     std::unique_ptr<MotionSource> parse_motion(const toml::table& t, const std::string& ctx, const Body* parent);
     void parse_nbody(const toml::table& t, Scene& out);
+    void parse_event_ghost(const toml::table* t, const std::string& ctx, int event, SceneEvent& e, Scene& out);
     std::shared_ptr<const EphemerisTable> load_table(const std::string& file, const std::string& ctx);
     void load_ring_profile(const std::string& file, const std::string& ctx, RingSystem& rings) const;
     void load_belt(const std::string& file, const std::string& ctx, SceneBelt& belt) const;
@@ -1236,7 +1238,10 @@ void Loader::parse(const toml::table& root, Scene& out)
                     e.trails.push_back(trail);
                 }
             }
-            out.events.push_back(e);
+            if (const toml::node* ghost = t->get("ghost")) {
+                parse_event_ghost(ghost->as_table(), ctx, static_cast<int>(out.events.size()), e, out);
+            }
+            out.events.push_back(std::move(e));
         }
     }
 
@@ -1360,6 +1365,65 @@ void Loader::parse(const toml::table& root, Scene& out)
         }
     }
     out.set_active_frame(out.view.frame);
+}
+
+// [events.ghost]: a Ghost body coasting from `body`'s state just before the burn.
+void Loader::parse_event_ghost(const toml::table* t, const std::string& event_ctx, int event, SceneEvent& e,
+                               Scene& out)
+{
+    const std::string ctx = event_ctx + ", ghost";
+    if (!t) {
+        fail(ctx, "must be a table");
+    }
+    SceneEvent::Ghost& g = e.ghost;
+    g.body = body_ref(out, *t, "body", ctx, false);
+    const Body& real = out.bodies[static_cast<size_t>(g.body)];
+    const double gm = real.parent >= 0 ? out.bodies[static_cast<size_t>(real.parent)].gm_km3_s2 : 0.0;
+    if (!real.motion || gm <= 0.0) {
+        fail(ctx, "needs a body with an orbit around a parent with gm_km3_s2");
+    }
+    // A table sampled every minute rounds off a burn's sudden start and end
+    // over one sample interval: the ghost leaves the real path a minute before
+    // the burn, and the delta-v counts from then until a minute after it.
+    constexpr double kBurnMarginS = 60.0;
+    g.burn_tdb = parse_event_time(*t, ctx);
+    g.t_tdb = g.burn_tdb - kBurnMarginS;
+    if (!real.motion->valid_at(g.t_tdb)) {
+        fail(ctx, "'" + real.name + "' has no motion just before the burn");
+    }
+    const double days = get_double_or(*t, "days", 1.0);
+    const double burn_s = get_double_or(*t, "burn_s", 0.0);
+    if (days <= 0.0 || burn_s < 0.0) {
+        fail(ctx, "days must be positive and burn_s not negative");
+    }
+    // From the event's start, where it coincides with the real path, if earlier.
+    g.start_tdb = std::min(e.t_tdb, g.t_tdb);
+    g.end_tdb = g.burn_tdb + days * kSecondsPerDay;
+    if (burn_s > 0.0) {
+        g.delta_v_span_s = burn_s + 2.0 * kBurnMarginS;
+        if (!real.motion->valid_at(g.t_tdb + g.delta_v_span_s)) {
+            fail(ctx, "'" + real.name + "' has no motion just after the burn");
+        }
+        constexpr double kStepS = 4.0;
+        const int steps = std::max(static_cast<int>(std::ceil(g.delta_v_span_s / kStepS)), 1);
+        g.delta_v_km_s = unexplained_delta_v(*real.motion, gm, g.t_tdb, g.delta_v_span_s, steps);
+    }
+
+    Body ghost;
+    ghost.name = get_string_or(*t, "name", real.name + " (coasting)");
+    if (out.find(ghost.name) >= 0) {
+        fail(ctx, "the name '" + ghost.name + "' is taken");
+    }
+    ghost.parent = real.parent;
+    ghost.kind = BodyKind::Ghost;
+    ghost.equatorial_radius_km = ghost.equatorial_radius_b_km = ghost.polar_radius_km = 1.0;
+    ghost.color = real.color;
+    ghost.orbit_color = parse_color(*t, "orbit_color", ctx, glm::mix(real.orbit_color, glm::vec3(0.55f), 0.6f));
+    ghost.trail = TrailMode::History; // drawn whole (Scene::trail)
+    ghost.event = event;
+    ghost.motion = std::make_unique<CoastMotion>(real.motion->eval(g.t_tdb), gm, g.t_tdb, g.start_tdb, g.end_tdb);
+    g.ghost = static_cast<int>(out.bodies.size());
+    out.bodies.push_back(std::move(ghost));
 }
 
 void Loader::parse_nbody(const toml::table& t, Scene& out)

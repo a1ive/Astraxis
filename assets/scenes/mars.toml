@@ -746,11 +746,11 @@ caption = """\
 # (back to 440 km); relay orbit 2021-05-17 00:30 (348 m/s, to the energy of the 06-03 orbit).
 [[events]]
 name = "Tianwen-1 arrives (2021-02-10)"
-time_tdb = "2021-02-10 10:30"
+time_tdb = "2021-02-10 11:35"
 focus = "Mars"
 flyby = "Tianwen-1"
 distance_km = 4.0e4
-warp = 300.0
+warp = 60.0                                # the 15-minute burn over 15 s
 # [AMSAT], [TW1]
 caption = """\
     China's first Mars mission arrives, orbiter, lander and the rover Zhurong still one \
@@ -758,6 +758,18 @@ caption = """\
     Mars captures it into a long orbit reaching out to 182,000 km, tilted only 11 degrees \
     to the equator. Radio amateurs follow it in the spacecraft's own telemetry, which \
     carries its position."""
+# A ghost: the path without the burn, coasting under Mars' gravity alone from the
+# spacecraft's state at the burn's start (time_tdb), drawn whole until `days` after it and
+# shown only during this event. With burn_s, the spacecraft's label shows the delta-v
+# so far: the velocity change two-body gravity does not explain, which over the burn is
+# the thrust's (Estevez's burn model [TW1]: 888 s from 2021-02-10 11:52:55 UTC, 3 kN,
+# Isp 321.6 s, 4,425 kg, so 668 m/s by the rocket equation).
+[events.ghost]
+body = "Tianwen-1"
+name = "Tianwen-1 without the burn"
+time_tdb = "2021-02-10 11:54:04"
+burn_s = 888.0
+days = 1.0
 
 [[events]]
 name = "Tianwen-1 turns over the poles (2021-02-15)"

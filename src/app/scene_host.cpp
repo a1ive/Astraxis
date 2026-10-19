@@ -271,7 +271,7 @@ void SceneHost::draw_scene(Output& out, const Frame& frame)
         ImGui::NewFrame();
         if (m_show_labels) {
             draw_labels(out.labels, m_sim.scene(), out.view, m_sim.camera().target(),
-                        static_cast<float>(m_sim.fade()));
+                        static_cast<float>(m_sim.fade()), m_fonts.book);
         }
         if (title) {
             draw_scene_title(m_fonts, m_sim.scene().name, m_sim.scene_age());

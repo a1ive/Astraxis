@@ -12,7 +12,8 @@ class Scene;
 struct OutputView;
 
 // Where the on-screen annotations go: scene markers (e.g. Lagrange points),
-// body markers and body labels. Labels are placed by priority (the focus,
+// body markers and body labels. Labels are placed by priority (a spacecraft
+// whose burn's delta-v is shown below its name, the focus,
 // stars, bodies orbiting a star, spacecraft, moons, then ghosts, larger bodies
 // first); a label that would overlap one already placed fades out, and comes
 // back only after its place has stayed free for a moment (it keeps that place
@@ -25,6 +26,10 @@ struct OutputView;
 class LabelLayout {
 public:
     static constexpr float kMarkerRadius = 2.5f; // a body smaller than this on screen gets a dot
+    // A second line below a label (Scene::burn_delta_v): its offset from the
+    // name's top and the room it takes, in font sizes.
+    static constexpr float kReadoutLineSpacing = 1.15f;
+    static constexpr float kReadoutWidthEm = 5.5f;
 
     struct SceneMarker {
         int marker;         // Scene::markers index

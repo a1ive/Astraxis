@@ -146,6 +146,20 @@ State propagate_kepler(const State& s, double mu, double dt, double* universal_a
     return out;
 }
 
+std::vector<double> unexplained_delta_v(const MotionSource& motion, double mu, double t0, double duration, int steps)
+{
+    std::vector<double> total{0.0};
+    const double step = duration / std::max(steps, 1);
+    State s = motion.eval(t0);
+    for (int k = 1; k <= steps; ++k) {
+        const State next = motion.eval(t0 + step * k);
+        const State coast = propagate_kepler(s, mu, step);
+        total.push_back(total.back() + glm::length(next.velocity - coast.velocity));
+        s = next;
+    }
+    return total;
+}
+
 bool sample_osculating_ellipse(const State& s, double mu, int count, std::vector<glm::dvec3>& out)
 {
     out.clear();

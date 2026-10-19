@@ -79,6 +79,48 @@ void test_kepler_propagation()
     check(worst < 1e-6, "Kepler propagation on an eccentric orbit (km)", worst);
 }
 
+// Coasting from a state (mu = 1), with an optional impulse at t_burn.
+class ImpulseMotion final : public MotionSource {
+public:
+    ImpulseMotion(const State& s0, double t_burn, const glm::dvec3& dv)
+        : m_s0(s0)
+        , m_t_burn(t_burn)
+    {
+        m_after = propagate_kepler(s0, 1.0, t_burn);
+        m_after.velocity += dv;
+    }
+    State eval(double t) const override
+    {
+        return t < m_t_burn ? propagate_kepler(m_s0, 1.0, t) : propagate_kepler(m_after, 1.0, t - m_t_burn);
+    }
+
+private:
+    State m_s0;
+    double m_t_burn;
+    State m_after;
+};
+
+void test_coast_and_delta_v()
+{
+    // A coast leaves nothing unexplained; an impulse adds its size, at its step
+    // (to 1e-4: within the step, gravity turns the difference a little).
+    const State s0{{1.0, 0.0, 0.0}, {0.1, 1.2, 0.0}};
+    const std::vector<double> coast = unexplained_delta_v(ImpulseMotion(s0, 1e9, glm::dvec3(0.0)), 1.0, 0.0, 4.0, 40);
+    check(coast.size() == 41 && coast.back() < 1e-10, "No delta-v while coasting", coast.back());
+    const glm::dvec3 dv(-0.2, 0.1, 0.05);
+    const std::vector<double> burn = unexplained_delta_v(ImpulseMotion(s0, 2.05, dv), 1.0, 0.0, 4.0, 40);
+    check(std::abs(burn.back() - glm::length(dv)) < 1e-4 && burn[20] < 1e-10 && burn.back() - burn[21] < 1e-10,
+          "The delta-v of an impulse", burn.back() - glm::length(dv));
+
+    // The ghost coasts from the state at its epoch, both ways in time, within its window.
+    const CoastMotion ghost(s0, 1.0, 2.0, 1.0, 3.0);
+    check(glm::length(ghost.eval(2.0).position - s0.position) < 1e-12 &&
+              glm::length(ghost.eval(1.5).position - propagate_kepler(s0, 1.0, -0.5).position) < 1e-12,
+          "Coast from a state");
+    check(ghost.valid_at(1.0) && ghost.valid_at(3.0) && !ghost.valid_at(0.99) && !ghost.valid_at(3.01),
+          "Coast valid within its window");
+}
+
 void test_ephemeris()
 {
     EphemerisTable v1;
@@ -246,6 +288,7 @@ void run_ephem_tests()
 {
     test_kepler();
     test_kepler_propagation();
+    test_coast_and_delta_v();
     test_ephemeris();
     test_visual_orbit_convention();
     test_transit_orbit_convention();

@@ -32,6 +32,12 @@ TOL_KM = 5.0
 GAP_S = 7200.0                    # longer data gaps are gaps in the table
 MAX_SPAN_S = GAP_S - 300.0        # knot spacing inside a segment stays below GAP_S
 DECIMATE_EVERY = 2                # use every 2nd cached (1-minute) MOMAG sample
+# Every sample is a knot over these spans (TDB s): the Mars orbit insertion burn (Estevez's
+# model, tianwen1_reconstruct.py: 888 s from 2021-02-10 11:52:55 UTC) with a minute on
+# either side. Decimated to the tolerance, the whole burn was one interval between two
+# knots, whose cubic bent the thrust profile and lost 2% of its delta-v.
+MOI_START_TDB = (29255.9950810185185185 + 2430000.0 - 2451545.0) * 86400.0 + TDB_MINUS_UTC  # GMAT UTCModJulian
+KEEP_ALL = [(MOI_START_TDB - 60.0, MOI_START_TDB + 888.0 + 60.0)]
 OUT = os.path.join(ROOT, 'assets', 'ephem', 'tianwen1_mars.eph')
 NAIF_ID = -9901491                # Horizons' (unofficial) Tianwen-1 record
 RECONSTRUCTED = os.path.join(HERE, 'cache', 'tw1_2021.txt')
@@ -166,6 +172,22 @@ def decimate_capped(rows, tol_km, interp, max_span_s):
     return [rows[i] for i in kept]
 
 
+def decimate_keeping(rows, tol_km, interp, max_span_s, keep):
+    """decimate_capped, but every row within the `keep` spans (t0, t1) is a knot."""
+    out = []
+    start = 0
+    for t0, t1 in keep:
+        inside = [i for i, r in enumerate(rows) if t0 <= r[0] <= t1]
+        if not inside or inside[0] < start:
+            continue
+        lo, hi = max(inside[0] - 1, start), min(inside[-1] + 1, len(rows) - 1)  # samples bracketing the span
+        out.extend(decimate_capped(rows[start:lo + 1], tol_km, interp, max_span_s)[:-1] if lo > start else [])
+        out.extend(rows[lo:hi])
+        start = hi
+    out.extend(decimate_capped(rows[start:], tol_km, interp, max_span_s) if start < len(rows) - 1 else rows[start:])
+    return out
+
+
 def main():
     interp = hb.make_interp(GM_MARS)
     rows = reconstructed_rows()
@@ -178,7 +200,7 @@ def main():
     for seg in segs:
         if len(seg) < 2:
             continue
-        part = decimate_capped(seg, TOL_KM, interp, MAX_SPAN_S)
+        part = decimate_keeping(seg, TOL_KM, interp, MAX_SPAN_S, KEEP_ALL)
         err = max(err, hb.max_error(seg, part, interp))
         knots.extend(part)
         covered += seg[-1][0] - seg[0][0]

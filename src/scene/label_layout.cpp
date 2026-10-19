@@ -97,7 +97,10 @@ void LabelLayout::update(const Scene& scene, const OutputView& view, int focus, 
             static_cast<float>(body.equatorial_radius_km) / w * camera.focal_y * 0.5f * screen_size.y;
         const int host = scene.satellite_host(static_cast<int>(i));
         int rank = 4; // moons
-        if (static_cast<int>(i) == focus) {
+        double delta_v = 0.0;
+        if (scene.burn_delta_v(static_cast<int>(i), &delta_v)) {
+            rank = -1; // the subject of the event: its burn's delta-v is shown below the name
+        } else if (static_cast<int>(i) == focus) {
             rank = 0;
         } else if (body.kind == BodyKind::Star) {
             rank = 1;
@@ -127,7 +130,12 @@ void LabelLayout::update(const Scene& scene, const OutputView& view, int focus, 
 
         const float offset = std::max(c.radius_px, kMarkerRadius) * 0.7071f + 4.0f;
         const glm::vec2 text_pos(c.screen.x + offset, c.screen.y - offset - font_size * 0.5f);
-        const glm::vec2 text_size = measure_text(body.name);
+        glm::vec2 text_size = measure_text(body.name);
+        double delta_v = 0.0;
+        if (scene.burn_delta_v(c.body, &delta_v)) {
+            text_size.x = std::max(text_size.x, kReadoutWidthEm * font_size);
+            text_size.y += kReadoutLineSpacing * font_size;
+        }
         const glm::vec4 rect(text_pos.x - kLabelPadding, text_pos.y - kLabelPadding,
                              text_pos.x + text_size.x + kLabelPadding, text_pos.y + text_size.y + kLabelPadding);
         bool overlaps = false;

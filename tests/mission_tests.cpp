@@ -5,6 +5,7 @@
 #include "core/math.hpp"
 #include "core/time.hpp"
 #include "ephem/ephemeris.hpp"
+#include "ephem/kepler.hpp"
 
 #include <glm/glm.hpp>
 
@@ -1097,6 +1098,55 @@ void test_mars_scene()
         scene.update(utc(when));
         check(scene.bodies[static_cast<size_t>(tw1)].visible == shown, "Tianwen-1 shown only where there are data",
               static_cast<double>(when.year));
+    }
+
+    // The orbit insertion event's ghost: the approach hyperbola without the burn. The burn's
+    // delta-v as the path shows it, against Estevez's burn model [TW1]: 888 s at 3 kN, Isp
+    // 321.6 s, from 4,425 kg: 321.6 g0 ln(4425 / (4425 - 888 * 3000 / (321.6 g0))) = 668 m/s.
+    // The table has a knot every minute through the burn; the cubic between the two knots
+    // around its start (and its end) overshoots the sudden change, adding about 1%.
+    {
+        int arrival = -1;
+        for (size_t i = 0; i < scene.events.size(); ++i) {
+            if (scene.events[i].ghost.body == tw1) {
+                arrival = static_cast<int>(i);
+            }
+        }
+        check(arrival >= 0, "Tianwen-1 arrival has a ghost");
+        if (arrival >= 0) {
+            const SceneEvent::Ghost& g = scene.events[static_cast<size_t>(arrival)].ghost;
+            const double isp_g0 = 321.6 * 9.80665e-3; // km/s
+            auto rocket_after = [&](double s) { return isp_g0 * std::log(4425.0 / (4425.0 - s * 3.0 / isp_g0)); };
+            const double rocket = rocket_after(888.0);
+            const double dv = g.delta_v_km_s.empty() ? 0.0 : g.delta_v_km_s.back();
+            check(std::abs(dv / rocket - 1.0) < 0.015, "Tianwen-1 orbit insertion delta-v (km/s)", dv);
+            std::printf("info: Tianwen-1 orbit insertion: %.1f m/s from the path, %.1f m/s by the rocket equation\n",
+                        dv * 1000.0, rocket * 1000.0);
+
+            // Shown only during its event; on the real path until the burn, then unbound.
+            const int ghost = g.ghost;
+            const Body& gb = scene.bodies[static_cast<size_t>(ghost)];
+            scene.set_active_event(-1);
+            scene.update(g.burn_tdb + 444.0);
+            check(!gb.visible, "Tianwen-1's ghost hidden outside its event");
+            double readout = 0.0;
+            check(!scene.burn_delta_v(tw1, &readout), "No delta-v readout outside the event");
+            scene.set_active_event(arrival);
+            scene.update(g.burn_tdb + 444.0);
+            check(gb.visible && scene.burn_delta_v(tw1, &readout) && std::abs(readout / rocket_after(444.0) - 1.0) < 0.03,
+                  "Delta-v readout halfway through the burn (km/s)", readout);
+            // Before the burn the ghost drifts off slowly: two-body gravity, without Mars' oblateness.
+            const double before = glm::length(at(ghost, g.start_tdb) - at(tw1, g.start_tdb));
+            check(before < 10.0, "Tianwen-1's ghost on the approach path before the burn (km)", before);
+            const double after = glm::length(at(ghost, g.burn_tdb + 3600.0) - at(tw1, g.burn_tdb + 3600.0));
+            check(after > 1000.0, "Tianwen-1's ghost apart an hour after the burn (km)", after);
+            OrbitElements ghost_el;
+            check(!osculating_elements(gb.motion->eval(g.t_tdb), gm, &ghost_el) || ghost_el.period_s == 0.0,
+                  "Tianwen-1 would have flown past Mars without the burn");
+            std::printf("info: Tianwen-1's ghost: %.1f km off at the event's start, %.0f km an hour after the burn\n",
+                        before, after);
+            scene.set_active_event(-1);
+        }
     }
 
     // 3I/ATLAS ([REN], Ren et al. 2026): closest to Mars 2025-10-03 04:38 UT at 0.194 au,

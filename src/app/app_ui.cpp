@@ -700,7 +700,8 @@ void App::toggle_caption()
 
 void App::build_labels()
 {
-    draw_labels(m_labels, m_sim.scene(), m_view, m_sim.camera().target(), static_cast<float>(m_sim.fade()));
+    draw_labels(m_labels, m_sim.scene(), m_view, m_sim.camera().target(), static_cast<float>(m_sim.fade()),
+                m_fonts.book);
 
     const ImGuiIO& io = ImGui::GetIO();
     if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && !io.WantCaptureMouse) {

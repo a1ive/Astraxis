@@ -277,6 +277,7 @@ struct Body {
     SurfaceStyle style = SurfaceStyle::Solid;
     glm::vec3 orbit_color{0.5f}; // sRGB
     bool label = true; // false: no name on screen unless focused (e.g. a crowd of stars)
+    int event = -1;    // an event's ghost (SceneEvent::Ghost): shown only while that event is active
     TrailMode trail = TrailMode::Orbit;
     double trail_history_days = 0.0; // History trails: 0 = everything since the motion became valid
     double trail_linger_days = 0.0;  // History trails: how long the trail stays after the motion ends
@@ -466,6 +467,25 @@ struct SceneEvent {
         double history_days = 0.0;
     };
     std::vector<Trail> trails;
+
+    // The path a spacecraft would have taken without a burn (e.g. the
+    // hyperbola it was on before an orbit insertion), to compare with the
+    // real one: `ghost` (a Ghost body, shown only while this event is active)
+    // coasts under the parent's gravity alone from `body`'s state at t_tdb,
+    // just before the burn. Its path is drawn whole, from start_tdb to end_tdb.
+    struct Ghost {
+        int body = -1; // -1: no ghost
+        int ghost = -1;
+        double burn_tdb = 0.0; // the burn's start
+        double t_tdb = 0.0;
+        double start_tdb = 0.0;
+        double end_tdb = 0.0;
+        // The burn's delta-v so far (km/s, unexplained_delta_v) at even steps
+        // from t_tdb over delta_v_span_s, which covers the burn; empty if the
+        // burn's length is not given.
+        double delta_v_span_s = 0.0;
+        std::vector<double> delta_v_km_s;
+    } ghost;
 };
 
 // Osculating two-body orbit.
@@ -583,6 +603,10 @@ public:
     // trail drawn may still differ (a rotating frame turns orbits into history
     // trails, and a frame may cap the length of those not set by the event).
     TrailMode trail_mode(int body) const;
+    // The active event's burn delta-v so far for `body` (its ghost's
+    // SceneEvent::Ghost::delta_v_km_s at the current time), from a minute
+    // before the burn on; false otherwise.
+    bool burn_delta_v(int body, double* km_s) const;
     double trail_history_days(int body) const;
 
     // Trail of a body in the display frame at t: head (current position) first,

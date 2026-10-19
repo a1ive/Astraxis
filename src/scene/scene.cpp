@@ -327,6 +327,22 @@ TrailMode Scene::trail_mode(int body) const
     return t ? t->mode : bodies[static_cast<size_t>(body)].trail;
 }
 
+bool Scene::burn_delta_v(int body, double* km_s) const
+{
+    if (m_active_event < 0) {
+        return false;
+    }
+    const SceneEvent::Ghost& g = events[static_cast<size_t>(m_active_event)].ghost;
+    if (g.body != body || g.delta_v_km_s.size() < 2 || m_time < g.t_tdb) {
+        return false;
+    }
+    const double steps = static_cast<double>(g.delta_v_km_s.size() - 1);
+    const double x = std::min((m_time - g.t_tdb) / g.delta_v_span_s, 1.0) * steps;
+    const size_t k = std::min(static_cast<size_t>(x), g.delta_v_km_s.size() - 2);
+    *km_s = g.delta_v_km_s[k] + (g.delta_v_km_s[k + 1] - g.delta_v_km_s[k]) * (x - static_cast<double>(k));
+    return true;
+}
+
 double Scene::trail_history_days(int body) const
 {
     const SceneEvent::Trail* t = event_trail(body);
@@ -485,6 +501,9 @@ void Scene::update(double t_tdb)
             pos += s.position;
             vel += s.velocity;
             visible = visible && body.motion->valid_at(t_tdb);
+        }
+        if (body.event >= 0 && body.event != m_active_event) {
+            visible = false;
         }
         body.icrf_position = pos;
         body.icrf_velocity = vel;
@@ -785,9 +804,17 @@ void Scene::trail(int body_index, double t_tdb, int max_points, std::vector<glm:
         mode = TrailMode::History;
     }
 
+    // An event's ghost: its whole path, fading away from where the ghost is now.
+    const SceneEvent::Ghost* ghost = body.event >= 0 ? &events[static_cast<size_t>(body.event)].ghost : nullptr;
+    if (ghost) {
+        t_head = ghost->end_tdb;
+    }
+
     // History trail: earliest time at which the body exists, within the requested length.
     double t0 = t_head - (history_days > 0.0 ? history_days : kDefaultHistoryDays) * kSecondsPerDay;
-    if (history_days <= 0.0 || !body.motion->valid_at(t0)) {
+    if (ghost) {
+        t0 = ghost->start_tdb;
+    } else if (history_days <= 0.0 || !body.motion->valid_at(t0)) {
         // Binary search for the start of validity (motions are valid on one interval).
         double lo = t0;
         double hi = t_head;
@@ -816,7 +843,7 @@ void Scene::trail(int body_index, double t_tdb, int max_points, std::vector<glm:
     };
     auto emit = [&](double tk, const glm::dvec3& p) {
         points.push_back(p);
-        const double fade = (t_head - tk) / span;
+        const double fade = ghost ? std::min(std::abs(tk - t_tdb) / span, 1.0) : (t_head - tk) / span;
         fades.push_back(static_cast<float>(fade + (1.0 - fade) * linger)); // lingering: all toward the tail
     };
 

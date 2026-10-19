@@ -46,4 +46,41 @@ void sample_ellipse(const KeplerElements& el, double start_E, int count, std::ve
 // current position). Returns false for unbound or degenerate orbits.
 bool sample_osculating_ellipse(const State& s, double mu, int count, std::vector<glm::dvec3>& out);
 
+// Two-body coast from `state` at `epoch_tdb` around a center of `mu`: where a
+// body would have gone without thrust or perturbations (e.g. a spacecraft's
+// path had it not fired its engine). Valid on [t0, t1].
+class CoastMotion final : public MotionSource {
+public:
+    CoastMotion(const State& state, double mu, double epoch_tdb, double t0, double t1)
+        : m_state(state)
+        , m_mu(mu)
+        , m_epoch(epoch_tdb)
+        , m_t0(t0)
+        , m_t1(t1)
+    {
+    }
+    State eval(double t_tdb) const override { return propagate_kepler(m_state, m_mu, t_tdb - m_epoch); }
+    bool valid_at(double t_tdb) const override { return t_tdb >= m_t0 && t_tdb <= m_t1; }
+    bool sample_orbit(double t_tdb, int count, std::vector<glm::dvec3>& out) const override
+    {
+        return sample_osculating_ellipse(eval(t_tdb), m_mu, count, out);
+    }
+
+private:
+    State m_state;
+    double m_mu;
+    double m_epoch;
+    double m_t0;
+    double m_t1;
+};
+
+// The velocity change of `motion` (relative to a center of `mu`) that
+// two-body gravity does not explain, summed from t0 over `steps` equal steps
+// of `duration`: each step coasts the motion's state to the next sample and
+// adds the difference from the motion's velocity there. Over a burn this is
+// the thrust's delta-v (the integral of its acceleration, as in the rocket
+// equation, not the net change of the velocity vector, which turns meanwhile).
+// Returns the running total at each of the steps + 1 samples (the first 0).
+std::vector<double> unexplained_delta_v(const MotionSource& motion, double mu, double t0, double duration, int steps);
+
 } // namespace astraxis

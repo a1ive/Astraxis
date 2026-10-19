@@ -7,6 +7,8 @@
 #include <glm/glm.hpp>
 #include <imgui.h>
 
+#include <cstdio>
+
 namespace astraxis {
 
 namespace {
@@ -18,7 +20,8 @@ ImU32 to_imgui_color(const glm::vec3& c, float alpha)
 
 } // namespace
 
-void draw_labels(LabelLayout& labels, const Scene& scene, const OutputView& view, int focus, float alpha)
+void draw_labels(LabelLayout& labels, const Scene& scene, const OutputView& view, int focus, float alpha,
+                 ImFont* readout_font)
 {
     const ImGuiIO& io = ImGui::GetIO();
     const float font_size = ImGui::GetFontSize();
@@ -60,6 +63,18 @@ void draw_labels(LabelLayout& labels, const Scene& scene, const OutputView& view
             draw->AddText(ImVec2(mark.text_position.x, mark.text_position.y),
                           IM_COL32(220, 225, 235, static_cast<int>(190.0f * mark.text_alpha * alpha)),
                           body.name.c_str());
+            double delta_v = 0.0;
+            if (scene.burn_delta_v(mark.body, &delta_v)) {
+                char text[64];
+                std::snprintf(text, sizeof(text), readout_font ? "\xce\x94v %.0f m/s" : "delta-v %.0f m/s",
+                              delta_v * 1000.0);
+                const ImVec2 at(mark.text_position.x,
+                                mark.text_position.y + font_size * LabelLayout::kReadoutLineSpacing);
+                draw->AddText(readout_font ? readout_font : ImGui::GetFont(), font_size, at,
+                              to_imgui_color(glm::mix(body.orbit_color, glm::vec3(1.0f), 0.6f),
+                                             0.95f * mark.text_alpha * alpha),
+                              text);
+            }
         }
     }
 }
