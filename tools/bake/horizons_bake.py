@@ -2,6 +2,7 @@
 
 Usage:
     python horizons_bake.py <config.toml> [target_name ...]
+    python horizons_bake.py --patch <config.toml> target_name ...
 
 Each [[target]] in the config is fetched from the Horizons API
 (https://ssd.jpl.nasa.gov/api/horizons.api) as geometric ICRF state vectors in
@@ -42,6 +43,13 @@ minutes between the base samples, re-fetches 1-minute samples around any over
 the tolerance (maneuvers, seams between trajectory files) and reduces again
 (at most twice). Samples with a velocity far off their neighbours' (bogus
 states during burns) are dropped before every reduction.
+
+`keep_all = [["<start>", "<stop>"], ...]` (TDB) makes every 1-minute sample within
+each window a knot, e.g. over a burn whose delta-v the scene reads from the
+table: between knots kept to the tolerance, the cubic is free to bend the thrust
+profile. With `--patch` (and target names), only the stretch between the knots
+around each window of an existing table is re-fetched and reduced; every other
+knot stays as it is.
 
 `windows_near = "<Horizons command>"` keeps data only where the target comes
 within `window_km` of that object (e.g. a moon near a spacecraft), padded by
@@ -347,31 +355,37 @@ def verify(command, center, rows, knots, gm, tol_km, step_minutes, pad_minutes=1
     return sorted(kept + fine, key=lambda r: r[0])
 
 
-def decimate(rows, tol_km, interp):
-    """Greedy knot reduction: keep a knot only when skipping it would break the tolerance."""
+def in_windows(t, windows):
+    return any(a <= t <= b for a, b in windows)
+
+
+def decimate(rows, tol_km, interp, keep=()):
+    """Greedy knot reduction: keep a knot only when skipping it would break the tolerance.
+    Every row within a `keep` window (t0, t1) stays a knot."""
     def ok(a, b):
         for j in range(a + 1, b):
             if dist(interp(rows[a], rows[b], rows[j][0]), rows[j][1]) > tol_km:
                 return False
         return True
 
-    kept = [0]
-    a = 0
     n = len(rows)
-    while a < n - 1:
-        # Exponential search for the reach, then binary search.
-        step = 1
-        while a + step * 2 < n and ok(a, a + step * 2):
-            step *= 2
-        lo, hi = a + step, min(n - 1, a + step * 2)
-        while lo < hi:
-            mid = (lo + hi + 1) // 2
-            if ok(a, mid):
-                lo = mid
-            else:
-                hi = mid - 1
-        kept.append(lo)
-        a = lo
+    bounds = sorted({0, n - 1} | {i for i, r in enumerate(rows) if in_windows(r[0], keep)})
+    kept = [0]
+    for a, end in zip(bounds, bounds[1:]):
+        while a < end:
+            # Exponential search for the reach, then binary search.
+            step = 1
+            while a + step * 2 <= end and ok(a, a + step * 2):
+                step *= 2
+            lo, hi = a + step, min(end, a + step * 2)
+            while lo < hi:
+                mid = (lo + hi + 1) // 2
+                if ok(a, mid):
+                    lo = mid
+                else:
+                    hi = mid - 1
+            kept.append(lo)
+            a = lo
     return [rows[i] for i in kept]
 
 
@@ -518,12 +532,43 @@ def refine_near(command, center, rows, gm, others, threshold, scan_step):
             merged.append([a, b])
     if not merged:
         return rows
+    print(f'    near other bodies: {len(merged)} windows')
+    return with_minute_samples(command, center, rows, merged)
+
+
+def with_minute_samples(command, center, rows, windows):
+    """`rows` with the samples within each window (t0, t1) replaced by 1-minute ones."""
     fine = []
-    for a, b in merged:
+    for a, b in windows:
         fine.extend(fetch(command, center, a / DAY + J2000_JD, b / DAY + J2000_JD, MIN_STEP_MINUTES))
-    print(f'    near other bodies: {len(merged)} windows, {len(fine)} samples at {MIN_STEP_MINUTES} min')
-    kept = [r for r in rows if not any(a <= r[0] <= b for a, b in merged)]
+    print(f'    {len(fine)} samples at {MIN_STEP_MINUTES} min in {len(windows)} windows')
+    kept = [r for r in rows if not in_windows(r[0], windows)]
     return sorted(kept + fine, key=lambda r: r[0])
+
+
+def patch_keep_all(tgt, out, keep, tol, interp):
+    """Applies `keep_all` to an already baked table: re-fetches 1-minute samples
+    between the knots around each window and reduces only that stretch, leaving
+    every other knot as it is (a full bake would also pick up later changes to
+    the Horizons data, e.g. new predictions, everywhere)."""
+    table = read_eph(out)
+    knots = table.knots
+    for a, b in keep:
+        ia = bisect.bisect_right([k[0] for k in knots], a) - 1
+        ib = bisect.bisect_left([k[0] for k in knots], b)
+        if ia < 0 or ib >= len(knots):
+            sys.exit(f'{tgt["name"]}: keep_all window {calendar(a)} .. {calendar(b)} is not inside the table')
+        ka, kb = knots[ia], knots[ib]
+        fine = fetch(tgt['command'], tgt['center'], ka[0] / DAY + J2000_JD, kb[0] / DAY + J2000_JD,
+                     MIN_STEP_MINUTES)
+        # The stretch ends at the old knots themselves, so that the rest stays exact.
+        fine = [ka] + [r for r in fine if ka[0] + 1.0 < r[0] < kb[0] - 1.0] + [kb]
+        fine = drop_velocity_spikes(fine)
+        seg = decimate(fine, tol, interp, [(a, b)])
+        print(f'    {calendar(a)} .. {calendar(b)}: {ib - ia - 1} knots between {calendar(ka[0])} and '
+              f'{calendar(kb[0])} -> {len(seg) - 2}, max error {max_error(fine, seg, interp):.3f} km')
+        knots = knots[:ia] + seg + knots[ib + 1:]
+    return Table(knots, table.gm, table.max_gap)
 
 
 def near_windows(rows, command, center, start_jd, stop_jd, step_minutes, threshold, pad):
@@ -622,10 +667,12 @@ def jd_from_text(s):
 
 
 def main():
-    if len(sys.argv) < 2:
+    args = [a for a in sys.argv[1:] if a != '--patch']
+    patch = len(args) < len(sys.argv) - 1
+    if not args or (patch and len(args) < 2):
         sys.exit(__doc__)
-    config_path = sys.argv[1]
-    only = set(sys.argv[2:])
+    config_path = args[0]
+    only = set(args[1:])
     with open(config_path, 'rb') as f:
         cfg = tomllib.load(f)
     root = os.path.dirname(os.path.abspath(config_path))
@@ -644,6 +691,19 @@ def main():
         tol = tgt.get('tolerance_km', default_tol)
         gm = tgt.get('kepler_gm_km3_s2', 0.0)
         interp = make_interp(gm)
+        keep = [((jd_from_text(a) - J2000_JD) * DAY, (jd_from_text(b) - J2000_JD) * DAY)
+                for a, b in tgt.get('keep_all', [])]
+        if keep and tgt.get('windows_near'):
+            sys.exit(f'{name}: keep_all does not work with windows_near')
+        if patch:
+            if not keep:
+                sys.exit(f'{name}: --patch needs keep_all')
+            print(f'{name}: patching {out} with {len(keep)} keep_all windows')
+            baked[name] = patch_keep_all(tgt, out, keep, tol, interp)
+            write_eph(out, int(tgt['naif_id']), int(tgt['center_naif_id']), baked[name].knots, gm,
+                      baked[name].max_gap)
+            print(f'    wrote {out} ({len(baked[name].knots)} knots, {os.path.getsize(out) // 1024} KB)')
+            continue
         step = int(tgt['base_step_minutes'])
         start, stop = jd_from_text(tgt['start']), jd_from_text(tgt['stop'])
         print(f'{name}: {tgt["command"]} @ {tgt["center"]}, {tgt["start"]} .. {tgt["stop"]}, step {step} min, tol {tol} km')
@@ -682,15 +742,17 @@ def main():
                 sys.exit(f'{name}: refine_near needs {missing} baked first (earlier in the config)')
             rows = refine_near(tgt['command'], tgt['center'], rows, gm, [baked[o] for o in tgt['refine_near']],
                                tgt['refine_near_km'], tgt.get('refine_near_step_minutes', 20) * 60.0)
+        if keep:
+            rows = with_minute_samples(tgt['command'], tgt['center'], rows, keep)
         rows = drop_velocity_spikes(rows)
-        knots = decimate(rows, tol, interp)
+        knots = decimate(rows, tol, interp, keep)
         if tgt.get('verify_step_minutes'):
             for _ in range(2):
                 checked = verify(tgt['command'], tgt['center'], rows, knots, gm, tol, tgt['verify_step_minutes'])
                 if checked is None:
                     break
                 rows = drop_velocity_spikes(checked)
-                knots = decimate(rows, tol, interp)
+                knots = decimate(rows, tol, interp, keep)
         err = max_error(rows, knots, interp)
         kind = 'Kepler-relative' if gm else 'Hermite'
         print(f'    {len(rows)} samples -> {len(knots)} knots ({kind}), max error {err:.3f} km')
@@ -698,6 +760,8 @@ def main():
         print(f'    wrote {out} ({os.path.getsize(out) // 1024} KB)')
         baked[name] = Table(knots, gm)
 
+    if patch:
+        return
     radii = {t['name']: t.get('radius_km') for t in cfg['target']}
     for tgt in cfg['target']:
         if only and tgt['name'] not in only:

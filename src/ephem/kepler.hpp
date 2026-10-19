@@ -75,12 +75,17 @@ private:
 };
 
 // The velocity change of `motion` (relative to a center of `mu`) that
-// two-body gravity does not explain, summed from t0 over `steps` equal steps
-// of `duration`: each step coasts the motion's state to the next sample and
-// adds the difference from the motion's velocity there. Over a burn this is
-// the thrust's delta-v (the integral of its acceleration, as in the rocket
+// two-body gravity does not explain, from t0 over `duration`: each interval
+// between the motion's own sampling times (MotionSource::history_times, an
+// ephemeris' knots) coasts the state at its start to its end and adds the
+// difference from the motion's velocity there. Over a burn this is the
+// thrust's delta-v (the integral of its acceleration, as in the rocket
 // equation, not the net change of the velocity vector, which turns meanwhile).
-// Returns the running total at each of the steps + 1 samples (the first 0).
+// Knots are exact samples; between them the cubic swings across a burn's
+// sudden start or end, or a small seam between trajectory files, and finer
+// steps would add up both ways of each swing (13% too much for Venus Express).
+// Returns the running total at `steps` + 1 even samples (the first 0),
+// linear between the sampling times.
 std::vector<double> unexplained_delta_v(const MotionSource& motion, double mu, double t0, double duration, int steps);
 
 } // namespace astraxis

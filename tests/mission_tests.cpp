@@ -49,6 +49,73 @@ double shape_radius(const ShapeModel& shape, const glm::dvec3& p)
     return best;
 }
 
+// An orbit insertion event's ghost (SceneEvent::Ghost): the spacecraft's path
+// without the burn. The burn's delta-v as the path shows it, against the
+// published value (none if 0) within `tolerance` (relative); the ghost and the
+// readout only during the event; the burn not under way at the time given for
+// its start; the ghost on the approach path at the event's start (it drifts off
+// slowly: two-body gravity, without the planet's oblateness), apart an hour
+// after the burn, and unbound. Returns the event's index, -1 if none.
+int check_insertion_ghost(Scene& scene, const char* craft, double published_m_s, double tolerance)
+{
+    const std::string name(craft);
+    const int body = scene.find(craft);
+    int event = -1;
+    for (size_t i = 0; i < scene.events.size(); ++i) {
+        if (body >= 0 && scene.events[i].ghost.body == body) {
+            event = static_cast<int>(i);
+        }
+    }
+    check(event >= 0, (name + "'s orbit insertion has a ghost").c_str());
+    if (event < 0) {
+        return -1;
+    }
+    const SceneEvent::Ghost& g = scene.events[static_cast<size_t>(event)].ghost;
+    const double dv = g.delta_v_km_s.empty() ? 0.0 : g.delta_v_km_s.back() * 1000.0;
+    if (published_m_s > 0.0) {
+        check(std::abs(dv / published_m_s - 1.0) < tolerance, (name + " orbit insertion delta-v (m/s)").c_str(), dv);
+    }
+
+    const int ghost = g.ghost;
+    const Body& gb = scene.bodies[static_cast<size_t>(ghost)];
+    const double burn_end = g.t_tdb + g.delta_v_span_s;
+    const double mid = 0.5 * (g.burn_tdb + burn_end);
+    scene.set_active_event(-1);
+    scene.update(mid);
+    double readout = 0.0;
+    check(!gb.visible && !scene.burn_delta_v(body, &readout), (name + "'s ghost and readout only during its event").c_str());
+    scene.set_active_event(event);
+    scene.update(mid);
+    check(gb.visible && scene.burn_delta_v(body, &readout) && readout > 0.3 * dv * 1e-3 && readout < 0.7 * dv * 1e-3,
+          (name + "'s delta-v readout halfway through the burn (km/s)").c_str(), readout);
+    // The ghost leaves the real path a minute before the time given. By then, less than half
+    // a minute of the burn's mean thrust: the readout grows linearly between knots a minute
+    // apart, so a burn starting in the interval after that time shows a little before it.
+    scene.update(g.burn_tdb);
+    scene.burn_delta_v(body, &readout);
+    const double half_minute = dv / (g.delta_v_span_s - 120.0) * 30.0;
+    check(readout * 1000.0 < half_minute, (name + "'s burn not under way at its given start (m/s)").c_str(),
+          readout * 1000.0);
+    scene.set_active_event(-1);
+
+    const Body& parent = scene.bodies[static_cast<size_t>(gb.parent)];
+    const double gm = parent.gm_km3_s2 > 0.0 ? parent.gm_km3_s2 : parent.body_gm_km3_s2;
+    auto apart = [&](double t) {
+        return glm::length(scene.icrf_state_at(ghost, t).position - scene.icrf_state_at(body, t).position);
+    };
+    const double before = apart(g.start_tdb);
+    check(before < 10.0, (name + "'s ghost on the approach path at the event's start (km)").c_str(), before);
+    const double after = apart(burn_end + 3600.0);
+    check(after > 1000.0, (name + "'s ghost apart an hour after the burn (km)").c_str(), after);
+    OrbitElements ghost_el;
+    check(!osculating_elements(gb.motion->eval(g.t_tdb), gm, &ghost_el) || ghost_el.period_s == 0.0,
+          (name + " would have flown past without the burn").c_str());
+    std::printf("info: %s orbit insertion: %.1f m/s from the path (published %.0f); the ghost %.2f km off at the "
+                "event's start (%.0f min before the burn), %.0f km an hour after\n",
+                craft, dv, published_m_s, before, (g.burn_tdb - g.start_tdb) / 60.0, after);
+    return event;
+}
+
 // Solar System scene: Pioneer 10/11 and New Horizons, and the planets baked
 // back to 1972 for the Pioneer flybys.
 void test_solar_system_missions()
@@ -761,6 +828,9 @@ void test_mercury_scene()
         check(worst < 20.0, "spacecraft hand-over to the Mercury-relative table (km/min)", worst);
     }
 
+    // The orbit insertion burn's ghost: 862 m/s [MESM], 1%.
+    check_insertion_ghost(scene, "MESSENGER", 862.0, 0.01);
+
     // MESSENGER ends at Mercury's surface (impact 2015-04-30 ~19:26 UTC).
     double t_end = tdb({2015, 4, 30, 19, 27, 0});
     scene.update(t_end);
@@ -1100,54 +1170,45 @@ void test_mars_scene()
               static_cast<double>(when.year));
     }
 
-    // The orbit insertion event's ghost: the approach hyperbola without the burn. The burn's
-    // delta-v as the path shows it, against Estevez's burn model [TW1]: 888 s at 3 kN, Isp
-    // 321.6 s, from 4,425 kg: 321.6 g0 ln(4425 / (4425 - 888 * 3000 / (321.6 g0))) = 668 m/s.
-    // The table has a knot every minute through the burn; the cubic between the two knots
-    // around its start (and its end) overshoots the sudden change, adding about 1%.
-    {
-        int arrival = -1;
-        for (size_t i = 0; i < scene.events.size(); ++i) {
-            if (scene.events[i].ghost.body == tw1) {
-                arrival = static_cast<int>(i);
-            }
-        }
-        check(arrival >= 0, "Tianwen-1 arrival has a ghost");
-        if (arrival >= 0) {
-            const SceneEvent::Ghost& g = scene.events[static_cast<size_t>(arrival)].ghost;
-            const double isp_g0 = 321.6 * 9.80665e-3; // km/s
-            auto rocket_after = [&](double s) { return isp_g0 * std::log(4425.0 / (4425.0 - s * 3.0 / isp_g0)); };
-            const double rocket = rocket_after(888.0);
-            const double dv = g.delta_v_km_s.empty() ? 0.0 : g.delta_v_km_s.back();
-            check(std::abs(dv / rocket - 1.0) < 0.015, "Tianwen-1 orbit insertion delta-v (km/s)", dv);
-            std::printf("info: Tianwen-1 orbit insertion: %.1f m/s from the path, %.1f m/s by the rocket equation\n",
-                        dv * 1000.0, rocket * 1000.0);
-
-            // Shown only during its event; on the real path until the burn, then unbound.
-            const int ghost = g.ghost;
-            const Body& gb = scene.bodies[static_cast<size_t>(ghost)];
-            scene.set_active_event(-1);
-            scene.update(g.burn_tdb + 444.0);
-            check(!gb.visible, "Tianwen-1's ghost hidden outside its event");
-            double readout = 0.0;
-            check(!scene.burn_delta_v(tw1, &readout), "No delta-v readout outside the event");
-            scene.set_active_event(arrival);
-            scene.update(g.burn_tdb + 444.0);
-            check(gb.visible && scene.burn_delta_v(tw1, &readout) && std::abs(readout / rocket_after(444.0) - 1.0) < 0.03,
-                  "Delta-v readout halfway through the burn (km/s)", readout);
-            // Before the burn the ghost drifts off slowly: two-body gravity, without Mars' oblateness.
-            const double before = glm::length(at(ghost, g.start_tdb) - at(tw1, g.start_tdb));
-            check(before < 10.0, "Tianwen-1's ghost on the approach path before the burn (km)", before);
-            const double after = glm::length(at(ghost, g.burn_tdb + 3600.0) - at(tw1, g.burn_tdb + 3600.0));
-            check(after > 1000.0, "Tianwen-1's ghost apart an hour after the burn (km)", after);
-            OrbitElements ghost_el;
-            check(!osculating_elements(gb.motion->eval(g.t_tdb), gm, &ghost_el) || ghost_el.period_s == 0.0,
-                  "Tianwen-1 would have flown past Mars without the burn");
-            std::printf("info: Tianwen-1's ghost: %.1f km off at the event's start, %.0f km an hour after the burn\n",
-                        before, after);
-            scene.set_active_event(-1);
-        }
+    // The orbit insertion events' ghosts: the approach hyperbolas without the burns. Every
+    // 1-minute sample through each burn is a knot (ephem.toml keep_all, tianwen1_bake.py
+    // KEEP_ALL); the delta-v is read knot to knot (unexplained_delta_v), so the cubic's swings
+    // across the sudden start and end of a burn, or a seam between trajectory files where a
+    // burn ends (Mars Express 0.9 km, TGO 99 km), do not count. Published values:
+    // - Tianwen-1, Estevez's burn model [TW1]: 888 s at 3 kN, Isp 321.6 s, from 4,425 kg:
+    //   321.6 g0 ln(4425 / (4425 - 888 * 3000 / (321.6 g0))) = 668 m/s; 1.5% (a model).
+    // - Odyssey 1,427 m/s, planned [ODYK]: 1% (the readout +0.5%).
+    // - Mars Express 806.762 m/s, planned and reached by burning longer [MEXN]: 1%.
+    // - MRO "about 1,000 meters per second" [MROK]: 2%.
+    // - MAVEN "about 2,750 mph" (1,229 m/s) [MAVM]: 1%.
+    // - MOM 1,099 m/s [MOMI]: 1%.
+    // - TGO "more than 1.5 km/s" [TGOM]: up to 1,600 m/s (the burn in the table runs a minute
+    //   longer than ESA's 139; the readout stops before ESA's next file, 50 m/s off).
+    // - Hope: none published.
+    const double isp_g0 = 321.6 * 9.80665e-3; // km/s
+    auto rocket_after = [&](double s) { return isp_g0 * std::log(4425.0 / (4425.0 - s * 3.0 / isp_g0)); };
+    const int tw1_insertion = check_insertion_ghost(scene, "Tianwen-1", rocket_after(888.0) * 1000.0, 0.015);
+    if (tw1_insertion >= 0) {
+        const SceneEvent::Ghost& g = scene.events[static_cast<size_t>(tw1_insertion)].ghost;
+        scene.set_active_event(tw1_insertion);
+        scene.update(g.burn_tdb + 444.0);
+        double readout = 0.0;
+        check(scene.burn_delta_v(tw1, &readout) && std::abs(readout / rocket_after(444.0) - 1.0) < 0.03,
+              "Tianwen-1's delta-v readout halfway through the burn (km/s)", readout);
+        scene.set_active_event(-1);
     }
+    check_insertion_ghost(scene, "Odyssey", 1427.0, 0.01);
+    check_insertion_ghost(scene, "Mars Express", 806.762, 0.01);
+    check_insertion_ghost(scene, "MRO", 1000.0, 0.02);
+    check_insertion_ghost(scene, "MAVEN", 2750.0 * 0.44704, 0.01);
+    check_insertion_ghost(scene, "MOM", 1099.0, 0.01);
+    const int tgo_insertion = check_insertion_ghost(scene, "TGO", 1500.0, 1.0);
+    if (tgo_insertion >= 0) {
+        const std::vector<double>& dv = scene.events[static_cast<size_t>(tgo_insertion)].ghost.delta_v_km_s;
+        const double total = dv.empty() ? 0.0 : dv.back();
+        check(total > 1.5 && total < 1.6, "TGO orbit insertion delta-v (km/s)", total);
+    }
+    check_insertion_ghost(scene, "Hope", 0.0, 0.0);
 
     // 3I/ATLAS ([REN], Ren et al. 2026): closest to Mars 2025-10-03 04:38 UT at 0.194 au,
     // ~86 km/s; 0.208 au from Tianwen-1 at the second imaging epoch, 2025-10-01 16:00 UTC
@@ -1292,6 +1353,14 @@ void test_venus_scene()
     check(std::abs(el.period_s / 3600.0 - 24.0) < 0.1 && std::abs(el.apoapsis_km - rv - 66000.0) < 1000.0,
           "Venus Express science orbit (apoapsis altitude, km)", el.apoapsis_km - rv);
     check(std::abs(vex_incl - 90.0) < 1.5, "Venus Express polar orbit (deg)", vex_incl);
+    // The capture burn's ghost; "approximately 1251 ms-1" [VOI], 1%. Venus Express' path
+    // steps by 3.8 km where ESA's next file starts, at the burn's end: read knot to knot, the
+    // delta-v does not count the cubic's swing there (it would add 13%).
+    check_insertion_ghost(scene, "Venus Express", 1251.0, 0.01);
+    // Akatsuki's second try ([VCO]: 1,228 s): the mission catalog's 134.8 m/s does not fit its
+    // own burns on the same four thrusters (56.3 m/s in 303 s in July 2015 would make some 230
+    // m/s); the table reads 199. Not compared.
+    check_insertion_ghost(scene, "Akatsuki", 0.0, 0.0);
     const std::vector<double> peri06 = scene.periapsis_times(vex, tdb({2006, 6, 1, 0, 0, 0}), tdb({2006, 6, 2, 12, 0, 0}));
     const glm::dvec3 pp = peri06.empty() ? glm::dvec3(0.0) : rel(vex, peri06[0]).position;
     const double peri_lat = peri06.empty() ? 0.0 : std::asin(glm::dot(glm::normalize(pp), pole)) * kRadToDeg;

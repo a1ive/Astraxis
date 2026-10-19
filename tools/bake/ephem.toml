@@ -1040,6 +1040,7 @@ start = "2011-03-10"
 stop = "2015-04-30 19:28"     # impact (mean surface reached ~19:27:55 TDB, 19:26:50 UTC)
 base_step_minutes = 60
 tolerance_km = 2.0
+keep_all = [["2011-03-18 00:44", "2011-03-18 01:04"]]  # the orbit insertion burn (the scene reads its delta-v)
 periapsides = true
 
 [[target]]
@@ -1283,6 +1284,7 @@ start = "2003-12-20"       # five days before orbit insertion (2003-12-25)
 stop = "2029-01-01"        # reconstructed to 2026-09-23, then ESA's prediction
 base_step_minutes = 10
 tolerance_km = 5.0
+keep_all = [["2003-12-25 02:46", "2003-12-25 03:25"]]  # the orbit insertion burn (the scene reads its delta-v)
 radius_km = 3396.19
 encounters = ["phobos_mex"]
 encounter_km = 200.0
@@ -1299,6 +1301,7 @@ start = "2014-09-18"       # four days before orbit insertion (2014-09-22 02:24 
 stop = "2025-12-04"        # end of the tracking data
 base_step_minutes = 5
 tolerance_km = 10.0
+keep_all = [["2014-09-22 01:36", "2014-09-22 02:15"]]  # the orbit insertion burn (the scene reads its delta-v)
 radius_km = 3396.19
 
 [[target]]
@@ -1312,6 +1315,7 @@ start = "2006-03-07"       # three days before orbit insertion (2006-03-10)
 stop = "2006-10-01"        # aerobraking ended 2006-08-30; then the trims into the science orbit
 base_step_minutes = 5
 tolerance_km = 10.0
+keep_all = [["2006-03-10 21:11", "2006-03-10 21:43"]]  # the orbit insertion burn (the scene reads its delta-v)
 radius_km = 3396.19
 
 [[target]]
@@ -1367,6 +1371,7 @@ start = "2021-02-05"       # four days before orbit insertion (2021-02-09)
 stop = "2027-03-04"        # end of the data (prediction after 2026-09-03)
 base_step_minutes = 10
 tolerance_km = 5.0
+keep_all = [["2021-02-09 15:29", "2021-02-09 16:01"]]  # the orbit insertion burn (the scene reads its delta-v)
 radius_km = 3396.19
 encounters = ["deimos_emm"]
 encounter_km = 1000.0
@@ -1424,6 +1429,7 @@ start = "2001-10-20"       # four days before orbit insertion
 stop = "2002-02-20"        # end of the aerobraking file (2002-02-19)
 base_step_minutes = 5
 tolerance_km = 10.0
+keep_all = [["2001-10-24 02:16", "2001-10-24 02:41"]]  # the orbit insertion burn (the scene reads its delta-v)
 radius_km = 3396.19
 
 [[target]]
@@ -1463,6 +1469,7 @@ start = "2016-10-15"       # four days before orbit insertion (2016-10-19)
 stop = "2018-05-01"        # aerobraking (2017) and the trims into the science orbit
 base_step_minutes = 5
 tolerance_km = 10.0
+keep_all = [["2016-10-19 13:04", "2016-10-19 15:28"]]  # the orbit insertion burn (the scene reads its delta-v)
 radius_km = 3396.19
 
 [[target]]
@@ -1489,6 +1496,7 @@ start = "2014-09-20"       # four days before orbit insertion (2014-09-24)
 stop = "2022-04-30"        # tag-up fits through April 2022 (contact lost)
 base_step_minutes = 10
 tolerance_km = 5.0
+keep_all = [["2014-09-24 01:46", "2014-09-24 02:14"]]  # the orbit insertion burn (the scene reads its delta-v)
 radius_km = 3396.19
 
 # Gravity-assist flybys, relative to Mars' center, five days either side of closest approach
@@ -1571,6 +1579,7 @@ start = "2006-04-08"       # three days before orbit insertion (2006-04-11 07:10
 stop = "2014-11-28"        # end of the tracking data (contact lost on 2014-11-28)
 base_step_minutes = 5
 tolerance_km = 2.0
+keep_all = [["2006-04-11 07:09", "2006-04-11 08:04"]]  # the orbit insertion burn (the scene reads its delta-v)
 verify_step_minutes = 30
 radius_km = 6051.8
 
@@ -1605,6 +1614,7 @@ start = "2015-12-03"
 stop = "2024-04-26"        # end of the final reconstruction (contact lost late April 2024)
 base_step_minutes = 10
 tolerance_km = 2.0
+keep_all = [["2015-12-06 23:50", "2015-12-07 00:15"]]  # the orbit insertion burn (the scene reads its delta-v)
 verify_step_minutes = 60
 radius_km = 6051.8
 

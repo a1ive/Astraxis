@@ -33,6 +33,39 @@ namespace {
 // Samples of a ring profile rasterized from bands (Jupiter's: ~23 km each, Uranus': ~1.2 km).
 constexpr int kBandProfileSamples = 8192;
 
+// A body's motion relative to a sibling (both relative to the same parent), or
+// as it is without one; sampled at the body's own times. Neither is owned.
+class RelativeMotion final : public MotionSource {
+public:
+    RelativeMotion(const MotionSource& body, const MotionSource* sibling)
+        : m_body(body)
+        , m_sibling(sibling)
+    {
+    }
+    State eval(double t_tdb) const override
+    {
+        State s = m_body.eval(t_tdb);
+        if (m_sibling) {
+            const State o = m_sibling->eval(t_tdb);
+            s.position -= o.position;
+            s.velocity -= o.velocity;
+        }
+        return s;
+    }
+    bool valid_at(double t_tdb) const override
+    {
+        return m_body.valid_at(t_tdb) && (!m_sibling || m_sibling->valid_at(t_tdb));
+    }
+    void history_times(double t0, double t1, int max_points, std::vector<double>& out) const override
+    {
+        m_body.history_times(t0, t1, max_points, out);
+    }
+
+private:
+    const MotionSource& m_body;
+    const MotionSource* m_sibling;
+};
+
 // Thrown on schema errors; caught at the top level and turned into a message.
 struct SchemaError {
     std::string message;
@@ -1378,17 +1411,25 @@ void Loader::parse_event_ghost(const toml::table* t, const std::string& event_ct
     SceneEvent::Ghost& g = e.ghost;
     g.body = body_ref(out, *t, "body", ctx, false);
     const Body& real = out.bodies[static_cast<size_t>(g.body)];
-    const double gm = real.parent >= 0 ? out.bodies[static_cast<size_t>(real.parent)].gm_km3_s2 : 0.0;
-    if (!real.motion || gm <= 0.0) {
-        fail(ctx, "needs a body with an orbit around a parent with gm_km3_s2");
+    // What the ghost coasts around: the parent, or a sibling the spacecraft orbits
+    // (e.g. a planet, for a spacecraft that stays a child of the Sun).
+    const int center = t->contains("center") ? body_ref(out, *t, "center", ctx, false) : real.parent;
+    if (center < 0 || (center != real.parent && out.bodies[static_cast<size_t>(center)].parent != real.parent)) {
+        fail(ctx, "the center must be the parent of '" + real.name + "' or a sibling of it");
     }
+    const Body& c = out.bodies[static_cast<size_t>(center)];
+    const double gm = c.gm_km3_s2 > 0.0 ? c.gm_km3_s2 : c.body_gm_km3_s2; // e.g. a planet without moons
+    if (!real.motion || (center != real.parent && !c.motion) || gm <= 0.0) {
+        fail(ctx, "needs a body with an orbit around a center with gm_km3_s2");
+    }
+    const RelativeMotion relative(*real.motion, center != real.parent ? c.motion.get() : nullptr);
     // A table sampled every minute rounds off a burn's sudden start and end
     // over one sample interval: the ghost leaves the real path a minute before
     // the burn, and the delta-v counts from then until a minute after it.
     constexpr double kBurnMarginS = 60.0;
     g.burn_tdb = parse_event_time(*t, ctx);
     g.t_tdb = g.burn_tdb - kBurnMarginS;
-    if (!real.motion->valid_at(g.t_tdb)) {
+    if (!relative.valid_at(g.t_tdb)) {
         fail(ctx, "'" + real.name + "' has no motion just before the burn");
     }
     const double days = get_double_or(*t, "days", 1.0);
@@ -1401,12 +1442,12 @@ void Loader::parse_event_ghost(const toml::table* t, const std::string& event_ct
     g.end_tdb = g.burn_tdb + days * kSecondsPerDay;
     if (burn_s > 0.0) {
         g.delta_v_span_s = burn_s + 2.0 * kBurnMarginS;
-        if (!real.motion->valid_at(g.t_tdb + g.delta_v_span_s)) {
+        if (!relative.valid_at(g.t_tdb + g.delta_v_span_s)) {
             fail(ctx, "'" + real.name + "' has no motion just after the burn");
         }
         constexpr double kStepS = 4.0;
         const int steps = std::max(static_cast<int>(std::ceil(g.delta_v_span_s / kStepS)), 1);
-        g.delta_v_km_s = unexplained_delta_v(*real.motion, gm, g.t_tdb, g.delta_v_span_s, steps);
+        g.delta_v_km_s = unexplained_delta_v(relative, gm, g.t_tdb, g.delta_v_span_s, steps);
     }
 
     Body ghost;
@@ -1414,14 +1455,14 @@ void Loader::parse_event_ghost(const toml::table* t, const std::string& event_ct
     if (out.find(ghost.name) >= 0) {
         fail(ctx, "the name '" + ghost.name + "' is taken");
     }
-    ghost.parent = real.parent;
+    ghost.parent = center;
     ghost.kind = BodyKind::Ghost;
     ghost.equatorial_radius_km = ghost.equatorial_radius_b_km = ghost.polar_radius_km = 1.0;
     ghost.color = real.color;
     ghost.orbit_color = parse_color(*t, "orbit_color", ctx, glm::mix(real.orbit_color, glm::vec3(0.55f), 0.6f));
     ghost.trail = TrailMode::History; // drawn whole (Scene::trail)
     ghost.event = event;
-    ghost.motion = std::make_unique<CoastMotion>(real.motion->eval(g.t_tdb), gm, g.t_tdb, g.start_tdb, g.end_tdb);
+    ghost.motion = std::make_unique<CoastMotion>(relative.eval(g.t_tdb), gm, g.t_tdb, g.start_tdb, g.end_tdb);
     g.ghost = static_cast<int>(out.bodies.size());
     out.bodies.push_back(std::move(ghost));
 }

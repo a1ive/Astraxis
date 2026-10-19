@@ -71,7 +71,7 @@ CMake 目标：
 核心抽象：所有天体运动都实现 `MotionSource::eval(t_tdb) -> State`，返回相对父天体的 ICRF 状态，场景层不关心来源是解析、星历还是积分。`Scene::update` 先按父子链算出 ICRF 位置（`icrf_position`），再经当前显示参考系（`FrameTransform`：惯性、主–次天体连线旋转、随天体自转三种）变换成 `world_position`。渲染、相机、标签、导演都只用 `world_position`。
 
 渲染层的 pass 只接收 `CameraView` 和简单的 draw item，由 `src/view/` 的 `SceneRenderer` 把 scene 转换成这些数据。宿主无关的部分：
-- `Simulation`（`scene/simulation.hpp`，不依赖 SDL）持有 Scene、时钟、相机和导览；`compute_view` 给每个输出算一份 `OutputView`（相机视图、卫星淡出、content scale）。导览的普通镜头由 `CameraDirector` 选；每隔一两个镜头插一个事件镜头，因为要动时钟，由 `Simulation` 执行：按时间顺序取下一个事件，淡出黑场后把时钟跳到事件前（快到的事件不跳），倍速按剩余时间指数降到事件自己的倍速（飞掠降到最近点前 20 s），显示展签，飞掠镜头持续到最近点之后。飞掠体由事件的 `flyby` 指定（自动找最近的探测器在多探测器场景里常挑错，比如“MRO arrives”找到 Mars Express），`--event` 和导览用同一个视角（`Simulation::event_shot`）。事件可以带幽灵（`[events.ghost]`，格式见 `mars.toml` 的天问一号入轨）：加载时合成一个 `Ghost` 天体（`Body::event`），从点火前的状态按二体外推（`CoastMotion`），只在该事件激活时显示，轨迹整段画出；点火的 Δv（`unexplained_delta_v`）由 `Scene::burn_delta_v` 给出，画在探测器标签下。黑场用 `Simulation::fade()`，在后处理合成和标签里乘上
+- `Simulation`（`scene/simulation.hpp`，不依赖 SDL）持有 Scene、时钟、相机和导览；`compute_view` 给每个输出算一份 `OutputView`（相机视图、卫星淡出、content scale）。导览的普通镜头由 `CameraDirector` 选；每隔一两个镜头插一个事件镜头，因为要动时钟，由 `Simulation` 执行：按时间顺序取下一个事件，淡出黑场后把时钟跳到事件前（快到的事件不跳），倍速按剩余时间指数降到事件自己的倍速（飞掠降到最近点前 20 s），显示展签，飞掠镜头持续到最近点之后。飞掠体由事件的 `flyby` 指定（自动找最近的探测器在多探测器场景里常挑错，比如“MRO arrives”找到 Mars Express），`--event` 和导览用同一个视角（`Simulation::event_shot`）。事件可以带幽灵（`[events.ghost]`，格式见 `mars.toml` 的天问一号入轨）：加载时合成一个 `Ghost` 天体（`Body::event`），从点火前的状态按二体外推（`CoastMotion`），只在该事件激活时显示，轨迹整段画出；探测器是太阳的子天体、只是星历相对行星时（信使号、破晓号），用 `center` 指定绕哪个天体外推。点火的 Δv（`unexplained_delta_v`，按星历节点到节点算）由 `Scene::burn_delta_v` 给出，画在探测器标签下。黑场用 `Simulation::fade()`，在后处理合成和标签里乘上
 - `LabelLayout`（`scene/label_layout.hpp`）算标签和标记放在哪里（优先级、避让、渐隐、拾取），不负责绘制；`App` 用 ImGui 画
 - `SceneRenderer` 持有 pass 和每个场景的 GPU 资源，显示选项通过 `ViewOptions` 传入
 - GPU 分两层：`GpuDevice` 只有一个；`RenderOutput` 每个窗口一个，持有交换链和本输出的 `SceneTargets`。`Frame` 的 `width/height` 是场景尺寸，`output_width/output_height` 是交换链尺寸，两者在有渲染缩放（`render_scale`，各模式都有）时不同。MSAA 采样数（`msaa` 设置：1/2/4，`GpuDevice::set_msaa` 按硬件支持往下取）存在 `GpuDevice` 的 `SceneTargetFormat` 里，各 pass 的管线和 `SceneTargets` 都依赖它：运行时切换要调 `SceneRenderer::refresh_pipelines()` 重建管线，`SceneTargets::ensure` 发现采样数变了会自己重建。新 pass 要实现 `set_format`，并加进 `refresh_pipelines`。所有和输出尺寸相关的纹理（MSAA/HDR/深度、泛光链、黑洞追踪目标）都放在 `SceneTargets` 里，pass 内部不要再缓存按尺寸分配的纹理，否则多个不同尺寸的输出轮流渲染时会反复重建。各输出都用 SDR 交换链，格式相同，共用一个 `SceneRenderer`
@@ -208,7 +208,9 @@ CMake 目标：
   - Kepler 相对插值的参考 GM 要准，GM 偏差会让节点暴增（卡戎用 DE440 的系统 GM 要 10390 个节点，拟合的等效值只要 277 个）；节点也可能隔好几圈，`history_times` 和烘焙工具都按平均运动细分
   - 火星低轨道每圈都要几个节点（扁率摄动），10 km 容差下 MRO 每月 43 KB，全程烘焙前先拿一个月试算大小；`encounters` 在 Python 里逐点求值，几十年的表按分钟步长扫要几十分钟
   - 绕火星的探测器吻切倾角会周期变化几度（MAVEN 在 73°–75.7° 之间），对照名义倾角时容差要放宽
-- **按容差抽稀的表**只保证位置，速度和加速度在节点之间可能很差：天问一号 15 分钟的入轨点火原来整段落在两个节点之间，三次插值把推力曲线扭弯，按表求出的 Δv 少 2%，从点火开始时刻的状态外推的幽灵 84 分钟后偏 110 km。要从表里读机动的就让点火期间每个样本都成为节点（`tianwen1_bake.py` 的 `KEEP_ALL`），而且每分钟一个的样本仍会把点火的开始和结束抹平一个样本间隔（三次插值在这两个区间里过冲，Δv 多约 1%），读数窗口要在点火前后各留一点
+- **按容差抽稀的表**只保证位置，速度和加速度在节点之间可能很差：天问一号 15 分钟的入轨点火原来整段落在两个节点之间，三次插值把推力曲线扭弯，按表求出的 Δv 少 2%，从点火开始时刻的状态外推的幽灵 84 分钟后偏 110 km。要从表里读机动的就让点火期间每个样本都成为节点（`ephem.toml` 的 `keep_all`；已有的表用 `horizons_bake.py --patch` 只改点火那一段，其他节点不动；天问一号是 `tianwen1_bake.py` 的 `KEEP_ALL`）。读数窗口要在点火前后各留一点
+- 从表里读 Δv 要按节点到节点算（`unexplained_delta_v` 用 `history_times` 取节点）：节点是精确样本，三次插值在点火突然开始、结束的那一分钟里过冲，按 4 秒一步累加会把来回摆的两边都算上（天问一号多 1%）。ESA 的轨道还常在点火结束处换文件、位置对不上（火星快车 0.9 km、金星快车 3.8 km、TGO 99 km 和 50 m/s），按 4 秒累加时金星快车多 13%；窗口终点落进台阶那一分钟时连按节点算也不行（TGO 按 ESA 新闻稿的 13:05 开始会多 1.1 km/s），这时用更早的出处时间或在台阶前截止
+- 新闻稿里点火的开始时刻口径不一：JPL 新闻资料（奥德赛号、MRO）和 ESA 的新闻资料时间表（TGO）给地面接收时间，ESA 新闻稿、ISRO、APL、MBRSC、JAXA 给航天器上的时间（多数只到分钟）。先用 1 分钟的 Horizons 样本找出星历里推力开始的时刻（二体引力解释不了的加速度），再对照出处判断是哪一种；幽灵的起点要在星历的推力开始之前
 - **天问一号**：
   - GMAT 脚本里的 `MarsInertial` 是 `BodyInertial` 轴（z 为 J2000 火星自转轴，x 为火星赤道与地球 J2000 平赤道的升交点），不是 ICRF 轴；火星极要用 GMAT 的 IAU 2000 值（317.68143°、52.88650°），用 pck00011 的极换算会差约 80 km。当成 ICRF 用时倾角会算成 74° 而不是 87°
   - MOMAG 2021 年的文件位置单位是火星半径（3389.5 km，三位小数，3.4 km 一级），之后是 km：单位要按文件头的 `Columns` 行判断；用相邻 1 Hz 样本差分求速度只会得到量化噪声，要用前后几分钟的最小二乘拟合
@@ -242,7 +244,7 @@ CMake 目标：
 
 按容易程度排：
 
-1. 幽灵轨道推广到其他入轨事件（朱诺号 JOI、MAVEN、希望号、火星快车、MRO、TGO、LADEE 等）：每个都要有点火开始时刻和时长的出处，先查星历在点火期间有没有足够的节点（见“已知的坑”里按容差抽稀的表）。Δv 读数的标签现在不避让别的天体的圆点
+1. 幽灵轨道：月球入轨（LADEE、嫦娥五号 T1、ARTEMIS）和朱诺号 JOI、卡西尼号 SOI 还没有做。朱诺号、卡西尼号近心点附近 J2 和推力一样大，幽灵要先计入 J2（`CoastMotion` 现在是纯二体）；月球的要看地球的潮汐力在点火前后的影响有多大。每个都要有点火开始时刻和时长的出处，表要用 `keep_all` 加节点。Δv 读数的标签现在不避让别的天体的圆点
 2. Dear ImGui 等 1.93.x 补丁版出来再从 v1.92.9b 升级（1.93.0 重写了 ImDrawList，刚发布）。SDL3/SDLGPU3 后端和用到的 API 都兼容，要截图核对的是：`label_overlay.cpp` 的空心圆点（`AddCircle` 半径不再减 0.5、默认内侧描边）和标记菱形（`AddQuad`）、`captions.cpp`/`app_ui.cpp` 里非整数坐标的 `AddRectFilled`（现在有抗锯齿边缘）、`StyleColorsDark()` 改过的面板配色
 3. B1913+16 自转轴的测地线进动：用 Weisberg & Taylor 2002（astro-ph/0205280）表 1 的解 1（i = 47.2°，与场景一致；δ = 21.1°、α = 157.5°、T0 = 1981.0）；Kramer 1998 表 1 的解 I 是同一几何（δ = 22°，α = 27° 即自转反向）。速率由质量按 Barker & O'Connell 算（1.215°/年，对照 WT02 的 1.213°/年写测试），自转轴绕轨道法线走半角 δ 的锥；画面上只有 ζ(t)（自转轴与视线的夹角）可见，它只依赖 cos Φ，不受进动方向和假设的天空节点影响，测试对照 WT02 的公式。`pulsar_beams` 要多传仿真时间。再加一个从地球方向（视线）看的事件，事件视角目前只有 `from_orbit_normal`、`from_body`，要新增一种：现有的“光束扫过相机时闪一下”会一直闪到约 2025 年（Kramer 的预测）后停下；停下的时刻取决于光束宽度（现在是示意的 10°，WT02 的光束是轴比 1.59 的沙漏形），要调或注明。2019 年以后没找到观测文献，展签写成“预测”。[WH16] 4.4 节说各家几何解“不一致”，是指精度不够扣除光行差，不影响画面
 4. 远期：macOS（Metal，需要 SPIR-V → MSL 和 macOS CI）；J1141-6545 的自转轴进动（Venkatraman Krishnan 2019 表 1：α ≈ 89°，δ 各模型从 35° 到 155° 不等，倾向的模型 3 是 91° ± 60°；Manchester 2010 约 110°），等几何解定下来再做

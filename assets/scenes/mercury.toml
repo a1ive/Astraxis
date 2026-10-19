@@ -27,6 +27,13 @@
 # [ATM]  Atmospheres (single scattering): sources and choices in solar_system.toml.
 # [PCK]  NAIF pck00011.tpc (IAU 2015): radii, poles, prime meridians (T terms ignored
 #        unless given).
+# [MESM] JHU/APL, "MESSENGER Primed for Mercury Orbit" (2011-03-15, NSSDC copy
+#        messenger_pr_20110315.txt; retrieved 2026-10-19): "MESSENGER's main thruster will fire
+#        for about 15 minutes beginning at 8:45 p.m." EDT on 2011-03-17 (00:45 UTC on 03-18;
+#        the table's burn starts at 00:45:41 and ends at 00:59:35, so this is the time at the
+#        spacecraft), slowing it "by 1,929 miles per hour (862 meters per second)". Every
+#        1-minute Horizons sample through the burn is a knot of the table (ephem.toml
+#        keep_all), for the orbit insertion event's ghost.
 # [CAP]  Event captions (retrieved 2026-10-07):
 #        [MES] NASA, science.nasa.gov/mission/messenger/: launched 2004-08-03 on a Delta II;
 #          flying straight toward the Sun accelerates a spacecraft, so it took one Earth, two
@@ -384,17 +391,25 @@ caption = """\
 # Orbit insertion: first periapsis 2011-03-18 00:51:44 TDB, 278 km above the surface.
 [[events]]
 name = "MESSENGER: orbit insertion (2011-03-18)"
-time_tdb = "2011-03-17 18:00"
+time_tdb = "2011-03-18 00:25"
 focus = "Mercury"
 flyby = "MESSENGER"
 frame = "Mercury-centered"
 distance_km = 4.0e4
-warp = 600.0
+warp = 60.0                                # the 15-minute burn over 15 s
 # [MES], [HZN]
 caption = """\
     Nearly seven years after launch, MESSENGER fires its engine and becomes the first \
     spacecraft to orbit Mercury. Its orbit is long and steep: 12 hours around, dipping \
     to about 200 km above the north, then swinging out to 9,300 km over the south."""
+# The burn [MESM]: about 15 minutes from 00:45 UTC; the table reads 861 m/s (APL: 862).
+[events.ghost]
+body = "MESSENGER"
+center = "Mercury"                         # a child of the Sun, its table relative to Mercury
+name = "MESSENGER without the burn"
+time_tdb = "2011-03-18 00:46:06"
+burn_s = 900.0
+days = 1.0
 
 [[events]]
 name = "MESSENGER: in orbit (2013)"

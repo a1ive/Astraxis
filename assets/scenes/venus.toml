@@ -17,6 +17,10 @@
 #        - Akatsuki (-5), ISAS/JAXA/JPL navigation: relative to the Sun from 2010-05-21 to
 #          2015-12-04, then relative to Venus to 2024-04-26, the end of the final
 #          reconstruction (contact was lost late in April 2024).
+#        Every 1-minute sample through the two orbit insertion burns (2006-04-11 and
+#        2015-12-07) is a knot of the tables (ephem.toml keep_all), for the events' ghosts.
+#        Venus Express' trajectory steps by 3.8 km where ESA's next file starts, at the
+#        burn's end.
 #        - 524522 Zoozve (2002 VE68), JPL solution 86, relative to the Sun, 1900 .. 2099.
 #        - Galileo (-77, JPL navigation), Cassini (-82, post-mission reconstruction) and Juice
 #          (-28, ESA, fit to tracking through 2026-09-22) relative to Venus, five days either
@@ -480,20 +484,25 @@ caption = """\
 # is 24.0 hours, ~250 x 66,500 km, its periapsis at 79 deg N [HZN].
 [[events]]
 name = "Venus Express arrives (2006-04-11)"
-time_tdb = "2006-04-11 06:40"
+time_tdb = "2006-04-11 06:05"
 focus = "Venus"
 flyby = "Venus Express"
 frame = "Venus-centered"
-from_body = "Sun"                          # its day side
-phase_deg = 60.0
 distance_km = 6.0e4
-warp = 120.0
+warp = 200.0                               # the 50-minute burn over 15 s
 # [VOI], [HZN] (Horizons notes)
 caption = """\
     ESA's first mission to Venus fires its main engine for 50 minutes, slowing by \
     1.25 km/s to enter an elongated polar orbit lasting nine days and reaching out \
     some 330,000 km. Its mission is to study Venus' atmosphere and the surrounding \
     space."""
+# The burn [VOI]: 07:10:29 to 08:00:42 UTC; the table reads 1,249 m/s (ESA: about 1,251).
+[events.ghost]
+body = "Venus Express"
+name = "Venus Express without the burn"
+time_tdb = "2006-04-11 07:11:34"
+burn_s = 3013.0
+days = 1.0
 
 [[events]]
 name = "Venus Express: from nine days to one (2006-04 .. 05)"
@@ -627,18 +636,28 @@ caption = """\
 # 5 deg from Venus' orbital plane and retrograde: the way Venus spins [HZN].
 [[events]]
 name = "Akatsuki's second try (2015-12-07)"
-time_tdb = "2015-12-06 23:20"
+time_tdb = "2015-12-06 23:25"
 focus = "Venus"
 flyby = "Akatsuki"
 frame = "Venus-centered"
 distance_km = 6.0e4
-warp = 60.0
+warp = 80.0                                # the 20-minute burn over 15 s
 # [VCO], [AK15]
 caption = """\
     Five years after the miss, Akatsuki is back. This time it fires its small \
     attitude-control thrusters for 20 minutes and enters an elongated orbit \
     reaching 440,000 km and lasting almost 14 days, near the equator and in the \
     direction of Venus' rotation."""
+# The burn [VCO]: 1,228 s from 23:51:29 UTC; the table reads 199 m/s (the mission catalog
+# says 134.8 m/s, but its other burns on these four thrusters, e.g. 56.3 m/s in 303 s,
+# would give some 230 m/s in 1,228 s).
+[events.ghost]
+body = "Akatsuki"
+center = "Venus"                           # a child of the Sun, its table relative to Venus
+name = "Akatsuki without the burn"
+time_tdb = "2015-12-06 23:52:37"
+burn_s = 1228.0
+days = 1.0
 
 # From April 2016: 250-12,000 x ~370,000 km, 10.9 days [HZN].
 [[events]]

@@ -109,6 +109,45 @@
 # [PCK]  NAIF pck00011.tpc (IAU 2015): radii, poles, prime meridians.
 # [THOM] Phobos and Deimos shape models and Viking mosaics (P. C. Thomas): solar_system.toml.
 # [ATM]  Atmospheres (single scattering): sources and choices in solar_system.toml.
+# [MOI]  Orbit insertion burns, for the arrival events' ghosts (retrieved 2026-10-19). Times
+#        given as received on the Earth are moved back by the one-way light time to the
+#        Earth's center from Horizons (observer quantity 21) at the burn. Every 1-minute
+#        Horizons sample through each burn is a knot of its table (ephem.toml keep_all).
+#        [ODYK] NASA/JPL, "2001 Mars Odyssey Arrival" press kit (October 2001): the burn
+#          from 2:26 to 2:45 UT on 2001-10-24, Earth-received ("a few seconds after 7:26
+#          p.m." PDT, expected to end at 7:46), "for 19.7 minutes", "about 20 minutes";
+#          one-way light time 8 min 30 s (Horizons: 8.46 min); 5.422 km/s before, 4.374
+#          after, "Change in velocity due to burn: 1,427 meters per second".
+#        [MEXN] T. Morley, F. Budnik, R. Mackenzie, M. Faehling, "Mars Express Navigation
+#          for Beagle 2 Separation and Mars Orbit Insertion", ISSFD 2004: the burn "to begin
+#          about 22 minutes before pericentre passage"; "expected to last 33 min. 42 s with
+#          an integrated V of 806.762 m/s"; the acceleration was a little low and the
+#          accelerometers extended it by 28 s. ESA, "Merry Christmas from Mars"
+#          (2003-12-25): the main engine fired "at 03:47 CET for a 37-minute burn". The
+#          table's burn runs from 02:47:40 to 03:19:17 UTC, 31.6 minutes.
+#        [MROK] NASA/JPL, "Mars Reconnaissance Orbiter Arrival" press kit (March 2006): "Start
+#          of orbit-insertion burn by main thrusters" 1:24 p.m. PST on 2006-03-10, end 1:51
+#          p.m. (Earth-received times), "about 27 minutes", "about 1,000 meters per second";
+#          light time 12 minutes (Horizons: 11.97 min).
+#        [MAVM] Spaceflight Now, "MAVEN enters Mars orbit" (2014-09-22): "programmed to ignite
+#          its rocket thrusters at 9:37 p.m. EDT (0137 GMT)"; the burn "lasted 34 minutes and
+#          26 seconds", "about 11 seconds longer than the nominal"; "about 2,750 mph"
+#          (1,229 m/s).
+#        [MOMI] (as below): the 440 N engine and eight thrusters fired 1,388.67 s from
+#          07:17:32 IST (01:47:32 UTC) on 2014-09-24, 1,099 m/s (also AmericaSpace,
+#          2014-09-24).
+#        [TGOM] ESA, "ExoMars TGO reaches Mars orbit while EDM situation under assessment"
+#          (2016-10-19): "the long 139-minute burn", "from 13:05 to 15:24 GMT", "reducing
+#          the spacecraft's speed and direction by more than 1.5 km/s". ESA's press kit
+#          timeline (Earth-received times, as copied by E. Lakdawalla, Planetary Society,
+#          2016-10-14): "TGO orbit insertion begins (maximum 147-minute burn)" 13:14 UTC;
+#          light time 9.78 min (Horizons), so 13:04:13 at the spacecraft. The table's burn
+#          runs from 13:04:40 UTC to 15:24:51, where the next of ESA's files starts 99 km and
+#          50 m/s off it.
+#        [EMMF] MBRSC, "Mars Orbital Insertion Factsheet" (January 2021): "The burn ... will
+#          commence at 19:30GST and end at 19:57 GST" (spacecraft time; Gulf Standard Time,
+#          UTC+4) on 2021-02-09, "27 minutes' duration", six thrusters, "some 650 Newtons";
+#          confirmation "eleven minutes later". No delta-v given.
 #
 # [CAP]  Event captions (retrieved 2026-10-08):
 #        [MEX] ESA, Mars Express mission page (esa.int/Science_Exploration/Space_Science/
@@ -527,55 +566,79 @@ origin = "Mars"
 
 # --- Events --------------------------------------------------------------------------
 # Times and distances (TDB) computed from the baked data.
-# Arrivals start a few hours before the first periapsis (when the osculating orbit
-# around Mars becomes bound): Mars Express 2003-12-25 03:08 TDB, 434 km above the
-# mean radius; MRO 2006-03-10 21:32, 444 km; MAVEN 2014-09-22 02:05, 414 km.
+# Arrivals: first periapses (the osculating orbit around Mars becomes bound during the
+# burn) Mars Express 2003-12-25 03:08 TDB, 434 km above the mean radius; MRO 2006-03-10
+# 21:32, 444 km; MAVEN 2014-09-22 02:05, 414 km. Each shows the path without its orbit
+# insertion burn (a ghost, as for Tianwen-1 below), at a warp that runs the burn in about
+# 15 s; the tour's flyby shot holds until after the periapsis, in the middle of the burn.
 
 # Odyssey's first periapsis 2001-10-24 02:31 TDB, 318 km above the mean radius; 331
 # periapses below 150 km from 2001-10-27 to 2002-01-11, then a 2-hour orbit, ~380 x 440 km
 # [HZN].
 [[events]]
 name = "Odyssey arrives (2001-10-24)"
-time_tdb = "2001-10-23 22:00"
+time_tdb = "2001-10-24 01:50"
 focus = "Mars"
 flyby = "Odyssey"
-from_body = "Odyssey"                     # along its approach
-phase_deg = 20.0
 distance_km = 6.0e4
-warp = 600.0
+warp = 80.0                                # the 20-minute burn over 15 s
 # [ODY], [HZN]
 caption = """\
     NASA's Mars Odyssey brakes into orbit, then spends eleven weeks dipping into the \
     upper atmosphere to shrink its orbit to a two-hour circle. From there it mapped \
     water ice buried just beneath the surface, relayed most of the rovers' data home, \
     and became the longest-working spacecraft ever sent to Mars."""
+# The burn [ODYK]: 2:26 to 2:46 UT Earth-received, 8.46 minutes after it happened; the
+# table reads 1,435 m/s (the press kit: 1,427).
+[events.ghost]
+body = "Odyssey"
+name = "Odyssey without the burn"
+time_tdb = "2001-10-24 02:18:36"
+burn_s = 1200.0
+days = 1.0
 
 [[events]]
 name = "Mars Express arrives (2003-12-25)"
-time_tdb = "2003-12-24 23:00"
+time_tdb = "2003-12-25 02:05"
 focus = "Mars"
 flyby = "Mars Express"
 distance_km = 6.0e4
-warp = 600.0
+warp = 120.0                               # the 34-minute burn over 17 s
 # [MEX], [B2]
 caption = """\
     ESA's Mars Express fires its engine to be captured by Mars. Six days earlier it \
     had released the British-led lander Beagle 2, due to touch down on \
     Christmas Day. Beagle 2 was never heard from; eleven years later a camera on NASA's \
     MRO found it on the surface, partly unfolded."""
+# The burn [MEXN]: from 03:47 CET (02:47 UTC), 33 min 42 s planned and 28 s more; the
+# table reads 806 m/s (planned: 806.762).
+[events.ghost]
+body = "Mars Express"
+name = "Mars Express without the burn"
+time_tdb = "2003-12-25 02:48:04"
+burn_s = 2050.0
+days = 1.0
 
 [[events]]
 name = "MRO arrives (2006-03-10)"
-time_tdb = "2006-03-10 17:30"
+time_tdb = "2006-03-10 20:40"
 focus = "Mars"
 flyby = "MRO"
 distance_km = 8.0e4
-warp = 600.0
+warp = 100.0                               # the 27-minute burn over 16 s
 # [MRO], [MROS], [HZN]
 caption = """\
     NASA's Mars Reconnaissance Orbiter brakes into an elongated orbit lasting 35 \
     hours and reaching out to 45,000 km. Its working orbit is to be a low circle, \
     two hours around, and it will get there by skimming the top of the atmosphere."""
+# The burn [MROK]: 21:24 UTC Earth-received, 11.97 minutes after it started, about 27
+# minutes; the table reads 1,001 m/s ("about 1,000").
+[events.ghost]
+body = "MRO"
+name = "MRO without the burn"
+time_tdb = "2006-03-10 21:13:07"
+burn_s = 1620.0
+days = 1.0
 
 # Aerobraking: 427 periapses below 130 km above the mean radius between 2006-04-06 and
 # 08-30 [HZN] ([MROS]: 426 passes); the lowest is 79 km above the mean radius, ~99 km
@@ -614,32 +677,47 @@ caption = """\
 
 [[events]]
 name = "MAVEN arrives (2014-09-22)"
-time_tdb = "2014-09-21 22:00"
+time_tdb = "2014-09-22 00:55"
 focus = "Mars"
 flyby = "MAVEN"
 distance_km = 7.0e4
-warp = 600.0
+warp = 120.0                               # the 34-minute burn over 17 s
 # [MAV]
 caption = """\
     MAVEN, the first spacecraft devoted to the upper atmosphere of Mars, is \
     captured into a 35-hour orbit. Five weeks later it will be in its working \
     orbit, dipping to about 150 km at every pass, within the upper atmosphere it \
     will study."""
+# The burn [MAVM]: from 01:37 UTC, 34 min 26 s; the table reads 1,229 m/s ("about 2,750
+# mph").
+[events.ghost]
+body = "MAVEN"
+name = "MAVEN without the burn"
+time_tdb = "2014-09-22 01:38:07"
+burn_s = 2066.0
+days = 1.0
 
 # MOM's first periapsis 2014-09-24 02:03 TDB, 452 km; then 423 x 76,862 km, 72.7 h [HZN].
 [[events]]
 name = "MOM arrives (2014-09-24)"
-time_tdb = "2014-09-23 22:00"
+time_tdb = "2014-09-24 01:15"
 focus = "Mars"
 flyby = "MOM"
-distance_km = 2.0e5
-warp = 600.0
+distance_km = 7.0e4                        # close enough that its label stays up once captured
+warp = 90.0                                # the 23-minute burn over 15 s
 # [HZN] (Horizons notes), [MOMI]
 caption = """\
     Two days after MAVEN, India's Mars Orbiter Mission arrives: India's first \
     interplanetary mission. Its long orbit reaches out to 77,000 km and runs backward, \
     tilted 150 degrees to the equator. Planned for six to eight months of work, it kept \
     going for seven and a half years, until contact was lost in April 2022."""
+# The burn [MOMI]: 1,388.67 s from 01:47:32 UTC; the table reads 1,099 m/s (ISRO: 1,099).
+[events.ghost]
+body = "MOM"
+name = "MOM without the burn"
+time_tdb = "2014-09-24 01:48:39"
+burn_s = 1388.67
+days = 1.0
 
 # Siding Spring's closest approach: 2014-10-19 18:28:34 TDB, 140,492 km from Mars' center,
 # 55.96 km/s [HZN]. From 90 to 110 minutes later, MAVEN, MRO and Odyssey are on the far side
@@ -693,19 +771,26 @@ caption = """\
 # Aerobraking: 950 periapses below 150 km from 2017-03-16 to 2018-02-20 [HZN].
 [[events]]
 name = "TGO arrives, Schiaparelli is lost (2016-10-19)"
-time_tdb = "2016-10-19 12:30"
+time_tdb = "2016-10-19 10:15"
 focus = "Mars"
 flyby = "TGO"
-from_body = "TGO"                         # along its approach
-phase_deg = 35.0
 distance_km = 6.0e4
-warp = 300.0
+warp = 500.0                               # the 139-minute burn over 17 s
 # [SCH], [HZN]
 caption = """\
     ESA's Trace Gas Orbiter brakes into a four-day orbit while its lander, \
     Schiaparelli, heads for the surface. A brief sensor saturation led the \
     computer to calculate a position below ground and release the parachute. \
     Schiaparelli fell from about 3.7 km and hit at some 540 km/h."""
+# The burn [TGOM]: from 13:14 UTC Earth-received (13:04:13 at the spacecraft), 139 minutes;
+# the table reads 1,548 m/s ("more than 1.5 km/s"). The readout ends 38 s before the step
+# where ESA's next file starts, 50 m/s off the burn's end.
+[events.ghost]
+body = "TGO"
+name = "TGO without the burn"
+time_tdb = "2016-10-19 13:05:21"
+burn_s = 8340.0
+days = 1.0
 
 [[events]]
 name = "TGO aerobraking (2017-03 .. 2018-02)"
@@ -725,17 +810,24 @@ trail_history_days = 15.0
 
 [[events]]
 name = "Hope arrives (2021-02-09)"
-time_tdb = "2021-02-09 13:00"
+time_tdb = "2021-02-09 14:55"
 focus = "Mars"
 flyby = "Hope"
 distance_km = 1.2e5
-warp = 600.0
+warp = 100.0                               # the 27-minute burn over 16 s
 # [HZN] (Horizons notes)
 caption = """\
     The United Arab Emirates' Hope probe is captured by Mars. From an orbit far \
     higher than the others, 20,000 to 43,000 km up and 55 hours around, it \
     observes the whole planet to study how the Martian atmosphere changes through \
     the day and the year."""
+# The burn [EMMF]: 19:30 to 19:57 GST (15:30 to 15:57 UTC); the table reads 957 m/s.
+[events.ghost]
+body = "Hope"
+name = "Hope without the burn"
+time_tdb = "2021-02-09 15:31:09"
+burn_s = 1620.0
+days = 1.0
 
 # Tianwen-1 in 2021 [TW1]: the telemetry vectors propagated (tools/tianwen1/
 # tianwen1_reconstruct.py). Orbit insertion 2021-02-10 11:54:04 .. 12:08:52 TDB (Estevez's
