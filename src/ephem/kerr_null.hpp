@@ -77,6 +77,15 @@ Photon frame_photon(const glm::dvec3& x, const ObserverFrame& frame, const glm::
 // One RK4 step of affine length h.
 void rk4_step(Photon& ph, double a, double h);
 
+// Hamilton's equations above (dx^i/dl, dp_i/dl and dt/dl = -p_t + f (l.p)). They
+// hold for any H: a massive particle follows the same equations with H = -1/2
+// (l = proper time), so the Photon state serves for it too.
+void geodesic_derivatives(const Photon& ph, double a, glm::dvec3& dx, glm::dvec3& dp, double& dt);
+
+// A massive particle at x with coordinate velocity v = dx/dt (|v| < 1 well
+// outside the hole): future directed, H = -1/2, p_t = -E.
+Photon make_particle(const glm::dvec3& x, const glm::dvec3& v, double a);
+
 // Outer horizon r+ and prograde ISCO radius (Bardeen, Press & Teukolsky 1972).
 double horizon_radius(double a);
 double isco_radius(double a);

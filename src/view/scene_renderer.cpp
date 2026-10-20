@@ -587,7 +587,7 @@ void SceneRenderer::trace_black_hole(SDL_GPUCommandBuffer* cmd, uint32_t width, 
         u.forward_dir = glm::vec4(glm::vec3(obs.forward_dir), static_cast<float>(obs.ut));
         u.to_sky = glm::mat4(glm::mat3(frame.axes * hole));
 
-        const double r_in = isco_radius(a);
+        const double r_in = std::max(isco_radius(a), body.disk_inner_m);
         const bool disk = body.disk_outer_m > r_in;
         u.radii = glm::vec4(static_cast<float>(horizon_radius(a)), static_cast<float>(r_in),
                             static_cast<float>(disk ? body.disk_outer_m : 0.0), kRayIntegrationRadius);
@@ -597,7 +597,8 @@ void SceneRenderer::trace_black_hole(SDL_GPUCommandBuffer* cmd, uint32_t width, 
         const double b_max = std::max(4.0 / (0.5 * pixel), 1.2 * kRayIntegrationRadius);
         const float depth = view.proj[3][2] / static_cast<float>(distance); // reversed-Z: near / distance
 
-        // Peak of the profile r^-3/4 (1 - sqrt(r_in/r))^1/4 is at r = 49/36 r_in.
+        // Peak of the profile r^-3/4 (1 - sqrt(r_in/r))^1/4 is at r = 49/36 r_in
+        // (the inner edge stands for the ISCO: the profile vanishes there).
         const double r_peak = 49.0 / 36.0 * r_in;
         const double profile_max = std::pow(r_peak, -0.75) * std::pow(1.0 - std::sqrt(r_in / r_peak), 0.25);
         u.params = glm::vec4(static_cast<float>(b_max), depth, disk ? static_cast<float>(body.disk_brightness) : 0.0f,
@@ -607,7 +608,10 @@ void SceneRenderer::trace_black_hole(SDL_GPUCommandBuffer* cmd, uint32_t width, 
         const SDL_GPUTexture* milky_way = m_starfield.milky_way();
         u.stars = glm::vec4(static_cast<float>(StarfieldPass::kSkyGrid), star_brightness,
                             milky_way ? m_starfield.milky_way_brightness() : 0.0f, 0.0f);
-        u.sky = glm::vec4(0.5f * m_starfield.max_star_size(), kMaxStarMagnification, 0.0f, 0.0f);
+        const int event = scene.active_event();
+        const bool shifts = event < 0 || scene.events[static_cast<size_t>(event)].disk_shifts;
+        u.sky = glm::vec4(0.5f * m_starfield.max_star_size(), kMaxStarMagnification, body.disk_uniform ? 1.0f : 0.0f,
+                          shifts ? 1.0f : 0.0f);
         m_black_hole.trace(cmd, width, height, u, targets);
         return; // one hole per scene: the trace targets hold a single result
     }

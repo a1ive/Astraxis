@@ -6,6 +6,7 @@
 #include "ephem/ephemeris.hpp"
 #include "ephem/jpl_approx_planet.hpp"
 #include "ephem/kepler.hpp"
+#include "ephem/kerr_null.hpp"
 #include "ephem/kerr_orbit.hpp"
 #include "ephem/mean_element_orbit.hpp"
 #include "ephem/nbody.hpp"
@@ -620,6 +621,47 @@ std::unique_ptr<MotionSource> Loader::parse_motion(const toml::table& t, const s
         return KerrOrbitMotion::rolling(setup, get_double(t, "rolling_window_days", ctx));
     }
 
+    // A circular orbit in the parent black hole's equatorial plane (KerrCircularMotion):
+    // radius_m in units of M, or "isco".
+    if (type == "kerr_circular") {
+        if (!parent || parent->kind != BodyKind::BlackHole || parent->gm_km3_s2 <= 0.0) {
+            fail(ctx, "kerr_circular needs a black-hole parent with gm_km3_s2");
+        }
+        const double isco = isco_radius(parent->spin);
+        const double r = get_string_or(t, "radius_m", "") == "isco" ? isco : get_double(t, "radius_m", ctx);
+        if (r < isco - 1e-9) {
+            fail(ctx, "radius_m is inside the ISCO: no stable circular orbit");
+        }
+        return std::make_unique<KerrCircularMotion>(parent->gm_km3_s2, parent->spin, r, parent->pole,
+                                                    get_double_or(t, "phase_deg", 0.0));
+    }
+
+    // A geodesic of any inclination from an apoapsis, with the periapsis it
+    // reaches (KerrApoapsisMotion), integrated over span_years.
+    if (type == "kerr_apoapsis") {
+        if (!parent || parent->kind != BodyKind::BlackHole || parent->gm_km3_s2 <= 0.0) {
+            fail(ctx, "kerr_apoapsis needs a black-hole parent with gm_km3_s2");
+        }
+        KerrApoapsisSetup setup;
+        setup.gm_km3_s2 = parent->gm_km3_s2;
+        setup.spin = parent->spin;
+        setup.pole = parent->pole;
+        setup.apoapsis_m = get_double(t, "apoapsis_m", ctx);
+        setup.periapsis_m = get_double(t, "periapsis_m", ctx);
+        setup.inclination_deg = get_double_or(t, "inclination_deg", 0.0);
+        setup.node_deg = get_double_or(t, "node_deg", 0.0);
+        setup.arg_apoapsis_deg = get_double_or(t, "arg_apoapsis_deg", 0.0);
+        setup.apoapsis_tdb = parse_time(t, "apoapsis_time", ctx);
+        setup.step_eta = get_double_or(t, "step_eta", setup.step_eta);
+        if (setup.periapsis_m <= horizon_radius(parent->spin) || setup.apoapsis_m <= setup.periapsis_m) {
+            fail(ctx, "need horizon < periapsis_m < apoapsis_m");
+        }
+        double years[2];
+        get_array(t, "span_years", ctx, years, 2, 2);
+        return std::make_unique<KerrApoapsisMotion>(setup, tdb_from_julian_year(years[0]),
+                                                    tdb_from_julian_year(years[1]));
+    }
+
     // Fixed two-body orbits on the sky (the companion relative to the primary,
     // for the total gm_km3_s2); `scale` splits them around a barycenter.
     if (type == "visual_orbit" || type == "transit_orbit") {
@@ -754,7 +796,13 @@ void Loader::parse(const toml::table& root, Scene& out)
         }
         body.spin = get_double_or(*t, "spin", 0.0);
         body.temperature_k = get_double_or(*t, "temperature_k", body.temperature_k);
+        body.disk_inner_m = get_double_or(*t, "disk_inner_m", 0.0);
         body.disk_outer_m = get_double_or(*t, "disk_outer_m", 0.0);
+        const std::string disk_profile = get_string_or(*t, "disk_profile", "thin");
+        if (disk_profile != "thin" && disk_profile != "uniform") {
+            fail(ctx, "disk_profile must be \"thin\" or \"uniform\"");
+        }
+        body.disk_uniform = disk_profile == "uniform";
         body.disk_temperature_k = get_double_or(*t, "disk_temperature_k", body.disk_temperature_k);
         body.disk_brightness = get_double_or(*t, "disk_brightness", body.disk_brightness);
         body.luminosity_solar = get_double_or(*t, "luminosity_solar", body.luminosity_solar);
@@ -766,6 +814,9 @@ void Loader::parse(const toml::table& root, Scene& out)
             // Event horizon r+ = M + sqrt(M^2 - a^2) in Boyer-Lindquist coordinates.
             if (body.gm_km3_s2 <= 0.0) {
                 fail(ctx, "black holes need gm_km3_s2");
+            }
+            if (body.disk_inner_m != 0.0 && body.disk_inner_m < isco_radius(body.spin)) {
+                fail(ctx, "disk_inner_m is inside the ISCO");
             }
             const double m = body.gm_km3_s2 / (kSpeedOfLightKmS * kSpeedOfLightKmS);
             body.equatorial_radius_km = body.polar_radius_km = m + m * std::sqrt(1.0 - body.spin * body.spin);
@@ -1276,6 +1327,13 @@ void Loader::parse(const toml::table& root, Scene& out)
             if (e.phase_deg != 0.0 && e.from_body < 0 && !e.from_sun) {
                 fail(ctx, "phase_deg needs from_body");
             }
+            if (t->contains("elevation_deg")) {
+                e.elevation_deg = get_double(*t, "elevation_deg", ctx);
+                if (e.focus < 0 || e.from_orbit_normal >= 0 || std::abs(e.elevation_deg) > 90.0) {
+                    fail(ctx, "elevation_deg needs a focus, no from_orbit_normal and |elevation| <= 90");
+                }
+            }
+            e.disk_shifts = (*t)["disk_shifts"].value<bool>().value_or(true);
             e.caption = get_string_or(*t, "caption", "");
             if (const toml::node* trails = t->get("trails")) {
                 const toml::array* list = trails->as_array();

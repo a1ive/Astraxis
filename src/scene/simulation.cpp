@@ -289,6 +289,9 @@ CameraShot Simulation::event_shot(size_t index, const Flyby& flyby) const
         }
         m_camera.angles_for_direction(dir, &shot.yaw, &shot.pitch);
     }
+    if (!std::isnan(e.elevation_deg)) {
+        shot.pitch = e.elevation_deg * kDegToRad;
+    }
     return shot;
 }
 

@@ -1,0 +1,250 @@
+# Gargantua: the black hole of the film Interstellar (2014). FICTIONAL - it is not a
+# real object - but the film's images of it came from a published relativistic ray
+# tracer, and its parameters are in the papers below. The hole, its disk and the
+# camera of the paper's figures are reproduced with this program's own ray tracer.
+#
+# [JA15] James, von Tunzelmann, Franklin & Thorne 2015, Class. Quantum Grav. 32,
+#        065001 (arXiv:1502.03808), Section 4.1:
+#        - Figure 13: disk in the equatorial plane from r = 9.26 M to 18.70 M, seen by a
+#          camera at r_c = 74.1 M, theta_c = 1.511 (86.56 deg from the spin axis);
+#        - the film's disk "has cooled to a position-independent temperature T = 4500K,
+#          at which it emits a black-body spectrum"; it is thin and lies in the hole's
+#          equatorial plane;
+#        - the story needs a/M ~ 1 for its time dilations, but "for visual purposes
+#          Nolan and Franklin slowed the spin to a/M = 0.6" (Figure 15a);
+#        - the film left out the Doppler and gravitational frequency shifts; with them
+#          (Figure 15c, "what the disk would truly look like") the side moving toward
+#          the camera turns blue and very bright and the other red and dim.
+# [DH26] Dhingra, Dhurandhar & Mitra 2026, arXiv:2606.01921, Sections II-III: Gargantua's
+#        mass is taken as ~1e8 M_sun (from Thorne, The Science of Interstellar, 2014); the
+#        time dilation of ~60,000 on Miller's planet (1 hour : 7 years) needs
+#        1 - a/M ~ 1.4e-14, with the planet's orbit (the ISCO) at r = (1 + 3.8e-5) M.
+# [TH14] Thorne, The Science of Interstellar (W. W. Norton, 2014):
+#        - Ch. 6 (also excerpted by Space.com, www.space.com/28077): Gargantua's mass 100
+#          million suns (footnote: "a more reasonable value might be 200 million"); its
+#          spin "the maximum minus 0.00000000000001 of the maximum"; Figure 6.3;
+#        - Ch. 19 and note 33: Mann's planet on a "highly elongated" orbit, "far above or
+#          below Gargantua's equatorial plane, where the disk resides"; out to "600
+#          Gargantua radii or more", from Gargantua "subtending about 0.9 degrees" in the
+#          film's sky there; the fall inward takes "at least forty days"; near the hole the
+#          planet flies around it "once or twice on each swing by" and the orbit precesses
+#          "through a large angle"; no sun, lit by the disk. Figure 19.1 is "a possible
+#          orbit", with no numbers;
+#        - Edmunds' planet is only "very far from Gargantua" (Ch. 10), with no orbit: the
+#          scene's is assumed (see that body).
+#
+# Model choices (see limitations.md):
+# - Spin a/M = 0.6, as filmed [JA15]. The story's 1 - 1.4e-14 [DH26] cannot be drawn:
+#   in the shader's single precision it rounds to exactly 1 (an extremal hole), and the
+#   planet's orbit would sit 3.8e-5 M (5,600 km) outside the horizon, beyond what the
+#   orbit integrator and the drawing can resolve. The shadow of such a hole looks much
+#   like that of a/M = 0.999 (JA15's Figure 14). Miller's planet is therefore not in the
+#   scene; an example planet on this hole's own ISCO stands in for it in the last event.
+# - Bodies are not lensed: the example planet is drawn where it is, so behind the hole it
+#   is hidden, while its bent light would really show above the shadow.
+# - The disk keeps its 4500 K everywhere [JA15]; its streaks are this program's (the
+#   film's was painted by artists). Its gas orbits at the Keplerian rate: ~0.35 c at
+#   the inner edge (measured by a local non-rotating observer), less than the ~0.55 c
+#   JA15 quote for Figure 15, so the shifts here are milder than theirs.
+# - The camera is at rest relative to the hole (no aberration from its own motion).
+# - The sky is ours, seen from Earth: the film's black hole is in another galaxy, whose
+#   sky is unknown. The disk axis is the north Galactic pole (an arbitrary choice, as for
+#   Sgr A*), so the Milky Way lies along the disk.
+
+name = "Gargantua (Interstellar)"
+
+[view]
+focus = "Gargantua"
+distance_km = 1.094e10         # 74.1 M, the camera of [JA15] Figure 13
+start = "now"
+warp = 1200.0                  # the disk's inner edge turns in ~75 s
+up = "Gargantua"               # the disk axis
+pitch_deg = 3.44               # 86.56 deg from the axis [JA15]
+
+[[bodies]]
+name = "Gargantua"
+kind = "black_hole"
+gm_km3_s2 = 1.32712440041e19   # 1e8 GM_sun [DH26]; M = 1.4766e8 km
+spin = 0.6                     # as filmed [JA15]
+pole_ra_dec_deg = [192.85948, 27.12825]   # disk axis: north Galactic pole (arbitrary)
+disk_inner_m = 9.26            # [JA15] Figure 13
+disk_outer_m = 18.70
+disk_profile = "uniform"
+disk_temperature_k = 4500.0    # [JA15]
+disk_brightness = 0.6
+
+# An example planet (NOT from the film) on the innermost stable circular orbit of
+# this a/M = 0.6 hole: r = 3.83 M, once every 6.96 hours as seen from afar, time
+# running 1.76 times slower than far away (tests). Earth-sized; lit by the disk.
+[[bodies]]
+name = "Planet at the ISCO"
+parent = "Gargantua"
+kind = "planet"
+radii_km = [6371.0]
+color = "#8fa3b8"
+orbit_color = "#9fd0ff"
+[bodies.orbit]
+type = "kerr_circular"
+radius_m = "isco"
+
+# Mann's planet on an orbit of the kind [TH14] Ch. 19 describes (Figure 19.1 is "a
+# possible orbit"; no elements are given): highly elongated, out to ~600 Gargantua
+# radii (note 33: Gargantua 0.9 deg wide in the film's sky there), tilted far from the
+# equatorial plane to keep off the disk, swinging around the hole "once or twice on each
+# swing by" and precessing "through a large angle" between excursions. The numbers below
+# are this scene's choices within that; tests check the orbit against each statement
+# (fall >= 40 days, 1-2 turns, no disk crossing) and the 0.9 deg for this spin.
+# Thorne's "Gargantua radius" is GM/c^2 (his hole is near-extremal), the M used here.
+# Integrated as a Kerr geodesic for the scene's a/M = 0.6, not Thorne's ~1. Ice-covered
+# (the film); Earth-sized (assumed). No sun: lit by the disk [TH14].
+[[bodies]]
+name = "Mann's planet"
+parent = "Gargantua"
+kind = "planet"
+radii_km = [6371.0]
+color = "#d9e2ea"
+orbit_color = "#c48fe0"
+trail_history_days = 380.0     # two excursions, as in [TH14] Figure 19.1
+[bodies.orbit]
+type = "kerr_apoapsis"
+apoapsis_m = 600.0             # [TH14] note 33
+periapsis_m = 5.0              # just above capture: 1.2 turns per pass (tests)
+inclination_deg = 70.0
+node_deg = 0.0
+arg_apoapsis_deg = 0.0         # crosses the disk plane at ~6.1 M, inside the disk
+apoapsis_time = "2026-07-01"
+span_years = [2016.0, 2036.0]
+
+# Edmunds' planet: the film calls it habitable, but [TH14] gives it no orbit (only
+# "very far from Gargantua"). This orbit is ASSUMED, to ask what such a planet would
+# see: semi-major axis 1000 au, e = 0.02, inclined 30 deg to the disk (apoapsis 1020 au,
+# periapsis 980 au, at the highest point above the disk). There Gargantua's shadow is
+# about as wide as the Sun seen from Earth (0.56 vs 0.53 deg), and the film's 4500 K disk,
+# 18 au across, traced through the lensing with its frequency shifts, gives 2.2 times
+# Earth's sunlight 30 deg above it and still half of it in its plane, where the bent
+# image of the far side shows over the shadow (tests). The light swings between the two
+# twice per 3.2-year orbit. Earth-sized (assumed).
+[[bodies]]
+name = "Edmunds' planet"
+parent = "Gargantua"
+kind = "planet"
+radii_km = [6371.0]
+color = "#9fb08a"
+orbit_color = "#8fcf9a"
+trail_history_days = 1155.0    # one orbit
+[bodies.orbit]
+type = "kerr_apoapsis"
+apoapsis_m = 1033.37           # 1020 au (1 au = 1.01311 M)
+periapsis_m = 992.84           # 980 au
+inclination_deg = 30.0
+node_deg = 0.0
+arg_apoapsis_deg = 90.0        # apoapsis 30 deg above the disk
+apoapsis_time = "2026-10-01"
+span_years = [2016.0, 2036.0]
+
+[[events]]
+name = "Gargantua as filmed: a/M = 0.6, no Doppler shifts"
+time = "2026-10-01"
+focus = "Gargantua"
+distance_km = 1.094e10         # 74.1 M [JA15]
+elevation_deg = 3.44           # camera height above the plane normal to the up axis (the disk)
+warp = 1200.0
+disk_shifts = false            # no Doppler or gravitational shifts while this event is shown
+# [JA15], [DH26]
+caption = """\
+    The black hole of the film Interstellar weighs 100 million suns. Its image was \
+    computed with general relativity. To keep the picture clear, the filmmakers \
+    slowed its spin to 0.6 of the maximum and left out the color and brightness \
+    shifts of the disk's moving gas. Its light bends over and under the dark shadow."""
+
+[[events]]
+name = "What the disk would really look like"
+time = "2026-10-01"
+focus = "Gargantua"
+distance_km = 1.094e10
+elevation_deg = 3.44
+warp = 1200.0
+# [JA15] Figure 15c; the speed from this scene's Keplerian disk (see the header)
+caption = """\
+    The same view with the effects the film left out. The gas circles at about a \
+    third of the speed of light. On the side coming toward us its light is shifted \
+    to blue and brightened; on the receding side it turns red and dim. The \
+    filmmakers found this lopsided disk too confusing for the audience."""
+
+[[events]]
+name = "Too slow for Miller's planet"
+time = "2026-10-01"
+focus = "Gargantua"
+distance_km = 6.0e9            # ~40 M
+elevation_deg = 25.0
+warp = 1200.0
+# [TH14], [DH26]; the ISCO, its period and time dilation for a/M = 0.6 from the Kerr
+# metric (tests)
+caption = """\
+    In the story, an hour on Miller's planet is seven years on Earth. That needs a hole \
+    spinning within about a hundred-trillionth of the fastest possible. At the filmed \
+    spin of 0.6, the closest stable orbit is where the example planet circles, every \
+    7 hours, and time there runs only 1.76 times slower. Its path is drawn unbent."""
+
+[[events]]
+name = "Mann's planet: three months in, three months out"
+time = "2026-07-01"
+focus = "Gargantua"
+distance_km = 2.2e11           # ~1500 M: the whole orbit
+elevation_deg = 20.0
+warp = 172800.0                # 2 days per second: an orbit in ~95 s
+# [TH14] Ch. 19 and note 33; the fall time from this scene's orbit (tests)
+caption = """\
+    In his book on the film's science, Kip Thorne puts Mann's planet on a long, tilted \
+    orbit. Seen from the planet, Gargantua is 0.9 degrees wide, so it is some 590 au \
+    out. From there it falls for three months, swings around the hole and climbs out \
+    again. This orbit is computed for the filmed spin."""
+
+[[events]]
+name = "Mann's planet whirls around Gargantua"
+time = "2026-10-03 20:00"      # periapsis 2026-10-04 ~08:20
+focus = "Gargantua"
+flyby = "Mann's planet"
+distance_km = 6.0e9            # ~40 M
+warp = 1200.0
+# [TH14] Ch. 19; turns, periapsis and precession from this scene's orbit (tests)
+caption = """\
+    Near the hole, spinning space drags the planet around Gargantua once or twice \
+    before it flies out again; here 1.2 times, 740 million km from the center. Each \
+    pass turns its orbit by about 170 degrees. It crosses the disk's plane inside the \
+    disk's inner edge. With no sun of its own, it is lit only by the disk."""
+
+[[events]]
+name = "Edmunds' planet, on an assumed orbit"
+time = "2026-10-01"
+focus = "Gargantua"
+distance_km = 6.0e11           # ~4000 au
+elevation_deg = 15.0
+warp = 2.0e6                   # an orbit in ~50 s
+# [TH14]; the orbit is assumed (see the body); period from it (tests)
+caption = """\
+    The film calls Edmunds' planet habitable but never says where it is. Here it is \
+    given an assumed orbit, 1000 au out and tilted 30 degrees to the disk. A year there \
+    lasts 3.2 Earth years."""
+
+[[events]]
+name = "Edmunds' sky: a black sun"
+time = "2026-10-01"
+focus = "Edmunds' planet"
+from_body = "Gargantua"
+phase_deg = 180.0              # beyond the planet from Gargantua...
+elevation_deg = 48.0           # ...and 18 deg higher: Gargantua above the lit crescent
+distance_km = 8.0e4
+warp = 600.0
+trails = [
+    { body = "Planet at the ISCO", trail = "none" },
+    { body = "Mann's planet", trail = "none" },
+    { body = "Edmunds' planet", trail = "none" },
+]
+# Shadow size and flux traced for this scene (tests): 0.56 deg vs the Sun's 0.53 deg;
+# 2.2 x Earth's 1361 W/m^2 at 30 deg above the disk, 0.5 x in its plane
+caption = """\
+    From 1000 au, Gargantua's black shadow looks as wide as the Sun from Earth, ringed \
+    by the glowing disk. Thirty degrees above the disk, the planet gets twice Earth's \
+    sunlight; even in the disk's plane, light bent around the hole still brings half. \
+    Its seasons swing between the two every 1.6 years."""

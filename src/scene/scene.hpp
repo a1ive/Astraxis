@@ -8,6 +8,7 @@
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 
+#include <limits>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -250,9 +251,13 @@ struct Body {
     double spin = 0.0;      // black holes: a / M
 
     // Black holes: illustrative thin accretion disk in the equatorial plane
-    // (normal = pole), from the ISCO to disk_outer_m (units of M). 0 = no disk.
+    // (normal = pole), from disk_inner_m (0: the ISCO) to disk_outer_m (units
+    // of M). 0 = no disk. Its temperature follows the thin-disk profile, or is
+    // the same everywhere (disk_uniform, e.g. Interstellar's cooled disk).
+    double disk_inner_m = 0.0;
     double disk_outer_m = 0.0;
-    double disk_temperature_k = 8000.0; // peak of the temperature profile
+    bool disk_uniform = false;
+    double disk_temperature_k = 8000.0; // peak of the temperature profile, or the uniform one
     double disk_brightness = 3.0;       // radiance scale (linear HDR)
 
     // Stars: effective temperature (color) and luminosity (apparent brightness).
@@ -486,6 +491,12 @@ struct SceneEvent {
     bool from_sun = false;      // view from the sun's direction in a scene without a Sun body
                                 // (centered on a planet; from_body = "Sun" in the file)
     double phase_deg = 0.0;     // with from_body: turned this far around the up axis (180 = from behind)
+    double elevation_deg = std::numeric_limits<double>::quiet_NaN(); // set: camera this far above the
+                                                                     // plane normal to the up axis
+    // Black holes' disks: Doppler and gravitational frequency shifts (color and
+    // brightness) while the event is active. Off: the disk as filmed for
+    // Interstellar, which left them out.
+    bool disk_shifts = true;
     int flyby = -1;             // >= 0: the body whose pass of the focus the event shows (-1: looked for)
     std::string caption;        // a museum-style note on why the view is worth seeing; may be empty
 

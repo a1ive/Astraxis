@@ -43,7 +43,8 @@ cbuffer Uniforms : register(b0, space3)
     float4 u_disk;     // x = peak temperature (K), y = 1 / max of the temperature profile, z = max steps, w = edge fade start (fraction of b_max)
     float4 u_targets;  // xy = size of the traced (reduced) targets, zw = scene size, in pixels
     float4 u_stars;    // x = sky grid cells per axis, y = star brightness, z = Milky Way brightness (0: none)
-    float4 u_sky_params; // x = largest star dot half size (pixels), y = largest magnification of a star image
+    float4 u_sky_params; // x = largest star dot half size (pixels), y = largest magnification of a star image,
+                         // z = 1: uniform disk temperature, w = 1: disk frequency shifts on
 };
 
 static const float kPi = 3.14159265;
@@ -212,9 +213,12 @@ float3 disk_emission(float3 c, float3 p, float pt, float a, out float alpha)
     // u_forward_dir.w = u^t of the (static) camera: p.u_camera = p_t u^t.
     float g = pt * u_forward_dir.w / (ut * (pt - omega * c.y * p.x + omega * c.x * p.y));
     g = clamp(g, 0.0, 5.0);
+    // Off: the disk as filmed for Interstellar, without Doppler and gravitational shifts.
+    g = u_sky_params.w > 0.5 ? g : 1.0;
 
-    // Thin-disk temperature profile T ~ r^-3/4 (1 - sqrt(r_in / r))^1/4.
-    float profile = pow(rc, -0.75) * pow(max(1.0 - sqrt(r_in / rc), 0.0), 0.25) * u_disk.y;
+    // Thin-disk temperature profile T ~ r^-3/4 (1 - sqrt(r_in / r))^1/4, or uniform.
+    float profile = u_sky_params.z > 0.5 ? 1.0
+                                         : pow(rc, -0.75) * pow(max(1.0 - sqrt(r_in / rc), 0.0), 0.25) * u_disk.y;
     float t_emit = u_disk.x * profile;
     float t_obs = g * t_emit;
     // Bolometric radiance: emitted ~ T^4, observed ~ g^4 (I / nu^3 invariant).

@@ -1,4 +1,4 @@
-// Tests for relativistic motion: Kerr geodesics, binary pulsars, Sgr A*.
+// Tests for relativistic motion: Kerr geodesics, binary pulsars, Sgr A*, Gargantua.
 
 #include "test_util.hpp"
 
@@ -735,6 +735,375 @@ void test_sgr_a_ghosts()
     check(start < 1e3, "Death Star starts on its ghost's ellipse (km)", start);
 }
 
+
+// u^t = dt/dtau of a prograde circular equatorial orbit at Boyer-Lindquist r
+// (units of M): the rate at which a distant clock runs against the orbiting
+// one. Omega from Bardeen, Press & Teukolsky 1972 (ApJ 178, 347), eq. 2.16,
+// with the equatorial Kerr metric.
+double circular_orbit_ut(double r, double a)
+{
+    const double omega = 1.0 / (r * std::sqrt(r) + a);
+    const double g_tt = -(1.0 - 2.0 / r);
+    const double g_tphi = -2.0 * a / r;
+    const double g_phiphi = r * r + a * a + 2.0 * a * a / r;
+    return 1.0 / std::sqrt(-(g_tt + 2.0 * g_tphi * omega + g_phiphi * omega * omega));
+}
+
+// Gargantua (Interstellar): the hole, disk and camera of James et al. 2015, and
+// the numbers in the captions.
+void test_gargantua_scene()
+{
+    Scene scene = load_scene_or_die("gargantua.toml");
+    const Body& hole = scene.bodies[0];
+    const double m = hole.gm_km3_s2 / (kSpeedOfLightKmS * kSpeedOfLightKmS);
+    check(hole.kind == BodyKind::BlackHole && hole.spin == 0.6, "Gargantua spins at a/M = 0.6 as filmed");
+    check(std::abs(hole.gm_km3_s2 / kSunGmKm3S2 / 1e8 - 1.0) < 1e-9, "Gargantua weighs 1e8 M_sun");
+    check(hole.disk_inner_m == 9.26 && hole.disk_outer_m == 18.70 && hole.disk_uniform &&
+              hole.disk_temperature_k == 4500.0,
+          "Gargantua's disk: 9.26-18.70 M at a uniform 4500 K");
+    check(hole.disk_inner_m > isco_radius(hole.spin), "Gargantua's disk is outside the ISCO");
+
+    // The camera of JA15's Figure 13: r_c = 74.1 M, theta_c = 1.511 (86.56 deg from the axis).
+    check(scene.events.size() == 7, "Gargantua events", static_cast<double>(scene.events.size()));
+    if (scene.events.size() < 3) {
+        return;
+    }
+    for (size_t i = 0; i < 2; ++i) {
+        const SceneEvent& e = scene.events[i];
+        check(std::abs(e.distance_km / m - 74.1) < 0.05, "Gargantua camera at 74.1 M", e.distance_km / m);
+        // 1.511 rad is given to +-0.0005 rad (0.03 deg); JA15 also write 86.56 deg.
+        check(std::abs(e.elevation_deg - (90.0 - 1.511 / kDegToRad)) < 0.03, "Gargantua camera 86.56 deg off the axis",
+              e.elevation_deg);
+    }
+    check(!scene.events[0].disk_shifts && scene.events[1].disk_shifts, "Gargantua as filmed, then with the shifts");
+
+    // Caption 2: the gas at the inner edge moves at "about a third of the speed of
+    // light", measured by the locally non-rotating observer (Bardeen et al. 1972, eq. 3.8).
+    {
+        const double r = hole.disk_inner_m;
+        const double a = hole.spin;
+        const double delta = r * r - 2.0 * r + a * a;
+        const double big_a = (r * r + a * a) * (r * r + a * a) - a * a * delta;
+        const double omega = 1.0 / (r * std::sqrt(r) + a);
+        const double v = (omega - 2.0 * a * r / big_a) * big_a / (r * r * std::sqrt(delta));
+        check(v > 0.3 && v < 0.37, "Gargantua's disk edge at about c/3", v);
+    }
+
+    // Caption 3: the ISCO at a/M = 0.6 (3.83 M) slows time 1.76-fold.
+    const double ut_06 = circular_orbit_ut(isco_radius(0.6), 0.6);
+    check(std::abs(ut_06 - 1.76) < 0.005, "time dilation at the a/M = 0.6 ISCO", ut_06);
+
+    // The example planet on the ISCO: prograde in the disk plane at the Kerr-Schild
+    // radius of r = 3.83 M, once every 6.96 hours.
+    const int planet = scene.find("Planet at the ISCO");
+    check(planet > 0, "Gargantua's example planet");
+    if (planet > 0) {
+        const double r_isco = isco_radius(hole.spin);
+        const double period = 2.0 * kPi * (r_isco * std::sqrt(r_isco) + hole.spin) * m / kSpeedOfLightKmS;
+        check(std::abs(period / 3600.0 - 6.96) < 0.01, "ISCO period 6.96 h", period / 3600.0);
+        const double t0 = tdb_from_julian_year(2026.8);
+        const State s0 = scene.icrf_state_at(planet, t0);
+        const State s_half = scene.icrf_state_at(planet, t0 + 0.5 * period);
+        const State s_full = scene.icrf_state_at(planet, t0 + period);
+        const double radius = std::sqrt(r_isco * r_isco + hole.spin * hole.spin) * m;
+        check(std::abs(glm::length(s0.position) / radius - 1.0) < 1e-9, "example planet on the ISCO");
+        check(glm::length(s_full.position - s0.position) < 1e-6 * radius, "example planet back after a period");
+        check(glm::length(s_half.position + s0.position) < 1e-6 * radius, "example planet opposite after half");
+        check(std::abs(glm::dot(glm::normalize(s0.position), hole.pole)) < 1e-12, "example planet in the disk plane");
+        check(glm::dot(glm::cross(s0.position, s0.velocity), hole.pole) > 0.0, "example planet is prograde");
+    }
+
+    // Miller's planet [DH26]: with 1 - a/M = 1.4e-14 the ISCO is at (1 + 3.8e-5) M,
+    // time runs ~60,000 times slower there (1 hour : 7 years), and it is circled
+    // in 1.7 hours (seen from afar) for a 1e8 M_sun hole.
+    const double a_miller = 1.0 - 1.4e-14;
+    const double r_miller = isco_radius(a_miller);
+    check(std::abs((r_miller - 1.0) / 3.8e-5 - 1.0) < 0.02, "Miller's ISCO at (1 + 3.8e-5) M", r_miller - 1.0);
+    const double ut_miller = circular_orbit_ut(r_miller, a_miller);
+    const double hour_to_years = ut_miller / (365.25 * 24.0);
+    check(std::abs(hour_to_years - 7.0) < 0.2, "an hour on Miller's planet is 7 years", hour_to_years);
+    const double period_h = 2.0 * kPi * (r_miller * std::sqrt(r_miller) + a_miller) * m / kSpeedOfLightKmS / 3600.0;
+    check(std::abs(period_h - 1.72) < 0.01, "Miller's planet circles in 1.7 hours", period_h);
+    std::printf("info: Gargantua: ISCO(0.6) u^t %.3f; Miller u^t %.0f (1 h = %.2f yr), period %.3f h\n", ut_06,
+                ut_miller, hour_to_years, period_h);
+}
+
+// Passes of Mann's planet by Gargantua: periapsis time and radius (units of M),
+// turns swept while within 30 M, Boyer-Lindquist radii where it crosses the
+// hole's equatorial plane, and the time from the previous apoapsis.
+struct MannPass {
+    double t_peri = 0.0;
+    double r_peri = 0.0;
+    double turns = 0.0;
+    std::vector<double> crossings;
+    double fall_days = 0.0;
+};
+
+std::vector<MannPass> mann_passes(const Scene& scene, int planet, double t0, double t1)
+{
+    const Body& hole = scene.bodies[0];
+    const double m = hole.gm_km3_s2 / (kSpeedOfLightKmS * kSpeedOfLightKmS);
+    std::vector<MannPass> passes;
+    MannPass pass;
+    bool inside = false;
+    double r_max = 0.0;
+    double t_apo = t0;
+    glm::dvec3 prev = scene.icrf_state_at(planet, t0).position / m;
+    for (double t = t0; t < t1;) {
+        const glm::dvec3 x = scene.icrf_state_at(planet, t).position / m;
+        t += glm::length(x) < 40.0 ? 60.0 : 3600.0;
+        const double z = glm::dot(x, hole.pole);
+        const double r = kerr_schild_r(glm::dvec3(glm::length(x - z * hole.pole), 0.0, z), hole.spin);
+        const double rc = glm::length(x);
+        if (rc > r_max) {
+            r_max = rc;
+            t_apo = t;
+        }
+        if (rc < 30.0) {
+            if (!inside) {
+                pass = MannPass{};
+                pass.r_peri = 1e9;
+                pass.fall_days = 0.0;
+                inside = true;
+            }
+            pass.turns += std::acos(std::clamp(glm::dot(glm::normalize(prev), glm::normalize(x)), -1.0, 1.0)) / kTwoPi;
+            if (glm::dot(prev, hole.pole) * glm::dot(x, hole.pole) < 0.0) {
+                pass.crossings.push_back(r);
+            }
+            if (rc < pass.r_peri) {
+                pass.r_peri = rc;
+                pass.t_peri = t;
+            }
+        } else if (inside) {
+            inside = false;
+            pass.fall_days = (pass.t_peri - t_apo) / kSecondsPerDay;
+            passes.push_back(pass);
+            r_max = 0.0;
+        }
+        prev = x;
+    }
+    return passes;
+}
+
+void test_mann_orbit()
+{
+    Scene scene = load_scene_or_die("gargantua.toml");
+    const int planet = scene.find("Mann's planet");
+    check(planet > 0, "Mann's planet");
+    if (planet < 0) {
+        return;
+    }
+    const Body& hole = scene.bodies[0];
+    const double m = hole.gm_km3_s2 / (kSpeedOfLightKmS * kSpeedOfLightKmS);
+    const std::vector<MannPass> passes =
+        mann_passes(scene, planet, tdb_from_julian_year(2025.0), tdb_from_julian_year(2028.0));
+    check(passes.size() == 6, "Mann's planet passes Gargantua twice a year", static_cast<double>(passes.size()));
+    for (size_t i = 0; i < passes.size(); ++i) {
+        const MannPass& p = passes[i];
+        std::printf("info: Mann pass %.4f r_p %.3f turns %.2f fall %.1f d, crosses the disk plane at",
+                    2000.0 + p.t_peri / (kDaysPerJulianYear * kSecondsPerDay), p.r_peri, p.turns, p.fall_days);
+        for (double c : p.crossings) {
+            std::printf(" %.2f", c);
+            // [TH14] Ch. 19: the orbit keeps off the disk.
+            check(c < hole.disk_inner_m || c > hole.disk_outer_m, "Mann's planet misses the disk", c);
+        }
+        std::printf(" M\n");
+        check(std::abs(p.r_peri - 5.0) < 0.05, "Mann's periapsis at 5 M", p.r_peri);
+        // [TH14] Ch. 19: it flies around Gargantua "once or twice on each swing by".
+        check(p.turns > 1.0 && p.turns < 2.0, "Mann's planet whirls once or twice", p.turns);
+        // [TH14] note 33: the fall from ~600 radii takes at least forty days.
+        if (i > 0) {
+            check(p.fall_days > 40.0, "Mann's fall takes over 40 days", p.fall_days);
+        }
+    }
+    // [TH14] Ch. 19: the orbit "precess[es] through a large angle" from one excursion to the next.
+    if (passes.size() >= 2) {
+        const glm::dvec3 a = scene.icrf_state_at(planet, passes[0].t_peri).position;
+        const glm::dvec3 b = scene.icrf_state_at(planet, passes[1].t_peri).position;
+        const double turn = std::acos(glm::dot(glm::normalize(a), glm::normalize(b))) / kDegToRad;
+        check(turn > 30.0, "Mann's orbit precesses by a large angle", turn);
+        std::printf("info: Mann's periapsis turns %.1f deg per orbit\n", turn);
+    }
+
+    // [TH14] note 33: from Mann's planet Gargantua's shadow is ~0.9 deg across, which
+    // places it ~600 radii out. Traced for this scene's spin, from 600 M in the
+    // equatorial plane: the shadow's edges left and right of the center.
+    const glm::dvec3 cam(600.0, 0.0, 0.0);
+    double width = 0.0;
+    for (double side : {-1.0, 1.0}) {
+        double lo = 0.0;
+        double hi = 0.02; // rad
+        for (int k = 0; k < 40; ++k) {
+            const double mid = 0.5 * (lo + hi);
+            const glm::dvec3 dir(-std::cos(mid), side * std::sin(mid), 0.0);
+            const RayResult ray = trace_ray(cam, dir, hole.spin, 1000.0, 0.0, 0.0, 20000);
+            (ray.outcome == RayOutcome::Captured ? lo : hi) = mid;
+        }
+        width += lo;
+    }
+    check(std::abs(width / kDegToRad - 0.9) < 0.1, "Gargantua is 0.9 deg wide from 600 M", width / kDegToRad);
+    std::printf("info: Gargantua's shadow from 600 M: %.3f deg (%.0f km = %.0f au away)\n", width / kDegToRad,
+                600.0 * m, 600.0 * m / kAuKm);
+}
+
+// Full angular width (rad) of a black hole's shadow across the spin axis's
+// normal direction, seen from cam (Kerr-Schild Cartesian, units of M).
+double shadow_width(const glm::dvec3& cam, double a)
+{
+    const glm::dvec3 in = -glm::normalize(cam);
+    const glm::dvec3 side = glm::normalize(glm::cross(in, glm::dvec3(0.0, 0.0, 1.0)));
+    double width = 0.0;
+    for (double s : {-1.0, 1.0}) {
+        double lo = 0.0;
+        double hi = 0.05;
+        for (int k = 0; k < 40; ++k) {
+            const double mid = 0.5 * (lo + hi);
+            const RayResult ray = trace_ray(cam, std::cos(mid) * in + s * std::sin(mid) * side, a,
+                                            1.5 * glm::length(cam), 0.0, 0.0, 40000);
+            (ray.outcome == RayOutcome::Captured ? lo : hi) = mid;
+        }
+        width += lo;
+    }
+    return width;
+}
+
+// Bolometric flux (W/m^2) on a static observer at cam (units of M) from a thin
+// disk at uniform temperature t_k between r_in and r_out, traced through the hole's
+// lensing: each pixel's ray is followed back to its first crossing of the disk,
+// where the emitter's bolometric intensity sigma T^4 / pi arrives scaled by g^4
+// (shifts) or unchanged. Pixels cover a box of +-half_width rad around the hole.
+double traced_disk_flux(const glm::dvec3& cam, double a, double r_in, double r_out, double t_k, bool shifts,
+                        double half_width, int n)
+{
+    constexpr double kSigma = 5.670374419e-8; // W m^-2 K^-4, CODATA 2018 (exact)
+    const glm::dvec3 forward = -glm::normalize(cam);
+    const glm::dvec3 right = glm::normalize(glm::cross(forward, glm::dvec3(0.0, 0.0, 1.0)));
+    const glm::dvec3 up = glm::cross(right, forward);
+    const ObserverFrame frame = static_observer_frame(cam, a, forward, up, right);
+    const double r_plus = horizon_radius(a);
+    const double cell = 2.0 * half_width / n;
+    double flux = 0.0;
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            const double u = -half_width + (i + 0.5) * cell;
+            const double v = -half_width + (j + 0.5) * cell;
+            Photon ph = frame_photon(cam, frame, glm::dvec3(u, v, 1.0));
+            for (int step = 0; step < 4000; ++step) {
+                const Photon prev = ph;
+                rk4_step(ph, a, ray_step(ph.x, a));
+                if (prev.x.z * ph.x.z < 0.0) {
+                    Photon hit = prev;
+                    hit.x = prev.x + (ph.x - prev.x) * (prev.x.z / (prev.x.z - ph.x.z));
+                    const double rc = kerr_schild_r(glm::dvec3(hit.x.x, hit.x.y, 0.0), a);
+                    if (rc >= r_in && rc <= r_out) {
+                        const double g = shifts ? disk_redshift(hit, a, frame.ut) : 1.0;
+                        flux += kSigma * std::pow(t_k, 4.0) / kPi * std::pow(g, 4.0) * cell * cell;
+                        break;
+                    }
+                }
+                const double r = kerr_schild_r(ph.x, a);
+                if (r < r_plus + 0.02 || glm::length(ph.x) > 1.5 * glm::length(cam)) {
+                    break;
+                }
+            }
+        }
+    }
+    return flux;
+}
+
+// Edmunds' planet on the scene's assumed orbit: Gargantua's shadow about as wide
+// as the Sun from Earth, with the film's disk supplying about twice Earth's sunlight at apoapsis.
+void test_edmunds_planet()
+{
+    Scene scene = load_scene_or_die("gargantua.toml");
+    const Body& hole = scene.bodies[0];
+    const int planet = scene.find("Edmunds' planet");
+    check(planet > 0, "Edmunds' planet");
+    if (planet < 0) {
+        return;
+    }
+    const double m = hole.gm_km3_s2 / (kSpeedOfLightKmS * kSpeedOfLightKmS);
+    const double year = kDaysPerJulianYear * kSecondsPerDay;
+
+    // The orbit as assumed: 980-1020 au, 30 deg to the disk, 3.16 years.
+    const double t0 = tdb_from_julian_year(2026.5);
+    double r_min = 1e300;
+    double r_max = 0.0;
+    double elevation_max = 0.0;
+    double t_next_apo = 0.0;
+    double r_next_apo = 0.0;
+    for (double t = t0; t < t0 + 3.5 * year; t += kSecondsPerDay) {
+        const glm::dvec3 x = scene.icrf_state_at(planet, t).position;
+        const double r = glm::length(x);
+        r_min = std::min(r_min, r);
+        r_max = std::max(r_max, r);
+        elevation_max = std::max(elevation_max, std::asin(glm::dot(x, hole.pole) / r));
+        if (t > t0 + 2.5 * year && r > r_next_apo) {
+            r_next_apo = r;
+            t_next_apo = t;
+        }
+    }
+    check(std::abs(r_max / kAuKm - 1020.0) < 0.5 && std::abs(r_min / kAuKm - 980.0) < 0.5,
+          "Edmunds' orbit 980-1020 au", r_min / kAuKm);
+    check(std::abs(elevation_max / kDegToRad - 30.0) < 0.2, "Edmunds' orbit 30 deg to the disk",
+          elevation_max / kDegToRad);
+    double t_apo = t0;
+    double r_apo = 0.0;
+    for (double t = t0; t < t0 + 0.5 * year; t += kSecondsPerDay) {
+        const double r = glm::length(scene.icrf_state_at(planet, t).position);
+        if (r > r_apo) {
+            r_apo = r;
+            t_apo = t;
+        }
+    }
+    const double period = (t_next_apo - t_apo) / year;
+    check(std::abs(period - 3.16) < 0.03, "Edmunds' year is 3.2 Earth years", period);
+
+    // At the event (the apoapsis, 30 deg above the disk).
+    const glm::dvec3 x = scene.icrf_state_at(planet, t_apo).position;
+    const double d = glm::length(x);
+    const double beta = std::asin(glm::dot(x, hole.pole) / d);
+    const glm::dvec3 cam = glm::dvec3(std::cos(beta), 0.0, std::sin(beta)) * (d / m);
+    const double shadow = shadow_width(cam, hole.spin);
+    const double sun = 2.0 * kSunRadiusKm / kAuKm;
+    check(std::abs(shadow / sun - 1.0) < 0.15, "Gargantua's shadow as wide as the Sun from Edmunds'",
+          shadow / kDegToRad);
+
+    // Flux from the uniform disk, first flat: both faces radiate sigma T^4; seen from
+    // elevation beta at distance d it is sigma T^4 A sin(beta) / (pi d^2), A = one face.
+    constexpr double kSigma = 5.670374419e-8;   // W m^-2 K^-4, CODATA 2018 (exact)
+    constexpr double kSunLuminosityW = 3.828e26; // IAU 2015 Resolution B3, nominal
+    const double r_in = hole.disk_inner_m * m * 1e3;
+    const double r_out = hole.disk_outer_m * m * 1e3;
+    const double area = kPi * (r_out * r_out - r_in * r_in);
+    const double d_m = d * 1e3;
+    const double flat = kSigma * std::pow(hole.disk_temperature_k, 4.0) * area * std::sin(beta) / (kPi * d_m * d_m);
+    const double au_m = kAuKm * 1e3;
+    const double earth = kSunLuminosityW / (4.0 * kPi * au_m * au_m); // 1361 W/m^2
+
+    // Then traced through the lensing (which adds the far side's bent image), without
+    // and with the Doppler and gravitational shifts. 80 x 80 rays are within ~1.5% of
+    // 240 x 240.
+    const double half_width = 1.2 * hole.disk_outer_m / (d / m);
+    auto traced = [&](const glm::dvec3& c, bool shifts) {
+        return traced_disk_flux(c, hole.spin, hole.disk_inner_m, hole.disk_outer_m, hole.disk_temperature_k, shifts,
+                                half_width, 80);
+    };
+    const double lensed = traced(cam, false);
+    const double shifted = traced(cam, true);
+    check(lensed / flat > 1.1 && lensed / flat < 1.35, "lensing adds to the disk's light", lensed / flat);
+    // Caption: "twice Earth's sunlight" 30 deg above the disk.
+    check(shifted / earth > 2.0 && shifted / earth < 2.4, "Edmunds' gets twice Earth's sunlight", shifted / earth);
+    // Caption: in the disk's plane, bent light "still brings half".
+    const double in_plane = traced(glm::dvec3(1000.0 * kAuKm / m, 0.0, 0.0), true);
+    check(in_plane / earth > 0.45 && in_plane / earth < 0.56, "Edmunds' gets half in the disk plane",
+          in_plane / earth);
+    std::printf("info: Edmunds': shadow %.3f deg (Sun %.3f); 30 deg above the disk: flat %.0f, lensed %.0f, "
+                "shifted %.0f W/m^2 (%.2f x Earth's %.0f); in its plane %.0f (%.2f x)\n",
+                shadow / kDegToRad, sun / kDegToRad, flat, lensed, shifted, shifted / earth, earth, in_plane,
+                in_plane / earth);
+}
+
 } // namespace
 
 void run_relativity_tests()
@@ -749,4 +1118,7 @@ void run_relativity_tests()
     test_sgr_a_scene();
     test_death_star_precession();
     test_sgr_a_ghosts();
+    test_gargantua_scene();
+    test_mann_orbit();
+    test_edmunds_planet();
 }

@@ -25,7 +25,8 @@ struct BlackHoleUniforms {
     glm::vec4 disk{0.0f};        // peak temperature, 1 / profile max, max steps, edge fade start
     glm::vec4 targets{0.0f};     // prepass size, scene size (pixels); set by BlackHolePass::trace
     glm::vec4 stars{0.0f};       // sky grid cells per axis, star brightness, Milky Way brightness
-    glm::vec4 sky{0.0f};         // largest star dot half size (pixels), largest star magnification
+    glm::vec4 sky{0.0f};         // largest star dot half size (pixels), largest star magnification,
+                                 // uniform disk temperature (1/0), disk frequency shifts (1/0)
 };
 
 } // namespace astraxis

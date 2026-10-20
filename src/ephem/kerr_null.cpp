@@ -165,6 +165,27 @@ void derivatives(const glm::dvec3& x, const glm::dvec3& p, double pt, double a, 
 
 } // namespace
 
+void geodesic_derivatives(const Photon& ph, double a, glm::dvec3& dx, glm::dvec3& dp, double& dt)
+{
+    derivatives(ph.x, ph.p, ph.pt, a, dx, dp);
+    const KerrSchild k = kerr_schild(ph.x, a);
+    dt = -ph.pt + k.f * (-ph.pt + glm::dot(k.l, ph.p));
+}
+
+Photon make_particle(const glm::dvec3& x, const glm::dvec3& v, double a)
+{
+    // u = u^t (v, 1) with g(u, u) = -1; p = u lowered.
+    const KerrSchild k = kerr_schild(x, a);
+    const glm::dvec4 dir(v, 1.0);
+    const double ut = 1.0 / std::sqrt(-metric_dot(k, dir, dir));
+    const glm::dvec4 p = lower(k, ut * dir);
+    Photon particle;
+    particle.x = x;
+    particle.p = glm::dvec3(p);
+    particle.pt = p.w;
+    return particle;
+}
+
 void rk4_step(Photon& ph, double a, double h)
 {
     glm::dvec3 k1x, k1p, k2x, k2p, k3x, k3p, k4x, k4p;
