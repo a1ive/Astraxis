@@ -73,16 +73,21 @@ bool load_star_catalog(const std::filesystem::path& path, StarCatalog& out, std:
         star.vmag = std::strtod(fields[5].c_str(), nullptr);
         star.has_bv = !fields[6].empty();
         star.bv = star.has_bv ? std::strtod(fields[6].c_str(), nullptr) : 0.0;
+        star.hip = std::atoi(fields[0].c_str());
         out.stars.push_back(star);
     }
     return true;
 }
 
-std::vector<CatalogStar> catalog_sky(const StarCatalog& catalog, const glm::dvec3& viewer_pc)
+std::vector<CatalogStar> catalog_sky(const StarCatalog& catalog, const glm::dvec3& viewer_pc,
+                                     std::span<const int> hidden_hip)
 {
     std::vector<CatalogStar> sky;
     sky.reserve(catalog.stars.size());
     for (const CatalogStar& c : catalog.stars) {
+        if (c.hip != 0 && std::find(hidden_hip.begin(), hidden_hip.end(), c.hip) != hidden_hip.end()) {
+            continue;
+        }
         CatalogStar s = c;
         if (c.distance_pc > 0.0) {
             const glm::dvec3 d =

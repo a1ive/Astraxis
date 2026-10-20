@@ -6,6 +6,7 @@
 #include "ephem/kerr_null.hpp"
 #include "render/render_output.hpp"
 #include "render/texture.hpp"
+#include "scene/light_curve.hpp"
 #include "scene/simulation.hpp"
 
 #include <SDL3/SDL.h>
@@ -34,6 +35,8 @@ constexpr double kBeltFullRadiusPx = 250.0;
 constexpr float kAmbient = 0.012f;
 // Surface radiance of star spheres (linear HDR, times the blackbody color).
 constexpr float kStarSurface = 6.0f;
+// Wavelength at which relative star surfaces (SceneView::relative_star_surfaces) are compared.
+constexpr double kStarSurfaceWavelengthNm = 550.0;
 // Apparent magnitude of the Sun at 1 au (V ~ -26.74); used for bolometric-ish
 // apparent brightness m = kSunMagAt1Au - 2.5 log10(L / d_au^2).
 constexpr double kSunMagAt1Au = -26.74;
@@ -640,6 +643,16 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
         }
     }
 
+    // Relative star surfaces: radiance at 550 nm over the hottest star's.
+    double hottest_surface = 0.0;
+    if (scene.view.relative_star_surfaces) {
+        for (const Body& b : scene.bodies) {
+            if (b.kind == BodyKind::Star) {
+                hottest_surface = std::max(hottest_surface, planck_shape(b.temperature_k, kStarSurfaceWavelengthNm));
+            }
+        }
+    }
+
     for (size_t i = 0; i < scene.bodies.size(); ++i) {
         const Body& body = scene.bodies[i];
         const bool drawable = body.kind == BodyKind::Planet || body.kind == BodyKind::Star ||
@@ -676,6 +689,10 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
         if (body.kind == BodyKind::Star) {
             item.style = kStyleStar;
             item.color = glm::vec3(blackbody_linear_srgb(body.temperature_k)) * kStarSurface;
+            if (hottest_surface > 0.0) {
+                item.color *= static_cast<float>(planck_shape(body.temperature_k, kStarSurfaceWavelengthNm) /
+                                                 hottest_surface);
+            }
             item.texture = nullptr;
             m_body_items.push_back(item);
             continue;

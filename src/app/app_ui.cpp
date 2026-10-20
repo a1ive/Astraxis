@@ -2,6 +2,7 @@
 
 #include "app/app.hpp"
 #include "app/label_overlay.hpp"
+#include "app/light_curve_overlay.hpp"
 
 #include "core/math.hpp"
 #include "core/time.hpp"
@@ -188,6 +189,9 @@ void App::build_ui()
         if (m_show_info) {
             build_info_panel();
         }
+    }
+    if (m_show_labels) {
+        draw_light_curve_plot();
     }
     draw_captions();
     if (m_show_demo) {
@@ -684,6 +688,19 @@ void App::draw_captions()
     const float bottom = panel_visible() ? m_time_bar_top - margin : io.DisplaySize.y - margin;
     draw_event_caption(m_fonts, m_sim.scene().events[static_cast<size_t>(event)], m_sim.event_age(),
                        ImVec2(0.5f * io.DisplaySize.x, bottom), width);
+}
+
+void App::draw_light_curve_plot()
+{
+    // In the bottom right corner above the time bar, beside the captions.
+    const ImGuiIO& io = ImGui::GetIO();
+    const float margin = 12.0f * ImGui::GetStyle().FontScaleDpi;
+    const float caption_width = std::min(640.0f * ImGui::GetStyle().FontScaleDpi, io.DisplaySize.x - 2.0f * margin);
+    const float bottom = panel_visible() ? m_time_bar_top - margin : io.DisplaySize.y - margin;
+    const ScreenRect rect = light_curve_plot_rect(io.DisplaySize, bottom, margin, caption_width, m_panel_rects);
+    draw_light_curve(m_fonts, m_sim.scene(), m_sim.light_curve(), m_sim.clock().t_tdb,
+                     m_sim.clock().paused ? 0.0 : m_sim.clock().warp, rect,
+                     static_cast<float>(m_sim.fade()));
 }
 
 void App::toggle_caption()

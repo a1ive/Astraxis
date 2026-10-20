@@ -61,6 +61,8 @@ add_library(astraxis_sim STATIC
     src/scene/comet.hpp
     src/scene/label_layout.cpp
     src/scene/label_layout.hpp
+    src/scene/light_curve.cpp
+    src/scene/light_curve.hpp
     src/scene/scene.cpp
     src/scene/scene.hpp
     src/scene/scene_loader.cpp
@@ -132,6 +134,8 @@ add_executable(astraxis
     src/app/captions.hpp
     src/app/label_overlay.cpp
     src/app/label_overlay.hpp
+    src/app/light_curve_overlay.cpp
+    src/app/light_curve_overlay.hpp
     src/app/scene_host.cpp
     src/app/scene_host.hpp
     src/app/scene_list.cpp

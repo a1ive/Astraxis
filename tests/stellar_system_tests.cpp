@@ -5,6 +5,7 @@
 #include "core/math.hpp"
 #include "core/time.hpp"
 #include "ephem/ephemeris.hpp"
+#include "scene/light_curve.hpp"
 #include "scene/star_catalog.hpp"
 
 #include <glm/glm.hpp>
@@ -12,7 +13,9 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <span>
 #include <utility>
+#include <vector>
 
 using namespace astraxis;
 
@@ -513,6 +516,153 @@ void test_tic168789840_scene()
     }
 }
 
+// The light of overlapping disks (scene/light_curve.hpp) against closed forms:
+// a lone limb-darkened disk gives pi R^2 (1 - u / 3); for uniform disks the
+// hidden part is the lens where they overlap; a disk wholly behind a larger
+// one gives nothing, and one in front of it hides its own area.
+void test_light_curve_model()
+{
+    const double planck = planck_shape(5772.0, 550.0);
+    const StarDisk one[] = {{glm::dvec3(0.0), 1000.0, 5772.0}};
+    const double lone = disks_full_flux(one, 550.0, 0.6);
+    check(std::abs(lone / (kPi * 1000.0 * 1000.0 * (1.0 - 0.6 / 3.0) * planck) - 1.0) < 1e-4,
+          "light curve: limb-darkened disk", lone);
+
+    // Equal uniform disks of radius 1 at distance d: the lens is 2 acos(d/2) - (d/2) sqrt(4 - d^2).
+    const glm::dvec3 toward(0.0, 0.0, 1.0);
+    for (double d : {0.3, 1.0, 1.7}) {
+        const StarDisk pair[] = {{glm::dvec3(0.0), 1.0, 6000.0}, {glm::dvec3(d, 0.0, 5.0), 1.0, 6000.0}};
+        const double lens = 2.0 * std::acos(0.5 * d) - 0.5 * d * std::sqrt(4.0 - d * d);
+        // Of the back disk (the pair's full light is twice one disk's).
+        const double hidden = 2.0 - 2.0 * disks_flux(pair, toward, 550.0, 0.0) / disks_full_flux(pair, 550.0, 0.0);
+        check(std::abs(hidden - lens / kPi) < 2e-3, "light curve: lens of two uniform disks", hidden - lens / kPi);
+    }
+    const StarDisk behind[] = {{glm::dvec3(0.0), 3.0, 4000.0}, {glm::dvec3(0.5, 0.2, -10.0), 1.0, 9000.0}};
+    const double big = disks_full_flux(std::span(behind, 1), 550.0, 0.6);
+    check(std::abs(disks_flux(behind, toward, 550.0, 0.6) / big - 1.0) < 1e-9, "light curve: disk wholly behind");
+}
+
+// Algol [Baron et al. 2012, Kolbas et al. 2015]: B and C stand where CHARA saw
+// them relative to A (Table 3, 2006-2010); B passes in front of A at the
+// primary minima TESS measured, once the light-time effect of the outer orbit
+// is added; the eclipse is as deep and long as the GCVS has it (V = 2.12 ..
+// 3.39, 14% of the period); A gives most of the visible light [KO15 Sect. 5.1].
+void test_algol_scene()
+{
+    test_light_curve_model();
+    Scene scene = load_scene_or_die("algol.toml");
+    const double brightest = check_relocated_sky(scene, "Algol sky from the system");
+    check(brightest > -2.0, "Algol sky without the catalog's Algol (V)", brightest); // its copy would be -4.6
+    const int root = scene.find("Algol");
+    const int ab = scene.find("Algol AB");
+    const int a = scene.find("Algol A");
+    const int b = scene.find("Algol B");
+    const int c = scene.find("Algol C");
+    check(root == 0 && ab > 0 && a > 0 && b > 0 && c > 0, "Algol bodies");
+    check(scene.light_curve.enabled() && scene.light_curve.stars.size() == 3, "Algol light curve of A, B and C");
+    if (ab <= 0 || a <= 0 || b <= 0 || c <= 0) {
+        return;
+    }
+    const double distance_km = 28.8184 * kParsecKm;
+    const double ra = 47.0422185 * kDegToRad;
+    const double dec = 40.9556467 * kDegToRad;
+    const glm::dvec3 away = unit_toward(47.0422185, 40.9556467);
+    const glm::dvec3 north(-std::sin(dec) * std::cos(ra), -std::sin(dec) * std::sin(ra), std::cos(dec));
+    const glm::dvec3 east(-std::sin(ra), std::cos(ra), 0.0);
+    auto offset_mas = [&](int body, double t) { // (east, north) from A on the sky
+        const glm::dvec3 r = scene.icrf_state_at(body, t).position - scene.icrf_state_at(a, t).position;
+        return glm::dvec2(glm::dot(r, east), glm::dot(r, north)) / distance_km * (kRadToDeg * 3600.0e3);
+    };
+
+    // Kepler's third law for the masses gives [BA12]'s semi-major axes.
+    const double a_inner =
+        glm::length(scene.icrf_state_at(b, 0.0).position - scene.icrf_state_at(a, 0.0).position) / distance_km;
+    check(std::abs(a_inner * kRadToDeg * 3600.0e3 - 2.15) < 0.01, "Algol inner a (mas)",
+          a_inner * kRadToDeg * 3600.0e3);
+    {
+        OrbitElements el;
+        const State ra_c = scene.icrf_state_at(c, 0.0);
+        const State ra_ab = scene.icrf_state_at(ab, 0.0);
+        osculating_elements(State{ra_c.position - ra_ab.position, ra_c.velocity - ra_ab.velocity}, 7.471710374e11,
+                            &el);
+        const double a_mas = 0.5 * (el.periapsis_km + el.apoapsis_km) / distance_km * kRadToDeg * 3600.0e3;
+        check(std::abs(a_mas - 93.43) < 0.2, "Algol outer a (mas)", a_mas);
+    }
+
+    // [BA12] Table 3: MJD, rho (mas), theta (deg east of north) and the major
+    // semi-axis of the 1-sigma error ellipse (mas). C moves slowly: within 2
+    // sigma (2007-11-23 is off by 1.7 sigma, the rest by less than 1). B's
+    // phase comes from the TESS ephemeris carried back 10-13 years, across
+    // Algol's wandering O-C [JE21]: 0.1 d would move it 0.5 mas along the orbit.
+    struct Position {
+        double mjd, rho, theta, sigma;
+    };
+    const Position b_seen[] = {
+        {54017.535773, 1.630, 40.74, 0.214},   {54427.234904, 2.200, 44.83, 0.330},
+        {54698.455342, 1.829, -144.44, 0.318}, {55056.508177, 2.115, -133.91, 0.279},
+        {55063.416862, 1.516, 51.64, 0.174},   {55416.495590, 2.130, 43.59, 0.068},
+    };
+    const Position c_seen[] = {
+        {54017.535773, 44.54, -61.91, 0.217}, {54377.358738, 18.86, 108.01, 0.374},
+        {54427.234904, 61.06, 128.69, 0.508}, {55055.480222, 17.18, 103.62, 0.124},
+        {55416.495590, 67.73, -55.74, 0.111},
+    };
+    auto miss_mas = [&](int body, const Position& p) {
+        const double th = p.theta * kDegToRad;
+        const glm::dvec2 measured(p.rho * std::sin(th), p.rho * std::cos(th));
+        return glm::length(offset_mas(body, tdb_from_jd_tdb(p.mjd + 2400000.5)) - measured);
+    };
+    double worst_b = 0.0;
+    for (const Position& p : b_seen) {
+        worst_b = std::max(worst_b, miss_mas(b, p));
+    }
+    check(worst_b < 0.4, "Algol B on the CHARA positions (mas)", worst_b);
+    double worst_c = 0.0; // in sigma
+    for (const Position& p : c_seen) {
+        worst_c = std::max(worst_c, miss_mas(c, p) / p.sigma);
+    }
+    std::printf("info: Algol on the CHARA positions: B within %.2f mas, C within %.2f sigma\n", worst_b, worst_c);
+    check(worst_c < 2.0, "Algol C on the CHARA positions (sigma)", worst_c);
+
+    // TESS minima (tools/algol/algol_ephemeris.py): the geometric conjunction of
+    // B in front of A, delayed by AB's depth around the barycenter.
+    double worst_min = 0.0;
+    for (double bjd : {2458793.97822, 2458811.18274, 2459883.57643, 2459909.38099, 2460614.74683, 2460634.81733}) {
+        const double t_seen = tdb_from_jd_tdb(bjd);
+        const double t = find_conjunction(scene, b, a, away, t_seen, 0.1 * kSecondsPerDay);
+        const double delay = glm::dot(scene.icrf_state_at(ab, t).position, away) / kSpeedOfLightKmS;
+        const double dt_min = std::isnan(t) ? 1e9 : (t + delay - t_seen) / 60.0;
+        worst_min = std::max(worst_min, std::abs(dt_min));
+    }
+    check(worst_min < 1.5, "Algol primary minima at the TESS times (min)", worst_min);
+
+    // Depth and length of the eclipses in V from the light curve.
+    const double t_min = tdb_from_jd_tdb(2459743.07502 + 555.0 * 2.8673453);
+    const double primary = light_curve_magnitude(scene, t_min);
+    const double secondary = light_curve_magnitude(scene, t_min + 0.5 * 2.8673453 * kSecondsPerDay);
+    std::printf("info: Algol V eclipse depths: primary %.3f, secondary %.3f mag\n", primary, secondary);
+    check(std::abs(primary - (3.39 - 2.12)) < 0.15, "Algol primary eclipse depth (mag)", primary);
+    check(secondary > 0.005 && secondary < 0.1, "Algol secondary eclipse depth (mag)", secondary);
+    double first = 0.0;
+    double last = 0.0;
+    for (double dt = -0.25; dt <= 0.25; dt += 0.0005) { // fraction of the period, around the primary
+        if (light_curve_magnitude(scene, t_min + dt * 2.8673453 * kSecondsPerDay) > 1e-4) {
+            first = first == 0.0 ? dt : first;
+            last = dt;
+        }
+    }
+    check(std::abs((last - first) - 0.14) < 0.02, "Algol eclipse duration (fraction of the period)", last - first);
+
+    // A's share of the light out of eclipse: 0.915 at 5015 A [KO15].
+    std::vector<StarDisk> disks;
+    for (int s : {a, b, c}) {
+        const Body& star = scene.bodies[static_cast<size_t>(s)];
+        disks.push_back({glm::dvec3(0.0), star.equatorial_radius_km, star.temperature_k});
+    }
+    const double share = disks_full_flux(std::span(disks.data(), 1), 550.0, 0.6) / disks_full_flux(disks, 550.0, 0.6);
+    check(std::abs(share - 0.915) < 0.04, "Algol A's share of the V light", share);
+}
+
 // Kepler-64 [Schwamb et al. 2013]: integrated from the Table 7 joint solution,
 // the binary eclipses and the planet transits Aa when they were measured
 // (Table 3, 1-sigma 0.9 and 7 min; Table 2, 6-9 min; BJD - 2455000), and Ba +
@@ -654,6 +804,7 @@ void run_stellar_system_tests()
     test_kepler223_scene();
     test_kepler47_scene();
     test_tic168789840_scene();
+    test_algol_scene();
     test_kepler64_scene();
     test_psr_b1620_scene();
 }

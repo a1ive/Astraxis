@@ -3,6 +3,7 @@
 #include "core/sim_clock.hpp"
 #include "scene/camera.hpp"
 #include "scene/camera_director.hpp"
+#include "scene/light_curve.hpp"
 #include "scene/scene.hpp"
 
 #include <cstddef>
@@ -85,6 +86,8 @@ public:
     OrbitCamera& camera() { return m_camera; }
     const OrbitCamera& camera() const { return m_camera; }
     const CameraDirector& director() const { return m_director; }
+    // The scene's light curve around the clock (empty without one).
+    const LightCurveSamples& light_curve() const { return m_light_curve; }
 
     // Accretion-disk animation clock (units of M), and the real seconds the
     // clock has run (pulsar beams, plume and comet animation); both wrapped to
@@ -137,6 +140,7 @@ private:
     SimClock m_clock;
     OrbitCamera m_camera;
     CameraDirector m_director;
+    LightCurveSamples m_light_curve;
 
     double m_tour_warp = 0.0;  // warp currently imposed by the tour (0 = none)
     double m_saved_warp = 0.0; // the user's warp, restored afterwards

@@ -63,7 +63,7 @@ void test_star_catalog_and_color()
     std::string error;
     check(load_star_catalog(ASTRAXIS_ASSET_DIR "/stars/hyg.csv", catalog, &error), "HYG catalog loads");
     check(catalog.stars.size() > 13000, "catalog star count", static_cast<double>(catalog.stars.size()));
-    check(catalog.max_viewer_pc == 15.0, "catalog complete for viewers within 15 pc", catalog.max_viewer_pc);
+    check(catalog.max_viewer_pc == 30.0, "catalog complete for viewers within 30 pc", catalog.max_viewer_pc);
 
     // From Earth: the naked-eye sky (~9000 stars, as in the Bright Star
     // Catalogue), without the Sun; Sirius is the brightest (Hipparcos V).

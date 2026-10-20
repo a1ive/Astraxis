@@ -1339,7 +1339,18 @@ void Loader::parse(const toml::table& root, Scene& out)
                 fail("sky", "the star catalog is only complete for viewers within " +
                                 std::to_string(catalog.max_viewer_pc) + " pc of the Sun");
             }
-            out.sky.stars = catalog_sky(catalog, out.sky.viewer_pc);
+            // Catalog stars that are the scene's own (hide_hip: Hipparcos numbers).
+            std::vector<int> hidden;
+            if (const toml::array* hide = (*sky)["hide_hip"].as_array()) {
+                for (const toml::node& n : *hide) {
+                    const std::optional<int64_t> hip = n.value<int64_t>();
+                    if (!hip || *hip <= 0) {
+                        fail("sky", "hide_hip must list Hipparcos numbers");
+                    }
+                    hidden.push_back(static_cast<int>(*hip));
+                }
+            }
+            out.sky.stars = catalog_sky(catalog, out.sky.viewer_pc, hidden);
         }
         if (const toml::table* c = (*sky)["cluster"].as_table()) {
             const std::string ctx = "sky.cluster";
@@ -1377,6 +1388,11 @@ void Loader::parse(const toml::table& root, Scene& out)
             out.view.start_tdb = parse_time(*view, "start", ctx);
         }
         out.view.warp = get_double_or(*view, "warp", out.view.warp);
+        const std::string surfaces = get_string_or(*view, "star_surfaces", "equal");
+        if (surfaces != "equal" && surfaces != "relative") {
+            fail(ctx, "star_surfaces must be \"equal\" or \"relative\"");
+        }
+        out.view.relative_star_surfaces = surfaces == "relative";
         const std::string up = get_string_or(*view, "up", "");
         const std::string kOrbitNormal = "orbit_normal:";
         if (up == "ecliptic") {
@@ -1395,6 +1411,30 @@ void Loader::parse(const toml::table& root, Scene& out)
                 fail(ctx, "up must be \"ecliptic\" or a body name");
             }
             out.view.up_icrf = out.bodies[static_cast<size_t>(b)].pole;
+        }
+    }
+
+    // [light_curve]: the stars' light as seen from `observer` (see LightCurve).
+    if (const toml::table* lc = root["light_curve"].as_table()) {
+        const std::string ctx = "light_curve";
+        LightCurve& curve = out.light_curve;
+        curve.observer = body_ref(out, *lc, "observer", ctx, false);
+        curve.band = get_string_or(*lc, "band", curve.band);
+        curve.wavelength_nm = get_double_or(*lc, "wavelength_nm", curve.wavelength_nm);
+        curve.limb_darkening = get_double_or(*lc, "limb_darkening", curve.limb_darkening);
+        curve.span_days = get_double(*lc, "span_days", ctx);
+        if (curve.wavelength_nm <= 0.0 || curve.span_days <= 0.0 || curve.limb_darkening < 0.0 ||
+            curve.limb_darkening > 1.0) {
+            fail(ctx, "needs wavelength_nm > 0, span_days > 0 and 0 <= limb_darkening <= 1");
+        }
+        for (size_t i = 0; i < out.bodies.size(); ++i) {
+            const Body& b = out.bodies[i];
+            if (b.kind == BodyKind::Star && static_cast<int>(i) != curve.observer) {
+                curve.stars.push_back(static_cast<int>(i));
+            }
+        }
+        if (curve.stars.empty() || curve.stars.size() > 9) {
+            fail(ctx, "needs 1 to 9 stars besides the observer");
         }
     }
     out.set_active_frame(out.view.frame);

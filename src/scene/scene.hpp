@@ -488,6 +488,23 @@ struct SceneEvent {
     } ghost;
 };
 
+// The scene's stars as a distant observer sees them, summed into one point of
+// light (scene/light_curve.hpp computes it; the hosts plot it). Each star is a
+// disk of its radius, radiating as a black body at its effective temperature
+// at one wavelength, with linear limb darkening; nearer stars hide those
+// behind them.
+struct LightCurve {
+    int observer = -1;          // the body it is seen from (the Sun: from Earth); -1: no light curve
+    std::vector<int> stars;     // every Star body but the observer
+    std::string band = "V";     // shown with the plot
+    double wavelength_nm = 550.0;
+    double limb_darkening = 0.6; // u in I(mu) = 1 - u (1 - mu)
+    double span_days = 1.0;      // shown at once
+    double depth_mag = 1.0;      // the plot's range, from the deepest eclipse (set on load)
+
+    bool enabled() const { return observer >= 0 && !stars.empty(); }
+};
+
 // Osculating two-body orbit.
 struct OrbitElements {
     double eccentricity = 0.0;
@@ -518,6 +535,12 @@ struct SceneView {
     double start_tdb = 0.0;
     double warp = 3600.0;
     glm::dvec3 up_icrf{0.0}; // zero = the root body's pole
+    // Star surfaces: all equally bright (only their color tells their
+    // temperature), or as bright relative to each other as they are at 550 nm
+    // (black bodies), the hottest at the usual brightness. Relative surfaces
+    // let an eclipse show which star is in front (a cool star before a hot
+    // one); a lone cool star would look almost black with them.
+    bool relative_star_surfaces = false;
 };
 
 class Scene {
@@ -530,6 +553,7 @@ public:
     SceneView view;
     SceneSky sky;
     std::vector<SceneBelt> belts;
+    LightCurve light_curve;
 
     // Heliocentric motion of the scene origin, used for the sun position when
     // the scene has no Star body.

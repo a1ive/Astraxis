@@ -6,10 +6,11 @@
 
 - 来源：HYG 合并了 Hipparcos、Yale Bright Star Catalogue 和 Gliese 近星表，距离来自 Hipparcos 视差。
 - 许可证：CC BY-SA 4.0（<https://creativecommons.org/licenses/by-sa/4.0/>），署名 astronexus / HYG database。`hyg.csv` 是它的衍生数据，同样按 CC BY-SA 4.0 分发。
-- 选星：观察者在离太阳 15 pc 以内的任何位置时，可能亮于 V = 6.5 的星都保留（距离 d 的星离这样的观察者至少 d − 15 pc）。没有可用视差的星（HYG 中 dist ≥ 100000）按地球上看到的星等保留，当作无穷远。共 13821 颗。从地球上看亮于 6.5 等的约 8900 颗，与 BSC5 相当；其余是近处的暗星，例如 HIP 112325（地球上看 V = 9.4），它离 TRAPPIST-1 只有 1.3 pc，在那里是 4.5 等。
+- 选星：观察者在离太阳 30 pc 以内的任何位置时，可能亮于 V = 6.5 的星都保留（距离 d 的星离这样的观察者至少 d − 30 pc）。没有可用视差的星（HYG 中 dist ≥ 100000）按地球上看到的星等保留，当作无穷远。共 21430 颗（2026-10-20 为 Algol 从 15 pc 放宽到 30 pc；15 pc 时 13821 颗）。离太阳 30 pc 处，Hipparcos 以外更暗的星要非常近才能亮到 6.5 等，漏掉的很少。从地球上看亮于 6.5 等的约 8900 颗，与 BSC5 相当；其余是近处的暗星，例如 HIP 112325（地球上看 V = 9.4），它离 TRAPPIST-1 只有 1.3 pc，在那里是 4.5 等。
 - 去掉了太阳：需要太阳的场景都把它作为天体来画。
 - 坐标 J2000，历元 2000.0，未做自行改正。星等是 Hipparcos 的 V 星等，颜色是 B−V。
-- 列：`hip,hr,ra_deg,dec_deg,dist_pc,vmag,bv,name`。`dist_pc` 或 `bv` 为空表示未知；`name` 依次取专名、拜耳/弗兰斯蒂德名、Gliese 编号。文件头的 `# max_viewer_pc = 15` 由程序读取：场景的观察者离太阳更远时拒绝加载。
+- 列：`hip,hr,ra_deg,dec_deg,dist_pc,vmag,bv,name`。`dist_pc` 或 `bv` 为空表示未知；`name` 依次取专名、拜耳/弗兰斯蒂德名、Gliese 编号。文件头的 `# max_viewer_pc = 30` 由程序读取：场景的观察者离太阳更远时拒绝加载。
+- 星表里的距离是 Hipparcos 视差，可能和场景采用的距离不同：Algol 在星表里是 27.6 pc（36.27 mas），场景用轨道视差 28.8 pc，星表里的 Algol 离观察者 1.25 pc，超出 `kOwnSystemPc`，会成为一颗 −4.6 等的星。场景用 `[sky] hide_hip = [14576]` 把它去掉。
 - 程序用法（`scene/star_catalog.cpp` 中的 `catalog_sky`）：把每颗星放到它的三维位置，从观察者处重新计算方向和星等，只画亮于 6.5 等的星，并去掉离观察者 0.5 pc 以内的星（属于场景自己的系统，例如 α Cen A、B 和比邻星）。
 
 ## 球状星团成员星

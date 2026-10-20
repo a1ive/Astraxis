@@ -3,6 +3,7 @@
 #include <glm/vec3.hpp>
 
 #include <filesystem>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -22,6 +23,7 @@ struct CatalogStar {
     double bv = 0.0;
     bool has_bv = false;
     double distance_pc = 0.0; // from the observer vmag refers to; 0: unknown (infinitely far)
+    int hip = 0;              // Hipparcos number (catalog stars; 0: none)
 };
 
 // Stars as seen from the Sun, with distances.
@@ -38,9 +40,12 @@ bool load_star_catalog(const std::filesystem::path& path, StarCatalog& out, std:
 
 // The catalog's sky from viewer_pc (ICRF, pc from the Sun): directions and
 // apparent V of the stars brighter than kNakedEyeMag there, without those
-// within kOwnSystemPc of the viewer. Stars of unknown distance keep their
-// direction and magnitude.
-std::vector<CatalogStar> catalog_sky(const StarCatalog& catalog, const glm::dvec3& viewer_pc);
+// within kOwnSystemPc of the viewer and those in `hidden_hip` (the viewer's
+// own system where the catalog puts it farther than kOwnSystemPc from where
+// the scene does, e.g. at a less precise parallax). Stars of unknown distance
+// keep their direction and magnitude.
+std::vector<CatalogStar> catalog_sky(const StarCatalog& catalog, const glm::dvec3& viewer_pc,
+                                     std::span<const int> hidden_hip = {});
 
 // A sky as seen from one place, written by tools/sky/make_galaxy_sky.py:
 // directions and apparent V (header "ra_deg,dec_deg,vmag,bv"), and from the

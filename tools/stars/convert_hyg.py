@@ -9,8 +9,8 @@ Usage:
     python convert_hyg.py <hyg_v44.csv.gz> <output.csv>
 
 The output keeps every star that could be brighter than V = FAINT_MAG for a
-viewer anywhere within MAX_VIEWER_PC of the Sun (the scenes around alpha Cen
-and TRAPPIST-1 see the sky from there): from such a viewer a star at distance d
+viewer anywhere within MAX_VIEWER_PC of the Sun (the scenes around alpha Cen,
+TRAPPIST-1 and Algol see the sky from there): from such a viewer a star at distance d
 is at least d - MAX_VIEWER_PC away. Stars without a usable parallax (HYG
 dist >= 100000) are kept by their magnitude from Earth and taken as infinitely
 far. The Sun itself is left out (it is a body in the scenes that need it).
@@ -26,7 +26,7 @@ import math
 import sys
 
 FAINT_MAG = 6.5
-MAX_VIEWER_PC = 15.0
+MAX_VIEWER_PC = 30.0
 NO_DISTANCE_PC = 100000.0
 
 

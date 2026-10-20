@@ -1,0 +1,235 @@
+# Algol (beta Persei), the "demon star": every 2.87 days it fades from V = 2.1
+# to 3.4 for a few hours, as the large, cool subgiant Algol B passes in front
+# of the hot main-sequence star Algol A. B fills its Roche lobe and passes
+# matter to A. A third star, Algol C, circles the pair every 680 days, in an
+# orbit at right angles to theirs.
+#
+# Nested two-body (Keplerian) orbits around barycenters. The plot in the corner
+# is the light of the three stars as seen from Earth (scene/light_curve.hpp):
+# each a limb-darkened black-body disk at 550 nm.
+#
+# [BA12] Baron et al. 2012, ApJ 752, 20 (arXiv:1205.0754), CHARA/MIRC imaging:
+#        Table 6, the inner orbit (B relative to A): P = 2.867328 d, a = 2.15 mas,
+#        i = 98.70 deg (retrograde on the sky), node 43.43 deg, e = 0. Its T0
+#        (JD 2441771.353, "time of minimum light") is in fact the passage of the
+#        ascending node: B stands in front of A 3/4 of a period later
+#        (2441773.5035, on the TIDAK ephemeris [JE21] to 0.016 d), and B is
+#        closest to A on the sky at those phases in their Table 3.
+#        Table 5, the outer orbit (C relative to AB): T0 = JD 2446927.22
+#        (periastron), P = 680.168 d, a = 93.43 mas, i = 83.66 deg, node
+#        132.66 deg, e = 0.227, omega = 310.02 deg.
+#        Table 4: masses 3.17, 0.70, 1.76 M_sun (with the parallax 34.7 mas,
+#        Zavala et al. 2010 / Peterson et al. 2011, also used here: 28.8184 pc).
+#        Their P and a agree with Kepler's third law for these masses (to 0.1%).
+#        Table 3: positions of B and C relative to A, 2006-2010 (tests).
+# [KO15] Kolbas et al. 2015, MNRAS 451, 4150 (arXiv:1506.01254), Table 5: radii
+#        2.87, 3.43, 1.7 R_sun (C's from [BA12]) and effective temperatures
+#        12550, 4900, 7550 K of A, B and C.
+# [TESS] Primary minima in the TESS light curves (sectors 18, 58, 85; 2019-2024),
+#        measured by tools/algol/algol_ephemeris.py, which removes the light-time
+#        effect of the outer orbit: geometric minimum BJD_TDB 2459743.07502,
+#        P = 2.8673453 d, rms 0.3 min over 19 minima (assets/ephem/SOURCES.md).
+#        The outer orbit of [BA12] puts the light-time effect back (+-7 min);
+#        with the opposite depth sign the fit would be 5.5 min rms.
+# [JE21] Jetsu 2021, ApJ 920, 137 (arXiv:2005.13360), Sect. 2: Goodricke
+#        determined the period in 1783, which has been constant since; O-C
+#        values within -0.24 .. +0.15 d over 1782-2018.
+# [GCVS] General Catalogue of Variable Stars (Samus et al. 2017, VizieR B/gcvs):
+#        bet Per, EA/SD, V = 2.12 .. 3.39, eclipse duration 14% of the period.
+# [SIMB] SIMBAD: ICRS position at J2000, 03 08 10.1324535 +40 57 20.328013
+#        = 47.0422185, 40.9556467 deg (Hipparcos, van Leeuwen 2007).
+#
+# [CAP]  Event captions: from the sources above.
+# The stars are spheres: B is drawn round, though it fills its Roche lobe
+# (CHARA sees its disk elongated by 1.04-1.22, [BA12]); its tidal brightness
+# variation and A's light reflected by B are left out (limitations.md).
+# GM = mass * GM_sun (1.32712440041279419e11 km^3/s^2, JPL DE440).
+# Luminosity = R^2 (T / 5772 K)^4.
+# Checks (tests/stellar_system_tests.cpp): the [BA12] positions of B and C, the
+# [TESS] minima with the light-time effect, the [GCVS] depth and duration.
+
+name = "Algol"
+
+[sky]
+viewer_ra_dec_distance_pc = [47.0422185, 40.9556467, 28.8184]   # [SIMB], [BA12] parallax
+# The catalog's Algol, at the Hipparcos parallax 1.25 pc away: the scene draws it.
+hide_hip = [14576]
+
+[view]
+focus = "Algol AB"
+distance_km = 4.5e7
+start = "now"
+warp = 3600.0                  # 1 hour per second: one orbit in 69 s
+up = "orbit_normal:Algol B"
+# B's surface 30 times fainter than A's at 550 nm: the eclipse shows B in front.
+star_surfaces = "relative"
+
+# The plot in the corner: the system's light as seen from Earth.
+[light_curve]
+observer = "Sun"
+band = "V"
+wavelength_nm = 550.0
+limb_darkening = 0.6           # as the star disks are drawn (shaders/sun.frag.hlsl)
+span_days = 6.0                # two orbits
+
+[[bodies]]
+name = "Algol"
+kind = "barycenter"
+
+# The eclipsing pair and C around the barycenter: C relative to AB [BA12 Table 5].
+[[bodies]]
+name = "Algol AB"
+parent = "Algol"
+kind = "barycenter"
+orbit_color = "#7088a8"
+[bodies.orbit]
+scale = -0.312611012           # -M_C / M_total
+type = "visual_orbit"
+gm_km3_s2 = 7.471710374e11     # 5.63 M_sun
+period_days = 680.168
+e = 0.227
+i_deg = 83.66
+node_deg = 132.66
+arg_peri_deg = 310.02
+t_peri_jd_tdb = 2446927.22
+sky_ra_dec_deg = [47.0422185, 40.9556467]
+
+[[bodies]]
+name = "Algol C"
+parent = "Algol"
+kind = "star"
+radii_km = [1182690.0]         # 1.7 R_sun [KO15]
+temperature_k = 7550.0
+luminosity_solar = 8.47
+orbit_color = "#c8d8ff"
+[bodies.orbit]
+scale = 0.687388988            # M_AB / M_total
+type = "visual_orbit"
+gm_km3_s2 = 7.471710374e11
+period_days = 680.168
+e = 0.227
+i_deg = 83.66
+node_deg = 132.66
+arg_peri_deg = 310.02
+t_peri_jd_tdb = 2446927.22
+sky_ra_dec_deg = [47.0422185, 40.9556467]
+
+# A and B: B relative to A, in front of it at primary minimum [BA12 Table 6], [TESS].
+[[bodies]]
+name = "Algol A"
+parent = "Algol AB"
+kind = "star"
+radii_km = [1996659.0]         # 2.87 R_sun [KO15]
+temperature_k = 12550.0
+luminosity_solar = 184.1
+orbit_color = "#b0c8ff"
+[bodies.orbit]
+scale = -0.180878553           # -M_B / M_AB
+type = "transit_orbit"
+gm_km3_s2 = 5.135971430e11     # 3.87 M_sun
+period_days = 2.8673453
+t_transit_bjd_tdb = 2459743.07502
+e = 0.0
+arg_peri_deg = 90.0
+i_deg = 98.70
+node_deg = 43.43
+transit_u_deg = 90.0
+sky_ra_dec_deg = [47.0422185, 40.9556467]
+
+[[bodies]]
+name = "Algol B"
+parent = "Algol AB"
+kind = "star"
+radii_km = [2386251.0]         # 3.43 R_sun [KO15]
+temperature_k = 4900.0
+luminosity_solar = 6.11
+orbit_color = "#ffb880"
+[bodies.orbit]
+scale = 0.819121447            # M_A / M_AB
+type = "transit_orbit"
+gm_km3_s2 = 5.135971430e11
+period_days = 2.8673453
+t_transit_bjd_tdb = 2459743.07502
+e = 0.0
+arg_peri_deg = 90.0
+i_deg = 98.70
+node_deg = 43.43
+transit_u_deg = 90.0
+sky_ra_dec_deg = [47.0422185, 40.9556467]
+
+[[bodies]]
+name = "Sun"
+parent = "Algol"
+kind = "star"
+radii_km = [695700.0]
+body_gm_km3_s2 = 1.32712440041279419e11 # JPL DE440
+temperature_k = 5772.0
+luminosity_solar = 1.0
+trail = "none"
+[bodies.orbit]                 # opposite direction of the system as seen from the Sun [SIMB]
+type = "fixed"
+ra_dec_distance_pc = [227.0422185, -40.9556467, 28.8184]
+
+[[frames]]
+name = "Algol AB-centered"
+type = "inertial"
+origin = "Algol AB"
+
+[[events]]
+name = "Primary eclipse, as seen from Earth"
+time_tdb = "2026-10-20 18:50"  # 4 hours before minimum [TESS]
+focus = "Algol AB"
+frame = "Algol AB-centered"
+from_body = "Sun"
+distance_km = 4.0e7
+warp = 1200.0                  # 20 minutes per second: the eclipse in 30 s
+# [GCVS], [JE21], [KO15]
+caption = """\
+    Every 2.87 days, Algol fades from magnitude 2.1 to 3.4 and recovers within \
+    about ten hours. John Goodricke measured the period in 1783 and suggested \
+    that a dark body passes in front of the star. The body is Algol B, a cool \
+    subgiant larger than Algol A, which covers most of A's disk."""
+
+[[events]]
+name = "Secondary eclipse: Algol A in front"
+time_tdb = "2026-10-22 05:15"  # 4 hours before secondary minimum
+focus = "Algol AB"
+frame = "Algol AB-centered"
+from_body = "Sun"
+distance_km = 4.0e7
+warp = 1200.0
+# [KO15]
+caption = """\
+    Half an orbit later the hot star passes in front. Algol B gives only a few \
+    percent of the visible light, so this eclipse is barely noticeable to the \
+    eye. Algol A, at 12,500 K, gives out about thirty times as much light as \
+    B, which is larger but only 4,900 K."""
+
+[[events]]
+name = "The pair from above: B fills its Roche lobe"
+time = "2026-10-24"
+focus = "Algol AB"
+frame = "Algol AB-centered"
+from_orbit_normal = "Algol B"
+distance_km = 4.5e7
+warp = 3600.0
+# [BA12], [KO15]
+caption = """\
+    The two stars are 0.06 au apart. Algol B has 0.7 solar masses and has \
+    swollen until it fills the space its gravity holds, so gas flows from it to \
+    A. It is the more evolved star, though the lighter one. It was once the \
+    heavier star and has since given much of its mass to A."""
+
+[[events]]
+name = "Algol C: 680 days, at right angles"
+time = "2026-11-01"
+focus = "Algol"
+distance_km = 1.6e9
+warp = 604800.0                # 1 week per second: the outer orbit in 97 s
+# [BA12]
+caption = """\
+    Algol C, an A-type star of 1.8 solar masses, orbits the eclipsing pair \
+    every 680 days at about 2.7 au. Interferometry at the CHARA Array resolved \
+    all three stars and found the two orbits almost perpendicular: \
+    90.2 +- 0.3 degrees. The pair orbits clockwise on the sky, while C goes \
+    counterclockwise."""

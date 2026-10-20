@@ -47,6 +47,7 @@ private:
     void build_info_panel(); // details of the focused body
     void build_labels();
     void draw_captions();  // the scene title card and the last event's caption
+    void draw_light_curve_plot();
     void toggle_caption(); // dismisses the event caption, or shows it again
     void set_msaa(int samples);
     void set_render_scale(float scale);

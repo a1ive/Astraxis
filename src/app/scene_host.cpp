@@ -1,6 +1,7 @@
 #include "app/scene_host.hpp"
 
 #include "app/label_overlay.hpp"
+#include "app/light_curve_overlay.hpp"
 #include "app/scene_list.hpp"
 #include "platform/paths.hpp"
 
@@ -272,6 +273,14 @@ void SceneHost::draw_scene(Output& out, const Frame& frame)
         if (m_show_labels) {
             draw_labels(out.labels, m_sim.scene(), out.view, m_sim.camera().target(),
                         static_cast<float>(m_sim.fade()), m_fonts.book);
+            // As in the window: in the bottom right corner (above the taskbar), beside the captions.
+            const float margin = 24.0f * scale;
+            const float caption_width = std::min(640.0f * scale, io.DisplaySize.x - 2.0f * margin);
+            const ScreenRect rect = light_curve_plot_rect(
+                io.DisplaySize, io.DisplaySize.y * (1.0f - out.bottom_inset) - margin, margin, caption_width);
+            draw_light_curve(m_fonts, m_sim.scene(), m_sim.light_curve(), m_sim.clock().t_tdb,
+                             m_sim.clock().paused ? 0.0 : m_sim.clock().warp, rect,
+                             static_cast<float>(m_sim.fade()));
         }
         if (title) {
             draw_scene_title(m_fonts, m_sim.scene().name, m_sim.scene_age());

@@ -121,6 +121,10 @@ bool Simulation::load_scene(const std::filesystem::path& file, std::string* erro
     }
     m_clock.warp = m_scene.view.warp;
     m_scene.update(m_clock.t_tdb);
+    // The plot's range: the deepest eclipse within a few spans of the start.
+    measure_light_curve_depth(m_scene, m_clock.t_tdb, 4.0 * m_scene.light_curve.span_days);
+    m_light_curve.reset();
+    m_light_curve.update(m_scene, m_clock.t_tdb);
 
     m_camera = OrbitCamera{};
     m_camera.set_up_axis(m_scene.up_axis());
@@ -139,6 +143,7 @@ void Simulation::update(double real_dt)
 {
     m_clock.advance(real_dt);
     m_scene.update(m_clock.t_tdb);
+    m_light_curve.update(m_scene, m_clock.t_tdb);
     m_scene_age += real_dt;
     m_event_age += real_dt;
 
