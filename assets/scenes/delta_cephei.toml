@@ -1,0 +1,194 @@
+# Delta Cephei, the prototype Cepheid: a yellow supergiant that swells and
+# shrinks every 5.37 days, changing its temperature and brightness (V = 3.5 ..
+# 4.4) with it. Cepheids with longer periods are more luminous, which made
+# them the first standard candles for distances across galaxies. A companion
+# found in 2015 circles it every six years on a very eccentric orbit.
+#
+# The star's radius, effective temperature and luminosity follow the SPIPS
+# model fitted to its interferometric diameters, radial velocities and
+# photometry ([ME15]), timed by the ephemeris of maxima of [EN14]. The plot in
+# the corner is its light as seen from Earth (scene/light_curve.hpp): a black
+# body at 550 nm of the current radius and temperature. The companion's orbit
+# is a two-body orbit from radial velocities ([AN15]).
+#
+# [ME15] Merand et al. 2015, A&A 584, A80 (arXiv:1510.01940): Table 2 (delta Cep):
+#        distance 274 pc (fixed, the HST parallax of Benedict et al. 2002),
+#        p-factor 1.29, adopted mass 4.8 M_sun, average radius 43.0 R_sun; the
+#        model tabulated by phase in VizieR J/A+A/584/A80 (delcep2.dat):
+#        Rosseland angular diameter, T_eff and luminosity at 999 phases, phase
+#        0 = maximum of the bolometric light. assets/stars/delta_cep_spips.csv
+#        holds every 5th phase (tools/cepheid/spips_table.py), radius = diameter
+#        / 2 at 274 pc. V maximum is at model phase 0.995 (the model's V
+#        magnitudes); V amplitude 0.874 mag.
+# [EN14] Engle et al. 2014, ApJ 794, 80, as quoted in Engle's thesis
+#        (arXiv:1504.02713, Table for delta Cep): maximum light at HJD
+#        2455479.905 + 5.366208(14) E; the period shrinks by 0.1006 s per year
+#        (quadratic fit to the O-C diagram of maxima since 1880). [ME15]'s own
+#        ephemeris puts V maximum 0.024 d from this one in 2010.
+# [AN15] Anderson et al. 2015, ApJ 804, 144 (arXiv:1503.04116), Table 3:
+#        spectroscopic orbit of the Cepheid, P = 2201.87 d, K = 1.509 km/s,
+#        e = 0.674 (the abstract's 0.647 transposes it: the table's a1 sin i,
+#        0.2263 au, follows from 0.674), omega = 246.77 deg, periastron
+#        MJD 55649.68. Sect. 4: Hipparcos astrometry only bounds the
+#        inclination (10 .. 170 deg), so the companion has 0.2 .. 1.2 M_sun.
+# [PM13] Pecaut & Mamajek 2013, ApJS 208, 9, Table 5 (online version
+#        2022.04.16): M4V, 0.23 M_sun, T_eff 3210 K, 0.274 R_sun, log L = -2.14.
+# [SIMB] SIMBAD: ICRS position at J2000 (Gaia DR3), 22 29 10.2626640
+#        +58 24 54.6976137 = 337.2927611, 58.4151938 deg.
+# [GCVS] General Catalogue of Variable Stars: del Cep, V = 3.48 .. 4.37.
+# [GO86] Goodricke 1786, Phil. Trans. R. Soc. 76, 48 (as cited by [AN15] Sect. 1).
+# [LP12] Leavitt & Pickering 1912, Harvard College Observatory Circular 173:
+#        the period-luminosity relation of the Cepheids in the Small Magellanic Cloud.
+#
+# [CAP]  Event captions: from the sources above.
+# Assumed (not measured): the companion's orbit is inclined 60 deg, its node 0
+# (on the sky, north); for that inclination its mass is 0.231 M_sun from [AN15]'s
+# mass function with the Cepheid's 4.8 M_sun, so it is taken as an M4 dwarf [PM13].
+# The Cepheid's spin, starspots, convection and its circumstellar envelope and
+# nebula are not shown; the visual companion HD 213307, 40" away, is left out.
+# GM = mass * GM_sun (1.32712440041279419e11 km^3/s^2, JPL DE440).
+# Checks (tests/stellar_system_tests.cpp): the radii, temperatures and mean
+# radius of [ME15], maxima on [EN14]'s ephemeris and [ME15]'s, the V amplitude
+# against [GCVS], the Cepheid's radial velocity against [AN15].
+# The sky is a model of the Milky Way as seen from here (tools/sky/make_galaxy_sky.py,
+# assets/sky/SOURCES.md): its stars and dust clouds are statistical, not real ones.
+
+name = "Delta Cephei"
+
+[sky]
+viewer_ra_dec_distance_pc = [337.2927611, 58.4151938, 274.0]   # [SIMB], [ME15]
+milky_way = "sky/delta_cephei.jpg"
+stars = "sky/delta_cephei_stars.csv"
+
+[view]
+focus = "Delta Cephei A"
+distance_km = 2.4e8
+start = "now"
+warp = 7200.0                  # 2 hours per second: a cycle in 64 s
+up = "orbit_normal:Delta Cephei B"
+# The surface dims as the star cools (to 45% at 550 nm), and the companion
+# stays faint beside it.
+star_surfaces = "relative"
+
+# The plot in the corner: its light as seen from Earth.
+[light_curve]
+observer = "Sun"
+band = "V"
+wavelength_nm = 550.0
+limb_darkening = 0.6           # as the star disks are drawn (shaders/sun.frag.hlsl)
+span_days = 12.0               # two cycles and a bit
+
+[[bodies]]
+name = "Delta Cephei"
+kind = "barycenter"
+
+# The Cepheid and its companion around their barycenter: B relative to A
+# [AN15], omega + 180 deg for the companion.
+[[bodies]]
+name = "Delta Cephei A"
+parent = "Delta Cephei"
+kind = "star"
+radii_km = [29874582.0]        # mean of the table: 42.94 R_sun ([ME15]: 43.0)
+temperature_k = 5800.0         # replaced by the pulsation
+luminosity_solar = 1900.0
+orbit_color = "#ffe0a0"
+[bodies.pulsation]
+table = "stars/delta_cep_spips.csv"   # [ME15]
+epoch_jd_tdb = 2455479.905     # a V maximum [EN14]
+epoch_phase = 0.995            # V maximum in the table [ME15]
+period_days = 5.366208         # at that epoch [EN14]
+period_change_s_per_year = -0.1006
+[bodies.orbit]
+scale = -0.045915325           # -M_B / M_total
+type = "visual_orbit"
+gm_km3_s2 = 6.676762858e11     # 4.8 + 0.231 M_sun
+period_days = 2201.87
+e = 0.674
+i_deg = 60.0                   # assumed
+node_deg = 0.0                 # assumed
+arg_peri_deg = 66.77           # the companion's: 246.77 + 180
+t_peri_jd_tdb = 2455650.18     # MJD 55649.68
+sky_ra_dec_deg = [337.2927611, 58.4151938]
+
+[[bodies]]
+name = "Delta Cephei B"
+parent = "Delta Cephei"
+kind = "star"
+radii_km = [190622.0]          # 0.274 R_sun [PM13]
+temperature_k = 3210.0
+luminosity_solar = 0.00724
+orbit_color = "#ffa070"
+[bodies.orbit]
+scale = 0.954084675            # M_A / M_total
+type = "visual_orbit"
+gm_km3_s2 = 6.676762858e11
+period_days = 2201.87
+e = 0.674
+i_deg = 60.0
+node_deg = 0.0
+arg_peri_deg = 66.77
+t_peri_jd_tdb = 2455650.18
+sky_ra_dec_deg = [337.2927611, 58.4151938]
+
+[[bodies]]
+name = "Sun"
+parent = "Delta Cephei"
+kind = "star"
+radii_km = [695700.0]
+body_gm_km3_s2 = 1.32712440041279419e11 # JPL DE440
+temperature_k = 5772.0
+luminosity_solar = 1.0
+trail = "none"
+[bodies.orbit]                 # opposite direction of the system as seen from the Sun [SIMB]
+type = "fixed"
+ra_dec_distance_pc = [157.2927611, -58.4151938, 274.0]
+
+[[frames]]
+name = "Delta Cephei A-centered"
+type = "inertial"
+origin = "Delta Cephei A"
+
+[[events]]
+name = "A star that breathes: 5.37 days"
+time_tdb = "2026-10-20 12:00"  # 10 hours before a maximum [EN14]
+focus = "Delta Cephei A"
+frame = "Delta Cephei A-centered"
+distance_km = 2.4e8
+warp = 7200.0
+# [ME15], [GCVS]
+caption = """\
+    Delta Cephei swells from 40 to 45 times the Sun's radius and shrinks back \
+    every 5.37 days, its surface cooling from 6,350 to 5,300 K as it grows. \
+    It is brightest shortly after it is smallest, when its surface is \
+    hottest, and it fades by almost a magnitude as it cools."""
+
+[[events]]
+name = "Seen from Earth: the prototype Cepheid"
+time_tdb = "2026-10-25 21:00"  # 10 hours before a maximum
+focus = "Delta Cephei A"
+frame = "Delta Cephei A-centered"
+from_body = "Sun"
+distance_km = 2.4e8
+warp = 7200.0
+# [GO86], [LP12], [EN14]
+caption = """\
+    John Goodricke reported its variations in 1786. Stars like it are now called \
+    Cepheids. In 1912 Henrietta Leavitt found that Cepheids with longer \
+    periods are more luminous. That made them yardsticks for the distances to \
+    other galaxies. Delta Cephei's own period is shrinking by a tenth of a \
+    second each year as the star evolves."""
+
+[[events]]
+name = "The hidden companion: six years, eccentric (2029 periastron)"
+time = "2028-11-01"
+focus = "Delta Cephei"
+from_orbit_normal = "Delta Cephei B"
+distance_km = 3.2e9
+warp = 2629800.0               # 1 month per second: an orbit in 72 s
+# [AN15]
+caption = """\
+    In 2015 precise radial velocities revealed a companion: the Cepheid sways \
+    by 1.5 km/s every six years. The orbit is very eccentric, with the stars \
+    1.9 au apart at closest and 9.5 au at farthest. The companion's mass is \
+    known only to be 0.2 to 1.2 solar masses. It is drawn here as a red \
+    dwarf, on an orbit whose tilt is assumed."""

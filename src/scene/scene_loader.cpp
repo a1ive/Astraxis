@@ -10,6 +10,7 @@
 #include "ephem/nbody.hpp"
 #include "ephem/post_keplerian.hpp"
 #include "ephem/visual_orbit.hpp"
+#include "scene/light_curve.hpp"
 
 #include <glm/vector_relational.hpp>
 #include <toml++/toml.hpp>
@@ -355,6 +356,7 @@ public:
 private:
     std::unique_ptr<MotionSource> parse_motion(const toml::table& t, const std::string& ctx, const Body* parent);
     void parse_nbody(const toml::table& t, Scene& out);
+    void load_pulsation_table(const std::string& file, const std::string& ctx, Pulsation& out);
     void parse_event_ghost(const toml::table* t, const std::string& ctx, int event, SceneEvent& e, Scene& out);
     std::shared_ptr<const EphemerisTable> load_table(const std::string& file, const std::string& ctx);
     void load_ring_profile(const std::string& file, const std::string& ctx, RingSystem& rings) const;
@@ -859,6 +861,25 @@ void Loader::parse(const toml::table& root, Scene& out)
             }
             m_pulsar_axes.emplace_back(static_cast<int>(out.bodies.size()),
                                        get_string(*p, "spin_axis_orbit_normal", ctx + " pulsar"));
+        }
+
+        // [bodies.pulsation]: a Cepheid's cycle (see Pulsation).
+        if (const toml::table* p = (*t)["pulsation"].as_table()) {
+            const std::string pctx = ctx + " pulsation";
+            if (body.kind != BodyKind::Star) {
+                fail(ctx, "only stars can pulsate");
+            }
+            auto pulsation = std::make_shared<Pulsation>();
+            load_pulsation_table(get_string(*p, "table", pctx), pctx, *pulsation);
+            pulsation->epoch_tdb = (get_double(*p, "epoch_jd_tdb", pctx) - kJ2000Jd) * kSecondsPerDay;
+            pulsation->epoch_phase = get_double(*p, "epoch_phase", pctx);
+            pulsation->period_s = get_double(*p, "period_days", pctx) * kSecondsPerDay;
+            pulsation->period_change = get_double_or(*p, "period_change_s_per_year", 0.0) /
+                                       (kDaysPerJulianYear * kSecondsPerDay);
+            if (pulsation->period_s <= 0.0) {
+                fail(pctx, "period_days must be positive");
+            }
+            body.pulsation = std::move(pulsation);
         }
 
         const std::string style = get_string_or(*t, "style", "solid");
@@ -1436,6 +1457,7 @@ void Loader::parse(const toml::table& root, Scene& out)
         if (curve.stars.empty() || curve.stars.size() > 9) {
             fail(ctx, "needs 1 to 9 stars besides the observer");
         }
+        set_light_curve_reference(out);
     }
     out.set_active_frame(out.view.frame);
 }
@@ -1505,6 +1527,43 @@ void Loader::parse_event_ghost(const toml::table* t, const std::string& event_ct
     ghost.motion = std::make_unique<CoastMotion>(relative.eval(g.t_tdb), gm, g.t_tdb, g.start_tdb, g.end_tdb);
     g.ghost = static_cast<int>(out.bodies.size());
     out.bodies.push_back(std::move(ghost));
+}
+
+// A pulsation table (tools/cepheid/spips_table.py): '#' comments, a header
+// line, then "phase,radius_rsun,teff_k,luminosity_lsun" with ascending phases
+// in [0, 1).
+void Loader::load_pulsation_table(const std::string& file, const std::string& ctx, Pulsation& out)
+{
+    std::ifstream in(m_asset_root / file);
+    if (!in) {
+        fail(ctx, "cannot open " + file);
+    }
+    std::string line;
+    bool header_seen = false;
+    while (std::getline(in, line)) {
+        if (line.empty() || line[0] == '#') {
+            continue;
+        }
+        if (!header_seen) {
+            header_seen = true;
+            continue;
+        }
+        Pulsation::Sample sample;
+        if (std::sscanf(line.c_str(), "%lf,%lf,%lf,%lf", &sample.phase, &sample.radius_km, &sample.temperature_k,
+                        &sample.luminosity_solar) != 4) {
+            fail(ctx, file + ": bad line '" + line + "'");
+        }
+        sample.radius_km *= kSunRadiusKm;
+        if (sample.phase < 0.0 || sample.phase >= 1.0 ||
+            (!out.samples.empty() && sample.phase <= out.samples.back().phase) || sample.radius_km <= 0.0 ||
+            sample.temperature_k <= 0.0) {
+            fail(ctx, file + ": phases must ascend in [0, 1), radii and temperatures be positive");
+        }
+        out.samples.push_back(sample);
+    }
+    if (out.samples.size() < 2) {
+        fail(ctx, file + ": needs at least two phases");
+    }
 }
 
 void Loader::parse_nbody(const toml::table& t, Scene& out)

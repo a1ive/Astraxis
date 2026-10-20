@@ -28,9 +28,18 @@ double disks_flux(std::span<const StarDisk> disks, const glm::dvec3& toward_obse
 // The same with nothing hidden.
 double disks_full_flux(std::span<const StarDisk> disks, double wavelength_nm, double limb_darkening);
 
-// The scene's light curve at t_tdb, in magnitudes fainter than with nothing
-// hidden (>= 0). Uses icrf_state_at, so the scene need not be at that time.
+// The scene's light curve at t_tdb, in magnitudes fainter than
+// LightCurve::reference_flux (>= 0; without a reference, than the stars
+// unhidden at t_tdb). Uses icrf_state_at, so the scene need not be at that time.
 double light_curve_magnitude(const Scene& scene, double t_tdb);
+
+// A star's disk at t_tdb (ICRF position from the scene origin; a pulsating
+// star's radius and temperature then).
+StarDisk star_disk_at(const Scene& scene, int star, double t_tdb);
+
+// Sets LightCurve::reference_flux: each star at its brightest (over its
+// pulsation table, if it pulsates), nothing hidden. The loader calls it.
+void set_light_curve_reference(Scene& scene);
 
 // Sets scene.light_curve.depth_mag to the deepest dip found over `days` from
 // t_tdb (at least 0.1 mag), rounded up to a tenth of a magnitude.

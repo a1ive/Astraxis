@@ -204,6 +204,31 @@ struct SpinTable {
     Knot at(double t_tdb) const;
 };
 
+// A pulsating star (a Cepheid): its radius, effective temperature and
+// luminosity over the cycle, tabulated by phase, and an ephemeris that puts
+// table phase `epoch_phase` at epoch_tdb with the period then and its linear
+// change: the cycle count since the epoch is the integral of dt / P(t),
+// P(t) = period_s + period_change (t - epoch_tdb).
+struct Pulsation {
+    struct Sample {
+        double phase = 0.0; // 0..1, ascending
+        double radius_km = 1.0;
+        double temperature_k = 5772.0;
+        double luminosity_solar = 1.0;
+    };
+    std::vector<Sample> samples;
+    double epoch_tdb = 0.0;
+    double epoch_phase = 0.0;
+    double period_s = 1.0;
+    double period_change = 0.0; // dP/dt (seconds per second)
+
+    // Cycles since the epoch (not wrapped).
+    double cycles(double t_tdb) const;
+    // The star at t_tdb (linear between samples, wrapping around the cycle).
+    Sample at(double t_tdb) const;
+    double max_temperature_k() const;
+};
+
 struct Body {
     std::string name;
     int parent = -1; // index into Scene::bodies; must precede this body
@@ -228,6 +253,9 @@ struct Body {
     // Stars: effective temperature (color) and luminosity (apparent brightness).
     double temperature_k = 5772.0;
     double luminosity_solar = 1.0;
+    // A pulsating star: Scene::update sets the radii, temperature and
+    // luminosity from it (the radii given in the file are the mean).
+    std::shared_ptr<const Pulsation> pulsation;
 
     // IAU rotation model: spin pole in ICRF and prime meridian angle
     // W = pm_w0_deg + pm_rate_deg_per_day * d + pm_accel_deg_per_day2 * d^2
@@ -500,7 +528,10 @@ struct LightCurve {
     double wavelength_nm = 550.0;
     double limb_darkening = 0.6; // u in I(mu) = 1 - u (1 - mu)
     double span_days = 1.0;      // shown at once
-    double depth_mag = 1.0;      // the plot's range, from the deepest eclipse (set on load)
+    double depth_mag = 1.0;      // the plot's range, from the deepest dip (set on load)
+    // Magnitudes count from this light: every star as bright as it gets
+    // (a pulsating one at its brightest), nothing hidden (set on load).
+    double reference_flux = 0.0;
 
     bool enabled() const { return observer >= 0 && !stars.empty(); }
 };

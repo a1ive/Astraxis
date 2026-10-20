@@ -155,14 +155,46 @@ double light_curve_magnitude(const Scene& scene, double t_tdb)
     std::array<StarDisk, kMaxOccluders + 1> disks;
     const size_t count = std::min(lc.stars.size(), disks.size());
     for (size_t i = 0; i < count; ++i) {
-        const Body& star = scene.bodies[static_cast<size_t>(lc.stars[i])];
-        disks[i] = {scene.icrf_state_at(lc.stars[i], t_tdb).position, star.equatorial_radius_km, star.temperature_k};
+        disks[i] = star_disk_at(scene, lc.stars[i], t_tdb);
     }
     const std::span<const StarDisk> span(disks.data(), count);
     const glm::dvec3 toward = glm::normalize(scene.icrf_state_at(lc.observer, t_tdb).position - disks[0].position);
     const double flux = disks_flux(span, toward, lc.wavelength_nm, lc.limb_darkening);
-    const double full = disks_full_flux(span, lc.wavelength_nm, lc.limb_darkening);
-    return std::max(-2.5 * std::log10(std::max(flux / full, 1e-12)), 0.0);
+    const double reference =
+        lc.reference_flux > 0.0 ? lc.reference_flux : disks_full_flux(span, lc.wavelength_nm, lc.limb_darkening);
+    return std::max(-2.5 * std::log10(std::max(flux / reference, 1e-12)), 0.0);
+}
+
+StarDisk star_disk_at(const Scene& scene, int star, double t_tdb)
+{
+    const Body& body = scene.bodies[static_cast<size_t>(star)];
+    const glm::dvec3 position = scene.icrf_state_at(star, t_tdb).position;
+    if (body.pulsation) {
+        const Pulsation::Sample s = body.pulsation->at(t_tdb);
+        return {position, s.radius_km, s.temperature_k};
+    }
+    return {position, body.equatorial_radius_km, body.temperature_k};
+}
+
+void set_light_curve_reference(Scene& scene)
+{
+    LightCurve& lc = scene.light_curve;
+    lc.reference_flux = 0.0;
+    for (int star : lc.stars) {
+        const Body& body = scene.bodies[static_cast<size_t>(star)];
+        double brightest = 0.0;
+        if (body.pulsation) {
+            for (const Pulsation::Sample& s : body.pulsation->samples) {
+                const StarDisk disk{glm::dvec3(0.0), s.radius_km, s.temperature_k};
+                brightest = std::max(brightest, disks_full_flux(std::span(&disk, 1), lc.wavelength_nm,
+                                                                lc.limb_darkening));
+            }
+        } else {
+            const StarDisk disk{glm::dvec3(0.0), body.equatorial_radius_km, body.temperature_k};
+            brightest = disks_full_flux(std::span(&disk, 1), lc.wavelength_nm, lc.limb_darkening);
+        }
+        lc.reference_flux += brightest;
+    }
 }
 
 void measure_light_curve_depth(Scene& scene, double t_tdb, double days)

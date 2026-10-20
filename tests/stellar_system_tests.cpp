@@ -663,6 +663,134 @@ void test_algol_scene()
     check(std::abs(share - 0.915) < 0.04, "Algol A's share of the V light", share);
 }
 
+// Time of the light curve's maximum (least magnitude) within +-window of t_guess.
+double find_light_maximum(const Scene& scene, double t_guess, double window)
+{
+    double lo = t_guess - window;
+    double hi = t_guess + window;
+    // Coarse scan, then golden-section search around the best sample.
+    double best = lo;
+    double best_mag = 1e9;
+    for (double t = lo; t <= hi; t += window / 100.0) {
+        const double m = light_curve_magnitude(scene, t);
+        if (m < best_mag) {
+            best_mag = m;
+            best = t;
+        }
+    }
+    lo = best - window / 100.0;
+    hi = best + window / 100.0;
+    for (int k = 0; k < 60; ++k) {
+        const double a = hi - (hi - lo) * 0.618033988749895;
+        const double b = lo + (hi - lo) * 0.618033988749895;
+        if (light_curve_magnitude(scene, a) < light_curve_magnitude(scene, b)) {
+            hi = b;
+        } else {
+            lo = a;
+        }
+    }
+    return 0.5 * (lo + hi);
+}
+
+// Delta Cephei [Merand et al. 2015, Engle et al. 2014, Anderson et al. 2015]:
+// the pulsation follows the SPIPS model (radii, mean radius) on Engle's
+// ephemeris with its period change; the light curve peaks on Engle's maxima
+// and on SPIPS's own ephemeris, with the GCVS amplitude; the Cepheid's radial
+// velocity is the spectroscopic orbit's.
+void test_delta_cephei_scene()
+{
+    Scene scene = load_scene_or_die("delta_cephei.toml");
+    check_model_sky(scene, "Delta Cephei model sky");
+    const int a = scene.find("Delta Cephei A");
+    const int b = scene.find("Delta Cephei B");
+    check(a > 0 && b > 0 && scene.bodies[static_cast<size_t>(a)].pulsation != nullptr, "Delta Cephei A pulsates");
+    check(scene.light_curve.enabled() && scene.light_curve.stars.size() == 2, "Delta Cephei light curve of A and B");
+    if (a <= 0 || b <= 0 || !scene.bodies[static_cast<size_t>(a)].pulsation) {
+        return;
+    }
+    const Pulsation& pulsation = *scene.bodies[static_cast<size_t>(a)].pulsation;
+
+    // [ME15]: 40.1 .. 44.7 R_sun (diameters 1.362 .. 1.518 mas at 274 pc), on average 43.0.
+    double r_min = 1e30, r_max = 0.0, r_sum = 0.0, t_min = 1e9, t_max = 0.0;
+    for (const Pulsation::Sample& s : pulsation.samples) {
+        r_min = std::min(r_min, s.radius_km);
+        r_max = std::max(r_max, s.radius_km);
+        r_sum += s.radius_km;
+        t_min = std::min(t_min, s.temperature_k);
+        t_max = std::max(t_max, s.temperature_k);
+    }
+    const double r_mean = r_sum / pulsation.samples.size() / kSunRadiusKm;
+    check(std::abs(r_mean - 43.0) < 0.15, "Delta Cephei mean radius (R_sun)", r_mean);
+    check(std::abs(r_min / kSunRadiusKm - 40.14) < 0.05 && std::abs(r_max / kSunRadiusKm - 44.72) < 0.05,
+          "Delta Cephei radius range", r_max / r_min);
+    check(t_min > 5300.0 && t_min < 5330.0 && t_max > 6330.0 && t_max < 6360.0, "Delta Cephei T_eff range",
+          t_max - t_min);
+
+    // [EN14]'s maxima: t(E) = T0 + P0 E + P0 Pdot E^2 / 2, Pdot = -0.1006 s/yr.
+    const double t0 = tdb_from_jd_tdb(2455479.905);
+    const double p0 = 5.366208 * kSecondsPerDay;
+    const double pdot = -0.1006 / (kDaysPerJulianYear * kSecondsPerDay);
+    double worst_cycles = 0.0;
+    for (double e : {-25000.0, -5000.0, 1091.0, 5000.0}) {
+        const double t = t0 + p0 * e + 0.5 * p0 * pdot * e * e;
+        worst_cycles = std::max(worst_cycles, std::abs(pulsation.cycles(t) - e));
+    }
+    check(worst_cycles < 1e-4, "Delta Cephei cycles on the quadratic ephemeris", worst_cycles);
+
+    // The light curve (a black body at 550 nm) peaks on [EN14]'s maxima, 2010 and 2026.
+    for (double e : {0.0, 1091.0}) {
+        const double t = t0 + p0 * e + 0.5 * p0 * pdot * e * e;
+        const double dt_d = (find_light_maximum(scene, t, 0.5 * kSecondsPerDay) - t) / kSecondsPerDay;
+        check(std::abs(dt_d) < 0.03, "Delta Cephei light maximum on the ephemeris (d)", dt_d);
+    }
+    // [ME15]'s own ephemeris (bolometric maximum, model phase 0, at MJD 48304.7362421 with
+    // P = 5.3662906 d and -0.069 s/yr) against the scene's model phase 0 near 2010.
+    {
+        const double me_t0 = tdb_from_jd_tdb(48304.7362421 + 2400000.5);
+        const double me_p = 5.3662906 * kSecondsPerDay;
+        const double me_pdot = -0.069 / (kDaysPerJulianYear * kSecondsPerDay);
+        const double e = std::round((t0 - me_t0) / me_p);
+        const double me_max = me_t0 + me_p * e + 0.5 * me_p * me_pdot * e * e;
+        // Where the scene is at model phase 0: cycles + epoch_phase is a whole number.
+        const double phase = pulsation.epoch_phase + pulsation.cycles(me_max);
+        const double dt_d = (phase - std::round(phase)) * 5.366208;
+        check(std::abs(dt_d) < 0.05, "Delta Cephei SPIPS phase 0 against the scene (d)", dt_d);
+    }
+
+    // V amplitude: 3.48 .. 4.37 [GCVS] (the model's black body: 0.80).
+    double faintest = 0.0;
+    double brightest = 99.0;
+    for (double t = t0; t < t0 + p0; t += p0 / 400.0) {
+        const double m = light_curve_magnitude(scene, t);
+        faintest = std::max(faintest, m);
+        brightest = std::min(brightest, m);
+    }
+    std::printf("info: Delta Cephei V amplitude %.3f mag (brightest %.3f)\n", faintest - brightest, brightest);
+    check(std::abs((faintest - brightest) - (4.37 - 3.48)) < 0.12, "Delta Cephei V amplitude (mag)",
+          faintest - brightest);
+    check(brightest < 0.01, "Delta Cephei light curve reaches its reference", brightest);
+
+    // [AN15] Table 3: the Cepheid's radial velocity K (cos(nu + omega) + e cos omega).
+    const glm::dvec3 away = unit_toward(337.2927611, 58.4151938);
+    const double t_peri = tdb_from_jd_tdb(55649.68 + 2400000.5);
+    const double period = 2201.87 * kSecondsPerDay;
+    const double e = 0.674;
+    const double omega = 246.77 * kDegToRad;
+    double worst_rv = 0.0;
+    for (double f = 0.0; f < 1.0; f += 0.01) {
+        const double t = t_peri + f * period;
+        const double m = kTwoPi * f;
+        double ea = m;
+        for (int k = 0; k < 50; ++k) {
+            ea -= (ea - e * std::sin(ea) - m) / (1.0 - e * std::cos(ea));
+        }
+        const double nu = 2.0 * std::atan2(std::sqrt(1.0 + e) * std::sin(0.5 * ea), std::sqrt(1.0 - e) * std::cos(0.5 * ea));
+        const double rv = 1.509 * (std::cos(nu + omega) + e * std::cos(omega));
+        worst_rv = std::max(worst_rv, std::abs(glm::dot(scene.icrf_state_at(a, t).velocity, away) - rv));
+    }
+    check(worst_rv < 0.02, "Delta Cephei radial velocity on the orbit (km/s)", worst_rv);
+}
+
 // Kepler-64 [Schwamb et al. 2013]: integrated from the Table 7 joint solution,
 // the binary eclipses and the planet transits Aa when they were measured
 // (Table 3, 1-sigma 0.9 and 7 min; Table 2, 6-9 min; BJD - 2455000), and Ba +
@@ -805,6 +933,7 @@ void run_stellar_system_tests()
     test_kepler47_scene();
     test_tic168789840_scene();
     test_algol_scene();
+    test_delta_cephei_scene();
     test_kepler64_scene();
     test_psr_b1620_scene();
 }

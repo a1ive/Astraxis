@@ -13,6 +13,15 @@
 - 星表里的距离是 Hipparcos 视差，可能和场景采用的距离不同：Algol 在星表里是 27.6 pc（36.27 mas），场景用轨道视差 28.8 pc，星表里的 Algol 离观察者 1.25 pc，超出 `kOwnSystemPc`，会成为一颗 −4.6 等的星。场景用 `[sky] hide_hip = [14576]` 把它去掉。
 - 程序用法（`scene/star_catalog.cpp` 中的 `catalog_sky`）：把每颗星放到它的三维位置，从观察者处重新计算方向和星等，只画亮于 6.5 等的星，并去掉离观察者 0.5 pc 以内的星（属于场景自己的系统，例如 α Cen A、B 和比邻星）。
 
+## 造父变星的脉动表
+
+`delta_cep_spips.csv` 是 δ Cephei 一个脉动周期里的半径、有效温度和光度，供 `delta_cephei.toml` 使用。`tools/cepheid/spips_table.py` 只用标准库，从 Mérand et al. 2015（A&A 584, A80）的 SPIPS 模型生成该文件。
+
+- 来源：CDS 目录 J/A+A/584/A80 的 `delcep2.dat`（<https://cdsarc.cds.unistra.fr/ftp/J/A+A/584/A80/>，173,826 字节，SHA-256 `ee9ca65ff91da83767e91c5ece6745450470b56a36ea91b4df6b275924d4ab76`，2026-10-20 下载）。这是论文拟合出的模型（不是观测），按 999 个相位列出 Rosseland 角直径、T_eff 和光度。相位 0 是热光度极大，V 极大在相位 0.995
+- 许可证：CDS 分发的已发表研究数据，使用时引用 Mérand et al. 2015 和 VizieR
+- 处理：每 5 个相位取 1 个，共 200 个。半径是角直径的一半乘以 274 pc（论文固定的距离，即 Benedict et al. 2002 的 HST 视差），按 IAU 名义太阳半径 695,700 km 换成 R☉。表里的光度和 R²T⁴ 相差约 0.5%（模型的太阳常数不同），场景直接用表里的光度
+- 列：`phase,radius_rsun,teff_k,luminosity_lsun`
+
 ## 球状星团成员星
 
 `m4.csv` 保存球状星团 M4（NGC 6121）的成员星，供 PSR B1620-26 场景绘制天空。`tools/stars/make_m4.py` 联网查询 VizieR 和 Pecaut & Mamajek 的表，生成该文件。

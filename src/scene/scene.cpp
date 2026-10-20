@@ -56,6 +56,50 @@ bool RingSystem::shaped() const
     return std::any_of(bands.begin(), bands.end(), [](const RingBand& b) { return b.shaped(); });
 }
 
+double Pulsation::cycles(double t_tdb) const
+{
+    const double dt = t_tdb - epoch_tdb;
+    const double x = period_change * dt / period_s;
+    // The integral of dt / (P0 + Pdot dt) = ln(1 + Pdot dt / P0) / Pdot.
+    return std::abs(x) < 1e-12 ? dt / period_s : std::log1p(x) / period_change;
+}
+
+Pulsation::Sample Pulsation::at(double t_tdb) const
+{
+    if (samples.size() < 2) {
+        return samples.empty() ? Sample{} : samples.front();
+    }
+    double phase = epoch_phase + cycles(t_tdb);
+    phase -= std::floor(phase);
+    // The first sample at or after `phase` (wrapping to the start).
+    const auto next = std::lower_bound(samples.begin(), samples.end(), phase,
+                                       [](const Sample& s, double p) { return s.phase < p; });
+    const Sample& b = next == samples.end() ? samples.front() : *next;
+    const Sample& a = next == samples.begin() ? samples.back() : *(next - 1);
+    double span = b.phase - a.phase;
+    double into = phase - a.phase;
+    if (span <= 0.0) { // across the end of the cycle
+        span += 1.0;
+        into += into < 0.0 ? 1.0 : 0.0;
+    }
+    const double f = span > 0.0 ? into / span : 0.0;
+    Sample s;
+    s.phase = phase;
+    s.radius_km = a.radius_km + (b.radius_km - a.radius_km) * f;
+    s.temperature_k = a.temperature_k + (b.temperature_k - a.temperature_k) * f;
+    s.luminosity_solar = a.luminosity_solar + (b.luminosity_solar - a.luminosity_solar) * f;
+    return s;
+}
+
+double Pulsation::max_temperature_k() const
+{
+    double t = 0.0;
+    for (const Sample& s : samples) {
+        t = std::max(t, s.temperature_k);
+    }
+    return t;
+}
+
 double RingBand::fade(double t_tdb) const
 {
     if (!(fade_to_tdb > fade_from_tdb)) {
@@ -510,6 +554,12 @@ void Scene::update(double t_tdb)
         body.visible = visible;
         body.world_position = m_transform.to_display(pos);
         body.orientation = glm::transpose(m_transform.axes) * body_to_icrf(body, t_tdb);
+        if (body.pulsation) {
+            const Pulsation::Sample now = body.pulsation->at(t_tdb);
+            body.equatorial_radius_km = body.equatorial_radius_b_km = body.polar_radius_km = now.radius_km;
+            body.temperature_k = now.temperature_k;
+            body.luminosity_solar = now.luminosity_solar;
+        }
 
         if (visible && body.kind != BodyKind::Star) {
             extent = std::max(extent, glm::length(pos) + body.equatorial_radius_km);

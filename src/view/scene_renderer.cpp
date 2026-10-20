@@ -37,6 +37,10 @@ constexpr float kAmbient = 0.012f;
 constexpr float kStarSurface = 6.0f;
 // Wavelength at which relative star surfaces (SceneView::relative_star_surfaces) are compared.
 constexpr double kStarSurfaceWavelengthNm = 550.0;
+// With relative star surfaces the hottest is this much fainter than kStarSurface:
+// at 6 the tone curve saturates, and a Cepheid's surface dimming to 45% (or a
+// 5000 K star beside a 6000 K one) would look the same white.
+constexpr float kRelativeStarSurfaceScale = 0.25f;
 // Apparent magnitude of the Sun at 1 au (V ~ -26.74); used for bolometric-ish
 // apparent brightness m = kSunMagAt1Au - 2.5 log10(L / d_au^2).
 constexpr double kSunMagAt1Au = -26.74;
@@ -643,12 +647,15 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
         }
     }
 
-    // Relative star surfaces: radiance at 550 nm over the hottest star's.
+    // Relative star surfaces: radiance at 550 nm over the hottest star's (a
+    // pulsating star's hottest over its cycle, so that its surface brightens
+    // and dims).
     double hottest_surface = 0.0;
     if (scene.view.relative_star_surfaces) {
         for (const Body& b : scene.bodies) {
             if (b.kind == BodyKind::Star) {
-                hottest_surface = std::max(hottest_surface, planck_shape(b.temperature_k, kStarSurfaceWavelengthNm));
+                const double t = b.pulsation ? b.pulsation->max_temperature_k() : b.temperature_k;
+                hottest_surface = std::max(hottest_surface, planck_shape(t, kStarSurfaceWavelengthNm));
             }
         }
     }
@@ -690,7 +697,8 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
             item.style = kStyleStar;
             item.color = glm::vec3(blackbody_linear_srgb(body.temperature_k)) * kStarSurface;
             if (hottest_surface > 0.0) {
-                item.color *= static_cast<float>(planck_shape(body.temperature_k, kStarSurfaceWavelengthNm) /
+                item.color *= kRelativeStarSurfaceScale *
+                              static_cast<float>(planck_shape(body.temperature_k, kStarSurfaceWavelengthNm) /
                                                  hottest_surface);
             }
             item.texture = nullptr;
