@@ -1,5 +1,5 @@
-# Saturn, its rings, the seven major moons, Hyperion, and Cassini's tour (2004-2017) with
-# the Huygens probe's descent to Titan.
+# Saturn, its rings, the seven major moons, Hyperion, Phoebe, and Cassini's tour
+# (2004-2017) with the Huygens probe's descent to Titan.
 #
 # Sources
 # [ELEM] JPL SSD, Planetary Satellite Mean Elements (https://ssd.jpl.nasa.gov/sats/elem/),
@@ -20,8 +20,10 @@
 #        Cassini 2004-06-01 .. its entry into Saturn on 2017-09-15 (navigation team's
 #        post-mission reconstruction), Huygens 2004-12-25 .. 2005-01-14 (landing), and the
 #        moons 2004-06-01 .. 2017-09-16. Outside that span the moons fade over one day
-#        into the mean elements [ELEM]. Saturn's heliocentric orbit (Sun direction): the
-#        Saturn system barycenter, 1972-2100 [HZN], else [APX].
+#        into the mean elements [ELEM]. Phoebe 1972-2100 (relative to Saturn's center,
+#        which Titan swings by ~290 km every 16 days: hence a knot every ~4 days).
+#        Saturn's heliocentric orbit (Sun direction): the Saturn system barycenter,
+#        1972-2100 [HZN], else [APX].
 # [IESS] Iess et al. 2019, "Measurement and implications of Saturn's gravity field and ring
 #        mass", Science 364, eaat2965, Table 1: unnormalized J2 = 16,290.573e-6 (with the
 #        satellites' mean tide), J4 = -935.314e-6 at the reference radius 60,330 km. Only
@@ -45,6 +47,10 @@
 #        17:33 UTC); see assets/shapes/SOURCES.md. Only near that date is this the real
 #        orientation: the pole measured 40 and 107 days earlier (August, June) is 28 and
 #        55 deg away.
+# [PSHP] R. W. Gaskell, Gaskell Phoebe Shape Model V1.0 (PDS SBN, gaskell.phoebe.shape-model,
+#        doi:10.26033/ehkj-xj95; Cassini ISS, stereophotoclinometry), the Q = 64 version:
+#        equal-volume radius 106.56 km vs 106.50 +- 0.70 km in [SPHY]. Its frame is the
+#        PCK's (pole 356.90, 77.80 deg; W = 178.58 + 931.639 d). See assets/shapes/SOURCES.md.
 # [RSS]  Rings: normal optical depth from the Cassini Radio Science occultation of
 #        2005-05-03 (Rev 7 egress, X band), PDS volume CORSS_8001 (Marouf et al.),
 #        averaged to 8.8 km bins by tools/rings/make_saturn_rings.py; see
@@ -98,6 +104,18 @@
 #          shield; few dust hits. "NASA's Cassini Spacecraft Ends Its Historic Exploration of
 #          Saturn": contact lost at 4:55 a.m. PDT on 2017-09-15, a month short of 20 years
 #          after launch.
+#        [PHO] NASA/JPL PIA18411, "Arrival and Departure at Phoebe": on 2004-06-11 Cassini
+#          passed Phoebe, "the largest of Saturn's outer or 'irregular' moons", 2,068 km up,
+#          "the sole close flyby of one of the outer moons of Saturn in the entire Cassini
+#          mission"; a captured object orbiting in a retrograde direction, which might have
+#          formed in the Kuiper Belt. NASA Science, "Phoebe": the first target Cassini
+#          encountered on arrival, about 12,952,000 km from Saturn.
+#        [PHR] NASA/JPL, "NASA Space Telescope Discovers Largest Ring Around Saturn"
+#          (2009-10-06; Verbiscer, Skrutskie & Hamilton 2009, Nature): Spitzer's infrared
+#          glow of cool dust from about 6 million km out to some 12 million km farther,
+#          tilted 27 deg to the main rings (Phoebe's Laplace plane: 26.7 deg [ELEM]); Phoebe
+#          is "likely the source of its material", and the dust drifting inward may darken
+#          Iapetus' leading side. Invisible to the eye: not drawn.
 #        Densities (the info panel) from [SPHY]; paths [HZN]; plumes [PLM].
 # Mean elements: [ELEM]'s phase angles for Saturn's moons do not match SAT441 at
 # their epoch: at J2000 the mean longitudes are off by 6-157 deg (for Jupiter's
@@ -464,6 +482,27 @@ apsis_period_years = 1662.900
 node_period_years = -3130.302
 laplace_pole_ra_dec_deg = [288.7, 78.9]
 
+# Retrograde and irregular: its Laplace plane lies near Saturn's orbital plane, not
+# Saturn's equator. Not tidally locked; it turns in 9.27 hours.
+[[bodies]]
+name = "Phoebe"
+parent = "Saturn"
+shape = "shapes/phoebe.mesh"               # [PSHP]
+radii_km = [109.4, 108.5, 101.8]           # [PCK] (shadows, camera distances)
+body_gm_km3_s2 = 0.55479                   # [SPHY] (SAT441)
+pole_ra_dec_deg = [356.90, 77.80]          # [PCK]
+prime_meridian_deg = [178.58, 931.639]
+color = "#7a7570"                          # dark (illustrative tone; no albedo map exists)
+orbit_color = "#a89c90"
+# Before 1972 and after 2100: the two-body orbit from the nearer end of the table. The
+# Sun pulls Phoebe's ellipse around within each Saturn year, which [ELEM]'s precessing
+# ellipse cannot follow either (one fit to the table: 11 deg rms, 27 deg at worst), and
+# its hand-over at the table's ends would jump by millions of km.
+[bodies.orbit]                             # [HZN] 609
+type = "ephemeris"
+file = "ephem/phoebe_sat.eph"
+extrapolate = "kepler"
+
 # --- Spacecraft -------------------------------------------------------------------
 
 [[bodies]]
@@ -496,6 +535,24 @@ file = "ephem/huygens_sat.eph"
 # --- Events -------------------------------------------------------------------------
 # Closest approaches (TDB at the spacecraft) and distances from the bake tool; flyby
 # altitudes above the moons' mean radii [SPHY]. Flybys start an hour before.
+
+# Closest approach 2004-06-11 19:34:45 TDB, 2,194 km from the center [HZN] (2,088 km above
+# the mean radius; [PHO]'s 2,068 km).
+[[events]]
+name = "Cassini at Phoebe (2004-06-11, 2,088 km)"
+time_tdb = "2004-06-11 18:34"
+focus = "Phoebe"
+flyby = "Cassini"
+from_body = "Cassini"                      # Cassini's approach view
+distance_km = 3000.0
+warp = 30.0
+# [PHO], [PHR], [SPHY]
+caption = """\
+    Nineteen days before reaching Saturn, Cassini passes just over 2,000 km above Phoebe: \
+    its only close look at one of Saturn's distant, irregular moons. Phoebe circles Saturn \
+    backward, 13 million km out, and probably formed in the Kuiper Belt before Saturn \
+    captured it. Its dust likely feeds a vast, faint ring that may have darkened one face \
+    of Iapetus."""
 
 [[events]]
 name = "Cassini arrives: orbit insertion through the ring plane (2004-07-01)"

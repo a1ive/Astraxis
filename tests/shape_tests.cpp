@@ -285,9 +285,11 @@ void test_pallas_shape()
     check(worst < 0.05, "Pallas body axes match the DAMIT spin solution at t0 (deg)", worst);
 }
 
-// Amalthea and Thebe (Stooke, Jupiter scene) and Hyperion (Thomas, Cassini; Saturn
-// scene): volumes against the mean radii in JPL SSD's satellite physical parameters
-// (within their uncertainties). The Jovian moons' long axes point at Jupiter (+x).
+// Amalthea and Thebe (Stooke, Jupiter scene), Hyperion (Thomas, Cassini; Saturn scene)
+// and Phoebe (Gaskell, Cassini; Saturn scene): volumes against the mean radii in JPL
+// SSD's satellite physical parameters (within their uncertainties). The Jovian moons'
+// long axes point at Jupiter (+x); Phoebe's shortest axis is its spin axis (z), as in
+// the PCK's triaxial radii.
 void test_jupiter_saturn_small_moon_shapes()
 {
     Scene jupiter = load_scene_or_die("jupiter.toml");
@@ -298,10 +300,13 @@ void test_jupiter_saturn_small_moon_shapes()
         double mean_radius_km; // [SPHY]
         double sigma_km;
         bool long_axis_x;
+        bool short_axis_z;
         bool textured;
     };
-    for (const Moon& m : {Moon{&jupiter, "Amalthea", 83.5, 3.0, true, true}, Moon{&jupiter, "Thebe", 49.3, 4.0, true, false},
-                          Moon{&saturn, "Hyperion", 135.0, 4.0, false, false}}) {
+    for (const Moon& m : {Moon{&jupiter, "Amalthea", 83.5, 3.0, true, false, true},
+                          Moon{&jupiter, "Thebe", 49.3, 4.0, true, false, false},
+                          Moon{&saturn, "Hyperion", 135.0, 4.0, false, false, false},
+                          Moon{&saturn, "Phoebe", 106.5, 0.7, false, true, false}}) {
         const std::string name = m.name;
         const Body& body = m.scene->bodies[static_cast<size_t>(m.scene->find(m.name))];
         check(body.shape != nullptr, (name + " has a shape model").c_str());
@@ -314,12 +319,15 @@ void test_jupiter_saturn_small_moon_shapes()
         if (m.textured) {
             check(map_u_error(*body.shape) < 1e-6, (name + " map u matches the vertex longitude").c_str());
         }
+        glm::dvec3 extent(0.0);
+        for (const glm::vec3& p : body.shape->positions) {
+            extent = glm::max(extent, glm::abs(glm::dvec3(p)));
+        }
         if (m.long_axis_x) {
-            glm::dvec3 extent(0.0);
-            for (const glm::vec3& p : body.shape->positions) {
-                extent = glm::max(extent, glm::abs(glm::dvec3(p)));
-            }
             check(extent.x > extent.y && extent.x > extent.z, (name + " long axis toward Jupiter").c_str(), extent.x);
+        }
+        if (m.short_axis_z) {
+            check(extent.z < extent.x && extent.z < extent.y, (name + " shortest axis along the spin axis").c_str(), extent.z);
         }
     }
 }

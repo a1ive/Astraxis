@@ -140,7 +140,7 @@ CMake 目标：
 - `assets/sky/`：远处场景和银心的模型星空，`tools/sky/make_galaxy_sky.py`（需要 numpy；先 `calibrate` 对照 `milky_way.jpg` 标定，结果在 `tools/sky/galaxy_calibration.json`，再 `render <场景.toml>`，一个场景约 10 分钟，银心约 20 分钟）。改了模型或标定要重新生成全部场景。工具用 multiprocessing：Windows 上子进程重新导入模块，在主进程里改的模块全局变量传不过去，参数要经 `_init` 传
 - `assets/belts/*.bin`：`tools/belts/make_belts.py`（JPL SBDB，主带 H < 15、全部 TNO）
 - `assets/textures/*.jpg`：`tools/textures/prepare_textures.py` 从原图缩放；`uranus.jpg`、`neptune.jpg` 由 `tools/textures/make_ice_giant_textures.py` 从哈勃 OPAL 的 FITS 图合成（纬向剖面加一张真实图，需要 numpy）
-- `assets/shapes/*.mesh`（AXMESH2）：`tools/shapes/` 下按来源格式分：`make_arrokoth.py`、`make_grid_table_shape.py`（Thomas / Stooke 经纬网格表）、`make_dtm_shape.py`（DLR 全球 DTM）、`make_plate_shape.py`（板块模型、OBJ、VRML）
+- `assets/shapes/*.mesh`（AXMESH2）：`tools/shapes/` 下按来源格式分：`make_arrokoth.py`、`make_grid_table_shape.py`（Thomas / Stooke 经纬网格表）、`make_dtm_shape.py`（DLR 全球 DTM）、`make_plate_shape.py`（板块模型、OBJ、VRML、Gaskell 的 ICQ）
 - `tools/bake/rejoin_burn.py`：把表里的入轨点火接到其后接缝处的下一段弧上（希望号，见 `assets/ephem/SOURCES.md`），烘焙之后运行
 - `tools/isee3/`、`tools/armada/`、`tools/ce5t1/`：ISEE-3、哈雷舰队、嫦娥五号 T1 服务舱的轨道重建（需要 numpy，下载缓存不入库），做法见 `assets/ephem/SOURCES.md`
 - `tools/tianwen1/`：天问一号环绕器。`momag_fetch.py` 从 USTC 的 MOMAG 磁强计数据下载位置（约 15 GB，每天一个文件，逐个下载后只留每分钟一个样本，`cache/` 不入库）；`tianwen1_reconstruct.py <jupyter_notebooks/Tianwen 目录>`（需要 numpy）把 D. Estévez 的 GMAT 脚本里的遥测向量外推、在机动处接起来，得到 2021-02-08 .. 11-16 的路径（`cache/tw1_2021.txt`；纯 Python 的 10 阶重力场积分半年的 8 小时轨道要二十多分钟，弧段缓存在 `cache/arcs/`）；`tianwen1_bake.py` 把它和 MOMAG 烘成 `tianwen1_mars.eph`，只用标准库
@@ -228,6 +228,8 @@ CMake 目标：
   - 周期位数不够时（火卫、木星内侧卫星），几十年就失相：改由 PCK 的自转速率反推。拱线、交点周期也只有两三位（MAR099 火卫一的 1.1 年、2.3 年，平根数因此差 2°）：PCK 里摆动卫星极的角就是交点（`BODY4_NUT_PREC_ANGLES` 的 M1、M6），火卫一的 M5 是平近点角，拱线速率 = W′ − M5′ − 交点速率
   - 火卫一的受迫天平动（W 里的 −1.143° sin M5）和光学天平动（2e = 1.72°）反相，长轴偏离火星方向最大约 2.9°，不是两者相减
   - 天王星卫星的“equatorial”平面以天王星的正极为极，与 PCK 的北极相反；海卫一的交点周期约是实际值的一半；SAT441 的平根数相位对不上 SAT441 本身，土星卫星的相位用 `fit_moon_phase.py` 对 Horizons 拟合
+  - 远处的不规则卫星（Phoebe）受太阳摄动，椭圆在一个行星年内被拉着转，平根数的进动椭圆跟不上（试过的一种进动方向组合对 Horizons 拟合后均方根差 11°，在表的两端交接会跳几百万 km）：烘长时间段的表，表外用 `extrapolate = "kepler"`。`fit_moon_phase.py` 每 2 天取一个样本，对一百多年的表一种符号组合要几十分钟
+- 以行星本体中心（如 `500@699`）为中心的卫星表包含行星绕系统质心的晃动（土星被 Titan 带着每 16 天晃约 290 km）：外侧卫星的表因此每几天就要一个节点（Phoebe 128 年 1 万个），这是真实的相对位置，不要为省节点改用质心，否则和同样以本体中心为中心的探测器表对不上
 - **ESA SPICE 的 Rosetta CK**：`ck/` 下的最新 CATT（彗核姿态）只覆盖 2015-12 以后，早的在 `former_versions/`，该用哪几个、谁优先看 `mk/ROS_OPS.TM`（后加载的优先）；同一文件里相邻段共用端点但值不同（导航解交接处跳到 0.5°），要按“后一段优先”去重，否则插值时除以零的时间差。CATT 的时钟是人造 SCLK（`ROS_V38.TF`），计数单位是 1/65536 s
 - **IAU 本体坐标系**：W 从本体赤道与 ICRF 赤道的升交点（RA = α₀+90°）起量；极轴在 Dec=90° 时叉积退化，用 `iau_pole_frame(α₀, δ₀)`。pck00011 的火星极有一项周期约 7 万年的“章动”（`BODY499_NUT_PREC_RA/DEC` 的最后一项：RA 加 0.419057° sin(79.398797° + 0.5042615° T)，Dec 加 1.591274° cos(166.325722° + 0.5042615° T)），J2000 的极是 (317.681°, 52.886°)，只取常数项 (317.269°, 54.433°) 会偏 1.5°；W 也有对应的 0.584542° 项，漏掉时本初子午线偏 1–1.4°。场景里用 `nut_prec_*` 写了这三项
 - **USGS 地图**：元数据写的“positive west”不可信，图像实际是东经向右递增。拼接图服务器跳转到 S3，用 `?list-type=2&prefix=mosaic/<名称>` 列文件

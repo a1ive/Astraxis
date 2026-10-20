@@ -658,6 +658,23 @@ void test_saturn_scene()
         check(worst < limit, (moon + " mean elements near Horizons (deg)").c_str(), worst);
     }
 
+    // Phoebe orbits backward: its orbital angular momentum points away from Saturn's pole.
+    {
+        const int phoebe = scene.find("Phoebe");
+        const double t = tdb({2004, 6, 11, 0, 0, 0});
+        const State s = scene.icrf_state_at(phoebe, t);
+        const glm::dvec3 h = glm::normalize(glm::cross(s.position, s.velocity));
+        const glm::dvec3 pole = unit_from_ra_dec(40.589 * kDegToRad, 83.537 * kDegToRad); // [PCK]
+        const double tilt = std::acos(glm::dot(h, pole)) * kRadToDeg;
+        check(tilt > 150.0, "Phoebe retrograde (deg from Saturn's pole)", tilt);
+        // Outside the 1972-2100 table it keeps to a two-body orbit of the same size
+        // (a = 12.93 million km, e = 0.164 [ELEM]).
+        for (const double year : {1900.0, 2200.0}) {
+            const double r = glm::length(at(phoebe, (year - 2000.0) * kDaysPerJulianYear * kSecondsPerDay));
+            check(r > 10.0e6 && r < 16.0e6, "Phoebe beyond its table stays at its distance (km)", r);
+        }
+    }
+
     // Windowed table (Enceladus near Cassini only): gaps fall back to the mean
     // elements, and the position stays continuous across a window's edge.
     const int enceladus = scene.find("Enceladus");

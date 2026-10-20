@@ -773,6 +773,11 @@ void test_saturn_missions()
     const double hyperion = altitude(cassini, "Hyperion", {2005, 9, 26, 2, 25, 48}) +
                             scene.bodies[static_cast<size_t>(scene.find("Hyperion"))].equatorial_radius_km;
     check(std::abs(hyperion - 604.4) < 10.0, "Cassini-Hyperion closest approach (km)", hyperion);
+    // Phoebe likewise, against Horizons (-82 @ 609, 2,194.3 km at 2004-06-11 19:34:45 TDB;
+    // NASA PIA18411 gives 2,068 km above the surface), within the tables' tolerances.
+    const double phoebe = altitude(cassini, "Phoebe", {2004, 6, 11, 19, 34, 45}) +
+                          scene.bodies[static_cast<size_t>(scene.find("Phoebe"))].equatorial_radius_km;
+    check(std::abs(phoebe - 2194.3) < 15.0, "Cassini-Phoebe closest approach (km)", phoebe);
 
     // Huygens ends on Titan's surface.
     const int huygens = scene.find("Huygens");

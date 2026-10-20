@@ -739,6 +739,21 @@ base_step_minutes = 720
 tolerance_km = 10.0
 radius_km = 135.0
 
+# Phoebe over the whole span of Saturn's heliocentric table (sat441l covers it): the Sun
+# perturbs its distant retrograde orbit strongly, so mean elements would drift fast.
+[[target]]
+name = "phoebe_sat"
+command = "609"
+naif_id = 609
+center = "500@699"
+center_naif_id = 699
+kepler_gm_km3_s2 = 37940584.8418
+start = "1972-01-01"
+stop = "2100-01-01"
+base_step_minutes = 1440
+tolerance_km = 10.0
+radius_km = 106.5
+
 [[target]]
 name = "cassini_sat"
 command = "-82"
@@ -752,10 +767,10 @@ base_step_minutes = 360
 tolerance_km = 5.0
 keep_all = [["2004-07-01 01:10", "2004-07-01 02:52"]]  # the orbit insertion burn (the scene reads its delta-v)
 periapsides = true
-encounters = ["mimas_cas", "enceladus_cas", "tethys_cas", "dione_cas", "rhea_cas", "titan_cas", "iapetus_cas", "hyperion_cas"]
+encounters = ["mimas_cas", "enceladus_cas", "tethys_cas", "dione_cas", "rhea_cas", "titan_cas", "iapetus_cas", "hyperion_cas", "phoebe_sat"]
 encounter_km = 50000.0
 encounter_step_minutes = 10
-refine_near = ["mimas_cas", "enceladus_cas", "tethys_cas", "dione_cas", "rhea_cas", "titan_cas", "iapetus_cas", "hyperion_cas"]
+refine_near = ["mimas_cas", "enceladus_cas", "tethys_cas", "dione_cas", "rhea_cas", "titan_cas", "iapetus_cas", "hyperion_cas", "phoebe_sat"]
 refine_near_km = 30000.0
 
 [[target]]
