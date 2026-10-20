@@ -4,6 +4,7 @@
 
 #include "core/math.hpp"
 #include "core/time.hpp"
+#include "ephem/coast.hpp"
 #include "ephem/ephemeris.hpp"
 #include "ephem/kepler.hpp"
 #include "ephem/nbody.hpp"
@@ -105,20 +106,86 @@ void test_coast_and_delta_v()
     // A coast leaves nothing unexplained; an impulse adds its size, at its step
     // (to 1e-4: within the step, gravity turns the difference a little).
     const State s0{{1.0, 0.0, 0.0}, {0.1, 1.2, 0.0}};
-    const std::vector<double> coast = unexplained_delta_v(ImpulseMotion(s0, 1e9, glm::dvec3(0.0)), 1.0, 0.0, 4.0, 40);
-    check(coast.size() == 41 && coast.back() < 1e-10, "No delta-v while coasting", coast.back());
+    CoastGravity point;
+    point.mu = 1.0;
+    const std::vector<double> coasting =
+        unexplained_delta_v(ImpulseMotion(s0, 1e9, glm::dvec3(0.0)), point, 0.0, 4.0, 40);
+    check(coasting.size() == 41 && coasting.back() < 1e-10, "No delta-v while coasting", coasting.back());
     const glm::dvec3 dv(-0.2, 0.1, 0.05);
-    const std::vector<double> burn = unexplained_delta_v(ImpulseMotion(s0, 2.05, dv), 1.0, 0.0, 4.0, 40);
+    const std::vector<double> burn = unexplained_delta_v(ImpulseMotion(s0, 2.05, dv), point, 0.0, 4.0, 40);
     check(std::abs(burn.back() - glm::length(dv)) < 1e-4 && burn[20] < 1e-10 && burn.back() - burn[21] < 1e-10,
           "The delta-v of an impulse", burn.back() - glm::length(dv));
 
     // The ghost coasts from the state at its epoch, both ways in time, within its window.
-    const CoastMotion ghost(s0, 1.0, 2.0, 1.0, 3.0);
+    const CoastMotion ghost(s0, point, 2.0, 1.0, 3.0);
     check(glm::length(ghost.eval(2.0).position - s0.position) < 1e-12 &&
               glm::length(ghost.eval(1.5).position - propagate_kepler(s0, 1.0, -0.5).position) < 1e-12,
           "Coast from a state");
     check(ghost.valid_at(1.0) && ghost.valid_at(3.0) && !ghost.valid_at(0.99) && !ghost.valid_at(3.01),
           "Coast valid within its window");
+
+    // Integrated (a tide of nothing makes it so): the two-body path, both ways from the
+    // epoch over 2 pi either way, between the knots too.
+    CoastGravity integrated;
+    integrated.mu = 1.0;
+    integrated.tides.push_back({0.0, [](double) { return glm::dvec3(1e6, 0.0, 0.0); }});
+    const CoastMotion integrated_ghost(s0, integrated, 2.0, 2.0 - 2.0 * kPi, 2.0 + 2.0 * kPi);
+    double worst = 0.0;
+    for (int k = 0; k <= 1000; ++k) {
+        const double t = 2.0 + 2.0 * kPi * (k / 500.0 - 1.0) + 0.0017;
+        if (integrated_ghost.valid_at(t)) {
+            const glm::dvec3 kepler = propagate_kepler(s0, 1.0, t - 2.0).position;
+            worst = std::max(worst, glm::length(integrated_ghost.eval(t).position - kepler));
+        }
+    }
+    check(worst < 1e-9, "Integrated coast without perturbations: two-body", worst);
+    const State s1 = coast(integrated, s0, 0.0, 3.0);
+    check(glm::length(s1.position - propagate_kepler(s0, 1.0, 3.0).position) < 1e-10 &&
+              glm::length(coast(integrated, s1, 3.0, -3.0).velocity - s0.velocity) < 1e-10,
+          "Integrated coast forward and back");
+
+    // Zonal harmonics against the closed forms: on the pole J2 adds 3 J2 mu R^2 / r^4 and
+    // J4 5 J4 mu R^4 / r^6 outward; on the equator J2 pulls 3/2 J2 mu R^2 / r^4 in and J4
+    // pushes 15/8 J4 mu R^4 / r^6 out.
+    CoastGravity oblate;
+    oblate.mu = 2.0;
+    oblate.zonal = {0.0, 0.0, 0.01, 0.0, -0.002};
+    oblate.radius_km = 1.0;
+    oblate.pole = glm::normalize(glm::dvec3(0.3, -0.2, 1.0));
+    const double r = 2.0;
+    const glm::dvec3 on_pole = oblate.acceleration(r * oblate.pole, 0.0);
+    const double pole_expected =
+        -2.0 / (r * r) + 3.0 * 0.01 * 2.0 / std::pow(r, 4) + 5.0 * -0.002 * 2.0 / std::pow(r, 6);
+    const glm::dvec3 east = glm::normalize(glm::cross(oblate.pole, glm::dvec3(1.0, 0.0, 0.0)));
+    const glm::dvec3 on_equator = oblate.acceleration(r * east, 0.0);
+    const double equator_expected =
+        -2.0 / (r * r) - 1.5 * 0.01 * 2.0 / std::pow(r, 4) + 15.0 / 8.0 * -0.002 * 2.0 / std::pow(r, 6);
+    check(glm::length(on_pole - pole_expected * oblate.pole) < 1e-15 &&
+              glm::length(on_equator - equator_expected * east) < 1e-15,
+          "Zonal harmonics on the pole and the equator");
+    // An axisymmetric field keeps the energy and the angular momentum about the pole.
+    const State tilted{{1.5, 0.2, 0.4}, {-0.1, 1.0, 0.5}};
+    auto energy = [&](const State& s) {
+        const double rn = glm::length(s.position);
+        const double z = glm::dot(s.position, oblate.pole) / rn;
+        const double p2 = 0.5 * (3.0 * z * z - 1.0);
+        const double p4 = (35.0 * std::pow(z, 4) - 30.0 * z * z + 3.0) / 8.0;
+        return 0.5 * glm::dot(s.velocity, s.velocity) -
+               2.0 / rn * (1.0 - 0.01 * p2 / (rn * rn) - -0.002 * p4 / std::pow(rn, 4));
+    };
+    const State later = coast(oblate, tilted, 0.0, 30.0);
+    check(std::abs(energy(later) / energy(tilted) - 1.0) < 1e-9 &&
+              std::abs(glm::dot(glm::cross(later.position, later.velocity), oblate.pole) /
+                           glm::dot(glm::cross(tilted.position, tilted.velocity), oblate.pole) -
+                       1.0) < 1e-9,
+          "Coast in an oblate field keeps the energy and the polar angular momentum",
+          energy(later) / energy(tilted) - 1.0);
+    // A tide pulls on the spacecraft minus on the center: none at the center, and along
+    // the line to the tide-raising body twice GM d / D^3 outward to first order.
+    CoastGravity tidal;
+    tidal.tides.push_back({5.0, [](double) { return glm::dvec3(0.0, 100.0, 0.0); }});
+    const glm::dvec3 stretch = tidal.acceleration(glm::dvec3(0.0, 0.01, 0.0), 0.0);
+    check(std::abs(stretch.y / (2.0 * 5.0 * 0.01 / 1e6) - 1.0) < 1e-3, "Tide along the line", stretch.y);
 }
 
 void test_ephemeris()

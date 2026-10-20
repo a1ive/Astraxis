@@ -2,6 +2,7 @@
 
 #include "core/math.hpp"
 #include "core/time.hpp"
+#include "ephem/coast.hpp"
 #include "ephem/ephemeris.hpp"
 #include "ephem/jpl_approx_planet.hpp"
 #include "ephem/kepler.hpp"
@@ -733,6 +734,24 @@ void Loader::parse(const toml::table& root, Scene& out)
 
         body.gm_km3_s2 = get_double_or(*t, "gm_km3_s2", 0.0);
         body.body_gm_km3_s2 = get_double_or(*t, "body_gm_km3_s2", body.gm_km3_s2);
+        if (const toml::node* zonal = t->get("zonal_harmonics")) {
+            // [[n, J_n], ...] at gravity_radius_km
+            const toml::array* terms = zonal->as_array();
+            if (!terms || terms->empty()) {
+                fail(ctx, "zonal_harmonics must be an array of [n, J_n]");
+            }
+            for (const toml::node& node : *terms) {
+                const toml::array* term = node.as_array();
+                const auto n = term && term->size() == 2 ? (*term)[0].value<int64_t>() : std::nullopt;
+                const auto j = term && term->size() == 2 ? (*term)[1].value<double>() : std::nullopt;
+                if (!n || !j || *n < 2 || *n > 20) {
+                    fail(ctx, "zonal_harmonics must be an array of [n, J_n] with 2 <= n <= 20");
+                }
+                body.zonal_harmonics.resize(std::max(body.zonal_harmonics.size(), static_cast<size_t>(*n) + 1), 0.0);
+                body.zonal_harmonics[static_cast<size_t>(*n)] = *j;
+            }
+            body.gravity_radius_km = get_double(*t, "gravity_radius_km", ctx);
+        }
         body.spin = get_double_or(*t, "spin", 0.0);
         body.temperature_k = get_double_or(*t, "temperature_k", body.temperature_k);
         body.disk_outer_m = get_double_or(*t, "disk_outer_m", 0.0);
@@ -1480,11 +1499,42 @@ void Loader::parse_event_ghost(const toml::table* t, const std::string& event_ct
         fail(ctx, "the center must be the parent of '" + real.name + "' or a sibling of it");
     }
     const Body& c = out.bodies[static_cast<size_t>(center)];
-    const double gm = c.gm_km3_s2 > 0.0 ? c.gm_km3_s2 : c.body_gm_km3_s2; // e.g. a planet without moons
-    if (!real.motion || (center != real.parent && !c.motion) || gm <= 0.0) {
+    CoastGravity gravity;
+    // The center's gravity field, if given, is the planet's alone (the moons are far out
+    // compared with an insertion near the cloud tops); else its GM, which may include them.
+    gravity.mu = c.gm_km3_s2 > 0.0 ? c.gm_km3_s2 : c.body_gm_km3_s2; // e.g. a planet without moons
+    if (!c.zonal_harmonics.empty()) {
+        gravity.mu = c.body_gm_km3_s2;
+        gravity.zonal = c.zonal_harmonics;
+        gravity.radius_km = c.gravity_radius_km;
+    }
+    if (!real.motion || (center != real.parent && !c.motion) || gravity.mu <= 0.0) {
         fail(ctx, "needs a body with an orbit around a center with gm_km3_s2");
     }
     const RelativeMotion relative(*real.motion, center != real.parent ? c.motion.get() : nullptr);
+    // Tides of other bodies on the coast around the center (e.g. the Earth's around the Moon).
+    if (const toml::node* tides = t->get("tides")) {
+        const toml::array* names = tides->as_array();
+        if (!names) {
+            fail(ctx, "tides must be an array of body names");
+        }
+        for (const toml::node& node : *names) {
+            const auto name = node.value<std::string>();
+            const int b = name ? out.find(*name) : -1;
+            if (b < 0 || b == center) {
+                fail(ctx, "tides must name other bodies of the scene");
+            }
+            const Body& tb = out.bodies[static_cast<size_t>(b)];
+            const double tide_gm = tb.gm_km3_s2 > 0.0 ? tb.gm_km3_s2 : tb.body_gm_km3_s2;
+            if (tide_gm <= 0.0) {
+                fail(ctx, "the tide of '" + tb.name + "' needs its gm_km3_s2");
+            }
+            gravity.tides.push_back({tide_gm, [&out, b, center](double time) {
+                                         return out.icrf_state_at(b, time).position -
+                                                out.icrf_state_at(center, time).position;
+                                     }});
+        }
+    }
     // A table sampled every minute rounds off a burn's sudden start and end
     // over one sample interval: the ghost leaves the real path a minute before
     // the burn, and the delta-v counts from then until a minute after it.
@@ -1493,6 +1543,9 @@ void Loader::parse_event_ghost(const toml::table* t, const std::string& event_ct
     g.t_tdb = g.burn_tdb - kBurnMarginS;
     if (!relative.valid_at(g.t_tdb)) {
         fail(ctx, "'" + real.name + "' has no motion just before the burn");
+    }
+    if (!gravity.zonal.empty()) {
+        gravity.pole = out.body_to_icrf(c, g.t_tdb)[2]; // fixed over the ghost's day or so
     }
     const double days = get_double_or(*t, "days", 1.0);
     const double burn_s = get_double_or(*t, "burn_s", 0.0);
@@ -1509,7 +1562,7 @@ void Loader::parse_event_ghost(const toml::table* t, const std::string& event_ct
         }
         constexpr double kStepS = 4.0;
         const int steps = std::max(static_cast<int>(std::ceil(g.delta_v_span_s / kStepS)), 1);
-        g.delta_v_km_s = unexplained_delta_v(relative, gm, g.t_tdb, g.delta_v_span_s, steps);
+        g.delta_v_km_s = unexplained_delta_v(relative, gravity, g.t_tdb, g.delta_v_span_s, steps);
     }
 
     Body ghost;
@@ -1524,7 +1577,7 @@ void Loader::parse_event_ghost(const toml::table* t, const std::string& event_ct
     ghost.orbit_color = parse_color(*t, "orbit_color", ctx, glm::mix(real.orbit_color, glm::vec3(0.55f), 0.6f));
     ghost.trail = TrailMode::History; // drawn whole (Scene::trail)
     ghost.event = event;
-    ghost.motion = std::make_unique<CoastMotion>(relative.eval(g.t_tdb), gm, g.t_tdb, g.start_tdb, g.end_tdb);
+    ghost.motion = std::make_unique<CoastMotion>(relative.eval(g.t_tdb), gravity, g.t_tdb, g.start_tdb, g.end_tdb);
     g.ghost = static_cast<int>(out.bodies.size());
     out.bodies.push_back(std::move(ghost));
 }

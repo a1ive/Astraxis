@@ -22,6 +22,10 @@
 #        moons 2004-06-01 .. 2017-09-16. Outside that span the moons fade over one day
 #        into the mean elements [ELEM]. Saturn's heliocentric orbit (Sun direction): the
 #        Saturn system barycenter, 1972-2100 [HZN], else [APX].
+# [IESS] Iess et al. 2019, "Measurement and implications of Saturn's gravity field and ring
+#        mass", Science 364, eaat2965, Table 1: unnormalized J2 = 16,290.573e-6 (with the
+#        satellites' mean tide), J4 = -935.314e-6 at the reference radius 60,330 km. Only
+#        the orbit insertion's ghost uses them.
 # [TCAS] P. C. Thomas, Saturn Small Moon Shape Models V1.0 (PDS SBN,
 #        saturn_satellite_shape_models; Cassini ISS): Hyperion plate model (14,636 vertices),
 #        equal-volume radius 136.3 km vs 135 +- 4 km in [SPHY]. The model's z axis is the
@@ -56,6 +60,11 @@
 #        [CQF] NASA, "Cassini Quick Facts" / "Cassini-Huygens By the Numbers": 294 orbits.
 #        [SOI] NASA/JPL, Saturn orbit insertion (2004-06-30/07-01): through the gap between
 #          the F and G rings, a 96-minute burn (626 m/s), back out through the gap.
+#          NASA, "Saturn Arrival: A Guide to Saturn Orbit Insertion": the burn from 7:36 p.m.
+#          PDT (Earth-received), about 96 minutes. ESA, "Approach and arrival"
+#          (sci.esa.int/web/cassini-huygens/-/34955): from 01:12 UTC on 07-01 to 02:49 UTC,
+#          97 minutes. NASA, Cassini significant event report for the week ending 2004-07-09:
+#          626.17 m/s.
 #        [HUY] ESA, "Huygens landing on Titan 2005" and "The Huygens landing: one year on":
 #          a parachute descent of 2 h 28 min, landing around 11:30 UTC on 2005-01-14, "the
 #          farthest touchdown" of any human-built object; 70 minutes of data from the surface
@@ -147,6 +156,8 @@ name = "Saturn"
 radii_km = [60268.0, 54364.0]              # equatorial, polar [PCK]
 gm_km3_s2 = 37940584.8418                  # system [GM]
 body_gm_km3_s2 = 37931206.23               # [SPHY] (SAT441)
+zonal_harmonics = [[2, 16290.573e-6], [4, -935.314e-6]] # [IESS]
+gravity_radius_km = 60330.0                 # [IESS]
 pole_ra_dec_deg = [40.589, 83.537]         # [PCK]
 prime_meridian_deg = [38.90, 810.7939024]  # System III [PCK]
 pole_rate_deg_per_century = [-0.036, -0.004]
@@ -498,6 +509,15 @@ caption = """\
     After nearly seven years in space, Cassini crosses the ring plane through the \
     gap between the F and G rings. A 96-minute engine burn makes it the first \
     spacecraft to orbit Saturn. It then crosses back through the same gap."""
+# The burn [SOI]: ESA's 01:12 UTC on the spacecraft (NASA's 7:36 p.m. PDT is 83.6 minutes
+# later, Earth-received; [HZN]: 1.50 billion km), 97 minutes. The ghost and the delta-v
+# coast in [IESS]'s J2 and J4. The table reads 626 m/s (626.17).
+[events.ghost]
+body = "Cassini"
+name = "Cassini without the burn"
+time_tdb = "2004-07-01 01:13:04"
+burn_s = 5820.0
+days = 1.0
 
 [[events]]
 name = "Cassini's tour, 2004-2017"

@@ -33,6 +33,9 @@
 #        Dermott 1999 (Solar System Dynamics) and Burns et al. 1999 (Science 284, 1146).
 # [APX]  E. M. Standish, Approximate Positions of the Planets, Tables 2a/2b
 #        (https://ssd.jpl.nasa.gov/planets/approx_pos.html), 3000 BC - 3000 AD.
+# [IESS] Iess et al. 2018, "Measurement of Jupiter's asymmetric gravity field", Nature 555,
+#        220, Table 1 (Juno PJ3 and PJ6): unnormalized J2 = 14,696.572e-6, J4 = -586.609e-6
+#        at the reference radius 71,492 km. Only the orbit insertion's ghost uses them.
 #
 # [CAP]  Event captions (retrieved 2026-10-07):
 #        [GLL] NASA, science.nasa.gov/mission/galileo/: arrival on 1995-12-07 with flybys of
@@ -49,6 +52,9 @@
 #          to within 2,200 miles of the cloud tops between the radiation belts and the planet;
 #          eight cyclones around one at the north pole; Ganymede on 2021-06-07, the closest in
 #          over 20 years.
+#        [JOI] NASA/JPL news release 2016-07-04, "NASA's Juno Spacecraft in Orbit Around
+#          Mighty Jupiter": the 645-newton main engine began on time at 8:18 p.m. PDT, a
+#          35-minute burn, completion received on Earth at 8:53 p.m.; 542 m/s.
 #        [JUNE] NASA/JPL, "NASA's Juno Shares First Image From Flyby of Jupiter's Moon
 #          Europa": 2022-09-29, 352 km, the closest since Galileo on 2000-01-03; data on the
 #          ice shell.
@@ -113,6 +119,8 @@ radii_km = [71492.0, 66854.0]          # equatorial, polar [PCK]
 gm_km3_s2 = 126712764.1                # system [GM]; osculating orbits of the moons and spacecraft
 body_gm_km3_s2 = 126686531.9           # [SPHY] (JUP365)
 pole_ra_dec_deg = [268.056595, 64.495303] # [PCK]
+zonal_harmonics = [[2, 14696.572e-6], [4, -586.609e-6]] # [IESS]
+gravity_radius_km = 71492.0             # [IESS]
 prime_meridian_deg = [284.95, 870.5360000] # W0, deg/day (System III) [PCK]
 color = "#e0cdb0"
 style = "gas_giant"
@@ -606,6 +614,16 @@ caption = """\
     Juno fires its engine for its capture into a long polar orbit. "Engine burn complete \
     and orbit obtained," mission control announced, on the 4th of July in the US. Juno \
     runs on sunlight, the first spacecraft to do so this far from the Sun."""
+# The burn [JOI]: from 8:18 p.m. PDT Earth-received (03:18 UTC), 48.3 minutes after it
+# happened ([HZN]: 869 million km), 35 minutes. Near Jupiter the oblateness pulls as hard
+# as the engine (0.3-0.45 vs 0.26 m/s^2): the ghost and the delta-v coast in [IESS]'s
+# J2 and J4. The table reads 543 m/s (542).
+[events.ghost]
+body = "Juno"
+name = "Juno without the burn"
+time_tdb = "2016-07-05 02:30:49"
+burn_s = 2100.0
+days = 1.0
 
 [[events]]
 name = "Juno's tour, 2016-2028"

@@ -387,6 +387,7 @@ start = "2016-06-01"
 stop = "2028-09-01"   # Horizons coverage ends at 2028-09-02 01:39
 base_step_minutes = 360
 tolerance_km = 5.0
+keep_all = [["2016-07-05 02:28", "2016-07-05 03:09"]]  # the orbit insertion burn (the scene reads its delta-v)
 periapsides = true
 encounters = ["io_juno", "europa_juno", "ganymede_juno", "callisto_juno"]
 encounter_km = 100000.0
@@ -589,6 +590,7 @@ start = "2013-10-05 12:00"
 stop = "2014-04-18 04:33"    # end of the data at the impact (contact lost 04:30 UTC)
 base_step_minutes = 1
 tolerance_km = 2.0
+keep_all = [["2013-10-06 10:56", "2013-10-06 11:05"]]  # the orbit insertion burn (the scene reads its delta-v)
 
 # Chang'e 5-T1's Long March 3C third stage (WE0913A): a single JPL fit (solution #23,
 # S. Chesley, 2022-02-18) from 2021-10-01, the start of the data. Horizons continues
@@ -748,6 +750,7 @@ start = "2004-06-01"
 stop = "2017-09-15 10:32"   # atmospheric entry (~1,800 km above the 1-bar level); later data is not a trajectory
 base_step_minutes = 360
 tolerance_km = 5.0
+keep_all = [["2004-07-01 01:10", "2004-07-01 02:52"]]  # the orbit insertion burn (the scene reads its delta-v)
 periapsides = true
 encounters = ["mimas_cas", "enceladus_cas", "tethys_cas", "dione_cas", "rhea_cas", "titan_cas", "iapetus_cas", "hyperion_cas"]
 encounter_km = 50000.0

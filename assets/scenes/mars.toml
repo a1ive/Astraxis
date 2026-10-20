@@ -865,7 +865,12 @@ caption = """\
 # shown only during this event. With burn_s, the spacecraft's label shows the delta-v
 # so far: the velocity change two-body gravity does not explain, which over the burn is
 # the thrust's (Estevez's burn model [TW1]: 888 s from 2021-02-10 11:52:55 UTC, 3 kN,
-# Isp 321.6 s, 4,425 kg, so 668 m/s by the rocket equation).
+# Isp 321.6 s, 4,425 kg, so 668 m/s by the rocket equation). Optional: `center` (a
+# sibling the spacecraft orbits, for one that stays a child of the Sun, venus.toml),
+# `tides` (bodies whose tides the coast feels, e.g. the Earth's around the Moon,
+# earth_moon.toml); the center's zonal_harmonics and gravity_radius_km, if it has them,
+# go into the coast and the delta-v (jupiter.toml: near the cloud tops the oblateness
+# pulls as hard as the engine).
 [events.ghost]
 body = "Tianwen-1"
 name = "Tianwen-1 without the burn"

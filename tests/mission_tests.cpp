@@ -54,9 +54,11 @@ double shape_radius(const ShapeModel& shape, const glm::dvec3& p)
 // published value (none if 0) within `tolerance` (relative); the ghost and the
 // readout only during the event; the burn not under way at the time given for
 // its start; the ghost on the approach path at the event's start (it drifts off
-// slowly: two-body gravity, without the planet's oblateness), apart an hour
-// after the burn, and unbound. Returns the event's index, -1 if none.
-int check_insertion_ghost(Scene& scene, const char* craft, double published_m_s, double tolerance)
+// slowly: the gravity it coasts in is not the whole field), apart an hour after
+// the burn, and gone by the end of its window: unbound by then. An impulsive
+// burn (a reconstruction's) has no halfway. Returns the event's index, -1 if none.
+int check_insertion_ghost(Scene& scene, const char* craft, double published_m_s, double tolerance,
+                          bool impulsive = false)
 {
     const std::string name(craft);
     const int body = scene.find(craft);
@@ -86,14 +88,18 @@ int check_insertion_ghost(Scene& scene, const char* craft, double published_m_s,
     check(!gb.visible && !scene.burn_delta_v(body, &readout), (name + "'s ghost and readout only during its event").c_str());
     scene.set_active_event(event);
     scene.update(mid);
-    check(gb.visible && scene.burn_delta_v(body, &readout) && readout > 0.3 * dv * 1e-3 && readout < 0.7 * dv * 1e-3,
+    const double low = impulsive ? 0.999 : 0.3;
+    const double high = impulsive ? 1.001 : 0.7;
+    check(gb.visible && scene.burn_delta_v(body, &readout) && readout > low * dv * 1e-3 && readout < high * dv * 1e-3,
           (name + "'s delta-v readout halfway through the burn (km/s)").c_str(), readout);
     // The ghost leaves the real path a minute before the time given. By then, less than half
     // a minute of the burn's mean thrust: the readout grows linearly between knots a minute
     // apart, so a burn starting in the interval after that time shows a little before it.
-    scene.update(g.burn_tdb);
+    // (An impulse shows over one step of the readout, about 4 s; until then a coast that
+    // leaves out, e.g., sunlight pressure leaves a trace.)
+    scene.update(impulsive ? g.burn_tdb - 4.0 : g.burn_tdb);
     scene.burn_delta_v(body, &readout);
-    const double half_minute = dv / (g.delta_v_span_s - 120.0) * 30.0;
+    const double half_minute = impulsive ? 0.01 : dv / (g.delta_v_span_s - 120.0) * 30.0;
     check(readout * 1000.0 < half_minute, (name + "'s burn not under way at its given start (m/s)").c_str(),
           readout * 1000.0);
     scene.set_active_event(-1);
@@ -108,11 +114,13 @@ int check_insertion_ghost(Scene& scene, const char* craft, double published_m_s,
     const double after = apart(burn_end + 3600.0);
     check(after > 1000.0, (name + "'s ghost apart an hour after the burn (km)").c_str(), after);
     OrbitElements ghost_el;
-    check(!osculating_elements(gb.motion->eval(g.t_tdb), gm, &ghost_el) || ghost_el.period_s == 0.0,
-          (name + " would have flown past without the burn").c_str());
+    const State last = gb.motion->eval(g.end_tdb);
+    check(!osculating_elements(last, gm, &ghost_el) || ghost_el.period_s == 0.0,
+          (name + " would have flown past without the burn").c_str(), glm::length(last.position));
     std::printf("info: %s orbit insertion: %.1f m/s from the path (published %.0f); the ghost %.2f km off at the "
-                "event's start (%.0f min before the burn), %.0f km an hour after\n",
-                craft, dv, published_m_s, before, (g.burn_tdb - g.start_tdb) / 60.0, after);
+                "event's start (%.0f min before the burn), %.0f km an hour after, %.0f km from %s at the end\n",
+                craft, dv, published_m_s, before, (g.burn_tdb - g.start_tdb) / 60.0, after,
+                glm::length(last.position), parent.name.c_str());
     return event;
 }
 
@@ -524,6 +532,10 @@ void test_jupiter_missions()
     scene.update(t);
     check(scene.bodies[static_cast<size_t>(cassini)].visible && scene.bodies[static_cast<size_t>(galileo)].visible,
           "Galileo and Cassini both at Jupiter");
+
+    // Juno's orbit insertion: 542 m/s [JOI], read with Jupiter's J2 and J4 (without them,
+    // the oblateness would count as hundreds of m/s of thrust).
+    check_insertion_ghost(scene, "Juno", 542.0, 0.01);
 }
 
 // Artemis I/II and CAPSTONE against NASA's published figures (distances only:
@@ -643,6 +655,8 @@ void test_earth_moon_missions()
     const double ladee_alt = glm::length(ladee_end.position - moon_end.position) - moon_r;
     check(std::abs(ladee_speed - 1.699) < 0.02, "LADEE impact speed (km/s)", ladee_speed);
     check(ladee_alt > 0.0 && ladee_alt < 5.0, "LADEE altitude at the end of the data (km)", ladee_alt);
+    // The lunar orbit insertion: 737 mph planned [LADEEI].
+    check_insertion_ghost(scene, "LADEE", 737.0 * 0.44704, 0.02);
 
     // Chang'e 5-T1's service module [L16] (reconstructed): the farthest distance of the
     // flown trajectory, 540,000 km (Table 4; the design's, flown "essentially identical");
@@ -666,6 +680,18 @@ void test_earth_moon_missions()
         ce5_high = std::max(ce5_high, above_moon(ce5)(t));
     }
     check(ce5_low > 150.0 && ce5_high < 250.0, "Chang'e 5-T1 final orbit about 200 km (km, highest)", ce5_high);
+    // Brake 1's ghost: 219.7 m/s (Table 5), impulsive in the reconstruction. Around the Moon
+    // alone the orbit before it is closed; with the Earth's tide the ghost leaves (unbound
+    // 12 days later).
+    const int ce5_brake = check_insertion_ghost(scene, "Chang'e 5-T1", 219.7, 0.001, true);
+    if (ce5_brake >= 0) {
+        const SceneEvent::Ghost& g = scene.events[static_cast<size_t>(ce5_brake)].ghost;
+        OrbitElements before_brake;
+        check(osculating_elements(scene.bodies[static_cast<size_t>(g.ghost)].motion->eval(g.t_tdb),
+                                  scene.bodies[static_cast<size_t>(moon)].gm_km3_s2, &before_brake) &&
+                  before_brake.period_s > 0.0,
+              "Chang'e 5-T1's orbit around the Moon alone closed before brake 1");
+    }
 
     // Chang'e 5-T1's rocket stage (WE0913A): close Earth flybys on 2022-01-20 and 02-08
     // [WE]; the table ends where it reaches the elevation of the impact site, 1,863 m above
@@ -760,6 +786,9 @@ void test_saturn_missions()
         dives += glm::length(at(cassini, tp)) < 66000.0 ? 1 : 0;
     }
     check(dives == 22, "Cassini's Grand Finale dives", dives);
+
+    // The orbit insertion: 626.17 m/s [SOI], read with Saturn's J2 and J4.
+    check_insertion_ghost(scene, "Cassini", 626.17, 0.01);
 }
 
 // MESSENGER and BepiColombo: heliocentric cruise tables handed over to tables

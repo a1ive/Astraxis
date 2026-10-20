@@ -32,6 +32,8 @@ add_library(astraxis_sim STATIC
     src/core/sim_clock.hpp
     src/core/time.cpp
     src/core/time.hpp
+    src/ephem/coast.cpp
+    src/ephem/coast.hpp
     src/ephem/ephemeris.cpp
     src/ephem/ephemeris.hpp
     src/ephem/kerr_geodesic.cpp

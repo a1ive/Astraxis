@@ -242,6 +242,11 @@ struct Body {
     // in the scene file, else gm_km3_s2 (which may include the satellites) or
     // the body's N-body GM. 0 = unknown.
     double body_gm_km3_s2 = 0.0;
+    // Oblateness of the gravity field (unnormalized zonal harmonics, about the
+    // pole): zonal_harmonics[n] is J_n at reference radius gravity_radius_km.
+    // Only an event's ghost coasts in it (CoastGravity); empty: a point mass.
+    std::vector<double> zonal_harmonics;
+    double gravity_radius_km = 0.0;
     double spin = 0.0;      // black holes: a / M
 
     // Black holes: illustrative thin accretion disk in the equatorial plane
@@ -499,8 +504,10 @@ struct SceneEvent {
     // The path a spacecraft would have taken without a burn (e.g. the
     // hyperbola it was on before an orbit insertion), to compare with the
     // real one: `ghost` (a Ghost body, shown only while this event is active)
-    // coasts under the parent's gravity alone from `body`'s state at t_tdb,
-    // just before the burn. Its path is drawn whole, from start_tdb to end_tdb.
+    // coasts from `body`'s state at t_tdb, just before the burn, in the
+    // center's gravity (its zonal harmonics, if given) and the tides of the
+    // bodies the event names (CoastGravity). Its path is drawn whole, from
+    // start_tdb to end_tdb.
     struct Ghost {
         int body = -1; // -1: no ghost
         int ghost = -1;

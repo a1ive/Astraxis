@@ -146,34 +146,6 @@ State propagate_kepler(const State& s, double mu, double dt, double* universal_a
     return out;
 }
 
-std::vector<double> unexplained_delta_v(const MotionSource& motion, double mu, double t0, double duration, int steps)
-{
-    steps = std::max(steps, 1);
-    std::vector<double> times;
-    motion.history_times(t0, t0 + duration, steps + 1, times);
-    std::vector<double> sums{0.0};
-    State s = motion.eval(times.front());
-    for (size_t i = 1; i < times.size(); ++i) {
-        const State next = motion.eval(times[i]);
-        const State coast = propagate_kepler(s, mu, times[i] - times[i - 1]);
-        sums.push_back(sums.back() + glm::length(next.velocity - coast.velocity));
-        s = next;
-    }
-
-    std::vector<double> total;
-    size_t i = 0;
-    for (int k = 0; k <= steps; ++k) {
-        const double t = t0 + duration * k / steps;
-        while (i + 2 < times.size() && times[i + 1] < t) {
-            ++i;
-        }
-        const double span = times[i + 1] - times[i];
-        const double x = span > 0.0 ? std::clamp((t - times[i]) / span, 0.0, 1.0) : 1.0;
-        total.push_back(sums[i] + (sums[i + 1] - sums[i]) * x);
-    }
-    return total;
-}
-
 bool sample_osculating_ellipse(const State& s, double mu, int count, std::vector<glm::dvec3>& out)
 {
     out.clear();

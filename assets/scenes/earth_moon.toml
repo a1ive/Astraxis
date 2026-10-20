@@ -106,6 +106,9 @@
 #          Crater": less than 3 m across, at 1,699 m/s. [LADEEH] Horizons notes on LADEE
 #          (-12): approach from the leading edge, behind the Moon out of sight of the Earth,
 #          re-emerge, a three-minute lunar orbit insertion into an orbit of ~24 hours.
+#          [LADEEI] Spaceflight Now, 2013-10-05, "LADEE poised for lunar orbit insertion":
+#          the four-minute firing to begin at 1057 GMT (6:57 a.m. EDT) on 10-06, changing the
+#          velocity by 737 mph (329 m/s).
 #        [WE] (retrieved 2026-10-16) Campbell et al. 2023, "Physical Characterization of
 #          Moon Impactor WE0913A", Planet. Sci. J. 4, 217: Chang'e 5-T1 launched 2014-10-23 on
 #          a Long March 3C (Sec. 3); WE0913A discovered by the Catalina Sky Survey on
@@ -563,6 +566,20 @@ caption = """\
     shrinks from long ellipses to a circle about 200 km up, where it tests \
     technology for the rendezvous and docking in lunar orbit that Chang'e 5 would \
     need."""
+# Brake 1 ([L16] Table 5): 219.7 m/s at 19:04:33 UTC, impulsive in the reconstruction
+# (the paper gives no durations). Before it the orbit around the Moon alone is already
+# closed, 1,940 x ~56,000 km from the center, 5 days around; out there the Earth's tide
+# wins. Without the brake the module (the ghost, with the tide) would not have come back:
+# it hangs 54,000-62,000 km out for a week, then drifts off, 107,000 km away and unbound
+# 12 days later.
+[events.ghost]
+body = "Chang'e 5-T1"
+name = "Chang'e 5-T1 without the brake"
+center = "Moon"
+tides = ["Earth"]
+time_tdb = "2015-01-10 19:05:40"
+burn_s = 1.0                               # the reconstruction's impulse
+days = 12.0
 
 # --- Chang'e 5-T1's rocket stage ------------------------------------------------------
 
@@ -647,6 +664,18 @@ caption = """\
     its engine for three minutes to enter a day-long orbit. More burns over the \
     next weeks bring it down to about 20 by 60 km above the surface, around the \
     Moon's equator."""
+# The burn [LADEEI]: from 10:57 UTC, four minutes ([LADEEH]: three); in the table the
+# thrust runs from about 10:58:30 to 11:02:45 TDB and reads 330 m/s (329). Five
+# minutes after the perilune, 2,370 km from the center. The ghost coasts with the
+# Earth's tide, which matters only once it has left the Moon behind.
+[events.ghost]
+body = "LADEE"
+name = "LADEE without the burn"
+center = "Moon"
+tides = ["Earth"]
+time_tdb = "2013-10-06 10:58:07"
+burn_s = 240.0
+days = 1.0
 
 # Perilunes 15-56 km above the mean radius over 2013-12 .. 2014-02, apolunes 68-148 km.
 [[events]]
