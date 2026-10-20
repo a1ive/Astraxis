@@ -152,6 +152,7 @@
   - Debug 版帧率明显下降（每帧都要采样几十个天体的轨道线；当初 44 个天体时是 25–35 FPS，现在有 51 个），Release 仍是 60 FPS
   - Pallas 用 VLT/SPHERE 的 MPCD 形状模型（地面望远镜自适应光学重建，只能看到直径约 25–70 km 以上的坑），没有纹理（没有飞船去过），自转改用与模型同一坐标系的 DAMIT 4395 参数，不再用 PCK。Phobos（2° 网格）、Deimos（5° 网格）用 Thomas 的形状模型和同一控制网的海盗号拼接图：拼接图经过高通滤波、对比度低，有低分辨率的马赛克区（Phobos 的 Stickney 内部、Deimos 约一半经度），Deimos 约 4% 是填补的，网格粗、近看是多面体状。Venus、Titan 开着大气层时画纯色的云顶/雾霾层（局限见“大气层”）；Mercury、Phobos、Deimos、Vesta、Ceres 的纹理是拉伸过的灰度图，比真实反照率亮（Phobos、Ceres 实际很暗）；Vesta 北纬 60° 以上在 Dawn 测绘时处于极夜，图里很暗
   - Vesta 用 DLR HAMO DTM 的 1.5° 网格（约 6.9 km），近看是平滑的大尺度地形，小坑只在纹理里；Ceres 仍是旋转椭球加纹理（形状接近椭球，影响不大）
+  - Eris、Haumea、Makemake 用 NASA VTAD 3D 模型的颜色图转换成的示意纹理：模型页未提供细节的观测地图来源，坑、沟槽和斑块位置不代表实测地貌，经度零点任意。Haumea 的法线图未接入，细节光影有一部分画在颜色图里；运行时仍按场景的三轴尺寸着色。来源和处理见 `assets/textures/SOURCES.md`
   - 天王星卫星只有南半球的图（旅行者 2 号 1986 年所见），2020 年代太阳照着北半球，所以现在看到的是填补的平淡表面；Pluto 和 Charon 是灰度图
     - 2026-10 查过：没有更好的公开全球图。USGS 只有 1988 年 I-1920 的喷笔拼接图（覆盖 25%–45%，即 JPL Solar System Simulator 那批图的来源）；2025-04 发布的 Miranda Voyager Image Control Network 是控制网（控制点和量测），页面上的南极投影图是 Davies et al. 1987 插图的扫描件，带编号，不能当纹理。USGS 在做天卫的“分析就绪”数据（新拼接图、DEM、地质图，GSA 2025 摘要），发布后可以照 Phobos/Deimos 的做法换上，但北半球依然没有数据
   - 环：天王星外侧两条尘埃环（τ ~ 1e-5）省略；各环的亮度增益是艺术性的

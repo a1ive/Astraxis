@@ -1733,6 +1733,8 @@ parent = "Sun"
 radii_km = [1163.0]                        # [ERIS] 1163 +- 6 km
 body_gm_km3_s2 = 1098.9                    # [GMB] (system; Dysnomia's mass taken as 0)
 color = "#ebe7e1"
+texture = "textures/eris.jpg"              # NASA VTAD illustrative surface, assets/textures/SOURCES.md
+texture_left_lon_deg = 0.0                 # arbitrary meridian
 orbit_color = "#c8c4be"
 [bodies.orbit]                             # [HZN] 136199
 type = "ephemeris"
@@ -1747,6 +1749,8 @@ body_gm_km3_s2 = 264.413                   # [GMB] (primary)
 pole_ra_dec_deg = [285.1, -10.6]           # [HAUM] ring pole (solution 1, favoured by photometry)
 prime_meridian_deg = [0.0, 2206.646]       # [HAUM] P = 3.915341 h; W0 arbitrary
 color = "#e6e6ea"
+texture = "textures/haumea.jpg"            # NASA VTAD illustrative surface, assets/textures/SOURCES.md
+texture_left_lon_deg = 0.0                 # arbitrary meridian
 orbit_color = "#c4c6cc"
 [bodies.orbit]                             # [HZN] 136108
 type = "ephemeris"
@@ -1775,6 +1779,8 @@ name = "Makemake"
 parent = "Sun"
 radii_km = [717.0]                         # [MAKE] equatorial diameter 1434 km
 color = "#d4a98a"
+texture = "textures/makemake.jpg"          # NASA VTAD illustrative surface, assets/textures/SOURCES.md
+texture_left_lon_deg = 0.0                 # arbitrary meridian
 orbit_color = "#c8aa96"
 [bodies.orbit]                             # [HZN] 136472
 type = "ephemeris"

@@ -1,6 +1,6 @@
 # 纹理来源
 
-天体表面纹理采用简单圆柱投影（等经纬度）的全球地图。`tools/textures/prepare_textures.py` 先按整数倍降采样，再用 Lanczos 重采样，将图像缩放到 2048×1024。工具还会填补 USGS 拼接图的极区无数据像素，最后存为 JPEG（质量 90）。原始文件体积较大，仓库中收录的是处理后的纹理，需要时可按下表重新下载。
+天体表面纹理采用简单圆柱投影（等经纬度）的全球地图。Eris、Haumea、Makemake 的模型纹理由 `tools/textures/extract_dwarf_textures.py` 转换，做法见下文。其余观测地图由 `tools/textures/prepare_textures.py` 先按整数倍降采样，再用 Lanczos 重采样，将图像缩放到 2048×1024。工具还会填补 USGS 拼接图的极区无数据像素，最后存为 JPEG（质量 90）。原始文件体积较大，仓库中收录的是处理后的纹理，需要时可按下表重新下载。
 
 | 文件 | 来源 | 许可 |
 |---|---|---|
@@ -57,6 +57,34 @@
 - Titan：<https://planetarymaps.usgs.gov/mosaic/Titan_ISS_P19658_Mosaic_Global_4km.tif>（8 MB）。
 - Phobos、Deimos：<https://sbnarchive.psi.edu/pds4/non_mission/ast-sat.thomas.shape-models_V1_0/data/m1phobosm.fit>（17 MB）、`m2deimosm.fit`（1 MB），8 位 FITS。
 - 天王星卫星：<https://space.jpl.nasa.gov/tmaps/pix/ura1vuu2.tif> .. `ura5vuu2.tif`（各 0.2 至 0.4 MB；1 Ariel、2 Umbriel、3 Titania、4 Oberon、5 Miranda）。
+
+## Eris、Haumea 和 Makemake（NASA VTAD）
+
+`eris.jpg`、`haumea.jpg`、`makemake.jpg` 来自 NASA Visualization Technology Applications and Development（VTAD）的三个 3D 模型。入口是 [Pluto and Dwarf Planet Resources](https://science.nasa.gov/solar-system/resources/resource-packages/pluto-dwarf-planet-resources/#3dmodels)，各模型页均署名 NASA VTAD，未标注第三方版权：
+
+| 纹理 | 模型页 | GLB 下载 | 内嵌颜色图 |
+|---|---|---|---|
+| `eris.jpg` | [Eris 3D Model](https://science.nasa.gov/resource/eris-3d-model/) | [Eris_1_2326.glb](https://assets.science.nasa.gov/content/dam/science/psd/solar/2023/09/e/Eris_1_2326.glb) | `Eris_diff.jpg`，实际为 PNG，2048×1024 |
+| `haumea.jpg` | [Haumea 3D Model](https://science.nasa.gov/resource/haumea-3d-model/) | [Haumea_1_1000.glb](https://assets.science.nasa.gov/content/dam/science/psd/solar/2023/09/h/Haumea_1_1000.glb) | `Haumea_diff.jpg`，实际为 PNG，1024×1024 |
+| `makemake.jpg` | [Makemake 3D Model](https://science.nasa.gov/resource/makemake-3d-model/) | [Makemake_1_1430.glb](https://assets.science.nasa.gov/content/dam/science/psd/solar/2023/09/m/Makemake_1_1430.glb) | `makemake_diff.jpg`，实际为 PNG，2048×1536，十字形图集 |
+
+使用依据是 [NASA Images and Media Usage Guidelines](https://www.nasa.gov/nasa-brand-center/images-and-media/)：NASA 的三维模型纹理和多边形数据通常在美国不受版权保护，可用于计算机图形模拟等用途，需要注明 NASA 来源；第三方版权内容另行处理。这里署名 NASA/VTAD，遵守该使用规范。核查日期：2026-10-20；本地 `ref/dwarf/` 的三个文件与上述官方下载逐字节一致。SHA-256：
+
+```text
+1b97f1b9eea244b047a72c2a3ac0db315715b7d421033d860d669ffd78681d54  Eris_1_2326.glb
+7b31737593054bd4ef8f61138a6ad1a2577bec03b84d1c3e76e8ac78632a87f8  Haumea_1_1000.glb
+e7d5fa27f50afae10f0e7290cdf7a14ca856c0b9e99b2db02f25b75441fbdbef  Makemake_1_1430.glb
+```
+
+复现命令（需要 numpy、Pillow）：
+
+```powershell
+python tools/textures/extract_dwarf_textures.py ref/dwarf assets/textures
+```
+
+工具沿各经纬度方向与源模型三角形求交，插值原 UV，再采样材质的 `baseColorTexture`。Eris 和 Makemake 的 Y 轴转为项目的北极 Z 轴；Haumea 的短轴本身是 Z 轴。输出从左向右为东经 0°–360°、从上向下为北纬 90°–南纬 90°；经度零点任意。Haumea 按源网格的位置算行星中心纬度，适配项目的三轴椭球贴图方式。在线性 RGB 中双线性采样，以 4096×2048 烘焙后做 2×2 平均，转回 sRGB，存为 2048×1024 JPEG（质量 90，4:4:4）。每张图都检查全像素有网格覆盖。
+
+模型页未提供表面细节的观测地图来源，本项目按示意表面使用；纹理中的沟槽、坑和斑块位置不代表实测地貌。颜色取模型的颜色图，材质中的金属度、粗糙度及 Haumea 的法线图未接入。源模型网格用于离线转换，运行时的半径、自转和 Haumea 三轴尺寸由场景配置决定（源模型短半轴为 569，场景采用 [HAUM] 的 513 km）。
 
 ## 天王星和海王星（OPAL）
 
