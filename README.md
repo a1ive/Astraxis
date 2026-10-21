@@ -27,6 +27,7 @@ Astraxis is an astronomy background app with planets, spacecraft and stars anima
 | Alpha Centauri | A, B and Proxima in an N-body simulation |
 | Sgr A* | Ray-traced Galactic Centre black hole and orbiting S-stars |
 | Gargantua (Interstellar) | The film's fictional black hole |
+| Kerbol System (Kerbal Space Program) | A tribute to the game's fictional solar system, on its own orbits, clock and calendar |
 | TRAPPIST-1 | Seven Earth-sized planets in a resonant chain |
 | Kepler-223 | Four sub-Neptunes in a 3:4:6:8 resonant chain |
 | Kepler-47 | Three planets orbiting an eclipsing binary |

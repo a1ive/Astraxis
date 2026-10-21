@@ -55,6 +55,25 @@ void test_calendar()
     parse_utc("2017-01-01 00:01:00", &b);
     check(std::abs((b - a) - 121.0) < 1e-4, "leap second at 2017-01-01", b - a);
     check(!parse_utc("hello", &parsed), "parse_utc rejects garbage");
+
+    // KSP's calendar: 6-hour days and 426-day years, counted from 1 at UT 0.
+    check(format_date(0.0, Calendar::Kerbin) == "Year 1, Day 1, 00:00:00", "Kerbin calendar at UT 0");
+    const double ut = kKerbinYearSeconds + 2.0 * kKerbinDaySeconds + 5.0 * 3600.0 + 61.5;
+    check(format_date(ut, Calendar::Kerbin) == "Year 2, Day 3, 05:01:01", "Kerbin calendar date");
+    check(format_date(425.0 * kKerbinDaySeconds + 21599.0, Calendar::Kerbin) == "Year 1, Day 426, 05:59:59",
+          "Kerbin calendar year end");
+    check(format_date(-1.0, Calendar::Kerbin) == "Year 0, Day 426, 05:59:59", "Kerbin calendar before UT 0");
+    check(parse_date("Year 2, Day 3, 5:01:01", Calendar::Kerbin, &parsed) && parsed == std::floor(ut),
+          "parse Kerbin date", parsed - std::floor(ut));
+    check(parse_date("Y2 D3 5:01", Calendar::Kerbin, &parsed) && parsed == std::floor(ut) - 1.0,
+          "parse short Kerbin date");
+    check(parse_date("Year 1, Day 1", Calendar::Kerbin, &parsed) && parsed == 0.0, "parse Kerbin day");
+    check(!parse_date("Year 1, Day 427", Calendar::Kerbin, &parsed) &&
+              !parse_date("Year 1, Day 1, 6:00", Calendar::Kerbin, &parsed) &&
+              !parse_date("2026-10-02", Calendar::Kerbin, &parsed),
+          "parse_date rejects bad Kerbin dates");
+    check(parse_date("2026-10-02 00:00:00", Calendar::Gregorian, &parsed) && std::abs(parsed - t) < 1e-3,
+          "parse_date Gregorian");
 }
 
 void test_star_catalog_and_color()

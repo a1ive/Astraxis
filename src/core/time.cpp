@@ -1,8 +1,10 @@
 #include "core/time.hpp"
 
+#include <cctype>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 
 namespace astraxis {
 
@@ -130,6 +132,63 @@ std::string format_utc(double t_tdb)
     std::snprintf(buf, sizeof(buf), "%04d-%02d-%02d %02d:%02d:%02d UTC", c.year, c.month, c.day, c.hour, c.minute,
                   c.second);
     return buf;
+}
+
+std::string format_date(double t_tdb, Calendar calendar)
+{
+    if (calendar == Calendar::Gregorian) {
+        return format_utc(t_tdb);
+    }
+    const double seconds = std::floor(t_tdb);
+    const double year = std::floor(seconds / kKerbinYearSeconds);
+    const double in_year = seconds - year * kKerbinYearSeconds;
+    const double day = std::floor(in_year / kKerbinDaySeconds);
+    const int in_day = static_cast<int>(in_year - day * kKerbinDaySeconds);
+    char buf[64];
+    std::snprintf(buf, sizeof(buf), "Year %.0f, Day %.0f, %02d:%02d:%02d", year + 1.0, day + 1.0, in_day / 3600,
+                  in_day / 60 % 60, in_day % 60);
+    return buf;
+}
+
+bool parse_date(const char* text, Calendar calendar, double* t_tdb)
+{
+    if (calendar == Calendar::Gregorian) {
+        return parse_utc(text, t_tdb);
+    }
+    // Year, day, hour, minute, second: the integers in order, after a leading "Y".
+    while (*text == ' ') {
+        ++text;
+    }
+    if (*text != 'Y' && *text != 'y') {
+        return false;
+    }
+    long long v[5] = {};
+    int count = 0;
+    for (const char* p = text; *p;) {
+        const bool negative = *p == '-' && std::isdigit(static_cast<unsigned char>(p[1]));
+        if (!negative && !std::isdigit(static_cast<unsigned char>(*p))) {
+            ++p;
+            continue;
+        }
+        if (count == 5) {
+            return false;
+        }
+        char* end = nullptr;
+        v[count++] = std::strtoll(p, &end, 10);
+        p = end;
+    }
+    if ((count != 2 && count != 4 && count != 5) || v[1] < 1 || v[1] * kKerbinDaySeconds > kKerbinYearSeconds ||
+        v[2] < 0 || v[2] * 3600.0 >= kKerbinDaySeconds || v[3] < 0 || v[3] > 59 || v[4] < 0 || v[4] > 59) {
+        return false;
+    }
+    *t_tdb = static_cast<double>(v[0] - 1) * kKerbinYearSeconds + static_cast<double>(v[1] - 1) * kKerbinDaySeconds +
+             static_cast<double>(v[2] * 3600 + v[3] * 60 + v[4]);
+    return true;
+}
+
+const char* date_input_hint(Calendar calendar)
+{
+    return calendar == Calendar::Kerbin ? "Year 1, Day 1, 0:00" : "YYYY-MM-DD HH:MM";
 }
 
 } // namespace astraxis

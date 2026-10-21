@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/time.hpp"
 #include "ephem/motion.hpp"
 #include "scene/roche.hpp"
 #include "scene/shape_model.hpp"
@@ -609,6 +610,9 @@ public:
     std::vector<SceneEvent> events;
     SceneView view;
     SceneSky sky;
+    // How times are shown and entered (top-level `calendar`: "gregorian" or
+    // "kerbin"); also the calendar of the scene's own start and event times.
+    Calendar calendar = Calendar::Gregorian;
     std::vector<SceneBelt> belts;
     LightCurve light_curve;
 

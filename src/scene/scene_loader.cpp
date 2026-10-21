@@ -256,12 +256,15 @@ glm::vec3 parse_color(const toml::table& t, std::string_view key, const std::str
            255.0f;
 }
 
-double parse_time(const toml::table& t, std::string_view key, const std::string& ctx)
+double parse_time(const toml::table& t, std::string_view key, const std::string& ctx,
+                  Calendar calendar = Calendar::Gregorian)
 {
     const std::string text = get_string(t, key, ctx);
     double t_tdb = 0.0;
-    if (!parse_utc(text.c_str(), &t_tdb)) {
-        fail(ctx, "'" + std::string(key) + "' must be \"YYYY-MM-DD[ HH:MM[:SS]]\" (UTC)");
+    if (!parse_date(text.c_str(), calendar, &t_tdb)) {
+        fail(ctx, "'" + std::string(key) + "' must be " +
+                      (calendar == Calendar::Kerbin ? "\"Year Y, Day D[, HH:MM[:SS]]\""
+                                                    : "\"YYYY-MM-DD[ HH:MM[:SS]]\" (UTC)"));
     }
     return t_tdb;
 }
@@ -330,8 +333,9 @@ TransitOrbit parse_transit_orbit(const toml::table& t, const std::string& ctx)
     return o;
 }
 
-// Event times: "time" (UTC) or "time_tdb" (TDB, e.g. straight from the bake tool).
-double parse_event_time(const toml::table& t, const std::string& ctx)
+// Event times: "time" (UTC, or in the scene's calendar) or "time_tdb" (TDB, e.g. straight
+// from the bake tool).
+double parse_event_time(const toml::table& t, const std::string& ctx, Calendar calendar)
 {
     if (t.contains("time_tdb")) {
         const std::string text = get_string(t, "time_tdb", ctx);
@@ -343,7 +347,7 @@ double parse_event_time(const toml::table& t, const std::string& ctx)
         }
         return (jd_from_calendar(c) - kJ2000Jd) * kSecondsPerDay;
     }
-    return parse_time(t, "time", ctx);
+    return parse_time(t, "time", ctx, calendar);
 }
 
 class Loader {
@@ -732,6 +736,12 @@ void Loader::parse(const toml::table& root, Scene& out)
     out = Scene{};
     m_scene = &out;
     out.name = get_string(root, "name", "scene");
+    const std::string calendar = get_string_or(root, "calendar", "gregorian");
+    if (calendar == "kerbin") {
+        out.calendar = Calendar::Kerbin;
+    } else if (calendar != "gregorian") {
+        fail("scene", "calendar must be \"gregorian\" or \"kerbin\"");
+    }
 
     if (const toml::table* helio = root["origin_heliocentric"].as_table()) {
         out.origin_heliocentric = parse_motion(*helio, "origin_heliocentric", nullptr);
@@ -1328,7 +1338,7 @@ void Loader::parse(const toml::table& root, Scene& out)
             SceneEvent e;
             e.name = get_string(*t, "name", "events");
             const std::string ctx = "event '" + e.name + "'";
-            e.t_tdb = parse_event_time(*t, ctx);
+            e.t_tdb = parse_event_time(*t, ctx, out.calendar);
             e.focus = t->contains("focus") ? body_ref(out, *t, "focus", ctx, false) : -1;
             e.warp = get_double_or(*t, "warp", 0.0);
             e.distance_km = get_double_or(*t, "distance_km", 0.0);
@@ -1516,7 +1526,7 @@ void Loader::parse(const toml::table& root, Scene& out)
         const std::string start = get_string_or(*view, "start", "now");
         out.view.start_now = start == "now";
         if (!out.view.start_now) {
-            out.view.start_tdb = parse_time(*view, "start", ctx);
+            out.view.start_tdb = parse_time(*view, "start", ctx, out.calendar);
         }
         out.view.warp = get_double_or(*view, "warp", out.view.warp);
         const std::string surfaces = get_string_or(*view, "star_surfaces", "equal");
@@ -1670,7 +1680,7 @@ void Loader::parse_event_ghost(const toml::table* t, const std::string& event_ct
     // over one sample interval: the ghost leaves the real path a minute before
     // the burn, and the delta-v counts from then until a minute after it.
     constexpr double kBurnMarginS = 60.0;
-    g.burn_tdb = parse_event_time(*t, ctx);
+    g.burn_tdb = parse_event_time(*t, ctx, m_scene->calendar);
     g.t_tdb = g.burn_tdb - kBurnMarginS;
     if (!relative.valid_at(g.t_tdb)) {
         fail(ctx, "'" + real.name + "' has no motion just before the burn");
