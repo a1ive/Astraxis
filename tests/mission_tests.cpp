@@ -54,7 +54,8 @@ double shape_radius(const ShapeModel& shape, const glm::dvec3& p)
 // published value (none if 0) within `tolerance` (relative); the ghost and the
 // readout only during the event; the burn not under way at the time given for
 // its start; the ghost on the approach path at the event's start (it drifts off
-// slowly: the gravity it coasts in is not the whole field), apart an hour after
+// slowly: the gravity it coasts in is not the whole field, and between knots a
+// table is only as close as its tolerance, a few km), apart an hour after
 // the burn, and gone by the end of its window: unbound by then. An impulsive
 // burn (a reconstruction's) has no halfway. Returns the event's index, -1 if none.
 int check_insertion_ghost(Scene& scene, const char* craft, double published_m_s, double tolerance,
