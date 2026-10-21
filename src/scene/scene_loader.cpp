@@ -372,6 +372,14 @@ private:
     std::map<std::string, std::shared_ptr<const EphemerisTable>> m_tables;
     std::vector<int> m_nbody_bodies; // bodies whose motion comes from [nbody]
     std::vector<std::pair<int, std::string>> m_pulsar_axes; // pulsar, body whose orbit normal is its spin axis
+    struct RocheSpec {
+        int body = -1;
+        std::string companion;
+        double gravity_darkening = 0.0;
+        double albedo = 0.0;
+    };
+    std::vector<RocheSpec> m_roche_stars; // built once every body is loaded
+    void build_roche_star(const RocheSpec& spec, Scene& out) const;
     int m_current_body = -1;
 };
 
@@ -823,6 +831,11 @@ void Loader::parse(const toml::table& root, Scene& out)
             body.equatorial_radius_b_km = body.equatorial_radius_km;
         } else if (body.kind == BodyKind::Barycenter || body.kind == BodyKind::Ghost) {
             body.equatorial_radius_km = body.equatorial_radius_b_km = body.polar_radius_km = 1.0;
+        } else if (t->contains("roche")) {
+            // Sized by its Roche lobe once every body is loaded.
+            if (t->contains("radii_km")) {
+                fail(ctx, "a star filling its Roche lobe takes its size from the lobe: leave out radii_km");
+            }
         } else {
             // [mean], [equatorial, polar] or [a, b, c] (a along the prime meridian).
             double radii[3] = {0.0, 0.0, 0.0};
@@ -931,6 +944,23 @@ void Loader::parse(const toml::table& root, Scene& out)
             }
             m_pulsar_axes.emplace_back(static_cast<int>(out.bodies.size()),
                                        get_string(*p, "spin_axis_orbit_normal", ctx + " pulsar"));
+        }
+
+        // [bodies.roche]: a star filling its Roche lobe (see RocheStar).
+        if (const toml::table* r = (*t)["roche"].as_table()) {
+            const std::string rctx = ctx + " roche";
+            if (body.kind != BodyKind::Star || (*t)["pulsation"].as_table()) {
+                fail(ctx, "only a star that does not pulsate can fill its Roche lobe");
+            }
+            RocheSpec spec;
+            spec.body = static_cast<int>(out.bodies.size());
+            spec.companion = get_string(*r, "companion", rctx);
+            spec.gravity_darkening = get_double(*r, "gravity_darkening", rctx);
+            spec.albedo = get_double(*r, "albedo", rctx);
+            if (spec.gravity_darkening < 0.0 || spec.albedo < 0.0 || spec.albedo > 1.0) {
+                fail(rctx, "needs gravity_darkening >= 0 and 0 <= albedo <= 1");
+            }
+            m_roche_stars.push_back(spec);
         }
 
         // [bodies.pulsation]: a Cepheid's cycle (see Pulsation).
@@ -1217,6 +1247,9 @@ void Loader::parse(const toml::table& root, Scene& out)
         parse_nbody(*nbody, out);
     } else if (!m_nbody_bodies.empty()) {
         fail("scene", "bodies with orbit type \"nbody\" need an [nbody] section");
+    }
+    for (const RocheSpec& spec : m_roche_stars) {
+        build_roche_star(spec, out);
     }
 
     // Frames: frames[0] is always inertial around the root.
@@ -1537,6 +1570,46 @@ void Loader::parse(const toml::table& root, Scene& out)
         set_light_curve_reference(out);
     }
     out.set_active_frame(out.view.frame);
+}
+
+// A star filling its Roche lobe: the mass ratio from the two stars' masses
+// (body_gm_km3_s2), the separation from their orbit, which must be circular
+// for those masses.
+void Loader::build_roche_star(const RocheSpec& spec, Scene& out) const
+{
+    Body& star = out.bodies[static_cast<size_t>(spec.body)];
+    const std::string ctx = "body '" + star.name + "' roche";
+    const int c = out.find(spec.companion);
+    if (c < 0 || c == spec.body || out.bodies[static_cast<size_t>(c)].kind != BodyKind::Star) {
+        fail(ctx, "the companion must be another star");
+    }
+    const Body& companion = out.bodies[static_cast<size_t>(c)];
+    if (star.body_gm_km3_s2 <= 0.0 || companion.body_gm_km3_s2 <= 0.0) {
+        fail(ctx, "both stars need body_gm_km3_s2 (their masses)");
+    }
+    const State s = out.icrf_state_at(spec.body, 0.0);
+    const State o = out.icrf_state_at(c, 0.0);
+    const State relative{o.position - s.position, o.velocity - s.velocity};
+    OrbitElements elements;
+    if (!osculating_elements(relative, star.body_gm_km3_s2 + companion.body_gm_km3_s2, &elements) ||
+        elements.eccentricity > 1e-3) {
+        fail(ctx, "needs a circular orbit around the companion, for the two masses");
+    }
+    RocheStar params;
+    params.mass_ratio = companion.body_gm_km3_s2 / star.body_gm_km3_s2;
+    params.separation_km = glm::length(relative.position);
+    params.temperature_k = star.temperature_k;
+    params.gravity_darkening = spec.gravity_darkening;
+    params.albedo = spec.albedo;
+    params.companion_radius_km = companion.equatorial_radius_km;
+    params.companion_temperature_k = companion.temperature_k;
+    auto surface = std::make_shared<const RocheSurface>(make_roche_surface(params));
+    star.equatorial_radius_km = surface->l1_km;
+    star.equatorial_radius_b_km = surface->side_km;
+    star.polar_radius_km = surface->pole_km;
+    star.shape = std::shared_ptr<const ShapeModel>(surface, &surface->mesh);
+    star.roche = std::move(surface);
+    star.synchronous_with = c;
 }
 
 // [events.ghost]: a Ghost body coasting from `body`'s state just before the burn.

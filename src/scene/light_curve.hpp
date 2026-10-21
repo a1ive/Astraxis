@@ -2,6 +2,7 @@
 
 #include "scene/scene.hpp"
 
+#include <glm/mat3x3.hpp>
 #include <glm/vec3.hpp>
 
 #include <span>
@@ -9,11 +10,16 @@
 
 namespace astraxis {
 
-// A star as a disk on the sky: position (any frame, km), radius and effective temperature.
+// A star as a disk on the sky: position (any frame, km), radius and effective
+// temperature. A star filling its Roche lobe is its surface instead (its
+// facets' temperatures; radius_km then bounds it), with its axes in the frame
+// of `position` (columns).
 struct StarDisk {
     glm::dvec3 position{0.0};
     double radius_km = 1.0;
     double temperature_k = 5772.0;
+    const RocheSurface* roche = nullptr;
+    glm::dmat3 axes{1.0};
 };
 
 // Planck's spectral radiance at `wavelength_nm` up to a constant factor
@@ -22,10 +28,12 @@ double planck_shape(double temperature_k, double wavelength_nm);
 
 // Light of the disks seen from far away in direction `toward_observer` (unit):
 // the sum over the disks of B(T) times the limb-darkened area left visible by
-// the disks in front, in units of R^2 (km^2) times planck_shape.
+// the disks in front, in units of R^2 (km^2) times planck_shape. A Roche
+// surface is summed over its facets, hidden where they fall behind a disk in
+// front; in front of a disk, it hides its outline on the sky (convex).
 double disks_flux(std::span<const StarDisk> disks, const glm::dvec3& toward_observer, double wavelength_nm,
                   double limb_darkening);
-// The same with nothing hidden.
+// The same with nothing hidden; a Roche surface seen from where it is brightest.
 double disks_full_flux(std::span<const StarDisk> disks, double wavelength_nm, double limb_darkening);
 
 // The scene's light curve at t_tdb, in magnitudes fainter than
@@ -34,7 +42,7 @@ double disks_full_flux(std::span<const StarDisk> disks, double wavelength_nm, do
 double light_curve_magnitude(const Scene& scene, double t_tdb);
 
 // A star's disk at t_tdb (ICRF position from the scene origin; a pulsating
-// star's radius and temperature then).
+// star's radius and temperature then; a Roche-lobe star's surface and axes).
 StarDisk star_disk_at(const Scene& scene, int star, double t_tdb);
 
 // Sets LightCurve::reference_flux: each star at its brightest (over its

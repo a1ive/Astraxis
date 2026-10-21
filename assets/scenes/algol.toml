@@ -4,13 +4,15 @@
 # matter to A. A third star, Algol C, circles the pair every 680 days, in an
 # orbit at right angles to theirs.
 #
-# Nested two-body (Keplerian) orbits around barycenters. The plot in the corner
-# is the light of the three stars as seen from Earth (scene/light_curve.hpp):
-# each a limb-darkened black-body disk at 550 nm.
+# Nested two-body (Keplerian) orbits around barycenters. B is drawn as its
+# Roche lobe (scene/roche.hpp), turning with the orbit, gravity-darkened and
+# warmed on the side facing A. The plot in the corner is the light of the three
+# stars as seen from Earth (scene/light_curve.hpp) at 550 nm: A and C as
+# limb-darkened black-body disks, B summed over the facets of its lobe.
 #
 # [BA12] Baron et al. 2012, ApJ 752, 20 (arXiv:1205.0754), CHARA/MIRC imaging:
 #        Table 6, the inner orbit (B relative to A): P = 2.867328 d, a = 2.15 mas,
-#        i = 98.70 deg (retrograde on the sky), node 43.43 deg, e = 0. Its T0
+#        i = 98.70 +- 0.65 deg (retrograde on the sky), node 43.43 deg, e = 0. Its T0
 #        (JD 2441771.353, "time of minimum light") is in fact the passage of the
 #        ascending node: B stands in front of A 3/4 of a period later
 #        (2441773.5035, on the TIDAK ephemeris [JE21] to 0.016 d), and B is
@@ -22,9 +24,28 @@
 #        Zavala et al. 2010 / Peterson et al. 2011, also used here: 28.8184 pc).
 #        Their P and a agree with Kepler's third law for these masses (to 0.1%).
 #        Table 3: positions of B and C relative to A, 2006-2010 (tests).
-# [KO15] Kolbas et al. 2015, MNRAS 451, 4150 (arXiv:1506.01254), Table 5: radii
-#        2.87, 3.43, 1.7 R_sun (C's from [BA12]) and effective temperatures
-#        12550, 4900, 7550 K of A, B and C.
+#        Table 4: radius of A 2.73 +- 0.20 R_sun (angular diameter 0.88 mas).
+#        Sect. 3: B's disk, fitted as a uniform ellipse, is 1.04-1.22 times
+#        longer than wide, varying with the phase (tests).
+# [KI89] Kim 1989, ApJ 342, 1061, Table 3: Wilson-Devinney solution of the B and
+#        V light curves (1982-84), B filling its Roche lobe: i = 82.31 +- 0.14 deg,
+#        q = 0.227, relative radius of A 0.204 (2.72 R_sun here), B's gravity
+#        darkening exponent g2 = 0.20 and bolometric albedo A2 = 0.46.
+#        [BA12]'s i with B's Roche lobe makes the primary eclipse 0.9-1.1 mag
+#        deep, too shallow for [GCVS] (1.27) and for Kim's own photometry (Table 2:
+#        V from 2.60 above the comparison star out of eclipse to 1.47 at HJD
+#        2445630.047, 1.13 mag): the inner orbit takes Kim's i, 180 - 82.31 =
+#        97.69 deg in [BA12]'s retrograde sense, 1.6 sigma from theirs, and A
+#        [BA12]'s radius, which agrees with Kim's. [BA12] find the mutual
+#        inclination 90.2 deg, so the inclination of the pair hardly changes
+#        between the two epochs.
+# [KO15] Kolbas et al. 2015, MNRAS 451, 4150 (arXiv:1506.01254), Table 5:
+#        effective temperatures 12550, 4900, 7550 K of A, B and C; radius of C
+#        1.7 R_sun (from [BA12]). Their radii of A (2.87, from its v sin i if it
+#        turns with the orbit: an upper limit) and B (3.43, its Roche lobe's
+#        side radius for their q = 0.227, a = 13.65 R_sun) are not used: B is its
+#        Roche lobe for [BA12]'s masses (q = 0.221, a = 13.335 R_sun: volume
+#        radius 3.44 R_sun).
 # [TESS] Primary minima in the TESS light curves (sectors 18, 58, 85; 2019-2024),
 #        measured by tools/algol/algol_ephemeris.py, which removes the light-time
 #        effect of the outer orbit: geometric minimum BJD_TDB 2459743.07502,
@@ -40,13 +61,12 @@
 #        = 47.0422185, 40.9556467 deg (Hipparcos, van Leeuwen 2007).
 #
 # [CAP]  Event captions: from the sources above.
-# The stars are spheres: B is drawn round, though it fills its Roche lobe
-# (CHARA sees its disk elongated by 1.04-1.22, [BA12]); its tidal brightness
-# variation and A's light reflected by B are left out (limitations.md).
+# A and C are spheres; the gas flowing from B to A is left out (limitations.md).
 # GM = mass * GM_sun (1.32712440041279419e11 km^3/s^2, JPL DE440).
-# Luminosity = R^2 (T / 5772 K)^4.
+# Luminosity = R^2 (T / 5772 K)^4 (B's with its volume radius, without A's light).
 # Checks (tests/stellar_system_tests.cpp): the [BA12] positions of B and C, the
-# [TESS] minima with the light-time effect, the [GCVS] depth and duration.
+# [TESS] minima with the light-time effect, the [GCVS] depth and duration, B's
+# lobe against [KI89]'s radii.
 
 name = "Algol"
 
@@ -119,9 +139,10 @@ sky_ra_dec_deg = [47.0422185, 40.9556467]
 name = "Algol A"
 parent = "Algol AB"
 kind = "star"
-radii_km = [1996659.0]         # 2.87 R_sun [KO15]
+radii_km = [1899261.0]         # 2.73 R_sun [BA12]
+body_gm_km3_s2 = 4.206984349e11 # 3.17 M_sun [BA12]
 temperature_k = 12550.0
-luminosity_solar = 184.1
+luminosity_solar = 166.6
 orbit_color = "#b0c8ff"
 [bodies.orbit]
 scale = -0.180878553           # -M_B / M_AB
@@ -131,7 +152,7 @@ period_days = 2.8673453
 t_transit_bjd_tdb = 2459743.07502
 e = 0.0
 arg_peri_deg = 90.0
-i_deg = 98.70
+i_deg = 97.69                  # [KI89]
 node_deg = 43.43
 transit_u_deg = 90.0
 sky_ra_dec_deg = [47.0422185, 40.9556467]
@@ -140,10 +161,14 @@ sky_ra_dec_deg = [47.0422185, 40.9556467]
 name = "Algol B"
 parent = "Algol AB"
 kind = "star"
-radii_km = [2386251.0]         # 3.43 R_sun [KO15]
+body_gm_km3_s2 = 9.289870803e10 # 0.70 M_sun [BA12]
 temperature_k = 4900.0
-luminosity_solar = 6.11
+luminosity_solar = 6.13
 orbit_color = "#ffb880"
+[bodies.roche]                 # its size and shape: the Roche lobe around A
+companion = "Algol A"
+gravity_darkening = 0.20       # [KI89] g2
+albedo = 0.46                  # [KI89] A2
 [bodies.orbit]
 scale = 0.819121447            # M_A / M_AB
 type = "transit_orbit"
@@ -152,7 +177,7 @@ period_days = 2.8673453
 t_transit_bjd_tdb = 2459743.07502
 e = 0.0
 arg_peri_deg = 90.0
-i_deg = 98.70
+i_deg = 97.69                  # [KI89]
 node_deg = 43.43
 transit_u_deg = 90.0
 sky_ra_dec_deg = [47.0422185, 40.9556467]

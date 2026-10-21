@@ -542,14 +542,118 @@ void test_light_curve_model()
     check(std::abs(disks_flux(behind, toward, 550.0, 0.6) / big - 1.0) < 1e-9, "light curve: disk wholly behind");
 }
 
-// Algol [Baron et al. 2012, Kolbas et al. 2015]: B and C stand where CHARA saw
-// them relative to A (Table 3, 2006-2010); B passes in front of A at the
-// primary minima TESS measured, once the light-time effect of the outer orbit
-// is added; the eclipse is as deep and long as the GCVS has it (V = 2.12 ..
-// 3.39, 14% of the period); A gives most of the visible light [KO15 Sect. 5.1].
+// A sphere of radius R as a RocheSurface (the same latitude-longitude mesh
+// about the x axis), uniformly bright.
+RocheSurface faceted_sphere(double radius_km, double temperature_k)
+{
+    constexpr int kRingCount = 64;
+    constexpr int kSegments = 128;
+    RocheSurface s;
+    auto vertex = [&](int k, int m) {
+        const double theta = kPi * k / kRingCount;
+        const double phi = kTwoPi * m / kSegments;
+        return radius_km *
+               glm::dvec3(std::cos(theta), std::sin(theta) * std::cos(phi), std::sin(theta) * std::sin(phi));
+    };
+    auto add = [&](const glm::dvec3& p0, const glm::dvec3& p1, const glm::dvec3& p2) {
+        const glm::dvec3 c = glm::cross(p1 - p0, p2 - p0);
+        if (glm::length(c) <= 0.0) {
+            return;
+        }
+        RocheSurface::Facet f;
+        f.center = (p0 + p1 + p2) / 3.0;
+        f.normal = glm::normalize(c);
+        f.area_km2 = 0.5 * glm::length(c);
+        f.temperature_k = temperature_k;
+        f.radiance = planck_shape(temperature_k, kRocheRadianceWavelengthNm);
+        s.facets.push_back(f);
+    };
+    for (int k = 0; k < kRingCount; ++k) {
+        for (int m = 0; m < kSegments; ++m) {
+            add(vertex(k, m), vertex(k + 1, m), vertex(k + 1, m + 1));
+            add(vertex(k, m), vertex(k + 1, m + 1), vertex(k, m + 1));
+            s.mesh.positions.push_back(glm::vec3(vertex(k, m)));
+        }
+    }
+    s.mesh.positions.push_back(glm::vec3(vertex(kRingCount, 0)));
+    s.l1_km = s.back_km = s.side_km = s.pole_km = s.volume_radius_km = radius_km;
+    return s;
+}
+
+// A Roche-lobe-filling star (scene/roche.hpp): the lobe of Kim's (1989)
+// Wilson-Devinney solution of Algol (Table 3: q = 0.227, B's radii at the pole,
+// side and back 0.241, 0.251, 0.284 of the separation); its volume against
+// Eggleton's (1983) fit, good to 1%. The light of such a surface (the facets
+// facing the observer) and the outline it hides, on a faceted sphere: as the
+// limb-darkened disk, alone, behind a disk and in front of one.
+void test_roche_surface()
+{
+    const double q = 1.0 / 0.227;
+    const double pole = roche_radius(q, glm::dvec3(0.0, 0.0, 1.0));
+    const double side = roche_radius(q, glm::dvec3(0.0, 1.0, 0.0));
+    const double back = roche_radius(q, glm::dvec3(-1.0, 0.0, 0.0));
+    std::printf("info: Roche lobe for q = 0.227: pole %.4f, side %.4f, back %.4f, L1 %.4f\n", pole, side, back,
+                roche_l1(q));
+    check(std::abs(pole - 0.241) < 0.0015 && std::abs(side - 0.251) < 0.0015 && std::abs(back - 0.284) < 0.0015,
+          "Roche lobe radii of Kim's Algol B", pole);
+
+    RocheStar star;
+    star.separation_km = 1.0e7;
+    star.temperature_k = 5000.0;
+    for (double mass_ratio : {1.0 / 0.221, 1.0, 0.3}) {
+        star.mass_ratio = mass_ratio;
+        const RocheSurface s = make_roche_surface(star);
+        const double r = 1.0 / mass_ratio;
+        const double eggleton = 0.49 * std::cbrt(r * r) / (0.6 * std::cbrt(r * r) + std::log(1.0 + std::cbrt(r)));
+        check(std::abs(s.volume_radius_km / star.separation_km / eggleton - 1.0) < 0.01,
+              "Roche lobe volume against Eggleton's fit", s.volume_radius_km / star.separation_km - eggleton);
+        check(std::abs(s.l1_km / star.separation_km - roche_l1(mass_ratio)) < 1e-12 && s.l1_km > s.back_km &&
+                  s.back_km > s.side_km && s.side_km > s.pole_km,
+              "Roche lobe longest toward L1, flattened at the poles");
+    }
+
+    // The facet sum and the outline, on a sphere made of facets like a lobe's.
+    const RocheSurface round = faceted_sphere(1.0e6, 5000.0);
+    StarDisk lobe;
+    lobe.position = glm::dvec3(0.0, 0.0, 10.0 * round.l1_km);
+    lobe.radius_km = round.l1_km;
+    lobe.temperature_k = star.temperature_k;
+    lobe.roche = &round;
+    const StarDisk sphere{lobe.position, round.volume_radius_km, star.temperature_k};
+    const glm::dvec3 toward(0.0, 0.0, 1.0);
+    const double alone = disks_flux(std::span(&lobe, 1), toward, 550.0, 0.6);
+    const double disk = disks_flux(std::span(&sphere, 1), toward, 550.0, 0.6);
+    check(std::abs(alone / disk - 1.0) < 3e-3, "Roche surface's light (faceted sphere)", alone / disk - 1.0);
+    const double behind_r = 1.5 * round.volume_radius_km;
+    for (double offset : {0.5, 1.0, 1.5}) {
+        const StarDisk back_disk{glm::dvec3(offset * behind_r, 0.0, 0.0), behind_r, 8000.0};
+        const double back_full = disks_full_flux(std::span(&back_disk, 1), 550.0, 0.6);
+        const StarDisk with_lobe[] = {back_disk, lobe};
+        const StarDisk with_sphere[] = {back_disk, sphere};
+        const double hidden_by_lobe = back_full - (disks_flux(with_lobe, toward, 550.0, 0.6) - alone);
+        const double hidden_by_sphere = back_full - (disks_flux(with_sphere, toward, 550.0, 0.6) - disk);
+        check(std::abs(hidden_by_lobe / hidden_by_sphere - 1.0) < 3e-3, "Roche outline in front of a disk",
+              hidden_by_lobe / hidden_by_sphere - 1.0);
+        const StarDisk front_disk{glm::dvec3(offset * behind_r, 0.0, 20.0 * round.l1_km), behind_r, 8000.0};
+        const StarDisk lobe_behind[] = {front_disk, lobe};
+        const StarDisk sphere_behind[] = {front_disk, sphere};
+        const double lobe_left = disks_flux(lobe_behind, toward, 550.0, 0.6);
+        const double sphere_left = disks_flux(sphere_behind, toward, 550.0, 0.6);
+        check(std::abs(lobe_left / sphere_left - 1.0) < 3e-3, "Roche surface behind a disk",
+              lobe_left / sphere_left - 1.0);
+    }
+}
+
+// Algol [Baron et al. 2012, Kim 1989, Kolbas et al. 2015]: B and C stand where
+// CHARA saw them relative to A (Table 3, 2006-2010); B passes in front of A at
+// the primary minima TESS measured, once the light-time effect of the outer
+// orbit is added; B fills its Roche lobe, as elongated as CHARA saw it; the
+// eclipse is as deep and long as the GCVS has it (V = 2.12 .. 3.39, 14% of the
+// period); A gives most of the visible light [KO15 Sect. 5.1].
 void test_algol_scene()
 {
     test_light_curve_model();
+    test_roche_surface();
     Scene scene = load_scene_or_die("algol.toml");
     const double brightest = check_relocated_sky(scene, "Algol sky from the system");
     check(brightest > -2.0, "Algol sky without the catalog's Algol (V)", brightest); // its copy would be -4.6
@@ -636,31 +740,124 @@ void test_algol_scene()
     }
     check(worst_min < 1.5, "Algol primary minima at the TESS times (min)", worst_min);
 
-    // Depth and length of the eclipses in V from the light curve.
+    // B is its Roche lobe [KI89] for [BA12]'s masses, turning with the orbit
+    // (its x axis on A): as large as a sphere of 3.44 R_sun.
+    const Body& star_b = scene.bodies[static_cast<size_t>(b)];
+    check(star_b.roche != nullptr, "Algol B fills its Roche lobe");
+    if (!star_b.roche) {
+        return;
+    }
+    const double volume_r = star_b.roche->volume_radius_km / kSunRadiusKm;
+    check(std::abs(volume_r - 3.44) < 0.01, "Algol B's volume radius (R_sun)", volume_r);
+    {
+        const double t = tdb_from_jd_tdb(2459743.3);
+        const glm::dvec3 to_a = scene.icrf_state_at(a, t).position - scene.icrf_state_at(b, t).position;
+        const double off = std::acos(glm::dot(scene.body_to_icrf(star_b, t)[0], glm::normalize(to_a)));
+        check(off < 1e-6, "Algol B's long axis on A (rad)", off);
+    }
+
+    // Light of the three stars seen from Earth at t, with and without eclipses.
+    const glm::dvec3 toward_earth = -away;
+    auto flux = [&](double t, bool hide) {
+        std::vector<StarDisk> disks;
+        for (int s : {a, b, c}) {
+            disks.push_back(star_disk_at(scene, s, t));
+        }
+        if (hide) {
+            return disks_flux(disks, toward_earth, 550.0, 0.6);
+        }
+        double sum = 0.0;
+        for (const StarDisk& d : disks) {
+            sum += disks_flux(std::span(&d, 1), toward_earth, 550.0, 0.6);
+        }
+        return sum;
+    };
+
+    // Depth of the eclipses in V below the peak light, and the length of
+    // the primary eclipse (while anything is hidden).
+    const double period_s = 2.8673453 * kSecondsPerDay;
     const double t_min = tdb_from_jd_tdb(2459743.07502 + 555.0 * 2.8673453);
-    const double primary = light_curve_magnitude(scene, t_min);
-    const double secondary = light_curve_magnitude(scene, t_min + 0.5 * 2.8673453 * kSecondsPerDay);
-    std::printf("info: Algol V eclipse depths: primary %.3f, secondary %.3f mag\n", primary, secondary);
-    check(std::abs(primary - (3.39 - 2.12)) < 0.15, "Algol primary eclipse depth (mag)", primary);
-    check(secondary > 0.005 && secondary < 0.1, "Algol secondary eclipse depth (mag)", secondary);
+    double peak = 1e9;
+    double faintest_out = 0.0; // out of eclipse
     double first = 0.0;
     double last = 0.0;
-    for (double dt = -0.25; dt <= 0.25; dt += 0.0005) { // fraction of the period, around the primary
-        if (light_curve_magnitude(scene, t_min + dt * 2.8673453 * kSecondsPerDay) > 1e-4) {
-            first = first == 0.0 ? dt : first;
-            last = dt;
+    for (double dt = -0.5; dt < 0.5; dt += 0.001) { // fraction of the period, around the primary
+        const double t = t_min + dt * period_s;
+        const double m = light_curve_magnitude(scene, t);
+        peak = std::min(peak, m);
+        if (flux(t, true) < flux(t, false) * (1.0 - 1e-6)) {
+            if (dt < 0.25 && dt > -0.25) {
+                first = first == 0.0 ? dt : first;
+                last = dt;
+            }
+        } else {
+            faintest_out = std::max(faintest_out, m);
         }
     }
-    check(std::abs((last - first) - 0.14) < 0.02, "Algol eclipse duration (fraction of the period)", last - first);
+    const double primary = light_curve_magnitude(scene, t_min) - peak;
+    const double secondary = light_curve_magnitude(scene, t_min + 0.5 * period_s) - peak;
+    std::printf("info: Algol V eclipse depths: primary %.3f, secondary %.3f mag; out of eclipse within %.3f mag;"
+                " primary eclipse %.3f of the period\n",
+                primary, secondary, faintest_out - peak, last - first);
+    check(std::abs(primary - (3.39 - 2.12)) < 0.1, "Algol primary eclipse depth (mag)", primary);
+    check(secondary > 0.02 && secondary < 0.1, "Algol secondary eclipse depth (mag)", secondary);
+    check(std::abs((last - first) - 0.14) < 0.01, "Algol eclipse duration (fraction of the period)", last - first);
+    // Out of eclipse, B's tidal shape and the side A warms vary the light by a
+    // few hundredths of a magnitude.
+    check(faintest_out - peak > 0.02 && faintest_out - peak < 0.06,
+          "Algol out-of-eclipse variation (mag)", faintest_out - peak);
 
-    // A's share of the light out of eclipse: 0.915 at 5015 A [KO15].
-    std::vector<StarDisk> disks;
-    for (int s : {a, b, c}) {
-        const Body& star = scene.bodies[static_cast<size_t>(s)];
-        disks.push_back({glm::dvec3(0.0), star.equatorial_radius_km, star.temperature_k});
+    // A's share of the light at quadrature: between the light-curve solution
+    // (0.814 in V, [KI89]) and the spectra (0.915 at 5015 A [KO15] Table 2).
+    {
+        const double t = t_min + 0.25 * period_s;
+        const StarDisk star_a = star_disk_at(scene, a, t);
+        const double share = disks_flux(std::span(&star_a, 1), toward_earth, 550.0, 0.6) / flux(t, true);
+        check(share > 0.814 && share < 0.915, "Algol A's share of the V light", share);
     }
-    const double share = disks_full_flux(std::span(disks.data(), 1), 550.0, 0.6) / disks_full_flux(disks, 550.0, 0.6);
-    check(std::abs(share - 0.915) < 0.04, "Algol A's share of the V light", share);
+
+    // B's disk as CHARA saw it [BA12 Sect. 3]: fitted as a uniform ellipse,
+    // 1.04-1.22 times longer than wide over their dates. Here from the second
+    // moments of the uniformly bright outline (the facets facing Earth, each
+    // weighted by its area on the sky): 1.11-1.27. Moments weigh the pointed
+    // end toward A more than a fit to the visibilities would (with B's light in
+    // the H band, warmed toward A, they reach 1.34), so only the ranges are
+    // compared.
+    double least = 1e9;
+    double most = 0.0;
+    for (const Position& p : b_seen) {
+        const double t = tdb_from_jd_tdb(p.mjd + 2400000.5);
+        const glm::dmat3 axes = scene.body_to_icrf(star_b, t);
+        double sxx = 0.0, syy = 0.0, sxy = 0.0, sx = 0.0, sy = 0.0, sw = 0.0;
+        for (const RocheSurface::Facet& f : star_b.roche->facets) {
+            const double mu = glm::dot(axes * f.normal, toward_earth);
+            if (mu <= 0.0) {
+                continue;
+            }
+            const glm::dvec3 p_sky = axes * f.center;
+            const double x = glm::dot(p_sky, east);
+            const double y = glm::dot(p_sky, north);
+            const double w = f.area_km2 * mu;
+            sw += w;
+            sx += w * x;
+            sy += w * y;
+            sxx += w * x * x;
+            syy += w * y * y;
+            sxy += w * x * y;
+        }
+        const double mx = sx / sw;
+        const double my = sy / sw;
+        const double vxx = sxx / sw - mx * mx;
+        const double vyy = syy / sw - my * my;
+        const double vxy = sxy / sw - mx * my;
+        const double mean = 0.5 * (vxx + vyy);
+        const double spread = std::sqrt(0.25 * (vxx - vyy) * (vxx - vyy) + vxy * vxy);
+        const double aspect = std::sqrt((mean + spread) / (mean - spread));
+        least = std::min(least, aspect);
+        most = std::max(most, aspect);
+    }
+    std::printf("info: Algol B's aspect ratio on the CHARA dates: %.3f .. %.3f\n", least, most);
+    check(least > 1.0 && least < 1.22 && most > 1.04 && most < 1.3, "Algol B's elongation on the sky", most);
 }
 
 // Time of the light curve's maximum (least magnitude) within +-window of t_guess.

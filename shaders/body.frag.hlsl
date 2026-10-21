@@ -265,9 +265,10 @@ float4 main(PSInput input) : SV_Target0
         return float4(albedo_s * (lit_s + u_params.y) + s.lights * night + s.glow, 1.0);
     }
     if (style == STYLE_STAR) {
-        // Linear limb darkening, as for the sun sprite.
+        // Linear limb darkening, as for the sun sprite; a Roche-lobe star's
+        // mesh carries its gravity darkening and irradiation in the albedo.
         float mu = saturate(dot(n, V));
-        return float4(u_color.rgb * (1.0 - 0.6 * (1.0 - mu)), 1.0);
+        return float4(u_color.rgb * input.albedo * (1.0 - 0.6 * (1.0 - mu)), 1.0);
     }
 
     bool gas_giant = (int)u_color.a == STYLE_GAS_GIANT;

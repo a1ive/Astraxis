@@ -428,6 +428,14 @@ double Scene::sun_gm() const
 glm::dmat3 Scene::body_to_icrf(const Body& body, double t_tdb) const
 {
     static const std::vector<glm::dvec3> kNone;
+    if (body.synchronous_with >= 0) {
+        const State self = icrf_state_at(static_cast<int>(&body - bodies.data()), t_tdb);
+        const State other = icrf_state_at(body.synchronous_with, t_tdb);
+        const glm::dvec3 r = other.position - self.position;
+        const glm::dvec3 x = glm::normalize(r);
+        const glm::dvec3 z = glm::normalize(glm::cross(r, other.velocity - self.velocity));
+        return glm::dmat3(x, glm::cross(z, x), z);
+    }
     const int source = body.nut_prec_source;
     return body_rotation(body, source >= 0 ? bodies[static_cast<size_t>(source)].nut_prec_angles : kNone, t_tdb);
 }

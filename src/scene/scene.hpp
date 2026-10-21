@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ephem/motion.hpp"
+#include "scene/roche.hpp"
 #include "scene/shape_model.hpp"
 #include "scene/star_catalog.hpp"
 
@@ -334,6 +335,13 @@ struct Body {
     // Optional shape model (irregular bodies), drawn instead of the ellipsoid;
     // the radii still serve as its overall size (shadows, camera distances).
     std::shared_ptr<const ShapeModel> shape;
+    // A star filling its Roche lobe around `synchronous_with` (Algol B): its
+    // surface, also drawn as `shape`; the radii are then the distances from its
+    // center to L1, the sides and the poles.
+    std::shared_ptr<const RocheSurface> roche;
+    // Instead of a rotation model: turns with its orbit around this body,
+    // x toward it and z along the orbit normal (-1: no).
+    int synchronous_with = -1;
 
     RingSystem rings; // no bands: no rings
     Atmosphere atmosphere;
@@ -643,7 +651,8 @@ public:
     bool frame_is_rotating() const { return frame().type != DisplayFrame::Type::Inertial; }
     FrameTransform frame_transform(double t_tdb) const;
     // Body-fixed axes of a body in ICRF (columns) at t_tdb: its IAU rotation
-    // model, or its free precession.
+    // model, its free precession or spin table, or its orbit if it turns with
+    // it (Body::synchronous_with). `body` must be one of `bodies`.
     glm::dmat3 body_to_icrf(const Body& body, double t_tdb) const;
     const FrameTransform& current_transform() const { return m_transform; }
 

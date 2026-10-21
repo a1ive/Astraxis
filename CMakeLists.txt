@@ -65,6 +65,8 @@ add_library(astraxis_sim STATIC
     src/scene/label_layout.hpp
     src/scene/light_curve.cpp
     src/scene/light_curve.hpp
+    src/scene/roche.cpp
+    src/scene/roche.hpp
     src/scene/scene.cpp
     src/scene/scene.hpp
     src/scene/scene_loader.cpp

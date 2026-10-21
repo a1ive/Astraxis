@@ -556,7 +556,7 @@ void App::build_info_panel()
     const double a = body.equatorial_radius_km;
     const double b = body.equatorial_radius_b_km;
     const double c = body.polar_radius_km;
-    const double mean_radius = std::cbrt(a * b * c);
+    const double mean_radius = body.roche ? body.roche->volume_radius_km : std::cbrt(a * b * c);
     const bool has_surface = body.kind == BodyKind::Planet || body.kind == BodyKind::Star;
     if (has_surface || gm > 0.0) {
         ImGui::SeparatorText("Physical");
@@ -567,7 +567,12 @@ void App::build_info_panel()
                 } else {
                     std::snprintf(buf2, sizeof(buf2), "%#.3g R_earth", mean_radius / kEarthRadiusKm);
                 }
-                if (a != b) {
+                if (body.roche) {
+                    info_row("Radius", "%s (same volume)", buf2);
+                    info_row("", "fills its Roche lobe");
+                    std::snprintf(buf, sizeof(buf), "%#.3g R_sun", a / kSunRadiusKm);
+                    info_row("", "%s to the L1 point", buf);
+                } else if (a != b) {
                     info_row("Radii", "%.4g x %.4g x %.4g km", a, b, c);
                     info_row("", "%s (mean)", buf2);
                 } else if (a != c) {
@@ -601,7 +606,8 @@ void App::build_info_panel()
                 const double kg = gm / kGravitationalConstantKm3KgS2;
                 info_row("", "%.4g kg", kg);
                 if (has_surface) {
-                    const double volume_cm3 = 4.0 / 3.0 * kPi * a * b * c * 1e15;
+                    const double volume_cm3 =
+                        4.0 / 3.0 * kPi * (body.roche ? mean_radius * mean_radius * mean_radius : a * b * c) * 1e15;
                     info_row("Density", "%.3g g/cm^3", kg * 1e3 / volume_cm3);
                     info_row("Surface gravity", "%.3g m/s^2", gm / (mean_radius * mean_radius) * 1e3);
                 }
@@ -610,6 +616,9 @@ void App::build_info_panel()
                 has_surface && rate != 0.0 && !body.pulsar.enabled) {
                 format_duration(360.0 / std::fabs(rate) * kSecondsPerDay, buf, sizeof(buf));
                 info_row("Rotation", "%s%s", buf, rate < 0.0 ? " (retrograde)" : "");
+            }
+            if (has_surface && body.synchronous_with >= 0) {
+                info_row("Rotation", "with its orbit");
             }
             if (has_surface && body.free_precession.enabled) {
                 const Body::FreePrecession& fp = body.free_precession;
