@@ -513,6 +513,16 @@ glm::dmat3 body_rotation(const Body& body, const std::vector<glm::dvec3>& angles
     return iau_pole_frame(ra, dec) * rotation_z(wrap_two_pi(w_deg * kDegToRad));
 }
 
+double Scene::frame_turn_rate(double t_tdb) const
+{
+    if (!frame_is_rotating()) {
+        return 0.0;
+    }
+    constexpr double kStep = 60.0;
+    const glm::dmat3 r = glm::transpose(frame_transform(t_tdb).axes) * frame_transform(t_tdb + kStep).axes;
+    return std::acos(std::clamp((r[0][0] + r[1][1] + r[2][2] - 1.0) * 0.5, -1.0, 1.0)) / kStep;
+}
+
 FrameTransform Scene::frame_transform(double t_tdb) const
 {
     const DisplayFrame& f = frame();

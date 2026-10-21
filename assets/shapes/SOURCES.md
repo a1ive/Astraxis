@@ -10,6 +10,7 @@
 | `amalthea.mesh`、`thebe.mesh` | P. Stooke，“Stooke Small Body Shape Models” V2.0（PDS SBN，`small_bodies.stooke.shape-models`；EAR-A-5-DDR-STOOKE-SHAPE-MODELS-V2.0），<https://sbnarchive.psi.edu/pds4/non_mission/small_bodies.stooke.shape-models/>，文件 `data/j5amalthea.tab`、`data/j14thebe.tab`；Amalthea：Stooke 1994, EMP 64, 87 | PDS 存档数据，公有领域（请引用：Stooke, P., Stooke Small Body Shape Models V2.0, NASA PDS, 2016） |
 | `halley.mesh` | 同上 Stooke 数据集，文件 `data/1682q1halley.tab`（SHA-256 `e9437ac850060a4c527d1045e028ac28f58bfe0386fc1da0bf50405b8128b824`）；1P/Halley，Giotto HMC 与 Vega 1/2 TVS 图像的边缘和明暗界线拟合，指向由 A. Abergel 计算；自转状态按 Belton et al. 1991, Icarus 93, 183 | PDS 存档数据，公有领域（标签要求同时署名 Abergel 与 Stooke） |
 | `hyperion.mesh` | P. C. Thomas，“Saturn Small Moon Shape Models” V1.0（PDS SBN，`saturn_satellite_shape_models`，卡西尼 ISS），<https://sbnarchive.psi.edu/pds4/cassini/saturn_satellite_shape_models_V1_0/>，文件 `data/hyperion_30k_plt.tab`；Thomas et al. 2007, Nature 448, 50 | PDS 存档数据，公有领域（请引用数据集与作者） |
+| `janus.mesh`、`epimetheus.mesh` | 同上 Thomas 数据集，文件 `data/janus_30k_plt.tab`、`data/epimetheus_30k_plt.tab`（标签所列 PCK：`janus_mst2013.bpc` 等）；Thomas et al. 2013, Icarus 226, 999 | 同上 |
 | `phoebe.mesh` | R. W. Gaskell，“Gaskell Phoebe Shape Model” V1.0（PDS4 `urn:nasa:pds:gaskell.phoebe.shape-model::1.0`，由 PDS3 `CO-SA-ISSNA-5-PHOEBESHAPE-V2.0` 迁移；卡西尼 ISS 的 208 张图像，立体光度法），doi:[10.26033/ehkj-xj95](https://doi.org/10.26033/ehkj-xj95)，<https://sbnarchive.psi.edu/pds4/non_mission/gaskell.phoebe.shape-model/>，文件 `data/phoebe_quad64q.tab` | PDS 存档数据，公有领域（请引用：Gaskell, R.W., Gaskell Phoebe Shape Model V1.0, NASA PDS, 2020） |
 | `pallas.mesh` | VLT/SPHERE 大型观测计划的 MPCD 形状模型（Marsset et al. 2020, Nature Astronomy 4, 569；Vernazza et al. 2021, A&A 654, A56），Sketchfab 用户 “marin”（@marin14）上传的 “(2) Pallas - MPCD model”，<https://sketchfab.com/3d-models/2-pallas-mpcd-model-59c1ec418b2f4f13bc182633a2cddc66>，文件 `2_Pallas_mpcd.obj`（2022-06-13） | CC BY 4.0（Sketchfab 页面标注；署名：marin (@marin14) / Marsset et al. 2020, Vernazza et al. 2021） |
 | `vesta.mesh` | USGS Astrogeology / DLR，Vesta Dawn FC HAMO Global DTM 93m（2013-12-10 发布，黎明号分幅相机 HAMO 立体图像），<https://astrogeology.usgs.gov/search/map/vesta_dawn_fc_hamo_global_dtm_93m>，文件 `Vesta_Dawn_HAMO_DTM_DLR_Global_48ppd.tif` | 公有领域（请引用作者） |
@@ -95,6 +96,13 @@
   - 局限：绕固定的极轴匀速自转只在 2005-09-25 前后几天接近真实：40 天前（8 月）测得的自转轴与这里差 28°，107 天前（6 月）差 55°。论文的动力学积分给出约 61 天的李雅普诺夫时间，从 6 月的状态积分也对不上 8、9 月的观测（体内经度差 120°–180°），所以不做积分。旅行者 2 号（1981）和卡西尼 2007-02-16 的状态见表 2。
 - `radii_km` 用 PCK 的 180.1 × 133.0 × 102.7 km（影子、相机距离）。
 - 纹理：Stooke 的 Hyperion 晕渲图基于旅行者 2 号，所用自转轴与卡西尼的相差 100° 以上，经纬度体系对不上这个形状模型；颜色是示意性的。
+
+## Janus 与 Epimetheus（Thomas 卡西尼形状模型）
+
+- 板块模型，格式同 Hyperion，`tools/shapes/make_plate_shape.py` 原样转换：Janus 13,381 个顶点、26,758 个三角形，522 KB；Epimetheus 13,915 个顶点、27,826 个三角形，543 KB。只用卡西尼 ISS 窄角相机的图像，模型中心与形心重合到 45 m、25 m（标签）。
+- 坐标系（标签）：+Z 是北极，+X 是本初子午线，“on average points toward Saturn”，+Y 指向轨道运动的反方向。场景里两者设为 `synchronous`（x 始终指向土星中心、z 沿轨道法线），正好是这个坐标系；不画天平动（光学天平动约 2e，以及卡西尼测到的受迫天平动）。PCK 里的自转模型只在 1981 年旅行者号飞掠前后可用（Horizons 的说明），每次交换轨道都会改变平均运动，所以不用。
+- 交叉检查：等体积半径 88.98 km、58.59 km，JPL SSD 平均半径 89.2 ± 0.8 km、58.2 ± 1.2 km；范围 206.7 × 189.8 × 153.2 km、146.1 × 112.8 × 107.8 km，x 最长、z 最短（`test_jupiter_saturn_small_moon_shapes`）。`radii_km` 用 PCK 的三轴值 101.7 × 93.0 × 76.3 km、64.9 × 57.3 × 53.0 km。
+- 纹理：没有用全球拼接图，颜色是示意性的。
 
 ## Phoebe（Gaskell 卡西尼形状模型）
 

@@ -62,6 +62,13 @@ constexpr double kFlybySearchSeconds = 300.0;
 constexpr double kFlybySunTilt = 0.6;
 constexpr double kEventDrift = 0.004; // rad/s
 
+// The sky turns with a rotating display frame: fully shown up to the first rate
+// (deg per real second; the Earth-Moon frame at 2 days per second turns 26),
+// gone from the second, easing over kSkyFadeSeconds.
+constexpr double kSkyTurnShownDegPerS = 45.0;
+constexpr double kSkyTurnHiddenDegPerS = 180.0;
+constexpr double kSkyFadeSeconds = 0.8;
+
 double smoothstep(double x)
 {
     x = std::clamp(x, 0.0, 1.0);
@@ -147,6 +154,12 @@ void Simulation::update(double real_dt)
     m_scene_age += real_dt;
     m_event_age += real_dt;
 
+    const double turn = m_clock.paused ? 0.0 : m_scene.frame_turn_rate(m_clock.t_tdb) * m_clock.warp * kRadToDeg;
+    const double sky_target =
+        std::clamp((kSkyTurnHiddenDegPerS - turn) / (kSkyTurnHiddenDegPerS - kSkyTurnShownDegPerS), 0.0, 1.0);
+    const double sky_step = real_dt / kSkyFadeSeconds;
+    m_sky = sky_target < m_sky ? std::max(sky_target, m_sky - sky_step) : std::min(sky_target, m_sky + sky_step);
+
     // Accretion-disk animation: follows the clock, but capped so that the inner
     // disk does not blur at high time warp.
     for (const Body& body : m_scene.bodies) {
@@ -187,6 +200,11 @@ void Simulation::update(double real_dt)
 double Simulation::fade() const
 {
     return smoothstep(m_fade);
+}
+
+double Simulation::sky_visibility() const
+{
+    return smoothstep(m_sky);
 }
 
 void Simulation::compute_view(int width, int height, double content_scale, OutputView& out) const

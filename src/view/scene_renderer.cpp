@@ -1209,7 +1209,8 @@ void SceneRenderer::render(const Frame& frame, const Simulation& sim, const Outp
                      targets.black_hole);
 
     SDL_GPURenderPass* pass = targets.begin_scene_pass(frame.cmd, {0.0f, 0.0f, 0.0f, 1.0f});
-    m_starfield.draw(frame.cmd, pass, view, options.star_brightness);
+    const float sky = static_cast<float>(sim.sky_visibility());
+    m_starfield.draw(frame.cmd, pass, view, options.star_brightness * sky, sky);
 
     SunLight sun;
     sun.ambient = kAmbient;

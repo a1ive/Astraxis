@@ -3,6 +3,7 @@
 #include "core/math.hpp"
 #include "core/time.hpp"
 #include "ephem/coast.hpp"
+#include "ephem/element_table.hpp"
 #include "ephem/ephemeris.hpp"
 #include "ephem/jpl_approx_planet.hpp"
 #include "ephem/kepler.hpp"
@@ -595,6 +596,15 @@ std::unique_ptr<MotionSource> Loader::parse_motion(const toml::table& t, const s
         return motion;
     }
 
+    if (type == "element_table") {
+        auto table = std::make_shared<ElementTable>();
+        std::string error;
+        if (!table->load(m_asset_root / get_string(t, "file", ctx), &error)) {
+            fail(ctx, error);
+        }
+        return std::make_unique<ElementTableOrbit>(std::move(table));
+    }
+
     if (type == "fixed") {
         double v[3];
         get_array(t, "ra_dec_distance_pc", ctx, v, 3, 3);
@@ -905,6 +915,16 @@ void Loader::parse(const toml::table& root, Scene& out)
             body.pole = unit_from_ra_dec(body.pole_ra, body.pole_dec);
             body.pm_w0_deg = std::fmod(first.w_deg - first.rate_deg_per_day * first.t_tdb / kSecondsPerDay, 360.0);
             body.pm_rate_deg_per_day = first.rate_deg_per_day;
+        }
+        if ((*t)["synchronous"].value<bool>().value_or(false)) {
+            // Turns with its orbit, its long axis (x) toward the parent: for moons whose IAU
+            // rotation model has drifted off their orbit (Janus and Epimetheus).
+            if (body.parent < 0 || t->contains("pole_ra_dec_deg") || t->contains("prime_meridian_deg") ||
+                body.free_precession.enabled || body.spin_table) {
+                fail(ctx, "synchronous replaces pole_ra_dec_deg, prime_meridian_deg, free_precession and spin_table, "
+                          "and needs a parent");
+            }
+            body.synchronous_with = body.parent;
         }
         if (t->contains("pole_rate_deg_per_century")) {
             double rate[2];

@@ -405,3 +405,6 @@ tools/ce5t1/cache/
 
 # Tianwen-1 MOMAG positions (tools/tianwen1/momag_fetch.py)
 tools/tianwen1/cache/
+
+# Hourly Horizons samples for the element tables (tools/bake/element_table_bake.py)
+tools/bake/cache/

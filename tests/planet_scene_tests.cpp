@@ -1,10 +1,12 @@
 // Tests for the planets and their moons in the scenes: Solar System, Jupiter,
-// Earth-Moon, Saturn, Mars' rotation, and the fictional Kerbol system.
+// Earth-Moon, Saturn (with the Janus-Epimetheus swaps), Mars' rotation, and the
+// fictional Kerbol system.
 
 #include "test_util.hpp"
 
 #include "core/math.hpp"
 #include "core/time.hpp"
+#include "ephem/element_table.hpp"
 #include "ephem/ephemeris.hpp"
 #include "ephem/kepler.hpp"
 #include "ephem/mean_element_orbit.hpp"
@@ -726,6 +728,119 @@ void test_saturn_scene()
     }
 }
 
+// Janus and Epimetheus: the element tables against Horizons, and the swaps they hold.
+void test_saturn_coorbitals()
+{
+    Scene scene = load_scene_or_die("saturn.toml");
+    auto tdb = [](const CalendarDateTime& c) { return (jd_from_calendar(c) - kJ2000Jd) * kSecondsPerDay; };
+    const int janus = scene.find("Janus");
+    const int epimetheus = scene.find("Epimetheus");
+    check(janus > 0 && epimetheus > 0, "Saturn scene has Janus and Epimetheus");
+    if (janus <= 0 || epimetheus <= 0) {
+        return;
+    }
+    const Body& jb = scene.bodies[static_cast<size_t>(janus)];
+    const Body& eb = scene.bodies[static_cast<size_t>(epimetheus)];
+    const auto* jt = dynamic_cast<const ElementTableOrbit*>(jb.motion.get());
+    const auto* et = dynamic_cast<const ElementTableOrbit*>(eb.motion.get());
+    check(jt && et, "Janus and Epimetheus use element tables");
+    if (!jt || !et) {
+        return;
+    }
+
+    // JPL Horizons (sat415_merged_DE437), geometric ICRF positions relative to Saturn's
+    // center at 00:00 TDB; the tables are thinned to 10 km of the hourly positions.
+    struct Sample {
+        CalendarDateTime when;
+        glm::dvec3 janus, epimetheus;
+    };
+    const Sample samples[] = {
+        {{1981, 8, 25, 0, 0, 0}, {146309.3005, 39949.2094, -15146.0185}, {141984.8432, -47511.3035, -8922.8207}},
+        {{2006, 1, 1, 0, 0, 0}, {88185.4289, 121435.7220, -16942.6047}, {101919.2617, 112568.3887, -17943.7833}},
+        {{2047, 10, 17, 0, 0, 0}, {68940.2097, -135792.5591, 4497.5133}, {-109497.5635, 105791.0986, 818.7919}},
+    };
+    for (const Sample& s : samples) {
+        const double t = tdb(s.when);
+        const double dj = glm::length(scene.icrf_state_at(janus, t).position - s.janus);
+        const double de = glm::length(scene.icrf_state_at(epimetheus, t).position - s.epimetheus);
+        check(dj < 10.5 && de < 10.5, "Janus and Epimetheus tables match Horizons (km)", std::max(dj, de));
+    }
+    // The velocity (precessing ellipse) agrees with the change in position.
+    {
+        const double t = tdb({2006, 1, 1, 0, 0, 0});
+        const State s = jt->eval(t);
+        const glm::dvec3 drift = (jt->eval(t + 30.0).position - jt->eval(t - 30.0).position) / 60.0;
+        check(glm::length(s.velocity - drift) < 1e-3, "Janus velocity matches its path (km/s)", glm::length(s.velocity - drift));
+    }
+
+    // The swaps: the semi-major axes cross every four years, the latest of Cassini's
+    // first year on 2006-01-21 [DNC]. Each time the pair's orbital momentum is
+    // conserved, GM_J da_J + GM_E da_E = 0: the a jumps (means over 100-200 days
+    // before and after) are in the inverse ratio of the [SPHY] masses (0.2775).
+    const double mass_ratio = eb.body_gm_km3_s2 / jb.body_gm_km3_s2;
+    const ElementTable& ja = jt->table();
+    const ElementTable& ea = et->table();
+    auto a_diff = [&](double t) { return ja.at(t).a - ea.at(t).a; };
+    int swaps = 0;
+    double worst_ratio = 0.0;
+    double t_2006 = 0.0;
+    for (double t = ja.start(); t + kSecondsPerDay < ja.end(); t += kSecondsPerDay) {
+        const double d0 = a_diff(t);
+        const double d1 = a_diff(t + kSecondsPerDay);
+        if ((d0 < 0.0) == (d1 < 0.0)) {
+            continue;
+        }
+        const double tc = t + kSecondsPerDay * d0 / (d0 - d1);
+        if (tc < ja.start() + 200.0 * kSecondsPerDay || tc > ja.end() - 200.0 * kSecondsPerDay) {
+            continue;
+        }
+        ++swaps;
+        auto mean_a = [&](const ElementTable& table, double from_days, double to_days) {
+            double sum = 0.0;
+            int n = 0;
+            for (double d = from_days; d < to_days; d += 1.0, ++n) {
+                sum += table.at(tc + d * kSecondsPerDay).a;
+            }
+            return sum / n;
+        };
+        const double da_j = mean_a(ja, 100.0, 200.0) - mean_a(ja, -200.0, -100.0);
+        const double da_e = mean_a(ea, 100.0, 200.0) - mean_a(ea, -200.0, -100.0);
+        worst_ratio = std::max(worst_ratio, std::abs(-da_j / da_e / mass_ratio - 1.0));
+        check(std::abs(da_e) > 70.0 && std::abs(da_e) < 82.0 && (da_j < 0.0) == (da_e > 0.0),
+              "Epimetheus' orbit jumps ~76 km at a swap, Janus' the other way (km)", da_e);
+        if (std::abs(tc - tdb({2006, 1, 21, 0, 0, 0})) < 200.0 * kSecondsPerDay) {
+            t_2006 = tc;
+        }
+        t += 300.0 * kSecondsPerDay;
+    }
+    std::printf("info: %d Janus-Epimetheus swaps, a jumps within %.2f%% of the mass ratio\n", swaps, 100.0 * worst_ratio);
+    check(swaps == 19, "Janus and Epimetheus swap every four years 1974-2046", swaps);
+    check(worst_ratio < 0.015, "swap a jumps in the inverse mass ratio (relative error)", worst_ratio);
+    const double off_days = (t_2006 - tdb({2006, 1, 21, 12, 0, 0})) / kSecondsPerDay;
+    check(std::abs(off_days) < 1.0, "2006 swap on January 21 (days)", off_days);
+
+    // Never closer than ~10,000 km: Horizons' hourly samples give 10,235 km on 2006-01-20.
+    double closest = 1e9;
+    for (double t = tdb({2005, 12, 20, 0, 0, 0}); t < tdb({2006, 2, 20, 0, 0, 0}); t += 600.0) {
+        closest = std::min(closest, glm::length(scene.icrf_state_at(janus, t).position - scene.icrf_state_at(epimetheus, t).position));
+    }
+    check(closest > 10100.0 && closest < 10400.0, "closest approach of the 2006 swap (km)", closest);
+
+    // Outside 1972-2050 the elements run on: still on the shared orbit.
+    for (const double year : {1900.0, 2100.0}) {
+        const double r = glm::length(scene.icrf_state_at(janus, (year - 2000.0) * kDaysPerJulianYear * kSecondsPerDay).position);
+        check(r > 150000.0 && r < 153000.0, "Janus beyond its table stays on its orbit (km)", r);
+    }
+
+    // Synchronous: the long axis (the shape models' x) toward Saturn.
+    scene.update(tdb({2006, 1, 1, 0, 0, 0}));
+    for (const Body* b : {&jb, &eb}) {
+        const glm::dvec3 to_saturn = glm::normalize(scene.bodies[0].world_position - b->world_position);
+        const double off = std::acos(std::clamp(glm::dot(b->orientation[0], to_saturn), -1.0, 1.0)) * kRadToDeg;
+        check(off < 0.01, "Janus/Epimetheus long axis toward Saturn (deg)", off);
+    }
+}
+
 // Earth-Moon scene: the Moon-centered rotating frame has the Moon at the origin
 // and the Earth on -x.
 void test_earth_moon_frame()
@@ -980,5 +1095,6 @@ void run_planet_scene_tests()
     test_mars_rotation();
     test_mars_moon_rotation();
     test_saturn_scene();
+    test_saturn_coorbitals();
     test_kerbol_scene();
 }

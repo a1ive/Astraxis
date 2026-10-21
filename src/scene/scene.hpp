@@ -655,6 +655,8 @@ public:
     // z axis is then "up", and orbits are drawn as history trails.
     bool frame_is_rotating() const { return frame().type != DisplayFrame::Type::Inertial; }
     FrameTransform frame_transform(double t_tdb) const;
+    // How fast the active frame's axes turn (rad per simulated second; 0 when inertial).
+    double frame_turn_rate(double t_tdb) const;
     // Body-fixed axes of a body in ICRF (columns) at t_tdb: its IAU rotation
     // model, its free precession or spin table, or its orbit if it turns with
     // it (Body::synchronous_with). `body` must be one of `bodies`.
