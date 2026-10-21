@@ -317,7 +317,8 @@ struct Body {
     SurfaceStyle style = SurfaceStyle::Solid;
     glm::vec3 orbit_color{0.5f}; // sRGB
     bool label = true; // false: no name on screen unless focused (e.g. a crowd of stars)
-    int event = -1;    // an event's ghost (SceneEvent::Ghost): shown only while that event is active
+    int event = -1;    // shown only while this event is active: its ghost (SceneEvent::Ghost) or a body
+                       // it shows (SceneEvent's `show` in the file, e.g. a planet claim since refuted)
     TrailMode trail = TrailMode::Orbit;
     double trail_history_days = 0.0; // History trails: 0 = everything since the motion became valid
     double trail_linger_days = 0.0;  // History trails: how long the trail stays after the motion ends

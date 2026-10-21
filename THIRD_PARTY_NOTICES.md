@@ -60,6 +60,7 @@ Per-file details, original download URLs and processing steps are in each direct
 | `assets/textures/moon.jpg` | NASA's Scientific Visualization Studio, CGI Moon Kit (LRO data) | Public domain; credit: NASA's Scientific Visualization Studio |
 | `assets/fonts/Jost-{300-Light,400-Book}.ttf` | Jost* 3.5 by indestructible type* (Owen Earl), <https://github.com/indestructible-type/Jost>, unmodified | SIL Open Font License 1.1; full text in `assets/fonts/OFL.txt` |
 | `assets/fonts/DidactGothic-Regular.ttf` | Didact Gothic by Daniel Johnson, from Google Fonts (<https://github.com/google/fonts/tree/main/ofl/didactgothic>), unmodified; only its Greek letters are used | SIL Open Font License 1.1; full text in `assets/fonts/DidactGothic-OFL.txt` |
+| `assets/scenes/alpha_centauri.toml` (orbit of α Cen Ab) | One orbit (line 457077) of “S1+C1_stable_orbits_consistent_with_JWST_nondetections.txt”, Beichman, Sanghi et al. 2025, Zenodo record 16280658 (doi:10.5281/zenodo.16280658), converted to the scene's elements | CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/); credit: Beichman & Sanghi et al. 2025 |
 | `assets/textures/milky_way.jpg` | NASA/GSFC Scientific Visualization Studio, Deep Star Maps 2020 | Public domain; credit: NASA/Goddard Space Flight Center Scientific Visualization Studio. Gaia DR2: ESA/Gaia/DPAC |
 
 ---

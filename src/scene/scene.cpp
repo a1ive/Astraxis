@@ -864,6 +864,9 @@ void Scene::trail(int body_index, double t_tdb, int max_points, std::vector<glm:
 
     // An event's ghost: its whole path, fading away from where the ghost is now.
     const SceneEvent::Ghost* ghost = body.event >= 0 ? &events[static_cast<size_t>(body.event)].ghost : nullptr;
+    if (ghost && ghost->ghost != body_index) {
+        ghost = nullptr; // a body the event only shows
+    }
     if (ghost) {
         t_head = ghost->end_tdb;
     }

@@ -155,7 +155,7 @@ void test_alpha_centauri_scene()
     const ProximaPlanet planets[] = {
         {"Proxima Centauri d", 2460557.55, 5.12338, 0.02881},
         {"Proxima Centauri b", 2460548.59, 11.18465, 0.04848},
-        {"Proxima Centauri c (unconfirmed)", 2455892.0, 1900.0, 1.48},
+        {"Proxima Centauri c (candidate)", 2455892.0, 1900.0, 1.48},
     };
     const glm::dvec3 away = unit_from_ra_dec(217.42894222 * kDegToRad, -62.67949019 * kDegToRad);
     const double sin_i = std::sin(47.0 * kDegToRad);
@@ -181,6 +181,68 @@ void test_alpha_centauri_scene()
         const double depth = glm::dot(orbit.eval(t0).position, away);
         check(std::abs(depth / (a_km * sin_i) + 1.0) < 1e-6, "Proxima planet in front at conjunction", depth);
     }
+
+    // A's candidate planet [Beichman, Sanghi et al. 2025]: the chosen orbit from
+    // their Zenodo set puts it where Table 2 has S1 (JWST, 2024-08-10) and C1
+    // (VLT/NEAR, 2019-06-01), within the measurement errors, in arcsec east and
+    // north of A. Its inclination to the AB orbit is the file's imut (70.56 deg,
+    // Xuan & Wyatt 2020 eq. 19 with Akeson et al. 2021's elements).
+    const int ab = scene.find("Alpha Centauri Ab (candidate)");
+    check(ab >= 0 && scene.bodies[static_cast<size_t>(ab)].parent == a, "alpha Cen Ab orbits A");
+    check(scene.lighting_star(ab) == a, "alpha Cen Ab lit by A");
+    struct Sighting {
+        const char* what;
+        double jd;
+        double east;
+        double north;
+        double sigma;
+    };
+    const Sighting sightings[] = {
+        {"alpha Cen Ab at C1 (2019)", 2458635.5, -0.64, -0.56, 0.05},
+        {"alpha Cen Ab at S1 (2024)", 2460532.5, 1.50, 0.17, 0.13},
+    };
+    for (const Sighting& s : sightings) {
+        const double t = (s.jd - kJ2000Jd) * kSecondsPerDay;
+        const glm::dvec3 offset = scene.icrf_state_at(ab, t).position - scene.icrf_state_at(a, t).position;
+        const double de = glm::dot(offset, east) * arcsec_per_km - s.east;
+        const double dn = glm::dot(offset, north) * arcsec_per_km - s.north;
+        check(std::hypot(de, dn) < s.sigma, s.what, std::hypot(de, dn));
+    }
+    const double t_ab = tdb_from_julian_year(2024.6);
+    const State planet = scene.icrf_state_at(ab, t_ab);
+    const State sa = scene.icrf_state_at(a, t_ab);
+    const State sb = scene.icrf_state_at(b, t_ab);
+    const glm::dvec3 n_planet = glm::normalize(glm::cross(planet.position - sa.position, planet.velocity - sa.velocity));
+    const glm::dvec3 n_binary = glm::normalize(glm::cross(sb.position - sa.position, sb.velocity - sa.velocity));
+    const double mutual = std::acos(glm::dot(n_planet, n_binary)) * kRadToDeg;
+    check(std::abs(mutual - 70.56) < 0.1, "alpha Cen Ab mutual inclination (deg)", mutual);
+
+    // B's false positive [Dumusque et al. 2012; Rajpaul et al. 2016]: drawn only
+    // during its own event, in front of B at the conjunction from the RVs
+    // [Demory et al. 2015], and (coplanar with AB) passing beside the star.
+    const int bb = scene.find("Alpha Centauri Bb (false positive)");
+    check(bb >= 0 && scene.bodies[static_cast<size_t>(bb)].parent == b, "alpha Cen Bb orbits B");
+    int bb_event = -1;
+    for (size_t k = 0; k < scene.events.size(); ++k) {
+        bb_event = scene.events[k].focus == b ? static_cast<int>(k) : bb_event;
+    }
+    check(bb_event >= 0 && scene.bodies[static_cast<size_t>(bb)].event == bb_event, "alpha Cen Bb shown by its event");
+    scene.set_active_event(-1);
+    scene.update(tdb_from_julian_year(2010.2));
+    check(!scene.bodies[static_cast<size_t>(bb)].visible, "alpha Cen Bb hidden outside its event");
+    scene.set_active_event(bb_event);
+    scene.update(tdb_from_julian_year(2010.2));
+    check(scene.bodies[static_cast<size_t>(bb)].visible, "alpha Cen Bb shown during its event");
+    scene.set_active_event(-1);
+    const glm::dvec3 away_ab = unit_from_ra_dec(ra, dec);
+    const double t_conj = (2455281.24 - kJ2000Jd) * kSecondsPerDay;
+    const double t_found = find_conjunction(scene, bb, b, away_ab, t_conj, 0.5 * kSecondsPerDay);
+    check(std::abs(t_found - t_conj) < 60.0, "alpha Cen Bb conjunction (s)", t_found - t_conj);
+    const glm::dvec3 rel_bb = scene.icrf_state_at(bb, t_conj).position - scene.icrf_state_at(b, t_conj).position;
+    const double miss = glm::length(rel_bb - away_ab * glm::dot(rel_bb, away_ab)) /
+                        scene.bodies[static_cast<size_t>(b)].equatorial_radius_km;
+    check(glm::dot(rel_bb, away_ab) < 0.0 && std::abs(miss - 1.94) < 0.02, "alpha Cen Bb passes B (stellar radii)",
+          miss);
 }
 
 // TRAPPIST-1 [Agol et al. 2021]: integrated from the Table 2 elements, the

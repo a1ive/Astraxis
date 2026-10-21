@@ -1412,6 +1412,25 @@ void Loader::parse(const toml::table& root, Scene& out)
                     e.trails.push_back(trail);
                 }
             }
+            // Bodies drawn only while this event is active (e.g. a planet claim since refuted).
+            if (const toml::node* show = t->get("show")) {
+                const toml::array* list = show->as_array();
+                if (!list) {
+                    fail(ctx, "show must be an array of body names");
+                }
+                for (const auto& name_node : *list) {
+                    const std::optional<std::string> name = name_node.value<std::string>();
+                    const int k = name ? out.find(*name) : -1;
+                    if (k < 0) {
+                        fail(ctx, "show: unknown body '" + name.value_or("") + "'");
+                    }
+                    Body& body = out.bodies[static_cast<size_t>(k)];
+                    if (body.event >= 0) {
+                        fail(ctx, "show: '" + body.name + "' is already shown by another event");
+                    }
+                    body.event = static_cast<int>(out.events.size());
+                }
+            }
             if (const toml::node* ghost = t->get("ghost")) {
                 parse_event_ghost(ghost->as_table(), ctx, static_cast<int>(out.events.size()), e, out);
             }

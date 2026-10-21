@@ -34,6 +34,43 @@
 #        no evidence of it in HARPS data (as summarised in SM25 Sect. 3).
 #        Cross-check: DA20's b conjunction (BJD 2457897.9) falls 236.994 SM25
 #        periods before SM25's, so both papers use the same conjunction convention.
+#
+# alpha Cen A's candidate planet, S1 + C1 ("Alpha Centauri Ab"), a fixed Keplerian orbit
+# around A (its pull on the stars, and B's on it, are left out):
+# [BS25] Beichman, Sanghi et al. 2025, "Worlds Next Door ... I" (arXiv:2508.03814):
+#        Table 2, the point source S1 seen by JWST/MIRI on 2024-08-10 at (east, north) =
+#        (1.50, 0.17)" +- 0.13" from A, and C1 seen by VLT/NEAR on 2019-06-01 at
+#        (-0.64, -0.56)" +- 0.05", taken as the same object; not seen in February and
+#        April 2025. Sect. 5: radius 1.1 R_Jup (ATMO, T_eff = 225 K); Table 4 takes
+#        100 M_earth for the RV semi-amplitude (Sect. 5: 90-150 M_earth).
+# [BS25Z] Their stable orbits that fit S1 + C1 and miss both 2025 epochs, zenodo.org
+#        record 16280658 (CC BY 4.0), file S1+C1_stable_orbits_consistent_with_JWST_nondetections.txt
+#        (orbitize! elements: SMA, ecc, isky, aop, pan in rad, tau from MJD 58849, plx, mtot).
+#        The orbit here is line 457077: a = 1.617 au, e = 0.268, isky = 0.316, aop = 1.576,
+#        pan = 2.542 rad, tau = 0.7149534969224154, mtot = 1.083 M_sun, imut = 70.56 deg.
+#        It is the line with the least chi^2 to the two sightings (Table 2) plus squared
+#        distance from the mean (in standard deviations) of a, e, imut and isky, among the
+#        prograde a < 2 au orbits with K_RV < 3 m/s for 100 M_earth (Table 4's family:
+#        their mean and spread match Table 4, 1.58 +- 0.08 au, e 0.27 +- 0.04, imut 70 +- 4,
+#        isky 16 +- 6 deg). It puts S1 0.09" and C1 0.01" from the measured positions.
+#        Derived: P = 2 pi sqrt(a^3 / (G mtot)) = 721.6876 d; periastron at MJD 58849 + tau P.
+#        orbitize!'s offsets (north = r [cos(nu+w) cos W - sin(nu+w) sin W cos i], east = ...)
+#        are those of visual_orbit.hpp; astrometry does not tell the depth sign, and the
+#        visual-binary one taken here gives Zenodo's mutual inclination with [AK21]'s orbit.
+#        R_Jup = 71492 km (JPL SSD); 100 M_earth: GM_earth = 398600.435507 km^3/s^2 (DE440).
+#
+# alpha Cen Bb, a false positive (shown only during its own event):
+# [D12]  Dumusque et al. 2012, Nature 491, 207: P = 3.2357 +- 0.0008 d, K = 0.51 m/s,
+#        m sin i = 1.13 M_earth, from 459 HARPS RVs over four years (as quoted by [RA16] Sect. 1).
+# [DE15] Demory et al. 2015 (arXiv:1503.07528) Sect. 3: D12's conjunction from the RVs alone,
+#        T0 = 2455281.24 +- 0.17 (BJD).
+# [HA13] Hatzes 2013 (arXiv:1305.4960), abstract and Sect. 3.2: other filtering of the
+#        same data does not confirm the signal.
+# [RA16] Rajpaul, Aigrain & Roberts 2016 (arXiv:1510.05598), abstract: the 3.24 d signal
+#        almost certainly arises from the window function (the times of observation).
+# Its orbit is taken as circular and coplanar with the AB orbit [AK21] (assumed): mass
+# 1.13 / sin 79.243 deg = 1.150 M_earth, radius 1.048 R_earth [CK17]; a = 0.04148 au from
+# P and GM_B. At this inclination it would pass 1.9 stellar radii from B's center.
 # [GDR3] Gaia DR3 via SIMBAD: Proxima at RA 217.42894222, Dec -62.67949019 deg.
 # [CK17] Chen & Kipping 2017, ApJ 834, 17 (arXiv:1603.08614), Table 1:
 #        R = 1.008 M^0.2790 below 2.04 M_earth, R proportional to M^0.589 above
@@ -58,6 +95,9 @@
 #        Derived from [AK21]: the AB distance 1000 / 750.81 mas = 1.332 pc (4.34 ly); the
 #        stars ~35 au apart at apastron (a = 17.493" / 0.75081" = 23.3 au, e = 0.519).
 #        Saturn's distance from the Sun (9.5 au): JPL approximate elements.
+#        Saturn's mass, 95 M_earth: GM 37931206 km^3/s^2 (saturn.toml, SAT441) / GM_earth.
+#        S1's 1.5", its 2-year orbit (P above), the 2025 looks and the 52% chance that
+#        both missed it: [BS25] abstract and Table 2. The Bb event: [D12], [HA13], [RA16].
 # The sky: the catalog stars (HYG, Hipparcos distances; assets/stars/SOURCES.md) as
 # seen from the AB barycentre [AK21], without A, B and Proxima (drawn as bodies); the
 # Milky Way map is the one seen from Earth (its light comes from kpc away).
@@ -155,7 +195,7 @@ period_days = 11.18465
 laplace_pole_ra_dec_deg = [217.42894222, -62.67949019]
 
 [[bodies]]
-name = "Proxima Centauri c (unconfirmed)"
+name = "Proxima Centauri c (candidate)"
 parent = "Proxima Centauri"
 radii_km = [17433.0]           # 2.736 R_earth [CK17], assuming i = 47 deg
 body_gm_km3_s2 = 3160901.454   # 7.93 M_earth, assuming i = 47 deg
@@ -173,6 +213,44 @@ i_deg = 47.0                   # assumed (coplanar with the stellar spin)
 node_deg = -90.0               # Omega = 0 (assumed) - 90 deg
 period_days = 1900.0
 laplace_pole_ra_dec_deg = [217.42894222, -62.67949019]
+
+[[bodies]]
+name = "Alpha Centauri Ab (candidate)"
+parent = "Alpha Centauri A"
+radii_km = [78641.0]           # 1.1 R_Jup [BS25]
+body_gm_km3_s2 = 39860043.55   # 100 M_earth [BS25]
+color = "#d6cdbd"              # artistic (a cold, 225 K giant)
+style = "gas_giant"
+orbit_color = "#e8d8a8"
+[bodies.orbit]                 # [BS25Z] line 457077
+type = "visual_orbit"
+gm_km3_s2 = 1.43727573e11      # mtot = 1.083 M_sun
+a_au = 1.617
+e = 0.268
+i_deg = 18.105466              # 0.316 rad
+node_deg = 145.645872          # 2.542 rad
+arg_peri_deg = 90.298149       # 1.576 rad
+t_peri_jd_tdb = 2459365.473056 # MJD 58849 + 0.7149535 x 721.6876 d
+sky_ra_dec_deg = [219.85892215, -60.83163195]
+
+[[bodies]]
+name = "Alpha Centauri Bb (false positive)"
+parent = "Alpha Centauri B"
+radii_km = [6678.0]            # 1.048 R_earth [CK17], assuming i = 79.243 deg
+body_gm_km3_s2 = 458474.997    # 1.150 M_earth, assuming i = 79.243 deg
+color = "#9a9590"
+orbit_color = "#a8a8a8"
+[bodies.orbit]                 # [D12], [DE15]; coplanar with the AB orbit (assumed)
+type = "transit_orbit"         # t_transit: the inferior conjunction (no transit at this i)
+gm_km3_s2 = 1.20662151e11      # GM_B [AK21]
+period_days = 3.2357
+t_transit_bjd_tdb = 2455281.24
+e = 0.0
+arg_peri_deg = 0.0
+i_deg = 79.2430
+node_deg = 205.073
+transit_u_deg = 90.0           # e = 0: no omega to convert
+sky_ra_dec_deg = [219.85892215, -60.83163195]
 
 [[bodies]]
 name = "Sun"
@@ -225,6 +303,11 @@ type = "inertial"
 origin = "Alpha Centauri A"
 
 [[frames]]
+name = "Alpha Centauri B-centered"
+type = "inertial"
+origin = "Alpha Centauri B"
+
+[[frames]]
 name = "Proxima Centauri-centered"
 type = "inertial"
 origin = "Proxima Centauri"
@@ -269,7 +352,39 @@ caption = """\
     enough warmth for any water on its surface to be liquid."""
 
 [[events]]
-name = "Proxima c (unconfirmed), 1.5 au out"
+name = "Alpha Centauri Ab (candidate), imaged by JWST in 2024"
+time = "2024-08-10"
+focus = "Alpha Centauri A"
+from_body = "Sun"              # as seen from Earth
+distance_km = 1.2e9
+warp = 1728000.0               # 20 days per second: an orbit in 36 s
+frame = "Alpha Centauri A-centered"
+# [BS25], Saturn's mass
+caption = """\
+    In August 2024 the James Webb Space Telescope found a faint point of infrared \
+    light 1.5 arcseconds from A. If it is the object the Very Large Telescope \
+    glimpsed in 2019, it is a giant planet of roughly Saturn's mass on a two-year \
+    orbit in A's habitable zone. Two more looks in 2025 did not see it, which about \
+    half of the fitting orbits allow. This is one of them."""
+
+[[events]]
+name = "Alpha Centauri Bb (false positive), 0.04 au from B"
+time = "2010-03-24"            # near [DE15]'s conjunction, within D12's data
+focus = "Alpha Centauri B"
+distance_km = 3.0e7
+warp = 21600.0                 # 6 hours per second: an orbit in 13 s
+frame = "Alpha Centauri B-centered"
+show = ["Alpha Centauri Bb (false positive)"]
+# [D12], [HA13], [RA16]
+caption = """\
+    In 2012 astronomers reported an Earth-mass planet circling B every 3.2 days, \
+    found in four years of radial velocities. Other analyses of the data could not \
+    confirm it, and in 2015 one traced the signal to the times at which the star \
+    had been observed. There is no planet here: it is drawn only to show where it \
+    was claimed to be."""
+
+[[events]]
+name = "Proxima c (candidate), 1.5 au out"
 time = "2026-01-01"
 focus = "Proxima Centauri"
 distance_km = 8.0e8
