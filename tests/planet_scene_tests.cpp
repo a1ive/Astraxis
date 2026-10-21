@@ -931,6 +931,36 @@ void test_kerbol_scene()
     const double vall = mean_motion("Laythe") / mean_motion("Vall");
     const double tylo = mean_motion("Laythe") / mean_motion("Tylo");
     check(std::abs(vall - 2.0) < 1e-5 && std::abs(tylo - 4.0) < 1e-4, "Laythe:Vall:Tylo = 1:2:4", tylo);
+
+    // The schematic Mun transfer (tools/kerbol/kerbol_transfer.py): parking orbit 80 km
+    // above Kerbin, the burns of the captions (across the 1 s step of each impulse), and
+    // a circular orbit 30 km above the Mun after the capture.
+    const int craft = scene.find("Mun transfer (schematic)");
+    const int mun = scene.find("Mun");
+    check(craft >= 0 && mun >= 0, "Kerbol transfer craft and the Mun");
+    if (craft >= 0 && mun >= 0) {
+        const MotionSource& c = *scene.bodies[static_cast<size_t>(craft)].motion;
+        const MotionSource& m = *scene.bodies[static_cast<size_t>(mun)].motion;
+        constexpr double kBurn = 7200.0;
+        constexpr double kCapture = 31233.0;
+        check(std::abs(glm::length(c.eval(kBurn - 60.0).position) - 680.0) < 0.1, "parking orbit 80 km up (km)",
+              glm::length(c.eval(kBurn - 60.0).position) - 680.0);
+        const double dv1 = glm::length(c.eval(kBurn + 1.5).velocity) - glm::length(c.eval(kBurn - 0.5).velocity);
+        check(std::abs(dv1 * 1000.0 - 851.6) < 1.0, "transfer burn (m/s)", dv1 * 1000.0);
+        auto mun_relative = [&](double t) {
+            const State a = c.eval(t);
+            const State b = m.eval(t);
+            return State{a.position - b.position, a.velocity - b.velocity};
+        };
+        const double dv2 =
+            glm::length(mun_relative(kCapture - 0.5).velocity) - glm::length(mun_relative(kCapture + 1.5).velocity);
+        check(std::abs(dv2 * 1000.0 - 261.6) < 1.0, "capture burn (m/s)", dv2 * 1000.0);
+        double worst = 0.0;
+        for (double t = kCapture + 60.0; t < kCapture + 86000.0; t += 1234.5) {
+            worst = std::max(worst, std::abs(glm::length(mun_relative(t).position) - 230.0));
+        }
+        check(worst < 0.1, "capture orbit 30 km above the Mun (km)", worst);
+    }
 }
 
 void run_planet_scene_tests()

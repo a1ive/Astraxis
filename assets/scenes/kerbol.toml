@@ -21,6 +21,14 @@
 #        Kerbin's orbit (13,599,840.256 km), so L = 3.161e24 W = 0.0082574 L_sun
 #        (nominal L_sun 3.828e26 W, IAU 2015 Resolution B3).
 # [ATM]  The Earth's air and aerosols of solar_system.toml [ATM] (Bruneton).
+# [XFER] A schematic Kerbin -> Mun transfer designed by tools/kerbol/kerbol_transfer.py with
+#        the bodies of [KSP], in patched conics as the game flies it (Kerbin's pull only,
+#        then the Mun's only inside its sphere of influence): from a circular parking orbit
+#        80 km up, a prograde burn of 851.6 m/s at Year 1, Day 1, 2:00 onto an ellipse whose
+#        apoapsis lies 641.7 km inside the Mun's orbit, so that the craft passes the Mun on
+#        its inner side; it enters the Mun's SOI 5.02 h later and at the lowest point of the
+#        pass, 30 km up (Year 1, Day 2, 2:40:33), burns 261.6 m/s retrograde into a circular
+#        prograde orbit. Table: assets/ephem/kerbol_mun_transfer.eph (see its SOURCES.md).
 #
 # Frame and time. KSP's reference direction (the solar prime vector, from which it
 # counts longitudes of nodes and rotation angles) is the scene's x axis and the
@@ -204,6 +212,20 @@ node_deg = 78.0
 arg_peri_deg = 38.0
 mean_anomaly_deg = 51.5662001957363
 period_days = 12.468871771051043
+
+# A DESIGNED flight, not a recorded one [XFER].
+[[bodies]]
+name = "Mun transfer (schematic)"
+parent = "Kerbin"
+kind = "spacecraft"
+radii_km = [0.005]
+color = "#ffd27a"
+orbit_color = "#ffb84d"
+trail = "history"
+trail_linger_days = 1.0
+[bodies.orbit]             # [XFER]
+type = "ephemeris"
+file = "ephem/kerbol_mun_transfer.eph"
 
 [[bodies]]
 name = "Duna"
@@ -439,6 +461,11 @@ type = "inertial"
 origin = "Kerbin"
 
 [[frames]]
+name = "Mun-centered"
+type = "inertial"
+origin = "Mun"
+
+[[frames]]
 name = "Duna-centered"
 type = "inertial"
 origin = "Duna"
@@ -464,6 +491,34 @@ caption = """\
     so the sun returns to the same place in its sky every six hours exactly. The Mun \
     keeps one face toward Kerbin; Minmus, four times farther out, circles on an orbit \
     tilted by 6 degrees."""
+
+[[events]]
+name = "Kerbin to the Mun: a Hohmann transfer (schematic)"
+time = "Year 1, Day 1, 1:45"
+focus = "Kerbin"
+frame = "Kerbin-centered"
+from_orbit_normal = "Mun"
+distance_km = 3.2e4
+warp = 600.0
+# [XFER]
+caption = """\
+    A designed flight, not a recorded one. From a parking orbit 80 km up, a burn of \
+    852 m/s stretches the craft's orbit out to the Mun's. Five hours later it enters \
+    the Mun's sphere of influence, where, as in the game, only the Mun's pull counts."""
+
+[[events]]
+name = "Captured by the Mun (schematic)"
+time = "Year 1, Day 2, 2:20"
+focus = "Mun"
+frame = "Mun-centered"
+from_orbit_normal = "Mun"
+distance_km = 2500.0
+warp = 60.0
+# [XFER]
+caption = """\
+    The craft swings past the Mun's inner side. At the lowest point, 30 km above the \
+    ground, it fires against its motion: 262 m/s turns the pass into a circular orbit. \
+    The whole trip from low Kerbin orbit takes 1.11 km/s."""
 
 [[events]]
 name = "Duna and Ike, face to face"
