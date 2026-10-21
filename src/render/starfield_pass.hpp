@@ -27,7 +27,9 @@ public:
     // Equirectangular ICRF map with mipmaps (not owned), or null for none.
     void set_milky_way(SDL_GPUTexture* map, uint32_t map_width, float brightness);
 
-    void draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const CameraView& view, float brightness) const;
+    // `milky_way_scale` dims the map (the stars go by `brightness`).
+    void draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const CameraView& view, float brightness,
+              float milky_way_scale = 1.0f) const;
 
     // Renders the stars into a cube texture (ICRF directions, Direct3D face
     // layout) for effects that look up the sky in arbitrary directions, such as
@@ -55,7 +57,7 @@ public:
 private:
     // pixel_angle: angular size of a target pixel (radians), selects the map's mip level.
     void draw_milky_way(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, SDL_GPUGraphicsPipeline* pipeline,
-                        const glm::mat4& view_proj, float pixel_angle) const;
+                        const glm::mat4& view_proj, float pixel_angle, float brightness) const;
 
     SDL_GPUDevice* m_device = nullptr;
     SDL_GPUGraphicsPipeline* m_pipeline = nullptr;

@@ -54,7 +54,7 @@ src/platform/  SDL 窗口、路径；Win32 的壁纸挂载（WallpaperLayer）�
 src/view/      SceneRenderer：把 Simulation 转成 draw item，编排各 pass 和后处理
 src/render/    SDL_GPU 封装与各渲染 pass（星空、天体、大气层、彗星、行星环、黑洞、轨道线等）
 src/scene/     天体、参考系、相机、场景定义；Simulation（场景 + 时钟 + 相机 + 导览）
-src/ephem/     运动来源：解析开普勒 / 星历插值 / N 体（Yoshida）/ GR（Kerr 测地线，IMR；赤道圆轨道用解析解 kerr_circular，任意倾角的轨道用 kerr_apoapsis 在 Kerr-Schild 坐标里 3D 积分）
+src/ephem/     运动来源：解析开普勒 / 星历插值 / 根数表（进动椭圆的根数随时间插值，Janus、Epimetheus）/ N 体（Yoshida）/ GR（Kerr 测地线，IMR；赤道圆轨道用解析解 kerr_circular，任意倾角的轨道用 kerr_apoapsis 在 Kerr-Schild 坐标里 3D 积分）
 src/core/      时间、单位、double 数学 —— 不依赖 SDL 和 GPU
 shaders/       HLSL 源码，构建时编译并嵌入 exe（共享代码放 *.hlsli）
 assets/        运行时资源（场景 TOML、星表、纹理、形状模型、字体），构建后复制到 exe 旁
@@ -71,7 +71,7 @@ CMake 目标：
 核心抽象：所有天体运动都实现 `MotionSource::eval(t_tdb) -> State`，返回相对父天体的 ICRF 状态，场景层不关心来源是解析、星历还是积分。`Scene::update` 先按父子链算出 ICRF 位置（`icrf_position`），再经当前显示参考系（`FrameTransform`：惯性、主–次天体连线旋转、随天体自转三种）变换成 `world_position`。渲染、相机、标签、导演都只用 `world_position`。
 
 渲染层的 pass 只接收 `CameraView` 和简单的 draw item，由 `src/view/` 的 `SceneRenderer` 把 scene 转换成这些数据。宿主无关的部分：
-- `Simulation`（`scene/simulation.hpp`，不依赖 SDL）持有 Scene、时钟、相机和导览；`compute_view` 给每个输出算一份 `OutputView`（相机视图、卫星淡出、content scale）。导览的普通镜头由 `CameraDirector` 选；每隔一两个镜头插一个事件镜头，因为要动时钟，由 `Simulation` 执行：按时间顺序取下一个事件，淡出黑场后把时钟跳到事件前（快到的事件不跳），倍速按剩余时间指数降到事件自己的倍速（飞掠降到最近点前 20 s），显示展签，飞掠镜头持续到最近点之后。飞掠体由事件的 `flyby` 指定（自动找最近的探测器在多探测器场景里常挑错，比如“MRO arrives”找到 Mars Express），`--event` 和导览用同一个视角（`Simulation::event_shot`）。事件可以带幽灵（`[events.ghost]`，格式见 `mars.toml` 的天问一号入轨）：加载时合成一个 `Ghost` 天体（`Body::event`），从点火前的状态外推（`CoastMotion`，`ephem/coast.hpp`）：中心天体有 `zonal_harmonics` 时计入扁率（木星、土星），`tides` 列出的天体计入潮汐（月球场景的地球），否则是二体；有摄动时在加载时积分成节点表。只在该事件激活时显示，轨迹整段画出（普通天体也可以只在某个事件里显示：事件的 `show` 列出天体名，如 α Cen 场景里已被否定的 Bb）；探测器是太阳的子天体、只是星历相对行星时（信使号、破晓号），用 `center` 指定绕哪个天体外推。点火的 Δv（`unexplained_delta_v`，按星历节点到节点算）由 `Scene::burn_delta_v` 给出，画在探测器标签下。事件还可以用 `elevation_deg` 指定相机在 up 轴法平面上方的仰角，用 `disk_shifts = false` 在事件激活时关掉吸积盘的多普勒和引力频移（Gargantua 的电影版）。黑场用 `Simulation::fade()`，在后处理合成和标签里乘上
+- `Simulation`（`scene/simulation.hpp`，不依赖 SDL）持有 Scene、时钟、相机和导览；`compute_view` 给每个输出算一份 `OutputView`（相机视图、卫星淡出、content scale）。导览的普通镜头由 `CameraDirector` 选；每隔一两个镜头插一个事件镜头，因为要动时钟，由 `Simulation` 执行：按时间顺序取下一个事件，淡出黑场后把时钟跳到事件前（快到的事件不跳），倍速按剩余时间指数降到事件自己的倍速（飞掠降到最近点前 20 s），显示展签，飞掠镜头持续到最近点之后。飞掠体由事件的 `flyby` 指定（自动找最近的探测器在多探测器场景里常挑错，比如“MRO arrives”找到 Mars Express），`--event` 和导览用同一个视角（`Simulation::event_shot`）。事件可以带幽灵（`[events.ghost]`，格式见 `mars.toml` 的天问一号入轨）：加载时合成一个 `Ghost` 天体（`Body::event`），从点火前的状态外推（`CoastMotion`，`ephem/coast.hpp`）：中心天体有 `zonal_harmonics` 时计入扁率（木星、土星），`tides` 列出的天体计入潮汐（月球场景的地球），否则是二体；有摄动时在加载时积分成节点表。只在该事件激活时显示，轨迹整段画出（普通天体也可以只在某个事件里显示：事件的 `show` 列出天体名，如 α Cen 场景里已被否定的 Bb）；探测器是太阳的子天体、只是星历相对行星时（信使号、破晓号），用 `center` 指定绕哪个天体外推。点火的 Δv（`unexplained_delta_v`，按星历节点到节点算）由 `Scene::burn_delta_v` 给出，画在探测器标签下。事件还可以用 `elevation_deg` 指定相机在 up 轴法平面上方的仰角，用 `disk_shifts = false` 在事件激活时关掉吸积盘的多普勒和引力频移（Gargantua 的电影版）。黑场用 `Simulation::fade()`，在后处理合成和标签里乘上。旋转参考系里星空跟着转：按真实时间每秒转过 45° 以上开始淡出、180° 以上隐去（`Simulation::sky_visibility()`，随 Janus 转的参考系在 2 天/秒时每秒转 1000° 以上）。天体自转可以写 `synchronous = true`（长轴始终指向母天体，Janus、Epimetheus）
 - `LabelLayout`（`scene/label_layout.hpp`）算标签和标记放在哪里（优先级、避让、渐隐、拾取），不负责绘制；`App` 用 ImGui 画
 - 光变曲线（场景的 `[light_curve]`，`scene/light_curve.hpp`）：从某个天体方向看，各恒星按黑体圆盘、线性临边昏暗、前面的星挡住后面的星算总光度。`Simulation` 每帧按固定时间网格更新一次采样（已算的保留），各宿主和标签一起画在角落（`app/light_curve_overlay.*`），倍速快到几秒就换掉整条曲线时淡出。星等从“每颗星最亮时、不遮挡”的固定参考光度量起。脉动星（`[bodies.pulsation]`，`Pulsation`）按相位表查半径、温度、光度，`Scene::update` 每帧写回天体；光变曲线按任意时刻查表（`star_disk_at`）。充满洛希瓣的星（`[bodies.roche]`，`scene/roche.hpp`，Algol B）加载时生成临界等势面的网格，逐顶点温度带引力昏暗和伴星的照射；它随轨道转（`Body::synchronous_with`），按形状模型画（星的着色乘上顶点亮度），光变曲线对它按面元求和，它挡在别的星前面时用网格投影的凸包
 - `SceneRenderer` 持有 pass 和每个场景的 GPU 资源，显示选项通过 `ViewOptions` 传入
@@ -124,18 +124,18 @@ CMake 目标：
 |---|---|
 | `core_tests.cpp` | 日历（含 Kerbin 历法）/时间尺度、星表（含重投影）与黑体颜色、银道坐标系 |
 | `ephem_tests.cpp` | 开普勒方程与传播、幽灵的外推（带状谐项、潮汐）与 Δv、星历表、目视/凌星轨道约定、N 体 |
-| `planet_scene_tests.cpp` | 场景里的行星和卫星：太阳系、木星、地月、土星；Kerbol 系统对照游戏里的位置和自转角、6 小时太阳日、潮汐锁定、Laythe:Vall:Tylo ≈ 1:2:4、示意的 Mun 转移（停泊轨道、两次点火的 Δv、捕获轨道） |
+| `planet_scene_tests.cpp` | 场景里的行星和卫星：太阳系、木星、地月、土星；Janus 和 Epimetheus 的根数表对照 Horizons、19 次交换（a 的跳变之比对照 GM 比、2006-01-21、最近距离）；Kerbol 系统对照游戏里的位置和自转角、6 小时太阳日、潮汐锁定、Laythe:Vall:Tylo ≈ 1:2:4、示意的 Mun 转移（停泊轨道、两次点火的 Δv、捕获轨道） |
 | `mission_tests.cpp` | 探测器：先驱者/新视野、Parker、伽利略/朱诺、Artemis/CAPSTONE/嫦娥五号 T1 及其火箭末级、卡西尼/惠更斯、信使/贝皮科伦坡、火星的八个轨道器（含天问一号 2021 年的重建）、赛丁泉彗星与 3I/ATLAS、太阳系场景的 1I/3I、Europa Clipper/Hera 飞掠、金星快车/破晓号/Zoozve 与金星借力飞掠、ISEE-3、哈雷舰队、Rosetta/Philae、JWST |
 | `shape_tests.cpp` | 小天体形状模型 |
 | `appearance_tests.cpp` | 彗尾、尘埃彗尾、大气层、羽流（含各场景参数一致） |
 | `stellar_system_tests.cpp` | α Cen（含 Ab 对照 S1/C1 的位置和相互倾角、只在事件里显示的 Bb）、TRAPPIST-1、Kepler 系统、TIC 168789840、Algol（CHARA 位置与 B 的拉长、TESS 极小、GCVS 食深）与光变曲线模型、洛希面（Kim 1989 的半径、Eggleton 公式）、δ Cephei（SPIPS 半径、Engle 极大、视向速度轨道）、PSR B1620-26 |
 | `relativity_tests.cpp` | Kerr 测地线（类时/类光）、后开普勒双脉冲星、Sgr A*、Gargantua（[JA15] 的盘和相机、最内稳定圆轨道上的示例行星、米勒星的时间膨胀、Mann 星的轨道对照 [TH14]、假想的 Edmunds 星看到的阴影大小和用光线追踪积分的盘的辐射） |
-| `scene_tests.cpp` | 场景加载、Simulation、随天体自转的参考系、标签布局、跨场景一致性（同一天体在各场景的轨道参数）、相机导演、事件说明 |
+| `scene_tests.cpp` | 场景加载、Simulation、随天体自转的参考系、旋转参考系转得快时星空淡出、标签布局、跨场景一致性（同一天体在各场景的轨道参数）、相机导演、事件说明 |
 | `settings_tests.cpp` | `config.toml` 读写与场景列表 |
 
 ## 资源与工具
 
-- 星历烘焙：`python tools/bake/horizons_bake.py tools/bake/ephem.toml [name ...]`，联网访问 Horizons，输出到 `assets/ephem/`，说明见 `assets/ephem/SOURCES.md`。卫星相位拟合：`tools/bake/fit_moon_phase.py`
+- 星历烘焙：`python tools/bake/horizons_bake.py tools/bake/ephem.toml [name ...]`，联网访问 Horizons，输出到 `assets/ephem/`，说明见 `assets/ephem/SOURCES.md`。卫星相位拟合：`tools/bake/fit_moon_phase.py`。离扁行星很近的卫星用根数表：`python -E -P tools/bake/element_table_bake.py [janus|epimetheus]`（需要 numpy，下载每小时的样本缓存在 `tools/bake/cache/`，两颗约 5 分钟），输出 `assets/ephem/*.elm`
 - `assets/stars/hyg.csv`：`tools/stars/convert_hyg.py`（HYG v4.4，带距离，供近邻系统重投影）；M4 星团天空：`tools/stars/make_m4.py`（Gaia DR3）
 - `assets/sky/`：远处场景和银心的模型星空，`tools/sky/make_galaxy_sky.py`（需要 numpy；先 `calibrate` 对照 `milky_way.jpg` 标定，结果在 `tools/sky/galaxy_calibration.json`，再 `render <场景.toml>`，一个场景约 10 分钟，银心约 20 分钟）。改了模型或标定要重新生成全部场景。工具用 multiprocessing：Windows 上子进程重新导入模块，在主进程里改的模块全局变量传不过去，参数要经 `_init` 传
 - `assets/belts/*.bin`：`tools/belts/make_belts.py`（JPL SBDB，主带 H < 15、全部 TNO）
@@ -184,6 +184,7 @@ CMake 目标：
 - Release 版是 GUI 程序，后台进程无法把它切到前台；computer-use 的 `open_application` 会再开一个实例，要用 `SetForegroundWindow`/`ShowWindow`。computer-use 和 `SendKeys` 发的 Esc 进不了 SDL，用 `PostMessage(hwnd, WM_KEYDOWN, VK_ESCAPE)`
 - PowerShell 的变量名不区分大小写：`$S` 和循环变量 `$s` 是同一个变量
 - PowerShell 里的 `/tmp` 是 `C:	mp`，不是 Git Bash 的 `/tmp`（在用户的 Temp 目录下）：两边交换文件用 Windows 绝对路径，`-ErrorAction SilentlyContinue` 会把拷贝失败藏起来
+- 事件镜头只停展签的阅读时间（25–45 秒，按字数算），倍速要让要看的那一刻落在这段时间里：Janus 和 Epimetheus 的交换按 1 天/秒还没到最近点镜头就结束了。看节奏要用 Release：Debug 只有几帧每秒，单帧真实 dt 又被限在 0.1 s，仿真时间走得很慢
 - 截图要特定视角时，可以在 exe 旁的场景副本末尾临时追加 `[[events]]`（`focus` + `from_body` + `phase_deg` + `distance_km`），再用 `--event` 打开；用完从 `assets/` 拷回原文件
 - 在后台跑烘焙工具并把输出重定向到文件时，Python 会缓冲 stdout，几十分钟看不到进度：用 `python -u`
 - Claude Code 的沙箱里访问 Horizons 会反复报 `SSL: UNEXPECTED_EOF_WHILE_READING`（不是服务器的问题），烘焙要在沙箱外运行
@@ -213,6 +214,9 @@ CMake 目标：
   - Kepler 相对插值的参考 GM 要准，GM 偏差会让节点暴增（卡戎用 DE440 的系统 GM 要 10390 个节点，拟合的等效值只要 277 个）；节点也可能隔好几圈，`history_times` 和烘焙工具都按平均运动细分
   - 火星低轨道每圈都要几个节点（扁率摄动），10 km 容差下 MRO 每月 43 KB，全程烘焙前先拿一个月试算大小；`encounters` 在 Python 里逐点求值，几十年的表按分钟步长扫要几十分钟
   - 绕火星的探测器吻切倾角会周期变化几度（MAVEN 在 73°–75.7° 之间），对照名义倾角时容差要放宽
+- **离扁行星很近的卫星**（Janus、Epimetheus 在 2.5 个土星半径处）：拱线每天进动约 2°，AXEPH2 的二体弧几小时就偏开，放宽容差也没用（50 km 时一年仍要 1000 个节点，调参考 GM 只省一半），所以用根数表（`element_table_bake.py`）。拟合进动椭圆时 a 和 n 要各自独立（扁率让 n 比开普勒第三定律给的快），进动速率要先拟合再固定（不带进动的两天窗口残差 35–50 km，带上后 3–4 km）
+- **在旋转参考系里看快的相对运动**：参考系每转一圈，星空和土星的晨昏线也跟着转一圈（Janus 系 16.8 小时一圈，2 天/秒时每秒约 3 圈）。星空已自动淡出；镜头要从高处往下看（环的相角几乎不变），并让行星本体不入画。俯视时 `from_orbit_normal` 的屏幕朝向是任意的，要控制朝向用 `from_body` + `phase_deg` + 接近 90° 的 `elevation_deg`
+- **NASA 图片说明的数**不一定对得上星历：PIA08170 说 Janus 和 Epimetheus“从不近于约 15,000 km”，Horizons 的中心距最近 10,235 km（各次 10,150–10,540 km）。展签按星历写，出处里注明
 - **按容差抽稀的表**只保证位置，速度和加速度在节点之间可能很差：天问一号 15 分钟的入轨点火原来整段落在两个节点之间，三次插值把推力曲线扭弯，按表求出的 Δv 少 2%，从点火开始时刻的状态外推的幽灵 84 分钟后偏 110 km。要从表里读机动的就让点火期间每个样本都成为节点（`ephem.toml` 的 `keep_all`；已有的表用 `horizons_bake.py --patch` 只改点火那一段，其他节点不动；天问一号是 `tianwen1_bake.py` 的 `KEEP_ALL`）。读数窗口要在点火前后各留一点
 - 从表里读 Δv 要按节点到节点算（`unexplained_delta_v` 用 `history_times` 取节点）：节点是精确样本，三次插值在点火突然开始、结束的那一分钟里过冲，按 4 秒一步累加会把来回摆的两边都算上（天问一号多 1%）。ESA 的轨道还常在点火结束处换文件、位置对不上（火星快车 0.9 km、金星快车 3.8 km、TGO 99 km 和 50 m/s），按 4 秒累加时金星快车多 13%；窗口终点落进台阶那一分钟时连按节点算也不行（TGO 按 ESA 新闻稿的 13:05 开始会多 1.1 km/s），这时用更早的出处时间或在台阶前截止
 - Horizons 的“tag-up fit”轨道（希望号、MOM）是一段段拟合的弧，带着入轨点火的那一段可能是计划中的点火，下一段才是实际到达的轨道：希望号点火 8 小时后两段相差 2,397 km、126 m/s，场景里轨迹跳一下。用 `tools/bake/rejoin_burn.py` 以后一段为准，重新拟合点火（先核对哪一段与公布的捕获轨道一致：MOM 点火那一段的 Δv 与 ISRO 公布的一致，没有改）。往回积分要带上前一段里二体解释不了的加速度（火星扁率），只按二体积分 8 小时差 2.5 km、2.3 m/s
@@ -267,9 +271,10 @@ CMake 目标：
 1. Dear ImGui 等 1.93.x 补丁版出来再从 v1.92.9b 升级（1.93.0 重写了 ImDrawList，刚发布）。SDL3/SDLGPU3 后端和用到的 API 都兼容，要截图核对的是：`label_overlay.cpp` 的空心圆点（`AddCircle` 半径不再减 0.5、默认内侧描边）和标记菱形（`AddQuad`）、`captions.cpp`/`app_ui.cpp` 里非整数坐标的 `AddRectFilled`（现在有抗锯齿边缘）、`StyleColorsDark()` 改过的面板配色
 2. B1913+16 自转轴的测地线进动：用 Weisberg & Taylor 2002（astro-ph/0205280）表 1 的解 1（i = 47.2°，与场景一致；δ = 21.1°、α = 157.5°、T0 = 1981.0）；Kramer 1998 表 1 的解 I 是同一几何（δ = 22°，α = 27° 即自转反向）。速率由质量按 Barker & O'Connell 算（1.215°/年，对照 WT02 的 1.213°/年写测试），自转轴绕轨道法线走半角 δ 的锥；画面上只有 ζ(t)（自转轴与视线的夹角）可见，它只依赖 cos Φ，不受进动方向和假设的天空节点影响，测试对照 WT02 的公式。`pulsar_beams` 要多传仿真时间。再加一个从地球方向（视线）看的事件，事件视角目前只有 `from_orbit_normal`、`from_body`，要新增一种：现有的“光束扫过相机时闪一下”会一直闪到约 2025 年（Kramer 的预测）后停下；停下的时刻取决于光束宽度（现在是示意的 10°，WT02 的光束是轴比 1.59 的沙漏形），要调或注明。2019 年以后没找到观测文献，展签写成“预测”。[WH16] 4.4 节说各家几何解“不一致”，是指精度不够扣除光行差，不影响画面
 3. 变星：Polaris（复用 `[bodies.pulsation]`：振幅很小，周期每年变长约 4.5 s；Aa–Ab 约 29.6 年的轨道，Evans 等的 HST/CHARA 解；远处的 B）。要找有相位表的脉动模型（像 SPIPS 那样），或从视向速度积分半径（p 因子要注明）
-4. Kerbol 场景：高度图和法线（晨昏线上的立体感，也可用于月球、火星的 USGS DEM）与海面高光（Kerbin、Eve、Laythe、地球）；还可以用 `kerbol_transfer.py` 的办法加别的示意航线（Minmus、Duna 的转移窗口等，标明是设计的）
-5. 黑洞附近的天体做透镜：Gargantua 的示例行星和 Mann 星现在按真实位置画，转到黑洞背后时被挡住（真实情况下光会弯到阴影上方）。可以对每个天体解相机到天体的类光测地线，把球和标记画在主像（和次像）的位置
-6. 远期：macOS（Metal，需要 SPIR-V → MSL 和 macOS CI）；J1141-6545 的自转轴进动（Venkatraman Krishnan 2019 表 1：α ≈ 89°，δ 各模型从 35° 到 155° 不等，倾向的模型 3 是 91° ± 60°；Manchester 2010 约 110°），等几何解定下来再做
+4. 土星的其他小卫星：用 `element_table_bake.py` 和 Thomas 的形状模型加牧羊卫星 Prometheus、Pandora（F 环两侧，混沌的相互作用）和 Pan、Daphnis（Encke、Keeler 缝里），以及 Tethys、Dione 的特洛伊卫星（Telesto、Calypso、Helene、Polydeuces）；先确认 Horizons 的覆盖范围，Laplace 极从 [ELEM] 取
+5. Kerbol 场景：高度图和法线（晨昏线上的立体感，也可用于月球、火星的 USGS DEM）与海面高光（Kerbin、Eve、Laythe、地球）；还可以用 `kerbol_transfer.py` 的办法加别的示意航线（Minmus、Duna 的转移窗口等，标明是设计的）
+6. 黑洞附近的天体做透镜：Gargantua 的示例行星和 Mann 星现在按真实位置画，转到黑洞背后时被挡住（真实情况下光会弯到阴影上方）。可以对每个天体解相机到天体的类光测地线，把球和标记画在主像（和次像）的位置
+7. 远期：macOS（Metal，需要 SPIR-V → MSL 和 macOS CI）；J1141-6545 的自转轴进动（Venkatraman Krishnan 2019 表 1：α ≈ 89°，δ 各模型从 35° 到 155° 不等，倾向的模型 3 是 91° ± 60°；Manchester 2010 约 110°），等几何解定下来再做
 
 ## 不要做
 

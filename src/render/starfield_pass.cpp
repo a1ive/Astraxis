@@ -385,7 +385,8 @@ bool StarfieldPass::render_cubemap(SDL_GPUTexture* cube, uint32_t size, uint32_t
             Uniforms u;
             u.view_proj = proj * glm::lookAt(glm::vec3(0.0f), forward[face], up[face]);
             if (milky_way_pipeline) {
-                draw_milky_way(cmd, pass, milky_way_pipeline, u.view_proj, static_cast<float>(texel));
+                draw_milky_way(cmd, pass, milky_way_pipeline, u.view_proj, static_cast<float>(texel),
+                               m_milky_way_brightness);
             }
             u.viewport = glm::vec4(static_cast<float>(level_size), static_cast<float>(level_size), 0.0f, 0.0f);
             u.params =
@@ -413,13 +414,13 @@ void StarfieldPass::set_milky_way(SDL_GPUTexture* map, uint32_t map_width, float
 
 void StarfieldPass::draw_milky_way(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass,
                                    SDL_GPUGraphicsPipeline* pipeline, const glm::mat4& view_proj,
-                                   float pixel_angle) const
+                                   float pixel_angle, float brightness) const
 {
     // Mip level at which a texel (2 pi / width at the equator) matches a pixel.
     const float texel_angle = static_cast<float>(kTwoPi) / static_cast<float>(std::max(m_milky_way_width, 1u));
     MilkyWayUniforms u;
     u.inv_view_proj = glm::inverse(view_proj);
-    u.params = glm::vec4(m_milky_way_brightness, std::max(0.0f, std::log2(pixel_angle / texel_angle)), 0.0f, 0.0f);
+    u.params = glm::vec4(brightness, std::max(0.0f, std::log2(pixel_angle / texel_angle)), 0.0f, 0.0f);
 
     SDL_BindGPUGraphicsPipeline(pass, pipeline);
     const SDL_GPUTextureSamplerBinding binding = {.texture = m_milky_way, .sampler = m_sampler};
@@ -429,10 +430,11 @@ void StarfieldPass::draw_milky_way(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass*
 }
 
 void StarfieldPass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const CameraView& view,
-                         float brightness) const
+                         float brightness, float milky_way_scale) const
 {
-    if (m_milky_way && m_milky_way_brightness > 0.0f) {
-        draw_milky_way(cmd, pass, m_milky_way_pipeline, view.sky_view_proj, 2.0f / (view.focal_y * view.viewport.y));
+    if (m_milky_way && m_milky_way_brightness * milky_way_scale > 0.0f) {
+        draw_milky_way(cmd, pass, m_milky_way_pipeline, view.sky_view_proj, 2.0f / (view.focal_y * view.viewport.y),
+                       m_milky_way_brightness * milky_way_scale);
     }
     if (brightness <= 0.0f) {
         return;

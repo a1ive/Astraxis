@@ -1,9 +1,10 @@
-# Saturn, its rings, the seven major moons, Hyperion, Phoebe, and Cassini's tour
-# (2004-2017) with the Huygens probe's descent to Titan.
+# Saturn, its rings, the seven major moons, Hyperion, Phoebe, the co-orbital Janus and
+# Epimetheus, and Cassini's tour (2004-2017) with the Huygens probe's descent to Titan.
 #
 # Sources
 # [ELEM] JPL SSD, Planetary Satellite Mean Elements (https://ssd.jpl.nasa.gov/sats/elem/),
 #        ephemeris SAT441, Laplace-plane frame, epoch 2000-01-01.5 TDB.
+#        Janus and Epimetheus (SAT415): Laplace pole (40.6, 83.5 deg), only for [JE].
 # [SPHY] JPL SSD, Planetary Satellite Physical Parameters (https://ssd.jpl.nasa.gov/sats/phys_par/).
 #        Also the GM of Saturn alone (body_gm_km3_s2), from its "Planet and Pluto GM
 #        Values" table.
@@ -31,7 +32,21 @@
 # [TCAS] P. C. Thomas, Saturn Small Moon Shape Models V1.0 (PDS SBN,
 #        saturn_satellite_shape_models; Cassini ISS): Hyperion plate model (14,636 vertices),
 #        equal-volume radius 136.3 km vs 135 +- 4 km in [SPHY]. The model's z axis is the
-#        spin axis seen on 2005-09-25 ([HSPN]). See assets/shapes/SOURCES.md.
+#        spin axis seen on 2005-09-25 ([HSPN]). Janus and Epimetheus (13,381 and 13,915
+#        vertices; 88.98 and 58.59 km vs [SPHY]'s 89.2 +- 0.8 and 58.2 +- 1.2 km): x along
+#        the prime meridian, "which on average points toward Saturn", z the north pole. See
+#        assets/shapes/SOURCES.md.
+# [JE]   Janus (610) and Epimetheus (611): element tables (AXELM1) fitted to hourly JPL
+#        Horizons positions relative to Saturn's center (sat415_merged_DE437), 1972-2050
+#        (Horizons covers 1949-12-27 .. 2050-01-09), by tools/bake/element_table_bake.py:
+#        a precessing ellipse in [ELEM]'s Laplace plane fitted over two days every 6 hours,
+#        thinned to within 10 km of every hourly position (rms 5 km). Kepler-relative tables
+#        would need a knot every few hours this close to Saturn (4 MB or more each). Outside
+#        the span the elements run on at their end rates, without further swaps.
+# [DNC]  NASA/JPL PIA08170, "The Dancing Moons" (Cassini image of 2006-03-20): Janus and
+#        Epimetheus swap positions every four years, one moving closer to Saturn and the
+#        other farther away; the last swap on 2006-01-21; "never closer than about 15,000
+#        kilometers".
 # [HSPN] Hyperion's spin state at the Cassini flyby of 2005-09-25 (Harbison, Thomas &
 #        Nicholson 2011, Celest. Mech. Dyn. Astron. 110, 1). Table 1: e = 0.113, varpi =
 #        99 deg, M = 303 deg, Euler angles theta, phi, psi = 2.989, 1.685, 1.641 rad
@@ -191,6 +206,37 @@ gain = 1.0
 phase_g = -0.3
 
 # --- Moons ----------------------------------------------------------------------
+
+# The co-orbital pair: about 50 km apart in semi-major axis, the inner one gains on the
+# other until, every four years, they meet and trade orbits [JE]. Both are drawn
+# synchronous (long axis toward Saturn, as the shape models' x axes "on average" [TCAS]):
+# the [PCK] prime meridians hold only near 1981 (Horizons' note), since each swap changes
+# their mean motions.
+[[bodies]]
+name = "Janus"
+parent = "Saturn"
+shape = "shapes/janus.mesh"                # [TCAS]
+radii_km = [101.7, 93.0, 76.3]             # [PCK] (shadows, camera distances)
+body_gm_km3_s2 = 0.12662                   # [SPHY] (SAT415)
+synchronous = true
+color = "#c6c0b6"                          # illustrative
+orbit_color = "#c8bca4"
+[bodies.orbit]                             # [JE] 610
+type = "element_table"
+file = "ephem/janus_sat.elm"
+
+[[bodies]]
+name = "Epimetheus"
+parent = "Saturn"
+shape = "shapes/epimetheus.mesh"           # [TCAS]
+radii_km = [64.9, 57.3, 53.0]              # [PCK]
+body_gm_km3_s2 = 0.03514                   # [SPHY] (SAT415)
+synchronous = true
+color = "#bdb8b0"                          # illustrative
+orbit_color = "#a8bcc8"
+[bodies.orbit]                             # [JE] 611
+type = "element_table"
+file = "ephem/epimetheus_sat.elm"
 
 [[bodies]]
 name = "Mimas"
@@ -532,6 +578,14 @@ trail_linger_days = 30.0
 type = "ephemeris"
 file = "ephem/huygens_sat.eph"
 
+# Janus stands still on the x axis, Saturn on the -x side.
+[[frames]]
+name = "Saturn-Janus rotating"
+type = "rotating"
+primary = "Saturn"
+secondary = "Janus"                        # centered on Janus
+trail_history_days = 0.25                  # the other moons (and Cassini) lap it every few days
+
 # --- Events -------------------------------------------------------------------------
 # Closest approaches (TDB at the spacecraft) and distances from the bake tool; flyby
 # altitudes above the moons' mean radii [SPHY]. Flybys start an hour before.
@@ -630,6 +684,36 @@ caption = """\
     tumbles chaotically, turning once in five days. Here it is oriented as Cassini \
     measured it that day; within a month or two the real spin axis wanders tens of \
     degrees away."""
+
+# Closest approach 2006-01-20 09:40 TDB, 10,235 km center to center (Horizons' hourly
+# samples; [DNC]'s "about 15,000 km" is less close); the semi-major axes cross on
+# 2006-01-21 [JE]: Janus 151,462 -> 151,441 km, Epimetheus 151,413 -> 151,490 km over the
+# following months. From one day to the next the distance swings by ~8,000 km: the two
+# orbits are slightly eccentric (e = 0.007 and 0.010), with different periapsides.
+[[events]]
+name = "Janus and Epimetheus trade orbits (2006-01-21)"
+time_tdb = "2005-12-25 00:00"
+focus = "Janus"
+frame = "Saturn-Janus rotating"
+# From high above, Saturn up: in this frame the Sun goes around three times a second,
+# which would flash Saturn's night side by; seen from near the pole the rings keep
+# about the same phase angle (and the sky fades out, see Simulation::sky_visibility).
+from_body = "Saturn"
+phase_deg = 180.0
+elevation_deg = 75.0
+distance_km = 5.0e4
+warp = 172800.0                            # in to the closest approach and out again
+# [DNC], [JE]
+caption = """\
+    Janus and Epimetheus share one orbit: their paths are only about 50 km apart. Seen \
+    here turning with Janus, Epimetheus, on the lower and faster track, catches up from \
+    behind. As they draw near, their pull on each other lifts Epimetheus 80 km and drops \
+    Janus 20 km: they trade orbits, and Epimetheus falls back. Four years later it comes \
+    around to Janus' other side, and they trade back."""
+[[events.trails]]
+body = "Epimetheus"
+trail = "history"
+trail_history_days = 120.0
 
 [[events]]
 name = "Cassini at Iapetus (2007-09-10, 1,633 km)"

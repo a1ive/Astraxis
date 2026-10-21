@@ -306,6 +306,8 @@ void test_jupiter_saturn_small_moon_shapes()
     for (const Moon& m : {Moon{&jupiter, "Amalthea", 83.5, 3.0, true, false, true},
                           Moon{&jupiter, "Thebe", 49.3, 4.0, true, false, false},
                           Moon{&saturn, "Hyperion", 135.0, 4.0, false, false, false},
+                          Moon{&saturn, "Janus", 89.2, 0.8, true, true, false},
+                          Moon{&saturn, "Epimetheus", 58.2, 1.2, true, true, false},
                           Moon{&saturn, "Phoebe", 106.5, 0.7, false, true, false}}) {
         const std::string name = m.name;
         const Body& body = m.scene->bodies[static_cast<size_t>(m.scene->find(m.name))];
@@ -324,7 +326,7 @@ void test_jupiter_saturn_small_moon_shapes()
             extent = glm::max(extent, glm::abs(glm::dvec3(p)));
         }
         if (m.long_axis_x) {
-            check(extent.x > extent.y && extent.x > extent.z, (name + " long axis toward Jupiter").c_str(), extent.x);
+            check(extent.x > extent.y && extent.x > extent.z, (name + " long axis toward the planet").c_str(), extent.x);
         }
         if (m.short_axis_z) {
             check(extent.z < extent.x && extent.z < extent.y, (name + " shortest axis along the spin axis").c_str(), extent.z);

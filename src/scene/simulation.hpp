@@ -79,6 +79,10 @@ public:
     bool tour_event_arrived() const { return m_tour_event >= 0 && m_event_phase == EventPhase::Hold; }
     // Brightness of the picture, 0..1: the tour fades to black to move the clock.
     double fade() const;
+    // Brightness of the starry sky, 0..1: it fades out while a rotating display frame
+    // would spin it past faster than the eye can follow (turning with Janus at days
+    // per second).
+    double sky_visibility() const;
 
     const Scene& scene() const { return m_scene; }
     SimClock& clock() { return m_clock; }
@@ -156,6 +160,7 @@ private:
     int m_last_tour_event = -1;       // the last event the tour showed (-1: none since it started)
     double m_fade = 1.0;              // linear; fade() eases it
     double m_fade_target = 1.0;
+    double m_sky = 1.0; // linear; sky_visibility() eases it
     double m_disk_time = 0.0;
     double m_animation_time = 0.0;
     double m_scene_age = 0.0;

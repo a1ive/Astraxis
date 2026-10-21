@@ -455,6 +455,43 @@ void test_body_fixed_frames()
     }
 }
 
+// The sky turns with a rotating frame: it fades out where that would spin it by (Saturn
+// turning with Janus at 2 days per second: over 1,000 deg/s), and stays where the frame
+// turns slowly (the Earth-Moon frame at the same warp: 26 deg/s).
+void test_sky_fades_in_fast_frames()
+{
+    auto settle = [](Simulation& sim) {
+        for (int i = 0; i < 20; ++i) {
+            sim.update(0.1);
+        }
+    };
+    Simulation sim;
+    std::string error;
+    check(sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/saturn.toml", &error), "saturn.toml loads");
+    settle(sim);
+    check(sim.sky_visibility() == 1.0, "the sky shows in an inertial frame", sim.sky_visibility());
+    const Scene& scene = sim.scene();
+    const int janus_frame = find_frame(scene, "Saturn-Janus rotating");
+    check(janus_frame > 0, "Saturn scene has the Janus frame");
+    sim.set_frame(janus_frame);
+    sim.clock().warp = 2.0 * kSecondsPerDay;
+    const double rate = scene.frame_turn_rate(sim.clock().t_tdb) * kRadToDeg * kSecondsPerDay;
+    check(std::abs(rate - 518.3) < 3.0, "the Janus frame turns at its mean motion (deg/day)", rate);
+    settle(sim);
+    check(sim.sky_visibility() == 0.0, "the sky fades out while it would spin by", sim.sky_visibility());
+    sim.set_frame(0);
+    settle(sim);
+    check(sim.sky_visibility() == 1.0, "and comes back in the inertial frame", sim.sky_visibility());
+
+    Simulation earth_moon;
+    check(earth_moon.load_scene(ASTRAXIS_ASSET_DIR "/scenes/earth_moon.toml", &error), "earth_moon.toml loads");
+    earth_moon.set_frame(find_frame(earth_moon.scene(), "Earth-Moon rotating"));
+    earth_moon.clock().warp = 2.0 * kSecondsPerDay;
+    settle(earth_moon);
+    check(earth_moon.sky_visibility() == 1.0, "the slowly turning Earth-Moon frame keeps its sky",
+          earth_moon.sky_visibility());
+}
+
 // An event can shorten a trail while its frame is shown: in Parker's
 // Venus-centered frame, the earlier flybys would otherwise cross Venus.
 void test_event_trails()
@@ -1078,6 +1115,7 @@ void run_scene_tests()
     test_ephemeris_blends();
     test_simulation();
     test_event_trails();
+    test_sky_fades_in_fast_frames();
     test_event_from_sun();
     test_body_fixed_frames();
     test_label_layout();
