@@ -102,6 +102,7 @@ private:
     std::vector<SDL_GPUTexture*> m_body_textures; // per body, may be null
     std::vector<SDL_GPUTexture*> m_ring_textures; // per body: ring profile, may be null
     std::vector<int> m_body_meshes;               // per body: BodyPass mesh index (-1: ellipsoid)
+    std::vector<int> m_rotor_meshes;              // per body: its rotor's mesh index (-1: none)
     std::vector<DustTail> m_dust_tails;           // per body (comets only are updated)
     std::vector<int> m_belt_ids;                  // per scene belt: BeltPass index (-1: not uploaded)
     std::vector<float> m_belt_reference_h;        // per scene belt: median absolute magnitude

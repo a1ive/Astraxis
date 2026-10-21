@@ -432,11 +432,16 @@ void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, u
     m_ring_textures.assign(scene.bodies.size(), nullptr);
     m_bodies.clear_meshes();
     m_body_meshes.assign(scene.bodies.size(), -1);
+    m_rotor_meshes.assign(scene.bodies.size(), -1);
     for (size_t i = 0; i < scene.bodies.size(); ++i) {
         const Body& body = scene.bodies[i];
         if (body.shape) {
             m_body_meshes[i] = m_bodies.add_mesh(body.shape->positions, body.shape->normals, body.shape->albedo,
                                                  body.shape->map_u, body.shape->indices);
+        }
+        if (const ShapeModel* rotor = body.rotor.shape.get()) {
+            m_rotor_meshes[i] =
+                m_bodies.add_mesh(rotor->positions, rotor->normals, rotor->albedo, rotor->map_u, rotor->indices);
         }
         if (!body.rings.profile.empty()) {
             m_ring_textures[i] = create_profile_texture(m_device->device(), body.rings.profile);
@@ -667,7 +672,7 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
     for (size_t i = 0; i < scene.bodies.size(); ++i) {
         const Body& body = scene.bodies[i];
         const bool drawable = body.kind == BodyKind::Planet || body.kind == BodyKind::Star ||
-                              body.kind == BodyKind::BlackHole;
+                              body.kind == BodyKind::BlackHole || (body.kind == BodyKind::Spacecraft && body.shape);
         if (!body.visible || !drawable) {
             continue;
         }
@@ -842,6 +847,17 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
             }
         }
         m_body_items.push_back(item);
+
+        // The rotor: the same body turned about its z axis.
+        if (const int rotor = i < m_rotor_meshes.size() ? m_rotor_meshes[i] : -1; rotor >= 0) {
+            const double angle = kTwoPi * sim.rotor_turns(static_cast<int>(i));
+            const glm::dmat3 turn(glm::dvec3(std::cos(angle), std::sin(angle), 0.0),
+                                  glm::dvec3(-std::sin(angle), std::cos(angle), 0.0), glm::dvec3(0.0, 0.0, 1.0));
+            item.mesh = rotor;
+            item.rotation = glm::mat4(glm::mat3(body.orientation * turn));
+            item.model = glm::translate(glm::mat4(1.0f), to_render(body.world_position, cam)) * item.rotation;
+            m_body_items.push_back(item);
+        }
     }
 }
 

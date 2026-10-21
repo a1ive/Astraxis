@@ -490,6 +490,12 @@ void CameraDirector::next_shot(const Scene& scene, OrbitCamera& camera)
         shot.yaw = random_sign() * uniform(20.0, 60.0) * kDegToRad;
         shot.pitch = uniform(10.0, 30.0) * kDegToRad;
         shot.distance = std::max(r * uniform(0.25, 0.6), 1000.0);
+        if (c.shape) {
+            // Drawn as a model: close enough to see it, with the parent behind it.
+            shot.yaw = random_sign() * uniform(10.0, 25.0) * kDegToRad;
+            shot.pitch = uniform(5.0, 15.0) * kDegToRad;
+            shot.distance = c.equatorial_radius_km * uniform(4.0, 7.0);
+        }
         duration = uniform(35.0, 50.0);
         drift = random_sign() * uniform(0.004, 0.01);
         break;

@@ -5,7 +5,9 @@ Format (little endian):
     char[8]  magic "AXMESH2\\0"
     uint32   vertex count
     uint32   triangle count
-    uint32   flags: bit 0 = map coordinates present
+    uint32   flags: bit 0 = map coordinates present; bit 1 = hard edges (normals are
+             averaged only over triangles sharing a vertex index, not over all
+             vertices at the same position: for built shapes with flat faces)
     float32  positions (x, y, z km, body-fixed: x toward the prime meridian, z along the pole)
     float32  relative albedo per vertex
     float32  map u per vertex (if flag bit 0): east longitude / 360 deg, continuous
@@ -19,11 +21,12 @@ import os
 import struct
 
 
-def write_mesh(path, positions, albedo, triangles, map_u=None):
+def write_mesh(path, positions, albedo, triangles, map_u=None, hard_edges=False):
     os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
+    flags = (1 if map_u is not None else 0) | (2 if hard_edges else 0)
     with open(path, 'wb') as f:
         f.write(b'AXMESH2\0')
-        f.write(struct.pack('<III', len(positions), len(triangles), 1 if map_u is not None else 0))
+        f.write(struct.pack('<III', len(positions), len(triangles), flags))
         f.write(struct.pack(f'<{3 * len(positions)}f', *(c for p in positions for c in p)))
         f.write(struct.pack(f'<{len(albedo)}f', *albedo))
         if map_u is not None:

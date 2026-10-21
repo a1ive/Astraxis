@@ -520,6 +520,58 @@ void test_halley_shape()
     }
 }
 
+// Endurance (gargantua.toml): the tribute model of tools/shapes/make_endurance.py, a
+// fixed hull and a turning ring, built with hard edges.
+void test_endurance_shape()
+{
+    Scene scene = load_scene_or_die("gargantua.toml");
+    const int craft = scene.find("Endurance");
+    check(craft > 0, "Endurance in the Gargantua scene");
+    if (craft <= 0) {
+        return;
+    }
+    const Body& body = scene.bodies[static_cast<size_t>(craft)];
+    check(body.kind == BodyKind::Spacecraft && body.shape && body.rotor.shape, "Endurance has a hull and a rotor");
+    if (!body.shape || !body.rotor.shape) {
+        return;
+    }
+    const ShapeModel& hull = *body.shape;
+    const ShapeModel& ring = *body.rotor.shape;
+    check(signed_volume(hull) > 0.0 && signed_volume(ring) > 0.0, "Endurance meshes are closed and face outward");
+
+    // Hard edges: the flat tops of the hull's end rings (z = 10.2 m) face straight up,
+    // and their round walls straight out; merged normals would be 45 deg between.
+    int up = 0, out = 0, bent = 0;
+    for (size_t k = 0; k < hull.positions.size(); ++k) {
+        if (std::abs(hull.positions[k].z - 0.0102f) > 1e-6f) {
+            continue;
+        }
+        const float nz = hull.normals[k].z;
+        (std::abs(nz - 1.0f) < 1e-5f ? up : std::abs(nz) < 1e-5f ? out : bent) += 1;
+    }
+    check(up > 0 && out > 0 && bent == 0, "Endurance hull edges stay hard", static_cast<double>(bent));
+
+    // The ring: 70 m across about the z axis it turns on (the pallets' corners a little
+    // more); the modules reach 33 m out.
+    double r_max = 0.0, r_module = 0.0;
+    for (const glm::vec3& p : ring.positions) {
+        const double r = std::hypot(p.x, p.y) * 1000.0;
+        r_max = std::max(r_max, r);
+        if (std::abs(p.z) * 1000.0 > 3.0) { // above the tube and pallets: the modules
+            r_module = std::max(r_module, r);
+        }
+    }
+    check(std::abs(r_max - 35.0) < 0.2, "Endurance ring 70 m across", 2.0 * r_max);
+    check(r_module > 32.5 && r_module < 34.0, "Endurance modules reach 33 m out", r_module);
+    check(body.equatorial_radius_km * 1000.0 >= r_max, "Endurance radius encloses the ring",
+          body.equatorial_radius_km);
+
+    // One turn every 11.44 s gives 1 g on the floor, 32.5 m from the axis.
+    const double omega = kTwoPi / body.rotor.period_s;
+    const double g = omega * omega * 32.5 / 9.80665;
+    check(std::abs(g - 1.0) < 1e-3, "Endurance floor gravity (g)", g);
+}
+
 } // namespace
 
 void run_shape_tests()
@@ -531,4 +583,5 @@ void run_shape_tests()
     test_jupiter_saturn_small_moon_shapes();
     test_hyperion_spin_state();
     test_halley_shape();
+    test_endurance_shape();
 }

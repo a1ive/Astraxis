@@ -142,6 +142,32 @@ arg_apoapsis_deg = 90.0        # apoapsis 30 deg above the disk
 apoapsis_time = "2026-10-01"
 span_years = [2016.0, 2036.0]
 
+# Endurance: a simplified tribute to the film's ship, modelled for this program
+# (tools/shapes/make_endurance.py; illustrative dimensions, not the film's): a fixed
+# hull 25 m wide and a ring of twelve modules 70 m across, turning about the hull once
+# every 11.44 s, for 1 g on the modules' floor 32.5 m from the axis (tests). The film
+# keeps it in orbit near Miller's planet, which this scene cannot have (see the header),
+# so this orbit is ASSUMED: circular and prograde in the disk plane at 30 M, beyond the
+# disk's outer edge (18.7 M), once every 5.9 days with time 1.05 times slower than far
+# away (tests). The ring's axis stays fixed in space (a spinning ring is a gyroscope):
+# in the disk plane, toward the Galactic center (arbitrary). Lit by the disk.
+[[bodies]]
+name = "Endurance"
+parent = "Gargantua"
+kind = "spacecraft"
+radii_km = [0.036]             # encloses the ring
+shape = "shapes/endurance_hull.mesh"
+color = "#d6d6d0"
+orbit_color = "#e0c48f"
+pole_ra_dec_deg = [266.40500, -28.93617]   # ring axis: the Galactic center (arbitrary)
+trail_history_days = 1.0
+[bodies.rotor]
+shape = "shapes/endurance_ring.mesh"
+period_s = 11.44               # 2 pi sqrt(32.5 m / 9.80665 m/s^2)
+[bodies.orbit]
+type = "kerr_circular"
+radius_m = 30.0
+
 [[events]]
 name = "Gargantua as filmed: a/M = 0.6, no Doppler shifts"
 time = "2026-10-01"
@@ -248,3 +274,20 @@ caption = """\
     by the glowing disk. Thirty degrees above the disk, the planet gets twice Earth's \
     sunlight; even in the disk's plane, light bent around the hole still brings half. \
     Its seasons swing between the two every 1.6 years."""
+
+[[events]]
+name = "Endurance, a tribute"
+time = "2026-10-03 07:00"      # the ring's axis 67.5 deg from the hole: its lit face...
+focus = "Endurance"
+from_body = "Gargantua"
+phase_deg = 135.0              # ...turned toward the camera, the hole to one side
+elevation_deg = 20.0
+distance_km = 0.16
+warp = 1.0                     # the ring at its true rate
+# The ship and its orbit are this scene's (see the body); period, time dilation and
+# the ring's gravity from them (tests)
+caption = """\
+    A simple tribute to the film's ship Endurance, here on an assumed orbit 4.4 billion \
+    km from the center, beyond the disk, going around every six days. Its ring of twelve \
+    modules turns every 11.4 seconds, for Earth's gravity on their floors. Time aboard \
+    runs only 5 percent slower than far away."""

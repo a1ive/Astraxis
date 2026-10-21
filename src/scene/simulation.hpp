@@ -46,6 +46,10 @@ struct OutputView {
 // while the shot lasts.
 class Simulation {
 public:
+    // Fastest a rotor (Body::Rotor) turns on screen, whatever the warp: one turn in
+    // 4 s, slow enough not to strobe at low frame rates.
+    static constexpr double kRotorMaxTurnsPerSecond = 0.25;
+
     // Loads a scene file and starts at the scene's own time and view; a running
     // tour goes on in the new scene. On failure nothing changes.
     bool load_scene(const std::filesystem::path& file, std::string* error);
@@ -98,6 +102,9 @@ public:
     // keep float precision.
     double disk_time() const { return m_disk_time; }
     double animation_time() const { return m_animation_time; }
+    // Turns of a body's rotor (Body::Rotor) in [0, 1): its own period at low warp,
+    // capped at kRotorMaxTurnsPerSecond.
+    double rotor_turns(int body) const;
     // Real seconds since the scene was loaded, paused or not (the title card).
     double scene_age() const { return m_scene_age; }
     // The event last jumped to (-1: none since the scene was loaded) and the
@@ -163,6 +170,7 @@ private:
     double m_sky = 1.0; // linear; sky_visibility() eases it
     double m_disk_time = 0.0;
     double m_animation_time = 0.0;
+    std::vector<double> m_rotor_turns; // per body
     double m_scene_age = 0.0;
     int m_last_event = -1;
     double m_event_age = 0.0;

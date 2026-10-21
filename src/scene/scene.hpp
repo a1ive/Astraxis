@@ -30,7 +30,7 @@ enum class SurfaceStyle : int {
 enum class BodyKind {
     Planet,     // drawn as a lit ellipsoid (planets and moons)
     Star,       // self-luminous; the first star is the scene's light source
-    Spacecraft, // drawn as a marker only
+    Spacecraft, // drawn as a marker, or as its shape model if it has one
     BlackHole,  // drawn as its (black) event horizon
     Barycenter, // invisible reference point
     // A comparison point (e.g. where a star would be without relativity):
@@ -337,6 +337,13 @@ struct Body {
     // Optional shape model (irregular bodies), drawn instead of the ellipsoid;
     // the radii still serve as its overall size (shadows, camera distances).
     std::shared_ptr<const ShapeModel> shape;
+    // A second shape model turning about the body z axis (a spacecraft's rotating
+    // ring), once every period_s of simulated time; on screen at most
+    // Simulation::kRotorMaxTurnsPerSecond, so that it does not strobe at high warp.
+    struct Rotor {
+        std::shared_ptr<const ShapeModel> shape; // null: none
+        double period_s = 0.0;
+    } rotor;
     // A star filling its Roche lobe around `synchronous_with` (Algol B): its
     // surface, also drawn as `shape`; the radii are then the distances from its
     // center to L1, the sides and the poles.

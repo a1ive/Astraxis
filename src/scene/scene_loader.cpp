@@ -1043,16 +1043,31 @@ void Loader::parse(const toml::table& root, Scene& out)
         }
         body.texture_west_positive = direction == "west";
 
-        if (const std::string shape = get_string_or(*t, "shape", ""); !shape.empty()) {
+        auto load_shape = [&](const std::string& file, const std::string& shape_ctx) {
             auto model = std::make_shared<ShapeModel>();
             std::string error;
-            if (!load_shape_model(m_asset_root / shape, *model, &error)) {
-                fail(ctx, error);
+            if (!load_shape_model(m_asset_root / file, *model, &error)) {
+                fail(shape_ctx, error);
             }
-            if (!body.texture.empty() && model->map_u.empty()) {
+            return model;
+        };
+        if (const std::string shape = get_string_or(*t, "shape", ""); !shape.empty()) {
+            body.shape = load_shape(shape, ctx);
+            if (!body.texture.empty() && body.shape->map_u.empty()) {
                 fail(ctx, "this shape model has no map coordinates for a texture");
             }
-            body.shape = std::move(model);
+        }
+        // [bodies.rotor]: a part turning about the body z axis (Body::Rotor).
+        if (const toml::table* r = (*t)["rotor"].as_table()) {
+            const std::string rctx = ctx + " rotor";
+            if (!body.shape) {
+                fail(ctx, "a rotor needs the body's own shape model");
+            }
+            body.rotor.shape = load_shape(get_string(*r, "shape", rctx), rctx);
+            body.rotor.period_s = get_double(*r, "period_s", rctx);
+            if (body.rotor.period_s <= 0.0) {
+                fail(rctx, "period_s must be positive");
+            }
         }
 
         if (const toml::table* rings = (*t)["rings"].as_table()) {

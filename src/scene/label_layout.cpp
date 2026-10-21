@@ -160,10 +160,11 @@ void LabelLayout::update(const Scene& scene, const OutputView& view, int focus, 
         mark.fade = fade;
         mark.text_position = text_pos;
         mark.text_alpha = s.alpha * fade;
-        // Spacecraft and ghosts are never drawn as bodies, so they always get a dot.
+        // Ghosts and spacecraft without a shape model are never drawn as bodies, so
+        // they always get a dot.
         if (body.kind == BodyKind::Ghost) {
             mark.dot = Dot::Hollow;
-        } else if (c.radius_px < kMarkerRadius || body.kind == BodyKind::Spacecraft) {
+        } else if (c.radius_px < kMarkerRadius || (body.kind == BodyKind::Spacecraft && !body.shape)) {
             mark.dot = Dot::Filled;
         }
         m_bodies.push_back(mark);

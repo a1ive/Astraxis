@@ -764,7 +764,7 @@ void test_gargantua_scene()
     check(hole.disk_inner_m > isco_radius(hole.spin), "Gargantua's disk is outside the ISCO");
 
     // The camera of JA15's Figure 13: r_c = 74.1 M, theta_c = 1.511 (86.56 deg from the axis).
-    check(scene.events.size() == 7, "Gargantua events", static_cast<double>(scene.events.size()));
+    check(scene.events.size() == 8, "Gargantua events", static_cast<double>(scene.events.size()));
     if (scene.events.size() < 3) {
         return;
     }
@@ -811,6 +811,34 @@ void test_gargantua_scene()
         check(glm::length(s_half.position + s0.position) < 1e-6 * radius, "example planet opposite after half");
         check(std::abs(glm::dot(glm::normalize(s0.position), hole.pole)) < 1e-12, "example planet in the disk plane");
         check(glm::dot(glm::cross(s0.position, s0.velocity), hole.pole) > 0.0, "example planet is prograde");
+    }
+
+    // Endurance on its assumed orbit: prograde in the disk plane at 30 M, beyond the
+    // disk, once every 5.9 days; time aboard 5 percent slower (the last caption), and
+    // 4.4 billion km from the center.
+    const int craft = scene.find("Endurance");
+    check(craft > 0, "Endurance in the Gargantua scene");
+    if (craft > 0) {
+        const double r = 30.0;
+        check(r > hole.disk_outer_m, "Endurance orbits beyond the disk");
+        const double period = 2.0 * kPi * (r * std::sqrt(r) + hole.spin) * m / kSpeedOfLightKmS;
+        check(std::abs(period / kSecondsPerDay - 5.9) < 0.05, "Endurance's orbit in 5.9 days",
+              period / kSecondsPerDay);
+        const double ut = circular_orbit_ut(r, hole.spin);
+        check(std::abs(ut - 1.05) < 0.005, "time aboard Endurance 5 percent slower", ut);
+        const double t0 = tdb_from_julian_year(2026.8);
+        const State s0 = scene.icrf_state_at(craft, t0);
+        const State s_full = scene.icrf_state_at(craft, t0 + period);
+        const double radius = std::sqrt(r * r + hole.spin * hole.spin) * m;
+        check(std::abs(glm::length(s0.position) / radius - 1.0) < 1e-9, "Endurance at 30 M");
+        check(std::abs(glm::length(s0.position) / 4.4e9 - 1.0) < 0.01, "Endurance 4.4 billion km out",
+              glm::length(s0.position));
+        check(glm::length(s_full.position - s0.position) < 1e-6 * radius, "Endurance back after a period");
+        check(std::abs(glm::dot(glm::normalize(s0.position), hole.pole)) < 1e-12, "Endurance in the disk plane");
+        check(glm::dot(glm::cross(s0.position, s0.velocity), hole.pole) > 0.0, "Endurance is prograde");
+        const SceneEvent& e = scene.events.back();
+        check(e.focus == craft && e.warp == 1.0, "the Endurance event shows its ring at the true rate");
+        std::printf("info: Endurance: period %.3f d, u^t %.4f\n", period / kSecondsPerDay, ut);
     }
 
     // Miller's planet [DH26]: with 1 - a/M = 1.4e-14 the ISCO is at (1 + 3.8e-5) M,

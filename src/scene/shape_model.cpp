@@ -12,7 +12,8 @@ namespace astraxis {
 static_assert(sizeof(glm::vec3) == 3 * sizeof(float), "positions are read as packed floats");
 
 // File format (tools/shapes/axmesh.py), little endian:
-//   char[8] "AXMESH2\0"; uint32 vertex count; uint32 triangle count; uint32 flags;
+//   char[8] "AXMESH2\0"; uint32 vertex count; uint32 triangle count; uint32 flags
+//   (bit 0: map coordinates; bit 1: hard edges, see below);
 //   float32 x, y, z (km) per vertex; float32 relative albedo per vertex;
 //   float32 map u per vertex (if flags bit 0);
 //   uint32 vertex indices, 3 per triangle (counter-clockwise seen from outside).
@@ -55,13 +56,16 @@ bool load_shape_model(const std::filesystem::path& path, ShapeModel& out, std::s
     }
 
     // Vertices at the same position (a map seam, a pole row) share one normal, or
-    // the shading would show the seam. The cross product's length is twice the face
-    // area, which weights the average.
+    // the shading would show the seam. A mesh with hard edges (flags bit 1: a
+    // built shape such as a spacecraft, whose faces have their own vertices) is
+    // smooth only where triangles share a vertex index. The cross product's length
+    // is twice the face area, which weights the average.
+    const bool hard_edges = (counts[2] & 2u) != 0;
     std::map<std::array<float, 3>, uint32_t> first;
     std::vector<uint32_t> shared(out.positions.size());
     for (uint32_t i = 0; i < out.positions.size(); ++i) {
         const glm::vec3& p = out.positions[i];
-        shared[i] = first.try_emplace({p.x, p.y, p.z}, i).first->second;
+        shared[i] = hard_edges ? i : first.try_emplace({p.x, p.y, p.z}, i).first->second;
     }
     std::vector<glm::vec3> sum(out.positions.size(), glm::vec3(0.0f));
     for (size_t k = 0; k < out.indices.size(); k += 3) {

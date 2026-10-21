@@ -115,6 +115,7 @@ bool Simulation::load_scene(const std::filesystem::path& file, std::string* erro
         return false;
     }
     m_scene = std::move(scene);
+    m_rotor_turns.assign(m_scene.bodies.size(), 0.0);
     m_scene_age = 0.0;
     m_last_event = -1;
     m_events_shown.assign(m_scene.events.size(), false);
@@ -174,6 +175,15 @@ void Simulation::update(double real_dt)
     if (!m_clock.paused) {
         m_animation_time = std::fmod(m_animation_time + real_dt, 1.0e6);
     }
+    // Rotors: at their own rate, but no faster on screen than kRotorMaxTurnsPerSecond.
+    for (size_t i = 0; i < m_scene.bodies.size() && i < m_rotor_turns.size(); ++i) {
+        const Body::Rotor& rotor = m_scene.bodies[i].rotor;
+        if (rotor.shape && !m_clock.paused) {
+            const double rate = std::min(m_clock.warp / rotor.period_s, kRotorMaxTurnsPerSecond);
+            const double turns = m_rotor_turns[i] + real_dt * rate * (m_clock.reverse ? -1.0 : 1.0);
+            m_rotor_turns[i] = turns - std::floor(turns);
+        }
+    }
 
     if (m_director.active()) {
         const int next = next_tour_event();
@@ -195,6 +205,12 @@ void Simulation::update(double real_dt)
     run_tour_event(real_dt);
     apply_tour_warp();
     m_camera.update(real_dt, m_scene);
+}
+
+double Simulation::rotor_turns(int body) const
+{
+    return body >= 0 && static_cast<size_t>(body) < m_rotor_turns.size() ? m_rotor_turns[static_cast<size_t>(body)]
+                                                                           : 0.0;
 }
 
 double Simulation::fade() const

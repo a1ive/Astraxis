@@ -15,6 +15,7 @@
 | `pallas.mesh` | VLT/SPHERE 大型观测计划的 MPCD 形状模型（Marsset et al. 2020, Nature Astronomy 4, 569；Vernazza et al. 2021, A&A 654, A56），Sketchfab 用户 “marin”（@marin14）上传的 “(2) Pallas - MPCD model”，<https://sketchfab.com/3d-models/2-pallas-mpcd-model-59c1ec418b2f4f13bc182633a2cddc66>，文件 `2_Pallas_mpcd.obj`（2022-06-13） | CC BY 4.0（Sketchfab 页面标注；署名：marin (@marin14) / Marsset et al. 2020, Vernazza et al. 2021） |
 | `vesta.mesh` | USGS Astrogeology / DLR，Vesta Dawn FC HAMO Global DTM 93m（2013-12-10 发布，黎明号分幅相机 HAMO 立体图像），<https://astrogeology.usgs.gov/search/map/vesta_dawn_fc_hamo_global_dtm_93m>，文件 `Vesta_Dawn_HAMO_DTM_DLR_Global_48ppd.tif` | 公有领域（请引用作者） |
 | `phobos.mesh`、`deimos.mesh` | P. C. Thomas，“Small Body Optical Shape Models” V1.0（PDS SBN，`ast-sat.thomas.shape-models`，由 PDS3 数据集 EAR-A-5-DDR-SHAPE-MODELS-V2.1 迁移），<https://sbnarchive.psi.edu/pds4/non_mission/ast-sat.thomas.shape-models_V1_0/>，文件 `data/m1phobos.tab`、`data/m2deimos.tab`；Thomas 1993, Icarus 105, 326 | PDS 存档数据，公有领域（请引用数据集与作者） |
+| `endurance_hull.mesh`、`endurance_ring.mesh` | 本项目原创的简化造型，致敬电影《星际穿越》（2014）里的飞船 Endurance，由 `tools/shapes/make_endurance.py` 生成（只用标准库）；不是电影的模型或制作数据 | 随本项目（GPL-3.0-or-later） |
 | `arrokoth.mesh` | Porter, S. et al. 2024, “New Horizons Porter (2024) Arrokoth Shape Model Collection”，PDS Small Bodies Node，doi:[10.26007/97r3-1e19](https://doi.org/10.26007/97r3-1e19)，<https://pdssbn.astro.umd.edu/holdings/pds4-nh_derived-v3.0/arrokoth_shapemodel_porter2024/>；方法见同目录的 `porteretal2024b.pdf`（Porter et al. 2024, “The Shape of (486958) Arrokoth”） | NASA 新视野号项目的 PDS 数据，公有领域（请引用作者） |
 
 原始文件（同一目录下）：
@@ -24,7 +25,7 @@
 
 `tools/shapes/make_arrokoth.py` 将原始模型转换为 800 KB 的网格文件，依赖 Pillow。
 
-文件格式见 `tools/shapes/axmesh.py`（小端）：`char[8] "AXMESH2\0"`、`uint32` 顶点数、`uint32` 三角形数、`uint32` 标志（第 0 位：带地图坐标），之后是每个顶点的 `float32` x、y、z（km），每个顶点的 `float32` 相对反照率，（有标志时）每个顶点的 `float32` 地图 u（东经 / 360°，接缝处的顶点重复，取 0 和 1），每个三角形 3 个 `uint32` 顶点索引（从外面看逆时针）。法线在加载时按面积加权平均算出，位置完全相同的顶点（接缝、极点）共用一个法线。带地图坐标的网格可以在场景里同时写 `texture`：u 取自文件，纬度取自顶点方向（行星中心纬度）。
+文件格式见 `tools/shapes/axmesh.py`（小端）：`char[8] "AXMESH2\0"`、`uint32` 顶点数、`uint32` 三角形数、`uint32` 标志（第 0 位：带地图坐标；第 1 位：硬边），之后是每个顶点的 `float32` x、y、z（km），每个顶点的 `float32` 相对反照率，（有标志时）每个顶点的 `float32` 地图 u（东经 / 360°，接缝处的顶点重复，取 0 和 1），每个三角形 3 个 `uint32` 顶点索引（从外面看逆时针）。法线在加载时按面积加权平均算出，位置完全相同的顶点（接缝、极点）共用一个法线。带硬边标志的网格（人造的平面体，如探测器）不做这种合并，只有共用同一个顶点索引的三角形才平滑过渡：每个平面单独用自己的顶点，棱角才是硬的。带地图坐标的网格可以在场景里同时写 `texture`：u 取自文件，纬度取自顶点方向（行星中心纬度）。
 
 ## Arrokoth
 
@@ -137,3 +138,13 @@
 - **Lutetia**：
   - 模型：48k 版本，23,894 个顶点、47,784 个三角形，933 KB；等体积半径 49.2 km，范围 111.7 × 120.8 × 84.8 km。
   - 自转：数据集文档 `LUTETIA_ROTATION.PDF`（Jorda & Vincent）：极 RA 51.80°、Dec +10.83°（Sierks et al. 2011），W = 289.50° + 1057.751519°/天（周期 8.168270 h，Carry et al. 2010）。零经线过 Lauriacum 坑，模型已按这个定义旋转。
+
+## Endurance（致敬造型）
+
+- 来源：本项目原创。造型只取电影里 Endurance 的大意（中间的船体、一圈 12 个舱段、辐条），尺寸和明暗都是示意的，没有参考或使用电影的模型、图纸和制作数据。单位 m，写入文件时换成 km。
+- 两个网格：`endurance_hull.mesh` 是不转的船体（八棱柱主体、两端的环、背面的设备架，设备架不对称，舱段转动时看得出船体的朝向），`endurance_ring.mesh` 是绕 +z 轴转动的环（12 个带倒角的舱段、外侧的设备托架、环管、轮毂和三根辐条；0 号舱段颜色深一些，能看出转动）。场景里船体是天体的 `shape`，环是 `[bodies.rotor]`：同一位置、同一朝向，再绕本体 z 轴转。
+- 尺寸：环直径 70 m（托架的角到 70.2 m），舱段在 23–33 m 半径之间，地板（舱段外壁内侧）取 32.5 m；船体宽 25 m、长 20.4 m。场景的 `radii_km` 取 0.036 km，包住整个环。
+- 转速：环每 11.44 s 转一圈，32.5 m 处的离心加速度为 1 g（2π√(32.5 m / 9.80665 m/s²)，`test_endurance_shape` 检查）。
+- 硬边：文件带硬边标志，每个平面用自己的顶点；圆管的侧壁沿圆周共用顶点，看起来是圆的。
+- 反照率：脚本里的明暗值（0.12–0.9）按两个网格合起来的面积加权平均（0.584）归一，文件里是相对值（0.21–1.54），整体颜色由场景的 `color` 给。
+- 光照只有吸积盘的漫反射，没有自身阴影：环内侧和环后面的船体也会被照亮。
