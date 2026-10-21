@@ -1,0 +1,573 @@
+# The Kerbol system of Kerbal Space Program: a tribute. FICTIONAL - a game's
+# solar system, not a real one - but KSP moves its planets and moons on exact
+# Kepler orbits ("on rails": each around its parent alone, with the parent's GM),
+# so the scene reproduces the game's own positions, and its clock and calendar.
+# Not affiliated with or endorsed by the game's makers; Kerbal Space Program and
+# the names of its worlds belong to their owners. No game files (textures,
+# models, sky) are used: only the numbers below, read from a running game.
+#
+# Sources
+# [KSP]  Kerbal Space Program 1.12.5 (build 03190), stock system, values read from the
+#        running game with kOS 1.6.0.1 (tools/kerbol/kerbol_dump.ks; the dump is
+#        tools/kerbol/kerbol_bodies.txt) and turned into the blocks below by
+#        tools/kerbol/kerbol_scene.py. Elements, GMs, radii, rotation periods and
+#        atmosphere curves as the game stores them (often float32: e = 0.200000002980232
+#        is the game's 0.2, mean anomalies at epoch of 3.14, 1.7, 0.9 and 0.1 rad appear
+#        as 179.9088, 97.4028, 51.5662 and 5.7296 deg). Rotation angles grow linearly
+#        with UT from the prime meridian angles at UT 0 below. tools/kerbol/
+#        kerbol_scene.py checks that Kepler positions from these elements, around the
+#        parent's GM alone, reproduce the game's positions (to < 1 m).
+# [PHY]  KSP 1.12.5 Physics.cfg: solarLuminosityAtHome = 1360 W/m^2, the flux at
+#        Kerbin's orbit (13,599,840.256 km), so L = 3.161e24 W = 0.0082574 L_sun
+#        (nominal L_sun 3.828e26 W, IAU 2015 Resolution B3).
+# [ATM]  The Earth's air and aerosols of solar_system.toml [ATM] (Bruneton).
+# [XFER] A schematic Kerbin -> Mun transfer designed by tools/kerbol/kerbol_transfer.py with
+#        the bodies of [KSP], in patched conics as the game flies it (Kerbin's pull only,
+#        then the Mun's only inside its sphere of influence): from a circular parking orbit
+#        80 km up, a prograde burn of 851.6 m/s at Year 1, Day 1, 2:00 onto an ellipse whose
+#        apoapsis lies 641.7 km inside the Mun's orbit, so that the craft passes the Mun on
+#        its inner side; it enters the Mun's SOI 5.02 h later and at the lowest point of the
+#        pass, 30 km up (Year 1, Day 2, 2:40:33), burns 261.6 m/s retrograde into a circular
+#        prograde orbit. Table: assets/ephem/kerbol_mun_transfer.eph (see its SOURCES.md).
+#
+# Frame and time. KSP's reference direction (the solar prime vector, from which it
+# counts longitudes of nodes and rotation angles) is the scene's x axis and the
+# system's north its z axis: one plane for every orbit, moons included, and no axial
+# tilts. KSP's universal time (seconds since a game starts) is TDB seconds since
+# J2000, so the elements' epoch, UT 0, is J2000 and the calendar shows "Year 1, Day 1"
+# there (calendar = "kerbin": 6-hour days, 426-day years, src/core/time.hpp).
+#
+# Model choices (see limitations.md):
+# - Kerbol: radius and luminosity [KSP] [PHY] make a 2,840 K red dwarf by the
+#   Stefan-Boltzmann law, but it shines yellow-white in the game; temperature_k is
+#   the Sun's 5,772 K, to look like the game.
+# - The worlds are about a tenth of the size of their real counterparts at the same
+#   surface gravity, so densities run to ten times the real ones (Kerbin 58 g/cm^3).
+# - Colors are artistic, chosen to recall the game. Surfaces are this program's own
+#   (no textures from the game): every world has a procedural map from
+#   tools/textures/make_kerbol_textures.py, invented terrain that keeps only each world's
+#   look (Kerbin's seas and ice caps, grey craters, Duna's rust plains and polar caps,
+#   Jool's green bands, Eve's purple land, Minmus' flats, Laythe's islands, cracked ice
+#   on Vall and Eeloo...).
+# - Atmospheres: tops, surface pressures, temperatures and molar masses [KSP]. The
+#   Rayleigh depth scales the Earth's [ATM] by the column of molecules,
+#   p0 / (g M), with air's cross-section per molecule (KSP gives no composition); the
+#   scale height is the e-folding height of the number density p / T in the game's
+#   curves. Kerbin's and Laythe's aerosols are the Earth's [ATM] (Laythe's scaled by
+#   its column); Eve's, Duna's and Jool's hazes (depth, color, phase) are illustrative.
+#   Jool's curve gives 50 atm at its "surface" (its sea-level value is 15 atm); with
+#   hydrogen-like air (M = 2.2 g/mol) its column is 820 Earths, drawn as a haze only.
+
+name = "Kerbol System"
+calendar = "kerbin"
+
+[view]
+focus = "Kerbol"
+distance_km = 2.2e8        # out to Eeloo's aphelion (113 million km)
+start = "Year 1, Day 1"     # a new game's first moment, UT 0
+warp = 432000.0            # 5 days per second: a Kerbin year in 21 s
+
+[[bodies]]
+name = "Kerbol"
+kind = "star"
+radii_km = [261600.0]
+gm_km3_s2 = 1172332794.83249
+pole_ra_dec_deg = [270.0, 90.0]
+prime_meridian_deg = [0.0, 72.0]
+temperature_k = 5772.0     # the Sun's: the game's look, not its numbers (see above)
+luminosity_solar = 0.0082574 # [PHY]
+
+[[bodies]]
+name = "Moho"
+parent = "Kerbol"
+radii_km = [250.0]
+gm_km3_s2 = 168.60937865450902
+pole_ra_dec_deg = [270.0, 90.0]
+prime_meridian_deg = [190.0, 25.70578512396694]
+color = "#8a6c58"
+texture = "textures/moho.jpg"
+orbit_color = "#c89a78"
+[bodies.orbit]
+type = "mean_elements"
+a_km = 5263138.304
+e = 0.200000002980232
+i_deg = 7.0
+node_deg = 70.0
+arg_peri_deg = 15.0
+mean_anomaly_deg = 179.908753681645
+period_days = 25.645303468568518
+
+[[bodies]]
+name = "Eve"
+parent = "Kerbol"
+radii_km = [700.0]
+gm_km3_s2 = 8171.73022921087
+pole_ra_dec_deg = [270.0, 90.0]
+prime_meridian_deg = [0.0, 386.3850931677019]
+color = "#6e4a96"
+texture = "textures/eve.jpg"
+orbit_color = "#b48ae6"
+[bodies.atmosphere]
+height_km = 90.0
+rayleigh_depth = 0.215     # column 1.98 Earths
+rayleigh_scale_height_km = 13.05
+haze_depth = 0.4           # illustrative
+haze_scale_height_km = 13.05
+haze_albedo = [0.85, 0.65, 0.95]
+haze_g = 0.6
+[bodies.orbit]
+type = "mean_elements"
+a_km = 9832684.544
+e = 0.00999999977648258
+i_deg = 2.09999990463257
+node_deg = 15.0
+arg_peri_deg = 0.0
+mean_anomaly_deg = 179.908753681645
+period_days = 65.4860549361463
+
+[[bodies]]
+name = "Gilly"
+parent = "Eve"
+radii_km = [13.0]
+gm_km3_s2 = 0.00828944981471635
+pole_ra_dec_deg = [270.0, 90.0]
+prime_meridian_deg = [5.0, 1100.8317112015573]
+color = "#8a7666"
+texture = "textures/gilly.jpg"
+orbit_color = "#c0a490"
+[bodies.orbit]
+type = "mean_elements"
+a_km = 31500.0
+e = 0.550000011920929
+i_deg = 12.0
+node_deg = 80.0
+arg_peri_deg = 10.0
+mean_anomaly_deg = 51.5662001957363
+period_days = 4.497539083888067
+
+[[bodies]]
+name = "Kerbin"
+parent = "Kerbol"
+radii_km = [600.0]
+gm_km3_s2 = 3531.6
+pole_ra_dec_deg = [270.0, 90.0]
+prime_meridian_deg = [90.0, 1443.379567470219]
+color = "#4f7fbf"
+texture = "textures/kerbin.jpg"
+orbit_color = "#80b0ff"
+[bodies.atmosphere]
+height_km = 70.0
+rayleigh_depth = 0.1085    # column 1.00 Earth
+rayleigh_scale_height_km = 7.7
+haze_depth = 0.005328
+haze_scale_height_km = 1.2
+haze_albedo = 0.9
+haze_g = 0.8
+[bodies.orbit]
+type = "mean_elements"
+a_km = 13599840.256
+e = 0.0
+i_deg = 0.0
+node_deg = 0.0
+arg_peri_deg = 0.0
+mean_anomaly_deg = 179.908753681645
+period_days = 106.52250714700706
+
+[[bodies]]
+name = "Mun"
+parent = "Kerbin"
+radii_km = [200.0]
+gm_km3_s2 = 65.1383975207807
+pole_ra_dec_deg = [270.0, 90.0]
+prime_meridian_deg = [230.0, 223.7949384428303]
+color = "#9a9a9a"
+texture = "textures/mun.jpg"
+orbit_color = "#c8c8c8"
+[bodies.orbit]
+type = "mean_elements"
+a_km = 12000.0
+e = 0.0
+i_deg = 0.0
+node_deg = 0.0
+arg_peri_deg = 0.0
+mean_anomaly_deg = 97.4028279043159
+period_days = 1.6086154696119905
+
+[[bodies]]
+name = "Minmus"
+parent = "Kerbin"
+radii_km = [60.0]
+gm_km3_s2 = 1.76580002631247
+pole_ra_dec_deg = [270.0, 90.0]
+prime_meridian_deg = [230.0, 769.9009900990098]
+color = "#a6dcc8"
+texture = "textures/minmus.jpg"
+orbit_color = "#a0f0d0"
+[bodies.orbit]
+type = "mean_elements"
+a_km = 47000.0
+e = 0.0
+i_deg = 6.0
+node_deg = 78.0
+arg_peri_deg = 38.0
+mean_anomaly_deg = 51.5662001957363
+period_days = 12.468871771051043
+
+# A DESIGNED flight, not a recorded one [XFER].
+[[bodies]]
+name = "Mun transfer (schematic)"
+parent = "Kerbin"
+kind = "spacecraft"
+radii_km = [0.005]
+color = "#ffd27a"
+orbit_color = "#ffb84d"
+trail = "history"
+trail_linger_days = 1.0
+[bodies.orbit]             # [XFER]
+type = "ephemeris"
+file = "ephem/kerbol_mun_transfer.eph"
+
+[[bodies]]
+name = "Duna"
+parent = "Kerbol"
+radii_km = [320.0]
+gm_km3_s2 = 301.363211975098
+pole_ra_dec_deg = [270.0, 90.0]
+prime_meridian_deg = [90.0, 474.740785134206]
+color = "#b4573c"
+texture = "textures/duna.jpg"
+orbit_color = "#ff8c66"
+[bodies.atmosphere]
+height_km = 50.0
+rayleigh_depth = 0.0162    # column 0.15 Earth
+rayleigh_scale_height_km = 8.5
+haze_depth = 0.3           # illustrative dust, colored like the Martian dust in solar_system.toml
+haze_scale_height_km = 8.5
+haze_albedo = [0.97, 0.93, 0.75]
+haze_g = 0.63
+[bodies.orbit]
+type = "mean_elements"
+a_km = 20726155.264
+e = 0.0509999990463257
+i_deg = 0.0599999986588955
+node_deg = 135.5
+arg_peri_deg = 0.0
+mean_anomaly_deg = 179.908753681645
+period_days = 200.40972387233563
+
+[[bodies]]
+name = "Ike"
+parent = "Duna"
+radii_km = [130.0]
+gm_km3_s2 = 18.568368573144
+pole_ra_dec_deg = [270.0, 90.0]
+prime_meridian_deg = [0.0, 474.74076513670576]
+color = "#7c7c80"
+texture = "textures/ike.jpg"
+orbit_color = "#b0b0b8"
+[bodies.orbit]
+type = "mean_elements"
+a_km = 3200.0
+e = 0.0299999993294477
+i_deg = 0.200000002980232
+node_deg = 0.0
+arg_peri_deg = 0.0
+mean_anomaly_deg = 97.4028279043159
+period_days = 0.7583085895232419
+
+[[bodies]]
+name = "Dres"
+parent = "Kerbol"
+radii_km = [138.0]
+gm_km3_s2 = 21.4844886
+pole_ra_dec_deg = [270.0, 90.0]
+prime_meridian_deg = [25.0, 893.7931034482758]
+color = "#8e8984"
+texture = "textures/dres.jpg"
+orbit_color = "#c8c0b8"
+[bodies.orbit]
+type = "mean_elements"
+a_km = 40839348.203
+e = 0.145
+i_deg = 5.0
+node_deg = 280.0
+arg_peri_deg = 90.0
+mean_anomaly_deg = 179.908753681645
+period_days = 554.3178604003842
+
+[[bodies]]
+name = "Jool"
+parent = "Kerbol"
+radii_km = [6000.0]
+gm_km3_s2 = 282528.004209995
+pole_ra_dec_deg = [270.0, 90.0]
+prime_meridian_deg = [0.0, 864.0]
+color = "#6aa84f"
+style = "gas_giant"        # limb darkening
+texture = "textures/jool.jpg"
+orbit_color = "#9ae07a"
+[bodies.atmosphere]
+height_km = 200.0
+haze_depth = 0.5           # illustrative (see above)
+haze_scale_height_km = 9.0
+haze_albedo = [0.8, 0.95, 0.6]
+haze_g = 0.5
+[bodies.orbit]
+type = "mean_elements"
+a_km = 68773560.32
+e = 0.0500000007450581
+i_deg = 1.30400002002716
+node_deg = 52.0
+arg_peri_deg = 0.0
+mean_anomaly_deg = 5.72957803668559
+period_days = 1211.3591679165393
+
+[[bodies]]
+name = "Laythe"
+parent = "Jool"
+radii_km = [500.0]
+gm_km3_s2 = 1962.00002923608
+pole_ra_dec_deg = [270.0, 90.0]
+prime_meridian_deg = [90.0, 587.0797267281927]
+color = "#3d6ea8"
+texture = "textures/laythe.jpg"
+orbit_color = "#70a8f0"
+[bodies.atmosphere]
+height_km = 50.0
+rayleigh_depth = 0.0814    # column 0.75 Earth
+rayleigh_scale_height_km = 10.5
+haze_depth = 0.004         # the Earth's aerosols x 0.75
+haze_scale_height_km = 1.2
+haze_albedo = 0.9
+haze_g = 0.8
+[bodies.orbit]
+type = "mean_elements"
+a_km = 27184.0
+e = 0.0
+i_deg = 0.0
+node_deg = 0.0
+arg_peri_deg = 0.0
+mean_anomaly_deg = 179.908753681645
+period_days = 0.6132046187428194
+
+[[bodies]]
+name = "Vall"
+parent = "Jool"
+radii_km = [300.0]
+gm_km3_s2 = 207.481499473751
+pole_ra_dec_deg = [270.0, 90.0]
+prime_meridian_deg = [0.0, 293.5389470392325]
+color = "#a8c2d2"
+texture = "textures/vall.jpg"
+orbit_color = "#a0d0f0"
+[bodies.orbit]
+type = "mean_elements"
+a_km = 43152.0
+e = 0.0
+i_deg = 0.0
+node_deg = 0.0
+arg_peri_deg = 0.0
+mean_anomaly_deg = 51.5662001957363
+period_days = 1.2264130659018981
+
+[[bodies]]
+name = "Tylo"
+parent = "Jool"
+radii_km = [600.0]
+gm_km3_s2 = 2825.28004209995
+pole_ra_dec_deg = [270.0, 90.0]
+prime_meridian_deg = [0.0, 146.76796360028098]
+color = "#c6c0b8"
+texture = "textures/tylo.jpg"
+orbit_color = "#e0d8c8"
+[bodies.orbit]
+type = "mean_elements"
+a_km = 68500.0
+e = 0.0
+i_deg = 0.025000000372529
+node_deg = 0.0
+arg_peri_deg = 0.0
+mean_anomaly_deg = 179.908753681645
+period_days = 2.4528513659864584
+
+[[bodies]]
+name = "Bop"
+parent = "Jool"
+radii_km = [65.0]
+gm_km3_s2 = 2.48683494441491
+pole_ra_dec_deg = [270.0, 90.0]
+prime_meridian_deg = [230.0, 57.12318762066012]
+color = "#7a6450"
+texture = "textures/bop.jpg"
+orbit_color = "#c09a78"
+[bodies.orbit]
+type = "mean_elements"
+a_km = 128500.0
+e = 0.234999999403954
+i_deg = 15.0
+node_deg = 10.0
+arg_peri_deg = 25.0
+mean_anomaly_deg = 51.5662001957363
+period_days = 6.302169311535347
+
+[[bodies]]
+name = "Pol"
+parent = "Jool"
+radii_km = [44.0]
+gm_km3_s2 = 0.72170208
+pole_ra_dec_deg = [270.0, 90.0]
+prime_meridian_deg = [25.0, 34.48709338289771]
+color = "#d6c07a"
+texture = "textures/pol.jpg"
+orbit_color = "#f0d890"
+[bodies.orbit]
+type = "mean_elements"
+a_km = 179890.0
+e = 0.17085
+i_deg = 4.25
+node_deg = 2.0
+arg_peri_deg = 15.0
+mean_anomaly_deg = 51.5662001957363
+period_days = 10.438687772351539
+
+[[bodies]]
+name = "Eeloo"
+parent = "Kerbol"
+radii_km = [210.0]
+gm_km3_s2 = 74.41081452704961
+pole_ra_dec_deg = [270.0, 90.0]
+prime_meridian_deg = [25.0, 1598.355601233299]
+color = "#e4e6e8"
+texture = "textures/eeloo.jpg"
+orbit_color = "#d0e0ff"
+[bodies.orbit]
+type = "mean_elements"
+a_km = 90118820.0
+e = 0.26
+i_deg = 6.15
+node_deg = 50.0
+arg_peri_deg = 260.0
+mean_anomaly_deg = 179.908753681645
+period_days = 1817.0375971916553
+
+[[frames]]
+name = "Eve-centered"
+type = "inertial"
+origin = "Eve"
+
+[[frames]]
+name = "Kerbin-centered"
+type = "inertial"
+origin = "Kerbin"
+
+[[frames]]
+name = "Mun-centered"
+type = "inertial"
+origin = "Mun"
+
+[[frames]]
+name = "Duna-centered"
+type = "inertial"
+origin = "Duna"
+
+[[frames]]
+name = "Jool-centered"
+type = "inertial"
+origin = "Jool"
+
+# Event times are in the Kerbin calendar. Captions: [KSP] (periods, sizes, orbits,
+# pressures, oceans and oxygen as the game reports them). Eeloo and Jool: mutual
+# inclination 4.85 deg, minimum distance between the orbits 2,904,800 km.
+[[events]]
+name = "Kerbin, the Mun and Minmus"
+time = "Year 1, Day 1"
+focus = "Kerbin"
+frame = "Kerbin-centered"
+from_orbit_normal = "Mun"
+distance_km = 1.5e5
+warp = 3600.0
+caption = """\
+    Kerbin turns once in 5 h 59 min 9 s. Over that time it moves along its orbit, \
+    so the sun returns to the same place in its sky every six hours exactly. The Mun \
+    keeps one face toward Kerbin; Minmus, four times farther out, circles on an orbit \
+    tilted by 6 degrees."""
+
+[[events]]
+name = "Kerbin to the Mun: a Hohmann transfer (schematic)"
+time = "Year 1, Day 1, 1:45"
+focus = "Kerbin"
+frame = "Kerbin-centered"
+from_orbit_normal = "Mun"
+distance_km = 3.2e4
+warp = 600.0
+# [XFER]
+caption = """\
+    A designed flight, not a recorded one. From a parking orbit 80 km up, a burn of \
+    852 m/s stretches the craft's orbit out to the Mun's. Five hours later it enters \
+    the Mun's sphere of influence, where, as in the game, only the Mun's pull counts."""
+
+[[events]]
+name = "Captured by the Mun (schematic)"
+time = "Year 1, Day 2, 2:20"
+focus = "Mun"
+frame = "Mun-centered"
+from_orbit_normal = "Mun"
+distance_km = 2500.0
+warp = 60.0
+# [XFER]
+caption = """\
+    The craft swings past the Mun's inner side. At the lowest point, 30 km above the \
+    ground, it fires against its motion: 262 m/s turns the pass into a circular orbit. \
+    The whole trip from low Kerbin orbit takes 1.11 km/s."""
+
+[[events]]
+name = "Duna and Ike, face to face"
+time = "Year 1, Day 3"
+focus = "Duna"
+frame = "Duna-centered"
+from_orbit_normal = "Ike"
+distance_km = 2.0e4
+warp = 1800.0
+caption = """\
+    Ike circles Duna in 18 h 12 min, and Duna turns in the same time. The two keep \
+    the same faces toward each other, so Ike hangs over one side of Duna. Duna's thin \
+    air presses down with a fifteenth of the pressure at Kerbin's surface."""
+
+[[events]]
+name = "Eve and Gilly"
+time = "Year 1, Day 5"
+focus = "Eve"
+frame = "Eve-centered"
+from_orbit_normal = "Gilly"
+distance_km = 1.2e5
+warp = 7200.0
+caption = """\
+    Eve has seas, and air without oxygen that presses down at five times the \
+    pressure on Kerbin's surface. Gilly, only 13 km in radius, swings around Eve on a \
+    tilted orbit whose distance changes by a factor of 3.4."""
+
+[[events]]
+name = "Jool's inner moons: Laythe, Vall and Tylo"
+time = "Year 1, Day 8"
+focus = "Jool"
+frame = "Jool-centered"
+from_orbit_normal = "Laythe"
+distance_km = 2.5e5
+warp = 3600.0
+caption = """\
+    Laythe, Vall and Tylo circle Jool in 14.7, 29.4 and 58.9 hours, nearly in the \
+    ratio 1:2:4, each keeping one face toward the planet. Laythe, the innermost, is \
+    the only world besides Kerbin with both oceans and oxygen in its air."""
+
+[[events]]
+name = "Eeloo, the outermost world"
+time = "Year 1, Day 12"
+focus = "Kerbol"
+elevation_deg = 30.0
+distance_km = 2.5e8
+warp = 2592000.0
+caption = """\
+    Eeloo needs 17 Kerbin years to go around Kerbol once. At its closest it comes \
+    within 66.7 million km, nearer than Jool at its farthest (72.2 million km), but \
+    its orbit is tilted five degrees from Jool's, so the two paths stay 2.9 million \
+    km apart."""

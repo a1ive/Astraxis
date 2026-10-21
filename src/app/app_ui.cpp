@@ -244,12 +244,12 @@ void App::build_control_panel()
     }
 
     ImGui::SetNextItemWidth(180.0f * ImGui::GetStyle().FontScaleDpi);
-    const bool entered = ImGui::InputTextWithHint("##goto", "YYYY-MM-DD HH:MM", m_goto_text, sizeof(m_goto_text),
-                                                  ImGuiInputTextFlags_EnterReturnsTrue);
+    const bool entered = ImGui::InputTextWithHint("##goto", date_input_hint(scene.calendar), m_goto_text,
+                                                  sizeof(m_goto_text), ImGuiInputTextFlags_EnterReturnsTrue);
     ImGui::SameLine();
     if (ImGui::Button("Go to") || entered) {
         double t = 0.0;
-        m_goto_error = !parse_utc(m_goto_text, &t);
+        m_goto_error = !parse_date(m_goto_text, scene.calendar, &t);
         if (!m_goto_error) {
             m_sim.clock().t_tdb = t;
         }
@@ -457,7 +457,7 @@ void App::build_time_bar()
     const float row_y = ImGui::GetCursorPosY() - size - style.ItemSpacing.y;
     ImGui::SameLine(0.0f, style.ItemSpacing.x * 3.0f);
     ImGui::SetCursorPosY(row_y + (size - ImGui::GetTextLineHeight()) * 0.5f);
-    ImGui::TextUnformatted(format_utc(clock.t_tdb).c_str());
+    ImGui::TextUnformatted(format_date(clock.t_tdb, m_sim.scene().calendar).c_str());
 
     const float now_width = ImGui::CalcTextSize("Now").x + style.FramePadding.x * 4.0f;
     ImGui::SameLine(ImGui::GetContentRegionMax().x - now_width);

@@ -1,5 +1,5 @@
 // Tests for the planets and their moons in the scenes: Solar System, Jupiter,
-// Earth-Moon, Saturn, Mars' rotation.
+// Earth-Moon, Saturn, Mars' rotation, and the fictional Kerbol system.
 
 #include "test_util.hpp"
 
@@ -848,6 +848,121 @@ void test_mars_moon_rotation()
 
 } // namespace
 
+// The Kerbol system against the running game (KSP 1.12.5, kOS dump, tools/kerbol/):
+// each body's position relative to its parent and its rotation angle at the UT
+// it was sampled, in the scene frame (x = KSP's solar prime vector, z = north),
+// as printed by tools/kerbol/kerbol_scene.py.
+void test_kerbol_scene()
+{
+    struct Sample {
+        const char* body;
+        double ut;
+        double rotation_deg;
+        glm::dvec3 position_km;
+    };
+    static const Sample kSamples[] = {
+        {"Kerbol", 332.039999999988, 0.27669999999999, {0.0, 0.0, 0.0}},
+        {"Moho", 332.319999999988, 190.098872066116, {-564669.323110, -6287327.876418, -198883.630460}},
+        {"Eve", 332.339999999988, 1.48624099378876, {-9595693.991220, -2558836.137193, 436.442853}},
+        {"Gilly", 332.899999999987, 9.24151477614565, {-25617.763405, -13663.859803, 4858.164644}},
+        {"Kerbin", 332.159999999988, 95.5489925593853, {-13599827.571630, 18574.462196, 0.0}},
+        {"Mun", 332.279999999988, 230.860678034095, {-1724.710820, 11875.410418, 0.0}},
+        {"Minmus", 332.299999999988, 232.961089108911, {-45665.321098, 9977.135858, 4912.759825}},
+        {"Duna", 332.459999999988, 91.8267629794643, {15516536.385679, -15288701.172025, 30.357090}},
+        {"Ike", 332.579999999987, 1.82742226468935, {-702.093138, 3140.644127, 10.962961}},
+        {"Dres", 332.939999999987, 28.4442068965516, {-45884866.640276, -8035236.234702, -4075491.109634}},
+        {"Jool", 332.599999999987, 3.32599999999987, {34303640.676963, 55627044.143561, 164253.209534}},
+        {"Laythe", 332.719999999987, 92.260800540243, {-27164.513797, -1029.099694, 0.0}},
+        {"Vall", 332.839999999987, 1.13080443440434, {26151.405958, 34324.904522, 0.0}},
+        {"Tylo", 332.879999999987, 0.565464348648838, {-68497.653779, -566.945094, -0.247376}},
+        {"Bop", 332.859999999987, 230.220069724901, {-42041.149573, 103209.548204, 29190.902773}},
+        {"Pol", 332.919999999987, 25.1328870732527, {11171.114416, 163784.243205, 12134.885248}},
+        {"Eeloo", 332.959999999987, 31.1595889003081, {-72411834.780918, 86640570.684734, 11977933.186606}},
+    };
+
+    Scene scene = load_scene_or_die("kerbol.toml");
+    scene.set_active_frame(0); // inertial
+    check(scene.calendar == Calendar::Kerbin, "Kerbol scene uses the Kerbin calendar");
+    double worst_km = 0.0;
+    double worst_rotation_deg = 0.0;
+    for (const Sample& s : kSamples) {
+        const int b = scene.find(s.body);
+        check(b >= 0, s.body);
+        if (b < 0) {
+            continue;
+        }
+        scene.update(s.ut);
+        const Body& body = scene.bodies[static_cast<size_t>(b)];
+        const glm::dvec3 parent =
+            body.parent >= 0 ? scene.bodies[static_cast<size_t>(body.parent)].icrf_position : glm::dvec3(0.0);
+        worst_km = std::max(worst_km, glm::length(body.icrf_position - parent - s.position_km));
+        const glm::dvec3 meridian = body.orientation[0];
+        const double angle = std::atan2(meridian.y, meridian.x) * kRadToDeg;
+        const double off = std::abs(wrap_pi((angle - s.rotation_deg) * kDegToRad)) * kRadToDeg;
+        worst_rotation_deg = std::max(worst_rotation_deg, off + std::abs(meridian.z));
+    }
+    check(worst_km < 0.01, "Kerbol bodies at the game's positions (km)", worst_km);
+    check(worst_rotation_deg < 1e-6, "Kerbol bodies at the game's rotation angles (deg)", worst_rotation_deg);
+
+    auto mean_motion = [&](const char* name) {
+        const Body& body = scene.bodies[static_cast<size_t>(scene.find(name))];
+        const MeanElementOrbit* orbit = mean_elements_of(body.motion.get());
+        return orbit ? orbit->mean_motion() : 0.0; // rad/s
+    };
+    auto spin = [&](const char* name) { // rad/s
+        return prime_meridian_rate(scene.bodies[static_cast<size_t>(scene.find(name))], 0.0) * kDegToRad /
+               kSecondsPerDay;
+    };
+
+    // KSP's day: Kerbin's sidereal rotation and year make a solar day of 6 h exactly.
+    const double solar_day = kTwoPi / (spin("Kerbin") - mean_motion("Kerbin"));
+    check(std::abs(solar_day - kKerbinDaySeconds) < 1e-3, "Kerbin solar day = 6 h (s)", solar_day - kKerbinDaySeconds);
+
+    // Tidally locked moons, and Duna locked to Ike (within the 2.8 ms of a float32 period).
+    for (const char* moon : {"Mun", "Ike", "Laythe", "Vall", "Tylo", "Bop", "Pol"}) {
+        const double n = mean_motion(moon);
+        check(std::abs(spin(moon) - n) < 1e-12 * n, moon);
+    }
+    const double ike_period = kTwoPi / mean_motion("Ike");
+    check(std::abs(kTwoPi / spin("Duna") - ike_period) < 0.01, "Duna turns with Ike's orbit (s)",
+          kTwoPi / spin("Duna") - ike_period);
+
+    // Laythe, Vall and Tylo: periods close to 1:2:4.
+    const double vall = mean_motion("Laythe") / mean_motion("Vall");
+    const double tylo = mean_motion("Laythe") / mean_motion("Tylo");
+    check(std::abs(vall - 2.0) < 1e-5 && std::abs(tylo - 4.0) < 1e-4, "Laythe:Vall:Tylo = 1:2:4", tylo);
+
+    // The schematic Mun transfer (tools/kerbol/kerbol_transfer.py): parking orbit 80 km
+    // above Kerbin, the burns of the captions (across the 1 s step of each impulse), and
+    // a circular orbit 30 km above the Mun after the capture.
+    const int craft = scene.find("Mun transfer (schematic)");
+    const int mun = scene.find("Mun");
+    check(craft >= 0 && mun >= 0, "Kerbol transfer craft and the Mun");
+    if (craft >= 0 && mun >= 0) {
+        const MotionSource& c = *scene.bodies[static_cast<size_t>(craft)].motion;
+        const MotionSource& m = *scene.bodies[static_cast<size_t>(mun)].motion;
+        constexpr double kBurn = 7200.0;
+        constexpr double kCapture = 31233.0;
+        check(std::abs(glm::length(c.eval(kBurn - 60.0).position) - 680.0) < 0.1, "parking orbit 80 km up (km)",
+              glm::length(c.eval(kBurn - 60.0).position) - 680.0);
+        const double dv1 = glm::length(c.eval(kBurn + 1.5).velocity) - glm::length(c.eval(kBurn - 0.5).velocity);
+        check(std::abs(dv1 * 1000.0 - 851.6) < 1.0, "transfer burn (m/s)", dv1 * 1000.0);
+        auto mun_relative = [&](double t) {
+            const State a = c.eval(t);
+            const State b = m.eval(t);
+            return State{a.position - b.position, a.velocity - b.velocity};
+        };
+        const double dv2 =
+            glm::length(mun_relative(kCapture - 0.5).velocity) - glm::length(mun_relative(kCapture + 1.5).velocity);
+        check(std::abs(dv2 * 1000.0 - 261.6) < 1.0, "capture burn (m/s)", dv2 * 1000.0);
+        double worst = 0.0;
+        for (double t = kCapture + 60.0; t < kCapture + 86000.0; t += 1234.5) {
+            worst = std::max(worst, std::abs(glm::length(mun_relative(t).position) - 230.0));
+        }
+        check(worst < 0.1, "capture orbit 30 km above the Mun (km)", worst);
+    }
+}
+
 void run_planet_scene_tests()
 {
     test_galilean_rates();
@@ -865,4 +980,5 @@ void run_planet_scene_tests()
     test_mars_rotation();
     test_mars_moon_rotation();
     test_saturn_scene();
+    test_kerbol_scene();
 }

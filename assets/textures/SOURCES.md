@@ -100,6 +100,19 @@ OPAL 每年观测两次左右完整自转，每次自转每个滤镜一张简单
 
 下载：每个周期的页面（如 <https://archive.stsci.edu/hlsp/opal/opal-uranus-cycle-33>）列出文件，FITS 和 README 都在 `https://archive.stsci.edu/missions/hlsp/opal/cycle<N>/<planet>/` 下（周期 22–33，约 140 MB）。把各年的 `*_f467m_v1_globalmap.fits`、`*_f547m_*`、`*_f657n_*` 和 `*_all_v*_readme.txt` 放进同一个目录，再运行 `python make_ice_giant_textures.py <目录> <输出目录>`。
 
+## Kerbol 系统（程序生成）
+
+Kerbol 场景 16 个天体的纹理（`kerbin.jpg`、`mun.jpg`、`minmus.jpg`、`moho.jpg`、`eve.jpg`、`gilly.jpg`、`duna.jpg`、`ike.jpg`、`dres.jpg`、`jool.jpg`、`laythe.jpg`、`vall.jpg`、`tylo.jpg`、`bop.jpg`、`pol.jpg`、`eeloo.jpg`）是虚构表面，由 `tools/textures/make_kerbol_textures.py` 生成，不含《坎巴拉太空计划》的任何游戏文件，也不模仿游戏里的具体地形；属于本项目的产物（GPL-3.0-or-later）。每个天体只保留辨识度最高的一两个特征：Kerbin 的海洋（约占 64% 面积）、绿色陆地、沙漠、雪山和冰盖，Mun 的灰色陨石坑，Minmus 的薄荷绿和边缘清晰的浅色平原，Moho 的深棕色坑，Eve 的紫色陆地和暗色海，Duna 的锈红色平原、暗色高地和极冠，Ike 的深灰坑，Dres 的灰色坑和几条暗色峡谷，Jool 的绿色条带和几个风暴卵形斑，Laythe 的海洋（约占 86%）和沙色群岛，Vall 的浅蓝冰面裂纹，Tylo 的大片明暗斑块，Eeloo 的白冰和棕色裂纹，Gilly、Bop、Pol 的棕灰、深棕和黄褐色。
+
+- 裂纹和峡谷是扭曲噪声的零等值线，按 |n| / |∇n| 估计到等值线的距离，线宽在各处一致
+
+- 每个像素对应单位球面上的一点，噪声是在球面上采样的三维梯度噪声，所以 180° 经线处没有接缝，两极也不会被拉扯；倍频程只加到波长约 2 像素为止
+- 噪声用自带的整数哈希，不用 numpy 的随机数生成器：种子固定在工具里，换 numpy 版本重新生成结果不变
+- 场景的天体着色没有法线贴图，陨石坑只体现在反照率上（坑底略暗、坑缘和溅射物偏亮，年轻的大坑带辐射纹）
+- 颜色在线性空间混合，存为 sRGB JPEG（质量 90），2048×1024（Gilly、Bop、Pol 1024×512）；亮度参照地球（海洋很暗）和月球（平均约 150）的纹理
+
+重新生成：`python -E -P tools/textures/make_kerbol_textures.py assets/textures [名称 ...]`（需要 numpy 和 Pillow，全部约 10 分钟）。
+
 ## 经度约定
 
 这些 USGS 图像按东经向右递增排列，与元数据中的“positive west”标注相反。左边缘经度如下：

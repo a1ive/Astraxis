@@ -70,4 +70,23 @@ std::string format_utc(double t_tdb);
 // Returns false on malformed input.
 bool parse_utc(const char* text, double* t_tdb);
 
+// How a scene shows and reads times. Kerbin: the calendar of Kerbal Space
+// Program (6-hour days, 426-day years, both counted from 1), applied to KSP's
+// universal time (seconds since a game starts), which the Kerbol scene takes as
+// TDB seconds since J2000. Day and year lengths: KSP 1.12.5's default date
+// formatter (Assembly-CSharp.dll, the KerbinDay and KerbinYear getters).
+enum class Calendar { Gregorian, Kerbin };
+inline constexpr double kKerbinDaySeconds = 21600.0;
+inline constexpr double kKerbinYearSeconds = 9201600.0;
+
+// format_utc, or "Year Y, Day D, HH:MM:SS" (Kerbin).
+std::string format_date(double t_tdb, Calendar calendar);
+
+// parse_utc, or (Kerbin) a year and a day with an optional HH:MM or HH:MM:SS,
+// e.g. "Year 2, Day 30, 3:15" or "Y2 D30 3:15".
+bool parse_date(const char* text, Calendar calendar, double* t_tdb);
+
+// Placeholder text for an input box of parse_date.
+const char* date_input_hint(Calendar calendar);
+
 } // namespace astraxis
