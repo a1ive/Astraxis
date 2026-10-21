@@ -475,8 +475,27 @@ void test_sky_fades_in_fast_frames()
     check(janus_frame > 0, "Saturn scene has the Janus frame");
     sim.set_frame(janus_frame);
     sim.clock().warp = 2.0 * kSecondsPerDay;
-    const double rate = scene.frame_turn_rate(sim.clock().t_tdb) * kRadToDeg * kSecondsPerDay;
-    check(std::abs(rate - 518.3) < 3.0, "the Janus frame turns at its mean motion (deg/day)", rate);
+    // At a fixed date (the scene starts now), averaged over one orbit: the rate at any
+    // one moment swings by about 2e = 1.4 percent around Janus' eccentric orbit. Mean
+    // motion: the synchronous spin rate of pck00011 (BODY610_PM, 518.2359876 deg/day,
+    // fitted near 1981); each orbit swap changes it by ~0.25 deg/day (Epimetheus'
+    // BODY611_PM is 518.4907239).
+    constexpr double kJanusDegPerDay = 518.2359876;
+    double t0 = 0.0;
+    check(parse_utc("2026-01-01", &t0), "parse the Janus frame date");
+    sim.clock().t_tdb = t0;
+    constexpr int kSamples = 96;
+    const double period = 360.0 / kJanusDegPerDay * kSecondsPerDay;
+    double rate = 0.0;
+    double lo = 1e300, hi = 0.0;
+    for (int i = 0; i < kSamples; ++i) {
+        const double r = scene.frame_turn_rate(t0 + period * i / kSamples) * kRadToDeg * kSecondsPerDay;
+        rate += r / kSamples;
+        lo = std::min(lo, r);
+        hi = std::max(hi, r);
+    }
+    check(std::abs(rate - kJanusDegPerDay) < 0.5, "the Janus frame turns at its mean motion (deg/day)", rate);
+    std::printf("info: Janus frame over an orbit from 2026-01-01: mean %.2f, %.2f .. %.2f deg/day\n", rate, lo, hi);
     settle(sim);
     check(sim.sky_visibility() == 0.0, "the sky fades out while it would spin by", sim.sky_visibility());
     sim.set_frame(0);
