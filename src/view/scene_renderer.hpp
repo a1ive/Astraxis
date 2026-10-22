@@ -125,6 +125,7 @@ private:
     std::array<glm::vec4, kPinwheelColorCount> m_pinwheel_colors{};         // the scene's pinwheel in false-color
                                                                              // infrared (see PinwheelDrawItem)
     std::array<glm::vec4, kPinwheelColorCount> m_pinwheel_visible_colors{}; // and in visible light
+    std::array<float, kPinwheelRadiusCount> m_pinwheel_radius{};            // its distance by age
 
     // Per-frame scratch.
     std::vector<BodyDrawItem> m_body_items;

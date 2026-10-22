@@ -1688,6 +1688,40 @@ void Loader::parse(const toml::table& root, Scene& out)
             fail(ctx, "turns, rings_per_turn and grains_per_ring must be whole, positive, at most 4 million grains");
         }
         p.turns = static_cast<int>(turns);
+        // Optional: acceleration by radiation pressure, a window of dust
+        // production in true anomaly and how the rate varies within it.
+        p.acceleration_km_s2 = get_double_or(*pw, "acceleration_km_s_per_year", 0.0) /
+                               (kDaysPerJulianYear * kSecondsPerDay);
+        p.acceleration_end_km = get_double_or(*pw, "acceleration_end_au", 0.0) * kAuKm;
+        if (p.acceleration_km_s2 < 0.0 || (p.acceleration_km_s2 > 0.0 && p.acceleration_end_km < p.nucleation_radius_km)) {
+            fail(ctx, "acceleration_km_s_per_year must not be negative, and needs acceleration_end_au beyond the "
+                      "nucleation radius");
+        }
+        if (pw->contains("dust_true_anomaly_deg")) {
+            double window[2];
+            get_array(*pw, "dust_true_anomaly_deg", ctx, window, 2, 2);
+            p.windowed = true;
+            p.window_on_deg = window[0];
+            p.window_off_deg = window[1];
+            if (window[0] < -180.0 || window[1] > 180.0 || window[0] >= window[1]) {
+                fail(ctx, "dust_true_anomaly_deg must be [on, off] with -180 <= on < off <= 180");
+            }
+            const Body& a = out.bodies[static_cast<size_t>(p.primary)];
+            const Body& b = out.bodies[static_cast<size_t>(p.secondary)];
+            if (a.body_gm_km3_s2 <= 0.0 || b.body_gm_km3_s2 <= 0.0) {
+                fail(ctx, "dust_true_anomaly_deg needs the masses (body_gm_km3_s2) of primary and secondary");
+            }
+        }
+        p.display_reference_km = get_double_or(*pw, "display_reference_au", 0.0) * kAuKm;
+        p.display_gamma = get_double_or(*pw, "display_gamma", p.display_gamma);
+        if (p.display_reference_km < 0.0 || p.display_gamma <= 0.0 || p.display_gamma > 1.0) {
+            fail(ctx, "display_reference_au must not be negative, and 0 < display_gamma <= 1");
+        }
+        p.modulation_sigma_deg = get_double_or(*pw, "modulation_sigma_deg", 0.0);
+        p.trailing_sigma_deg = get_double_or(*pw, "trailing_sigma_deg", 0.0);
+        if (p.modulation_sigma_deg < 0.0 || p.trailing_sigma_deg < 0.0 || (p.modulation_sigma_deg > 0.0 && !p.windowed)) {
+            fail(ctx, "modulation_sigma_deg needs dust_true_anomaly_deg; sigmas must not be negative");
+        }
         // The grains repeat every period: the pair's orbit must too.
         auto axis = [&](double t) {
             return glm::normalize(out.icrf_state_at(p.secondary, t).position -
@@ -1695,6 +1729,20 @@ void Loader::parse(const toml::table& root, Scene& out)
         };
         if (glm::length(axis(p.t_ref_tdb + p.period_s) - axis(p.t_ref_tdb)) > 1e-6) {
             fail(ctx, "period_days must be the period of the secondary's orbit around the primary");
+        }
+        if (p.windowed) {
+            // Rings are placed by true anomaly from the two-body orbit of these masses.
+            const double gm = out.bodies[static_cast<size_t>(p.primary)].body_gm_km3_s2 +
+                              out.bodies[static_cast<size_t>(p.secondary)].body_gm_km3_s2;
+            const State sa = out.icrf_state_at(p.primary, p.t_ref_tdb);
+            const State sb = out.icrf_state_at(p.secondary, p.t_ref_tdb);
+            const glm::dvec3 r = sb.position - sa.position;
+            const glm::dvec3 v = sb.velocity - sa.velocity;
+            const double a_km = 1.0 / (2.0 / glm::length(r) - glm::dot(v, v) / gm);
+            const double period = kTwoPi * std::sqrt(a_km * a_km * a_km / gm);
+            if (!(a_km > 0.0) || std::abs(period / p.period_s - 1.0) > 1e-6) {
+                fail(ctx, "the masses of primary and secondary must give the orbit's period");
+            }
         }
         build_pinwheel_grains(out, p, static_cast<int>(rings), static_cast<int>(grains));
     }

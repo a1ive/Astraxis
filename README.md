@@ -38,6 +38,7 @@ Astraxis is an astronomy background app with planets, spacecraft and stars anima
 | Delta Cephei | The prototype Cepheid pulsating every 5.37 days, and its eccentric companion |
 | Polaris | The North Star: a Cepheid with a barely-there 3.97-day pulse, its 29-year companion and the distant Polaris B |
 | WR 104 | The "pinwheel": a Wolf-Rayet binary's dust spiral turning once every 241.5 days, and a third star |
+| WR 140 | A Wolf-Rayet binary on an eccentric orbit that makes a dust shell at every periastron, nested as JWST saw them |
 | PSR B1620-26 | A pulsar, white dwarf and planet in the M4 cluster |
 | PSR B1913+16 (Hulse-Taylor) | Binary neutron stars with relativistic orbital precession |
 | PSR J1141-6545 | A pulsar and white dwarf with relativistic orbital precession |

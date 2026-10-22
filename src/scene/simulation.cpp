@@ -72,6 +72,9 @@ constexpr double kSkyFadeSeconds = 0.8;
 // second, 4 turns per second jump 24 deg a frame) fades out the same way.
 constexpr double kPinwheelShownTurnsPerS = 1.0;
 constexpr double kPinwheelHiddenTurnsPerS = 4.0;
+// The dust's exposure follows pinwheel_exposure with this time constant (real
+// seconds), in log brightness.
+constexpr double kPinwheelExposureSeconds = 1.5;
 
 double smoothstep(double x)
 {
@@ -133,6 +136,7 @@ bool Simulation::load_scene(const std::filesystem::path& file, std::string* erro
     }
     m_clock.warp = m_scene.view.warp;
     m_scene.update(m_clock.t_tdb);
+    m_exposure_t_tdb = m_clock.t_tdb;
     // The plot's range: the deepest eclipse within a few spans of the start.
     measure_light_curve_depth(m_scene, m_clock.t_tdb, 4.0 * m_scene.light_curve.span_days);
     m_light_curve.reset();
@@ -145,6 +149,10 @@ bool Simulation::load_scene(const std::filesystem::path& file, std::string* erro
     if (m_scene.view.distance_km > 0.0) {
         m_camera.fly_to({focus, m_scene.view.yaw_rad, m_scene.view.pitch_rad, m_scene.view.distance_km, false}, 0.0, m_scene);
     }
+    m_camera.update(0.0, m_scene);
+    if (m_scene.pinwheel.enabled()) {
+        m_pinwheel_exposure = astraxis::pinwheel_exposure(m_scene.pinwheel, m_clock.t_tdb, pinwheel_camera_km());
+    }
     if (touring) {
         start_tour();
     }
@@ -153,7 +161,10 @@ bool Simulation::load_scene(const std::filesystem::path& file, std::string* erro
 
 void Simulation::update(double real_dt)
 {
+    // Set from outside since the last frame (an event, the time slider): a jump.
+    bool jumped = m_clock.t_tdb != m_exposure_t_tdb;
     m_clock.advance(real_dt);
+    const double t_run = m_clock.t_tdb;
     m_scene.update(m_clock.t_tdb);
     m_scene_age += real_dt;
     m_event_age += real_dt;
@@ -234,6 +245,26 @@ void Simulation::update(double real_dt)
     if (light_curve_visibility(m_scene.light_curve, m_clock.paused ? 0.0 : m_clock.warp) > 0.0) {
         m_light_curve.update(m_scene, m_clock.t_tdb);
     }
+
+    // The eye adapts to the dust over a few seconds; across a jump of the
+    // clock (the tour's, behind a fade to black) it is already adapted.
+    if (pinwheel.enabled()) {
+        jumped = jumped || m_clock.t_tdb != t_run;
+        const double target = astraxis::pinwheel_exposure(pinwheel, m_clock.t_tdb, pinwheel_camera_km());
+        if (jumped) {
+            m_pinwheel_exposure = target;
+        } else {
+            const double k = 1.0 - std::exp(-real_dt / kPinwheelExposureSeconds);
+            m_pinwheel_exposure *= std::pow(target / m_pinwheel_exposure, k);
+        }
+    }
+    m_exposure_t_tdb = m_clock.t_tdb;
+}
+
+double Simulation::pinwheel_camera_km() const
+{
+    const Body& center = m_scene.bodies[static_cast<size_t>(m_scene.pinwheel.center)];
+    return glm::length(m_camera.position() - center.world_position);
 }
 
 double Simulation::rotor_turns(int body) const

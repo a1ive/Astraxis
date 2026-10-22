@@ -92,6 +92,11 @@ public:
     // Brightness of a pinwheel's dust, 0..1: it fades out while the time warp
     // turns the spiral faster than the eye can follow.
     double pinwheel_visibility() const;
+    // Exposure of a pinwheel's dust, 0..1 (pinwheel_exposure): eased over a few
+    // real seconds, like an eye adapting, and set at once when the clock jumps.
+    double pinwheel_exposure() const { return m_pinwheel_exposure; }
+    // The camera's distance from the pinwheel's center (km).
+    double pinwheel_camera_km() const;
 
     const Scene& scene() const { return m_scene; }
     SimClock& clock() { return m_clock; }
@@ -181,6 +186,8 @@ private:
     double m_fade_target = 1.0;
     double m_sky = 1.0; // linear; sky_visibility() eases it
     double m_pinwheel = 1.0; // linear; pinwheel_visibility() eases it
+    double m_pinwheel_exposure = 1.0;
+    double m_exposure_t_tdb = 0.0; // the clock after the last update
     double m_disk_time = 0.0;
     double m_animation_time = 0.0;
     std::vector<double> m_rotor_turns; // per body
