@@ -1,11 +1,13 @@
-// Tests for body appearance: comet tails, atmospheres, plumes.
+// Tests for body appearance: comet tails, atmospheres, plumes, night lights and aurora.
 
 #include "test_util.hpp"
 
 #include "core/math.hpp"
 #include "core/time.hpp"
+#include "scene/aurora.hpp"
 #include "scene/comet.hpp"
 #include "scene/scene_loader.hpp"
+#include "scene/simulation.hpp"
 
 #include <glm/glm.hpp>
 
@@ -396,6 +398,178 @@ optical_depth = 0.1
           "umbrella radius defaults to 2 H");
 }
 
+
+// Earth's night lights and aurora: the same in every scene with the Earth;
+// the Kp record (GFZ) at the great storms; Starkov's ovals (Sigernes et al.
+// 2011); the hemispheric power, the IGRF dipole, the line yields of Mathieu
+// et al. (2025) and the emission they make; the simulation's Kp window.
+void test_night_and_aurora()
+{
+    const Scene scene = load_scene_or_die("solar_system.toml");
+    const Body& earth = scene.bodies[static_cast<size_t>(scene.find("Earth"))];
+    check(earth.aurora != nullptr && earth.night_lights.gain > 0.0 && !earth.night_lights.texture.empty(),
+          "Earth has night lights and an aurora");
+    for (const char* file : {"earth_moon.toml", "isee3.toml", "jwst.toml", "mercury.toml", "parker.toml",
+                             "rosetta.toml", "venus.toml"}) {
+        const Scene other = load_scene_or_die(file);
+        const Body& e = other.bodies[static_cast<size_t>(other.find("Earth"))];
+        check(e.aurora != nullptr && e.night_lights.texture == earth.night_lights.texture &&
+                  e.night_lights.color == earth.night_lights.color && e.night_lights.gain == earth.night_lights.gain,
+              (std::string(file) + ": Earth's night lights and aurora as in solar_system.toml").c_str());
+    }
+    for (const char* name : {"Mars", "Venus", "Moon"}) {
+        const Body& b = scene.bodies[static_cast<size_t>(scene.find(name))];
+        check(!b.aurora && b.night_lights.texture.empty(), name);
+    }
+
+    // The Kp record: 1932 on, 3-hour UT intervals.
+    const KpRecord& kp = *earth.aurora;
+    auto utc = [](int y, int mo, int d, int h) { return tdb_from_utc_jd(jd_from_calendar({y, mo, d, h, 0, 0})); };
+    check(std::abs(kp.start_tdb() - utc(1932, 1, 1, 0)) < 1e-6, "Kp record starts 1932-01-01 00 UT");
+    check(kp.end_tdb() > utc(2026, 9, 1, 0), "Kp record reaches 2026-09");
+    // Kp 9o: 1989-03-13 21-24 UT (the Quebec blackout), 2003-10-29 06-09 UT,
+    // 2024-05-11 00-03 UT (the Gannon storm).
+    check(kp.at(utc(1989, 3, 13, 22)) == 9.0 && kp.at(utc(2003, 10, 29, 7)) == 9.0 &&
+              kp.at(utc(2024, 5, 11, 1)) == 9.0,
+          "Kp 9 in the great storms");
+    check(kp.at(utc(2024, 5, 10, 22)) == 26.0 / 3.0, "Kp 9- on 2024-05-10 21-24 UT", kp.at(utc(2024, 5, 10, 22)));
+    check(kp.median() == 2.0, "median Kp 2o", kp.median());
+    check(kp.at(utc(1900, 1, 1, 0)) == kp.median() && kp.at(utc(2100, 1, 1, 0)) == kp.median(),
+          "the median outside the record");
+    const double t0 = utc(2024, 5, 10, 21);
+    check(std::abs(kp.mean(t0 + 600.0, t0 + 3600.0) - kp.at(t0 + 60.0)) < 1e-9, "mean within one interval");
+    const double two = 0.5 * (kp.at(t0 + 60.0) + kp.at(t0 + 3.0 * 3600.0 + 60.0));
+    check(std::abs(kp.mean(t0, t0 + 6.0 * 3600.0) - two) < 1e-6, "mean over two intervals",
+          kp.mean(t0, t0 + 21600.0));
+    check(std::abs(kp.mean(utc(2101, 1, 1, 0), utc(2102, 1, 1, 0)) - kp.median()) < 1e-12, "mean beyond the record");
+
+    // Starkov's ovals: |AL| from Kp (Sigernes eq. 1); poleward < equatorward
+    // <= diffuse everywhere; they grow with Kp, mostly on the night side
+    // (antisunward), and the oval is broader at midnight than at noon.
+    check(std::abs(starkov_al_nt(3.0) - (18.0 - 36.9 + 244.8 - 54.0)) < 1e-9, "|AL| from Kp");
+    bool ordered = true;
+    for (double k = 0.0; k <= 9.0; k += 0.5) {
+        for (double t = 0.0; t < 24.0; t += 0.5) {
+            const AuroralBoundaries b = starkov_boundaries(k, t);
+            ordered = ordered && b.poleward_deg < b.equatorward_deg && b.equatorward_deg < b.diffuse_deg + 1e-9;
+        }
+    }
+    check(ordered, "poleward < equatorward <= diffuse boundary");
+    const AuroralBoundaries quiet = starkov_boundaries(1.0, 0.0);
+    const AuroralBoundaries storm = starkov_boundaries(8.0, 0.0);
+    check(storm.equatorward_deg > quiet.equatorward_deg + 5.0 && storm.diffuse_deg > quiet.diffuse_deg + 5.0,
+          "the night-side oval moves equatorward with Kp", storm.equatorward_deg - quiet.equatorward_deg);
+    const AuroralBoundaries midnight = starkov_boundaries(3.0, 0.0);
+    const AuroralBoundaries noon = starkov_boundaries(3.0, 12.0);
+    check(midnight.equatorward_deg > noon.equatorward_deg + 5.0, "the oval is displaced antisunward");
+    check(midnight.equatorward_deg - midnight.poleward_deg > noon.equatorward_deg - noon.poleward_deg,
+          "Kp 3 oval broader at midnight than at noon [Sigernes Fig. 1]");
+
+    // IGRF-14 dipole: the north geomagnetic pole from (g10, g11, h11) at the
+    // epochs, and the 2025-30 secular variation after 2025 (held after 2030).
+    auto pole_at = [](double year) { return geomagnetic_north_pole(tdb_from_julian_year(year)); };
+    auto lat_lon = [](const glm::dvec3& p) {
+        return glm::dvec2(std::asin(p.z) * kRadToDeg, std::atan2(p.y, p.x) * kRadToDeg);
+    };
+    const glm::dvec3 p2020 = glm::normalize(glm::dvec3(1451.37, -4653.35, 29403.41));
+    check(glm::length(pole_at(2020.0) - p2020) < 1e-9, "IGRF 2020 dipole pole");
+    const glm::dvec2 ll2025 = lat_lon(pole_at(2025.0));
+    check(std::abs(ll2025.x - 80.79) < 0.01 && std::abs(ll2025.y + 72.76) < 0.01, "geomagnetic pole 2025.0 (deg)",
+          ll2025.x);
+    const glm::dvec3 p2030 = glm::normalize(glm::dvec3(1410.3 - 50.0, -4545.5 + 107.5, 29350.0 - 63.0));
+    check(glm::length(pole_at(2030.0) - p2030) < 1e-9 && glm::length(pole_at(2040.0) - p2030) < 1e-12,
+          "secular variation to 2030, then held");
+    check(lat_lon(pole_at(1950.0)).x < lat_lon(pole_at(2025.0)).x - 2.0, "the pole drifted north since 1950");
+
+    // Longyearbyen (78.2 N, 16.0 E) lies under the Kp-3 oval near magnetic
+    // noon at 08:50 UT on 2009-12-24 [Sigernes Fig. 1]. Their corrected
+    // geomagnetic pole puts noon there then; the centered dipole about an
+    // hour later.
+    {
+        Scene s = load_scene_or_die("solar_system.toml");
+        const double t = utc(2009, 12, 24, 8) + 50.0 * 60.0;
+        s.update(t);
+        const Body& e = s.bodies[static_cast<size_t>(s.find("Earth"))];
+        const glm::dmat3 to_body = glm::transpose(e.orientation);
+        const glm::dvec3 sun = glm::normalize(to_body * (s.sun_position() - e.world_position));
+        const glm::dvec3 pole = geomagnetic_north_pole(t);
+        const double lat = 78.2 * kDegToRad;
+        const double lon = 16.0 * kDegToRad;
+        const glm::dvec3 site(std::cos(lat) * std::cos(lon), std::cos(lat) * std::sin(lon), std::sin(lat));
+        const double mlt = magnetic_local_time(site, pole, sun);
+        check(std::abs(mlt - 12.0) < 1.0, "Longyearbyen near magnetic noon (h)", mlt);
+        const double colat = std::acos(glm::dot(site, pole)) * kRadToDeg;
+        const AuroralBoundaries b = starkov_boundaries(3.0, mlt);
+        check(colat > b.poleward_deg && colat < b.equatorward_deg, "Longyearbyen under the Kp-3 oval", colat);
+        const glm::dvec3 dusk_site = glm::normalize(glm::cross(pole, sun));
+        check(std::abs(magnetic_local_time(dusk_site, pole, sun) - 18.0) < 1e-9, "18 h on the dusk side");
+    }
+
+    // Electron hemispheric power (Emery et al. 2008).
+    check(std::abs(electron_hemispheric_power_gw(0.0) - 2.5103) < 1e-12 &&
+              std::abs(electron_hemispheric_power_gw(3.0) - (2.5103 + 29.7621 - 19.6425 + 8.1891)) < 1e-9,
+          "hemispheric power fit");
+    bool rising = true;
+    for (double k = 0.0; k < 9.0; k += 0.25) {
+        rising = rising && electron_hemispheric_power_gw(k + 0.25) > electron_hemispheric_power_gw(k);
+    }
+    check(rising, "hemispheric power grows with Kp");
+
+    // Line yields: Table 2 at 1 and 10 keV, in between in log energy.
+    const AuroraLineYields y1 = aurora_line_yields(1.0);
+    const AuroraLineYields y10 = aurora_line_yields(10.0);
+    check(std::abs(y1.green - 0.325) < 1e-12 && std::abs(y1.red - 0.525) < 1e-12 &&
+              std::abs(y1.blue - 0.072) < 1e-12 && std::abs(y10.green - 0.445) < 1e-12 &&
+              std::abs(y10.red - 0.082) < 1e-12 && std::abs(y10.violet - 0.066) < 1e-12,
+          "line yields [Mathieu Table 2]");
+    const AuroraLineYields y3 = aurora_line_yields(std::sqrt(10.0));
+    check(std::abs(y3.green - std::sqrt(0.325 * 0.445)) < 1e-12, "geometric mean halfway in log energy");
+
+    // The emission: the hemispheric power over the oval (and the diffuse
+    // aurora) gives a few erg cm^-2 s^-1 and about a kR of green light at
+    // Kp 3, growing with Kp; green outshines red (in luminance).
+    const AuroraEmission e0 = aurora_emission(0.0);
+    const AuroraEmission e3 = aurora_emission(3.0);
+    const AuroraEmission e9 = aurora_emission(9.0);
+    check(e3.oval_flux > 1.0 && e3.oval_flux < 5.0, "Kp 3 oval energy flux (erg cm^-2 s^-1)", e3.oval_flux);
+    check(e0.oval_flux < e3.oval_flux && e3.oval_flux < e9.oval_flux, "oval flux grows with Kp");
+    const double green_kr = kGreenOverBlue * e3.blue_kr;
+    check(green_kr > 0.3 && green_kr < 3.0, "Kp 3 green column (kR)", green_kr);
+    auto luma = [](const glm::dvec3& c) { return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b; };
+    const double red_kr = e3.blue_kr * red_over_blue(e3.blue_kr);
+    check(e3.low_rgb.g > e3.low_rgb.r && luma(e3.low_rgb) > 3.0 * luma(red_kr * kRedPerKr), "green dominates");
+    check(std::abs(red_over_blue(0.1) - 2.0) < 1e-12 && std::abs(red_over_blue(3.0) - 0.4) < 1e-12 &&
+              red_over_blue(0.01) == 2.0 && red_over_blue(10.0) == red_over_blue(3.0),
+          "I630/I427.8 from 2 to 0.4 [Dashkevich 2006]");
+    check(std::abs(e3.oval[0].y - starkov_boundaries(3.0, 0.0).equatorward_deg * kDegToRad) < 1e-6 &&
+              std::abs(e3.oval[24].z - starkov_boundaries(3.0, 12.0).poleward_deg * kDegToRad) < 1e-6,
+          "oval samples at midnight and noon");
+
+    // The simulation averages Kp over a window that grows with the warp.
+    Simulation sim;
+    std::string error;
+    check(sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/earth_moon.toml", &error), "earth_moon loads");
+    sim.stop_tour();
+    sim.clock().t_tdb = utc(2024, 5, 11, 1) + 30.0 * 60.0;
+    sim.clock().warp = 60.0;
+    sim.update(0.0);
+    check(sim.aurora_kp() > 8.5, "Kp near 9 during the Gannon storm at low warp", sim.aurora_kp());
+    sim.clock().warp = 86400.0 * 30.0;
+    sim.update(0.0);
+    check(sim.aurora_kp() < 4.0, "averaged down at a month per second", sim.aurora_kp());
+
+    std::string err;
+    Scene bad;
+    check(!load_scene_string("name = 'x'\n[[bodies]]\nname = 'P'\nradii_km = [1.0]\n"
+                             "[bodies.night_lights]\ntexture = 'a.jpg'\ngain = 1.0\n",
+                             "bad_lights", bad, &err),
+          "night lights need the body's texture");
+    check(!load_scene_string("name = 'x'\n[[bodies]]\nname = 'P'\nradii_km = [1.0]\n"
+                             "[bodies.aurora]\nkp = 'geomag/missing.bin'\n",
+                             "bad_aurora", bad, &err),
+          "rejects a missing Kp record");
+}
+
 } // namespace
 
 void run_appearance_tests()
@@ -404,4 +578,5 @@ void run_appearance_tests()
     test_dust_tail();
     test_atmospheres();
     test_plumes();
+    test_night_and_aurora();
 }

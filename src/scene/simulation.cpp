@@ -196,6 +196,19 @@ void Simulation::update(double real_dt)
         }
     }
 
+    // The aurora: Kp over a window that grows with the warp, and its animation clock.
+    for (const Body& body : m_scene.bodies) {
+        if (body.aurora) {
+            const double window = std::max(3.0 * 3600.0, std::abs(m_clock.warp) * kAuroraKpWindowSeconds);
+            m_aurora_kp = body.aurora->mean(m_clock.t_tdb - 0.5 * window, m_clock.t_tdb + 0.5 * window);
+            if (!m_clock.paused) {
+                const double rate = std::min(std::abs(m_clock.warp), kAuroraMaxWarp);
+                m_aurora_time = std::fmod(m_aurora_time + real_dt * rate * (m_clock.reverse ? -1.0 : 1.0), 1.0e5);
+            }
+            break;
+        }
+    }
+
     if (m_director.active()) {
         const int next = next_tour_event();
         const bool imminent = next >= 0 && event_imminent(next);

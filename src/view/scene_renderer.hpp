@@ -1,6 +1,7 @@
 #pragma once
 
 #include "render/atmosphere_pass.hpp"
+#include "render/aurora_pass.hpp"
 #include "render/beam_pass.hpp"
 #include "render/belt_pass.hpp"
 #include "render/black_hole_pass.hpp"
@@ -30,6 +31,7 @@ namespace astraxis {
 
 class GpuDevice;
 class Scene;
+struct Body;
 class Simulation;
 struct Frame;
 struct OutputView;
@@ -73,6 +75,11 @@ private:
     // A colliding-wind binary's dust spiral: its grains (once per scene) and this frame's look.
     void load_pinwheel(const Scene& scene);
     PinwheelDrawItem pinwheel_item(const Simulation& sim, const OutputView& view) const;
+    // Earth's aurora around `body`, in its unit-sphere frame (linear: body axes
+    // times radii; to_unit: its inverse); sun_direction: toward the sun (world).
+    AuroraDrawItem aurora_item(const Simulation& sim, const OutputView& view, const Body& body,
+                               const glm::dmat3& linear, const glm::dmat3& to_unit,
+                               const glm::vec3& sun_direction) const;
     // Star sprites and pulsar beams (fills m_beam_items).
     void draw_stars(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const Simulation& sim, const OutputView& view);
 
@@ -82,6 +89,7 @@ private:
     StarfieldPass m_starfield;
     BodyPass m_bodies;
     AtmospherePass m_atmospheres;
+    AuroraPass m_auroras;
     PlumePass m_plumes;
     CometPass m_comets;
     DustPass m_dust;
@@ -107,6 +115,7 @@ private:
     // Per scene.
     std::vector<SDL_GPUTexture*> m_body_textures; // per body, may be null
     std::vector<SDL_GPUTexture*> m_ring_textures; // per body: ring profile, may be null
+    std::vector<SDL_GPUTexture*> m_night_textures; // per body: night lights, may be null
     std::vector<int> m_body_meshes;               // per body: BodyPass mesh index (-1: ellipsoid)
     std::vector<int> m_rotor_meshes;              // per body: its rotor's mesh index (-1: none)
     std::vector<DustTail> m_dust_tails;           // per body (comets only are updated)
@@ -121,6 +130,7 @@ private:
     std::vector<BodyDrawItem> m_body_items;
     std::vector<RingDrawItem> m_ring_items;
     std::vector<AtmosphereDrawItem> m_atmosphere_items;
+    std::vector<AuroraDrawItem> m_aurora_items;
     std::vector<PlumeDrawItem> m_plume_items;
     std::vector<CometDrawItem> m_comet_items;
     std::vector<AtmosphereOptics> m_atmosphere_optics; // per body (BodyDrawItem::atmosphere points here)

@@ -57,6 +57,8 @@ add_library(astraxis_sim STATIC
     src/ephem/mean_element_orbit.cpp
     src/ephem/mean_element_orbit.hpp
     src/ephem/motion.hpp
+    src/scene/aurora.cpp
+    src/scene/aurora.hpp
     src/scene/camera.cpp
     src/scene/camera.hpp
     src/scene/camera_director.cpp
@@ -103,6 +105,7 @@ astraxis_set_warnings(astraxis_settings)
 astraxis_add_shaders(astraxis_shaders
     shaders/atmosphere.vert.hlsl
     shaders/atmosphere.frag.hlsl
+    shaders/aurora.frag.hlsl
     shaders/beam.vert.hlsl
     shaders/beam.frag.hlsl
     shaders/belt.vert.hlsl
@@ -160,6 +163,8 @@ add_executable(astraxis
     src/platform/window.hpp
     src/render/atmosphere_pass.cpp
     src/render/atmosphere_pass.hpp
+    src/render/aurora_pass.cpp
+    src/render/aurora_pass.hpp
     src/render/beam_pass.cpp
     src/render/beam_pass.hpp
     src/render/belt_pass.cpp

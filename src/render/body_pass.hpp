@@ -47,6 +47,11 @@ struct BodyDrawItem {
     // The atmosphere above the surface (or deck), which reddens the sunlight
     // reaching it (null: none).
     const AtmosphereOptics* atmosphere = nullptr;
+    // Lights on the night side: a gray map in the texture's projection (sRGB;
+    // null: none), their color (sRGB) and the I/F of a white pixel.
+    SDL_GPUTexture* night_lights = nullptr;
+    glm::vec3 night_lights_color{1.0f};
+    float night_lights_gain = 0.0f;
 };
 
 struct SunLight {
@@ -87,7 +92,7 @@ private:
     std::vector<Mesh> m_meshes;
     SDL_GPUSampler* m_sampler = nullptr;
     SDL_GPUSampler* m_profile_sampler = nullptr;
-    SDL_GPUTexture* m_white = nullptr;    // bound when a body has no texture
+    SDL_GPUTexture* m_white = nullptr;    // bound when a body has no texture (or night lights)
     SDL_GPUTexture* m_no_rings = nullptr; // bound when a body has no rings
 };
 

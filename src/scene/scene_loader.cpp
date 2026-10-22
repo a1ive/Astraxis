@@ -1165,6 +1165,30 @@ void Loader::parse(const toml::table& root, Scene& out)
             }
             body.atmosphere = parse_atmosphere(*atmosphere, ctx + " atmosphere");
         }
+        if (const toml::table* lights = (*t)["night_lights"].as_table()) {
+            const std::string lctx = ctx + " night_lights";
+            if (body.kind != BodyKind::Planet || body.shape || body.texture.empty()) {
+                fail(ctx, "only ellipsoidal planets and moons with a texture can have night lights");
+            }
+            body.night_lights.texture = get_string(*lights, "texture", lctx);
+            body.night_lights.color = parse_color(*lights, "color", lctx, glm::vec3(1.0f));
+            body.night_lights.gain = get_double(*lights, "gain", lctx);
+            if (!(body.night_lights.gain > 0.0)) {
+                fail(lctx, "gain must be positive");
+            }
+        }
+        if (const toml::table* aurora = (*t)["aurora"].as_table()) {
+            const std::string actx = ctx + " aurora";
+            if (body.kind != BodyKind::Planet || body.shape) {
+                fail(ctx, "only ellipsoidal planets can have an aurora");
+            }
+            auto kp = std::make_shared<KpRecord>();
+            std::string error;
+            if (!kp->load(m_asset_root / get_string(*aurora, "kp", actx), &error)) {
+                fail(actx, error);
+            }
+            body.aurora = kp;
+        }
         if (const toml::array* plumes = (*t)["plumes"].as_array()) {
             if (body.kind != BodyKind::Planet || body.shape) {
                 fail(ctx, "only ellipsoidal planets and moons can have plumes");

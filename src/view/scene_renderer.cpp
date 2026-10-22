@@ -33,6 +33,14 @@ constexpr float kEvenOrbitFade = 0.5f;
 // least this many points on screen.
 constexpr double kBeltFullRadiusPx = 250.0;
 constexpr float kAmbient = 0.012f;
+// The aurora is ~1e-8 of the sunlit ground (I/F; 1 kR of the green line is
+// 5e-9): boosted like a long exposure, with the night lights' gain (scene
+// files) chosen to match. Its shell (km above the equatorial radius) holds
+// both emission layers.
+constexpr double kAuroraExposure = 2.5e6;
+constexpr double kAuroraBottomKm = 80.0;
+constexpr double kAuroraTopKm = 450.0;
+static_assert(kAuroraOvalSamples == AuroraEmission::kOvalSamples);
 // Surface radiance of star spheres (linear HDR, times the blackbody color).
 constexpr float kStarSurface = 6.0f;
 // Wavelength at which relative star surfaces (SceneView::relative_star_surfaces) are compared.
@@ -375,10 +383,10 @@ bool SceneRenderer::init(const GpuDevice& gpu, SDL_GPUTextureFormat output_forma
     SDL_GPUDevice* device = gpu.device();
     const SceneTargetFormat& format = gpu.scene_format();
     return m_starfield.init(device, format, m_catalog) && m_bodies.init(device, format) &&
-           m_rings.init(device, format) && m_atmospheres.init(device, format) && m_plumes.init(device, format) &&
-           m_comets.init(device, format) && m_dust.init(device, format) && m_orbits.init(device, format) &&
-           m_belts.init(device, format) && m_pinwheel.init(device, format) && m_sun.init(device, format) &&
-           m_beams.init(device, format) && m_black_hole.init(device, format) &&
+           m_rings.init(device, format) && m_atmospheres.init(device, format) && m_auroras.init(device, format) &&
+           m_plumes.init(device, format) && m_comets.init(device, format) && m_dust.init(device, format) &&
+           m_orbits.init(device, format) && m_belts.init(device, format) && m_pinwheel.init(device, format) &&
+           m_sun.init(device, format) && m_beams.init(device, format) && m_black_hole.init(device, format) &&
            m_post.init(device, format.color, output_format);
 }
 
@@ -386,10 +394,10 @@ bool SceneRenderer::refresh_pipelines()
 {
     const SceneTargetFormat& format = m_device->scene_format();
     return m_starfield.set_format(format) && m_bodies.set_format(format) && m_rings.set_format(format) &&
-           m_atmospheres.set_format(format) && m_plumes.set_format(format) && m_comets.set_format(format) &&
-           m_dust.set_format(format) && m_orbits.set_format(format) && m_belts.set_format(format) &&
-           m_pinwheel.set_format(format) && m_sun.set_format(format) && m_beams.set_format(format) &&
-           m_black_hole.set_format(format);
+           m_atmospheres.set_format(format) && m_auroras.set_format(format) && m_plumes.set_format(format) &&
+           m_comets.set_format(format) && m_dust.set_format(format) && m_orbits.set_format(format) &&
+           m_belts.set_format(format) && m_pinwheel.set_format(format) && m_sun.set_format(format) &&
+           m_beams.set_format(format) && m_black_hole.set_format(format);
 }
 
 void SceneRenderer::shutdown()
@@ -416,6 +424,7 @@ void SceneRenderer::shutdown()
     m_pinwheel.shutdown();
     m_rings.shutdown();
     m_atmospheres.shutdown();
+    m_auroras.shutdown();
     m_plumes.shutdown();
     m_comets.shutdown();
     m_dust.shutdown();
@@ -455,6 +464,7 @@ void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, u
     load_pinwheel(scene);
     m_body_textures.assign(scene.bodies.size(), nullptr);
     m_ring_textures.assign(scene.bodies.size(), nullptr);
+    m_night_textures.assign(scene.bodies.size(), nullptr);
     m_bodies.clear_meshes();
     m_body_meshes.assign(scene.bodies.size(), -1);
     m_rotor_meshes.assign(scene.bodies.size(), -1);
@@ -479,6 +489,14 @@ void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, u
         if (!m_body_textures[i]) {
             SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Texture for %s unavailable: %s", body.name.c_str(),
                         error.c_str());
+        }
+        if (!body.night_lights.texture.empty()) {
+            m_night_textures[i] =
+                load_texture_srgb(m_device->device(), m_asset_dir / body.night_lights.texture, &error);
+            if (!m_night_textures[i]) {
+                SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Night lights for %s unavailable: %s",
+                            body.name.c_str(), error.c_str());
+            }
         }
     }
 
@@ -649,7 +667,7 @@ void SceneRenderer::trace_black_hole(SDL_GPUCommandBuffer* cmd, uint32_t width, 
 
 void SceneRenderer::release_body_textures()
 {
-    for (auto* textures : {&m_body_textures, &m_ring_textures}) {
+    for (auto* textures : {&m_body_textures, &m_ring_textures, &m_night_textures}) {
         for (SDL_GPUTexture* texture : *textures) {
             if (texture) {
                 SDL_ReleaseGPUTexture(m_device->device(), texture);
@@ -666,6 +684,7 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
     m_body_items.clear();
     m_ring_items.clear();
     m_atmosphere_items.clear();
+    m_aurora_items.clear();
     m_atmosphere_optics.resize(scene.bodies.size());
     m_plume_items.clear();
     const glm::dvec3& cam = view.position;
@@ -814,6 +833,16 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
             shell.optics = optics;
             shell.gain = static_cast<float>(atmosphere.gain);
             m_atmosphere_items.push_back(shell);
+
+            // Earth's aurora goes with the atmospheres.
+            if (body.aurora) {
+                m_aurora_items.push_back(aurora_item(sim, output_view, body, linear, to_unit, item.sun_direction));
+            }
+        }
+        if (i < m_night_textures.size() && m_night_textures[i] && item.texture) {
+            item.night_lights = m_night_textures[i];
+            item.night_lights_color = body.night_lights.color;
+            item.night_lights_gain = static_cast<float>(body.night_lights.gain);
         }
 
         SDL_GPUTexture* ring_texture = i < m_ring_textures.size() ? m_ring_textures[i] : nullptr;
@@ -1300,6 +1329,46 @@ void SceneRenderer::draw_stars(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pas
     }
 }
 
+AuroraDrawItem SceneRenderer::aurora_item(const Simulation& sim, const OutputView& output_view, const Body& body,
+                                          const glm::dmat3& linear, const glm::dmat3& to_unit,
+                                          const glm::vec3& sun_direction) const
+{
+    const CameraView& view = output_view.camera;
+    const AuroraEmission emission = aurora_emission(sim.aurora_kp());
+    const double radius_km = body.equatorial_radius_km;
+    AuroraDrawItem a;
+    a.model = glm::translate(glm::mat4(1.0f), to_render(body.world_position, view.position)) *
+              glm::mat4(glm::mat3(linear));
+    a.to_unit = glm::mat3(to_unit);
+    a.camera_unit = glm::vec3(to_unit * (view.position - body.world_position));
+    a.km_per_unit = static_cast<float>(radius_km);
+    a.bottom = static_cast<float>(1.0 + kAuroraBottomKm / radius_km);
+    a.top = static_cast<float>(1.0 + kAuroraTopKm / radius_km);
+
+    // Magnetic noon: the sun's direction across the dipole axis.
+    const glm::dvec3 pole =
+        glm::normalize(to_unit * (body.orientation * geomagnetic_north_pole(sim.scene().time())));
+    const glm::dvec3 sun = glm::normalize(to_unit * glm::dvec3(sun_direction));
+    glm::dvec3 noon = sun - glm::dot(sun, pole) * pole;
+    noon = glm::length(noon) > 1e-9 ? glm::normalize(noon) : glm::normalize(glm::cross(pole, glm::dvec3(1, 0, 0)));
+    a.pole = glm::vec3(pole);
+    a.noon = glm::vec3(noon);
+    a.sun = glm::vec3(sun);
+
+    a.low_rgb = glm::vec3(emission.low_rgb * kAuroraExposure);
+    a.blue_kr = static_cast<float>(emission.blue_kr);
+    a.red_per_kr = glm::vec3(kRedPerKr * kAuroraExposure);
+    a.layers = glm::vec4(AuroraEmission::kLowLayerKm, AuroraEmission::kLowScaleKm, AuroraEmission::kHighLayerKm,
+                         AuroraEmission::kHighScaleKm);
+    a.diffuse_flux = static_cast<float>(AuroraEmission::kDiffuseFlux);
+    a.time = static_cast<float>(sim.aurora_time());
+    a.pixel_angle = 2.0f / (view.viewport.y * view.focal_y);
+    for (int k = 0; k < kAuroraOvalSamples; ++k) {
+        a.oval[static_cast<size_t>(k)] = glm::vec4(emission.oval[static_cast<size_t>(k)], 0.0f);
+    }
+    return a;
+}
+
 void SceneRenderer::render(const Frame& frame, const Simulation& sim, const OutputView& output_view,
                            const ViewOptions& options)
 {
@@ -1329,6 +1398,7 @@ void SceneRenderer::render(const Frame& frame, const Simulation& sim, const Outp
     sun.ambient = kAmbient;
     m_bodies.draw(frame.cmd, pass, view, sun, m_body_items);
     m_atmospheres.draw(frame.cmd, pass, view, m_atmosphere_items);
+    m_auroras.draw(frame.cmd, pass, view, m_aurora_items);
     m_plumes.draw(frame.cmd, pass, view, time, m_plume_items);
     m_comets.draw(frame.cmd, pass, view, time, m_comet_items);
     m_dust.draw(frame.cmd, pass, view, static_cast<float>(kDustMinPx));
