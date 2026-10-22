@@ -663,6 +663,24 @@ Philae 不在 Horizons 里，用 ESA SPICE Service 的着陆器星历（<https:/
   - 2014 年 8–9 月和 Cheops 系的常数自转（[CHP]）差不到 0.17°
   - Rosetta 的表（Horizons，与 CK 无关）在触地前 36 s 离 SHAP5 表面 33 m，和约 0.9 m/s 的下降速度对得上
 
+## DART 与 Didymos（`didymos.toml`，`tools/dart/`）
+
+| 文件 | 目标 | 中心 | 时间范围 | 容差 | 节点数 |
+|---|---|---|---|---|---|
+| `didymos.eph` | 20065803 Didymos 系统质心（JPL 定轨解 240） | 太阳 | 2021-11-01 .. 2023-04-01 | 2 km（AXEPH2，太阳 GM） | 23 |
+| `dart_helio.eph` | −135 DART（巡航） | 太阳 | 2021-11-24 07:18 .. 2022-09-25 23:00 TDB | 2 km（AXEPH2；地月质心 150 万 km 内按 1 分钟细化） | 57 |
+| `didymos_bary.eph` | 920065803 Didymos 本体 | 系统质心 | 2021-11-24 .. 2023-04-01 | 0.5 m（AXEPH2，参考 GM 2.73×10⁻¹⁴，即约 10 m 的绕质心圆） | 167 |
+| `dimorphos.eph` | 120065803 Dimorphos | Didymos 本体 | 同上 | 0.5 m（AXEPH2，参考 GM 3.6047×10⁻⁸ = n0² a³） | 1,030 |
+| `dart_didymos.eph` | −135 DART（最后三天） | 系统质心 | 2022-09-23 23:15:33 .. 撞击 23:15:33.365 TDB | 5 m（AXEPH1） | 14 |
+| `liciacube_didymos.eph` | −210 LICIACube | 系统质心 | 2022-09-11 23:16 .. 2022-09-27 23:15 TDB | 5 m（AXEPH1） | 33 |
+
+- **Didymos 和 Dimorphos 不从 Horizons 取**：Horizons 的 920065803、120065803 用的就是解 547，但现在（2026-10-22）对它们 2026-07 以前的查询什么都不返回（没有数据，也没有错误；以太阳或质心为中心时报“No ephemeris prior to 2026-JUL-02”），大概是 2026-10-19 质心改成 ESA 的 Hera 文件之后断了链。`tools/dart/s547_bake.py` 直接读解 547 的 SPK：Naidu & Chesley 2023，“Dimorphos orbit solution JPL 547”，figshare，doi:10.6084/m9.figshare.24256069（CC BY 4.0），文件 `dimorphos_s547.bsp`（51 MB，SHA-256 `bf827c841a997fd79a2c1280801d18b49ba1def66eb9b8be86676cfe3ceb2946`）。里面是 5 型段（离散状态，每 1728 s 一个，ECLIPJ2000 坐标），Dimorphos 相对 Didymos、Didymos 相对系统质心各两段，在撞击时刻分开；工具转到 ICRF（黄赤交角 84381.448″）。同一处还有定轨日志 `Dimorphos.s547.log`；SPK 的注释里有全部拟合参数（Naidu et al. 2024 表 1 的完整位数）
+- **撞击**：速度在撞击时刻跳 2.65 mm/s（沿迹 −2.630、径向 +0.330 mm/s）。撞击前后各 1 秒的状态（分别取自前、后两段）都留作节点，中间的三次插值离真实路径不到 1 mm，场景按节点到节点从表里读出这个脉冲
+- **两个质心**：DART 和 LICIACube 的 Horizons 数据是相对 20065803 的（现在是 JPL 定轨解 240），解 547 的 Didymos 相对的是它自己的质心。两者在场景里当成同一点；`approach_bake.py` 用的 Dimorphos 位置来自上面两个表
+- **DART 最后 48 秒**：Horizons 在导航重建（到 2022-09-26 23:14:45.3 TDB）后面接了一段到撞击的 `dart_2022_269_2022_269_spc_v04`，起点离重建轨迹 6.8 km、方向偏 1.3°（速度跳 0.14 km/s），场景里会在撞击前一秒看到一跳。只用重建轨迹沿直线推到撞击时刻，离 Dimorphos 中心横向 0.14 km、沿迹早到 0.30 s（1.86 km）。`approach_bake.py` 把最后三天的重建轨迹整体平移这 1.86 km，使它在撞击时刻正好到 Dimorphos 中心并在那里结束（Daly et al. 2023 的撞击点离形心 25 m，没有按撞击点瞄准）。撞击速度 6.1448 km/s（Daly 表 1：6.1449 ± 0.0003）
+- **LICIACube**：按 Horizons 原样，离 Dimorphos 中心最近 57.6 km（23:18:20 TDB，Horizons 说明 57.7 km、23:17:11.5 UTC）。表从释放（2022-09-11 23:15 TDB 起有数据）到飞掠后一天；Horizons 的数据一直到 2023-04-01，没有烘焙
+- **对照**（`test_didymos_scene`）：撞前距离 1189.2 m、周期 11.92152 h（表 1：11.921493 h）；撞后两个拱线进动周期的平均周期 11.3678 h（表 1 的稳定值 11.3674 h）；地球在撞击时离 1,132 万 km（Horizons 说明“约 1,100 万 km”）
+
 ## Algol 的食时刻（`algol.toml`，`tools/algol/`）
 
 内轨道的相位不来自星历，而是 TESS 测光拟合出的线性历表：`tools/algol/algol_ephemeris.py`（需要 numpy）读 SPOC 的 2 分钟光变曲线，找出主极小时刻，减去外轨道的光行时效应后做线性拟合。

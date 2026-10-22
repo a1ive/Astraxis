@@ -2263,6 +2263,188 @@ void test_space_telescopes_scene()
     }
 }
 
+// DART and Didymos: Dimorphos' orbit before and after the impact (solution JPL 547,
+// Naidu et al. 2024 Table 1), the ghost that keeps the old orbit and the 2.6 mm/s
+// readout; DART reaching Dimorphos at the impact time at the impact speed of Daly et
+// al. 2023 (Table 1), on the side of the impact site; LICIACube's flyby (Horizons notes).
+void test_didymos_scene()
+{
+    Scene scene = load_scene_or_die("didymos.toml");
+    const int didymos = scene.find("Didymos");
+    const int dimorphos = scene.find("Dimorphos");
+    const int dart = scene.find("DART");
+    const int licia = scene.find("LICIACube");
+    const int earth = scene.find("Earth");
+    check(didymos > 0 && dimorphos > 0 && dart > 0 && licia > 0 && earth > 0, "didymos.toml bodies");
+    if (didymos <= 0 || dimorphos <= 0 || dart <= 0 || licia <= 0 || earth <= 0) {
+        return;
+    }
+    const double impact = 717506133.3653613; // 2022-09-26 23:15:33.365 TDB [S547]
+    auto rel = [&](int a, int b, double t) {
+        return scene.icrf_state_at(a, t).position - scene.icrf_state_at(b, t).position;
+    };
+
+    // Dimorphos' angle around Didymos in its orbit plane (the plane at the impact).
+    const State moon = scene.icrf_state_at(dimorphos, impact - 60.0);
+    const State primary = scene.icrf_state_at(didymos, impact - 60.0);
+    const glm::dvec3 r0 = moon.position - primary.position;
+    const glm::dvec3 e1 = glm::normalize(r0);
+    const glm::dvec3 normal = glm::normalize(glm::cross(r0, moon.velocity - primary.velocity));
+    const glm::dvec3 e2 = glm::cross(normal, e1);
+    auto angle = [&](const glm::dvec3& r) { return std::atan2(glm::dot(r, e2), glm::dot(r, e1)); };
+    // Mean period over `orbits` from t0: the time to sweep orbits * 360 deg (hourly
+    // samples, then bisection); 0 if it does not get there within twice the time.
+    auto mean_period_h = [&](int body, double t0, int orbits) {
+        double swept = 0.0;
+        double prev = angle(rel(body, didymos, t0));
+        double t = t0;
+        const double target = 2.0 * kPi * orbits;
+        for (int hours = 0; hours < 24 * orbits; ++hours) {
+            const double a = angle(rel(body, didymos, t + 3600.0));
+            const double step = std::remainder(a - prev, 2.0 * kPi);
+            if (swept + step >= target) {
+                double lo = t;
+                double hi = t + 3600.0;
+                for (int i = 0; i < 40; ++i) {
+                    const double mid = 0.5 * (lo + hi);
+                    const double s = std::remainder(angle(rel(body, didymos, mid)) - prev, 2.0 * kPi);
+                    (swept + s >= target ? hi : lo) = mid;
+                }
+                return (lo - t0) / orbits / 3600.0;
+            }
+            swept += step;
+            prev = a;
+            t += 3600.0;
+        }
+        return 0.0;
+    };
+    const double radius = glm::length(r0);
+    check(std::abs(radius - 1.18921) < 0.001, "Dimorphos' distance before the impact (km)", radius);
+    const double before = mean_period_h(dimorphos, impact - 10.0 * kSecondsPerDay, 10);
+    check(std::abs(before - 11.921493) < 2.0 / 3600.0, "Dimorphos' period before the impact (h)", before);
+    // Settled at 11.3674 h. Single orbits swing with the eccentricity, the libration and
+    // the apsidal precession (6.7 deg/d): the mean over two turns of the apsides (107 days)
+    // from a month after the impact.
+    const double settled = mean_period_h(dimorphos, impact + 30.0 * kSecondsPerDay, 226);
+    check(std::abs(settled - 11.3674) < 3.0 / 3600.0, "Dimorphos' settled period (h)", settled);
+    // Turning with Dimorphos (synchronous: x toward Didymos, z along the orbit pole)
+    // matches Horizons' rotation for it before the impact (pole (69.70029, -72.69527),
+    // W = 73.38929405 + 724.7244051 d + 1.0256e-6 d^2 deg) and its frame after.
+    {
+        double worst = 0.0;
+        for (const double days : {-200.0, -10.0, -0.01}) {
+            const double t = impact + days * kSecondsPerDay;
+            const double d = t / kSecondsPerDay;
+            const glm::dmat3 horizons =
+                iau_pole_frame(69.70029 * kDegToRad, -72.69527 * kDegToRad) *
+                rotation_z(std::fmod(73.38929405 + 724.7244051 * d + 1.0256e-6 * d * d, 360.0) * kDegToRad);
+            const glm::dmat3 axes = scene.body_to_icrf(scene.bodies[static_cast<size_t>(dimorphos)], t);
+            for (int c = 0; c < 3; ++c) {
+                worst = std::max(worst, std::acos(std::min(1.0, glm::dot(axes[c], horizons[c]))) * kRadToDeg);
+            }
+        }
+        check(worst < 0.05, "Dimorphos turns as in Horizons before the impact (deg)", worst);
+    }
+
+    // The ghost keeps the old orbit: within 0.2 deg of the circle at n0 after three days,
+    // while the real moon is 100 deg ahead.
+    int event = -1;
+    for (size_t i = 0; i < scene.events.size(); ++i) {
+        if (scene.events[i].ghost.body == dimorphos) {
+            event = static_cast<int>(i);
+        }
+    }
+    check(event >= 0, "Dimorphos has a ghost");
+    if (event >= 0) {
+        const SceneEvent::Ghost& g = scene.events[static_cast<size_t>(event)].ghost;
+        const double n0 = 1.46401901971247768710e-04; // [S547]
+        const double t_end = g.end_tdb - 60.0;
+        const glm::dvec3 ghost = scene.icrf_state_at(g.ghost, t_end).position - scene.icrf_state_at(didymos, t_end).position;
+        const double ghost_off =
+            std::abs(std::remainder(angle(ghost) - n0 * (t_end - (impact - 60.0)), 2.0 * kPi)) * kRadToDeg;
+        check(ghost_off < 0.2, "the ghost on the old orbit after three days (deg)", ghost_off);
+        const double ahead = std::remainder(angle(rel(dimorphos, didymos, t_end)) - angle(ghost), 2.0 * kPi) * kRadToDeg;
+        check(ahead > 90.0 && ahead < 115.0, "Dimorphos ahead of its ghost after three days (deg)", ahead);
+        // The impulse: 2.630 mm/s along the path and 0.33 mm/s outward [S547].
+        const double dv = g.delta_v_km_s.back() * 1e6;
+        const double expected = std::hypot(2.630, 0.330);
+        check(std::abs(dv - expected) < 0.03, "DART's push on Dimorphos (mm/s)", dv);
+        scene.set_active_event(-1);
+        scene.update(impact + 3600.0);
+        double readout = 0.0;
+        check(!scene.bodies[static_cast<size_t>(g.ghost)].visible && !scene.burn_delta_v(dimorphos, &readout),
+              "Dimorphos' ghost and readout only during its event");
+        scene.set_active_event(event);
+        scene.update(impact - 5.0);
+        double total = 0.0;
+        check(scene.burn_delta_v(dimorphos, &readout, &total) && readout * 1e6 < 0.05 && std::abs(total * 1e6 - dv) < 1e-9,
+              "no push before the impact (mm/s)", readout * 1e6);
+        scene.update(impact + 3600.0);
+        check(scene.bodies[static_cast<size_t>(g.ghost)].visible && scene.burn_delta_v(dimorphos, &readout) &&
+                  std::abs(readout * 1e6 - dv) < 1e-6,
+              "the whole push after the impact (mm/s)", readout * 1e6);
+        scene.set_active_event(-1);
+        std::printf("info: Dimorphos %.1f m from Didymos, %.6f h before the impact, %.4f h settled; push %.3f mm/s; "
+                    "the ghost %.3f deg off the old orbit after three days, the moon %.1f deg ahead\n",
+                    radius * 1e3, before, settled, dv, ghost_off, ahead);
+    }
+
+    // DART: at Dimorphos' center at the impact time, at 6.1449 km/s [DALY]; gone after.
+    {
+        const glm::dvec3 miss = rel(dart, dimorphos, impact - 1e-3);
+        check(glm::length(miss) < 0.02, "DART at Dimorphos at the impact time (km)", glm::length(miss));
+        const glm::dvec3 v =
+            scene.icrf_state_at(dart, impact - 10.0).velocity - scene.icrf_state_at(dimorphos, impact - 10.0).velocity;
+        check(std::abs(glm::length(v) - 6.1449) < 0.001, "DART's impact speed (km/s)", glm::length(v));
+        check(!scene.bodies[static_cast<size_t>(dart)].motion->valid_at(impact + 1.0), "DART gone after the impact");
+        // Daly et al. put the impact site at 8.84 S, 264.30 E, 25 m from the center of
+        // figure: the point facing DART, which aims at the center here, is within about
+        // asin(25 / 85) = 17 deg of it. 264 E is the leading side: the impact slowed
+        // Dimorphos.
+        const glm::dmat3 axes = scene.body_to_icrf(scene.bodies[static_cast<size_t>(dimorphos)], impact);
+        const glm::dvec3 from = glm::transpose(axes) * glm::normalize(-v);
+        const double lat = std::asin(from.z) * kRadToDeg;
+        const double lon = std::fmod(std::atan2(from.y, from.x) * kRadToDeg + 360.0, 360.0);
+        const double site_deg =
+            std::acos(std::clamp(glm::dot(from, glm::dvec3(std::cos(-8.84 * kDegToRad) * std::cos(264.30 * kDegToRad),
+                                                          std::cos(-8.84 * kDegToRad) * std::sin(264.30 * kDegToRad),
+                                                          std::sin(-8.84 * kDegToRad))),
+                                 -1.0, 1.0)) *
+            kRadToDeg;
+        check(site_deg < 20.0, "DART came from the impact site's side (deg off)", site_deg);
+        const double earth_km = glm::length(rel(earth, dimorphos, impact));
+        check(earth_km > 1.1e7 && earth_km < 1.15e7, "the impact 11 million km from Earth (km)", earth_km);
+        // The heliocentric cruise hands over to the table relative to the system a day
+        // before the impact without a visible step.
+        double step = 0.0;
+        for (double t = impact - 2.5 * kSecondsPerDay; t < impact - 0.5 * kSecondsPerDay; t += 600.0) {
+            const glm::dvec3 a = scene.icrf_state_at(dart, t).position;
+            const State s = scene.icrf_state_at(dart, t + 600.0);
+            step = std::max(step, glm::length(s.position - a - 600.0 * s.velocity));
+        }
+        check(step < 5.0, "DART's handover to the relative table (km per 10 min off a straight line)", step);
+        std::printf("info: DART reaches Dimorphos at %.4f km/s from %.1f S, %.1f E (Daly: 8.84 S, 264.30 E), %.0f km "
+                    "from Earth\n",
+                    glm::length(v), -lat, lon, earth_km);
+    }
+
+    // LICIACube: 57.7 km from Dimorphos at 23:17:11.5 UTC (Horizons notes).
+    {
+        double best = 1e300;
+        double best_t = 0.0;
+        for (double t = impact + 60.0; t < impact + 300.0; t += 0.1) {
+            const double d = glm::length(rel(licia, dimorphos, t));
+            if (d < best) {
+                best = d;
+                best_t = t;
+            }
+        }
+        const double expected_t = impact + (3.0 * 60.0 + 11.5 - 24.183);
+        check(std::abs(best - 57.7) < 0.2, "LICIACube's closest approach to Dimorphos (km)", best);
+        check(std::abs(best_t - expected_t) < 2.0, "LICIACube's closest approach time (s off)", best_t - expected_t);
+    }
+}
+
 } // namespace
 
 void run_mission_tests()
@@ -2280,4 +2462,5 @@ void run_mission_tests()
     test_rosetta_scene();
     test_halley_armada();
     test_space_telescopes_scene();
+    test_didymos_scene();
 }

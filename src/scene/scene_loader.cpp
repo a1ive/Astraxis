@@ -1764,7 +1764,9 @@ void Loader::parse_event_ghost(const toml::table* t, const std::string& event_ct
     // compared with an insertion near the cloud tops); else its GM, which may include them.
     gravity.mu = c.gm_km3_s2 > 0.0 ? c.gm_km3_s2 : c.body_gm_km3_s2; // e.g. a planet without moons
     if (!c.zonal_harmonics.empty()) {
-        gravity.mu = c.body_gm_km3_s2;
+        // Plus the coasting body's own mass, which its relative motion feels too (a
+        // moon's: Dimorphos around Didymos; a spacecraft has none).
+        gravity.mu = c.body_gm_km3_s2 + real.body_gm_km3_s2;
         gravity.zonal = c.zonal_harmonics;
         gravity.radius_km = c.gravity_radius_km;
     }
@@ -1832,7 +1834,9 @@ void Loader::parse_event_ghost(const toml::table* t, const std::string& event_ct
     }
     ghost.parent = center;
     ghost.kind = BodyKind::Ghost;
-    ghost.equatorial_radius_km = ghost.equatorial_radius_b_km = ghost.polar_radius_km = 1.0;
+    // Drawn as a ring the size of the body (a moon's ghost) or a dot (a spacecraft's).
+    ghost.equatorial_radius_km = ghost.equatorial_radius_b_km = ghost.polar_radius_km =
+        real.equatorial_radius_km > 0.0 ? real.equatorial_radius_km : 1.0;
     ghost.color = real.color;
     ghost.orbit_color = parse_color(*t, "orbit_color", ctx, glm::mix(real.orbit_color, glm::vec3(0.55f), 0.6f));
     ghost.trail = TrailMode::History; // drawn whole (Scene::trail)

@@ -28,8 +28,10 @@ bool occluded(const glm::dvec3& target, const glm::dvec3& center, double radius)
     if (along <= 0.0 || along >= dist) {
         return false;
     }
-    const double perp2 = glm::dot(center, center) - along * along;
-    return perp2 < radius * radius;
+    // Not |center|^2 - along^2: from far away that difference of two huge numbers is all
+    // rounding (Didymos 1.2 km from Dimorphos, seen from 4 au, came out hidden).
+    const glm::dvec3 perp = glm::cross(center, dir);
+    return glm::dot(perp, perp) < radius * radius;
 }
 
 } // namespace

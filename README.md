@@ -22,6 +22,7 @@ Astraxis is an astronomy background app with planets, spacecraft and stars anima
 | Venus | Venus Express, Akatsuki, Zoozve and spacecraft flybys |
 | Mars | Phobos, Deimos, eight orbiters, comet Siding Spring and interstellar comet 3I/ATLAS |
 | Rosetta & 67P | Journey to comet 67P, Rosetta's orbits and Philae's landing |
+| DART & Didymos | DART's impact on the asteroid moon Dimorphos, LICIACube's flyby, and the orbit Dimorphos would have kept without the impact |
 | ISEE-3 / ICE | L1 halo orbit, lunar flybys and comet encounters |
 | Parker Solar Probe | Venus gravity assists and close passes of the Sun |
 | Alpha Centauri | A, B and Proxima in an N-body simulation |

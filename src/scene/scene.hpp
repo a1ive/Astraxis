@@ -718,8 +718,9 @@ public:
     TrailMode trail_mode(int body) const;
     // The active event's burn delta-v so far for `body` (its ghost's
     // SceneEvent::Ghost::delta_v_km_s at the current time), from a minute
-    // before the burn on; false otherwise.
-    bool burn_delta_v(int body, double* km_s) const;
+    // before the burn on; false otherwise. `total_km_s`, if given, gets the
+    // whole burn's.
+    bool burn_delta_v(int body, double* km_s, double* total_km_s = nullptr) const;
     double trail_history_days(int body) const;
 
     // Trail of a body in the display frame at t: head (current position) first,

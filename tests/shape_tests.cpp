@@ -520,6 +520,42 @@ void test_halley_shape()
     }
 }
 
+// Didymos and Dimorphos (didymos.toml): the DART shape models (Didymos v003, Dimorphos
+// v004). Dimorphos' volume against Daly et al. 2023 (Table 1: 0.00181 km^3 +- 10%), that
+// of Didymos against the oblate spheroid of Naidu et al. 2024 (Table 1: 394 x 290 m, to
+// 8% given its uncertainties); the radii are half the extents.
+void test_didymos_shapes()
+{
+    const Scene scene = load_scene_or_die("didymos.toml");
+    struct Expected {
+        const char* name;
+        double volume_km3;
+        double tolerance;
+    };
+    const double spheroid = 4.0 / 3.0 * kPi * 0.394 * 0.394 * 0.290;
+    for (const Expected& e : {Expected{"Didymos", spheroid, 0.10}, Expected{"Dimorphos", 0.00181, 0.10}}) {
+        const Body& body = scene.bodies[static_cast<size_t>(scene.find(e.name))];
+        const std::string name = e.name;
+        check(body.shape != nullptr, (name + " has a shape model").c_str());
+        if (!body.shape) {
+            continue;
+        }
+        const double volume = signed_volume(*body.shape);
+        check(std::abs(volume / e.volume_km3 - 1.0) < e.tolerance, (name + " volume (km^3)").c_str(), volume);
+        glm::dvec3 lo(1e300), hi(-1e300);
+        for (const glm::vec3& p : body.shape->positions) {
+            lo = glm::min(lo, glm::dvec3(p));
+            hi = glm::max(hi, glm::dvec3(p));
+        }
+        const glm::dvec3 half = 0.5 * (hi - lo);
+        check(std::abs(half.x - body.equatorial_radius_km) < 0.001 && std::abs(half.y - body.equatorial_radius_b_km) < 0.001 &&
+                  std::abs(half.z - body.polar_radius_km) < 0.001,
+              (name + " radii are half its extents (km)").c_str(), half.x);
+        std::printf("info: %s volume %.5f km^3 (expected %.5f), extents %.0f x %.0f x %.0f m\n", e.name, volume,
+                    e.volume_km3, 2e3 * half.x, 2e3 * half.y, 2e3 * half.z);
+    }
+}
+
 // Endurance (gargantua.toml): the tribute model of tools/shapes/make_endurance.py, a
 // fixed hull and a turning ring, built with hard edges.
 void test_endurance_shape()
@@ -583,5 +619,6 @@ void run_shape_tests()
     test_jupiter_saturn_small_moon_shapes();
     test_hyperion_spin_state();
     test_halley_shape();
+    test_didymos_shapes();
     test_endurance_shape();
 }
