@@ -155,7 +155,6 @@ void Simulation::update(double real_dt)
 {
     m_clock.advance(real_dt);
     m_scene.update(m_clock.t_tdb);
-    m_light_curve.update(m_scene, m_clock.t_tdb);
     m_scene_age += real_dt;
     m_event_age += real_dt;
 
@@ -229,6 +228,12 @@ void Simulation::update(double real_dt)
     run_tour_event(real_dt);
     apply_tour_warp();
     m_camera.update(real_dt, m_scene);
+
+    // Use the final clock after tour jumps and warp changes, as the plot does.
+    // Keep cached samples while hidden; catch up before the plot reappears.
+    if (light_curve_visibility(m_scene.light_curve, m_clock.paused ? 0.0 : m_clock.warp) > 0.0) {
+        m_light_curve.update(m_scene, m_clock.t_tdb);
+    }
 }
 
 double Simulation::rotor_turns(int body) const

@@ -22,8 +22,6 @@ constexpr float kWidth = 20.0f;
 constexpr float kHeight = 8.0f;
 constexpr float kPadding = 0.7f;
 constexpr float kTextSize = 1.0f;
-// The plot fades out from twice this many real seconds per span to this many.
-constexpr double kFastSpanSeconds = 2.0;
 
 ImU32 gray(int value, float alpha)
 {
@@ -63,10 +61,7 @@ void draw_light_curve(const CaptionFonts& fonts, const Scene& scene, const Light
                       double rate, const ScreenRect& rect, float alpha)
 {
     const LightCurve& lc = scene.light_curve;
-    // Gone when the whole span passes in kFastSpanSeconds or less.
-    const double span_s = lc.span_days * kSecondsPerDay;
-    const double fast = std::clamp((std::abs(rate) * kFastSpanSeconds / span_s - 0.5) * 2.0, 0.0, 1.0);
-    alpha *= static_cast<float>(1.0 - fast);
+    alpha *= static_cast<float>(light_curve_visibility(lc, rate));
     if (!lc.enabled() || samples.empty() || alpha <= 0.0f) {
         return;
     }

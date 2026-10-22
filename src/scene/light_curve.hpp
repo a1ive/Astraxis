@@ -53,6 +53,10 @@ void set_light_curve_reference(Scene& scene);
 // t_tdb (at least 0.1 mag), rounded up to a tenth of a magnitude.
 void measure_light_curve_depth(Scene& scene, double t_tdb, double days);
 
+// Plot opacity at a simulated-seconds-per-real-second rate (0 when paused).
+// Fades as the whole span passes in 4 to 2 real seconds.
+double light_curve_visibility(const LightCurve& curve, double rate);
+
 // The light curve on a fixed grid of times around the clock, for the plot:
 // count samples spaced span_days / (count - 1), from `before` (fraction of the
 // span) ahead of the current time. Samples already computed are kept as the

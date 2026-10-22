@@ -385,6 +385,17 @@ void measure_light_curve_depth(Scene& scene, double t_tdb, double days)
     lc.depth_mag = std::max(std::ceil(deepest * 10.0 - 1e-6) / 10.0, 0.1);
 }
 
+double light_curve_visibility(const LightCurve& curve, double rate)
+{
+    if (!curve.enabled()) {
+        return 0.0;
+    }
+    constexpr double kFastSpanSeconds = 2.0;
+    const double span_s = curve.span_days * kSecondsPerDay;
+    const double fast = std::clamp((std::abs(rate) * kFastSpanSeconds / span_s - 0.5) * 2.0, 0.0, 1.0);
+    return 1.0 - fast;
+}
+
 void LightCurveSamples::update(const Scene& scene, double t_tdb)
 {
     const LightCurve& lc = scene.light_curve;

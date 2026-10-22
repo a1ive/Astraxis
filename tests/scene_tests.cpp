@@ -266,6 +266,53 @@ void test_ephemeris_blends()
 }
 
 // Simulation: scene loading, events, the clock and the tour's warp, as a host drives them.
+void test_light_curve_sampling_visibility()
+{
+    Simulation sim;
+    std::string error;
+    if (!sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/algol.toml", &error)) {
+        check(false, "light curve simulation loads Algol");
+        return;
+    }
+    const double span = sim.scene().light_curve.span_days * kSecondsPerDay;
+    const LightCurve& curve = sim.scene().light_curve;
+    check(light_curve_visibility(curve, span / 4.0) == 1.0 &&
+              light_curve_visibility(curve, span * 3.0 / 8.0) == 0.5 &&
+              light_curve_visibility(curve, span / 2.0) == 0.0 &&
+              light_curve_visibility(curve, -span / 2.0) == 0.0,
+          "light curve fades between four and two real seconds per span");
+    check(light_curve_visibility(LightCurve{}, 0.0) == 0.0, "disabled light curve is invisible");
+    const auto check_current = [&]() {
+        LightCurveSamples expected;
+        expected.update(sim.scene(), sim.clock().t_tdb);
+        check(sim.light_curve().time(0) == expected.time(0) &&
+                  sim.light_curve().magnitudes() == expected.magnitudes(),
+              "visible curve matches fresh samples at current time");
+    };
+    for (bool reverse : {false, true}) {
+        sim.clock().reverse = reverse;
+        const double old_time = sim.light_curve().time(0);
+        const auto old_mags = sim.light_curve().magnitudes();
+        sim.clock().warp = span / 2.0;
+        sim.update(0.1);
+        check(sim.light_curve().time(0) == old_time && sim.light_curve().magnitudes() == old_mags,
+              "fully hidden curve does not resample at the threshold");
+        sim.clock().warp = span * 100.0;
+        sim.update(0.1);
+        check(sim.light_curve().time(0) == old_time && sim.light_curve().magnitudes() == old_mags,
+              "fully hidden curve does not resample after a large jump");
+        sim.clock().warp = span * 3.0 / 8.0;
+        sim.update(0.1);
+        check_current(); // Still fading, so samples must already be current.
+        sim.clock().warp = span * 100.0;
+        sim.update(0.1);
+        sim.clock().paused = true;
+        sim.update(0.0);
+        check_current(); // Pausing at high warp makes the plot visible again.
+        sim.clock().paused = false;
+    }
+}
+
 void test_simulation()
 {
     Simulation sim;
@@ -1160,6 +1207,7 @@ void run_scene_tests()
     test_cross_scene_orbits();
     test_ephemeris_blends();
     test_simulation();
+    test_light_curve_sampling_visibility();
     test_event_trails();
     test_sky_fades_in_fast_frames();
     test_pinwheel_fades();
