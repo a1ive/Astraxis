@@ -1,6 +1,6 @@
 # Astraxis
 
-用来“发呆”的天文动态背景程序：太阳系与各探测器轨迹、地球夜侧的城市灯光和极光（按 1932 年以来的 Kp）、JWST L2 晕轨道、金星、火星、木星和土星系统、彗星与哈雷舰队、Alpha Centauri、系外行星共振链、多星系统、食变星 Algol 和造父变星 δ Cephei（带从地球看的光变曲线）、WR 104 的尘埃风车（几何模型，倾斜 42° 的轨道从地球看仍像正对的螺线）、脉冲星双星、Sgr A* 黑洞外观、《星际穿越》的虚构黑洞 Gargantua（按论文参数，电影版与带多普勒频移的真实样子对比；还有致敬的 Endurance 号，环在转）、致敬《坎巴拉太空计划》的 Kerbol 系统（游戏里读出的轨道、Kerbin 历法、程序生成的表面）等，共 26 个场景。
+用来“发呆”的天文动态背景程序：太阳系与各探测器轨迹、地球夜侧的城市灯光和极光（按 1932 年以来的 Kp）、JWST L2 晕轨道、金星、火星、木星和土星系统、彗星与哈雷舰队、Alpha Centauri、系外行星共振链、多星系统、食变星 Algol 和造父变星 δ Cephei、北极星（带从地球看的光变曲线）、WR 104 的尘埃风车（几何模型，倾斜 42° 的轨道从地球看仍像正对的螺线）、脉冲星双星、Sgr A* 黑洞外观、《星际穿越》的虚构黑洞 Gargantua（按论文参数，电影版与带多普勒频移的真实样子对比；还有致敬的 Endurance 号，环在转）、致敬《坎巴拉太空计划》的 Kerbol 系统（游戏里读出的轨道、Kerbin 历法、程序生成的表面）等，共 27 个场景。
 C++20 + CMake + SDL3 + SDL_GPU。Windows（D3D12）和 Linux（Vulkan）都能构建运行；Windows 上还有全屏、屏保和动态壁纸。将来做 macOS。
 
 - **目标**：安静、好看、物理上可信，主要用来发呆，交互只是辅助；功耗低，可以长时间挂在后台当壁纸；单个 exe，启动快，依赖少
@@ -130,7 +130,7 @@ CMake 目标：
 | `mission_tests.cpp` | 探测器：先驱者/新视野、Parker、伽利略/朱诺、Artemis/CAPSTONE/嫦娥五号 T1 及其火箭末级、卡西尼/惠更斯、信使/贝皮科伦坡、火星的八个轨道器（含天问一号 2021 年的重建）、赛丁泉彗星与 3I/ATLAS、太阳系场景的 1I/3I、Europa Clipper/Hera 飞掠、金星快车/破晓号/Zoozve 与金星借力飞掠、ISEE-3、哈雷舰队、Rosetta/Philae、JWST |
 | `shape_tests.cpp` | 小天体形状模型；Endurance 致敬模型（硬边、尺寸、环的转速对应 1 g） |
 | `appearance_tests.cpp` | 彗尾、尘埃彗尾、大气层、羽流（含各场景参数一致）；地球的夜间灯光和极光（各场景一致、大磁暴的 Kp、Starkov 卵的性质、Longyearbyen 在磁正午处于 Kp 3 的卵下、IGRF 偶极极、半球功率、谱线产额和比值、Kp 随倍速的平均） |
-| `stellar_system_tests.cpp` | α Cen（含 Ab 对照 S1/C1 的位置和相互倾角、只在事件里显示的 Bb）、TRAPPIST-1、Kepler 系统、TIC 168789840、Algol（CHARA 位置与 B 的拉长、TESS 极小、GCVS 食深）与光变曲线模型、洛希面（Kim 1989 的半径、Eggleton 公式）、δ Cephei（SPIPS 半径、Engle 极大、视向速度轨道）、PSR B1620-26、WR 104（Hill 的合相和 K、Richardson 的质量、旋臂间距、从地球看的旋向和 Tuthill 的 θ0、宽锥让投影的旋臂接近圆、Soulain 的 r⁻³ 径向剖面、伴星 B 的位置、可见光里成核处以热辐射为主而一圈外只剩散射光） |
+| `stellar_system_tests.cpp` | α Cen（含 Ab 对照 S1/C1 的位置和相互倾角、只在事件里显示的 Bb）、TRAPPIST-1、Kepler 系统、TIC 168789840、Algol（CHARA 位置与 B 的拉长、TESS 极小、GCVS 食深）与光变曲线模型、洛希面（Kim 1989 的半径、Eggleton 公式）、δ Cephei（SPIPS 半径、Engle 极大、视向速度轨道）、北极星（Anderson 的脉动视向速度、Evans 的极大时刻、光极大在视向速度极小前 0.21 d、V 振幅、Ab 对照 HST/CHARA/斑点干涉的位置、K1）、PSR B1620-26、WR 104（Hill 的合相和 K、Richardson 的质量、旋臂间距、从地球看的旋向和 Tuthill 的 θ0、宽锥让投影的旋臂接近圆、Soulain 的 r⁻³ 径向剖面、伴星 B 的位置、可见光里成核处以热辐射为主而一圈外只剩散射光） |
 | `relativity_tests.cpp` | Kerr 测地线（类时/类光）、后开普勒双脉冲星、Sgr A*、Gargantua（[JA15] 的盘和相机、最内稳定圆轨道上的示例行星、米勒星的时间膨胀、Mann 星的轨道对照 [TH14]、假想的 Edmunds 星看到的阴影大小和用光线追踪积分的盘的辐射、Endurance 假设的 30 M 轨道的周期和时间膨胀） |
 | `scene_tests.cpp` | 场景加载、Simulation、随天体自转的参考系、旋转参考系转得快时星空淡出、风车星云在高倍速时淡出、标签布局、跨场景一致性（同一天体在各场景的轨道参数）、相机导演（含 WR 104）、事件说明 |
 | `settings_tests.cpp` | `config.toml` 读写与场景列表 |
@@ -151,7 +151,7 @@ CMake 目标：
 - `tools/philae/`：67P 的自转和 Philae（只用标准库，`daf.py`、`spk.py`、`ck.py` 读 SPICE 的 DAF、SPK 5/18 型段和 CK 5 型段）。`c67p_spin.py <目录>` 把 ESA 的三个彗核姿态 CK 拟合成 `c67p_spin.toml`（场景里 67P 的 `spin_table`）；`philae_bake.py <目录>` 读两个着陆器 SPK，用这张表换到 67P 本体系烘成 `philae_67p.eph`，所以改了自转表要重新烘 Philae。下载地址和做法见 `assets/ephem/SOURCES.md`
 - `tools/pdftext.py`：只用标准库从 arXiv PDF 提取文字（ar5iv 经常超时）
 - `tools/algol/algol_ephemeris.py <TESS *_lc.fits>`（需要 numpy，自带最小的 FITS 读取）：从 TESS 光变曲线量主极小、扣掉外轨道的光行时效应，拟合 `algol.toml` 内轨道用的历表；下载地址见 `assets/ephem/SOURCES.md`
-- `tools/cepheid/spips_table.py <delcep2.dat> <pc> <out.csv>`（只用标准库）：把 SPIPS 模型（VizieR J/A+A/584/A80）转成脉动表，见 `assets/stars/SOURCES.md`
+- `tools/cepheid/spips_table.py <delcep2.dat> <pc> <out.csv>`（只用标准库）：把 SPIPS 模型（VizieR J/A+A/584/A80）转成脉动表，见 `assets/stars/SOURCES.md`；北极星没有这样的模型，`tools/cepheid/polaris_table.py <out.csv>`（只用标准库，数据写在脚本里）由论文里的视向速度、平均半径和温度拼出脉动表，并拟合场景用的极大历表
 - `res/astraxis.ico`：`tools/icon/make_icon.py`（需要 Inkscape）从 `res/astraxis.svg`（≥ 48 px）和 `res/astraxis-small.svg`（≤ 40 px）生成；.ico 入库，CI 不依赖 Inkscape
 
 ## 已知的坑
@@ -284,13 +284,12 @@ CMake 目标：
 
 1. Dear ImGui 等 1.93.x 补丁版出来再从 v1.92.9b 升级（1.93.0 重写了 ImDrawList，刚发布）。SDL3/SDLGPU3 后端和用到的 API 都兼容，要截图核对的是：`label_overlay.cpp` 的空心圆点（`AddCircle` 半径不再减 0.5、默认内侧描边）和标记菱形（`AddQuad`）、`captions.cpp`/`app_ui.cpp` 里非整数坐标的 `AddRectFilled`（现在有抗锯齿边缘）、`StyleColorsDark()` 改过的面板配色
 2. B1913+16 自转轴的测地线进动：用 Weisberg & Taylor 2002（astro-ph/0205280）表 1 的解 1（i = 47.2°，与场景一致；δ = 21.1°、α = 157.5°、T0 = 1981.0）；Kramer 1998 表 1 的解 I 是同一几何（δ = 22°，α = 27° 即自转反向）。速率由质量按 Barker & O'Connell 算（1.215°/年，对照 WT02 的 1.213°/年写测试），自转轴绕轨道法线走半角 δ 的锥；画面上只有 ζ(t)（自转轴与视线的夹角）可见，它只依赖 cos Φ，不受进动方向和假设的天空节点影响，测试对照 WT02 的公式。`pulsar_beams` 要多传仿真时间。再加一个从地球方向（视线）看的事件，事件视角目前只有 `from_orbit_normal`、`from_body`，要新增一种：现有的“光束扫过相机时闪一下”会一直闪到约 2025 年（Kramer 的预测）后停下；停下的时刻取决于光束宽度（现在是示意的 10°，WT02 的光束是轴比 1.59 的沙漏形），要调或注明。2019 年以后没找到观测文献，展签写成“预测”。[WH16] 4.4 节说各家几何解“不一致”，是指精度不够扣除光行差，不影响画面
-3. 变星：Polaris（复用 `[bodies.pulsation]`：振幅很小，周期每年变长约 4.5 s；Aa–Ab 约 29.6 年的轨道，Evans 等的 HST/CHARA 解；远处的 B）。要找有相位表的脉动模型（像 SPIPS 那样），或从视向速度积分半径（p 因子要注明）
-4. 日冕：`sun.frag.hlsl` 现在只有临边昏暗加一圈示意的衰减光。真实的 K 日冕在日面边缘只有日面亮度的约 10⁻⁶，按物理亮度在泛光下看不见，日面被挡住时才显出来，所以先做两种场合：日食事件（相机在月影本影里，2017-08-21 或 2024-04-08；或者从月球看地球挡住太阳，顺带地球大气的一圈红光），和 Parker 场景（探测器就在日冕里）。结构按太阳周期的相位变化（极小期是赤道冕流加极区羽流，极大期四面放射），用几何模型，不做 PFSS 外推；要用黑子数定相位时先核实 SILSO 的许可证（GFZ 文件里的黑子数是 CC BY-NC）。不做 CME
-5. 土星的其他小卫星：用 `element_table_bake.py` 和 Thomas 的形状模型加牧羊卫星 Prometheus、Pandora（F 环两侧，混沌的相互作用）和 Pan、Daphnis（Encke、Keeler 缝里），以及 Tethys、Dione 的特洛伊卫星（Telesto、Calypso、Helene、Polydeuces）；先确认 Horizons 的覆盖范围，Laplace 极从 [ELEM] 取
-6. Kerbol 场景：高度图和法线（晨昏线上的立体感，也可用于月球、火星的 USGS DEM）与海面高光（Kerbin、Eve、Laythe、地球）；还可以用 `kerbol_transfer.py` 的办法加别的示意航线（Minmus、Duna 的转移窗口等，标明是设计的）
-7. 黑洞附近的天体做透镜：Gargantua 的示例行星和 Mann 星现在按真实位置画，转到黑洞背后时被挡住（真实情况下光会弯到阴影上方）。可以对每个天体解相机到天体的类光测地线，把球和标记画在主像（和次像）的位置
-8. 木星极光：主要发紫外光（H₂ 的 Lyman 和 Werner 带），可见光里几乎看不到，要像 WR 104 的红外伪彩色那样做成“紫外视图”的开关并在展签里写明。主卵之外，Io、Europa、Ganymede 的磁通管足点跟着卫星走，是好看的物理联系；足点和卵的位置要用 Juno 的磁场模型（JRM33）沿磁力线追踪，不能用偶极。可以复用地球极光的壳层 pass（`AuroraPass`），但卵的形状和活动要另找数据（哈勃和 Juno UVS 的统计卵）。别的天体的极光（土星、火星、Ganymede 自己的卵）做不做还没定
-9. 远期：macOS（Metal，需要 SPIR-V → MSL 和 macOS CI）；J1141-6545 的自转轴进动（Venkatraman Krishnan 2019 表 1：α ≈ 89°，δ 各模型从 35° 到 155° 不等，倾向的模型 3 是 91° ± 60°；Manchester 2010 约 110°），等几何解定下来再做
+3. 日冕：`sun.frag.hlsl` 现在只有临边昏暗加一圈示意的衰减光。真实的 K 日冕在日面边缘只有日面亮度的约 10⁻⁶，按物理亮度在泛光下看不见，日面被挡住时才显出来，所以先做两种场合：日食事件（相机在月影本影里，2017-08-21 或 2024-04-08；或者从月球看地球挡住太阳，顺带地球大气的一圈红光），和 Parker 场景（探测器就在日冕里）。结构按太阳周期的相位变化（极小期是赤道冕流加极区羽流，极大期四面放射），用几何模型，不做 PFSS 外推；要用黑子数定相位时先核实 SILSO 的许可证（GFZ 文件里的黑子数是 CC BY-NC）。不做 CME
+4. 土星的其他小卫星：用 `element_table_bake.py` 和 Thomas 的形状模型加牧羊卫星 Prometheus、Pandora（F 环两侧，混沌的相互作用）和 Pan、Daphnis（Encke、Keeler 缝里），以及 Tethys、Dione 的特洛伊卫星（Telesto、Calypso、Helene、Polydeuces）；先确认 Horizons 的覆盖范围，Laplace 极从 [ELEM] 取
+5. Kerbol 场景：高度图和法线（晨昏线上的立体感，也可用于月球、火星的 USGS DEM）与海面高光（Kerbin、Eve、Laythe、地球）；还可以用 `kerbol_transfer.py` 的办法加别的示意航线（Minmus、Duna 的转移窗口等，标明是设计的）
+6. 黑洞附近的天体做透镜：Gargantua 的示例行星和 Mann 星现在按真实位置画，转到黑洞背后时被挡住（真实情况下光会弯到阴影上方）。可以对每个天体解相机到天体的类光测地线，把球和标记画在主像（和次像）的位置
+7. 木星极光：主要发紫外光（H₂ 的 Lyman 和 Werner 带），可见光里几乎看不到，要像 WR 104 的红外伪彩色那样做成“紫外视图”的开关并在展签里写明。主卵之外，Io、Europa、Ganymede 的磁通管足点跟着卫星走，是好看的物理联系；足点和卵的位置要用 Juno 的磁场模型（JRM33）沿磁力线追踪，不能用偶极。可以复用地球极光的壳层 pass（`AuroraPass`），但卵的形状和活动要另找数据（哈勃和 Juno UVS 的统计卵）。别的天体的极光（土星、火星、Ganymede 自己的卵）做不做还没定
+8. 远期：macOS（Metal，需要 SPIR-V → MSL 和 macOS CI）；J1141-6545 的自转轴进动（Venkatraman Krishnan 2019 表 1：α ≈ 89°，δ 各模型从 35° 到 155° 不等，倾向的模型 3 是 91° ± 60°；Manchester 2010 约 110°），等几何解定下来再做
 
 ## 不要做
 

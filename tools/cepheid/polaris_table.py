@@ -1,0 +1,140 @@
+"""Pulsation table of Polaris (alpha UMi Aa), built from published measurements.
+
+Usage:
+    python polaris_table.py <output.csv> [count]
+
+There is no SPIPS-like model of Polaris, so the table is assembled here:
+
+- Radius: the pulsation radial velocity of Anderson 2019 (A&A 623, A146,
+  Table 1, Hermes): v - v_gamma = sum_j a_j cos(2 pi j phi) + b_j sin(2 pi j phi),
+  phi = 0 at minimum velocity. (The caption of Table 1 writes sin and cos the
+  other way round, but his Hermes velocities at the reference epoch, VizieR
+  J/A+A/623/A146, are at their minimum at t0, which only this way gives.)
+  The surface moves at -p (v - v_gamma); integrating it over the cycle gives
+  the radius about the mean of 46.27 R_sun that Evans et al. 2024 (ApJ 971,
+  190, Sect. 3.1) measured with CHARA. The projection factor p = 1.29 is
+  Merand et al. 2015's for delta Cep (an assumption: none is measured for
+  Polaris).
+- Effective temperature: a sine (mean, amplitude, phase) fitted to the 21
+  line-depth-ratio temperatures of Usenko et al. 2016 (Odessa Astron. Publ.
+  29; arXiv:1610.03813, Table 1, Sept - Dec 2015), phased on Anderson's
+  ephemeris (minimum velocity at BJD 2456553.62553, P = 3.97198 d).
+- Luminosity: (R / R_sun)^2 (T / 5772 K)^4.
+
+Writes `count` phases (default 200) as
+
+    phase,radius_rsun,teff_k,luminosity_lsun
+
+and prints where the light at 550 nm (a black body of the radius and
+temperature) peaks, for the scene's epoch_phase. Then fits a quadratic
+ephemeris of maximum light to the times Evans et al. 2024 (Table 2, column
+Tmax) took from the O-C diagram of Torres 2023 (MNRAS 526, 2510, Fig. 6),
+2016-2021, and prints it for the scene. Standard library only.
+"""
+
+import math
+import sys
+
+# Anderson 2019, Table 1, Hermes: (a_j, b_j) in km/s for j = 1, 2.
+RV_HARMONICS = [(-1.763, -0.005), (0.026, 0.044)]
+RV_EPOCH_BJD = 2456553.62553
+RV_PERIOD_D = 3.97198
+P_FACTOR = 1.29
+MEAN_RADIUS_RSUN = 46.27
+SUN_RADIUS_KM = 695700.0  # IAU 2015 nominal
+SUN_TEFF_K = 5772.0       # IAU 2015 nominal
+
+# Usenko et al. 2016, Table 1: HJD - 2450000, T_eff (K), its error (K).
+USENKO_TEFF = [
+    (7283.656, 6083, 15), (7284.715, 6059, 23), (7311.627, 6048, 20), (7312.630, 6064, 20),
+    (7313.632, 6007, 15), (7314.583, 5997, 16), (7316.650, 6070, 17), (7317.625, 5967, 16),
+    (7318.599, 6001, 18), (7319.535, 6077, 16), (7337.676, 5962, 17), (7338.548, 6006, 19),
+    (7339.657, 6025, 20), (7340.667, 6037, 15), (7343.559, 6058, 18), (7349.546, 5990, 14),
+    (7350.581, 6034, 16), (7365.541, 6025, 17), (7366.563, 5973, 19), (7372.638, 5975, 15),
+    (7376.586, 6022, 14),
+]
+
+# Evans et al. 2024, Table 2: times of maximum light, HJD - 2400000.
+LIGHT_MAXIMA = [57641.7504, 57709.2759, 58356.7171, 58579.1471, 58726.1087, 59306.0020]
+
+
+def solve(m, y):
+    """Least squares: the x minimizing |m x - y| (normal equations, Gauss-Jordan)."""
+    n = len(m[0])
+    a = [[sum(r[i] * r[j] for r in m) for j in range(n)] + [sum(r[i] * v for r, v in zip(m, y))]
+         for i in range(n)]
+    for i in range(n):
+        p = max(range(i, n), key=lambda k: abs(a[k][i]))
+        a[i], a[p] = a[p], a[i]
+        for k in range(n):
+            if k != i:
+                f = a[k][i] / a[i][i]
+                a[k] = [x - f * z for x, z in zip(a[k], a[i])]
+    return [a[i][n] / a[i][i] for i in range(n)]
+
+
+def fit_teff():
+    """Weighted fit T = T0 + c cos(2 pi phi) + s sin(2 pi phi): (T0, amplitude, phase of maximum)."""
+    rows, y = [], []
+    for hjd, teff, err in USENKO_TEFF:
+        phi = 2.0 * math.pi * (hjd + 2450000.0 - RV_EPOCH_BJD) / RV_PERIOD_D
+        rows.append([1.0 / err, math.cos(phi) / err, math.sin(phi) / err])
+        y.append(teff / err)
+    t0, c, s = solve(rows, y)
+    return t0, math.hypot(c, s), (math.atan2(s, c) / (2.0 * math.pi)) % 1.0
+
+
+def radius_rsun(phase):
+    """Mean radius plus the integral of -p (v - v_gamma) dt from the mean."""
+    dr_km = 0.0
+    for j, (a, b) in enumerate(RV_HARMONICS, start=1):
+        x = 2.0 * math.pi * j * phase
+        dr_km -= P_FACTOR * RV_PERIOD_D * 86400.0 / (2.0 * math.pi * j) * (a * math.sin(x) - b * math.cos(x))
+    return MEAN_RADIUS_RSUN + dr_km / SUN_RADIUS_KM
+
+
+def flux_550(radius, teff):
+    return radius * radius / math.expm1(1.4387769e7 / (550.0 * teff))
+
+
+def main(dst, count):
+    t_mean, t_amp, t_phase = fit_teff()
+    print(f'T_eff fit: {t_mean:.1f} K + {t_amp:.1f} K cos(2 pi (phi - {t_phase:.4f}))')
+    rows = []
+    for k in range(count):
+        phase = k / count
+        r = radius_rsun(phase)
+        t = t_mean + t_amp * math.cos(2.0 * math.pi * (phase - t_phase))
+        rows.append((phase, r, t, r * r * (t / SUN_TEFF_K) ** 4))
+    with open(dst, 'w', encoding='ascii', newline='\n') as out:
+        out.write('# Polaris Aa: radius from the RV curve of Anderson 2019 (p = 1.29) about the CHARA mean\n')
+        out.write('# radius of Evans et al. 2024; T_eff a sine fitted to Usenko et al. 2016. Phase 0 = minimum RV.\n')
+        out.write('# Generated by tools/cepheid/polaris_table.py.\n')
+        out.write('phase,radius_rsun,teff_k,luminosity_lsun\n')
+        for phase, r, t, lum in rows:
+            out.write(f'{phase:.6f},{r:.5f},{t:.1f},{lum:.1f}\n')
+    radii = [r for _, r, _, _ in rows]
+    print(f'{count} phases written to {dst}; radius {min(radii):.3f} .. {max(radii):.3f} R_sun')
+
+    # Maximum light at 550 nm, finely.
+    fine = [i / 100000.0 for i in range(100000)]
+    peak = max(fine, key=lambda p: flux_550(radius_rsun(p),
+                                            t_mean + t_amp * math.cos(2.0 * math.pi * (p - t_phase))))
+    fluxes = [flux_550(radius_rsun(p), t_mean + t_amp * math.cos(2.0 * math.pi * (p - t_phase))) for p in fine[::100]]
+    print(f'light maximum at phase {peak:.4f} ({(peak - 1.0) * RV_PERIOD_D:+.3f} d from minimum RV); '
+          f'550 nm amplitude {2.5 * math.log10(max(fluxes) / min(fluxes)):.4f} mag')
+
+    # Quadratic ephemeris of maximum light around the latest maximum.
+    t_ref = LIGHT_MAXIMA[-1]
+    e = [round((t - t_ref) / RV_PERIOD_D) for t in LIGHT_MAXIMA]
+    c0, c1, c2 = solve([[1.0, x, x * x] for x in e], [t - t_ref for t in LIGHT_MAXIMA])
+    pdot = 2.0 * c2 / c1  # dP/dt
+    print(f'maxima: HJD {t_ref + 2400000.0 + c0:.5f} + {c1:.7f} E + {c2:.4e} E^2 '
+          f'(dP/dt = {pdot * 365.25 * 86400.0:+.2f} s/yr); residuals (d):',
+          ' '.join(f'{t - t_ref - (c0 + c1 * x + c2 * x * x):+.5f}' for t, x in zip(LIGHT_MAXIMA, e)))
+
+
+if __name__ == '__main__':
+    if len(sys.argv) not in (2, 3):
+        sys.exit(__doc__)
+    main(sys.argv[1], int(sys.argv[2]) if len(sys.argv) == 3 else 200)

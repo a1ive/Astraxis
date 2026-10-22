@@ -1050,6 +1050,176 @@ void test_delta_cephei_scene()
     check(worst_rv < 0.02, "Delta Cephei radial velocity on the orbit (km/s)", worst_rv);
 }
 
+// Polaris [Evans et al. 2024, Anderson 2019, Usenko et al. 2016, Torres 2023]:
+// the radius swings about CHARA's mean as Anderson's pulsation velocities
+// (p = 1.29) say, and the temperature as Usenko's spectra; the light peaks on
+// the maxima Evans took from Torres's O-C diagram, 0.21 d before minimum
+// velocity, with the V range Torres's 50 km/s per magnitude gives; Ab stands
+// where HST, CHARA and speckle saw it, and Aa sways by K1.
+void test_polaris_scene()
+{
+    Scene scene = load_scene_or_die("polaris.toml");
+    check_model_sky(scene, "Polaris model sky");
+    const int aa = scene.find("Polaris Aa");
+    const int ab = scene.find("Polaris Ab");
+    const int b = scene.find("Polaris B");
+    check(aa > 0 && ab > 0 && b > 0 && scene.bodies[static_cast<size_t>(aa)].pulsation != nullptr,
+          "Polaris Aa pulsates");
+    check(scene.light_curve.enabled() && scene.light_curve.stars.size() == 3, "Polaris light curve of Aa, Ab and B");
+    if (aa <= 0 || ab <= 0 || b <= 0 || !scene.bodies[static_cast<size_t>(aa)].pulsation) {
+        return;
+    }
+    const Pulsation& pulsation = *scene.bodies[static_cast<size_t>(aa)].pulsation;
+
+    // [EV24] Sect. 3.1: mean radius 46.27 R_sun, changing by about 0.4%. [US16]: 6025 +- 42 K.
+    double r_min = 1e30, r_max = 0.0, r_sum = 0.0, t_min = 1e9, t_max = 0.0;
+    for (const Pulsation::Sample& s : pulsation.samples) {
+        r_min = std::min(r_min, s.radius_km);
+        r_max = std::max(r_max, s.radius_km);
+        r_sum += s.radius_km;
+        t_min = std::min(t_min, s.temperature_k);
+        t_max = std::max(t_max, s.temperature_k);
+    }
+    const double r_mean = r_sum / pulsation.samples.size() / kSunRadiusKm;
+    check(std::abs(r_mean - 46.27) < 0.01, "Polaris mean radius (R_sun)", r_mean);
+    const double swing = 0.5 * (r_max - r_min) / (r_mean * kSunRadiusKm);
+    check(swing > 0.003 && swing < 0.005, "Polaris radius semi-amplitude (fraction)", swing);
+    check(std::abs(t_min - 5983.0) < 2.0 && std::abs(t_max - 6067.0) < 2.0, "Polaris T_eff range", t_max - t_min);
+
+    // [AN19] Table 1: the surface moves at -p (v - v_gamma), v - v_gamma =
+    // sum a_j cos(2 pi j phi) + b_j sin(2 pi j phi), phi = 0 at minimum velocity.
+    {
+        const double a[] = {-1.763, 0.026};
+        const double bj[] = {-0.005, 0.044};
+        const double period = 3.97198 * kSecondsPerDay;
+        const size_t n = pulsation.samples.size();
+        double worst = 0.0;
+        for (size_t i = 0; i < n; ++i) {
+            const Pulsation::Sample& prev = pulsation.samples[(i + n - 1) % n];
+            const Pulsation::Sample& next = pulsation.samples[(i + 1) % n];
+            const double phi = pulsation.samples[i].phase;
+            const double dphi = std::fmod(next.phase - prev.phase + 1.0, 1.0);
+            const double rv = -(next.radius_km - prev.radius_km) / (dphi * period) / 1.29;
+            double model = 0.0;
+            for (int j = 0; j < 2; ++j) {
+                model += a[j] * std::cos(kTwoPi * (j + 1) * phi) + bj[j] * std::sin(kTwoPi * (j + 1) * phi);
+            }
+            worst = std::max(worst, std::abs(rv - model));
+        }
+        check(worst < 0.01, "Polaris pulsation radial velocity (km/s)", worst);
+    }
+
+    // The scene's ephemeris: t(E) = T0 + P0 E + P0 Pdot E^2 / 2, Pdot = -5.12 s/yr.
+    const double t0 = tdb_from_jd_tdb(2459306.00203);
+    const double p0 = 3.9718259 * kSecondsPerDay;
+    const double pdot = -5.12 / (kDaysPerJulianYear * kSecondsPerDay);
+    double worst_cycles = 0.0;
+    for (double e : {-2000.0, -500.0, 0.0, 500.0}) {
+        const double t = t0 + p0 * e + 0.5 * p0 * pdot * e * e;
+        worst_cycles = std::max(worst_cycles, std::abs(pulsation.cycles(t) - e));
+    }
+    check(worst_cycles < 1e-4, "Polaris cycles on the quadratic ephemeris", worst_cycles);
+
+    // The light curve (a black body at 550 nm) peaks on [EV24] Table 2's Tmax (HJD).
+    double worst_max = 0.0;
+    for (double hjd : {2457641.7504, 2457709.2759, 2458356.7171, 2458579.1471, 2458726.1087, 2459306.0020}) {
+        const double t = tdb_from_jd_tdb(hjd);
+        worst_max = std::max(worst_max, std::abs(find_light_maximum(scene, t, 0.5 * kSecondsPerDay) - t));
+    }
+    check(worst_max < 0.01 * kSecondsPerDay, "Polaris light maxima on [EV24]'s Tmax (d)", worst_max / kSecondsPerDay);
+
+    // [TO23] Sect. 3: the light peaks 0.21 d before minimum velocity (the model:
+    // 0.15 d); [AN19]'s minimum velocity in 2013 against the scene's (the
+    // scene's ephemeris carried back 8 years).
+    {
+        const double t_peak = find_light_maximum(scene, t0, 0.5 * kSecondsPerDay);
+        const double lead_d = std::fmod(1.0 - pulsation.epoch_phase - pulsation.cycles(t_peak) + 10.0, 1.0) * 3.97;
+        std::printf("info: Polaris light maximum %.3f d before minimum velocity\n", lead_d);
+        check(std::abs(lead_d - 0.21) < 0.08, "Polaris light maximum before minimum velocity (d)", lead_d);
+        const double t_an = tdb_from_jd_tdb(2456553.62553);
+        const double phase = pulsation.epoch_phase + pulsation.cycles(t_an);
+        const double dt_d = (phase - std::round(phase)) * 3.97198;
+        check(std::abs(dt_d) < 0.15, "Polaris minimum velocity on [AN19]'s ephemeris (d)", dt_d);
+    }
+
+    // V range: [AN19]'s full velocity amplitude, 3.526 km/s, at [TO23]'s 50 km/s per magnitude.
+    double faintest = 0.0;
+    double brightest = 99.0;
+    for (double t = t0; t < t0 + p0; t += p0 / 400.0) {
+        const double m = light_curve_magnitude(scene, t);
+        faintest = std::max(faintest, m);
+        brightest = std::min(brightest, m);
+    }
+    std::printf("info: Polaris V amplitude %.4f mag\n", faintest - brightest);
+    check(std::abs((faintest - brightest) - 3.526 / 50.0) < 0.012, "Polaris V amplitude (mag)", faintest - brightest);
+
+    // [EV24] Table 3: Ab relative to Aa (HJD, rho in mas, theta east of north,
+    // major semi-axis of the error ellipse): CHARA 2016-2021, speckle 2023, HST
+    // 2005-2014. The fit passes all within about 1 sigma.
+    {
+        const double distance_km = 136.90 * kParsecKm;
+        const double ra = 37.9545607 * kDegToRad;
+        const double dec = 89.2641090 * kDegToRad;
+        const glm::dvec3 north(-std::sin(dec) * std::cos(ra), -std::sin(dec) * std::sin(ra), std::cos(dec));
+        const glm::dvec3 east(-std::sin(ra), std::cos(ra), 0.0);
+        struct Position {
+            double hjd, rho, theta, sigma;
+        };
+        const Position seen[] = {
+            {57643.735, 33.008, 71.696, 5.757}, {58728.831, 75.537, 340.239, 0.833},
+            {59306.890, 84.507, 315.900, 1.200}, {59307.982, 84.447, 315.787, 10.736},
+            {59308.785, 84.232, 315.669, 0.880}, {60237.913, 98.8, 286.7, 5.3},
+            {53585.488, 172.4, 231.407, 2.1},    {53961.416, 169.6, 226.385, 3.1},
+            {54298.514, 180.0, 223.0, 20.0},     {55153.597, 150.0, 216.0, 20.0},
+            {56835.302, 85.0, 175.0, 20.0},
+        };
+        double worst = 0.0;
+        for (const Position& p : seen) {
+            const double t = tdb_from_jd_tdb(p.hjd + 2400000.0);
+            const glm::dvec3 r = scene.icrf_state_at(ab, t).position - scene.icrf_state_at(aa, t).position;
+            const glm::dvec2 model = glm::dvec2(glm::dot(r, east), glm::dot(r, north)) / distance_km *
+                                     (kRadToDeg * 3600.0e3);
+            const double th = p.theta * kDegToRad;
+            const glm::dvec2 measured(p.rho * std::sin(th), p.rho * std::cos(th));
+            worst = std::max(worst, glm::length(model - measured) / p.sigma);
+        }
+        std::printf("info: Polaris Ab on the measured positions within %.2f sigma\n", worst);
+        check(worst < 1.5, "Polaris Ab on [EV24]'s positions (sigma)", worst);
+    }
+
+    // [EV24] Table 5: Aa's radial velocity K1 (cos(nu + omega) + e cos omega).
+    {
+        const glm::dvec3 away = unit_toward(37.9545607, 89.2641090);
+        const double t_peri = tdb_from_julian_year(2016.831);
+        const double period = 29.416 * kDaysPerJulianYear * kSecondsPerDay;
+        const double e = 0.6354;
+        const double omega = 304.54 * kDegToRad;
+        double worst_rv = 0.0;
+        for (double f = 0.0; f < 1.0; f += 0.01) {
+            const double t = t_peri + f * period;
+            const double m = kTwoPi * f;
+            double ea = m;
+            for (int k = 0; k < 50; ++k) {
+                ea -= (ea - e * std::sin(ea) - m) / (1.0 - e * std::cos(ea));
+            }
+            const double nu =
+                2.0 * std::atan2(std::sqrt(1.0 + e) * std::sin(0.5 * ea), std::sqrt(1.0 - e) * std::cos(0.5 * ea));
+            const double rv = 3.762 * (std::cos(nu + omega) + e * std::cos(omega));
+            worst_rv = std::max(worst_rv, std::abs(glm::dot(scene.icrf_state_at(aa, t).velocity, away) - rv));
+        }
+        check(worst_rv < 0.01, "Polaris Aa radial velocity on the orbit (km/s)", worst_rv);
+    }
+
+    // B 18.25" from A at position angle 230.7 deg [SIMB], on the sky plane.
+    {
+        const glm::dvec3 r = scene.icrf_state_at(b, 0.0).position - scene.icrf_state_at(0, 0.0).position;
+        const double sep = glm::length(r) / (136.90 * kParsecKm) * kRadToDeg * 3600.0;
+        check(std::abs(sep - 18.25) < 0.05, "Polaris B separation (arcsec)", sep); // from the barycenter, not Aa
+        check(std::abs(glm::dot(glm::normalize(r), unit_toward(37.9545607, 89.2641090))) < 1e-3,
+              "Polaris B on the sky plane");
+    }
+}
+
 // Kepler-64 [Schwamb et al. 2013]: integrated from the Table 7 joint solution,
 // the binary eclipses and the planet transits Aa when they were measured
 // (Table 3, 1-sigma 0.9 and 7 min; Table 2, 6-9 min; BJD - 2455000), and Ba +
@@ -1460,6 +1630,7 @@ void run_stellar_system_tests()
     test_tic168789840_scene();
     test_algol_scene();
     test_delta_cephei_scene();
+    test_polaris_scene();
     test_kepler64_scene();
     test_psr_b1620_scene();
     test_wr104_scene();

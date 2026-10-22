@@ -1,0 +1,240 @@
+# Polaris, the North Star: the nearest Cepheid, a yellow supergiant that
+# swells and shrinks every 3.97 days, but only barely (its light changes by
+# less than a tenth of a magnitude). An F dwarf circles it every 29.4 years on
+# an eccentric orbit, and a third star, Polaris B, stands 2,500 au away.
+#
+# There is no published phase-by-phase model of Polaris like delta Cep's SPIPS,
+# so its cycle is assembled from measurements (tools/cepheid/polaris_table.py,
+# assets/stars/SOURCES.md): the radius from integrating the pulsation radial
+# velocity of [AN19] about the mean radius CHARA measured [EV24], the
+# effective temperature a sine fitted to [US16]. The plot in the corner is its
+# light as seen from Earth (scene/light_curve.hpp): a black body at 550 nm of
+# the current radius and temperature. The orbit of Aa and Ab is [EV24]'s
+# combined fit to CHARA, HST and speckle positions and a century of radial
+# velocities.
+#
+# [EV24] Evans et al. 2024, ApJ 971, 190 (arXiv:2407.09641): Table 5,
+#        "Replicated" column (the preferred solution, Sect. 5.5): P = 29.416 yr,
+#        T_peri = 2016.831 (Julian year), e = 0.6354, omega_Aa = 304.54 deg,
+#        K1 = 3.762 km/s, Omega = 201.28 deg, i = 127.57 deg, a = 129.55 mas;
+#        M_Aa = 5.13, M_Ab = 1.316 M_sun at the distance of Polaris B, 136.90 pc
+#        (Sect. 1.1, Gaia DR3 with the Lindegren offset). Sect. 3.1: mean
+#        limb-darkened diameter 3.143 mas, radius 46.27 R_sun; pulsation should
+#        change it by about 0.4% (Moskalik & Gorynya 2005). Table 2: times of
+#        maximum light 2016-2021 (Tmax, HJD) from the O-C diagram of [TO23].
+#        Table 3: Ab's positions relative to Aa (HST 2005-2014, CHARA 2016-2021,
+#        speckle 2023). Sect. 3.2: starspots in the CHARA images. Sect. 1.1: the
+#        times of periastron coincide with the phase jump of about 1960 and the
+#        amplitude changes; Polaris B is bound to A (Bond et al. 2018); Polaris
+#        is too bright for Gaia. Sect. 6.2: more luminous than evolutionary
+#        tracks predict for its mass.
+# [AN19] Anderson 2019, A&A 623, A146 (arXiv:1902.08031), Table 1 (Hermes):
+#        pulsation radial velocity a1 = -1.763, b1 = -0.005, a2 = 0.026,
+#        b2 = 0.044 km/s (a_j with cos, b_j with sin: see polaris_table.py), on
+#        P = 3.97198 d with minimum velocity at BJD 2456553.62553; full
+#        amplitude 3.526 km/s, stable from 2011 to 2018.
+# [ME15] Merand et al. 2015, A&A 584, A80, Table 2: p-factor 1.29 for delta Cep
+#        (assumed for Polaris, which has no measured one); delta Cep's radius
+#        40.1 .. 44.7 R_sun (delta_cephei.toml).
+# [US16] Usenko et al. 2016, Odessa Astron. Publ. 29 (arXiv:1610.03813), Table
+#        1: 21 effective temperatures, Sept - Dec 2015; a sine fitted to them on
+#        [AN19]'s ephemeris: 6025 +- 42 K, hottest 0.30 d before minimum velocity.
+# [TO23] Torres 2023, MNRAS 526, 2510 (arXiv:2309.03257): Sect. 3, the light
+#        peaks 0.21 d before the velocity minimum; Sect. 4.2 and Fig. 6, the
+#        period grew by about 4.5 s per year from 1845 until about 2010, and is
+#        now shrinking; Sect. 4.3 and Fig. 7, the full velocity amplitude fell
+#        to 1.5 km/s in the 1980s and grew back to 3.5 km/s by about 2015;
+#        a velocity range of 50 km/s per magnitude of V range (after Turner et
+#        al. 2005).
+# [BR08] Bruntt et al. 2008, ApJ 683, 433 (arXiv:0810.4371), Sect. 1: the V
+#        amplitude fell from about 0.1 to 0.02 mag over a century; it has grown
+#        since. [AN19] Sect. 1: it had been predicted to stop pulsating.
+# [PM13] Pecaut & Mamajek 2013, ApJS 208, 9, Table 5 (online version
+#        2022.04.16): F5V (1.33 M_sun, the row nearest 1.316): T_eff 6550 K,
+#        1.473 R_sun, log L = 0.56; F3V: 6750 K, 1.578 R_sun, log L = 0.67.
+# [SIMB] SIMBAD: ICRS positions at J2000: Polaris (Hipparcos, van Leeuwen
+#        2007) 37.9545607, 89.2641090 deg; Polaris B (Gaia DR3) 37.6503585,
+#        89.2608898 deg (18.25" at position angle 230.7 deg), spectral type F3V.
+#
+# [CAP]  Event captions: from the sources above.
+# Assumed (not measured): Ab is drawn as an F5 dwarf of its mass [PM13]; B as
+# an F3 dwarf, fixed where Gaia sees it and at the same distance as A (its
+# orbit, tens of thousands of years long, is unknown). The pulsation has the
+# shape and amplitude of 2011-2018 and the period of 2016-2021 throughout; the
+# starspots, the 40 and 60 d signals of [AN19] and the circumstellar envelope
+# are not shown.
+# GM = mass * GM_sun (1.32712440041279419e11 km^3/s^2, JPL DE440).
+# Checks (tests/stellar_system_tests.cpp): the mean radius and its 0.4% change
+# [EV24], the radial velocity against [AN19], maxima on [EV24]'s Tmax and
+# [AN19]'s ephemeris with [TO23]'s offset, the V amplitude against [TO23]'s
+# 50 km/s per magnitude, Ab's positions against [EV24] Table 3 and Aa's
+# radial velocity against K1.
+# The sky is a model of the Milky Way as seen from here (tools/sky/make_galaxy_sky.py,
+# assets/sky/SOURCES.md): its stars and dust clouds are statistical, not real ones.
+
+name = "Polaris"
+
+[sky]
+viewer_ra_dec_distance_pc = [37.9545607, 89.2641090, 136.90]   # [SIMB], [EV24]
+milky_way = "sky/polaris.jpg"
+stars = "sky/polaris_stars.csv"
+
+[view]
+focus = "Polaris Aa"
+distance_km = 2.6e8
+start = "now"
+warp = 7200.0                  # 2 hours per second: a cycle in 48 s
+up = "orbit_normal:Polaris Ab"
+star_surfaces = "relative"
+
+# The plot in the corner: its light as seen from Earth.
+[light_curve]
+observer = "Sun"
+band = "V"
+wavelength_nm = 550.0
+limb_darkening = 0.6           # as the star disks are drawn (shaders/sun.frag.hlsl)
+span_days = 10.0               # two and a half cycles
+
+[[bodies]]
+name = "Polaris"
+kind = "barycenter"
+
+# The Cepheid and its companion around their barycenter: Ab relative to Aa
+# [EV24], omega + 180 deg for the companion.
+[[bodies]]
+name = "Polaris Aa"
+parent = "Polaris"
+kind = "star"
+radii_km = [32190039.0]        # 46.27 R_sun [EV24], the mean of the table
+temperature_k = 6025.0         # replaced by the pulsation
+luminosity_solar = 2540.0
+orbit_color = "#fff0c0"
+[bodies.pulsation]
+table = "stars/polaris_pulsation.csv"   # [AN19], [EV24], [US16]
+epoch_jd_tdb = 2459306.00203   # a maximum, fitted to [EV24]'s Tmax
+epoch_phase = 0.9635           # the table's maximum light (550 nm)
+period_days = 3.9718259        # at that epoch, fitted to [EV24]'s Tmax
+period_change_s_per_year = -5.12
+[bodies.orbit]
+scale = -0.204157617           # -M_Ab / M_total
+type = "visual_orbit"
+gm_km3_s2 = 8.554643885e11     # 5.13 + 1.316 M_sun
+period_days = 10744.194        # 29.416 yr
+e = 0.6354
+i_deg = 127.57
+node_deg = 201.28
+arg_peri_deg = 124.54          # the companion's: 304.54 - 180
+t_peri_year = 2016.831
+sky_ra_dec_deg = [37.9545607, 89.2641090]
+
+[[bodies]]
+name = "Polaris Ab"
+parent = "Polaris"
+kind = "star"
+radii_km = [1024766.0]         # 1.473 R_sun [PM13]
+temperature_k = 6550.0
+luminosity_solar = 3.63
+orbit_color = "#e0e8ff"
+[bodies.orbit]
+scale = 0.795842383            # M_Aa / M_total
+type = "visual_orbit"
+gm_km3_s2 = 8.554643885e11
+period_days = 10744.194
+e = 0.6354
+i_deg = 127.57
+node_deg = 201.28
+arg_peri_deg = 124.54
+t_peri_year = 2016.831
+sky_ra_dec_deg = [37.9545607, 89.2641090]
+
+# 18.25" from A at position angle 230.7 deg [SIMB], on the sky plane at 136.90 pc.
+[[bodies]]
+name = "Polaris B"
+parent = "Polaris"
+kind = "star"
+radii_km = [1097815.0]         # 1.578 R_sun [PM13]
+temperature_k = 6750.0
+luminosity_solar = 4.68
+trail = "none"
+[bodies.orbit]
+type = "fixed"
+ra_dec_distance_pc = [347.2259, -0.4684, 0.0121116]   # 2,498 au
+
+[[bodies]]
+name = "Sun"
+parent = "Polaris"
+kind = "star"
+radii_km = [695700.0]
+body_gm_km3_s2 = 1.32712440041279419e11 # JPL DE440
+temperature_k = 5772.0
+luminosity_solar = 1.0
+trail = "none"
+[bodies.orbit]                 # opposite direction of the system as seen from the Sun [SIMB]
+type = "fixed"
+ra_dec_distance_pc = [217.9545607, -89.2641090, 136.90]
+
+[[frames]]
+name = "Polaris Aa-centered"
+type = "inertial"
+origin = "Polaris Aa"
+
+[[events]]
+name = "The North Star breathes, barely: 3.97 days"
+time_tdb = "2026-11-02 12:00"  # 10 hours before a maximum
+focus = "Polaris Aa"
+frame = "Polaris Aa-centered"
+distance_km = 2.6e8
+warp = 7200.0
+# [EV24], [AN19], [US16], [ME15]
+caption = """\
+    Polaris is a supergiant 46 times the Sun's radius, and the nearest \
+    Cepheid to us. Every 3.97 days its surface rises and falls by about \
+    250,000 km, under one percent of its radius, and it warms and cools by \
+    about 80 K. Delta Cephei's radius changes by eleven percent. CHARA's \
+    images of Polaris also show spots on its surface."""
+
+[[events]]
+name = "Seen from Earth: a wavering beat"
+time_tdb = "2026-11-06 12:00"  # 10 hours before a maximum
+focus = "Polaris Aa"
+frame = "Polaris Aa-centered"
+from_body = "Sun"
+distance_km = 2.6e8
+warp = 7200.0
+# [BR08], [AN19], [TO23]
+caption = """\
+    From Earth Polaris now varies by less than a tenth of a magnitude. Over \
+    the 20th century its variation shrank from about 0.1 to 0.02 magnitudes, \
+    and some predicted that it would stop pulsating; since about 2000 it has \
+    grown again. Its period lengthened by 4.5 seconds a year for over 150 \
+    years, but since about 2010 it has been getting shorter."""
+
+[[events]]
+name = "Polaris Ab: 29.4 years, eccentric (2046 periastron)"
+time = "2043-01-01"
+focus = "Polaris"
+from_orbit_normal = "Polaris Ab"
+distance_km = 1.0e10
+warp = 7889400.0               # 3 months per second: an orbit in 2 minutes
+# [EV24], [TO23]
+caption = """\
+    A dwarf star of 1.3 solar masses circles the Cepheid every 29.4 years, \
+    from 6.5 to 29 au away. Hubble first separated it in 2005 and the CHARA \
+    Array followed it from 2016 to 2021, which weighs the Cepheid at 5.1 \
+    solar masses. Polaris shines brighter than models predict for that mass. \
+    The sudden change in its period in the 1960s followed the periastron of \
+    1958, which may have set it off."""
+
+[[events]]
+name = "Polaris B, 2,500 au away"
+time = "2047-01-01"
+focus = "Polaris"
+from_body = "Sun"
+distance_km = 8.5e11           # B and the pair, 2,500 au apart on the sky, both in view
+warp = 31557600.0              # 1 year per second
+# [EV24], [SIMB]
+caption = """\
+    Polaris B, an F dwarf 18 arcseconds from Polaris on the sky, moves \
+    through space with it. Polaris is too bright for Gaia to measure \
+    well, so the distance to the system, 137 parsecs or 447 light years, comes \
+    from Polaris B's parallax."""

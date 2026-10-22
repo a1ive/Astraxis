@@ -22,6 +22,16 @@
 - 处理：每 5 个相位取 1 个，共 200 个。半径是角直径的一半乘以 274 pc（论文固定的距离，即 Benedict et al. 2002 的 HST 视差），按 IAU 名义太阳半径 695,700 km 换成 R☉。表里的光度和 R²T⁴ 相差约 0.5%（模型的太阳常数不同），场景直接用表里的光度
 - 列：`phase,radius_rsun,teff_k,luminosity_lsun`
 
+`polaris_pulsation.csv` 是北极星（Polaris Aa）一个脉动周期里的半径、有效温度和光度，供 `polaris.toml` 使用。北极星没有 SPIPS 那样按相位列出的模型，`tools/cepheid/polaris_table.py`（只用标准库，用到的数都写在脚本里，不需要下载）由论文里的测量拼出：
+
+- 半径：Anderson 2019（A&A 623, A146）表 1 的 Hermes 脉动视向速度（两阶傅里叶级数，2011–2018 年振幅稳定，全振幅 3.526 km/s），乘投影因子 p = 1.29（Mérand 2015 给 δ Cep 的值，北极星没有测过，是假设）后对时间积分，加到 Evans et al. 2024（ApJ 971, 190）用 CHARA 测得的平均半径 46.27 R☉（136.90 pc）上。半振幅 0.39%，和 Evans 引的“约 0.4%”一致。表 1 的图注把 sin 和 cos 写反了：按图注的写法，速度极小落在相位 0.25；CDS 的 Hermes 数据（J/A+A/623/A146）在参考历元 t0 处正好是速度极小，只有 aⱼ 配 cos、bⱼ 配 sin 才对得上（对参考期的数据重新拟合得到 −1.760、−0.093、0.022、0.047，与表 1 相符）
+- 有效温度：Usenko et al. 2016（arXiv:1610.03813）表 1 的 21 个谱线深度比温度（2015 年 9–12 月），按 Anderson 的历表（速度极小 BJD 2456553.62553，P = 3.97198 d）定相位，按误差加权拟合正弦：6025 ± 42 K（误差约 8 K），速度极小前 0.076 周最热。他们的周期 3.97987 d 只用了三个月的数据，不用
+- 光度：(R/R☉)²(T/5772 K)⁴
+- 相位 0 是速度极小。550 nm 黑体的光在相位 0.9635 最亮，即速度极小前 0.145 d（Torres 2023 用 0.21 d），V 振幅 0.061 等
+- 脚本还用 Evans 2024 表 2 的 6 个光极大时刻（2016–2021 年，他们按 Torres 2023 图 6 的 O−C 样条算的）拟合二次历表，打印场景的 `epoch_jd_tdb`、`period_days`、`period_change_s_per_year`（−5.12 s/年：周期在 2010 年前后由变长转为变短）
+- 许可证：论文发表的数值，引用 Anderson 2019、Evans et al. 2024、Usenko et al. 2016
+- 列：`phase,radius_rsun,teff_k,luminosity_lsun`
+
 ## 球状星团成员星
 
 `m4.csv` 保存球状星团 M4（NGC 6121）的成员星，供 PSR B1620-26 场景绘制天空。`tools/stars/make_m4.py` 联网查询 VizieR 和 Pecaut & Mamajek 的表，生成该文件。
