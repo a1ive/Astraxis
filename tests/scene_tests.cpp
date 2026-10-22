@@ -583,6 +583,51 @@ void test_pinwheel_fades()
     check(sim.pinwheel_visibility() == 1.0, "and comes back when paused", sim.pinwheel_visibility());
     const double extent = sim.scene().system_extent_km();
     check(extent >= 3.0 * pinwheel.step_km(), "the system's extent takes in the spiral (au)", extent / kAuKm);
+    check(sim.pinwheel_exposure() == 1.0, "WR 104's dust is never dimmed", sim.pinwheel_exposure());
+}
+
+// WR 140's new dust is thousands of times brighter than the reference: the
+// eye adapts to it, by no more than 20 times and over a few real seconds,
+// except across a jump of the clock.
+void test_pinwheel_exposure()
+{
+    Simulation sim;
+    std::string error;
+    check(sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/wr140.toml", &error), "wr140.toml loads");
+    const Pinwheel& pinwheel = sim.scene().pinwheel;
+    const double t_peri = tdb_from_jd_tdb(2460636.73); // [TH21]
+    const double turn_on = t_peri - 100.0 * kSecondsPerDay;
+    const double quiet = t_peri - 400.0 * kSecondsPerDay;
+    check(pinwheel_peak_brightness(pinwheel, turn_on) > 1000.0, "the new dust is far brighter than the reference",
+          pinwheel_peak_brightness(pinwheel, turn_on));
+    const double far = 10.0 * pinwheel.step_km();
+    check(std::abs(pinwheel_exposure(pinwheel, turn_on, far) - 1.0 / 20.0) < 1e-12,
+          "but dims the rest by 20 times at most", pinwheel_exposure(pinwheel, turn_on, far));
+    const double near = 0.1 * pinwheel.step_km();
+    check(std::abs(pinwheel_exposure(pinwheel, turn_on, near) * pinwheel_peak_brightness(pinwheel, turn_on) - 2.0) < 1e-9,
+          "or fully from inside the innermost turn", pinwheel_exposure(pinwheel, turn_on, near));
+
+    sim.clock().paused = true;
+    sim.clock().t_tdb = quiet;
+    sim.update(0.1);
+    const double before = sim.pinwheel_exposure();
+    check(before == pinwheel_exposure(pinwheel, quiet, sim.pinwheel_camera_km()) && before > 0.5, "after a jump the eye is already adapted",
+          before);
+    // One frame running 300 days ahead: the eye starts to adapt.
+    sim.clock().paused = false;
+    sim.clock().warp = (turn_on - quiet) / 0.1;
+    sim.update(0.1);
+    sim.clock().paused = true;
+    const double target = pinwheel_exposure(pinwheel, sim.clock().t_tdb, sim.pinwheel_camera_km());
+    check(target < 0.1, "the new dust dims the view", target);
+    check(std::abs(sim.clock().t_tdb - turn_on) < 1.0, "the clock ran to the turn-on");
+    check(sim.pinwheel_exposure() < before && sim.pinwheel_exposure() > 0.5 * before,
+          "the exposure eases instead of following at once", sim.pinwheel_exposure());
+    for (int i = 0; i < 100; ++i) {
+        sim.update(0.1);
+    }
+    check(std::abs(sim.pinwheel_exposure() / target - 1.0) < 0.01, "and has adapted ten seconds later",
+          sim.pinwheel_exposure() / target);
 }
 
 // An event can shorten a trail while its frame is shown: in Parker's
@@ -1211,6 +1256,7 @@ void run_scene_tests()
     test_event_trails();
     test_sky_fades_in_fast_frames();
     test_pinwheel_fades();
+    test_pinwheel_exposure();
     test_event_from_sun();
     test_body_fixed_frames();
     test_label_layout();

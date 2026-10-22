@@ -20,7 +20,7 @@
 #        (Sect. 4); masses at that i 14.9 and 40.2 M_sun (Sect. 5.1); Fig. 6, a
 #        [WH25] model at i = 40 deg whose column density still looks like a
 #        face-on spiral.
-# [TU08] Tuthill et al. 2008, ApJ 675, 698 (arXiv:0712.2111), Keck aperture
+# [TU08] Tuthill et al. 2008, ApJ (doi:10.1086/527286, arXiv:0712.2111), Keck aperture
 #        masking 1998-2004: P = 241.5 +- 0.5 d, 0.28 +- 0.02 mas/day outward,
 #        spiral position angle theta_0 = 269 +- 1 deg at the first epoch (1998
 #        Apr 14, JD 2450918), i <= 16 deg for a flat spiral (Sect. 2.2); the
@@ -34,7 +34,7 @@
 #        57590.1); Table 5, its radius 4.3 R_sun and T >= 33000 K (their
 #        L = 68000 L_sun does not follow from these; R^2 T^4 gives 19,800);
 #        Sect. 5.3, B's mass assumed 20 M_sun.
-# [SO22] Soulain et al. 2022, MNRAS 518, 3315 (arXiv:2209.01884): Table 2,
+# [SO22] Soulain et al. 2022, MNRAS (doi:10.1093/mnras/stac2999, arXiv:2209.01884): Table 2,
 #        WR 45000 K and 6 R_sun, OB 30000 K and 13.5 R_sun; Table 3 and Fig. 5,
 #        full opening angle of the dust-forming region 70-122 deg in their
 #        hydrodynamic model (Eichler & Usov's formula gives ~40).
@@ -44,7 +44,7 @@
 #        falls from ~0.06 at 0.1 um to ~0.005 at 0.55 um (read off the plot);
 #        Sect. 5, "a negligible scattered component due to the small grain
 #        albedo".
-# [WH25] White et al. 2025, ApJ (arXiv:2507.14610), Appendix B: the xenomorph
+# [WH25] White et al. 2025 (arXiv:2507.14610), Appendix B: the xenomorph
 #        geometric model (rings of grains on a cone, eqs. B9-B12).
 # [SIMB] SIMBAD (Gaia DR3): ICRS position at J2000, 18 02 04.1244 -23 37 42.168
 #        = 270.5171852, -23.6283801 deg. Its parallax, 1.56 +- 0.20 mas

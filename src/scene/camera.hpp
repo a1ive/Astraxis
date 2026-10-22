@@ -61,6 +61,7 @@ public:
 
     void update(double real_dt, const Scene& scene);
     CameraView view(int width_px, int height_px) const;
+    const glm::dvec3& position() const { return m_position; } // world (km)
 
 private:
     double min_distance(int body, const Scene& scene) const;

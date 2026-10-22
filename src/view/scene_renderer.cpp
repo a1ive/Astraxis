@@ -160,16 +160,19 @@ constexpr double kDustMaxPx = 300.0;
 // grains glow in the color of a black body kPinwheelColorShift times their
 // temperature, which moves the near infrared (K band, 2.2 um, where the
 // spiral is imaged) into visible light (Wien: wavelength x temperature is
-// what counts). A face-on wall is kPinwheelRadiance bright at the nucleation
-// radius and fades as its surface brightness (r^-4) to the power
-// kPinwheelGamma, compressed like the star magnitudes are.
+// what counts). A face-on wall is kPinwheelRadiance bright at the scene's
+// reference radius (Pinwheel::display_reference_km, else the nucleation
+// radius) and fades as its surface brightness (r^-4) to the power
+// Pinwheel::display_gamma, compressed like the star magnitudes are.
 constexpr double kPinwheelColorShift = 4.0;
 constexpr float kPinwheelRadiance = 0.5f;
-constexpr float kPinwheelGamma = 0.6f;
 // From inside, the line of sight crosses every shell and the bright inner walls
-// fill the screen: closer to the center than kPinwheelAdaptTurns turns of the
-// spiral, the dust dims in proportion to the distance (like an eye adapting).
-constexpr double kPinwheelAdaptTurns = 2.0;
+// fill the screen: closer to the center than kPinwheelAdaptRadii nucleation
+// radii (WR 104: two turns of its spiral), the dust dims in proportion to the
+// distance (like an eye adapting).
+constexpr double kPinwheelAdaptRadii = 10.0;
+// The eye also adapts to the brightest dust in the scene (WR 140's newest
+// shell): Simulation::pinwheel_exposure.
 // Each grain's patch: sigma as a share of the spacing between grains (0.5
 // sums smoothly, ~1% ripple); at least kPinwheelMinPx on screen; skipped below
 // kPinwheelCullRadiance at its center (the faint outer turns, far fill rate).
@@ -957,7 +960,19 @@ void SceneRenderer::load_pinwheel(const Scene& scene)
         m_pinwheel.clear();
         return;
     }
-    m_pinwheel.set_grains(p.grains.data(), static_cast<uint32_t>(p.grains.size()));
+    std::vector<PinwheelGpuGrain> gpu;
+    gpu.reserve(p.grains.size());
+    for (const PinwheelGrain& g : p.grains) {
+        gpu.push_back({g.direction, g.turn + g.phase, g.tangent, g.weight});
+    }
+    m_pinwheel.set_grains(gpu.data(), static_cast<uint32_t>(gpu.size()));
+    // Distances on a grid in the square root of the age: fine where the dust
+    // still accelerates, near the center.
+    for (int i = 0; i < kPinwheelRadiusCount; ++i) {
+        const double share = static_cast<double>(i) / (kPinwheelRadiusCount - 1);
+        m_pinwheel_radius[static_cast<size_t>(i)] =
+            static_cast<float>(pinwheel_radius(p, share * share * p.turns * p.period_s));
+    }
     // In visible light: the dust's own glow at its temperature and the
     // starlight it scatters (the stars' color), in proportion to their
     // light, brightness relative to the nucleation radius.
@@ -971,7 +986,7 @@ void SceneRenderer::load_pinwheel(const Scene& scene)
     const PinwheelVisibleLight at_nucleation = pinwheel_visible_light(p, p.nucleation_radius_km, star_share);
     const double reference = at_nucleation.thermal + at_nucleation.scattered;
 
-    const double r_end = p.turns * p.step_km();
+    const double r_end = pinwheel_radius(p, p.turns * p.period_s);
     for (int i = 0; i < kPinwheelColorCount; ++i) {
         const double r = p.nucleation_radius_km *
                          std::pow(r_end / p.nucleation_radius_km, static_cast<double>(i) / (kPinwheelColorCount - 1));
@@ -982,7 +997,7 @@ void SceneRenderer::load_pinwheel(const Scene& scene)
         const PinwheelVisibleLight light = pinwheel_visible_light(p, r, star_share);
         glm::dvec3 visible = light.thermal * blackbody_linear_srgb(t) + light.scattered * star_color / glm::length(star_color);
         visible /= std::max({visible.r, visible.g, visible.b, 1e-30});
-        const double brightness = std::pow((light.thermal + light.scattered) / reference, kPinwheelGamma);
+        const double brightness = std::pow((light.thermal + light.scattered) / reference, p.display_gamma);
         m_pinwheel_visible_colors[static_cast<size_t>(i)] =
             glm::vec4(glm::vec3(visible), static_cast<float>(brightness));
     }
@@ -998,23 +1013,27 @@ PinwheelDrawItem SceneRenderer::pinwheel_item(const Simulation& sim, const Outpu
     const double cycles = (sim.clock().t_tdb - p.t_ref_tdb) / p.period_s / p.turns;
     item.cycle = static_cast<float>(cycles - std::floor(cycles));
     item.turns = static_cast<float>(p.turns);
-    item.step_km = static_cast<float>(p.step_km());
     item.nucleation_km = static_cast<float>(p.nucleation_radius_km);
     // Grains are 2 pi sin(half angle) r / grains_per_ring apart around a ring,
-    // and 2 pi r / rings_per_turn from ring to ring (on the orbit plane).
+    // and (the angle the axis sweeps) r / rings_per_turn from ring to ring (on
+    // the orbit plane).
     const double half = 0.5 * p.opening_angle_deg * kDegToRad;
     item.sigma_along = static_cast<float>(kPinwheelPatch * kTwoPi * std::sin(half) / p.grains_per_ring);
-    item.sigma_across = static_cast<float>(kPinwheelPatch * kTwoPi / p.rings_per_turn);
+    item.sigma_across = static_cast<float>(kPinwheelPatch * p.window_rad() / p.rings_per_turn);
     item.wall_sigma_km = static_cast<float>(p.wall_sigma_km);
     item.min_sigma_px = static_cast<float>(kPinwheelMinPx * output_view.content_scale);
     const double camera_km = glm::length(glm::dvec3(item.center));
     item.radiance = static_cast<float>(kPinwheelRadiance * sim.pinwheel_visibility() *
-                                       std::min(1.0, camera_km / (kPinwheelAdaptTurns * p.step_km())));
-    item.gamma = kPinwheelGamma;
+                                       std::min(1.0, camera_km / (kPinwheelAdaptRadii * p.nucleation_radius_km)) *
+                                       sim.pinwheel_exposure());
+    item.gamma = static_cast<float>(p.display_gamma);
+    item.reference_km = static_cast<float>(p.display_reference_km > 0.0 ? p.display_reference_km
+                                                                        : p.nucleation_radius_km);
     item.cull_radiance = kPinwheelCullRadiance;
     const int event = scene.active_event();
     const bool visible = event >= 0 && scene.events[static_cast<size_t>(event)].dust_visible;
     item.colors = visible ? m_pinwheel_visible_colors : m_pinwheel_colors;
+    item.radius = m_pinwheel_radius;
     return item;
 }
 

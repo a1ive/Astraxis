@@ -5,6 +5,7 @@
 #include "core/math.hpp"
 #include "core/time.hpp"
 #include "ephem/ephemeris.hpp"
+#include "ephem/kepler.hpp"
 #include "scene/light_curve.hpp"
 #include "scene/star_catalog.hpp"
 
@@ -14,6 +15,7 @@
 #include <cmath>
 #include <cstdio>
 #include <span>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -1547,6 +1549,10 @@ void test_wr104_scene()
     // PA theta_0 = 269 +- 1 deg ([TU08] Sect. 2.2; the node of the orbit is
     // fitted to it, within [HI24]'s phase uncertainty of ~8 deg then).
     const std::vector<SkyGrain> sky98 = wr104_sky_grains(pw, t98, 2580.0);
+    // Dust forms all the time at the nucleation radius: the brightest wall
+    // is always there (no exposure change).
+    check(std::abs(pinwheel_peak_brightness(pw, t98) - 1.0) < 1e-9, "WR 104 peak brightness at the nucleation radius",
+          pinwheel_peak_brightness(pw, t98));
     double coherence = 0.0;
     double coherence_reversed = 0.0;
     const double theta0 = fit_spiral_theta0(sky98, step_mas, 100.0, 1.0, &coherence);
@@ -1619,6 +1625,229 @@ void test_wr104_scene()
     }
 }
 
+// WR 140 [TH21] [MO11] [HA22] [LA22]: the eccentric orbit against radial
+// velocities and interferometry, and the dust shells made around periastron.
+void test_wr140_scene()
+{
+    Scene scene = load_scene_or_die("wr140.toml");
+    check_model_sky(scene, "WR 140 model sky");
+    const double ra = 305.1165658 * kDegToRad;
+    const double dec = 43.8545241 * kDegToRad;
+    const glm::dvec3 away = unit_toward(305.1165658, 43.8545241);
+    const glm::dvec3 north(-std::sin(dec) * std::cos(ra), -std::sin(dec) * std::sin(ra), std::cos(dec));
+    const glm::dvec3 east(-std::sin(ra), std::cos(ra), 0.0);
+    const int root = scene.find("WR 140");
+    const int wr = scene.find("WR 140 WC7");
+    const int o = scene.find("WR 140 O");
+    check(root == 0 && wr > 0 && o > 0, "WR 140 bodies");
+    if (wr <= 0 || o <= 0) {
+        return;
+    }
+    constexpr double kDistancePc = 1518.0;
+    constexpr double kPeriodDays = 2895.00;
+    constexpr double kT0Jd = 60636.23 + 2400000.5;
+    constexpr double kE = 0.8993;
+
+    // [TH21] Table 4: radial velocities v = K (cos(nu + omega) + e cos omega)
+    // (positive receding) with omega_O = omega_WR + 180 deg, around the orbit
+    // and through periastron.
+    {
+        const double omega_wr = 227.44 * kDegToRad;
+        double worst = 0.0;
+        for (int k = -40; k <= 40; ++k) {
+            const double days = k <= -20 || k >= 20 ? k * kPeriodDays / 80.0 : k * 1.5; // dense near periastron
+            const double t = tdb_from_jd_tdb(kT0Jd + days);
+            const double m = kTwoPi * days / kPeriodDays;
+            const double ecc = solve_kepler(wrap_pi(m), kE);
+            const double nu = 2.0 * std::atan2(std::sqrt(1.0 + kE) * std::sin(0.5 * ecc), std::sqrt(1.0 - kE) * std::cos(0.5 * ecc));
+            const glm::dvec3 v0 = scene.icrf_state_at(root, t).velocity;
+            const double v_wr = glm::dot(scene.icrf_state_at(wr, t).velocity - v0, away);
+            const double v_o = glm::dot(scene.icrf_state_at(o, t).velocity - v0, away);
+            const double want_wr = 75.25 * (std::cos(nu + omega_wr) + kE * std::cos(omega_wr));
+            const double want_o = 26.50 * (std::cos(nu + omega_wr + kPi) + kE * std::cos(omega_wr + kPi));
+            worst = std::max({worst, std::abs(v_wr - want_wr), std::abs(v_o - want_o)});
+        }
+        check(worst < 0.1, "WR 140 radial velocities on [TH21]'s orbit (km/s)", worst);
+    }
+    const double m_wr = scene.bodies[static_cast<size_t>(wr)].body_gm_km3_s2 / kSunGmKm3S2;
+    const double m_o = scene.bodies[static_cast<size_t>(o)].body_gm_km3_s2 / kSunGmKm3S2;
+    check(std::abs(m_wr / 10.31 - 1.0) < 0.01 && std::abs(m_o / 29.27 - 1.0) < 0.01,
+          "WR 140 masses against [TH21] (M_sun)", m_wr + m_o);
+
+    // The O star relative to the WR star on the sky: [MO11] Table 2 (IOTA,
+    // east and north in mas, within 3 times the error ellipse's major axis)
+    // and [TH21] Table 3 (CHARA, separation and position angle; their
+    // epochs are HJD - 2450000.5).
+    auto sky = [&](double t) {
+        const glm::dvec3 r = scene.icrf_state_at(o, t).position - scene.icrf_state_at(wr, t).position;
+        const double mas_per_km = 1000.0 / (kDistancePc * kAuKm);
+        return glm::dvec2(glm::dot(r, east), glm::dot(r, north)) * mas_per_km;
+    };
+    struct Iota {
+        const char* date;
+        double east, north, major;
+    };
+    const Iota iota[] = {
+        {"2003-06-17", 5.70, -11.31, 0.87}, {"2004-05-25", 6.87, -11.33, 0.34}, {"2005-06-15", 7.36, -10.16, 0.37},
+        {"2006-08-22", 6.97, -7.14, 4.85},  {"2007-06-12", 5.73, -4.18, 1.25},  {"2008-06-17", 3.51, -0.76, 0.11},
+        {"2009-06-23", 0.86, -5.46, 0.70},
+    };
+    for (const Iota& p : iota) {
+        double t = 0.0;
+        parse_utc(p.date, &t);
+        const glm::dvec2 s = sky(t);
+        const double miss = glm::length(s - glm::dvec2(p.east, p.north));
+        check(miss < 3.0 * p.major, (std::string("WR 140 position against [MO11] on ") + p.date + " (mas)").c_str(),
+              miss);
+    }
+    struct Chara {
+        double hjd;
+        double sep, pa, major;
+    };
+    const Chara chara[] = {{5729.411, 13.02, 153.00, 0.22},
+                           {5820.270, 12.969, 151.749, 0.065},
+                           {8417.139, 11.932, 155.969, 0.060},
+                           {8665.351, 13.017, 152.458, 0.065}};
+    double worst = 0.0;
+    for (const Chara& c : chara) {
+        const glm::dvec2 s = sky(tdb_from_jd_tdb(c.hjd + 2450000.5));
+        const glm::dvec2 want = c.sep * glm::dvec2(std::sin(c.pa * kDegToRad), std::cos(c.pa * kDegToRad));
+        const double miss = glm::length(s - want);
+        worst = std::max(worst, miss / c.major);
+        check(miss < 3.0 * c.major, "WR 140 position against [TH21] (mas)", miss);
+    }
+    std::printf("info: WR 140 against [TH21]'s CHARA positions: within %.2f error ellipses\n", worst);
+
+    const Pinwheel& pw = scene.pinwheel;
+    check(pw.enabled() && pw.windowed && pw.primary == wr && pw.secondary == o, "WR 140 pinwheel");
+    if (!pw.enabled()) {
+        return;
+    }
+    const double scale = kDistancePc / 1670.0; // [HA22]'s angular motions at their 1.67 kpc
+    // [HA22] Extended Data Table 3: dust from -135 to +135 deg, 7.9 au apart
+    // at 1.67 kpc, for 0.7 (+0.3/-0.1) yr.
+    {
+        auto separation = [&](double nu_deg) {
+            const double nu = nu_deg * kDegToRad;
+            return 13.5436 * (1.0 - kE * kE) / (1.0 + kE * std::cos(nu));
+        };
+        double t_on = 0.0;
+        double t_off = 0.0;
+        for (double nu_deg : {pw.window_on_deg, pw.window_off_deg}) {
+            const double nu = nu_deg * kDegToRad;
+            const double ecc = 2.0 * std::atan2(std::sqrt(1.0 - kE) * std::sin(0.5 * nu), std::sqrt(1.0 + kE) * std::cos(0.5 * nu));
+            (nu_deg < 0.0 ? t_on : t_off) = (ecc - kE * std::sin(ecc)) / kTwoPi * kPeriodDays;
+        }
+        const double years = (t_off - t_on) / kDaysPerJulianYear;
+        std::printf("info: WR 140 dust forms for %.3f yr, %.2f au apart at turn-on\n", years, separation(-135.0));
+        check(years > 0.6 && years < 1.0, "WR 140 dust production lasts [HA22]'s 0.7 yr", years);
+        check(std::abs(separation(-135.0) / (7.9 * scale) - 1.0) < 0.03, "WR 140 separation at turn-on (au)",
+              separation(-135.0));
+        // The orbit the grains were placed on: at apastron the youngest dust
+        // left at turn-off, 0.46 periods ago.
+        const double t_apo = tdb_from_jd_tdb(kT0Jd + 0.5 * kPeriodDays);
+        double youngest = 1e30;
+        for (const PinwheelGrain& g : pw.grains) {
+            youngest = std::min(youngest, pinwheel_grain_age(pw, g, t_apo));
+        }
+        // (Rings are evenly spaced in true anomaly: the last one leaves half a
+        // ring before turn-off, and the orbit is slow there.)
+        const double want = (0.5 * kPeriodDays - t_off) * kSecondsPerDay;
+        const double ring_nu = (pw.window_off_deg - pw.window_on_deg) / pw.rings_per_turn * kDegToRad;
+        const double r_off = separation(pw.window_off_deg) * kAuKm;
+        const double h = std::sqrt(scene.bodies[static_cast<size_t>(wr)].body_gm_km3_s2 +
+                                   scene.bodies[static_cast<size_t>(o)].body_gm_km3_s2) *
+                         std::sqrt(13.5436 * kAuKm * (1.0 - kE * kE));
+        const double ring = ring_nu * r_off * r_off / h; // dt = r^2 / h dnu
+        check(std::abs(youngest - want) < ring, "WR 140 youngest dust at apastron left at turn-off (days)",
+              (youngest - want) / kSecondsPerDay);
+    }
+    // The shells' orientation on 2022 July 27 ([LA22] Fig. 3), against
+    // [HA22]'s own code (spiral.m, github.com/yinuohan/WR140, with [MO11]'s
+    // elements; re-run for that date): the column density of the dust, each
+    // direction from the star counted by the grains' weights, points to
+    // position angle 165 deg.
+    {
+        double t = 0.0;
+        parse_utc("2022-07-27 12:00", &t);
+        // Column density, as [LA22]'s model: every grain by its weight, of
+        // the shells from the second on (the first is still near the star).
+        glm::dvec2 centroid(0.0);
+        glm::dvec2 inner(0.0);
+        for (const PinwheelGrain& g : pw.grains) {
+            const double age = pinwheel_grain_age(pw, g, t);
+            const glm::dvec3 r = pinwheel_grain_offset(pw, g, t);
+            const glm::dvec2 sky_r(glm::dot(r, east), glm::dot(r, north));
+            (age > pw.period_s ? centroid : inner) += static_cast<double>(g.weight) * sky_r / glm::length(sky_r);
+        }
+        const double pa = wrap_two_pi(std::atan2(centroid.x, centroid.y)) * kRadToDeg;
+        const double pa_inner = wrap_two_pi(std::atan2(inner.x, inner.y)) * kRadToDeg;
+        std::printf("info: WR 140 dust on 2022-07-27 lies toward position angle %.0f deg (shell 1: %.0f deg)\n", pa,
+                    pa_inner);
+        check(std::abs(pa - 165.0) < 10.0, "WR 140 shells point as in [HA22]'s model (deg)", pa);
+    }
+
+    // The newest shell is by far the brightest dust while it forms and fades
+    // into the others as it expands (the renderer's exposure follows it).
+    {
+        double t_jwst = 0.0;
+        parse_utc("2022-07-27 12:00", &t_jwst);
+        const double at_turn_on = pinwheel_peak_brightness(pw, tdb_from_jd_tdb(kT0Jd - 100.0));
+        const double at_jwst = pinwheel_peak_brightness(pw, t_jwst);
+        std::printf("info: WR 140 brightest dust: %.0f times the reference while forming, %.1f in 2022\n", at_turn_on,
+                    at_jwst);
+        check(at_turn_on > 1000.0 && at_jwst < 10.0, "WR 140 newest shell brightest while it forms", at_turn_on);
+    }
+
+    // [HA22] Methods: the rate dips to almost nothing at periastron, and the
+    // trailing edge is 13 (+77/-8) times as dense as the leading edge.
+    check(pinwheel_orbit_rate(pw, 0.0) < 0.01 * pinwheel_orbit_rate(pw, pw.window_on_deg),
+          "WR 140 dust production dips at periastron", pinwheel_orbit_rate(pw, 0.0));
+    const double contrast = pinwheel_azimuth_rate(pw, 180.0) / pinwheel_azimuth_rate(pw, 0.0);
+    check(std::abs(contrast / 13.0 - 1.0) < 0.05, "WR 140 trailing / leading edge", contrast);
+
+    // pinwheel_radius follows [HA22] eq. 1 in each of its stretches (central
+    // differences: an integrator stepping across the jumps of the
+    // acceleration at r_nuc and r_t would be off by a dt in speed): coasting
+    // at v0, then a_max, then a_max (r_t / r)^2, the speed continuous at r_t.
+    {
+        auto speed = [&](double t, double h) {
+            return (pinwheel_radius(pw, t + h) - pinwheel_radius(pw, t - h)) / (2.0 * h);
+        };
+        auto accel = [&](double t, double h) {
+            return (pinwheel_radius(pw, t + h) - 2.0 * pinwheel_radius(pw, t) + pinwheel_radius(pw, t - h)) / (h * h);
+        };
+        const double t_nuc = pw.nucleation_radius_km / pw.speed_km_s;
+        const double v_t = std::sqrt(pw.speed_km_s * pw.speed_km_s +
+                                     2.0 * pw.acceleration_km_s2 * (pw.acceleration_end_km - pw.nucleation_radius_km));
+        const double t_t = t_nuc + (v_t - pw.speed_km_s) / pw.acceleration_km_s2;
+        check(std::abs(speed(0.5 * t_nuc, 1e4) - pw.speed_km_s) < 1e-6, "WR 140 dust coasts before r_nuc (km/s)",
+              speed(0.5 * t_nuc, 1e4));
+        const double a_mid = accel(0.5 * (t_nuc + t_t), 1e4);
+        check(std::abs(a_mid / pw.acceleration_km_s2 - 1.0) < 1e-4, "WR 140 dust at a_max up to r_t", a_mid);
+        check(std::abs(pinwheel_radius(pw, t_t) / pw.acceleration_end_km - 1.0) < 1e-9, "WR 140 dust reaches r_t");
+        const double v_in = (pinwheel_radius(pw, t_t) - pinwheel_radius(pw, t_t - 10.0)) / 10.0;
+        const double v_out = (pinwheel_radius(pw, t_t + 10.0) - pinwheel_radius(pw, t_t)) / 10.0;
+        check(std::abs(v_in - v_out) < 1e-3, "WR 140 dust speed continuous at r_t (km/s)", v_out - v_in);
+        double worst_accel = 0.0;
+        for (double years : {0.5, 2.0, 10.0, 50.0}) {
+            const double t = t_t + years * kDaysPerJulianYear * kSecondsPerDay;
+            const double r = pinwheel_radius(pw, t);
+            const double q = pw.acceleration_end_km / r;
+            worst_accel = std::max(worst_accel, std::abs(accel(t, 0.01 * t) / (pw.acceleration_km_s2 * q * q) - 1.0));
+        }
+        check(worst_accel < 0.01, "WR 140 dust acceleration falls as 1/r^2 beyond r_t", worst_accel);
+        const double v = speed(60.0 * kDaysPerJulianYear * kSecondsPerDay, 1e6);
+        // [LA22]: the shells, 2.67 +- 0.07" apart on the sky (C1 moves almost
+        // across the line of sight), from the speed they keep.
+        const double spacing = (pinwheel_radius(pw, 11.0 * pw.period_s) - pinwheel_radius(pw, 10.0 * pw.period_s)) /
+                               (kDistancePc * kAuKm);
+        std::printf("info: WR 140 shells %.3f\" apart (%.0f km/s after 60 years, [HA22]'s fit scaled by %.3f)\n",
+                    spacing, v, scale);
+        check(std::abs(spacing - 2.67) < 0.15, "WR 140 shell spacing against [LA22] (arcsec)", spacing);
+    }
+}
+
 } // namespace
 
 void run_stellar_system_tests()
@@ -1634,4 +1863,5 @@ void run_stellar_system_tests()
     test_kepler64_scene();
     test_psr_b1620_scene();
     test_wr104_scene();
+    test_wr140_scene();
 }

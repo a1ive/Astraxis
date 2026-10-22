@@ -1,0 +1,231 @@
+# WR 140: a carbon-rich Wolf-Rayet star (WC7pd) and an O star on an orbit
+# so eccentric (e = 0.90) that they swing from 26 au apart to 1.4 au every
+# 7.93 years. Only around periastron, when their winds collide hard enough,
+# does dust form: a shell every orbit, flying outward at ~2,300 km/s. JWST
+# saw 17 of them nested around the star, the oldest made 130 years ago.
+#
+# The binary is a two-body (Keplerian) orbit. The dust is the geometric model
+# of [HA22] (scene/pinwheel.hpp): rings of grains launched along a hollow cone
+# around the line from the Wolf-Rayet star to the O star while dust forms,
+# pushed outward by starlight; no hydrodynamics.
+#
+# [TH21] Thomas et al. 2021, MNRAS (doi:10.1093/mnras/stab1181, arXiv:2101.10563), Table 4
+#        ("This Work + Prior"): P = 2895.00 +- 0.29 d, periastron T0 = MJD
+#        60636.23 +- 0.53, e = 0.8993 +- 0.0013, omega_WR = 227.44 +- 0.52 deg,
+#        K_O = 26.50 +- 0.48, K_WR = 75.25 +- 0.63 km/s, i = 119.07 +- 0.88 deg,
+#        Omega = 353.87 +- 0.67 deg, a = 8.922 +- 0.067 mas; with the orbital
+#        parallax ("Calculated Distance") 1.518 +- 0.021 kpc, a = 13.55 au,
+#        M_O = 29.27 +- 1.14, M_WR = 10.31 +- 0.45 M_sun. Table 3: CHARA
+#        positions of the O star relative to the WR star, 2011-2019 (tests).
+# [MO11] Monnier et al. 2011, ApJ 742, L1 (arXiv:1111.1266): Table 3 adopts
+#        the WR star as primary (omega = 46.8 = omega_WR - 180 deg); Table 2,
+#        IOTA positions of the O star relative to the WR star, 2003-2009 (tests).
+# [HA22] Han et al. 2022, Nature 610, 269 (arXiv:2210.06556): geometric model
+#        of Keck images 2001-2017 at [MO11]'s 1.67 kpc. Half-opening angle of
+#        the cone 40 +- 5 deg; Extended Data Table 3, dust forms from true
+#        anomaly -135 (+-5) to +135 (+10/-5) deg, 7.9 au apart, 0.7 yr; Methods,
+#        the rate peaks at both ends as half-Gaussians of 40 (+30/-10) deg in
+#        true anomaly, and around the cone at the trailing edge, a Gaussian of
+#        80 +- 20 deg (13 times denser than the leading edge). Dust leaves at
+#        v0 = 1810 (+140/-170) km/s, condenses at r_nuc = 50 +- 30 au, is
+#        accelerated by a_max = 900 (+700/-400) km/s/yr up to r_t = 220
+#        (+150/-80) au and as 1/r^2 beyond (eq. 1). Their Extended Data Table
+#        2 prints Omega = 53.6 deg for [MO11]'s 353.6.
+# [LA22] Lau et al. 2022, Nature Astronomy (arXiv:2210.06452): JWST
+#        MIRI images of 2022 July 27; Table 1, the C1 feature of 17 shells,
+#        2.67 +- 0.07" apart (median), ~2,600 km/s at 1.64 kpc, moving almost
+#        across the line of sight.
+# [LA23] Lau et al. 2023, ApJ (arXiv:2305.14557), Sect. 3: dust at C1
+#        ~530 K, equilibrium temperature falling as r^-0.4, grains sublimating
+#        above ~1800 K (their DustEM models); the PoWR models of the stars,
+#        T = 57,000 K and L = 1e6 L_sun for the WR star, 36,000 K and 5e5 L_sun
+#        for the O star (Shenar et al., in prep.).
+# [HA04] Harries et al. 2004 (as wr104.toml): albedo of 0.01 um amorphous
+#        carbon grains in visible light, ~0.005 (assumed here too).
+# [SIMB] SIMBAD (Gaia DR3): ICRS position at J2000, 20 20 27.9758 +43 51 16.287
+#        = 305.1165658, 43.8545241 deg. Its parallax, 0.538 +- 0.024 mas
+#        (1.86 kpc), is outside [TH21]'s orbit; [TH21] suspect the binary's
+#        motion near periastron.
+#
+# The distance: [TH21]'s orbital parallax, so that the orbit's size, the
+# radial velocities and the masses agree. [HA22]'s speeds, acceleration and
+# radii are angular motions taken at 1.67 kpc: scaled here by 1.518 / 1.67,
+# they keep the shells' angular spacing ([LA22]'s 2.67" checks it).
+# The orbit is the O star's around the WR star (omega_O = omega_WR - 180 deg,
+# as [MO11]); the masses split by the K ratio and add up to the orbit's
+# (Kepler's third law, 39.55 M_sun).
+# Luminosity and radius from [LA23]'s T and L. GM = mass * GM_sun
+# (1.32712440041279419e11 km^3/s^2, JPL DE440).
+# The sky is a model of the Milky Way as seen from here (tools/sky/make_galaxy_sky.py,
+# assets/sky/SOURCES.md): its stars and dust clouds are statistical, not real ones.
+# Checks (tests/stellar_system_tests.cpp): the radial velocities, the [MO11]
+# and [TH21] positions, the masses, the dust window and its duration, the
+# separation at turn-on, the terminal speed and the shells' spacing on the sky.
+
+name = "WR 140"
+
+[sky]
+viewer_ra_dec_distance_pc = [305.1165658, 43.8545241, 1518.0]   # [SIMB], [TH21]
+milky_way = "sky/wr140.jpg"
+stars = "sky/wr140_stars.csv"
+
+[view]
+focus = "WR 140"
+distance_km = 2.0e12           # ~13,000 au: the youngest three shells
+start = "now"
+warp = 2592000.0               # 30 days per second: an orbit in 96 s
+up = "orbit_normal:WR 140 O"
+pitch_deg = 50.0
+
+# The dust (scene/pinwheel.hpp), [HA22] scaled to 1.518 kpc.
+[pinwheel]
+center = "WR 140"
+primary = "WR 140 WC7"
+secondary = "WR 140 O"
+period_days = 2895.00          # [TH21]
+speed_km_s = 1645.26           # 1810 km/s
+acceleration_km_s_per_year = 818.08 # 900 km/s/yr
+acceleration_end_au = 199.98   # 220 au
+opening_angle_deg = 80.0       # full: 2 x 40 deg
+nucleation_radius_au = 45.45   # 50 au
+dust_true_anomaly_deg = [-135.0, 135.0]
+modulation_sigma_deg = 40.0
+trailing_sigma_deg = 80.0
+nucleation_temperature_k = 1800.0 # sublimation [LA23]
+temperature_index = 0.4        # [LA23]
+wall_sigma_au = 10.0           # illustrative: [HA22]'s shock is a thin sheet
+visible_albedo = 0.005         # [HA04]
+turns = 20                     # [LA22] model 20 shells and see 17
+# Display: the shells are thousands of au out most of the orbit; a face-on
+# wall is as bright 7,000 au out as WR 104's at its nucleation radius, and
+# the r^-4 fall-off is compressed harder to keep a dozen shells in view.
+display_reference_au = 7000.0
+display_gamma = 0.4
+rings_per_turn = 360
+grains_per_ring = 48
+
+[[bodies]]
+name = "WR 140"
+kind = "barycenter"
+
+# The O star relative to the WR star [TH21], split around the barycenter.
+[[bodies]]
+name = "WR 140 WC7"
+parent = "WR 140"
+kind = "star"
+radii_km = [7133866.0]         # 10.25 R_sun from [LA23]'s L and T
+body_gm_km3_s2 = 1.366862344e12 # 10.30 M_sun
+temperature_k = 57000.0        # [LA23]
+luminosity_solar = 1.0e6
+orbit_color = "#c0a8ff"
+[bodies.orbit]
+scale = -0.739557740           # -M_O / M = -K_WR / (K_WR + K_O)
+type = "visual_orbit"
+gm_km3_s2 = 5.248235604e12     # 39.55 M_sun
+period_days = 2895.00
+e = 0.8993
+i_deg = 119.07
+node_deg = 353.87
+arg_peri_deg = 47.44           # omega_WR - 180
+t_peri_jd_tdb = 2460636.73     # MJD 60636.23
+sky_ra_dec_deg = [305.1165658, 43.8545241]
+
+[[bodies]]
+name = "WR 140 O"
+parent = "WR 140"
+kind = "star"
+radii_km = [12646043.0]        # 18.18 R_sun
+body_gm_km3_s2 = 3.881373260e12 # 29.25 M_sun
+temperature_k = 36000.0        # [LA23]
+luminosity_solar = 5.0e5
+orbit_color = "#a8c8ff"
+[bodies.orbit]
+scale = 0.260442260            # M_WR / M = K_O / (K_WR + K_O)
+type = "visual_orbit"
+gm_km3_s2 = 5.248235604e12
+period_days = 2895.00
+e = 0.8993
+i_deg = 119.07
+node_deg = 353.87
+arg_peri_deg = 47.44
+t_peri_jd_tdb = 2460636.73
+sky_ra_dec_deg = [305.1165658, 43.8545241]
+
+[[bodies]]
+name = "Sun"
+parent = "WR 140"
+kind = "star"
+radii_km = [695700.0]
+body_gm_km3_s2 = 1.32712440041279419e11 # JPL DE440
+temperature_k = 5772.0
+luminosity_solar = 1.0
+trail = "none"
+[bodies.orbit]                 # opposite direction of the system as seen from the Sun [SIMB]
+type = "fixed"
+ra_dec_distance_pc = [125.1165658, -43.8545241, 1518.0]
+
+[[events]]
+name = "Seventeen shells, as JWST saw them"
+time_tdb = "2022-07-27 12:00"  # [LA22]'s MIRI images
+focus = "WR 140"
+from_body = "Sun"
+distance_km = 3.0e13           # ~200,000 au: the shells, 78,000 au across, without much perspective
+warp = 864000.0                # 10 days per second: still near 2022 when the caption goes
+# [LA22], [TH21]
+caption = """\
+    Once every 7.93 years the two stars swing close, their winds collide hard \
+    enough to make carbon dust, and a new shell starts to grow. JWST's \
+    infrared images in 2022 showed seventeen of them nested around the star, \
+    regularly spaced and reaching 70,000 au: dust made over the last 130 years, \
+    still intact."""
+
+[[events]]
+name = "Dust forms near periastron"
+time_tdb = "2024-09-15 00:00"  # turn-on was 2024-07-30 (119 days before periastron); new dust is past r_nuc
+focus = "WR 140"
+from_orbit_normal = "WR 140 O"
+distance_km = 6.0e10           # 400 au
+warp = 172800.0                # 2 days per second: the 0.63-year episode in two minutes
+# [HA22], [TH21]
+caption = """\
+    For most of the orbit the stars are over 20 au apart and no dust forms. \
+    Within about 7 au, for some seven months, it does: most at the start and \
+    the end of the passage, little at periastron itself, and more on the \
+    trailing side of the cone the winds carve, which lopsides every shell."""
+
+[[events]]
+name = "Periastron, 1.4 au apart"
+time_tdb = "2024-11-25 12:00"  # periastron [TH21]: 2024-11-26
+focus = "WR 140"
+from_orbit_normal = "WR 140 O"
+distance_km = 4.0e9            # 27 au
+warp = 3600.0                  # 1 hour per second
+# [TH21] Sect. 4
+caption = """\
+    At periastron the Wolf-Rayet star and the O star pass 1.4 au apart, at \
+    220 km/s relative to each other, after nearly four years falling in from \
+    26 au. Why the orbit has not been rounded off is still open: mass \
+    transfer near periastron may even push its eccentricity up."""
+
+[[events]]
+name = "Pushed by starlight"
+time = "2025-06-01"
+focus = "WR 140"
+frame = "WR 140-centered"
+from_body = "Sun"
+phase_deg = 90.0
+elevation_deg = 0.0
+distance_km = 1.5e12           # 10,000 au, seen along the orbit plane
+warp = 2592000.0
+# [HA22]
+caption = """\
+    Keck images over sixteen years show that new dust does not coast. It \
+    leaves at about 1,650 km/s and is pushed outward by the stars' light, \
+    reaching some 2,300 km/s within a few years: the first direct record of \
+    dust accelerated by radiation pressure. Seen from the side, each \
+    episode's cone shows its edges."""
+
+[[frames]]
+name = "WR 140-centered"
+type = "inertial"
+origin = "WR 140"

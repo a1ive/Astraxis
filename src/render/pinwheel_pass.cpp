@@ -33,6 +33,7 @@ struct VertexUniforms {
     glm::vec4 light;
     glm::vec4 screen;
     std::array<glm::vec4, kPinwheelColorCount> colors;
+    std::array<float, kPinwheelRadiusCount> radius;
 };
 
 // Additive (emission of optically thin dust).
@@ -153,13 +154,13 @@ void PinwheelPass::clear()
     m_count = 0;
 }
 
-bool PinwheelPass::set_grains(const void* grains, uint32_t count)
+bool PinwheelPass::set_grains(const PinwheelGpuGrain* grains, uint32_t count)
 {
     clear();
     if (count == 0) {
         return true;
     }
-    m_buffer = create_static_buffer(m_device, SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ, grains, count * 32u);
+    m_buffer = create_static_buffer(m_device, SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ, grains, count * static_cast<uint32_t>(sizeof(PinwheelGpuGrain)));
     if (!m_buffer) {
         SDL_LogError(SDL_LOG_CATEGORY_GPU, "Pinwheel buffer creation failed: %s", SDL_GetError());
         return false;
@@ -224,14 +225,15 @@ void PinwheelPass::render(SDL_GPUCommandBuffer* cmd, PinwheelTargets& targets, c
     vu.display_x = glm::vec4(m[0][0], m[1][0], m[2][0], 0.0f);
     vu.display_y = glm::vec4(m[0][1], m[1][1], m[2][1], 0.0f);
     vu.display_z = glm::vec4(m[0][2], m[1][2], m[2][2], 0.0f);
-    vu.cycle = glm::vec4(item.cycle, item.turns, item.step_km, item.nucleation_km);
+    vu.cycle = glm::vec4(item.cycle, item.turns, item.reference_km, item.nucleation_km);
     vu.shape = glm::vec4(item.sigma_along, item.sigma_across, item.wall_sigma_km, item.min_sigma_px);
-    const float log_span = std::log(item.turns * item.step_km / item.nucleation_km);
+    const float log_span = std::log(item.radius.back() / item.nucleation_km);
     vu.light = glm::vec4(item.radiance, item.gamma, log_span > 0.0f ? 1.0f / log_span : 0.0f, item.cull_radiance);
     // Splat sizes in the off-screen target's pixels (the projection itself is the scene's).
     vu.screen = glm::vec4(static_cast<float>(w), static_cast<float>(h), 0.5f * static_cast<float>(h) * view.focal_y,
                           0.0f);
     vu.colors = item.colors;
+    vu.radius = item.radius;
     SDL_PushGPUVertexUniformData(cmd, 0, &vu, sizeof(vu));
     SDL_DrawGPUPrimitives(pass, m_count * 6u, 1, 0, 0);
     SDL_EndGPURenderPass(pass);

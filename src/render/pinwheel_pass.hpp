@@ -14,7 +14,17 @@
 
 namespace astraxis {
 
-inline constexpr int kPinwheelColorCount = 64; // LUT_SIZE in pinwheel.vert.hlsl
+inline constexpr int kPinwheelColorCount = 64;   // LUT_SIZE in pinwheel.vert.hlsl
+inline constexpr int kPinwheelRadiusCount = 128; // RADIUS_SIZE in pinwheel.vert.hlsl
+
+// One grain as the shader reads it (32 bytes): see PinwheelGrain.
+struct PinwheelGpuGrain {
+    glm::vec3 direction{1.0f, 0.0f, 0.0f};
+    float launch = 0.0f; // turn + phase
+    glm::vec3 tangent{0.0f, 1.0f, 0.0f};
+    float weight = 1.0f;
+};
+static_assert(sizeof(PinwheelGpuGrain) == 32, "PinwheelGpuGrain must match the shader's raw buffer loads");
 
 // What a pinwheel looks like this frame (see shaders/pinwheel.vert.hlsl).
 struct PinwheelDrawItem {
@@ -22,19 +32,21 @@ struct PinwheelDrawItem {
     glm::mat3 display_from_icrf{1.0f};
     float cycle = 0.0f;                     // frac((t - t_ref) / period / turns)
     float turns = 1.0f;
-    float step_km = 1.0f;                   // speed * period
     float nucleation_km = 1.0f;
     float sigma_along = 0.0f;               // patch sigma along the ring, per km of r
     float sigma_across = 0.0f;              // patch sigma across the rings, per km of r
     float wall_sigma_km = 0.0f;
     float min_sigma_px = 0.7f;              // in the off-screen target's pixels
-    float radiance = 1.0f;                  // face-on surface radiance at the nucleation radius (linear HDR)
+    float reference_km = 1.0f;              // where a face-on wall has `radiance`
+    float radiance = 1.0f;                  // face-on surface radiance at reference_km (linear HDR)
     float gamma = 1.0f;                     // display compression of the falloff
     float cull_radiance = 0.0f;             // splats fainter than this at their center are skipped
     // At ln(r / r_nuc) / ln(r_end / r_nuc) = i / (kPinwheelColorCount - 1): linear
     // RGB (largest component 1), and in alpha a factor on the brightness
     // (already raised to `gamma`).
     std::array<glm::vec4, kPinwheelColorCount> colors{};
+    // Distance from the center (km) at age = turns * (i / (kPinwheelRadiusCount - 1))^2 periods.
+    std::array<float, kPinwheelRadiusCount> radius{};
 };
 
 // A colliding-wind binary's dust spiral (scene/pinwheel.hpp): its grains are
@@ -52,8 +64,7 @@ public:
     bool set_format(const SceneTargetFormat& format);
 
     void clear();
-    // `grains`: PinwheelGrain records (32 bytes each).
-    bool set_grains(const void* grains, uint32_t count);
+    bool set_grains(const PinwheelGpuGrain* grains, uint32_t count);
     bool has_grains() const { return m_count > 0; }
 
     // Draws the dust into targets.pinwheel for a scene of width x height
