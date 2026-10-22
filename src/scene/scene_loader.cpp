@@ -1412,6 +1412,7 @@ void Loader::parse(const toml::table& root, Scene& out)
                 }
             }
             e.disk_shifts = (*t)["disk_shifts"].value<bool>().value_or(true);
+            e.dust_visible = (*t)["dust_visible"].value<bool>().value_or(false);
             e.caption = get_string_or(*t, "caption", "");
             if (const toml::node* trails = t->get("trails")) {
                 const toml::array* list = trails->as_array();
@@ -1632,6 +1633,46 @@ void Loader::parse(const toml::table& root, Scene& out)
             fail(ctx, "needs 1 to 9 stars besides the observer");
         }
         set_light_curve_reference(out);
+    }
+
+    // [pinwheel]: a colliding-wind binary's dust spiral (see Pinwheel).
+    if (const toml::table* pw = root["pinwheel"].as_table()) {
+        const std::string ctx = "pinwheel";
+        Pinwheel& p = out.pinwheel;
+        p.center = body_ref(out, *pw, "center", ctx, false);
+        p.primary = body_ref(out, *pw, "primary", ctx, false);
+        p.secondary = body_ref(out, *pw, "secondary", ctx, false);
+        p.period_s = get_double(*pw, "period_days", ctx) * kSecondsPerDay;
+        p.speed_km_s = get_double(*pw, "speed_km_s", ctx);
+        p.opening_angle_deg = get_double(*pw, "opening_angle_deg", ctx);
+        p.nucleation_radius_km = get_double(*pw, "nucleation_radius_au", ctx) * kAuKm;
+        p.nucleation_temperature_k = get_double(*pw, "nucleation_temperature_k", ctx);
+        p.temperature_index = get_double(*pw, "temperature_index", ctx);
+        p.wall_sigma_km = get_double(*pw, "wall_sigma_au", ctx) * kAuKm;
+        p.visible_albedo = get_double(*pw, "visible_albedo", ctx);
+        const double turns = get_double(*pw, "turns", ctx);
+        const double rings = get_double(*pw, "rings_per_turn", ctx);
+        const double grains = get_double(*pw, "grains_per_ring", ctx);
+        if (p.period_s <= 0.0 || p.speed_km_s <= 0.0 || p.nucleation_radius_km <= 0.0 ||
+            p.nucleation_temperature_k <= 0.0 || p.wall_sigma_km <= 0.0 || p.opening_angle_deg <= 0.0 ||
+            p.opening_angle_deg >= 180.0 || p.visible_albedo < 0.0 || p.visible_albedo > 1.0) {
+            fail(ctx, "needs positive period, speed, nucleation radius and temperature, wall_sigma_au, "
+                      "0 < opening angle < 180 and 0 <= visible_albedo <= 1");
+        }
+        if (turns < 1.0 || rings < 1.0 || grains < 1.0 || turns != std::floor(turns) || rings != std::floor(rings) ||
+            grains != std::floor(grains) || turns * rings * grains > 4.0e6) {
+            fail(ctx, "turns, rings_per_turn and grains_per_ring must be whole, positive, at most 4 million grains");
+        }
+        p.turns = static_cast<int>(turns);
+        // The grains repeat every period: the pair's orbit must too.
+        auto axis = [&](double t) {
+            return glm::normalize(out.icrf_state_at(p.secondary, t).position -
+                                  out.icrf_state_at(p.primary, t).position);
+        };
+        if (glm::length(axis(p.t_ref_tdb + p.period_s) - axis(p.t_ref_tdb)) > 1e-6) {
+            fail(ctx, "period_days must be the period of the secondary's orbit around the primary");
+        }
+        build_pinwheel_grains(out, p, static_cast<int>(rings), static_cast<int>(grains));
     }
     out.set_active_frame(out.view.frame);
 }

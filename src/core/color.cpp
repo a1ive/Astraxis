@@ -1,8 +1,11 @@
 #include "core/color.hpp"
 
+#include "core/math.hpp"
+
 #include <glm/common.hpp>
 
 #include <algorithm>
+#include <cmath>
 
 namespace astraxis {
 
@@ -45,6 +48,23 @@ glm::dvec3 blackbody_linear_srgb(double kelvin)
     rgb = glm::max(rgb, glm::dvec3(0.0));
     const double m = std::max({rgb.r, rgb.g, rgb.b});
     return m > 0.0 ? rgb / m : glm::dvec3(1.0);
+}
+
+double blackbody_band_share(double kelvin, double lo_nm, double hi_nm)
+{
+    constexpr double kC2NmK = 1.438776877e7; // second radiation constant hc / k (nm K), CODATA 2018
+    constexpr double kNorm = 15.0 / (kPi * kPi * kPi * kPi);
+    const double x_lo = kC2NmK / (hi_nm * kelvin);
+    const double x_hi = std::min(kC2NmK / (lo_nm * kelvin), x_lo + 200.0); // e^-200: nothing left
+    auto f = [](double x) { return x > 1e-8 ? x * x * x / std::expm1(x) : x * x; };
+    // Simpson's rule on an even number of steps.
+    constexpr int kSteps = 2000;
+    const double h = (x_hi - x_lo) / kSteps;
+    double sum = f(x_lo) + f(x_hi);
+    for (int i = 1; i < kSteps; ++i) {
+        sum += (i % 2 ? 4.0 : 2.0) * f(x_lo + i * h);
+    }
+    return std::max(0.0, kNorm * sum * h / 3.0);
 }
 
 } // namespace astraxis

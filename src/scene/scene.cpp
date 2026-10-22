@@ -583,6 +583,12 @@ void Scene::update(double t_tdb)
             extent = std::max(extent, glm::length(pos) + body.equatorial_radius_km);
         }
     }
+    // A pinwheel's dust: its bright inner turns (the rest fade out).
+    if (pinwheel.enabled()) {
+        constexpr double kPinwheelExtentTurns = 3.0;
+        extent = std::max(extent, glm::length(bodies[static_cast<size_t>(pinwheel.center)].icrf_position) +
+                                      kPinwheelExtentTurns * pinwheel.step_km());
+    }
     m_system_extent_km = std::max(extent, bodies.empty() ? 1.0 : bodies[0].equatorial_radius_km);
 
     // Fade radii (after the loop: orbit_center looks at every sibling). The

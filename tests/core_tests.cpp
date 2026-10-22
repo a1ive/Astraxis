@@ -132,6 +132,15 @@ void test_star_catalog_and_color()
     check(cool.r > cool.b && hot.b > hot.r, "blackbody color ordering");
     const glm::dvec3 d65ish = blackbody_linear_srgb(6500.0);
     check(d65ish.r > 0.9 && d65ish.g > 0.9 && d65ish.b > 0.85, "6500 K is near white", d65ish.b);
+
+    // Band shares of a black body: all of it over every wavelength, and 25.0%
+    // shortward of the Wien peak (lambda T = 2.897771955e6 nm K, CODATA 2018).
+    for (double t : {800.0, 5772.0, 45000.0}) {
+        const double all = blackbody_band_share(t, 1e-3, 1e12);
+        check(std::abs(all - 1.0) < 1e-6, "black body: whole spectrum", all);
+        const double blue = blackbody_band_share(t, 1e-3, 2.897771955e6 / t);
+        check(std::abs(blue - 0.2501) < 1e-3, "black body: share shortward of the peak", blue);
+    }
 }
 
 void test_galactic_frame()

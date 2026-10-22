@@ -8,6 +8,7 @@
 #include "render/comet_pass.hpp"
 #include "render/dust_pass.hpp"
 #include "render/orbit_line_pass.hpp"
+#include "render/pinwheel_pass.hpp"
 #include "render/plume_pass.hpp"
 #include "render/post_process.hpp"
 #include "render/ring_pass.hpp"
@@ -20,6 +21,7 @@
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <vector>
@@ -68,6 +70,9 @@ private:
     void build_orbit_lines(const Simulation& sim, const OutputView& view, const ViewOptions& options);
     void build_belt_items(const Simulation& sim, const OutputView& view, const ViewOptions& options);
     void build_comet_items(const Simulation& sim, const OutputView& view, const ViewOptions& options);
+    // A colliding-wind binary's dust spiral: its grains (once per scene) and this frame's look.
+    void load_pinwheel(const Scene& scene);
+    PinwheelDrawItem pinwheel_item(const Simulation& sim, const OutputView& view) const;
     // Star sprites and pulsar beams (fills m_beam_items).
     void draw_stars(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const Simulation& sim, const OutputView& view);
 
@@ -83,6 +88,7 @@ private:
     RingPass m_rings;
     OrbitLinePass m_orbits;
     BeltPass m_belts;
+    PinwheelPass m_pinwheel;
     SunPass m_sun;
     BeamPass m_beams;
     BlackHolePass m_black_hole;
@@ -107,6 +113,9 @@ private:
     std::vector<int> m_belt_ids;                  // per scene belt: BeltPass index (-1: not uploaded)
     std::vector<float> m_belt_reference_h;        // per scene belt: median absolute magnitude
     std::vector<double> m_belt_radius_km;         // per scene belt: median semi-major axis
+    std::array<glm::vec4, kPinwheelColorCount> m_pinwheel_colors{};         // the scene's pinwheel in false-color
+                                                                             // infrared (see PinwheelDrawItem)
+    std::array<glm::vec4, kPinwheelColorCount> m_pinwheel_visible_colors{}; // and in visible light
 
     // Per-frame scratch.
     std::vector<BodyDrawItem> m_body_items;

@@ -13,4 +13,9 @@ double temperature_from_bv(double bv);
 // valid 1667-25000 K (input is clamped), then XYZ -> linear sRGB (IEC 61966-2-1).
 glm::dvec3 blackbody_linear_srgb(double kelvin);
 
+// Share of a black body's power (sigma T^4) emitted between lo_nm and hi_nm:
+// (15 / pi^4) times the integral of x^3 / (e^x - 1) over x = c2 / (lambda T)
+// (c2 = hc / k, CODATA 2018).
+double blackbody_band_share(double kelvin, double lo_nm, double hi_nm);
+
 } // namespace astraxis

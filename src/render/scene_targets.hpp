@@ -32,6 +32,14 @@ struct BlackHoleTargets {
     BlackHoleUniforms uniforms;  // of that trace (the composite traces again at edges)
 };
 
+// PinwheelPass's off-screen dust (reduced resolution, one sample per pixel).
+struct PinwheelTargets {
+    SDL_GPUTexture* color = nullptr; // RGBA16F
+    uint32_t width = 0;
+    uint32_t height = 0;
+    bool drawn = false; // waits to be composited
+};
+
 // The render targets of one output, all of its size: MSAA HDR color resolved
 // into a sampleable HDR texture, reversed-Z depth, and the size-dependent
 // textures of the passes (bloom chain, black-hole trace). Each output keeps
@@ -52,6 +60,7 @@ public:
 
     BloomChain bloom;              // managed by PostProcess
     BlackHoleTargets black_hole;   // managed by BlackHolePass
+    PinwheelTargets pinwheel;      // managed by PinwheelPass
 
 private:
     void release_scene();

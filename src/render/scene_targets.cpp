@@ -69,6 +69,8 @@ void SceneTargets::release()
     SDL_ReleaseGPUTexture(m_device, black_hole.color);
     SDL_ReleaseGPUTexture(m_device, black_hole.sky);
     black_hole = {};
+    SDL_ReleaseGPUTexture(m_device, pinwheel.color);
+    pinwheel = {};
     m_device = nullptr;
 }
 

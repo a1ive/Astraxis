@@ -1182,6 +1182,273 @@ void test_psr_b1620_scene()
           "PSR B1620-26 spin axis");
 }
 
+// WR 104's dust as seen from Earth at t_tdb: sky offsets (east, north; mas)
+// from the pair's barycenter and the light of each grain (pinwheel_grain_brightness).
+struct SkyGrain {
+    double east = 0.0;
+    double north = 0.0;
+    double brightness = 0.0;
+};
+
+std::vector<SkyGrain> wr104_sky_grains(const Pinwheel& pinwheel, double t_tdb, double distance_pc)
+{
+    const double ra = 270.5171852 * kDegToRad;
+    const double dec = -23.6283801 * kDegToRad;
+    const glm::dvec3 north(-std::sin(dec) * std::cos(ra), -std::sin(dec) * std::sin(ra), std::cos(dec));
+    const glm::dvec3 east(-std::sin(ra), std::cos(ra), 0.0);
+    const double mas_per_km = 1000.0 / (distance_pc * kAuKm);
+    std::vector<SkyGrain> out;
+    out.reserve(pinwheel.grains.size());
+    for (const PinwheelGrain& g : pinwheel.grains) {
+        const glm::dvec3 r = pinwheel_grain_offset(pinwheel, g, t_tdb);
+        out.push_back({glm::dot(r, east) * mas_per_km, glm::dot(r, north) * mas_per_km,
+                       pinwheel_grain_brightness(pinwheel, glm::length(r))});
+    }
+    return out;
+}
+
+// Position angle (deg, north through east) at the origin of the Archimedean
+// spiral that best follows the grains within max_mas of the center, for a
+// spiral that winds outward toward larger position angles (sense = +1, as
+// WR 104's [TU08 Fig. 8]) or smaller ones (-1): the brightness-weighted
+// circular mean of PA - sense * 360 rho / step. `coherence` (0..1) is the
+// length of that mean: near 1 when the light lies along such a spiral.
+double fit_spiral_theta0(const std::vector<SkyGrain>& grains, double step_mas, double max_mas, double sense,
+                         double* coherence)
+{
+    double c = 0.0;
+    double s = 0.0;
+    double w = 0.0;
+    for (const SkyGrain& g : grains) {
+        const double rho = std::hypot(g.east, g.north);
+        if (rho > max_mas || g.brightness <= 0.0) {
+            continue;
+        }
+        const double a = std::atan2(g.east, g.north) - sense * kTwoPi * rho / step_mas;
+        c += g.brightness * std::cos(a);
+        s += g.brightness * std::sin(a);
+        w += g.brightness;
+    }
+    *coherence = std::hypot(c, s) / w;
+    return wrap_two_pi(std::atan2(s, c)) * kRadToDeg;
+}
+
+// Axis ratio (minor / major, from the second moments) of the light of the
+// grains between rho0 and rho1 mas on the sky.
+double sky_axis_ratio(const std::vector<SkyGrain>& grains, double rho0, double rho1)
+{
+    double xx = 0.0;
+    double yy = 0.0;
+    double xy = 0.0;
+    for (const SkyGrain& g : grains) {
+        const double rho = std::hypot(g.east, g.north);
+        if (rho < rho0 || rho > rho1) {
+            continue;
+        }
+        xx += g.brightness * g.east * g.east;
+        yy += g.brightness * g.north * g.north;
+        xy += g.brightness * g.east * g.north;
+    }
+    const double mean = 0.5 * (xx + yy);
+    const double diff = std::sqrt(0.25 * (xx - yy) * (xx - yy) + xy * xy);
+    return std::sqrt((mean - diff) / (mean + diff));
+}
+
+// WR 104 [HI24] [RI26] [TU08] [SO18]: the binary's spectroscopic orbit and
+// masses, and the dust spiral (scene/pinwheel.hpp) as the images show it.
+void test_wr104_scene()
+{
+    Scene scene = load_scene_or_die("wr104.toml");
+    check_model_sky(scene, "WR 104 model sky");
+    const glm::dvec3 away = unit_toward(270.5171852, -23.6283801);
+    const int wr = scene.find("WR 104 WC9d");
+    const int ob = scene.find("WR 104 OB");
+    const int pair = scene.find("WR 104 WC+OB");
+    const int b = scene.find("WR 104 B");
+    check(wr > 0 && ob > 0 && pair > 0 && b > 0, "WR 104 bodies");
+    if (wr <= 0 || ob <= 0 || pair <= 0 || b <= 0) {
+        return;
+    }
+    const double period_days = 241.54;
+    const double e0_jd = 2449439.7;
+
+    // [HI24]: the WR star in front at E0 (inferior conjunction), still after
+    // 60 orbits; radial-velocity amplitudes 63.8 and 23.7 km/s.
+    for (int n : {0, 60}) {
+        const double t_ref = tdb_from_jd_tdb(e0_jd + period_days * n);
+        const double t = find_conjunction(scene, wr, ob, away, t_ref, 2.0 * kSecondsPerDay);
+        const double dt_days = std::isnan(t) ? 1e9 : (t - t_ref) / kSecondsPerDay;
+        check(std::abs(dt_days) < 0.01, "WR 104 WR star in front on [HI24]'s E0 (days)", dt_days);
+    }
+    double k_wr = 0.0;
+    double k_ob = 0.0;
+    for (int k = 0; k < 400; ++k) {
+        const double t = tdb_from_jd_tdb(e0_jd + period_days * k / 400.0);
+        const glm::dvec3 v0 = scene.icrf_state_at(pair, t).velocity;
+        k_wr = std::max(k_wr, glm::dot(scene.icrf_state_at(wr, t).velocity - v0, away));
+        k_ob = std::max(k_ob, glm::dot(scene.icrf_state_at(ob, t).velocity - v0, away));
+    }
+    check(std::abs(k_wr - 63.8) < 0.05, "WR 104 K of the WR star (km/s)", k_wr);
+    check(std::abs(k_ob - 23.7) < 0.05, "WR 104 K of the OB star (km/s)", k_ob);
+    // [RI26] Sect. 5.1: 14.9 and 40.2 M_sun at i = 41.88 deg (their numbers are
+    // 2.4% below what their formula gives for it: 15.26, 41.09).
+    const double m_wr = scene.bodies[static_cast<size_t>(wr)].body_gm_km3_s2 / kSunGmKm3S2;
+    const double m_ob = scene.bodies[static_cast<size_t>(ob)].body_gm_km3_s2 / kSunGmKm3S2;
+    std::printf("info: WR 104 masses %.2f + %.2f M_sun\n", m_wr, m_ob);
+    check(std::abs(m_wr / 14.9 - 1.0) < 0.03, "WR 104 WR mass against [RI26] (M_sun)", m_wr);
+    check(std::abs(m_ob / 40.2 - 1.0) < 0.03, "WR 104 OB mass against [RI26] (M_sun)", m_ob);
+
+    // B relative to the pair at the [SO18] epoch: PA 74.8 deg, 975.5 mas.
+    {
+        const double t = tdb_from_jd_tdb(2457590.6);
+        const glm::dvec3 r = scene.icrf_state_at(b, t).position - scene.icrf_state_at(pair, t).position;
+        const double ra = 270.5171852 * kDegToRad;
+        const double dec = -23.6283801 * kDegToRad;
+        const glm::dvec3 north(-std::sin(dec) * std::cos(ra), -std::sin(dec) * std::sin(ra), std::cos(dec));
+        const glm::dvec3 east(-std::sin(ra), std::cos(ra), 0.0);
+        const double pa = wrap_two_pi(std::atan2(glm::dot(r, east), glm::dot(r, north))) * kRadToDeg;
+        const double sep = std::hypot(glm::dot(r, east), glm::dot(r, north)) / (2580.0 * kAuKm) * 1000.0;
+        check(std::abs(pa - 74.8) < 0.05, "WR 104 B position angle (deg)", pa);
+        check(std::abs(sep - 975.5) < 0.5, "WR 104 B separation (mas)", sep);
+    }
+
+    const Pinwheel& pw = scene.pinwheel;
+    check(pw.enabled() && pw.center == pair && pw.primary == wr && pw.secondary == ob, "WR 104 pinwheel");
+    if (!pw.enabled()) {
+        return;
+    }
+    // [SO18] Table 7: 66 +- 3 mas per turn and r_nuc = 12 +- 2 mas at 2.58 kpc;
+    // [TU08]: 0.28 +- 0.02 mas/day.
+    const double mas_per_km = 1000.0 / (2580.0 * kAuKm);
+    const double step_mas = pw.step_km() * mas_per_km;
+    check(std::abs(step_mas - 66.0) < 3.0, "WR 104 spiral step (mas)", step_mas);
+    check(std::abs(step_mas / period_days - 0.28) < 0.02, "WR 104 dust motion (mas/day)", step_mas / period_days);
+    check(std::abs(pw.nucleation_radius_km * mas_per_km - 12.0) < 0.1, "WR 104 nucleation radius (mas)",
+          pw.nucleation_radius_km * mas_per_km);
+    check(std::abs(pinwheel_dust_temperature(pw, 2.0 * pw.nucleation_radius_km) - 2000.0 * std::pow(2.0, -0.45)) <
+              1e-9,
+          "WR 104 dust temperature law");
+
+    // Grains coast at the wind speed, and the youngest ring circles the
+    // current WR -> OB line at half the opening angle.
+    const double t98 = tdb_from_jd_tdb(2450918.0); // [TU08]'s first epoch, 1998 Apr 14
+    {
+        const glm::dvec3 axis = glm::normalize(scene.icrf_state_at(ob, t98).position -
+                                               scene.icrf_state_at(wr, t98).position);
+        double youngest = 1e30;
+        for (const PinwheelGrain& g : pw.grains) {
+            youngest = std::min(youngest, pinwheel_grain_age(pw, g, t98));
+        }
+        glm::dvec3 ring_axis(0.0);
+        double worst_speed = 0.0;
+        for (const PinwheelGrain& g : pw.grains) {
+            const double age = pinwheel_grain_age(pw, g, t98);
+            if (age < youngest + 1.0) {
+                ring_axis += glm::dvec3(g.direction);
+            }
+            if (age > kSecondsPerDay && age < pw.turns * pw.period_s - kSecondsPerDay) {
+                const glm::dvec3 d = pinwheel_grain_offset(pw, g, t98 + kSecondsPerDay) - pinwheel_grain_offset(pw, g, t98);
+                worst_speed = std::max(worst_speed, std::abs(glm::length(d) / kSecondsPerDay - pw.speed_km_s));
+            }
+        }
+        const double lag_deg = std::acos(std::min(1.0, glm::dot(glm::normalize(ring_axis), axis))) * kRadToDeg;
+        const double ring_deg = 360.0 * youngest / pw.period_s;
+        check(std::abs(lag_deg - ring_deg) < 0.01, "WR 104 youngest ring around the WR -> OB line (deg)",
+              lag_deg - ring_deg);
+        // (directions are floats: unit to ~1e-7)
+        check(worst_speed < 1e-6 * pw.speed_km_s, "WR 104 grains coast at the wind speed (km/s)", worst_speed);
+    }
+
+    // As seen from Earth the pair turns clockwise ([TU08] Fig. 8: the spiral
+    // winds counterclockwise outward): the WR -> OB line's position angle falls.
+    {
+        const double ra = 270.5171852 * kDegToRad;
+        const double dec = -23.6283801 * kDegToRad;
+        const glm::dvec3 north(-std::sin(dec) * std::cos(ra), -std::sin(dec) * std::sin(ra), std::cos(dec));
+        const glm::dvec3 east(-std::sin(ra), std::cos(ra), 0.0);
+        auto pa = [&](double t) {
+            const glm::dvec3 r = scene.icrf_state_at(ob, t).position - scene.icrf_state_at(wr, t).position;
+            return std::atan2(glm::dot(r, east), glm::dot(r, north));
+        };
+        const double turn = wrap_pi(pa(t98 + kSecondsPerDay) - pa(t98)) * kRadToDeg;
+        check(turn < -0.5, "WR 104 turns clockwise on the sky (deg/day)", turn);
+    }
+    // At [TU08]'s first epoch the light lies along such a spiral, starting at
+    // PA theta_0 = 269 +- 1 deg ([TU08] Sect. 2.2; the node of the orbit is
+    // fitted to it, within [HI24]'s phase uncertainty of ~8 deg then).
+    const std::vector<SkyGrain> sky98 = wr104_sky_grains(pw, t98, 2580.0);
+    double coherence = 0.0;
+    double coherence_reversed = 0.0;
+    const double theta0 = fit_spiral_theta0(sky98, step_mas, 100.0, 1.0, &coherence);
+    fit_spiral_theta0(sky98, step_mas, 100.0, -1.0, &coherence_reversed);
+    std::printf("info: WR 104 spiral at 1998 Apr 14: theta_0 = %.1f deg, coherence %.2f (reversed %.2f)\n", theta0,
+                coherence, coherence_reversed);
+    check(coherence > 0.4 && coherence > 1.5 * coherence_reversed,
+          "WR 104 light along a spiral winding counterclockwise outward", coherence);
+    check(std::abs(wrap_pi((theta0 - 269.0) * kDegToRad)) * kRadToDeg < 1.0, "WR 104 spiral theta_0 (deg)", theta0);
+
+    // The wide cone keeps the projected coils as round as [TU08]'s flat spiral
+    // fits allow (i <= 16 deg: cos 16 deg = 0.961) despite the 42 deg tilt; a
+    // 60 deg cone ([RI26] Fig. 6) would not.
+    const double round = sky_axis_ratio(sky98, step_mas, 3.0 * step_mas);
+    Pinwheel narrow = pw;
+    narrow.opening_angle_deg = 60.0;
+    build_pinwheel_grains(scene, narrow, 200, 24);
+    const double round60 = sky_axis_ratio(wr104_sky_grains(narrow, t98, 2580.0), step_mas, 3.0 * step_mas);
+    std::printf("info: WR 104 coils 1-3 on the sky, axis ratio %.3f (%.0f deg cone), %.3f (60 deg)\n", round,
+                pw.opening_angle_deg, round60);
+    check(round > std::cos(16.0 * kDegToRad), "WR 104 coils round on the sky", round);
+
+    // In visible light ([HA04]: 0.01 um grains scatter a negligible share): at
+    // the nucleation radius the dust's own glow outshines the scattered
+    // starlight; a turn out, cooled below 1,000 K, it is the other way round.
+    {
+        const double share = pinwheel_star_visible_share(scene, pw);
+        const PinwheelVisibleLight inner = pinwheel_visible_light(pw, pw.nucleation_radius_km, share);
+        const PinwheelVisibleLight outer = pinwheel_visible_light(pw, pw.step_km(), share);
+        std::printf("info: WR 104 visible light: stars %.3f in 400-700 nm; dust at r_nuc %.2e glow, %.2e "
+                    "scattered; at a turn %.2e, %.2e\n",
+                    share, inner.thermal, inner.scattered, outer.thermal, outer.scattered);
+        check(share > 0.01 && share < 0.1, "WR 104 stars' visible share", share);
+        check(inner.thermal > 10.0 * inner.scattered, "WR 104 dust glows in visible light where it forms",
+              inner.thermal / inner.scattered);
+        check(outer.scattered > 10.0 * outer.thermal, "WR 104 dust a turn out only scatters visible light",
+              outer.scattered / outer.thermal);
+    }
+
+    // [SO18] Table 3: the azimuthally averaged K-band profile falls as rho^-3.0
+    // +- 0.2 between their resolution limit and the noise floor.
+    {
+        constexpr int kBins = 12;
+        const double rho0 = 40.0;
+        const double rho1 = 400.0;
+        double light[kBins] = {};
+        for (const SkyGrain& g : sky98) {
+            const double rho = std::hypot(g.east, g.north);
+            const int bin = static_cast<int>(std::floor(kBins * std::log(rho / rho0) / std::log(rho1 / rho0)));
+            if (bin >= 0 && bin < kBins) {
+                light[bin] += g.brightness;
+            }
+        }
+        double sx = 0.0;
+        double sy = 0.0;
+        double sxx = 0.0;
+        double sxy = 0.0;
+        for (int k = 0; k < kBins; ++k) {
+            const double lo = rho0 * std::pow(rho1 / rho0, double(k) / kBins);
+            const double hi = rho0 * std::pow(rho1 / rho0, double(k + 1) / kBins);
+            const double x = std::log(std::sqrt(lo * hi));
+            const double y = std::log(light[k] / (kPi * (hi * hi - lo * lo)));
+            sx += x;
+            sy += y;
+            sxx += x * x;
+            sxy += x * y;
+        }
+        const double slope = (kBins * sxy - sx * sy) / (kBins * sxx - sx * sx);
+        check(std::abs(slope + 3.0) < 0.2, "WR 104 radial profile slope", slope);
+    }
+}
+
 } // namespace
 
 void run_stellar_system_tests()
@@ -1195,4 +1462,5 @@ void run_stellar_system_tests()
     test_delta_cephei_scene();
     test_kepler64_scene();
     test_psr_b1620_scene();
+    test_wr104_scene();
 }

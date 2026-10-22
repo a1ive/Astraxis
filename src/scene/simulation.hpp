@@ -87,6 +87,9 @@ public:
     // would spin it past faster than the eye can follow (turning with Janus at days
     // per second).
     double sky_visibility() const;
+    // Brightness of a pinwheel's dust, 0..1: it fades out while the time warp
+    // turns the spiral faster than the eye can follow.
+    double pinwheel_visibility() const;
 
     const Scene& scene() const { return m_scene; }
     SimClock& clock() { return m_clock; }
@@ -168,6 +171,7 @@ private:
     double m_fade = 1.0;              // linear; fade() eases it
     double m_fade_target = 1.0;
     double m_sky = 1.0; // linear; sky_visibility() eases it
+    double m_pinwheel = 1.0; // linear; pinwheel_visibility() eases it
     double m_disk_time = 0.0;
     double m_animation_time = 0.0;
     std::vector<double> m_rotor_turns; // per body

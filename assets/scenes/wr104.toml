@@ -1,0 +1,331 @@
+# WR 104, the "pinwheel": a carbon-rich Wolf-Rayet star (WC9d) and an OB star
+# 2.9 au apart, 241.5 days per orbit, 2.6 kpc away in Sagittarius. Where their
+# winds collide, carbon dust condenses about 30 au out and streams away at the
+# Wolf-Rayet wind's speed; the orbit turns the stream into a spiral that winds
+# out by 170 au each orbit. A third, hot star ~2500 au away shares the motion
+# on the sky.
+#
+# The binary is a two-body (Keplerian) circular orbit. The dust is the
+# geometric model of [WH25] (scene/pinwheel.hpp): rings of grains launched
+# along a hollow cone around the line from the Wolf-Rayet star to the OB
+# star, coasting outward at constant speed; no hydrodynamics.
+#
+# [HI24] Hill 2024, MNRAS 534, 2184, Table 2 (circular SB1 orbits of both
+#        stars): P = 241.54 +- 0.14 d, E0 = HJD 2449439.7 +- 4.6 (inferior
+#        conjunction of the WR star: it is in front), K_WR = 63.8 +- 2.4,
+#        K_OB = 23.7 +- 2.9 km/s; e = 0.04 +- 0.03 when fitted. Its i ~ 45 deg
+#        (no lower than ~34 deg) for plausible masses.
+# [RI26] Richardson et al. 2026, ApJ (arXiv:2602.23606): dust "scattering
+#        eclipses" in the ASAS-SN g light curve, i = 41.8 (+13.0 / -14.9) deg
+#        (Sect. 4); masses at that i 14.9 and 40.2 M_sun (Sect. 5.1); Fig. 6, a
+#        [WH25] model at i = 40 deg whose column density still looks like a
+#        face-on spiral.
+# [TU08] Tuthill et al. 2008, ApJ 675, 698 (arXiv:0712.2111), Keck aperture
+#        masking 1998-2004: P = 241.5 +- 0.5 d, 0.28 +- 0.02 mas/day outward,
+#        spiral position angle theta_0 = 269 +- 1 deg at the first epoch (1998
+#        Apr 14, JD 2450918), i <= 16 deg for a flat spiral (Sect. 2.2); the
+#        spiral winds counterclockwise outward (Fig. 8), so it turns clockwise
+#        on the sky; WR wind 1220 km/s (Howarth & Schmutz 1992).
+# [SO18] Soulain et al. 2018, A&A 618, A108 (arXiv:1806.08525): Table 7, step
+#        66 +- 3 mas, dust nucleation at r_nuc = 12 +- 2 mas, dust temperature
+#        T = T_nuc (r / r_nuc)^-q with T_nuc = 2000 K, q = 0.45; Sect. 4.1, the
+#        distance 2.58 +- 0.12 kpc from the step and 1220 km/s; Table 4, the
+#        companion B at 975.5 mas, position angle 74.8 deg (IRDIS HeI, MJD
+#        57590.1); Table 5, its radius 4.3 R_sun and T >= 33000 K (their
+#        L = 68000 L_sun does not follow from these; R^2 T^4 gives 19,800);
+#        Sect. 5.3, B's mass assumed 20 M_sun.
+# [SO22] Soulain et al. 2022, MNRAS 518, 3315 (arXiv:2209.01884): Table 2,
+#        WR 45000 K and 6 R_sun, OB 30000 K and 13.5 R_sun; Table 3 and Fig. 5,
+#        full opening angle of the dust-forming region 70-122 deg in their
+#        hydrodynamic model (Eichler & Usov's formula gives ~40).
+# [HA04] Harries et al. 2004, MNRAS 350, 565 (arXiv:astro-ph/0401574): radiative
+#        transfer of the spiral with amorphous carbon grains of 0.01 um (Zubko
+#        1998), optical constants of Zubko et al. 1996; Fig. 3, their albedo
+#        falls from ~0.06 at 0.1 um to ~0.005 at 0.55 um (read off the plot);
+#        Sect. 5, "a negligible scattered component due to the small grain
+#        albedo".
+# [WH25] White et al. 2025, ApJ (arXiv:2507.14610), Appendix B: the xenomorph
+#        geometric model (rings of grains on a cone, eqs. B9-B12).
+# [SIMB] SIMBAD (Gaia DR3): ICRS position at J2000, 18 02 04.1244 -23 37 42.168
+#        = 270.5171852, -23.6283801 deg. Its parallax, 1.56 +- 0.20 mas
+#        (0.64 kpc), disagrees with the spiral's distance; [HI24] doubts it for
+#        this bright, dust-wrapped source, and it is not used.
+#
+# [CAP]  Event captions: from the sources above; the first images of the spiral
+#        (Tuthill et al. 1999, Nature 398, 487) as [TU08] Sect. 1 describes them;
+#        the gamma-ray burst from [TU08] Sect. 7 (a burst's beam is under ~12 deg
+#        wide, Frail et al. 2001, and could harm Earth's biosphere from 2 kpc,
+#        Melott et al. 2004, Thomas et al. 2005).
+#
+# The inclination: [TU08] fit a flat spiral and found it face-on. The radial
+# velocities ([HI24]) and the eclipses ([RI26]) need ~42 deg. A wide cone hides
+# the tilt: once the half-opening angle exceeds the inclination, the dust band
+# covers the whole limb of each expanding shell and the projected spiral stays
+# round. The scene takes [RI26]'s i, 180 - 41.8 = 138.2 deg for the clockwise
+# turn on the sky, and a 110 deg cone: coils 1-3 as seen from Earth are then
+# 0.96 as wide as long, as round as a flat spiral tilted by [TU08]'s 16 deg
+# limit (90 deg gives 0.89; [RI26]'s 60 deg, 0.84). It is inside [SO22]'s
+# range; the spiral is less sharp than with a narrow cone. The node, 16.12
+# deg, is fitted so that the dust as seen from Earth starts at [TU08]'s
+# theta_0 at its first epoch (tests;
+# [HI24]'s phase is uncertain by ~8 deg then, and so is the node). [RI26]'s
+# Fig. 6 has a node of 78 deg in the xenomorph code's own convention.
+# Masses from [HI24]'s K and this i: a sin i = (K_WR + K_OB) P / 2 pi
+# = 1.9427 au, a = 2.9146 au, 56.62 M_sun in all; M_WR / M = K_OB / (K_WR + K_OB).
+# [HI24]'s E0 is a heliocentric JD, taken as BJD_TDB (they differ by minutes;
+# E0 is uncertain by days).
+# The companion B: assumed on a circle of the projected radius (975.5 mas at
+# 2580 pc = 2517 au, about 14,000 years) and at its ascending node at the
+# [SO18] epoch, inclined 60 deg; its orbit is not known.
+# Luminosity = R^2 (T / 5772 K)^4. GM = mass * GM_sun (1.32712440041279419e11
+# km^3/s^2, JPL DE440).
+# The sky is a model of the Milky Way as seen from here (tools/sky/make_galaxy_sky.py,
+# assets/sky/SOURCES.md): its stars and dust clouds are statistical, not real ones.
+# Checks (tests/stellar_system_tests.cpp): the conjunction on [HI24]'s E0, the
+# masses against [RI26], the step against [SO18], the turn and theta_0 against
+# [TU08], B's position against [SO18], the radial profile of the dust.
+
+name = "WR 104"
+
+[sky]
+viewer_ra_dec_distance_pc = [270.5171852, -23.6283801, 2580.0]   # [SIMB], [SO18]
+milky_way = "sky/wr104.jpg"
+stars = "sky/wr104_stars.csv"
+
+[view]
+focus = "WR 104 WC+OB"
+distance_km = 3.0e11           # ~2000 au: a dozen turns of the spiral
+start = "now"
+warp = 864000.0                # 10 days per second: one turn in 24 s
+up = "orbit_normal:WR 104 WC9d"
+pitch_deg = 60.0               # from above the orbit: the spiral, with the shells' depth
+
+# The dust (scene/pinwheel.hpp): grains launched along a cone around the line
+# from `primary` (the stronger wind) to `secondary`, from `center`.
+[pinwheel]
+center = "WR 104 WC+OB"
+primary = "WR 104 WC9d"
+secondary = "WR 104 OB"
+period_days = 241.54           # [HI24], the orbit's
+speed_km_s = 1220.0            # [TU08], [SO18]: 170.19 au per turn, 65.97 mas at 2.58 kpc
+opening_angle_deg = 110.0      # full; see above
+nucleation_radius_au = 30.96   # 12 mas [SO18] at 2.58 kpc
+nucleation_temperature_k = 2000.0 # [SO18]
+temperature_index = 0.45       # [SO18]
+# Thickness of each wall of the hollow cone: face-on, the two walls are
+# 110 / 360 of a turn apart (52 au); [SO22]'s filling factor ~50% (Fig. 5)
+# makes each wall ~13 au across (FWHM).
+wall_sigma_au = 5.5
+# For the eye's view (dust_visible events): grains reflect this share of the
+# visible starlight [HA04]; otherwise they glow as black bodies.
+visible_albedo = 0.005
+turns = 15                     # [SO18] traced the spiral over 15 coils in K
+rings_per_turn = 400
+grains_per_ring = 40
+
+[[bodies]]
+name = "WR 104"
+kind = "barycenter"
+
+# The inner pair around the triple's barycenter, opposite B.
+[[bodies]]
+name = "WR 104 WC+OB"
+parent = "WR 104"
+kind = "barycenter"
+trail = "none"
+[bodies.orbit]
+scale = -0.261027713           # -M_B / M_total
+type = "visual_orbit"
+gm_km3_s2 = 1.016845593e13     # 76.62 M_sun
+a_mas = 975.5
+distance_pc = 2580.0
+e = 0.0
+i_deg = 60.0
+node_deg = 74.8
+arg_peri_deg = 0.0
+t_peri_jd_tdb = 2457590.6      # MJD 57590.1 [SO18]
+sky_ra_dec_deg = [270.5171852, -23.6283801]
+
+[[bodies]]
+name = "WR 104 B"
+parent = "WR 104"
+kind = "star"
+radii_km = [2991510.0]         # 4.3 R_sun [SO18]
+body_gm_km3_s2 = 2.654248801e12 # 20 M_sun, assumed [SO18]
+temperature_k = 33000.0        # a lower limit [SO18]
+luminosity_solar = 19755.0
+trail = "none"
+[bodies.orbit]
+scale = 0.738972287            # M_inner / M_total
+type = "visual_orbit"
+gm_km3_s2 = 1.016845593e13
+a_mas = 975.5
+distance_pc = 2580.0
+e = 0.0
+i_deg = 60.0
+node_deg = 74.8
+arg_peri_deg = 0.0
+t_peri_jd_tdb = 2457590.6
+sky_ra_dec_deg = [270.5171852, -23.6283801]
+
+# The binary: the WR star relative to the OB star, in front at E0 [HI24].
+[[bodies]]
+name = "WR 104 WC9d"
+parent = "WR 104 WC+OB"
+kind = "star"
+radii_km = [4174200.0]         # 6 R_sun [SO22]
+body_gm_km3_s2 = 2.035276674e12 # 15.34 M_sun
+temperature_k = 45000.0        # [SO22]
+luminosity_solar = 133000.0
+orbit_color = "#c0a8ff"
+[bodies.orbit]
+scale = 0.729142857            # M_OB / M = K_WR / (K_WR + K_OB)
+type = "transit_orbit"
+gm_km3_s2 = 7.514207128e12     # 56.62 M_sun
+period_days = 241.54
+t_transit_bjd_tdb = 2449439.7
+e = 0.0
+arg_peri_deg = 90.0
+i_deg = 138.2
+node_deg = 16.12                # fitted: the spiral as seen from Earth at [TU08] theta_0
+transit_u_deg = 90.0
+sky_ra_dec_deg = [270.5171852, -23.6283801]
+
+[[bodies]]
+name = "WR 104 OB"
+parent = "WR 104 WC+OB"
+kind = "star"
+radii_km = [9391950.0]         # 13.5 R_sun [SO22]
+body_gm_km3_s2 = 5.478930454e12 # 41.28 M_sun
+temperature_k = 30000.0        # [SO22]
+luminosity_solar = 133000.0
+orbit_color = "#a8c8ff"
+[bodies.orbit]
+scale = -0.270857143           # -M_WR / M
+type = "transit_orbit"
+gm_km3_s2 = 7.514207128e12
+period_days = 241.54
+t_transit_bjd_tdb = 2449439.7
+e = 0.0
+arg_peri_deg = 90.0
+i_deg = 138.2
+node_deg = 16.12                # fitted: the spiral as seen from Earth at [TU08] theta_0
+transit_u_deg = 90.0
+sky_ra_dec_deg = [270.5171852, -23.6283801]
+
+[[bodies]]
+name = "Sun"
+parent = "WR 104"
+kind = "star"
+radii_km = [695700.0]
+body_gm_km3_s2 = 1.32712440041279419e11 # JPL DE440
+temperature_k = 5772.0
+luminosity_solar = 1.0
+trail = "none"
+[bodies.orbit]                 # opposite direction of the system as seen from the Sun [SIMB]
+type = "fixed"
+ra_dec_distance_pc = [90.5171852, 23.6283801, 2580.0]
+
+[[frames]]
+name = "WR 104-centered"
+type = "inertial"
+origin = "WR 104 WC+OB"
+
+[[events]]
+name = "A pinwheel, as Keck saw it"
+time_tdb = "1998-04-14 00:00"  # [TU08]'s first epoch
+focus = "WR 104 WC+OB"
+frame = "WR 104-centered"
+from_body = "Sun"
+distance_km = 1.0e11
+warp = 432000.0                # 5 days per second: one turn in 48 s
+# [TU08], [SO18]
+caption = """\
+    In 1999 images from the Keck telescope showed WR 104 inside a spiral of \
+    dust that turns once every 241.5 days, like a lawn sprinkler, and moves \
+    outward by 170 au each turn. From Earth it looks almost face-on. The dust \
+    glows in the near infrared; here it is shown as if it were four times \
+    hotter, which brings that light into view."""
+
+[[events]]
+name = "Tilted after all"
+time = "2026-11-01"
+focus = "WR 104 WC+OB"
+frame = "WR 104-centered"
+from_body = "Sun"
+phase_deg = 90.0
+elevation_deg = 0.0
+distance_km = 1.0e11
+warp = 432000.0
+# [HI24], [RI26], [SO22], [WH25]
+caption = """\
+    The orbit is in fact tilted about 42 degrees to our line of sight: the \
+    stars' radial velocities and the dips in brightness as dust passes in \
+    front of them both require it. Dust leaves along a wide hollow cone around \
+    the line between the stars. Seen from the side, the cone's walls stand \
+    out; from Earth their edges line up into a spiral."""
+
+[[events]]
+name = "Not aimed at Earth"
+time = "2027-03-01"
+focus = "WR 104 WC+OB"
+frame = "WR 104-centered"
+from_orbit_normal = "WR 104 WC9d"
+distance_km = 1.6e11
+warp = 432000.0
+# [TU08] Sect. 7, [HI24]
+caption = """\
+    Seen along the orbit's axis, the spiral is truly face-on. Both stars will \
+    end as supernovae, perhaps with a gamma-ray burst beamed along this axis. \
+    A beam narrower than about 12 degrees, aimed at Earth from 2.6 kpc, could \
+    harm the ozone layer, which earned WR 104 the name "Death Star". With the \
+    axis 42 degrees away, such a beam would miss us."""
+
+[[events]]
+name = "Where the dust forms"
+time = "2027-07-01"
+focus = "WR 104 WC+OB"
+frame = "WR 104-centered"
+from_orbit_normal = "WR 104 WC9d"
+distance_km = 1.8e10           # 120 au: the cavity and where the spiral starts
+warp = 432000.0
+# [HI24], [SO18], [SO22], [TU08]
+caption = """\
+    The two stars are 2.9 au apart: a Wolf-Rayet star that has lost its \
+    hydrogen and blows a carbon-rich wind at 1,220 km/s, and a massive OB \
+    star. Their winds collide between them. Dust condenses only about 30 au \
+    downstream, where the gas has cooled below 2,000 K and is shielded from \
+    the starlight; closer in, the space stays clear."""
+
+[[events]]
+name = "A third star"
+time = "2028-01-01"
+focus = "WR 104"
+frame = "WR 104-centered"
+from_body = "Sun"
+distance_km = 8.5e11           # B and the pair, 2,500 au apart on the sky, both in view
+warp = 864000.0
+# [SO18]
+caption = """\
+    Hubble images from 1998 show a hot star one arcsecond away. Images taken \
+    with SPHERE in 2016 found it moving across the sky together with WR 104, \
+    so it is a third member of the system, at least 2,500 au from the pair. \
+    Its orbit is unknown; at that distance one revolution would take some \
+    14,000 years."""
+
+[[events]]
+name = "To the naked eye"
+time = "2028-06-01"
+focus = "WR 104 WC+OB"
+frame = "WR 104-centered"
+from_orbit_normal = "WR 104 WC9d"
+distance_km = 3.0e10           # 200 au
+warp = 432000.0
+dust_visible = true            # the dust's visible light, boosted ~130 times (it is ~0.8% of its light at 30 au)
+# [SO18], [HA04]
+caption = """\
+    In visible light the spiral nearly vanishes. Only the newest dust, at \
+    about 2,000 K, glows a dull orange; within half a turn it has cooled \
+    below 1,400 K and shines almost only in the infrared. The grains, a \
+    hundredth of a micron across, reflect less than one percent of the \
+    starlight. Here the glow is brightened about a hundredfold."""
