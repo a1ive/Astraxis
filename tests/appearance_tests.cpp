@@ -221,7 +221,8 @@ void test_atmospheres()
     check(pluto_ratio > 15.0 && pluto_ratio < 37.0, "Pluto haze forward/back ratio", pluto_ratio);
 
     // Scenes that repeat a body carry the same atmosphere.
-    for (const char* file : {"earth_moon.toml", "jwst.toml", "mercury.toml", "parker.toml", "saturn.toml", "venus.toml"}) {
+    for (const char* file :
+         {"earth_moon.toml", "mercury.toml", "parker.toml", "saturn.toml", "space_telescopes.toml", "venus.toml"}) {
         const Scene other = load_scene_or_die(file);
         for (const Body& b : other.bodies) {
             const int k = scene.find(b.name);
@@ -409,8 +410,8 @@ void test_night_and_aurora()
     const Body& earth = scene.bodies[static_cast<size_t>(scene.find("Earth"))];
     check(earth.aurora != nullptr && earth.night_lights.gain > 0.0 && !earth.night_lights.texture.empty(),
           "Earth has night lights and an aurora");
-    for (const char* file : {"earth_moon.toml", "isee3.toml", "jwst.toml", "mercury.toml", "parker.toml",
-                             "rosetta.toml", "venus.toml"}) {
+    for (const char* file : {"earth_moon.toml", "isee3.toml", "mercury.toml", "parker.toml", "rosetta.toml",
+                             "space_telescopes.toml", "venus.toml"}) {
         const Scene other = load_scene_or_die(file);
         const Body& e = other.bodies[static_cast<size_t>(other.find("Earth"))];
         check(e.aurora != nullptr && e.night_lights.texture == earth.night_lights.texture &&

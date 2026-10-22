@@ -242,6 +242,75 @@ start = "2021-12-25 13:02"
 stop = "2031-09-27 23:00"
 base_step_minutes = 360
 
+# The other telescopes of the Space Telescopes scene (assets/scenes/space_telescopes.toml).
+# Horizons coverage (checked 2026-10-22):
+#   Euclid (-680):    2023-Jul-01 15:53 .. 2031-Oct-05 TDB (tracking to 2026-08-31, then ESA predicts)
+#   Roman (-211):     2026-Aug-30 11:59 .. 2028-Oct-18 13:01 TDB (GSFC FDF; tracking to 2026-10-18,
+#                     then predicts)
+#   Gaia (-139479):   2013-Dec-19 09:55 .. 2125-Mar-28 TDB (ESOC final reconstruction to the end of the
+#                     mission, 2025-03-28, then a 100-year prediction of the disposal orbit)
+#   Kepler (-227):    2009-Mar-07 04:57 .. 2201-Feb-20 TDB (JPL navigation; prediction after 2018-10-30)
+#   TESS (-95):       2018-Apr-18 23:37 .. 2028-Apr-19 13:01 TDB (808 concatenated tag-up predictions;
+#                     tracking to 2026-10-18)
+# Gaia and Kepler stop with the Earth-Moon barycenter table (emb.eph, 2100), which the
+# rotating frame needs. Far from the Earth their geocentric positions still carry the
+# Earth's monthly wobble around the barycenter (~4,700 km): a knot every few days.
+
+[[target]]
+name = "euclid_geo"
+command = "-680"
+naif_id = -680
+center = "500@399"
+center_naif_id = 399
+start = "2023-07-01 15:54"
+stop = "2031-10-04 23:00"
+base_step_minutes = 360
+
+[[target]]
+name = "roman_geo"
+command = "-211"
+naif_id = -211
+center = "500@399"
+center_naif_id = 399
+start = "2026-08-30 12:00"
+stop = "2028-10-18 12:00"
+base_step_minutes = 60     # the first day starts near the Earth at ~10 km/s
+verify_step_minutes = 20
+
+[[target]]
+name = "gaia_geo"
+command = "-139479"
+naif_id = -139479
+center = "500@399"
+center_naif_id = 399
+start = "2013-12-19 09:56"
+stop = "2099-12-31"
+base_step_minutes = 360
+verify_step_minutes = 120
+
+[[target]]
+name = "kepler_geo"
+command = "-227"
+naif_id = -227
+center = "500@399"
+center_naif_id = 399
+start = "2009-03-07 04:58"
+stop = "2099-12-31"
+base_step_minutes = 360
+verify_step_minutes = 120
+
+[[target]]
+name = "tess_geo"
+command = "-95"
+naif_id = -95
+center = "500@399"
+center_naif_id = 399
+start = "2018-04-18 23:37"
+stop = "2028-04-19 12:00"
+base_step_minutes = 60     # the phasing loops of the first two months dip to a 200 km perigee
+verify_step_minutes = 20
+kepler_gm_km3_s2 = 398600.435507   # the Earth (DE440, JPL SSD astrodynamic parameters)
+
 # --- Jupiter-centered (center: Jupiter body center, 500@599) ---------------
 #
 # Galileo's and Juno's orbits around Jupiter, and the Galilean moons over the

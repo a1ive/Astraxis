@@ -863,7 +863,7 @@ void test_earth_moon_frame()
 // time, < 4.5 deg); the Moon's near side faces the Earth (libration < 10 deg).
 void test_earth_moon_rotation()
 {
-    Scene scene = load_scene_or_die("jwst.toml");
+    Scene scene = load_scene_or_die("space_telescopes.toml");
     scene.set_active_frame(0); // inertial
     const int moon = scene.find("Moon");
     for (const char* date : {"2023-02-11 12:00", "2026-06-21 12:00", "2029-11-03 12:00"}) {
