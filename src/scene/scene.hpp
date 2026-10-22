@@ -2,6 +2,7 @@
 
 #include "core/time.hpp"
 #include "ephem/motion.hpp"
+#include "scene/aurora.hpp"
 #include "scene/pinwheel.hpp"
 #include "scene/roche.hpp"
 #include "scene/shape_model.hpp"
@@ -355,6 +356,16 @@ struct Body {
 
     RingSystem rings; // no bands: no rings
     Atmosphere atmosphere;
+    // City lights on the night side: a gray map of emitted light in the same
+    // projection as `texture` (decoded as sRGB), times `color` (sRGB) and
+    // `gain` (I/F of a white pixel). They come on as the sun sets. No map: none.
+    struct NightLights {
+        std::string texture;
+        glm::vec3 color{1.0f};
+        double gain = 0.0;
+    } night_lights;
+    // Earth's aurora (scene/aurora.hpp), driven by this Kp record; null: none.
+    std::shared_ptr<const KpRecord> aurora;
     std::vector<Plume> plumes;
 
     // Comets: a gas coma (C2, Haser model), an ion tail and dust (a coma and a

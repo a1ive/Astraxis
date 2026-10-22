@@ -8,7 +8,7 @@ namespace astraxis {
 struct ViewOptions {
     bool orbits = true;
     bool belts = true;
-    bool atmospheres = true; // otherwise the surface under Venus' and Titan's clouds
+    bool atmospheres = true; // otherwise the surface under Venus' and Titan's clouds; also Earth's aurora
     bool plumes = true;
     bool comets = true;      // comae, ion and dust tails
     float star_brightness = 1.0f;

@@ -1,6 +1,6 @@
 # Astraxis
 
-用来“发呆”的天文动态背景程序：太阳系与各探测器轨迹、JWST L2 晕轨道、金星、火星、木星和土星系统、彗星与哈雷舰队、Alpha Centauri、系外行星共振链、多星系统、食变星 Algol 和造父变星 δ Cephei（带从地球看的光变曲线）、WR 104 的尘埃风车（几何模型，倾斜 42° 的轨道从地球看仍像正对的螺线）、脉冲星双星、Sgr A* 黑洞外观、《星际穿越》的虚构黑洞 Gargantua（按论文参数，电影版与带多普勒频移的真实样子对比；还有致敬的 Endurance 号，环在转）、致敬《坎巴拉太空计划》的 Kerbol 系统（游戏里读出的轨道、Kerbin 历法、程序生成的表面）等，共 26 个场景。
+用来“发呆”的天文动态背景程序：太阳系与各探测器轨迹、地球夜侧的城市灯光和极光（按 1932 年以来的 Kp）、JWST L2 晕轨道、金星、火星、木星和土星系统、彗星与哈雷舰队、Alpha Centauri、系外行星共振链、多星系统、食变星 Algol 和造父变星 δ Cephei（带从地球看的光变曲线）、WR 104 的尘埃风车（几何模型，倾斜 42° 的轨道从地球看仍像正对的螺线）、脉冲星双星、Sgr A* 黑洞外观、《星际穿越》的虚构黑洞 Gargantua（按论文参数，电影版与带多普勒频移的真实样子对比；还有致敬的 Endurance 号，环在转）、致敬《坎巴拉太空计划》的 Kerbol 系统（游戏里读出的轨道、Kerbin 历法、程序生成的表面）等，共 26 个场景。
 C++20 + CMake + SDL3 + SDL_GPU。Windows（D3D12）和 Linux（Vulkan）都能构建运行；Windows 上还有全屏、屏保和动态壁纸。将来做 macOS。
 
 - **目标**：安静、好看、物理上可信，主要用来发呆，交互只是辅助；功耗低，可以长时间挂在后台当壁纸；单个 exe，启动快，依赖少
@@ -75,6 +75,7 @@ CMake 目标：
 - `LabelLayout`（`scene/label_layout.hpp`）算标签和标记放在哪里（优先级、避让、渐隐、拾取），不负责绘制；`App` 用 ImGui 画
 - 光变曲线（场景的 `[light_curve]`，`scene/light_curve.hpp`）：从某个天体方向看，各恒星按黑体圆盘、线性临边昏暗、前面的星挡住后面的星算总光度。`Simulation` 每帧按固定时间网格更新一次采样（已算的保留），各宿主和标签一起画在角落（`app/light_curve_overlay.*`），倍速快到几秒就换掉整条曲线时淡出。星等从“每颗星最亮时、不遮挡”的固定参考光度量起。脉动星（`[bodies.pulsation]`，`Pulsation`）按相位表查半径、温度、光度，`Scene::update` 每帧写回天体；光变曲线按任意时刻查表（`star_disk_at`）。充满洛希瓣的星（`[bodies.roche]`，`scene/roche.hpp`，Algol B）加载时生成临界等势面的网格，逐顶点温度带引力昏暗和伴星的照射；它随轨道转（`Body::synchronous_with`），按形状模型画（星的着色乘上顶点亮度），光变曲线对它按面元求和，它挡在别的星前面时用网格投影的凸包
 - 风车星云（场景的 `[pinwheel]`，`scene/pinwheel.hpp`，WR 104）：White 2025 的几何模型，尘埃在锥面上成环，从双星质心匀速飞出。尘埃是加载时生成的一组固定颗粒（方向、发射相位、圈号），轨道每个周期重复，所以位置只是时间的函数（`pinwheel_grain_offset`）。`PinwheelPass` 把颗粒作为静态缓冲区上传一次，在 GPU 上按同一公式算位置，每颗画成贴在膨胀球壳上的扁平三维高斯（EWA 投影，侧看锥壁时有临边增亮）。颜色和亮度系数按 ln r 查表（红外伪彩色一张、可见光一张，`pinwheel_visible_light` 算热辐射和散射光的份额）；倍速快到螺线每秒转 1 圈以上时淡出（`Simulation::pinwheel_visibility`）；导演的系统范围算上了内三圈
+- 地球的夜间灯光和极光：天体的 `[bodies.night_lights]`（灰度灯光图，和 `texture` 同一投影，在天体着色器里按地面的太阳高度角亮起）和 `[bodies.aurora]`（Kp 记录，`scene/aurora.hpp`）。`Simulation::aurora_kp()` 按倍速取 Kp 的滑动平均（画面上 3 秒，最少 3 小时），`aurora_emission(kp)` 由 Starkov 卵、半球功率和谱线比值算出卵的边界（按磁地方时 48 个采样）和一个竖直柱的颜色；`AuroraPass` 在 80–450 km 的壳层里光线步进两层 Chapman 发光剖面，磁极取 IGRF 偶极，红线按局部 427.8 nm 亮度逐点算。卵里的弧和射线查一张平铺噪声纹理（投影到垂直于偶极轴的平面，没有接缝）。灯光和极光都按“长曝光”放大（`kAuroraExposure`、场景里的 `gain`），白天淡出
 - `SceneRenderer` 持有 pass 和每个场景的 GPU 资源，显示选项通过 `ViewOptions` 传入
 - GPU 分两层：`GpuDevice` 只有一个；`RenderOutput` 每个窗口一个，持有交换链和本输出的 `SceneTargets`。`Frame` 的 `width/height` 是场景尺寸，`output_width/output_height` 是交换链尺寸，两者在有渲染缩放（`render_scale`，各模式都有）时不同。MSAA 采样数（`msaa` 设置：1/2/4，`GpuDevice::set_msaa` 按硬件支持往下取）存在 `GpuDevice` 的 `SceneTargetFormat` 里，各 pass 的管线和 `SceneTargets` 都依赖它：运行时切换要调 `SceneRenderer::refresh_pipelines()` 重建管线，`SceneTargets::ensure` 发现采样数变了会自己重建。新 pass 要实现 `set_format`，并加进 `refresh_pipelines`。所有和输出尺寸相关的纹理（MSAA/HDR/深度、泛光链、黑洞追踪目标）都放在 `SceneTargets` 里，pass 内部不要再缓存按尺寸分配的纹理，否则多个不同尺寸的输出轮流渲染时会反复重建。各输出都用 SDR 交换链，格式相同，共用一个 `SceneRenderer`
 
@@ -82,7 +83,7 @@ CMake 目标：
 
 渲染流程：
 1. 黑洞光追（有黑洞时）：在屏幕外以半分辨率追踪，记下每条光线的天空方向和盘的光（`shaders/black_hole.hlsli` 是两边共用的追踪代码）；第 2 步的黑洞合成按全分辨率逐像素插值方向，相邻光线不一致处（阴影边缘、光子环附近）在合成着色器里重新追踪；天空逐像素查：星按局部线性化的透镜映射画成点（`StarfieldPass` 把星按方向排进网格，供合成着色器查找），银河直接采样它自己的贴图，天空被压缩到星点超出网格查找范围处（光子环附近）改用带 mip 的立方体贴图。有风车星云时，尘埃也在这一步画进屏幕外半分辨率、单采样的纹理
-2. 场景 pass，渲染到 HDR（RGBA16F + MSAA）：银河 → 星空 → 天体 → 大气层 → 羽流 → 彗发/离子彗尾 → 尘埃彗尾 → 行星环 → 小行星带/柯伊伯带 → 风车星云合成 → 黑洞合成 → 恒星 → 脉冲星光束 → 轨道线
+2. 场景 pass，渲染到 HDR（RGBA16F + MSAA）：银河 → 星空 → 天体 → 大气层 → 极光 → 羽流 → 彗发/离子彗尾 → 尘埃彗尾 → 行星环 → 小行星带/柯伊伯带 → 风车星云合成 → 黑洞合成 → 恒星 → 脉冲星光束 → 轨道线
 3. `PostProcess`：泛光 → ACES → sRGB → 交换链
 4. ImGui 叠加 pass
 
@@ -128,7 +129,7 @@ CMake 目标：
 | `planet_scene_tests.cpp` | 场景里的行星和卫星：太阳系、木星、地月、土星；Janus 和 Epimetheus 的根数表对照 Horizons、19 次交换（a 的跳变之比对照 GM 比、2006-01-21、最近距离）；Kerbol 系统对照游戏里的位置和自转角、6 小时太阳日、潮汐锁定、Laythe:Vall:Tylo ≈ 1:2:4、示意的 Mun 转移（停泊轨道、两次点火的 Δv、捕获轨道） |
 | `mission_tests.cpp` | 探测器：先驱者/新视野、Parker、伽利略/朱诺、Artemis/CAPSTONE/嫦娥五号 T1 及其火箭末级、卡西尼/惠更斯、信使/贝皮科伦坡、火星的八个轨道器（含天问一号 2021 年的重建）、赛丁泉彗星与 3I/ATLAS、太阳系场景的 1I/3I、Europa Clipper/Hera 飞掠、金星快车/破晓号/Zoozve 与金星借力飞掠、ISEE-3、哈雷舰队、Rosetta/Philae、JWST |
 | `shape_tests.cpp` | 小天体形状模型；Endurance 致敬模型（硬边、尺寸、环的转速对应 1 g） |
-| `appearance_tests.cpp` | 彗尾、尘埃彗尾、大气层、羽流（含各场景参数一致） |
+| `appearance_tests.cpp` | 彗尾、尘埃彗尾、大气层、羽流（含各场景参数一致）；地球的夜间灯光和极光（各场景一致、大磁暴的 Kp、Starkov 卵的性质、Longyearbyen 在磁正午处于 Kp 3 的卵下、IGRF 偶极极、半球功率、谱线产额和比值、Kp 随倍速的平均） |
 | `stellar_system_tests.cpp` | α Cen（含 Ab 对照 S1/C1 的位置和相互倾角、只在事件里显示的 Bb）、TRAPPIST-1、Kepler 系统、TIC 168789840、Algol（CHARA 位置与 B 的拉长、TESS 极小、GCVS 食深）与光变曲线模型、洛希面（Kim 1989 的半径、Eggleton 公式）、δ Cephei（SPIPS 半径、Engle 极大、视向速度轨道）、PSR B1620-26、WR 104（Hill 的合相和 K、Richardson 的质量、旋臂间距、从地球看的旋向和 Tuthill 的 θ0、宽锥让投影的旋臂接近圆、Soulain 的 r⁻³ 径向剖面、伴星 B 的位置、可见光里成核处以热辐射为主而一圈外只剩散射光） |
 | `relativity_tests.cpp` | Kerr 测地线（类时/类光）、后开普勒双脉冲星、Sgr A*、Gargantua（[JA15] 的盘和相机、最内稳定圆轨道上的示例行星、米勒星的时间膨胀、Mann 星的轨道对照 [TH14]、假想的 Edmunds 星看到的阴影大小和用光线追踪积分的盘的辐射、Endurance 假设的 30 M 轨道的周期和时间膨胀） |
 | `scene_tests.cpp` | 场景加载、Simulation、随天体自转的参考系、旋转参考系转得快时星空淡出、风车星云在高倍速时淡出、标签布局、跨场景一致性（同一天体在各场景的轨道参数）、相机导演（含 WR 104）、事件说明 |
@@ -140,7 +141,8 @@ CMake 目标：
 - `assets/stars/hyg.csv`：`tools/stars/convert_hyg.py`（HYG v4.4，带距离，供近邻系统重投影）；M4 星团天空：`tools/stars/make_m4.py`（Gaia DR3）
 - `assets/sky/`：远处场景和银心的模型星空，`tools/sky/make_galaxy_sky.py`（需要 numpy；先 `calibrate` 对照 `milky_way.jpg` 标定，结果在 `tools/sky/galaxy_calibration.json`，再 `render <场景.toml>`，一个场景约 10 分钟，银心约 20 分钟）。改了模型或标定要重新生成全部场景。工具用 multiprocessing：Windows 上子进程重新导入模块，在主进程里改的模块全局变量传不过去，参数要经 `_init` 传
 - `assets/belts/*.bin`：`tools/belts/make_belts.py`（JPL SBDB，主带 H < 15、全部 TNO）
-- `assets/textures/*.jpg`：`tools/textures/prepare_textures.py` 从原图缩放；`uranus.jpg`、`neptune.jpg` 由 `tools/textures/make_ice_giant_textures.py` 从哈勃 OPAL 的 FITS 图合成（纬向剖面加一张真实图，需要 numpy）；Kerbol 场景 16 个天体的纹理（`kerbin.jpg` 等）由 `tools/textures/make_kerbol_textures.py` 程序生成（球面三维噪声、自带哈希，需要 numpy 和 Pillow，全部约 10 分钟）
+- `assets/geomag/kp.bin`：`python -I tools/geomag/kp_bake.py <kpYYYY.wdc 目录> assets/geomag/kp.bin`（GFZ 的年度 WDC 文件，下载地址见 `assets/geomag/SOURCES.md`），更新时全部重下；`tools/geomag/aurora_colors.py <ciexyz31_1.csv>` 打印 `scene/aurora.cpp` 里各谱线每 kR 的颜色
+- `assets/textures/*.jpg`：`tools/textures/prepare_textures.py` 从原图缩放（地球夜间灯光 `earth_night.jpg` 在线性空间里平均缩放，需要 numpy）；`uranus.jpg`、`neptune.jpg` 由 `tools/textures/make_ice_giant_textures.py` 从哈勃 OPAL 的 FITS 图合成（纬向剖面加一张真实图，需要 numpy）；Kerbol 场景 16 个天体的纹理（`kerbin.jpg` 等）由 `tools/textures/make_kerbol_textures.py` 程序生成（球面三维噪声、自带哈希，需要 numpy 和 Pillow，全部约 10 分钟）
 - `tools/kerbol/`：Kerbol 场景的数据。`kerbol_dump.ks` 是 kOS 脚本（复制到 KSP 的 `Ships/Script/`，在带 kOS 处理器的飞船终端里 `SWITCH TO 0. RUNPATH("kerbol_dump").`），导出 `kerbol_bodies.txt`（已入库）；`kerbol_scene.py`（只用标准库）核对约定，打印场景的天体块、测试用的位置和自转角、大气参数；`kerbol_transfer.py`（只用标准库，借用 `horizons_bake.py` 的 Kepler 传播、抽稀和写表）按拼接圆锥曲线设计示意的 Kerbin→Mun 转移，烘成 `kerbol_mun_transfer.eph`。交会的最近距离由远拱点半径定，不是由点火相位定（飞船沿 Mun 的轨道方向到达、被 Mun 从后面追上，只改相位时都近乎迎头相撞）
 - `assets/shapes/*.mesh`（AXMESH2）：`tools/shapes/` 下按来源格式分：`make_arrokoth.py`、`make_grid_table_shape.py`（Thomas / Stooke 经纬网格表）、`make_dtm_shape.py`（DLR 全球 DTM）、`make_plate_shape.py`（板块模型、OBJ、VRML、Gaskell 的 ICQ）
 - `tools/bake/rejoin_burn.py`：把表里的入轨点火接到其后接缝处的下一段弧上（希望号，见 `assets/ephem/SOURCES.md`），烘焙之后运行
@@ -171,6 +173,7 @@ CMake 目标：
 - 不用平台后端时也要调用 `ImGui_ImplSDLGPU3_NewFrame()`（第一次调用时创建采样器）；漏了 Debug 能跑，Release 在 `SDL_BindGPUFragmentSamplers` 里崩
 - ImGui 开了 `NavEnableKeyboard` 后，有窗口获得焦点时 `WantCaptureKeyboard` 就是 true，全局快捷键只看 `WantTextInput`
 - 大面积重叠的加性光斑不要直接画进 MSAA 的 HDR 目标：每个样本都要混合，填充率按采样数翻倍（WR 104 的尘埃在 Arc A380、1280×720、4x MSAA 下只有 8 FPS）。光斑总数不影响这个开销（数量多了每个就小），起作用的是总覆盖面积、重叠系数和分辨率：画进半分辨率、单采样的离屏纹理再合成（`PinwheelPass`，60 FPS）
+- 体渲染的每个样本里不要算哈希值噪声：三维值噪声一次 8 个哈希，极光每像素 48 个样本、每个样本 5 次，近看铺满屏幕时只有 45 FPS；改查一张平铺的噪声纹理（`SampleLevel`，循环里不能用导数）后到 60 FPS
 - 多输出时每个输出都要等自己的交换链（`SDL_WaitAndAcquireGPUSwapchainTexture`）
 - 不要让 SDL 包装别的进程窗口下的子窗口（屏保 `/p` 预览）：对话框在第二块屏上时 SDL 会按顶层窗口的逻辑移动并放大它，预览区只剩黑底。预览窗口现在用 GDI 画
 - TOML 的表头会“吞掉”后面的键：顶层键（如 `name`）必须写在第一个 `[table]` 之前
@@ -245,6 +248,8 @@ CMake 目标：
 - **IAU 本体坐标系**：W 从本体赤道与 ICRF 赤道的升交点（RA = α₀+90°）起量；极轴在 Dec=90° 时叉积退化，用 `iau_pole_frame(α₀, δ₀)`。pck00011 的火星极有一项周期约 7 万年的“章动”（`BODY499_NUT_PREC_RA/DEC` 的最后一项：RA 加 0.419057° sin(79.398797° + 0.5042615° T)，Dec 加 1.591274° cos(166.325722° + 0.5042615° T)），J2000 的极是 (317.681°, 52.886°)，只取常数项 (317.269°, 54.433°) 会偏 1.5°；W 也有对应的 0.584542° 项，漏掉时本初子午线偏 1–1.4°。场景里用 `nut_prec_*` 写了这三项
 - **USGS 地图**：元数据写的“positive west”不可信，图像实际是东经向右递增。拼接图服务器跳转到 S3，用 `?list-type=2&prefix=mosaic/<名称>` 列文件
 - **PDS Rings Node** 拒绝 Python urllib 的默认 User-Agent（403）
+- **GFZ 的 Kp**：`kp.gfz.de` 在本机 TLS 握手失败（沙箱内外都一样），用 GWDG 的镜像 `ftp.gwdg.de/pub/geophys/kp-ap/wdc/yearly/`。WDC 文件里的 Kp 是“十分之一”码（0、3、7、10、13…，即 0o、0+、1-、1o、1+），换成三分之一要四舍五入；同一文件里的太阳黑子数是 CC BY-NC，不能一起带走
+- **期刊网站的验证**：SWSC（swsc-journal.org）对 curl 和 WebFetch 返回 captcha 或 403，内置浏览器能打开 full_html，表格在单独的页面（`.../T2.html`）；AGU/Wiley（agupubs.onlinelibrary.wiley.com）连内置浏览器也过不了 Cloudflare 验证，换开放的转述或同作者的开放版本（Sigernes 2011 的 Starkov 系数用 uib 上的 Opt. Pura Apl. 版本，表 1 有一处印成“-4-44”）
 - **Jena 的宇宙尘埃光学常数库**（OCDB，`www2.astro.uni-jena.de`）：curl 报 TLS 握手失败（沙箱内外都一样），内置浏览器也打不开。WR 104 的颗粒反照率改从 Harries 2004 图 3 读（他们用的就是 Zubko 1996 的无定形碳常数）
 - **Stooke 形状模型 V2.0**：小行星和彗星的经度表改成了东经（360° 减 V1.0），但标签里的说明文字照抄 V1.0，其中的经度数值（如 Halley 的 270°）仍是西经。Vega 电视图像的时间有 UT（`TIM--OBS`、`TIME-ENC`）和开机后的星上计数（`TONBHRDW`，4.766485 计数/秒）两种，Stooke 标签里的“2:00:30”看来是后者
 - **论文**：PDF 表格用 `pdftotext -layout` 提取时列会错位，用 `-raw`；`tools/pdftext.py` 会丢掉表格里的负号（Iess 2018 表 1 的 J4 提取成 586.609，实际是 −586.609），符号要核对；有的书的 PDF（《The Science of Interstellar》）用 `tools/pdftext.py` 只提取出空格，Git 自带的 `pdftotext`（`/mingw64/bin`）可以；本机没有 `pdftoppm`，Read 工具不能渲染 PDF 页面，看插图用 Inkscape：`inkscape --pdf-poppler --pages=<页> --export-type=png <pdf>`；凌星拟合的 ω 约定各代码不同（NbodyGradient 凌星时 ω+f = 270°，Phodymm 是 90° 且状态取反），场景里用 `transit_u_deg` 写明；共振链对积分相位误差很敏感，用 6 阶 Yoshida
@@ -279,10 +284,12 @@ CMake 目标：
 1. Dear ImGui 等 1.93.x 补丁版出来再从 v1.92.9b 升级（1.93.0 重写了 ImDrawList，刚发布）。SDL3/SDLGPU3 后端和用到的 API 都兼容，要截图核对的是：`label_overlay.cpp` 的空心圆点（`AddCircle` 半径不再减 0.5、默认内侧描边）和标记菱形（`AddQuad`）、`captions.cpp`/`app_ui.cpp` 里非整数坐标的 `AddRectFilled`（现在有抗锯齿边缘）、`StyleColorsDark()` 改过的面板配色
 2. B1913+16 自转轴的测地线进动：用 Weisberg & Taylor 2002（astro-ph/0205280）表 1 的解 1（i = 47.2°，与场景一致；δ = 21.1°、α = 157.5°、T0 = 1981.0）；Kramer 1998 表 1 的解 I 是同一几何（δ = 22°，α = 27° 即自转反向）。速率由质量按 Barker & O'Connell 算（1.215°/年，对照 WT02 的 1.213°/年写测试），自转轴绕轨道法线走半角 δ 的锥；画面上只有 ζ(t)（自转轴与视线的夹角）可见，它只依赖 cos Φ，不受进动方向和假设的天空节点影响，测试对照 WT02 的公式。`pulsar_beams` 要多传仿真时间。再加一个从地球方向（视线）看的事件，事件视角目前只有 `from_orbit_normal`、`from_body`，要新增一种：现有的“光束扫过相机时闪一下”会一直闪到约 2025 年（Kramer 的预测）后停下；停下的时刻取决于光束宽度（现在是示意的 10°，WT02 的光束是轴比 1.59 的沙漏形），要调或注明。2019 年以后没找到观测文献，展签写成“预测”。[WH16] 4.4 节说各家几何解“不一致”，是指精度不够扣除光行差，不影响画面
 3. 变星：Polaris（复用 `[bodies.pulsation]`：振幅很小，周期每年变长约 4.5 s；Aa–Ab 约 29.6 年的轨道，Evans 等的 HST/CHARA 解；远处的 B）。要找有相位表的脉动模型（像 SPIPS 那样），或从视向速度积分半径（p 因子要注明）
-4. 土星的其他小卫星：用 `element_table_bake.py` 和 Thomas 的形状模型加牧羊卫星 Prometheus、Pandora（F 环两侧，混沌的相互作用）和 Pan、Daphnis（Encke、Keeler 缝里），以及 Tethys、Dione 的特洛伊卫星（Telesto、Calypso、Helene、Polydeuces）；先确认 Horizons 的覆盖范围，Laplace 极从 [ELEM] 取
-5. Kerbol 场景：高度图和法线（晨昏线上的立体感，也可用于月球、火星的 USGS DEM）与海面高光（Kerbin、Eve、Laythe、地球）；还可以用 `kerbol_transfer.py` 的办法加别的示意航线（Minmus、Duna 的转移窗口等，标明是设计的）
-6. 黑洞附近的天体做透镜：Gargantua 的示例行星和 Mann 星现在按真实位置画，转到黑洞背后时被挡住（真实情况下光会弯到阴影上方）。可以对每个天体解相机到天体的类光测地线，把球和标记画在主像（和次像）的位置
-7. 远期：macOS（Metal，需要 SPIR-V → MSL 和 macOS CI）；J1141-6545 的自转轴进动（Venkatraman Krishnan 2019 表 1：α ≈ 89°，δ 各模型从 35° 到 155° 不等，倾向的模型 3 是 91° ± 60°；Manchester 2010 约 110°），等几何解定下来再做
+4. 日冕：`sun.frag.hlsl` 现在只有临边昏暗加一圈示意的衰减光。真实的 K 日冕在日面边缘只有日面亮度的约 10⁻⁶，按物理亮度在泛光下看不见，日面被挡住时才显出来，所以先做两种场合：日食事件（相机在月影本影里，2017-08-21 或 2024-04-08；或者从月球看地球挡住太阳，顺带地球大气的一圈红光），和 Parker 场景（探测器就在日冕里）。结构按太阳周期的相位变化（极小期是赤道冕流加极区羽流，极大期四面放射），用几何模型，不做 PFSS 外推；要用黑子数定相位时先核实 SILSO 的许可证（GFZ 文件里的黑子数是 CC BY-NC）。不做 CME
+5. 土星的其他小卫星：用 `element_table_bake.py` 和 Thomas 的形状模型加牧羊卫星 Prometheus、Pandora（F 环两侧，混沌的相互作用）和 Pan、Daphnis（Encke、Keeler 缝里），以及 Tethys、Dione 的特洛伊卫星（Telesto、Calypso、Helene、Polydeuces）；先确认 Horizons 的覆盖范围，Laplace 极从 [ELEM] 取
+6. Kerbol 场景：高度图和法线（晨昏线上的立体感，也可用于月球、火星的 USGS DEM）与海面高光（Kerbin、Eve、Laythe、地球）；还可以用 `kerbol_transfer.py` 的办法加别的示意航线（Minmus、Duna 的转移窗口等，标明是设计的）
+7. 黑洞附近的天体做透镜：Gargantua 的示例行星和 Mann 星现在按真实位置画，转到黑洞背后时被挡住（真实情况下光会弯到阴影上方）。可以对每个天体解相机到天体的类光测地线，把球和标记画在主像（和次像）的位置
+8. 木星极光：主要发紫外光（H₂ 的 Lyman 和 Werner 带），可见光里几乎看不到，要像 WR 104 的红外伪彩色那样做成“紫外视图”的开关并在展签里写明。主卵之外，Io、Europa、Ganymede 的磁通管足点跟着卫星走，是好看的物理联系；足点和卵的位置要用 Juno 的磁场模型（JRM33）沿磁力线追踪，不能用偶极。可以复用地球极光的壳层 pass（`AuroraPass`），但卵的形状和活动要另找数据（哈勃和 Juno UVS 的统计卵）。别的天体的极光（土星、火星、Ganymede 自己的卵）做不做还没定
+9. 远期：macOS（Metal，需要 SPIR-V → MSL 和 macOS CI）；J1141-6545 的自转轴进动（Venkatraman Krishnan 2019 表 1：α ≈ 89°，δ 各模型从 35° 到 155° 不等，倾向的模型 3 是 91° ± 60°；Manchester 2010 约 110°），等几何解定下来再做
 
 ## 不要做
 

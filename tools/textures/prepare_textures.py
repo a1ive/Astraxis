@@ -34,9 +34,12 @@ Expected file names in <source_dir> (the default is 2048 px wide):
     Venus_Magellan_C3-MDIR_Colorized_Global_Mosaic_4641m.tif -> venus.jpg
     Titan_ISS_P19658_Mosaic_Global_4km.tif           -> titan.jpg
 
-Requires Pillow. The USGS mosaics are 100-200 MB GeoTIFFs (up to ~190 Mpx), so
-the decompression-bomb guard is disabled and images are pre-reduced by an
-integer factor before the final Lanczos resize.
+Night lights (gray, 4096 px wide whatever the width argument):
+    BlackMarble_2016_3km_gray.jpg (NASA Black Marble 2016) -> earth_night.jpg
+
+Requires Pillow (and numpy for the night lights). The USGS mosaics are 100-200
+MB GeoTIFFs (up to ~190 Mpx), so the decompression-bomb guard is disabled and
+images are pre-reduced by an integer factor before the final Lanczos resize.
 """
 
 import os
@@ -85,6 +88,11 @@ MAPS = [
     ('Titan_ISS_P19658_Mosaic_Global_4km.tif', 'titan.jpg', False),
     # Stooke's airbrushed shaded relief of Amalthea (gray): tinted with the scene color.
     ('amalcyl.jpg', 'amalthea.jpg', False, '#9c5a43'),
+]
+
+# Maps of emitted light: (source, output, width).
+LIGHT_MAPS = [
+    ('BlackMarble_2016_3km_gray.jpg', 'earth_night.jpg', 4096),
 ]
 
 
@@ -222,6 +230,24 @@ def prepare(src, dst, width, fill_gaps, tint=None):
     print(f'  -> {dst} ({os.path.getsize(dst) // 1024} KB, {filled} gap pixels filled)')
 
 
+def prepare_lights(src, dst, width):
+    """A gray map of emitted light, taken as sRGB-encoded: averaged in linear
+    space (a box filter), so that a city smaller than the output pixels keeps
+    its total light instead of fading into the dark around it."""
+    import numpy as np
+
+    height = width // 2
+    with Image.open(src) as img:
+        print(f'{os.path.basename(src)}: {img.size[0]}x{img.size[1]} {img.mode}')
+        lut = np.array([srgb_to_linear(v / 255.0) for v in range(256)], dtype=np.float32)
+        linear = Image.fromarray(lut[np.asarray(img.convert('L'))], 'F')
+        linear = np.asarray(linear.resize((width, height), Image.Resampling.BOX))
+        encoded = np.vectorize(linear_to_srgb, otypes=[np.float32])(linear)
+        Image.fromarray(np.round(encoded * 255.0).astype(np.uint8), 'L').save(dst, 'JPEG', quality=90,
+                                                                              optimize=True)
+    print(f'  -> {dst} ({os.path.getsize(dst) // 1024} KB)')
+
+
 def main():
     if len(sys.argv) not in (3, 4):
         sys.exit(__doc__)
@@ -234,6 +260,12 @@ def main():
             print(f'skip {src_name} (not found)')
             continue
         prepare(src, os.path.join(out_dir, dst_name), width, fill_gaps, *tint)
+    for src_name, dst_name, light_width in LIGHT_MAPS:
+        src = os.path.join(src_dir, src_name)
+        if not os.path.exists(src):
+            print(f'skip {src_name} (not found)')
+            continue
+        prepare_lights(src, os.path.join(out_dir, dst_name), light_width)
 
 
 if __name__ == '__main__':

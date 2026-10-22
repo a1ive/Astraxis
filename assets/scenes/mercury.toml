@@ -25,6 +25,7 @@
 #        the GM of Mars alone.
 # [ELEM] JPL SSD, Planetary Satellite Mean Elements (the Moon, outside its table).
 # [ATM]  Atmospheres (single scattering): sources and choices in solar_system.toml.
+# [NIGHT] The Earth's night lights and aurora: sources and choices in solar_system.toml.
 # [PCK]  NAIF pck00011.tpc (IAU 2015): radii, poles, prime meridians (T terms ignored
 #        unless given).
 # [MESM] JHU/APL, "MESSENGER Primed for Mercury Orbit" (2011-03-15, NSSDC copy
@@ -183,6 +184,12 @@ haze_depth = 0.005328
 haze_scale_height_km = 1.2
 haze_albedo = 0.9
 haze_g = 0.8
+[bodies.night_lights]                      # [NIGHT] (sources and choices in solar_system.toml)
+texture = "textures/earth_night.jpg"
+color = "#ffb46b"
+gain = 0.6
+[bodies.aurora]                            # [NIGHT]
+kp = "geomag/kp.bin"
 [bodies.orbit]                             # [HZN] 301 (geocentric Moon), scaled by -mu
 scale = -0.0121505844
 type = "ephemeris"

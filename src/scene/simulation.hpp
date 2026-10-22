@@ -49,6 +49,8 @@ public:
     // Fastest a rotor (Body::Rotor) turns on screen, whatever the warp: one turn in
     // 4 s, slow enough not to strobe at low frame rates.
     static constexpr double kRotorMaxTurnsPerSecond = 0.25;
+    static constexpr double kAuroraKpWindowSeconds = 3.0;
+    static constexpr double kAuroraMaxWarp = 30.0;
 
     // Loads a scene file and starts at the scene's own time and view; a running
     // tour goes on in the new scene. On failure nothing changes.
@@ -108,6 +110,13 @@ public:
     // Turns of a body's rotor (Body::Rotor) in [0, 1): its own period at low warp,
     // capped at kRotorMaxTurnsPerSecond.
     double rotor_turns(int body) const;
+    // The aurora's Kp (Body::aurora): averaged over kAuroraKpWindowSeconds of
+    // real time at the current warp (at least one 3-hour interval), so that it
+    // does not flicker at days per second. 0 without an aurora.
+    double aurora_kp() const { return m_aurora_kp; }
+    // The aurora's animation clock (seconds, wrapped): simulated time, but no
+    // faster than kAuroraMaxWarp, so that its arcs drift rather than flicker.
+    double aurora_time() const { return m_aurora_time; }
     // Real seconds since the scene was loaded, paused or not (the title card).
     double scene_age() const { return m_scene_age; }
     // The event last jumped to (-1: none since the scene was loaded) and the
@@ -175,6 +184,8 @@ private:
     double m_disk_time = 0.0;
     double m_animation_time = 0.0;
     std::vector<double> m_rotor_turns; // per body
+    double m_aurora_kp = 0.0;
+    double m_aurora_time = 0.0;
     double m_scene_age = 0.0;
     int m_last_event = -1;
     double m_event_age = 0.0;

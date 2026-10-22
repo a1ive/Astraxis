@@ -3,7 +3,8 @@
 // treated as a disk), the shadow of the planet's own rings,
 // procedural gas-giant bands (Jupiter-like, Saturn-like) and a procedural
 // battle station. Under an atmosphere, sunlight is reddened by the column it
-// crosses (the twilight band at the terminator).
+// crosses (the twilight band at the terminator). City lights come on at dusk
+// and shine up through the atmosphere.
 
 #include "atmosphere.hlsli"
 #include "common.hlsli"
@@ -19,6 +20,7 @@ static const float kPi = 3.14159265;
 
 FRAGMENT_TEXTURE(Texture2D, u_albedo, u_sampler, 0); // sRGB texture: samples are linear
 FRAGMENT_TEXTURE(Texture2D, u_ring_profile, u_ring_sampler, 1); // r = ring normal optical depth
+FRAGMENT_TEXTURE(Texture2D, u_night_lights, u_night_sampler, 2); // sRGB gray map of emitted light
 
 cbuffer Uniforms : register(b0, space3)
 {
@@ -33,6 +35,7 @@ cbuffer Uniforms : register(b0, space3)
     float4 u_ring_radii;               // x = inner, y = outer radius of the profile (km), z = profile samples
     float4 u_atmo_rayleigh;            // atmosphere: rgb = vertical optical depth, w = scale height (radii; 0 = none)
     float4 u_atmo_haze;                // rgb = vertical attenuation optical depth, w = scale height
+    float4 u_night;                    // night lights: rgb = color (sRGB), w = I/F of a white pixel (0 = none)
 };
 
 struct PSInput
@@ -274,11 +277,11 @@ float4 main(PSInput input) : SV_Target0
     bool gas_giant = (int)u_color.a == STYLE_GAS_GIANT;
     bool saturn = (int)u_color.a == STYLE_SATURN;
     float3 albedo;
+    float2 uv = input.uv;
+    if (u_params.w > 0.5) {
+        uv.x = 1.0 - uv.x;
+    }
     if (u_params.z > 0.5) {
-        float2 uv = input.uv;
-        if (u_params.w > 0.5) {
-            uv.x = 1.0 - uv.x;
-        }
         albedo = u_albedo.Sample(u_sampler, uv).rgb;
     } else if (saturn) {
         albedo = saturn_color(normalize(input.local), srgb_to_linear(u_color.rgb));
@@ -295,5 +298,13 @@ float4 main(PSInput input) : SV_Target0
     }
 
     float3 color = albedo * (lit * limb + u_params.y);
+    if (u_night.w > 0.0) {
+        // Lights come on between sunset and the sun 6 deg below the horizon,
+        // and reach the viewer through the atmosphere.
+        float dusk = 1.0 - smoothstep(-0.1045, 0.0, dot(n, L));
+        float lights = u_night_lights.Sample(u_night_sampler, uv).r;
+        color += srgb_to_linear(u_night.rgb) * (u_night.w * lights * dusk) *
+                 atmosphere_transmission(saturate(dot(n, V)));
+    }
     return float4(color, 1.0);
 }

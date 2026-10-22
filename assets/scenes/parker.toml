@@ -16,6 +16,7 @@
 # [SPHY] JPL SSD, Planetary Satellite Physical Parameters (https://ssd.jpl.nasa.gov/sats/phys_par/),
 #        "Planet and Pluto GM Values" table: the GM of Mars alone.
 # [ATM]  Atmospheres (single scattering): sources and choices in solar_system.toml.
+# [NIGHT] The Earth's night lights and aurora: sources and choices in solar_system.toml.
 # [PCK]  NAIF pck00011.tpc (IAU 2015): radii, poles, prime meridians (T terms ignored).
 # [CAP]  Event captions (retrieved 2026-10-07):
 #        [PSP] NASA, science.nasa.gov/mission/parker-solar-probe/: to "touch the Sun"; a
@@ -138,6 +139,12 @@ haze_depth = 0.005328
 haze_scale_height_km = 1.2
 haze_albedo = 0.9
 haze_g = 0.8
+[bodies.night_lights]                      # [NIGHT] (sources and choices in solar_system.toml)
+texture = "textures/earth_night.jpg"
+color = "#ffb46b"
+gain = 0.6
+[bodies.aurora]                            # [NIGHT]
+kp = "geomag/kp.bin"
 [bodies.orbit]                             # [HZN] Earth-Moon barycenter
 type = "ephemeris"
 file = "ephem/emb.eph"

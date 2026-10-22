@@ -44,6 +44,7 @@
 # [PCK]  NAIF pck00011.tpc (IAU 2015): radii, poles, prime meridians.
 # [SPHY] JPL SSD satellite physical parameters (Moon mean radius).
 # [ATM]  Atmospheres (single scattering): sources and choices in solar_system.toml.
+# [NIGHT] The Earth's night lights and aurora: sources and choices in solar_system.toml.
 # [CAP]  Event captions (retrieved 2026-10-07; [LCR] and after 2026-10-08):
 #        [A2] NASA, www.nasa.gov/mission/artemis-ii/: crew Reid Wiseman, Victor Glover,
 #          Christina Koch (NASA) and Jeremy Hansen (CSA); launch 2026-04-01, splashdown
@@ -125,6 +126,9 @@
 #          crater 18 m across superimposed on a western one 16 m across; "unexpected".
 #        [CGWIC] China Great Wall Industry Corporation, LM-3C launch vehicle page: third
 #          stage 12.375 m long, 3.00 m in diameter.
+#        [KP] The Kp record (geomag/kp.bin, [NIGHT]): Kp 9o, the top of the scale, on
+#          2024-05-11 00-03 and 09-12 UT, the first since 2003-10-30; 31 three-hour
+#          intervals of Kp 9o since 1932.
 #        Shapes of the paths in the rotating frames: [HZN] (see above).
 # Closest approaches (TDB at the spacecraft; altitude above the Moon's mean radius)
 # and the largest distances from the Earth (above its equatorial radius): computed
@@ -173,6 +177,12 @@ haze_depth = 0.005328
 haze_scale_height_km = 1.2
 haze_albedo = 0.9
 haze_g = 0.8
+[bodies.night_lights]                      # [NIGHT] (sources and choices in solar_system.toml)
+texture = "textures/earth_night.jpg"
+color = "#ffb46b"
+gain = 0.6
+[bodies.aurora]                            # [NIGHT]
+kp = "geomag/kp.bin"
 
 [[bodies]]
 name = "Moon"
@@ -790,3 +800,22 @@ caption = """\
     the south pole, excavating a 27 m crater and ejecting some 350 t of debris. \
     Four minutes behind, LCROSS flies through the plume, collecting data, before \
     hitting too. A month later NASA reported evidence of water."""
+
+# The aurora: the Earth's night side from above the north, as the oval swells in the
+# storm (Kp from the GFZ record, [NIGHT]).
+[[events]]
+name = "Geomagnetic storm: Kp 9 (2024-05-11)"
+time_tdb = "2024-05-11 02:00"
+focus = "Earth"
+from_body = "Sun"
+phase_deg = 170.0
+elevation_deg = 35.0
+distance_km = 32000.0
+warp = 120.0
+# [KP], [NIGHT]
+caption = """\
+    The geomagnetic index Kp reaches 9o, the top of its scale, for the first time \
+    since October 2003: since 1932 it has done so in only 31 three-hour intervals. \
+    The auroral oval, which follows Kp here, swells toward the equator on the night \
+    side. Its place and brightness come from the index; the arcs within it are \
+    illustrative."""

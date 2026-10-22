@@ -147,6 +147,25 @@
 #          single-scattering albedo near unity (Hillier et al. 1990, 1991). g illustrative
 #          (forward scattering, 0.17 um particles). The discrete clouds below 4 km and the
 #          geyser plumes are not drawn.
+# [NIGHT] The Earth at night (scene/aurora.hpp; simplifications in limitations.md).
+#        City lights: NASA Earth Observatory, Black Marble 2016 grayscale (Suomi NPP VIIRS
+#          day/night band, cloud-free composite), textures/earth_night.jpg (see
+#          textures/SOURCES.md). The map's brightness is a display stretch, read as sRGB;
+#          the gain (I/F of a white pixel) and the color (that of sodium street lights)
+#          are chosen by eye. The lights come on between sunset and the sun 6 deg below
+#          the horizon.
+#        Aurora: the planetary Kp index every 3 hours since 1932 (GFZ; Matzka et al. 2021,
+#          Space Weather 19, e2020SW002641; CC BY 4.0), geomag/kp.bin (see
+#          geomag/SOURCES.md); the auroral boundaries of Starkov 1994 as given by Sigernes
+#          et al. 2011 (Opt. Pura Apl. 44, 599, Table 1), around the centered dipole of
+#          IGRF-14; the electron hemispheric power from Kp (Emery et al. 2008, JGR 113,
+#          A06311, as quoted by Verkhoglyadova et al. 2016, J. Space Weather Space Clim. 6,
+#          A20); 427.8 nm per unit energy flux for 3 keV electrons (Mathieu, Robert & Lamy
+#          2025, J. Space Weather Space Clim. 15, 19, Table 2), the green and red lines
+#          from it by the ratios observed by Dashkevich et al. 2006 (Geomagn. Aeron. 46,
+#          366); emission peaks at 115 km (green, blue: Whiter et al. 2023, Ann. Geophys.
+#          41, 1) and 221 km (red: Mathieu et al., Fig. 7). The arcs and rays in the oval
+#          are illustrative; the brightness is boosted 2.5e6 times, as in a long exposure.
 # [PLM]  Plumes, always erupting (single scattering; optical depths, colors and phase
 #        functions are illustrative, chosen to be visible; real plumes are faint).
 #        Vent coordinates: IAU Gazetteer of Planetary Nomenclature (planetographic,
@@ -385,6 +404,12 @@ haze_depth = 0.005328
 haze_scale_height_km = 1.2
 haze_albedo = 0.9
 haze_g = 0.8
+[bodies.night_lights]                      # [NIGHT]
+texture = "textures/earth_night.jpg"
+color = "#ffb46b"
+gain = 0.6
+[bodies.aurora]                            # [NIGHT]
+kp = "geomag/kp.bin"
 [bodies.orbit]                             # [HZN] 301 (geocentric Moon), scaled by -mu
 scale = -0.0121505844
 type = "ephemeris"

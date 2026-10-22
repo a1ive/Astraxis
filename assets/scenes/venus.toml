@@ -46,6 +46,7 @@
 # [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
 # [PCK]  NAIF pck00011.tpc (IAU 2015): radii, poles, prime meridians.
 # [ATM]  Atmospheres (single scattering): sources and choices in solar_system.toml.
+# [NIGHT] The Earth's night lights and aurora: sources and choices in solar_system.toml.
 # [SBDB] JPL Small-Body Database, 524522 Zoozve (2026-10-09): H = 20.54 (MPO701386), rotation
 #        period 13.5 h (LCDB); close approaches (SBDB Close Approach Data, orbit 86): the Earth
 #        every 8 years, 1994-11-11 0.0323 au .. 2026-11-02 19:10 TDB 0.0402 au, 8.72 km/s.
@@ -255,6 +256,12 @@ haze_depth = 0.005328
 haze_scale_height_km = 1.2
 haze_albedo = 0.9
 haze_g = 0.8
+[bodies.night_lights]                      # [NIGHT] (sources and choices in solar_system.toml)
+texture = "textures/earth_night.jpg"
+color = "#ffb46b"
+gain = 0.6
+[bodies.aurora]                            # [NIGHT]
+kp = "geomag/kp.bin"
 [bodies.orbit]                             # [HZN] Earth-Moon barycenter
 type = "ephemeris"
 file = "ephem/emb.eph"

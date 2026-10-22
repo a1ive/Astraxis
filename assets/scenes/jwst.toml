@@ -28,6 +28,7 @@
 #          "significantly more than a 10-year science lifetime".
 #        The halo loops' period: [HZN] (about six months, as the data show).
 # [ATM]  Atmospheres (single scattering): sources and choices in solar_system.toml.
+# [NIGHT] The Earth's night lights and aurora: sources and choices in solar_system.toml.
 # [PCK]  NAIF pck00011.tpc (IAU 2015).
 # [SPHY] JPL SSD satellite physical parameters (Moon mean radius).
 
@@ -72,6 +73,12 @@ haze_depth = 0.005328
 haze_scale_height_km = 1.2
 haze_albedo = 0.9
 haze_g = 0.8
+[bodies.night_lights]                      # [NIGHT] (sources and choices in solar_system.toml)
+texture = "textures/earth_night.jpg"
+color = "#ffb46b"
+gain = 0.6
+[bodies.aurora]                            # [NIGHT]
+kp = "geomag/kp.bin"
 [[bodies]]
 name = "Moon"
 parent = "Earth"
