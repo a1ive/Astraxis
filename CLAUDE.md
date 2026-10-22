@@ -1,6 +1,6 @@
 # Astraxis
 
-用来“发呆”的天文动态背景程序：太阳系与各探测器轨迹、JWST L2 晕轨道、金星、火星、木星和土星系统、彗星与哈雷舰队、Alpha Centauri、系外行星共振链、多星系统、食变星 Algol 和造父变星 δ Cephei（带从地球看的光变曲线）、脉冲星双星、Sgr A* 黑洞外观、《星际穿越》的虚构黑洞 Gargantua（按论文参数，电影版与带多普勒频移的真实样子对比；还有致敬的 Endurance 号，环在转）、致敬《坎巴拉太空计划》的 Kerbol 系统（游戏里读出的轨道、Kerbin 历法、程序生成的表面）等，共 25 个场景。
+用来“发呆”的天文动态背景程序：太阳系与各探测器轨迹、JWST L2 晕轨道、金星、火星、木星和土星系统、彗星与哈雷舰队、Alpha Centauri、系外行星共振链、多星系统、食变星 Algol 和造父变星 δ Cephei（带从地球看的光变曲线）、WR 104 的尘埃风车（几何模型，倾斜 42° 的轨道从地球看仍像正对的螺线）、脉冲星双星、Sgr A* 黑洞外观、《星际穿越》的虚构黑洞 Gargantua（按论文参数，电影版与带多普勒频移的真实样子对比；还有致敬的 Endurance 号，环在转）、致敬《坎巴拉太空计划》的 Kerbol 系统（游戏里读出的轨道、Kerbin 历法、程序生成的表面）等，共 26 个场景。
 C++20 + CMake + SDL3 + SDL_GPU。Windows（D3D12）和 Linux（Vulkan）都能构建运行；Windows 上还有全屏、屏保和动态壁纸。将来做 macOS。
 
 - **目标**：安静、好看、物理上可信，主要用来发呆，交互只是辅助；功耗低，可以长时间挂在后台当壁纸；单个 exe，启动快，依赖少
@@ -71,17 +71,18 @@ CMake 目标：
 核心抽象：所有天体运动都实现 `MotionSource::eval(t_tdb) -> State`，返回相对父天体的 ICRF 状态，场景层不关心来源是解析、星历还是积分。`Scene::update` 先按父子链算出 ICRF 位置（`icrf_position`），再经当前显示参考系（`FrameTransform`：惯性、主–次天体连线旋转、随天体自转三种）变换成 `world_position`。渲染、相机、标签、导演都只用 `world_position`。
 
 渲染层的 pass 只接收 `CameraView` 和简单的 draw item，由 `src/view/` 的 `SceneRenderer` 把 scene 转换成这些数据。宿主无关的部分：
-- `Simulation`（`scene/simulation.hpp`，不依赖 SDL）持有 Scene、时钟、相机和导览；`compute_view` 给每个输出算一份 `OutputView`（相机视图、卫星淡出、content scale）。导览的普通镜头由 `CameraDirector` 选；每隔一两个镜头插一个事件镜头，因为要动时钟，由 `Simulation` 执行：按时间顺序取下一个事件，淡出黑场后把时钟跳到事件前（快到的事件不跳），倍速按剩余时间指数降到事件自己的倍速（飞掠降到最近点前 20 s），显示展签，飞掠镜头持续到最近点之后。飞掠体由事件的 `flyby` 指定（自动找最近的探测器在多探测器场景里常挑错，比如“MRO arrives”找到 Mars Express），`--event` 和导览用同一个视角（`Simulation::event_shot`）。事件可以带幽灵（`[events.ghost]`，格式见 `mars.toml` 的天问一号入轨）：加载时合成一个 `Ghost` 天体（`Body::event`），从点火前的状态外推（`CoastMotion`，`ephem/coast.hpp`）：中心天体有 `zonal_harmonics` 时计入扁率（木星、土星），`tides` 列出的天体计入潮汐（月球场景的地球），否则是二体；有摄动时在加载时积分成节点表。只在该事件激活时显示，轨迹整段画出（普通天体也可以只在某个事件里显示：事件的 `show` 列出天体名，如 α Cen 场景里已被否定的 Bb）；探测器是太阳的子天体、只是星历相对行星时（信使号、破晓号），用 `center` 指定绕哪个天体外推。点火的 Δv（`unexplained_delta_v`，按星历节点到节点算）由 `Scene::burn_delta_v` 给出，画在探测器标签下。事件还可以用 `elevation_deg` 指定相机在 up 轴法平面上方的仰角，用 `disk_shifts = false` 在事件激活时关掉吸积盘的多普勒和引力频移（Gargantua 的电影版）。黑场用 `Simulation::fade()`，在后处理合成和标签里乘上。旋转参考系里星空跟着转：按真实时间每秒转过 45° 以上开始淡出、180° 以上隐去（`Simulation::sky_visibility()`，随 Janus 转的参考系在 2 天/秒时每秒转 1000° 以上）。天体自转可以写 `synchronous = true`（长轴始终指向母天体，Janus、Epimetheus）。探测器有 `shape` 时按网格画（否则只是标记），导演的跟拍镜头也拉近到能看清它；`[bodies.rotor]` 是同一位置再绕本体 z 轴转的第二个网格（Endurance 的环），转角由 `Simulation::rotor_turns` 按倍速累加，画面上最快 0.25 圈/秒（和吸积盘动画限速同一个思路）
+- `Simulation`（`scene/simulation.hpp`，不依赖 SDL）持有 Scene、时钟、相机和导览；`compute_view` 给每个输出算一份 `OutputView`（相机视图、卫星淡出、content scale）。导览的普通镜头由 `CameraDirector` 选；每隔一两个镜头插一个事件镜头，因为要动时钟，由 `Simulation` 执行：按时间顺序取下一个事件，淡出黑场后把时钟跳到事件前（快到的事件不跳），倍速按剩余时间指数降到事件自己的倍速（飞掠降到最近点前 20 s），显示展签，飞掠镜头持续到最近点之后。飞掠体由事件的 `flyby` 指定（自动找最近的探测器在多探测器场景里常挑错，比如“MRO arrives”找到 Mars Express），`--event` 和导览用同一个视角（`Simulation::event_shot`）。事件可以带幽灵（`[events.ghost]`，格式见 `mars.toml` 的天问一号入轨）：加载时合成一个 `Ghost` 天体（`Body::event`），从点火前的状态外推（`CoastMotion`，`ephem/coast.hpp`）：中心天体有 `zonal_harmonics` 时计入扁率（木星、土星），`tides` 列出的天体计入潮汐（月球场景的地球），否则是二体；有摄动时在加载时积分成节点表。只在该事件激活时显示，轨迹整段画出（普通天体也可以只在某个事件里显示：事件的 `show` 列出天体名，如 α Cen 场景里已被否定的 Bb）；探测器是太阳的子天体、只是星历相对行星时（信使号、破晓号），用 `center` 指定绕哪个天体外推。点火的 Δv（`unexplained_delta_v`，按星历节点到节点算）由 `Scene::burn_delta_v` 给出，画在探测器标签下。事件还可以用 `elevation_deg` 指定相机在 up 轴法平面上方的仰角，用 `disk_shifts = false` 在事件激活时关掉吸积盘的多普勒和引力频移（Gargantua 的电影版），用 `dust_visible = true` 把风车星云的尘埃从红外伪彩色换成肉眼看到的颜色。黑场用 `Simulation::fade()`，在后处理合成和标签里乘上。旋转参考系里星空跟着转：按真实时间每秒转过 45° 以上开始淡出、180° 以上隐去（`Simulation::sky_visibility()`，随 Janus 转的参考系在 2 天/秒时每秒转 1000° 以上）。天体自转可以写 `synchronous = true`（长轴始终指向母天体，Janus、Epimetheus）。探测器有 `shape` 时按网格画（否则只是标记），导演的跟拍镜头也拉近到能看清它；`[bodies.rotor]` 是同一位置再绕本体 z 轴转的第二个网格（Endurance 的环），转角由 `Simulation::rotor_turns` 按倍速累加，画面上最快 0.25 圈/秒（和吸积盘动画限速同一个思路）
 - `LabelLayout`（`scene/label_layout.hpp`）算标签和标记放在哪里（优先级、避让、渐隐、拾取），不负责绘制；`App` 用 ImGui 画
 - 光变曲线（场景的 `[light_curve]`，`scene/light_curve.hpp`）：从某个天体方向看，各恒星按黑体圆盘、线性临边昏暗、前面的星挡住后面的星算总光度。`Simulation` 每帧按固定时间网格更新一次采样（已算的保留），各宿主和标签一起画在角落（`app/light_curve_overlay.*`），倍速快到几秒就换掉整条曲线时淡出。星等从“每颗星最亮时、不遮挡”的固定参考光度量起。脉动星（`[bodies.pulsation]`，`Pulsation`）按相位表查半径、温度、光度，`Scene::update` 每帧写回天体；光变曲线按任意时刻查表（`star_disk_at`）。充满洛希瓣的星（`[bodies.roche]`，`scene/roche.hpp`，Algol B）加载时生成临界等势面的网格，逐顶点温度带引力昏暗和伴星的照射；它随轨道转（`Body::synchronous_with`），按形状模型画（星的着色乘上顶点亮度），光变曲线对它按面元求和，它挡在别的星前面时用网格投影的凸包
+- 风车星云（场景的 `[pinwheel]`，`scene/pinwheel.hpp`，WR 104）：White 2025 的几何模型，尘埃在锥面上成环，从双星质心匀速飞出。尘埃是加载时生成的一组固定颗粒（方向、发射相位、圈号），轨道每个周期重复，所以位置只是时间的函数（`pinwheel_grain_offset`）。`PinwheelPass` 把颗粒作为静态缓冲区上传一次，在 GPU 上按同一公式算位置，每颗画成贴在膨胀球壳上的扁平三维高斯（EWA 投影，侧看锥壁时有临边增亮）。颜色和亮度系数按 ln r 查表（红外伪彩色一张、可见光一张，`pinwheel_visible_light` 算热辐射和散射光的份额）；倍速快到螺线每秒转 1 圈以上时淡出（`Simulation::pinwheel_visibility`）；导演的系统范围算上了内三圈
 - `SceneRenderer` 持有 pass 和每个场景的 GPU 资源，显示选项通过 `ViewOptions` 传入
 - GPU 分两层：`GpuDevice` 只有一个；`RenderOutput` 每个窗口一个，持有交换链和本输出的 `SceneTargets`。`Frame` 的 `width/height` 是场景尺寸，`output_width/output_height` 是交换链尺寸，两者在有渲染缩放（`render_scale`，各模式都有）时不同。MSAA 采样数（`msaa` 设置：1/2/4，`GpuDevice::set_msaa` 按硬件支持往下取）存在 `GpuDevice` 的 `SceneTargetFormat` 里，各 pass 的管线和 `SceneTargets` 都依赖它：运行时切换要调 `SceneRenderer::refresh_pipelines()` 重建管线，`SceneTargets::ensure` 发现采样数变了会自己重建。新 pass 要实现 `set_format`，并加进 `refresh_pipelines`。所有和输出尺寸相关的纹理（MSAA/HDR/深度、泛光链、黑洞追踪目标）都放在 `SceneTargets` 里，pass 内部不要再缓存按尺寸分配的纹理，否则多个不同尺寸的输出轮流渲染时会反复重建。各输出都用 SDR 交换链，格式相同，共用一个 `SceneRenderer`
 
 宿主（`App`、屏保、壁纸）只负责窗口、输入、UI 和闲置策略，不要把仿真或渲染逻辑放回 `src/app/`。宿主每帧只 `sim.update` 一次，再对每个输出调用 `SceneRenderer::render`；与相机无关的工作（例如尘埃彗尾的传播）不要每个输出重做一遍。
 
 渲染流程：
-1. 黑洞光追（有黑洞时）：在屏幕外以半分辨率追踪，记下每条光线的天空方向和盘的光（`shaders/black_hole.hlsli` 是两边共用的追踪代码）；第 2 步的黑洞合成按全分辨率逐像素插值方向，相邻光线不一致处（阴影边缘、光子环附近）在合成着色器里重新追踪；天空逐像素查：星按局部线性化的透镜映射画成点（`StarfieldPass` 把星按方向排进网格，供合成着色器查找），银河直接采样它自己的贴图，天空被压缩到星点超出网格查找范围处（光子环附近）改用带 mip 的立方体贴图
-2. 场景 pass，渲染到 HDR（RGBA16F + MSAA）：银河 → 星空 → 天体 → 大气层 → 羽流 → 彗发/离子彗尾 → 尘埃彗尾 → 行星环 → 小行星带/柯伊伯带 → 黑洞合成 → 恒星 → 脉冲星光束 → 轨道线
+1. 黑洞光追（有黑洞时）：在屏幕外以半分辨率追踪，记下每条光线的天空方向和盘的光（`shaders/black_hole.hlsli` 是两边共用的追踪代码）；第 2 步的黑洞合成按全分辨率逐像素插值方向，相邻光线不一致处（阴影边缘、光子环附近）在合成着色器里重新追踪；天空逐像素查：星按局部线性化的透镜映射画成点（`StarfieldPass` 把星按方向排进网格，供合成着色器查找），银河直接采样它自己的贴图，天空被压缩到星点超出网格查找范围处（光子环附近）改用带 mip 的立方体贴图。有风车星云时，尘埃也在这一步画进屏幕外半分辨率、单采样的纹理
+2. 场景 pass，渲染到 HDR（RGBA16F + MSAA）：银河 → 星空 → 天体 → 大气层 → 羽流 → 彗发/离子彗尾 → 尘埃彗尾 → 行星环 → 小行星带/柯伊伯带 → 风车星云合成 → 黑洞合成 → 恒星 → 脉冲星光束 → 轨道线
 3. `PostProcess`：泛光 → ACES → sRGB → 交换链
 4. ImGui 叠加 pass
 
@@ -122,15 +123,15 @@ CMake 目标：
 
 | 文件 | 内容 |
 |---|---|
-| `core_tests.cpp` | 日历（含 Kerbin 历法）/时间尺度、星表（含重投影）与黑体颜色、银道坐标系 |
+| `core_tests.cpp` | 日历（含 Kerbin 历法）/时间尺度、星表（含重投影）与黑体颜色和波段份额、银道坐标系 |
 | `ephem_tests.cpp` | 开普勒方程与传播、幽灵的外推（带状谐项、潮汐）与 Δv、星历表、目视/凌星轨道约定、N 体 |
 | `planet_scene_tests.cpp` | 场景里的行星和卫星：太阳系、木星、地月、土星；Janus 和 Epimetheus 的根数表对照 Horizons、19 次交换（a 的跳变之比对照 GM 比、2006-01-21、最近距离）；Kerbol 系统对照游戏里的位置和自转角、6 小时太阳日、潮汐锁定、Laythe:Vall:Tylo ≈ 1:2:4、示意的 Mun 转移（停泊轨道、两次点火的 Δv、捕获轨道） |
 | `mission_tests.cpp` | 探测器：先驱者/新视野、Parker、伽利略/朱诺、Artemis/CAPSTONE/嫦娥五号 T1 及其火箭末级、卡西尼/惠更斯、信使/贝皮科伦坡、火星的八个轨道器（含天问一号 2021 年的重建）、赛丁泉彗星与 3I/ATLAS、太阳系场景的 1I/3I、Europa Clipper/Hera 飞掠、金星快车/破晓号/Zoozve 与金星借力飞掠、ISEE-3、哈雷舰队、Rosetta/Philae、JWST |
 | `shape_tests.cpp` | 小天体形状模型；Endurance 致敬模型（硬边、尺寸、环的转速对应 1 g） |
 | `appearance_tests.cpp` | 彗尾、尘埃彗尾、大气层、羽流（含各场景参数一致） |
-| `stellar_system_tests.cpp` | α Cen（含 Ab 对照 S1/C1 的位置和相互倾角、只在事件里显示的 Bb）、TRAPPIST-1、Kepler 系统、TIC 168789840、Algol（CHARA 位置与 B 的拉长、TESS 极小、GCVS 食深）与光变曲线模型、洛希面（Kim 1989 的半径、Eggleton 公式）、δ Cephei（SPIPS 半径、Engle 极大、视向速度轨道）、PSR B1620-26 |
+| `stellar_system_tests.cpp` | α Cen（含 Ab 对照 S1/C1 的位置和相互倾角、只在事件里显示的 Bb）、TRAPPIST-1、Kepler 系统、TIC 168789840、Algol（CHARA 位置与 B 的拉长、TESS 极小、GCVS 食深）与光变曲线模型、洛希面（Kim 1989 的半径、Eggleton 公式）、δ Cephei（SPIPS 半径、Engle 极大、视向速度轨道）、PSR B1620-26、WR 104（Hill 的合相和 K、Richardson 的质量、旋臂间距、从地球看的旋向和 Tuthill 的 θ0、宽锥让投影的旋臂接近圆、Soulain 的 r⁻³ 径向剖面、伴星 B 的位置、可见光里成核处以热辐射为主而一圈外只剩散射光） |
 | `relativity_tests.cpp` | Kerr 测地线（类时/类光）、后开普勒双脉冲星、Sgr A*、Gargantua（[JA15] 的盘和相机、最内稳定圆轨道上的示例行星、米勒星的时间膨胀、Mann 星的轨道对照 [TH14]、假想的 Edmunds 星看到的阴影大小和用光线追踪积分的盘的辐射、Endurance 假设的 30 M 轨道的周期和时间膨胀） |
-| `scene_tests.cpp` | 场景加载、Simulation、随天体自转的参考系、旋转参考系转得快时星空淡出、标签布局、跨场景一致性（同一天体在各场景的轨道参数）、相机导演、事件说明 |
+| `scene_tests.cpp` | 场景加载、Simulation、随天体自转的参考系、旋转参考系转得快时星空淡出、风车星云在高倍速时淡出、标签布局、跨场景一致性（同一天体在各场景的轨道参数）、相机导演（含 WR 104）、事件说明 |
 | `settings_tests.cpp` | `config.toml` 读写与场景列表 |
 
 ## 资源与工具
@@ -169,6 +170,7 @@ CMake 目标：
 - 不要用 `SDL_GenerateMipmapsForGPUTexture` 给星空立方体贴图生成 mip：各面是按 Direct3D 面布局、用镜像投影画的，SDL 生成的 mip 和本层对不上，天空在面的交界处出现亮度台阶。`StarfieldPass::render_cubemap` 直接画每一级 mip
 - 不用平台后端时也要调用 `ImGui_ImplSDLGPU3_NewFrame()`（第一次调用时创建采样器）；漏了 Debug 能跑，Release 在 `SDL_BindGPUFragmentSamplers` 里崩
 - ImGui 开了 `NavEnableKeyboard` 后，有窗口获得焦点时 `WantCaptureKeyboard` 就是 true，全局快捷键只看 `WantTextInput`
+- 大面积重叠的加性光斑不要直接画进 MSAA 的 HDR 目标：每个样本都要混合，填充率按采样数翻倍（WR 104 的尘埃在 Arc A380、1280×720、4x MSAA 下只有 8 FPS）。光斑总数不影响这个开销（数量多了每个就小），起作用的是总覆盖面积、重叠系数和分辨率：画进半分辨率、单采样的离屏纹理再合成（`PinwheelPass`，60 FPS）
 - 多输出时每个输出都要等自己的交换链（`SDL_WaitAndAcquireGPUSwapchainTexture`）
 - 不要让 SDL 包装别的进程窗口下的子窗口（屏保 `/p` 预览）：对话框在第二块屏上时 SDL 会按顶层窗口的逻辑移动并放大它，预览区只剩黑底。预览窗口现在用 GDI 画
 - TOML 的表头会“吞掉”后面的键：顶层键（如 `name`）必须写在第一个 `[table]` 之前
@@ -243,6 +245,7 @@ CMake 目标：
 - **IAU 本体坐标系**：W 从本体赤道与 ICRF 赤道的升交点（RA = α₀+90°）起量；极轴在 Dec=90° 时叉积退化，用 `iau_pole_frame(α₀, δ₀)`。pck00011 的火星极有一项周期约 7 万年的“章动”（`BODY499_NUT_PREC_RA/DEC` 的最后一项：RA 加 0.419057° sin(79.398797° + 0.5042615° T)，Dec 加 1.591274° cos(166.325722° + 0.5042615° T)），J2000 的极是 (317.681°, 52.886°)，只取常数项 (317.269°, 54.433°) 会偏 1.5°；W 也有对应的 0.584542° 项，漏掉时本初子午线偏 1–1.4°。场景里用 `nut_prec_*` 写了这三项
 - **USGS 地图**：元数据写的“positive west”不可信，图像实际是东经向右递增。拼接图服务器跳转到 S3，用 `?list-type=2&prefix=mosaic/<名称>` 列文件
 - **PDS Rings Node** 拒绝 Python urllib 的默认 User-Agent（403）
+- **Jena 的宇宙尘埃光学常数库**（OCDB，`www2.astro.uni-jena.de`）：curl 报 TLS 握手失败（沙箱内外都一样），内置浏览器也打不开。WR 104 的颗粒反照率改从 Harries 2004 图 3 读（他们用的就是 Zubko 1996 的无定形碳常数）
 - **Stooke 形状模型 V2.0**：小行星和彗星的经度表改成了东经（360° 减 V1.0），但标签里的说明文字照抄 V1.0，其中的经度数值（如 Halley 的 270°）仍是西经。Vega 电视图像的时间有 UT（`TIM--OBS`、`TIME-ENC`）和开机后的星上计数（`TONBHRDW`，4.766485 计数/秒）两种，Stooke 标签里的“2:00:30”看来是后者
 - **论文**：PDF 表格用 `pdftotext -layout` 提取时列会错位，用 `-raw`；`tools/pdftext.py` 会丢掉表格里的负号（Iess 2018 表 1 的 J4 提取成 586.609，实际是 −586.609），符号要核对；有的书的 PDF（《The Science of Interstellar》）用 `tools/pdftext.py` 只提取出空格，Git 自带的 `pdftotext`（`/mingw64/bin`）可以；本机没有 `pdftoppm`，Read 工具不能渲染 PDF 页面，看插图用 Inkscape：`inkscape --pdf-poppler --pages=<页> --export-type=png <pdf>`；凌星拟合的 ω 约定各代码不同（NbodyGradient 凌星时 ω+f = 270°，Phodymm 是 90° 且状态取反），场景里用 `transit_u_deg` 写明；共振链对积分相位误差很敏感，用 6 阶 Yoshida
 - **轨道重建**：平动点轨道在刀刃上，按稳定流形二分出的机动方向只对同一条积分路径成立（换一种分段方式调用积分器，1e-9 的差别一个月后就是上万 km），求解和生成星历要走同一条路径。瞄准月球低空飞掠或入轨时，数值近月点的时刻在掠过月面附近会跳变，数“第 n 个近月点”也会整圈跳：先用十几小时前的密切二体轨道瞄准，再用各时刻的密切平近点角细调
@@ -253,6 +256,8 @@ CMake 目标：
 - **半径的口径**：充满洛希瓣的星，论文给的“半径”可能是某个方向的（Kolbas 2015 的 Algol B 3.43 R☉ 是侧向半径，按他们自己的 q 和 a 算），不是等体积半径；由 v sin i 加同步自转假设推出的半径是上限（Algol A 的 2.87 R☉）。拿来和别的来源的质量、倾角混用前，先用洛希面换算到场景自己的 a。光变解（Wilson-Devinney）的倾角和半径是一起拟合的，单独换掉一个（例如用干涉测量的倾角）会让食深偏离很多
 - **ADS 的老文章扫描**：`articles.adsabs.harvard.edu/pdf/<bibcode>` 用 curl 只能拿到第一页，其余页要令牌。在内置浏览器打开 `ui.adsabs.harvard.edu/scan/manifest/<bibcode>`，在页面里用 `/v1/accounts/bootstrap` 返回的 `access_token` 取 `/v1/scan/image/iiif/2/bitmaps-~seri-~<刊>-~<卷>-~600-~<页>.000/full/1600,/0/default.jpg`（如 `ApJ__`、`0342`、`0001065`），放进页面后截图读
 - **TESS 上没有亮星的光变曲线**：TIC 里亮星的 Tmag 可能是错的（δ Cep 的 TIC 415741355 写成 14.0 等），没有任何管线给它做光变曲线；MAST 按位置搜到的同名附近星（HD 213307）不是它，先按 HIP 查 TIC 号
+- **被尘埃包着的亮星，Gaia 视差不可信**：WR 104 的 DR3 视差 1.56 mas（0.64 kpc），旋臂间距和风速给的是 2.58 kpc（DR2 是 0.24 mas）。这类星用论文里的几何距离，Gaia 的值只在 TOML 注释里提一下
+- **WR 104 的论文约定**：Tuthill 2008 的 θ0 是阿基米德螺线原点处的位置角（拟合时把投影的旋臂当平面螺线）；Richardson 2026 图 6 的交点 78° 是 xenomorph 自己的约定，和场景的目视双星约定（16.12°）对不上，不能直接搬
 - **星表距离和场景距离不一致**：场景采用的视差（例如轨道视差）和 Hipparcos 不同时，星表里的“自己”会离观察者超过 `kOwnSystemPc`，在天空里成为一颗极亮的星（Algol 差 1.25 pc，−4.6 等）：用 `[sky] hide_hip` 去掉
 - **KSP / kOS**：kOS 脚本的变量和参数名不能遮住内置函数（`v`、`r`、`q` 等，报 CLOBBERBUILTINS）。kOS 的向量在 Unity 的左手系里，y 轴朝系统北极，原点在飞船，低空时坐标轴还会转：换成场景坐标要 y、z 互换，x 轴取同一物理帧里采样的 `SOLARPRIMEVECTOR`。天体的 `VELOCITY:ORBIT` 是相对飞船所在 SOI 的速度，不是相对母天体，要和母天体的相减。游戏里的根数多是 float32（e = 0.2 读出来是 0.200000002980232，历元平近点角的配置值是 3.14 rad 而不是 π），照抄读出的值。历法常数在 `Assembly-CSharp.dll` 的 KerbinDay/KerbinYear getter 里（`ldc.i4 21600; ret` 和 `ldc.i4 9201600; ret`）
 - **时间和距离**：MJD 转 JD 要加 2400000.5；新闻稿里的时间是地面接收时间（差光行时），对照测试只比较距离；NASA 的“离地球多远”和飞掠高度从地表算；地面成像给出的环弧、卫星经度是光离开天体时的位置，对应的时刻要从观测 UT 里减去光行时（海王星约 4 h，Adams 环弧段转 137°），论文按 UT 算的时间间隔还会少掉其间的闰秒

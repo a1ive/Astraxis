@@ -511,6 +511,33 @@ void test_sky_fades_in_fast_frames()
           earth_moon.sky_visibility());
 }
 
+// WR 104's dust spiral (241.5 days a turn) shows at 10 days per second, fades
+// out at 5 turns per second and comes back when paused. The system's extent
+// takes in its bright inner turns.
+void test_pinwheel_fades()
+{
+    auto settle = [](Simulation& sim) {
+        for (int i = 0; i < 30; ++i) {
+            sim.update(0.1);
+        }
+    };
+    Simulation sim;
+    std::string error;
+    check(sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/wr104.toml", &error), "wr104.toml loads");
+    const Pinwheel& pinwheel = sim.scene().pinwheel;
+    sim.clock().warp = 10.0 * kSecondsPerDay;
+    settle(sim);
+    check(sim.pinwheel_visibility() == 1.0, "the spiral shows at 10 days per second", sim.pinwheel_visibility());
+    sim.clock().warp = 5.0 * pinwheel.period_s;
+    settle(sim);
+    check(sim.pinwheel_visibility() == 0.0, "the spiral fades out at 5 turns per second", sim.pinwheel_visibility());
+    sim.clock().paused = true;
+    settle(sim);
+    check(sim.pinwheel_visibility() == 1.0, "and comes back when paused", sim.pinwheel_visibility());
+    const double extent = sim.scene().system_extent_km();
+    check(extent >= 3.0 * pinwheel.step_km(), "the system's extent takes in the spiral (au)", extent / kAuKm);
+}
+
 // An event can shorten a trail while its frame is shown: in Parker's
 // Venus-centered frame, the earlier flybys would otherwise cross Venus.
 void test_event_trails()
@@ -1135,6 +1162,7 @@ void run_scene_tests()
     test_simulation();
     test_event_trails();
     test_sky_fades_in_fast_frames();
+    test_pinwheel_fades();
     test_event_from_sun();
     test_body_fixed_frames();
     test_label_layout();
@@ -1157,6 +1185,10 @@ void run_scene_tests()
     // (Zoozve, 0.1 km across, is one of the planets here).
     for (uint32_t seed : {7u, 8u}) {
         test_camera_director("venus.toml", 172800.0, 10.0, seed, nullptr, 2);
+    }
+    // WR 104: stars only, the shots frame the dust spiral (system_extent_km).
+    for (uint32_t seed : {3u, 4u}) {
+        test_camera_director("wr104.toml", 864000.0, 10.0, seed, nullptr, 2);
     }
     test_camera_director_black_hole();
 }

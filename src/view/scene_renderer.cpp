@@ -148,6 +148,27 @@ constexpr double kDustThinPx = 8.0;
 constexpr double kDustFadePx = 150.0;
 constexpr double kDustMaxPx = 300.0;
 
+// A colliding-wind binary's dust (scene/pinwheel.hpp, WR 104) in false color:
+// grains glow in the color of a black body kPinwheelColorShift times their
+// temperature, which moves the near infrared (K band, 2.2 um, where the
+// spiral is imaged) into visible light (Wien: wavelength x temperature is
+// what counts). A face-on wall is kPinwheelRadiance bright at the nucleation
+// radius and fades as its surface brightness (r^-4) to the power
+// kPinwheelGamma, compressed like the star magnitudes are.
+constexpr double kPinwheelColorShift = 4.0;
+constexpr float kPinwheelRadiance = 0.5f;
+constexpr float kPinwheelGamma = 0.6f;
+// From inside, the line of sight crosses every shell and the bright inner walls
+// fill the screen: closer to the center than kPinwheelAdaptTurns turns of the
+// spiral, the dust dims in proportion to the distance (like an eye adapting).
+constexpr double kPinwheelAdaptTurns = 2.0;
+// Each grain's patch: sigma as a share of the spacing between grains (0.5
+// sums smoothly, ~1% ripple); at least kPinwheelMinPx on screen; skipped below
+// kPinwheelCullRadiance at its center (the faint outer turns, far fill rate).
+constexpr double kPinwheelPatch = 0.5;
+constexpr float kPinwheelMinPx = 0.7f;
+constexpr float kPinwheelCullRadiance = 1e-4f;
+
 // Henyey-Greenstein phase function (mean 1 over the sphere); `cos_angle` between
 // the incoming sunlight and the direction toward the camera (1 = forward).
 double dust_phase(double cos_angle)
@@ -356,8 +377,9 @@ bool SceneRenderer::init(const GpuDevice& gpu, SDL_GPUTextureFormat output_forma
     return m_starfield.init(device, format, m_catalog) && m_bodies.init(device, format) &&
            m_rings.init(device, format) && m_atmospheres.init(device, format) && m_plumes.init(device, format) &&
            m_comets.init(device, format) && m_dust.init(device, format) && m_orbits.init(device, format) &&
-           m_belts.init(device, format) && m_sun.init(device, format) && m_beams.init(device, format) &&
-           m_black_hole.init(device, format) && m_post.init(device, format.color, output_format);
+           m_belts.init(device, format) && m_pinwheel.init(device, format) && m_sun.init(device, format) &&
+           m_beams.init(device, format) && m_black_hole.init(device, format) &&
+           m_post.init(device, format.color, output_format);
 }
 
 bool SceneRenderer::refresh_pipelines()
@@ -366,7 +388,8 @@ bool SceneRenderer::refresh_pipelines()
     return m_starfield.set_format(format) && m_bodies.set_format(format) && m_rings.set_format(format) &&
            m_atmospheres.set_format(format) && m_plumes.set_format(format) && m_comets.set_format(format) &&
            m_dust.set_format(format) && m_orbits.set_format(format) && m_belts.set_format(format) &&
-           m_sun.set_format(format) && m_beams.set_format(format) && m_black_hole.set_format(format);
+           m_pinwheel.set_format(format) && m_sun.set_format(format) && m_beams.set_format(format) &&
+           m_black_hole.set_format(format);
 }
 
 void SceneRenderer::shutdown()
@@ -390,6 +413,7 @@ void SceneRenderer::shutdown()
     m_sun.shutdown();
     m_orbits.shutdown();
     m_belts.shutdown();
+    m_pinwheel.shutdown();
     m_rings.shutdown();
     m_atmospheres.shutdown();
     m_plumes.shutdown();
@@ -428,6 +452,7 @@ void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, u
         std::nth_element(a.begin(), a.begin() + static_cast<std::ptrdiff_t>(a.size() / 2), a.end());
         m_belt_radius_km.push_back(a.empty() ? 0.0 : a[a.size() / 2] * kAuKm);
     }
+    load_pinwheel(scene);
     m_body_textures.assign(scene.bodies.size(), nullptr);
     m_ring_textures.assign(scene.bodies.size(), nullptr);
     m_bodies.clear_meshes();
@@ -896,6 +921,74 @@ void SceneRenderer::build_belt_items(const Simulation& sim, const OutputView& ou
     }
 }
 
+void SceneRenderer::load_pinwheel(const Scene& scene)
+{
+    const Pinwheel& p = scene.pinwheel;
+    if (!p.enabled()) {
+        m_pinwheel.clear();
+        return;
+    }
+    m_pinwheel.set_grains(p.grains.data(), static_cast<uint32_t>(p.grains.size()));
+    // In visible light: the dust's own glow at its temperature and the
+    // starlight it scatters (the stars' color), in proportion to their
+    // light, brightness relative to the nucleation radius.
+    const double star_share = pinwheel_star_visible_share(scene, p);
+    glm::dvec3 star_color(0.0);
+    for (int star : {p.primary, p.secondary}) {
+        const Body& b = scene.bodies[static_cast<size_t>(star)];
+        star_color += b.luminosity_solar * blackbody_band_share(b.temperature_k, kVisibleLoNm, kVisibleHiNm) *
+                      blackbody_linear_srgb(b.temperature_k);
+    }
+    const PinwheelVisibleLight at_nucleation = pinwheel_visible_light(p, p.nucleation_radius_km, star_share);
+    const double reference = at_nucleation.thermal + at_nucleation.scattered;
+
+    const double r_end = p.turns * p.step_km();
+    for (int i = 0; i < kPinwheelColorCount; ++i) {
+        const double r = p.nucleation_radius_km *
+                         std::pow(r_end / p.nucleation_radius_km, static_cast<double>(i) / (kPinwheelColorCount - 1));
+        const double t = pinwheel_dust_temperature(p, r);
+        const glm::dvec3 infrared = blackbody_linear_srgb(kPinwheelColorShift * t);
+        m_pinwheel_colors[static_cast<size_t>(i)] = glm::vec4(glm::vec3(infrared), 1.0f);
+
+        const PinwheelVisibleLight light = pinwheel_visible_light(p, r, star_share);
+        glm::dvec3 visible = light.thermal * blackbody_linear_srgb(t) + light.scattered * star_color / glm::length(star_color);
+        visible /= std::max({visible.r, visible.g, visible.b, 1e-30});
+        const double brightness = std::pow((light.thermal + light.scattered) / reference, kPinwheelGamma);
+        m_pinwheel_visible_colors[static_cast<size_t>(i)] =
+            glm::vec4(glm::vec3(visible), static_cast<float>(brightness));
+    }
+}
+
+PinwheelDrawItem SceneRenderer::pinwheel_item(const Simulation& sim, const OutputView& output_view) const
+{
+    const Scene& scene = sim.scene();
+    const Pinwheel& p = scene.pinwheel;
+    PinwheelDrawItem item;
+    item.center = to_render(scene.bodies[static_cast<size_t>(p.center)].world_position, output_view.camera.position);
+    item.display_from_icrf = glm::mat3(glm::transpose(scene.current_transform().axes));
+    const double cycles = (sim.clock().t_tdb - p.t_ref_tdb) / p.period_s / p.turns;
+    item.cycle = static_cast<float>(cycles - std::floor(cycles));
+    item.turns = static_cast<float>(p.turns);
+    item.step_km = static_cast<float>(p.step_km());
+    item.nucleation_km = static_cast<float>(p.nucleation_radius_km);
+    // Grains are 2 pi sin(half angle) r / grains_per_ring apart around a ring,
+    // and 2 pi r / rings_per_turn from ring to ring (on the orbit plane).
+    const double half = 0.5 * p.opening_angle_deg * kDegToRad;
+    item.sigma_along = static_cast<float>(kPinwheelPatch * kTwoPi * std::sin(half) / p.grains_per_ring);
+    item.sigma_across = static_cast<float>(kPinwheelPatch * kTwoPi / p.rings_per_turn);
+    item.wall_sigma_km = static_cast<float>(p.wall_sigma_km);
+    item.min_sigma_px = static_cast<float>(kPinwheelMinPx * output_view.content_scale);
+    const double camera_km = glm::length(glm::dvec3(item.center));
+    item.radiance = static_cast<float>(kPinwheelRadiance * sim.pinwheel_visibility() *
+                                       std::min(1.0, camera_km / (kPinwheelAdaptTurns * p.step_km())));
+    item.gamma = kPinwheelGamma;
+    item.cull_radiance = kPinwheelCullRadiance;
+    const int event = scene.active_event();
+    const bool visible = event >= 0 && scene.events[static_cast<size_t>(event)].dust_visible;
+    item.colors = visible ? m_pinwheel_visible_colors : m_pinwheel_colors;
+    return item;
+}
+
 void SceneRenderer::build_comet_items(const Simulation& sim, const OutputView& output_view, const ViewOptions& options)
 {
     const Scene& scene = sim.scene();
@@ -1223,6 +1316,10 @@ void SceneRenderer::render(const Frame& frame, const Simulation& sim, const Outp
     m_dust.upload(frame.cmd);
     trace_black_hole(frame.cmd, frame.width, frame.height, options.star_brightness, sim, output_view,
                      targets.black_hole);
+    if (m_pinwheel.has_grains() && sim.pinwheel_visibility() > 0.0) {
+        m_pinwheel.render(frame.cmd, targets.pinwheel, view, pinwheel_item(sim, output_view), frame.width,
+                          frame.height);
+    }
 
     SDL_GPURenderPass* pass = targets.begin_scene_pass(frame.cmd, {0.0f, 0.0f, 0.0f, 1.0f});
     const float sky = static_cast<float>(sim.sky_visibility());
@@ -1238,6 +1335,7 @@ void SceneRenderer::render(const Frame& frame, const Simulation& sim, const Outp
     m_rings.draw(frame.cmd, pass, view, m_ring_items);
     build_belt_items(sim, output_view, options);
     m_belts.draw(frame.cmd, pass, view, m_belt_items);
+    m_pinwheel.composite(pass, targets.pinwheel);
     m_black_hole.composite(frame.cmd, pass, targets.black_hole);
     draw_stars(frame.cmd, pass, sim, output_view);
     m_beams.draw(frame.cmd, pass, view, m_beam_items);

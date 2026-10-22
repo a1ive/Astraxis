@@ -68,6 +68,10 @@ constexpr double kEventDrift = 0.004; // rad/s
 constexpr double kSkyTurnShownDegPerS = 45.0;
 constexpr double kSkyTurnHiddenDegPerS = 180.0;
 constexpr double kSkyFadeSeconds = 0.8;
+// A pinwheel's spiral turning faster than the eye can follow (at 60 frames per
+// second, 4 turns per second jump 24 deg a frame) fades out the same way.
+constexpr double kPinwheelShownTurnsPerS = 1.0;
+constexpr double kPinwheelHiddenTurnsPerS = 4.0;
 
 double smoothstep(double x)
 {
@@ -160,6 +164,13 @@ void Simulation::update(double real_dt)
         std::clamp((kSkyTurnHiddenDegPerS - turn) / (kSkyTurnHiddenDegPerS - kSkyTurnShownDegPerS), 0.0, 1.0);
     const double sky_step = real_dt / kSkyFadeSeconds;
     m_sky = sky_target < m_sky ? std::max(sky_target, m_sky - sky_step) : std::min(sky_target, m_sky + sky_step);
+    const Pinwheel& pinwheel = m_scene.pinwheel;
+    const double spiral_turns =
+        m_clock.paused || !pinwheel.enabled() ? 0.0 : std::abs(m_clock.warp) / pinwheel.period_s;
+    const double pinwheel_target = std::clamp(
+        (kPinwheelHiddenTurnsPerS - spiral_turns) / (kPinwheelHiddenTurnsPerS - kPinwheelShownTurnsPerS), 0.0, 1.0);
+    m_pinwheel = pinwheel_target < m_pinwheel ? std::max(pinwheel_target, m_pinwheel - sky_step)
+                                              : std::min(pinwheel_target, m_pinwheel + sky_step);
 
     // Accretion-disk animation: follows the clock, but capped so that the inner
     // disk does not blur at high time warp.
@@ -221,6 +232,11 @@ double Simulation::fade() const
 double Simulation::sky_visibility() const
 {
     return smoothstep(m_sky);
+}
+
+double Simulation::pinwheel_visibility() const
+{
+    return smoothstep(m_pinwheel);
 }
 
 void Simulation::compute_view(int width, int height, double content_scale, OutputView& out) const

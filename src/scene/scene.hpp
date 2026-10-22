@@ -2,6 +2,7 @@
 
 #include "core/time.hpp"
 #include "ephem/motion.hpp"
+#include "scene/pinwheel.hpp"
 #include "scene/roche.hpp"
 #include "scene/shape_model.hpp"
 #include "scene/star_catalog.hpp"
@@ -514,6 +515,9 @@ struct SceneEvent {
     // brightness) while the event is active. Off: the disk as filmed for
     // Interstellar, which left them out.
     bool disk_shifts = true;
+    // A pinwheel's dust in visible light, as the eye would see it, while the
+    // event is active; otherwise in false-color near infrared.
+    bool dust_visible = false;
     int flyby = -1;             // >= 0: the body whose pass of the focus the event shows (-1: looked for)
     std::string caption;        // a museum-style note on why the view is worth seeing; may be empty
 
@@ -623,6 +627,8 @@ public:
     Calendar calendar = Calendar::Gregorian;
     std::vector<SceneBelt> belts;
     LightCurve light_curve;
+    // A colliding-wind binary's dust spiral (WR 104); disabled in most scenes.
+    Pinwheel pinwheel;
 
     // Heliocentric motion of the scene origin, used for the sun position when
     // the scene has no Star body.
