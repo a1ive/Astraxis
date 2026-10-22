@@ -892,7 +892,7 @@ void test_earth_moon_rotation()
 void test_mars_rotation()
 {
     for (const char* file : {"mars.toml", "solar_system.toml", "isee3.toml", "mercury.toml", "parker.toml",
-                             "rosetta.toml"}) {
+                             "rosetta.toml", "didymos.toml"}) {
         Scene scene = load_scene_or_die(file);
         const int mars = scene.find("Mars");
         check(mars >= 0, "Mars in the scene");

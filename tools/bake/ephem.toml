@@ -1835,3 +1835,45 @@ tolerance_km = 20.0
 encounters = ["venus", "emb"]
 encounter_km = 1.0e7
 encounter_step_minutes = 720
+
+# --- DART and Didymos (assets/scenes/didymos.toml) --------------------------------
+# Horizons notes (2026-10-22):
+#   Didymos system barycenter (20065803): JPL orbit solution 240 (DE441; 1869 optical and
+#                    four radar measurements, 2022-09-27 .. 2025-03-11) to 2026-07-01, then
+#                    ESA's (didymos_fsp_000004_260701_270701_v01)
+#   DART (-135):     2021-Nov-24 07:17:53 .. impact 2022-Sep-26 23:15:33.4 TDB, "Final
+#                    reconstructed trajectory" (navigation reconstructions, then a 48-second
+#                    segment to the impact; see tools/dart/approach_bake.py)
+# Didymos and Dimorphos around the barycenter come from JPL solution 547
+# (tools/dart/s547_bake.py), DART's last days and LICIACube relative to the barycenter
+# from tools/dart/approach_bake.py. Earth for encounters: emb above.
+
+[[target]]
+name = "didymos"
+command = "20065803"
+naif_id = 20065803
+center = "500@10"
+center_naif_id = 10
+kepler_gm_km3_s2 = 1.32712440041279419e11
+start = "2021-11-01"
+stop = "2023-04-01"
+base_step_minutes = 1440
+tolerance_km = 2.0
+radius_km = 0.394
+
+[[target]]
+name = "dart_helio"
+command = "-135"
+naif_id = -135
+center = "500@10"
+center_naif_id = 10
+kepler_gm_km3_s2 = 1.32712440041279419e11
+start = "2021-11-24 07:18"
+stop = "2022-09-25 23:00"  # a day before the impact (dart_didymos.eph from then on)
+base_step_minutes = 360
+tolerance_km = 2.0
+refine_near = ["emb"]
+refine_near_km = 1500000.0
+encounters = ["emb", "didymos"]
+encounter_km = 2.0e7
+encounter_step_minutes = 60

@@ -16,6 +16,7 @@
 | `vesta.mesh` | USGS Astrogeology / DLR，Vesta Dawn FC HAMO Global DTM 93m（2013-12-10 发布，黎明号分幅相机 HAMO 立体图像），<https://astrogeology.usgs.gov/search/map/vesta_dawn_fc_hamo_global_dtm_93m>，文件 `Vesta_Dawn_HAMO_DTM_DLR_Global_48ppd.tif` | 公有领域（请引用作者） |
 | `phobos.mesh`、`deimos.mesh` | P. C. Thomas，“Small Body Optical Shape Models” V1.0（PDS SBN，`ast-sat.thomas.shape-models`，由 PDS3 数据集 EAR-A-5-DDR-SHAPE-MODELS-V2.1 迁移），<https://sbnarchive.psi.edu/pds4/non_mission/ast-sat.thomas.shape-models_V1_0/>，文件 `data/m1phobos.tab`、`data/m2deimos.tab`；Thomas 1993, Icarus 105, 326 | PDS 存档数据，公有领域（请引用数据集与作者） |
 | `endurance_hull.mesh`、`endurance_ring.mesh` | 本项目原创的简化造型，致敬电影《星际穿越》（2014）里的飞船 Endurance，由 `tools/shapes/make_endurance.py` 生成（只用标准库）；不是电影的模型或制作数据 | 随本项目（GPL-3.0-or-later） |
+| `didymos.mesh`、`dimorphos.mesh` | DART Shapemodel Archive Bundle（Daly, T.; Barnouin, O.; Ernst, C.; Nair, H.; Espiritu, R.; Waller, D.，PDS SBN `urn:nasa:pds:dart_shapemodel::1.0`，doi:[10.26007/96fn-p578](https://doi.org/10.26007/96fn-p578)），<https://pdssbn.astro.umd.edu/holdings/pds4-dart_shapemodel-v1.0/>：Didymos v003 的 9.3 m 版本 `data_derived_didymos_model_v003/didymos_g_9309mm_spc_obj_0000n00000_v003.obj`（SHA-256 `b5349374186d254ca21b7b00ddd9f6dea7e2762ca6bbff13f43151ee448e3f20`），Dimorphos v004 的 1.9 m 版本 `data_derived_dimorphos_model_v004/dimorphos_g_1940mm_spc_obj_0000n00000_v004.obj`（SHA-256 `833eaeac8c49338abe64012a679b1b9695f774f1b5e4842a8e5b9f0af1d28664`）；Daly et al. 2023, Nature 616, 443；Daly et al. 2024, PSJ 5, 24 | NASA DART 任务的 PDS 数据，公有领域（请引用数据集与作者） |
 | `arrokoth.mesh` | Porter, S. et al. 2024, “New Horizons Porter (2024) Arrokoth Shape Model Collection”，PDS Small Bodies Node，doi:[10.26007/97r3-1e19](https://doi.org/10.26007/97r3-1e19)，<https://pdssbn.astro.umd.edu/holdings/pds4-nh_derived-v3.0/arrokoth_shapemodel_porter2024/>；方法见同目录的 `porteretal2024b.pdf`（Porter et al. 2024, “The Shape of (486958) Arrokoth”） | NASA 新视野号项目的 PDS 数据，公有领域（请引用作者） |
 
 原始文件（同一目录下）：
@@ -138,6 +139,13 @@
 - **Lutetia**：
   - 模型：48k 版本，23,894 个顶点、47,784 个三角形，933 KB；等体积半径 49.2 km，范围 111.7 × 120.8 × 84.8 km。
   - 自转：数据集文档 `LUTETIA_ROTATION.PDF`（Jorda & Vincent）：极 RA 51.80°、Dec +10.83°（Sierks et al. 2011），W = 289.50° + 1057.751519°/天（周期 8.168270 h，Carry et al. 2010）。零经线过 Lauriacum 坑，模型已按这个定义旋转。
+
+## Didymos 与 Dimorphos（DART 的 SPC 形状模型）
+
+- **格式**：OBJ（`v`、`f` 行，km，三角形按右手定则从外面看逆时针），文件头的 `#` 注释给出面数、体积、惯量张量和范围。`tools/shapes/make_plate_shape.py` 原样转换（文件头有 UTF-8 的弯引号，要 `python -X utf8`），各 24,578 个顶点、49,152 个三角形，960 KB。每个模型都有 4 种分辨率，这里取最粗的（更细的 14–221 MB）
+- **Didymos**（v003，DART 的 DRACO 和 LICIACube 图像，Barnouin 等）：体积 0.2034 km³（等体积直径 730 m），范围 818 × 801 × 604 m。Daly et al. 2023 表 1 用的是更早的模型（849 × 851 × 620 m，761 m）；Naidu et al. 2024 按动力学拟合的扁球是 394 × 290 m（体积 0.189 km³，相差 8%，在他们的误差内）。文件头的形心在 (16, 42, −34) m，不在原点（标签说原点是质心），转换时保持原样
+- **Dimorphos**（v004，“撞击前的最终模型”，只有 DRACO 图像，阳光相角 60°，背面主要由临边约束）：体积 0.001759 km³（等体积直径 150 m），范围 178 × 169 × 115 m（Daly 2023 表 1：177 × 174 × 116 m、0.00181 km³ ± 10%）。撞击后的形状（Naidu 2024 推断长轴比变成 1.3）不知道，场景始终用这个模型
+- **自转**：模型的坐标系就是 DART 的本体系（x 指向零经线，z 沿自转轴）。Didymos 按 Horizons 说明的极（69.32686°, −72.72455°）和 W = 3823.0088°/天（2.2600 h），W0 取 0；Dimorphos 同步自转（x 指向 Didymos，z 沿轨道极），和 Horizons 撞前的自转模型相差不到 0.02°（`test_didymos_scene`），撞后 Horizons 本身就用这个定义。DART 撞在东经 264°（Daly 2023），在同步坐标系里是前导面，测试里 DART 来的方向离它约 15°（撞击点离形心 25 m，DART 在场景里瞄的是中心）
 
 ## Endurance（致敬造型）
 

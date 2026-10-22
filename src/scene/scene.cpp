@@ -371,7 +371,7 @@ TrailMode Scene::trail_mode(int body) const
     return t ? t->mode : bodies[static_cast<size_t>(body)].trail;
 }
 
-bool Scene::burn_delta_v(int body, double* km_s) const
+bool Scene::burn_delta_v(int body, double* km_s, double* total_km_s) const
 {
     if (m_active_event < 0) {
         return false;
@@ -384,6 +384,9 @@ bool Scene::burn_delta_v(int body, double* km_s) const
     const double x = std::min((m_time - g.t_tdb) / g.delta_v_span_s, 1.0) * steps;
     const size_t k = std::min(static_cast<size_t>(x), g.delta_v_km_s.size() - 2);
     *km_s = g.delta_v_km_s[k] + (g.delta_v_km_s[k + 1] - g.delta_v_km_s[k]) * (x - static_cast<double>(k));
+    if (total_km_s) {
+        *total_km_s = g.delta_v_km_s.back();
+    }
     return true;
 }
 

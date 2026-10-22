@@ -7,6 +7,7 @@
 #include <glm/glm.hpp>
 #include <imgui.h>
 
+#include <algorithm>
 #include <cstdio>
 
 namespace astraxis {
@@ -53,8 +54,9 @@ void draw_labels(LabelLayout& labels, const Scene& scene, const OutputView& view
         const Body& body = scene.bodies[static_cast<size_t>(mark.body)];
         const ImVec2 center(mark.position.x, mark.position.y);
         if (mark.dot == LabelLayout::Dot::Hollow) {
-            draw->AddCircle(center, dot_radius + 1.0f, to_imgui_color(body.orbit_color, 0.95f * mark.fade * alpha), 0,
-                            1.5f);
+            // A ghost: as large as its body appears (a moon's), at least a dot.
+            draw->AddCircle(center, std::max(dot_radius, mark.radius) + 1.0f,
+                            to_imgui_color(body.orbit_color, 0.95f * mark.fade * alpha), 0, 1.5f);
         } else if (mark.dot == LabelLayout::Dot::Filled) {
             draw->AddCircleFilled(center, dot_radius,
                                   to_imgui_color(glm::mix(body.color, glm::vec3(1.0f), 0.3f), 0.95f * mark.fade * alpha));
@@ -64,10 +66,15 @@ void draw_labels(LabelLayout& labels, const Scene& scene, const OutputView& view
                           IM_COL32(220, 225, 235, static_cast<int>(190.0f * mark.text_alpha * alpha)),
                           body.name.c_str());
             double delta_v = 0.0;
-            if (scene.burn_delta_v(mark.body, &delta_v)) {
+            double total = 0.0;
+            if (scene.burn_delta_v(mark.body, &delta_v, &total)) {
+                // Under 1 m/s in all (DART's push on Dimorphos): in mm/s.
+                const bool mm = total < 1e-3;
                 char text[64];
-                std::snprintf(text, sizeof(text), readout_font ? "\xce\x94v %.0f m/s" : "delta-v %.0f m/s",
-                              delta_v * 1000.0);
+                std::snprintf(text, sizeof(text),
+                              mm ? (readout_font ? "\xce\x94v %.2f mm/s" : "delta-v %.2f mm/s")
+                                 : (readout_font ? "\xce\x94v %.0f m/s" : "delta-v %.0f m/s"),
+                              delta_v * (mm ? 1e6 : 1e3));
                 const ImVec2 at(mark.text_position.x,
                                 mark.text_position.y + font_size * LabelLayout::kReadoutLineSpacing);
                 draw->AddText(readout_font ? readout_font : ImGui::GetFont(), font_size, at,
