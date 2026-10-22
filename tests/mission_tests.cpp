@@ -2104,7 +2104,7 @@ void test_halley_armada()
                 format_utc(t_g).c_str(), d_venus, format_utc(t_venus).c_str());
 }
 
-void test_jwst_scene()
+void test_space_telescopes_scene()
 {
     // Lagrange L2 of Sun / Earth-Moon: force balance in the rotating frame, ~1.5e6 km.
     const double mu = 3.04042340e-6;
@@ -2118,24 +2118,149 @@ void test_jwst_scene()
     const double f1 = x1 - (1.0 - mu) / ((x1 + mu) * (x1 + mu)) + mu / ((x1 - 1.0 + mu) * (x1 - 1.0 + mu));
     check(std::abs(f1) < 1e-12, "L1 force balance", f1);
 
-    Scene scene = load_scene_or_die("jwst.toml");
-    check(scene.frame_is_rotating(), "JWST scene starts in the rotating frame");
-    const int jwst = scene.find("JWST");
-    double worst = 0.0;
-    for (int day = 200; day < 3500; day += 5) { // from mid-2022 into the predicted schedule
+    Scene scene = load_scene_or_die("space_telescopes.toml");
+    check(scene.frame_is_rotating(), "Space Telescopes scene starts in the rotating frame");
+    auto at = [](const char* utc) {
         double t = 0.0;
-        parse_utc("2022-01-01", &t);
-        t += day * kSecondsPerDay;
-        scene.update(t);
-        // The Sun stays on the -x axis of the rotating frame.
-        const glm::dvec3 sun = glm::normalize(scene.sun_position());
-        check(sun.x < -0.9999999, "Sun on -x in the rotating frame", sun.x);
-        const glm::dvec3 l2 = scene.markers[0].world_position;
-        check(l2.x > 1.4e6 && std::abs(l2.y) < 1.0 && std::abs(l2.z) < 1.0, "L2 marker on +x", l2.x);
-        worst = std::max(worst, glm::length(scene.bodies[static_cast<size_t>(jwst)].world_position - l2));
+        parse_utc(utc, &t);
+        return t;
+    };
+    auto pos = [&scene](const char* name) { return scene.bodies[static_cast<size_t>(scene.find(name))].world_position; };
+
+    // The L2 telescopes over their spans [HZN]: the halo orbits of JWST, Euclid and Roman
+    // reach ~800,000 km from L2 ([EWG]: 400,000 to 800,000 km for Euclid's), Gaia's
+    // Lissajous orbit ~350,000 km ([EWG]).
+    struct Span {
+        const char* name;
+        const char* from;
+        const char* to;
+        double max_km;
+    };
+    for (const Span& s : {Span{"JWST", "2022-07-01", "2031-09-01", 9.0e5}, Span{"Euclid", "2023-09-01", "2031-10-01", 9.0e5},
+                          Span{"Roman", "2026-10-01", "2028-10-01", 9.0e5}, Span{"Gaia", "2014-02-01", "2025-02-01", 4.5e5}}) {
+        double worst = 0.0;
+        for (double t = at(s.from); t < at(s.to); t += 5.0 * kSecondsPerDay) {
+            scene.update(t);
+            // The Sun stays on the -x axis of the rotating frame.
+            const glm::dvec3 sun = glm::normalize(scene.sun_position());
+            check(sun.x < -0.9999999, "Sun on -x in the rotating frame", sun.x);
+            const glm::dvec3 l2 = scene.markers[0].world_position;
+            check(l2.x > 1.4e6 && std::abs(l2.y) < 1.0 && std::abs(l2.z) < 1.0, "L2 marker on +x", l2.x);
+            worst = std::max(worst, glm::length(pos(s.name) - l2));
+        }
+        check(worst < s.max_km, (std::string(s.name) + " stays near L2 (km)").c_str(), worst);
     }
-    // JWST's halo orbit amplitude is several hundred thousand km.
-    check(worst < 1.2e6, "JWST stays near L2 (km)", worst);
+
+    // Roman goes straight into its halo orbit: within a month of launch it is as far
+    // from the Earth as L2 [HZN].
+    scene.update(at("2026-09-30"));
+    check(glm::length(pos("Roman")) > 1.3e6, "Roman out at L2 a month after launch (km)", glm::length(pos("Roman")));
+
+    // Gaia left L2 in March 2025 and returns to the Earth's vicinity every 14 years, at
+    // ~10 million km ([HZN] notes, [GF]). The first return, in 2039, is as described;
+    // the later ones in the 100-year prediction come closer (5.7 million km in 2054).
+    double gaia_min = 1e30;
+    double gaia_min_t = 0.0;
+    for (double t = at("2026-01-01"); t < at("2050-01-01"); t += kSecondsPerDay) {
+        scene.update(t);
+        if (glm::length(pos("Gaia")) < gaia_min) {
+            gaia_min = glm::length(pos("Gaia"));
+            gaia_min_t = t;
+        }
+    }
+    check(gaia_min > 1.0e7 && gaia_min < 1.1e7, "Gaia comes back to ~10 million km (km)", gaia_min);
+    const double gaia_years = (gaia_min_t - at("2025-03-28")) / kSecondsPerDay / 365.25;
+    check(std::abs(gaia_years - 14.0) < 1.0, "Gaia's first return 14 years after it left L2 (years)", gaia_years);
+
+    // Kepler's heliocentric orbit: 372.5 days [HZN], a little longer than the year, so it
+    // falls behind the Earth (behind: -y in the rotating frame, the Earth moving to +y),
+    // 170 million km by its retirement ([KR] caption), and comes back in 2099 [HZN].
+    {
+        scene.update(at("2012-01-01"));
+        const double y0 = pos("Kepler").y;
+        scene.update(at("2016-01-01"));
+        const double y1 = pos("Kepler").y;
+        check(y0 < -1.0e7 && y1 < y0 - 3.0e7, "Kepler trails the Earth and falls further behind (km)", y1);
+        scene.update(at("2018-10-30"));
+        check(std::abs(glm::length(pos("Kepler")) - 1.7e8) < 0.05e8, "Kepler's distance at retirement (km)",
+              glm::length(pos("Kepler")));
+        double back = 1e30;
+        for (double t = at("2099-06-01"); t < at("2099-09-01"); t += kSecondsPerDay) {
+            scene.update(t);
+            back = std::min(back, glm::length(pos("Kepler")));
+        }
+        check(std::abs(back - 1.4e6) < 0.1e6, "Kepler comes back past the Earth in 2099 (km)", back);
+
+        const double t = at("2014-01-01");
+        const double dt = 60.0;
+        const int rotating = scene.active_frame();
+        scene.set_active_frame(0); // inertial, for the velocity
+        scene.update(t - dt);
+        const glm::dvec3 i0 = pos("Kepler") - scene.sun_position();
+        scene.update(t + dt);
+        const glm::dvec3 i1 = pos("Kepler") - scene.sun_position();
+        const glm::dvec3 r = 0.5 * (i0 + i1);
+        const glm::dvec3 v = (i1 - i0) / (2.0 * dt);
+        const double gm_sun = 1.32712440041279419e11; // [GM]
+        const double a = 1.0 / (2.0 / glm::length(r) - glm::dot(v, v) / gm_sun);
+        const double period_days = kTwoPi * std::sqrt(a * a * a / gm_sun) / kSecondsPerDay;
+        check(std::abs(period_days - 372.5) < 1.5, "Kepler's heliocentric period (days)", period_days);
+        scene.set_active_frame(rotating);
+    }
+
+    // TESS's lunar flyby (the event caption): 10,000 km from the Moon's center on
+    // 2018-05-17, lifting the perigee from under 10,000 km to over 100,000 km [HZN].
+    {
+        double closest = 1e30;
+        double closest_t = 0.0;
+        for (double t = at("2018-05-16"); t < at("2018-05-18"); t += 300.0) {
+            scene.update(t);
+            const double d = glm::length(pos("TESS") - pos("Moon"));
+            if (d < closest) {
+                closest = d;
+                closest_t = t;
+            }
+        }
+        check(std::abs(closest - 1.0e4) < 0.05e4, "TESS's lunar flyby distance (km)", closest);
+        check(std::abs(closest_t - at("2018-05-17 06:40")) < 3600.0, "TESS's lunar flyby on 2018-05-17");
+        double perigee_before = 1e30;
+        double perigee_after = 1e30;
+        for (double t = at("2018-04-20"); t < at("2018-08-01"); t += 1800.0) {
+            scene.update(t);
+            double& p = t < closest_t ? perigee_before : perigee_after;
+            p = std::min(p, glm::length(pos("TESS")));
+        }
+        check(perigee_before < 1.0e4 && perigee_after > 1.0e5, "the flyby lifts TESS's perigee (km)", perigee_after);
+    }
+
+    // TESS: 13.7-day orbits in 2:1 resonance with the Moon, the Moon leading or lagging
+    // the apogee by about 90 degrees [TR14]. Apogees (hourly samples) from 2019 to 2026.
+    {
+        std::vector<double> apogee_times;
+        double worst_angle = 0.0;
+        double prev2 = 0.0;
+        double prev = 0.0;
+        for (double t = at("2019-01-01"); t < at("2026-01-01"); t += 3600.0) {
+            scene.update(t);
+            const double r = glm::length(pos("TESS"));
+            if (prev > prev2 && prev >= r && prev2 > 0.0) {
+                apogee_times.push_back(t - 3600.0);
+                const glm::dvec3 tess = glm::normalize(pos("TESS"));
+                const glm::dvec3 moon = glm::normalize(pos("Moon"));
+                const double angle = std::acos(std::clamp(glm::dot(tess, moon), -1.0, 1.0)) * kRadToDeg;
+                worst_angle = std::max(worst_angle, std::abs(angle - 90.0));
+            }
+            prev2 = prev;
+            prev = r;
+        }
+        // The Moon and the Sun pull single orbits to anywhere between 12.7 and 14.7 days.
+        const double mean_period =
+            (apogee_times.back() - apogee_times.front()) / static_cast<double>(apogee_times.size() - 1) / kSecondsPerDay;
+        check(std::abs(mean_period - 13.7) < 0.15, "TESS's mean period (days)", mean_period);
+        check(worst_angle < 45.0, "the Moon about 90 deg from TESS's apogee (deg off)", worst_angle);
+        std::printf("info: TESS %zu apogees 2019-2025, mean period %.3f d, Moon-apogee angle within %.1f deg of 90\n",
+                    apogee_times.size(), mean_period, worst_angle);
+    }
 }
 
 } // namespace
@@ -2154,5 +2279,5 @@ void run_mission_tests()
     test_isee3_scene();
     test_rosetta_scene();
     test_halley_armada();
-    test_jwst_scene();
+    test_space_telescopes_scene();
 }

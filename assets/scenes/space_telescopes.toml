@@ -1,0 +1,472 @@
+# Space telescopes around the Earth: JWST, Euclid, Roman and Gaia at Sun-Earth L2,
+# TESS in a 2:1 resonance with the Moon, and Kepler drifting behind the Earth.
+#
+# In the default "Sun-Earth rotating" frame the x axis always points from the Sun
+# through the Earth, so L2 (1.5 million km beyond the Earth) stays fixed and the halo
+# and Lissajous orbits around it show up as loops. Switch to the inertial frame to
+# see the same paths wind around the Earth once a year. Kepler and Gaia (after 2025)
+# orbit the Sun on their own and fall behind the Earth: in this frame they drift
+# away along the Earth's orbit, looping once a year. TESS's loops are best seen in
+# the "Earth-Moon rotating" frame, where the Moon stays put.
+#
+# Sources
+# [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py, all geocentric
+#        ICRF (coverage in tools/bake/ephem.toml):
+#          JWST (-170)    2021-12-25 .. 2031-09-27 (as flown to 2026-09-28, then a 28-day
+#                         prediction and a 5-year planned schedule)
+#          Euclid (-680)  2023-07-01 .. 2031-10-04 (tracking to 2026-08-31, then ESA predicts)
+#          Roman (-211)   2026-08-30 .. 2028-10-18 (GSFC FDF; tracking to 2026-10-18, then
+#                         predicts)
+#          Gaia (-139479) 2013-12-19 .. 2099-12-31 (ESOC final reconstruction to the end of
+#                         the mission, 2025-03-28, then a prediction of the disposal orbit)
+#          Kepler (-227)  2009-03-07 .. 2099-12-31 (JPL navigation; prediction after
+#                         2018-10-30)
+#          TESS (-95)     2018-04-18 .. 2028-04-19 (concatenated tag-up predictions; tracking
+#                         to 2026-10-18)
+#          Moon (301)     1972 .. 2099 (as in solar_system.toml)
+#        Horizons' notes: Kepler's Earth-trailing heliocentric orbit has "a period of 372.5
+#        days" and "very-low disturbing torque on spacecraft"; Gaia arrived at its Lissajous
+#        orbit around L2 on 2014-01-08, "about 180 days" a loop, "typically 340,000 x 90,000
+#        km"; TESS's operational orbit is "a highly eccentric, 2:1 lunar resonance orbit of
+#        108,400 by 376,300 kilometers"; Roman launched 2026-08-30 11:26 UTC on a Falcon Heavy.
+#        The Sun direction uses the heliocentric Earth-Moon barycenter (the Earth-EMB offset of
+#        ~4,700 km is ignored).
+# [GM]   JPL SSD astrodynamic parameters (DE440).
+#        L2 mass ratio = (GM_Earth + GM_Moon) / (GM_Sun + GM_Earth + GM_Moon)
+#                      = 403503.235625 / (1.32712440041279419e11 + 403503.235625)
+#                      = 3.04042340e-6  (Sun / Earth-Moon barycenter system).
+# [CAP]  Event captions (retrieved 2026-10-07):
+#        [JW] NASA, science.nasa.gov/mission/webb/: launched 2021-12-25; at L2 from
+#          2022-01-24; 1.5 million km from the Earth; a "5-layer sunshield that protects the
+#          telescope from the infrared radiation of the Sun, Earth, and Moon".
+#        [JWO] NASA, "Webb's Orbit" (science.nasa.gov/asset/webb/webbs-orbit/): a halo orbit
+#          around L2, at "a safe distance from the bright light of the Sun, Earth, and Moon".
+#        [JWL2] NASA Webb blog 2022-01-24, "Orbital Insertion Burn a Success, Webb Arrives at
+#          L2": a 297 s burn adding 1.6 m/s; the orbit lets the optics "get cold enough to
+#          function"; station-keeping keeps it there.
+#        [JWF] NASA Webb blog 2021-12-29, "NASA Says Webb's Excess Fuel Likely to Extend its
+#          Lifetime Expectations": thanks to the Ariane 5's precision, propellant for
+#          "significantly more than a 10-year science lifetime".
+#        The halo loops' period: [HZN] (about six months, as the data show).
+#        Retrieved 2026-10-22:
+#        [EWG] ESA video 2023-07-28, "Webb and Gaia welcome Euclid to L2"
+#          (esa.int/ESA_Multimedia/Videos/2023/07/Webb_and_Gaia_welcome_Euclid_to_L2): a month
+#          after its 1 July launch Euclid has travelled 1.5 million km to its orbit around L2,
+#          whose radius ranges from about 400,000 to 800,000 km, one loop taking as long as six
+#          orbits of the Moon; Gaia's Lissajous orbit reaches about 350,000 km from L2; Webb
+#          and Gaia are 400,000 to 1,100,000 km apart.
+#        [GF] ESA 2025-03-27, "Farewell Gaia! Spacecraft operations come to an end"
+#          (esa.int/Enabling_Support/Operations/): switched off on 27 March 2025 after more than
+#          a decade of observations (five years planned) and nearly two billion stars mapped;
+#          a last use of the thrusters moved it away from L2, into an orbit around the Sun that
+#          minimises the chance of coming within 10 million km of the Earth for at least a
+#          century; its software was deliberately corrupted so that it can never restart.
+#        [RL] NASA Roman blog 2026-08-30, "NASA's Roman Space Telescope Launches"
+#          (science.nasa.gov/blogs/roman/): lifted off at 7:26 a.m. EDT on a Falcon Heavy; its
+#          wide field and fast surveys will map billions of galaxies.
+#        [R9] NASA, "9 Things to Know About NASA's Nancy Grace Roman Space Telescope"
+#          (science.nasa.gov/missions/roman-space-telescope/): Hubble's sharpness with a field
+#          of view at least 100 times larger; a five-year primary mission; dark energy, dark
+#          matter and a census of planetary systems.
+#        [KR] NASA release 18-092, 2018-10-30, "NASA Retires Kepler Space Telescope, Passes
+#          Planet-Hunting Torch": out of fuel after nine years in deep space, retired "within
+#          its current, safe orbit, away from Earth"; more than 2,600 planets.
+#        [TR14] Ricker et al. 2014, "The Transiting Exoplanet Survey Satellite", Proc. SPIE 9143
+#          (arXiv:1406.0151), sec. 3.8, 6, 7.3: a 13.7-day orbit in 2:1 resonance with the
+#          Moon, operationally stable because the Moon leads or lags the apogee by about 90
+#          deg, averaging out its pull; above the radiation belts; a lunar flyby sets up the
+#          final orbit; the data are sent down at each perigee.
+#        The dates and distances of arrivals, departures and flybys: [HZN] (bake tool and
+#        scene tests).
+# [ATM]  Atmospheres (single scattering): sources and choices in solar_system.toml.
+# [NIGHT] The Earth's night lights and aurora: sources and choices in solar_system.toml.
+# [PCK]  NAIF pck00011.tpc (IAU 2015).
+# [SPHY] JPL SSD satellite physical parameters (Moon mean radius).
+
+name = "Space Telescopes"
+
+[view]
+focus = "Earth"
+frame = "Sun-Earth rotating"
+distance_km = 4.0e6
+start = "now"
+warp = 86400.0             # 1 day per second: a halo loop (~6 months) in ~3 minutes
+
+# Heliocentric Earth-Moon barycenter, for the Sun direction and the rotating frame. [HZN]
+[origin_heliocentric]
+type = "ephemeris"
+file = "ephem/emb.eph"
+[origin_heliocentric.fallback]             # Standish Table 2a, EM Bary
+type = "jpl_approx_planet"
+a_au = [1.00000018, -0.00000003]
+e = [0.01673163, -0.00003661]
+i_deg = [-0.00054346, -0.01337178]
+mean_longitude_deg = [100.46691572, 35999.37306329]
+lon_peri_deg = [102.93005885, 0.31795260]
+node_deg = [-5.11260389, -0.24123856]
+
+[[bodies]]
+name = "Earth"
+radii_km = [6378.1366, 6356.7519]          # [PCK]
+gm_km3_s2 = 403503.235625                  # Earth + Moon, for the Moon's relative orbit [GM]
+body_gm_km3_s2 = 398600.435507             # [GM]
+pole_ra_dec_deg = [0.0, 90.0]              # [PCK]
+prime_meridian_deg = [190.147, 360.9856235]
+color = "#5b86c9"
+texture = "textures/earth.jpg"             # NASA Blue Marble NG (see textures/SOURCES.md)
+texture_left_lon_deg = -180.0
+
+[bodies.atmosphere]                        # [ATM]
+height_km = 60.0
+rayleigh_depth = 0.1085                    # 13.56e-6 m^-1 at 550 nm x 8 km
+rayleigh_scale_height_km = 8.0
+haze_depth = 0.005328
+haze_scale_height_km = 1.2
+haze_albedo = 0.9
+haze_g = 0.8
+[bodies.night_lights]                      # [NIGHT] (sources and choices in solar_system.toml)
+texture = "textures/earth_night.jpg"
+color = "#ffb46b"
+gain = 0.6
+[bodies.aurora]                            # [NIGHT]
+kp = "geomag/kp.bin"
+[[bodies]]
+name = "Moon"
+parent = "Earth"
+radii_km = [1737.4]                        # [SPHY]
+body_gm_km3_s2 = 4902.800118               # [GM]
+pole_ra_dec_deg = [269.9949, 66.5392]      # [PCK] (libration terms ignored)
+prime_meridian_deg = [38.3213, 13.17635815]
+color = "#a8a49c"
+orbit_color = "#c8c4bc"
+texture = "textures/moon.jpg"              # NASA SVS CGI Moon Kit
+texture_left_lon_deg = -180.0
+[bodies.orbit]                             # [HZN] 301
+type = "ephemeris"
+file = "ephem/moon.eph"
+
+# The telescopes [HZN]. Sizes from Horizons' notes where they give them; all are drawn
+# as markers.
+[[bodies]]
+name = "JWST"
+parent = "Earth"
+kind = "spacecraft"
+radii_km = [0.011]                         # sunshield ~21 m x 14 m
+color = "#ffd98a"
+orbit_color = "#ffcf6a"
+trail = "history"
+trail_history_days = 365.0                 # about two halo loops
+[bodies.orbit]                             # [HZN] -170
+type = "ephemeris"
+file = "ephem/jwst_geo.eph"
+
+[[bodies]]
+name = "Euclid"
+parent = "Earth"
+kind = "spacecraft"
+radii_km = [0.0024]                        # 4.7 m tall, 3.7 m across
+color = "#9fd4ff"
+orbit_color = "#7cc2ff"
+trail = "history"
+trail_history_days = 365.0
+[bodies.orbit]                             # [HZN] -680
+type = "ephemeris"
+file = "ephem/euclid_geo.eph"
+
+[[bodies]]
+name = "Roman"
+parent = "Earth"
+kind = "spacecraft"
+radii_km = [0.003]                         # meters across (a 2.4 m mirror)
+color = "#d2b0ff"
+orbit_color = "#bf96ff"
+trail = "history"
+trail_history_days = 365.0
+[bodies.orbit]                             # [HZN] -211
+type = "ephemeris"
+file = "ephem/roman_geo.eph"
+
+[[bodies]]
+name = "Gaia"
+parent = "Earth"
+kind = "spacecraft"
+radii_km = [0.003]                         # meters across
+color = "#a6ecb6"
+orbit_color = "#86dd9c"
+trail = "history"
+trail_history_days = 365.0
+[bodies.orbit]                             # [HZN] -139479
+type = "ephemeris"
+file = "ephem/gaia_geo.eph"
+
+[[bodies]]
+name = "TESS"
+parent = "Earth"
+kind = "spacecraft"
+radii_km = [0.002]                         # 3.9 x 1.2 x 1.5 m deployed
+color = "#ffb8cc"
+orbit_color = "#ff9fba"
+trail = "history"
+trail_history_days = 27.4                  # two orbits: one observing sector
+[bodies.orbit]                             # [HZN] -95
+type = "ephemeris"
+file = "ephem/tess_geo.eph"
+
+[[bodies]]
+name = "Kepler"
+parent = "Earth"
+kind = "spacecraft"
+radii_km = [0.002]                         # meters across (a 1.4 m mirror)
+color = "#ffb27a"
+orbit_color = "#ff9c5c"
+trail = "history"
+trail_history_days = 365.0                 # one loop
+[bodies.orbit]                             # [HZN] -227
+type = "ephemeris"
+file = "ephem/kepler_geo.eph"
+
+[[frames]]
+name = "Sun-Earth rotating"
+type = "rotating"
+primary = "sun"
+secondary = "Earth"
+
+[[frames]]
+name = "Earth-Moon rotating"
+type = "rotating"
+primary = "Earth"
+secondary = "Moon"
+origin = "Earth"
+
+[[markers]]
+name = "L2"
+type = "lagrange"
+point = 2
+primary = "sun"
+secondary = "Earth"
+mass_ratio = 3.04042340e-6
+
+[[markers]]
+name = "L1"
+type = "lagrange"
+point = 1
+primary = "sun"
+secondary = "Earth"
+mass_ratio = 3.04042340e-6
+
+# Events, in time order. Arrivals, departures and distances: [HZN] (the scene tests
+# check them).
+
+# Kepler's annual loops in the rotating frame come from its orbit's eccentricity and tilt
+# relative to the Earth's; the drift from its longer year.
+[[events]]
+name = "Kepler falls behind the Earth (2009)"
+time = "2009-03-08 00:00"
+focus = "Earth"
+frame = "Sun-Earth rotating"
+from_body = "Sun"
+elevation_deg = 75.0
+distance_km = 1.2e8
+warp = 2592000.0           # 30 days per second
+# [HZN]
+caption = """\
+    Kepler is launched into its own orbit around the Sun, 372.5 days long, a week \
+    longer than the Earth's year, so it falls further behind every year, looping \
+    once a year as it goes. Far from the Earth's pull it feels hardly any disturbing \
+    torque, so it can hold its pointing very steadily."""
+[[events.trails]]
+body = "Kepler"
+trail_history_days = 1500.0
+
+[[events]]
+name = "Gaia at L2 (2014-2025)"
+time = "2013-12-20 00:00"
+focus = "Earth"
+frame = "Sun-Earth rotating"
+distance_km = 4.0e6
+warp = 604800.0            # 1 week per second
+# [HZN], [EWG], [GF]
+caption = """\
+    Three weeks after launch, Gaia settles into a Lissajous orbit around L2: a loop \
+    about every 180 days, staying within about 400,000 km of it, half the size of the \
+    halo orbits of the telescopes that follow. From here, for more than a decade, it \
+    maps nearly two billion stars."""
+
+# TESS: lunar flyby 2018-05-17 06:40 TDB, 9,982 km from the Moon's center; after it the
+# perigee rises from ~7,300 km to ~105,000 km from the Earth's center.
+[[events]]
+name = "TESS: a lunar flyby to its orbit (2018)"
+time = "2018-04-19 00:00"
+focus = "Earth"
+frame = "Earth-Moon rotating"
+from_body = "Moon"
+elevation_deg = 75.0
+distance_km = 1.3e6
+warp = 86400.0
+# [TR14], [HZN]
+caption = """\
+    TESS starts on phasing loops that reach out toward the Moon. On 17 May 2018 it \
+    passes 10,000 km from the Moon's center, and the flyby lifts its perigee out of \
+    the Earth's radiation belts; a last burn sets the 13.7-day period. About two \
+    months after launch, it begins to survey the sky for planets."""
+[[events.trails]]
+body = "TESS"
+trail_history_days = 40.0
+
+[[events]]
+name = "Kepler retires (2018-10-30)"
+time = "2018-07-01 00:00"
+focus = "Earth"
+frame = "Sun-Earth rotating"
+from_body = "Sun"
+elevation_deg = 75.0
+distance_km = 4.0e8
+warp = 2592000.0
+# [KR], [HZN]
+caption = """\
+    Out of fuel after nine years in deep space and more than 2,600 planets found, \
+    Kepler is switched off where it is, on a safe orbit 170 million km behind the \
+    Earth. It drifts on: by the mid-2030s it is on the far side of the Sun."""
+[[events.trails]]
+body = "Kepler"
+trail_history_days = 3500.0                # since launch
+
+[[events]]
+name = "TESS in step with the Moon"
+time = "2020-01-01 00:00"
+focus = "Earth"
+frame = "Earth-Moon rotating"
+from_body = "Moon"
+elevation_deg = 75.0
+distance_km = 1.3e6
+warp = 172800.0            # 2 days per second
+# [TR14]
+caption = """\
+    TESS goes around the Earth twice for each orbit of the Moon. In this frame, \
+    which turns with the Moon, its loops stay in place: whenever TESS is farthest \
+    out, the Moon is well ahead or behind, so its pull averages out and the orbit \
+    needs no fuel to keep. At every perigee, TESS sends its images home."""
+[[events.trails]]
+body = "TESS"
+trail_history_days = 82.0                  # three months of the Moon
+
+[[events]]
+name = "Webb launches (2021-12-25)"
+time = "2021-12-25 12:30"
+focus = "JWST"
+frame = "Sun-Earth rotating"
+distance_km = 3.0e5
+warp = 3600.0
+# [JW], [JWF]
+caption = """\
+    Ariane 5 places Webb on a trajectory so precise that its course corrections \
+    use less propellant than planned. Four days later, NASA found that the \
+    remaining propellant could support significantly more than ten years of \
+    science. Webb reaches its destination, 1.5 million km from the Earth, after a \
+    month of coasting."""
+
+[[events]]
+name = "Webb's halo orbit, from L2"
+time = "2022-01-24"
+focus = "Earth"
+frame = "Sun-Earth rotating"
+distance_km = 4.0e6
+warp = 604800.0
+# [JW], [JWO], [JWL2], [HZN]
+caption = """\
+    Webb circles L2 in a halo orbit about every six months, with small burns to \
+    maintain its course. From out here the Sun, the Earth and the Moon all stay on \
+    one side, behind its sunshield, so the telescope can stay cold enough to see \
+    in the infrared. In this frame, which turns with the Earth, the loops stay in \
+    place."""
+
+[[events]]
+name = "Euclid joins Webb and Gaia (2023)"
+time = "2023-07-01 16:00"
+focus = "Earth"
+frame = "Sun-Earth rotating"
+distance_km = 4.0e6
+warp = 172800.0            # 2 days per second
+# [EWG]
+caption = """\
+    A month after launch, Euclid reaches L2, 1.5 million km from the Earth. Its halo \
+    orbit is as large as Webb's, 400,000 to 800,000 km from L2, and one loop takes as \
+    long as six orbits of the Moon. The three orbits look tangled, but there is plenty \
+    of room between the telescopes."""
+
+[[events]]
+name = "Gaia retires (2025-03-27)"
+time = "2025-03-10 00:00"
+focus = "Earth"
+frame = "Sun-Earth rotating"
+distance_km = 8.0e6
+warp = 172800.0
+# [GF], [HZN]
+caption = """\
+    After more than a decade and nearly two billion stars, Gaia fires its thrusters \
+    one last time and leaves L2 for an orbit around the Sun. On 27 March 2025 the \
+    team switches it off and deliberately corrupts its software, so that it can \
+    never wake up again."""
+
+[[events]]
+name = "Roman launches (2026-08-30)"
+time = "2026-08-30 12:05"
+focus = "Roman"
+frame = "Sun-Earth rotating"
+distance_km = 3.0e5
+warp = 3600.0
+# [RL], [R9], [HZN]
+caption = """\
+    A Falcon Heavy sends Roman straight toward L2, and three weeks later it is \
+    already swinging around it. Roman is as sharp as Hubble but sees a field at least \
+    100 times larger, to map billions of galaxies, measure dark energy and dark \
+    matter, and take a census of planetary systems."""
+
+[[events]]
+name = "Webb, Euclid and Roman at L2"
+time = "2026-10-01"
+focus = "Earth"
+frame = "Sun-Earth rotating"
+distance_km = 4.0e6
+warp = 604800.0
+# [HZN], [EWG]
+caption = """\
+    Three telescopes now share L2, each on its own halo orbit. Their paths seem to \
+    cross, but the telescopes stay far apart: in the predicted orbits the closest \
+    pair, Webb and Euclid in January 2030, is still 150,000 km apart."""
+
+[[events]]
+name = "Gaia comes back (2039)"
+time = "2039-06-01"
+focus = "Earth"
+frame = "Sun-Earth rotating"
+from_body = "Sun"
+elevation_deg = 75.0
+distance_km = 6.0e7
+warp = 259200.0            # 3 days per second
+# [HZN], [GF]
+caption = """\
+    Fourteen years after it left, Gaia's orbit brings it back past the Earth, about \
+    10 million km away, and out again toward the far side of the Sun. It will \
+    return every 14 years, silent."""
+[[events.trails]]
+body = "Gaia"
+trail_history_days = 5300.0                # since it left L2
+
+[[events]]
+name = "Kepler comes back (2099)"
+time = "2099-03-01"
+focus = "Earth"
+frame = "Sun-Earth rotating"
+from_body = "Sun"
+elevation_deg = 75.0
+distance_km = 1.0e7
+warp = 172800.0
+# [HZN]
+caption = """\
+    Ninety years after launch, a full lap behind, Kepler meets the Earth again: in \
+    the predicted orbit it passes 1.4 million km away in July 2099, about as far as \
+    L2."""
+[[events.trails]]
+body = "Kepler"
+trail_history_days = 1500.0
