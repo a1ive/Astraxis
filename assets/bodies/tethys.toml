@@ -1,0 +1,20 @@
+# [SPHY] JPL SSD, Planetary Satellite Physical Parameters (https://ssd.jpl.nasa.gov/sats/phys_par/).
+#        Also the GM of the planets alone (body_gm_km3_s2), from its "Planet and Pluto GM
+#        Values" table; the satellite ephemeris each value comes from is noted with it.
+# [PCK]  NAIF pck00011.tpc (IAU 2015): radii, pole, prime meridian, the linear pole
+#        drift and the periodic terms. The periodic terms use Saturn's angles (S1..S6,
+#        2 S1, 2 S2, bodies/saturn.toml), which the moon takes from its parent.
+#        The paired RA/W terms (9.6 deg) move the pole.
+# Texture: see textures/SOURCES.md.
+
+radii_km = [531.1]
+body_gm_km3_s2 = 41.21353 # [SPHY] (SAT441)
+pole_ra_dec_deg = [40.66, 83.52]
+prime_meridian_deg = [8.95, 190.6979085]
+pole_rate_deg_per_century = [-0.036, -0.004]
+nut_prec_ra = [0.0, 0.0, 0.0, 9.66]
+nut_prec_dec = [0.0, 0.0, 0.0, -1.09]
+nut_prec_pm = [0.0, 0.0, 0.0, -9.60, 2.23]
+color = "#dcdad6"
+texture = "textures/tethys.jpg"
+texture_left_lon_deg = -180.0

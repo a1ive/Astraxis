@@ -1,0 +1,69 @@
+# [SPHY] JPL SSD, Planetary Satellite Physical Parameters (https://ssd.jpl.nasa.gov/sats/phys_par/).
+#        Also the GM of the planets alone (body_gm_km3_s2), from its "Planet and Pluto GM
+#        Values" table; the satellite ephemeris each value comes from is noted with it.
+# [PCK]  NAIF pck00011.tpc (IAU 2015): pole, prime meridian (System III), radii.
+#        Linear T terms and nutation/precession terms are ignored.
+# [IESS] Iess et al. 2018, "Measurement of Jupiter's asymmetric gravity field", Nature 555,
+#        220, Table 1 (Juno PJ3 and PJ6): unnormalized J2 = 14,696.572e-6, J4 = -586.609e-6
+#        at the reference radius 71,492 km. Only the orbit insertion's ghost uses them.
+# [PDSR] PDS Ring-Moon Systems Node, "Vital Statistics for Jupiter's Rings and Inner
+#        Satellites" (https://pds-rings.seti.org/jupiter/jupiter_tables.html), from Murray &
+#        Dermott 1999 (Solar System Dynamics) and Burns et al. 1999 (Science 284, 1146).
+# Texture: see textures/SOURCES.md.
+
+radii_km = [71492.0, 66854.0]          # equatorial, polar [PCK]
+body_gm_km3_s2 = 126686531.9           # [SPHY] (JUP365)
+pole_ra_dec_deg = [268.056595, 64.495303] # [PCK]
+zonal_harmonics = [[2, 14696.572e-6], [4, -586.609e-6]] # [IESS]
+gravity_radius_km = 71492.0             # [IESS]
+prime_meridian_deg = [284.95, 870.5360000] # W0, deg/day (System III) [PCK]
+color = "#e0cdb0"
+style = "gas_giant"
+# Atmospheric features drift in longitude, so the map alignment is arbitrary.
+texture = "textures/jupiter.jpg"
+texture_left_lon_deg = -180.0
+
+# Faint dusty rings, single scattering (see shaders/ring.frag.hlsl). Radii, normal
+# optical depths and thicknesses [PDSR]. The real rings are about a millionth as
+# bright as Jupiter's disk, so `gain` is artistic; their relative brightness, the
+# brightening toward edge-on, the forward scattering and Jupiter's shadow are not.
+# Tint and phase asymmetry are illustrative (reddish dust, forward scattering).
+[rings]
+color = "#c9a487"
+gain = 5.0e4
+phase_g = 0.5
+
+[[rings.bands]]
+name = "Halo"
+inner_km = 89400.0
+outer_km = 123000.0
+optical_depth = 3.0e-6
+thickness_km = 10000.0
+
+[[rings.bands]]
+name = "Main ring"
+inner_km = 123000.0
+outer_km = 128940.0
+optical_depth = 5.0e-6
+thickness_km = 100.0
+
+[[rings.bands]]
+name = "Amalthea gossamer ring"
+inner_km = 128940.0
+outer_km = 181350.0
+optical_depth = 1.0e-7
+thickness_km = 2600.0
+
+[[rings.bands]]
+name = "Thebe gossamer ring"
+inner_km = 128940.0
+outer_km = 221900.0
+optical_depth = 1.0e-7
+thickness_km = 8800.0
+
+[[rings.bands]]
+name = "Thebe extension"
+inner_km = 221900.0
+outer_km = 280000.0
+optical_depth = 1.0e-8
+thickness_km = 8800.0

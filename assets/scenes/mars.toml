@@ -112,16 +112,6 @@
 #        also the GM of Mars alone ("Planet and Pluto GM Values").
 # [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
 # [PCK]  NAIF pck00011.tpc (IAU 2015): radii, poles, prime meridians.
-# [MGRV] JPL Mars gravity field MRO120G (A. S. Konopliv et al. 2026, "Updated Mars Orientation
-#        and Gravity Field and Indication of Decadal Changes in Rotation Rate", Planet. Sci.
-#        J., doi:10.3847/PSJ/ae9ba7), PDS MRO-M-RSS-5-SDP-V1.0 jgmro_120g_sha.tab: reference
-#        radius 3,396.0 km, fully normalized C20 = -0.87502122700613e-3, C30 =
-#        -0.11896440358917e-4, C40 = 0.51294570050258e-5, so the unnormalized J_n =
-#        -sqrt(2n + 1) C_n0: J2 = 1956.607e-6, J3 = 31.475e-6, J4 = -15.388e-6. Only the
-#        orbit insertion ghosts use them; the tesseral terms are left out (C22 and S22 pull a
-#        tenth to a fifth as hard as J2).
-# [THOM] Phobos and Deimos shape models and Viking mosaics (P. C. Thomas): solar_system.toml.
-# [ATM]  Atmospheres (single scattering): sources and choices in solar_system.toml.
 # [MOI]  Orbit insertion burns, for the arrival events' ghosts (retrieved 2026-10-19). Times
 #        given as received on the Earth are moved back by the one-way light time to the
 #        Earth's center from Horizons (observer quantity 21) at the burn. Every 1-minute
@@ -273,54 +263,16 @@ node_deg = [49.71320984, -0.26852431]
 
 [[bodies]]
 name = "Mars"
-radii_km = [3396.19, 3376.20]              # [PCK]
+template = "bodies/mars.toml"
 gm_km3_s2 = 42828.375816                   # system [GM]; osculating orbits of the moons and spacecraft
-body_gm_km3_s2 = 42828.37362               # [SPHY] (MAR097)
-pole_ra_dec_deg = [317.269202, 54.432516]  # [PCK]
-zonal_harmonics = [[2, 1956.607e-6], [3, 31.475e-6], [4, -15.388e-6]]  # [MGRV]
-gravity_radius_km = 3396.0                 # [MGRV]
-prime_meridian_deg = [176.049863, 350.891982443297]
-pole_rate_deg_per_century = [-0.10927547, -0.05827105]
-# pck00011's long-period terms (about 71,000 years; at J2000 the pole is 317.681, 52.886):
-# its ~0.0002 deg terms (under 15 m at the surface) are left out, so these angles are not
-# BODY4_NUT_PREC_ANGLES.
-nut_prec_angles = [[79.398797, 0.5042615], [166.325722, 0.5042615], [95.391654, 0.5042615]]
-nut_prec_ra = [0.419057]
-nut_prec_dec = [0.0, 1.591274]
-nut_prec_pm = [0.0, 0.0, 0.584542]
-color = "#c1673e"
-texture = "textures/mars.jpg"              # assets/textures/SOURCES.md
-texture_left_lon_deg = -180.0
-[bodies.atmosphere]                        # [ATM]
-height_km = 100.0
-haze_depth = 0.5
-haze_scale_height_km = 11.9
-haze_albedo = [0.97, 0.93, 0.75]
-haze_g = 0.63
 
-# Phobos and Deimos as in solar_system.toml (keep the two in step).
+# Phobos' and Deimos' orbits as in solar_system.toml (keep the two in step); their properties: bodies/.
 
 [[bodies]]
 name = "Phobos"
+template = "bodies/phobos.toml"
 parent = "Mars"
-shape = "shapes/phobos.mesh"                # [THOM] 2-deg grid; assets/shapes/SOURCES.md
-radii_km = [13.0, 11.4, 9.1]               # [PCK], long axis toward Mars (shadows, camera distances)
-body_gm_km3_s2 = 0.0007087                 # [SPHY] (MAR097)
-pole_ra_dec_deg = [317.67071657, 52.88627266]  # [PCK]
-prime_meridian_deg = [35.18774440, 1128.84475928, 9.536137031212154e-09]  # W0, deg/day, deg/day^2
-pole_rate_deg_per_century = [-0.10844326, -0.06134706]
-# [PCK] BODY4_NUT_PREC_ANGLES M1-M5 (M5 with its quadratic term) and BODY401_NUT_PREC_*:
-# the pole circles the Laplace pole with the node (2.26 years), W librates by 1.143 deg.
-nut_prec_angles = [[190.72646643, 15917.10818695], [21.46892470, 31834.27934054],
-                   [332.86082793, 19139.89694742], [394.93256437, 38280.79631835],
-                   [189.63271560, 41215158.18420050, 12.711923222]]
-nut_prec_ra = [-1.78428399, 0.02212824, -0.01028251, -0.00475595]
-nut_prec_dec = [-1.07516537, 0.00668626, -0.00648740, 0.00281576]
-nut_prec_pm = [1.42421769, -0.02273783, 0.00410711, 0.00631964, -1.143]
-color = "#7d746b"
 orbit_color = "#a0968c"
-texture = "textures/phobos.jpg"            # [THOM] Viking mosaic, assets/textures/SOURCES.md
-texture_left_lon_deg = -180.0
 [bodies.orbit]                             # [HZN] 401, near Mars Express
 type = "ephemeris"
 file = "ephem/phobos_mex.eph"
@@ -341,25 +293,9 @@ laplace_pole_ra_dec_deg = [317.7, 52.9]
 
 [[bodies]]
 name = "Deimos"
+template = "bodies/deimos.toml"
 parent = "Mars"
-shape = "shapes/deimos.mesh"                # [THOM] 5-deg grid; assets/shapes/SOURCES.md
-radii_km = [7.8, 6.0, 5.1]                 # [PCK] (shadows, camera distances)
-body_gm_km3_s2 = 0.0000962                 # [SPHY] (MAR097)
-pole_ra_dec_deg = [316.65705808, 53.50992033]  # [PCK]
-prime_meridian_deg = [79.39932954, 285.16188899]
-pole_rate_deg_per_century = [-0.10518014, -0.05979094]
-# [PCK] BODY4_NUT_PREC_ANGLES M6-M10 and BODY402_NUT_PREC_*: the pole circles the Laplace
-# pole with the node (54.5 years).
-nut_prec_angles = [[121.46893664, 660.22803474], [231.05028581, 660.99123540],
-                   [251.37314025, 1320.50145245], [217.98635955, 38279.96125550],
-                   [196.19729402, 19139.83628608]]
-nut_prec_ra = [3.09217726, 0.22980637, 0.06418655, 0.02533537, 0.00778695]
-nut_prec_dec = [1.83936004, 0.14325320, 0.01911409, -0.01482590, 0.00192430]
-nut_prec_pm = [-2.73954829, -0.39968606, -0.06563259, -0.02912940, 0.01699160]
-color = "#8f857a"
 orbit_color = "#b0a698"
-texture = "textures/deimos.jpg"            # [THOM] Viking mosaic, assets/textures/SOURCES.md
-texture_left_lon_deg = -180.0
 [bodies.orbit]                             # [HZN] 402, near Hope
 type = "ephemeris"
 file = "ephem/deimos_emm.eph"

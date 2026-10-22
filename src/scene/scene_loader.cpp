@@ -361,6 +361,9 @@ public:
     void parse(const toml::table& root, Scene& out);
 
 private:
+    // A body's table with its template applied; nothing when it has no template.
+    std::optional<toml::table> resolve_body(const toml::table& body, std::string& ctx);
+    const toml::table& load_body_template(const std::string& file, const std::string& ctx);
     std::unique_ptr<MotionSource> parse_motion(const toml::table& t, const std::string& ctx, const Body* parent);
     void parse_nbody(const toml::table& t, Scene& out);
     void load_pulsation_table(const std::string& file, const std::string& ctx, Pulsation& out);
@@ -375,6 +378,7 @@ private:
     std::filesystem::path m_asset_root;
     Scene* m_scene = nullptr; // the scene being parsed
     std::map<std::string, std::shared_ptr<const EphemerisTable>> m_tables;
+    std::map<std::string, toml::table> m_templates; // validated body templates
     std::vector<int> m_nbody_bodies; // bodies whose motion comes from [nbody]
     std::vector<std::pair<int, std::string>> m_pulsar_axes; // pulsar, body whose orbit normal is its spin axis
     struct RocheSpec {
@@ -387,6 +391,177 @@ private:
     void build_roche_star(const RocheSpec& spec, Scene& out) const;
     int m_current_body = -1;
 };
+
+// A field of a body template: the node types its parser accepts (an integer passes for
+// a float) and, for a table or an array of tables, the fields of each table.
+struct TemplateField {
+    std::vector<toml::node_type> types;
+    const std::map<std::string_view, TemplateField>* fields = nullptr;
+};
+using TemplateFields = std::map<std::string_view, TemplateField>;
+
+void validate_template_table(const toml::table& table, const TemplateFields& allowed, const std::string& ctx,
+                             std::string_view where)
+{
+    for (const auto& [key, value] : table) {
+        const std::string name(key.str());
+        const auto it = allowed.find(name);
+        if (it == allowed.end()) {
+            fail(ctx, "field '" + name + "' is not allowed in " + std::string(where));
+        }
+        const auto accepts = [&value = value](toml::node_type type) {
+            return value.type() == type || (type == toml::node_type::floating_point && value.is_number());
+        };
+        if (std::none_of(it->second.types.begin(), it->second.types.end(), accepts)) {
+            fail(ctx, "wrong type for '" + name + "' in " + std::string(where));
+        }
+        if (!it->second.fields) {
+            continue;
+        }
+        if (const toml::table* child = value.as_table()) {
+            validate_template_table(*child, *it->second.fields, ctx + " " + name, where);
+        } else {
+            for (const toml::node& element : *value.as_array()) {
+                if (!element.is_table()) {
+                    fail(ctx, "'" + name + "' must be an array of tables in " + std::string(where));
+                }
+                validate_template_table(*element.as_table(), *it->second.fields, ctx + " " + name, where);
+            }
+        }
+    }
+}
+
+// Templates contain properties that can be evaluated without scene body references.
+// Keep the accepted keys explicit so a misspelling cannot silently inherit a default.
+// `where` says who wrote the table: the template, or the scene overriding its properties.
+void validate_body_template(const toml::table& t, const std::string& ctx, std::string_view where)
+{
+    using Type = toml::node_type;
+    static const TemplateField number{{Type::floating_point}, nullptr};
+    static const TemplateField text{{Type::string}, nullptr};
+    static const TemplateField list{{Type::array}, nullptr};
+    static const TemplateField rgb{{Type::floating_point, Type::array}, nullptr}; // one value or [r, g, b]
+    static const TemplateFields free_precession = {
+        {"nutation_deg", number}, {"precession_period_days", number}, {"spin_period_days", number},
+        {"epoch", text}, {"phases_deg", list},
+    };
+    static const TemplateFields atmosphere = {
+        {"height_km", number}, {"deck_altitude_km", number}, {"rayleigh_depth", number},
+        {"rayleigh_scale_height_km", number}, {"haze_depth", number}, {"haze_scale_height_km", number},
+        {"haze_angstrom", number}, {"haze_albedo", rgb}, {"haze_g", number}, {"gain", number},
+    };
+    static const TemplateFields night_lights = {{"texture", text}, {"color", text}, {"gain", number}};
+    static const TemplateFields aurora = {{"kp", text}};
+    static const TemplateFields rotor = {{"shape", text}, {"period_s", number}};
+    static const TemplateFields ring_band = {
+        {"name", text}, {"inner_km", number}, {"outer_km", number}, {"optical_depth", number},
+        {"thickness_km", number}, {"inner_ae_km", number}, {"outer_ae_km", number}, {"peri_deg", number},
+        {"peri_rate_deg_per_day", number}, {"a_sin_i_km", number}, {"node_deg", number},
+        {"node_rate_deg_per_day", number}, {"arc_length_deg", number}, {"arc_center_deg", number},
+        {"arc_rate_deg_per_day", number}, {"fade_out", list},
+    };
+    static const TemplateFields rings = {
+        {"color", text}, {"gain", number}, {"phase_g", number}, {"profile", text},
+        {"bands", {{Type::array}, &ring_band}}, {"epoch", text}, {"epoch_jd_tdb", number},
+    };
+    static const TemplateFields plume = {
+        {"name", text}, {"type", text}, {"lat_lon_deg", list}, {"height_km", number},
+        {"optical_depth", number}, {"albedo", rgb}, {"g", number}, {"radius_km", number},
+        {"end_lat_lon_deg", list}, {"count", number}, {"spread_deg", number}, {"tail_km", number},
+        {"tail_azimuth_deg", number},
+    };
+    static const TemplateFields fields = {
+        {"kind", text}, {"radii_km", list}, {"body_gm_km3_s2", number}, {"gravity_radius_km", number},
+        {"zonal_harmonics", list}, {"spin", number}, {"temperature_k", number}, {"luminosity_solar", number},
+        {"pole_ra_dec_deg", list}, {"prime_meridian_deg", list}, {"pole_rate_deg_per_century", list},
+        {"nut_prec_angles", list}, {"nut_prec_ra", list}, {"nut_prec_dec", list}, {"nut_prec_pm", list},
+        {"spin_table", text}, {"color", text}, {"style", text}, {"shape", text}, {"texture", text},
+        {"texture_left_lon_deg", number}, {"texture_lon_direction", text},
+        {"free_precession", {{Type::table}, &free_precession}}, {"atmosphere", {{Type::table}, &atmosphere}},
+        {"night_lights", {{Type::table}, &night_lights}}, {"aurora", {{Type::table}, &aurora}},
+        {"rotor", {{Type::table}, &rotor}}, {"rings", {{Type::table}, &rings}},
+        {"plumes", {{Type::array}, &plume}},
+    };
+    // nut_prec terms may use an ancestor's nut_prec_angles (a moon those of its planet, as
+    // in the PCK); the body loader checks that there are enough of them.
+    validate_template_table(t, fields, ctx, where);
+}
+
+// Tables merge by key; arrays (including arrays of tables) and scalars replace.
+void overlay_body(toml::table& target, const toml::table& source)
+{
+    for (const auto& [key, value] : source) {
+        toml::table* child = target[key].as_table();
+        if (child && value.is_table()) {
+            overlay_body(*child, *value.as_table());
+        } else {
+            target.insert_or_assign(key, value);
+        }
+    }
+}
+
+const toml::table& Loader::load_body_template(const std::string& file, const std::string& ctx)
+{
+    if (const auto it = m_templates.find(file); it != m_templates.end()) {
+        return it->second;
+    }
+    const std::filesystem::path relative(file);
+    if (file.empty() || relative.has_root_path() || file.find_first_of("\\:") != std::string::npos ||
+        std::any_of(relative.begin(), relative.end(), [](const auto& part) { return part == ".."; })) {
+        fail(ctx, "path must be relative to assets, using '/' and no '..'");
+    }
+    if (m_asset_root.empty()) {
+        fail(ctx, "needs an asset_root");
+    }
+    toml::table properties;
+    try {
+        properties = toml::parse_file((m_asset_root / relative).string());
+    } catch (const toml::parse_error& e) {
+        fail(ctx, std::to_string(e.source().begin.line) + ": " + std::string(e.description()));
+    }
+    validate_body_template(properties, ctx, "a body template");
+    return m_templates.emplace(file, std::move(properties)).first->second;
+}
+
+std::optional<toml::table> Loader::resolve_body(const toml::table& body, std::string& ctx)
+{
+    if (!body.contains("template")) {
+        if (body.contains("unset")) {
+            fail(ctx, "unset needs a body template");
+        }
+        return std::nullopt;
+    }
+    const std::string file = get_string(body, "template", ctx);
+    ctx += " template '" + file + "'";
+    const toml::table& base = load_body_template(file, ctx);
+    toml::table merged = base;
+    if (const toml::node* unset = body.get("unset")) {
+        const toml::array* keys = unset->as_array();
+        if (!keys) {
+            fail(ctx, "unset must be an array of top-level template field names");
+        }
+        for (const toml::node& node : *keys) {
+            const auto key = node.value<std::string>();
+            if (!key || !merged.contains(*key)) {
+                fail(ctx, "unset field '" + key.value_or("<non-string>") + "' is absent from the template or repeated");
+            }
+            merged.erase(*key);
+        }
+    }
+    overlay_body(merged, body);
+    // The template's properties again, as the scene left them.
+    toml::table properties;
+    for (const auto& [key, value] : base) {
+        (void)value;
+        if (const toml::node* now = merged.get(key.str())) {
+            properties.insert(key, *now);
+        }
+    }
+    validate_body_template(properties, ctx, "a scene override of template properties");
+    merged.erase("template");
+    merged.erase("unset");
+    return merged;
+}
 
 std::shared_ptr<const EphemerisTable> Loader::load_table(const std::string& file, const std::string& ctx)
 {
@@ -770,7 +945,11 @@ void Loader::parse(const toml::table& root, Scene& out)
         }
         Body body;
         body.name = get_string(*t, "name", "bodies[" + std::to_string(i) + "]");
-        const std::string ctx = "body '" + body.name + "'";
+        std::string ctx = "body '" + body.name + "'";
+        const std::optional<toml::table> resolved = resolve_body(*t, ctx);
+        if (resolved) {
+            t = &*resolved;
+        }
         if (index_of.count(body.name)) {
             fail(ctx, "duplicate name");
         }

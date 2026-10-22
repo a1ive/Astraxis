@@ -1,0 +1,27 @@
+# [SPHY] JPL SSD, Planetary Satellite Physical Parameters (https://ssd.jpl.nasa.gov/sats/phys_par/).
+#        Also the GM of the planets alone (body_gm_km3_s2), from its "Planet and Pluto GM
+#        Values" table; the satellite ephemeris each value comes from is noted with it.
+# [PCK]  NAIF pck00011.tpc (IAU 2015): radii, pole, prime meridian (T terms ignored
+#        unless given).
+# [THOM] Phobos and Deimos: P. C. Thomas, shape models and Viking Orbiter image mosaics
+#        (PDS SBN, Small Body Optical Shape Models, ast-sat.thomas.shape-models V1.0;
+#        Thomas 1993, Icarus 105, 326); equal-volume radii 11.11 / 6.23 km vs
+#        11.08 +- 0.04 / 6.2 +- 0.24 km in [SPHY]. See shapes/SOURCES.md.
+
+shape = "shapes/phobos.mesh"                # [THOM] 2-deg grid; assets/shapes/SOURCES.md
+radii_km = [13.0, 11.4, 9.1]               # [PCK], long axis toward Mars (shadows, camera distances)
+body_gm_km3_s2 = 0.0007087                 # [SPHY] (MAR097)
+pole_ra_dec_deg = [317.67071657, 52.88627266]  # [PCK]
+prime_meridian_deg = [35.18774440, 1128.84475928, 9.536137031212154e-09]  # W0, deg/day, deg/day^2
+pole_rate_deg_per_century = [-0.10844326, -0.06134706]
+# [PCK] BODY4_NUT_PREC_ANGLES M1-M5 (M5 with its quadratic term) and BODY401_NUT_PREC_*:
+# the pole circles the Laplace pole with the node (2.26 years), W librates by 1.143 deg.
+nut_prec_angles = [[190.72646643, 15917.10818695], [21.46892470, 31834.27934054],
+                   [332.86082793, 19139.89694742], [394.93256437, 38280.79631835],
+                   [189.63271560, 41215158.18420050, 12.711923222]]
+nut_prec_ra = [-1.78428399, 0.02212824, -0.01028251, -0.00475595]
+nut_prec_dec = [-1.07516537, 0.00668626, -0.00648740, 0.00281576]
+nut_prec_pm = [1.42421769, -0.02273783, 0.00410711, 0.00631964, -1.143]
+color = "#7d746b"
+texture = "textures/phobos.jpg"            # [THOM] Viking mosaic, assets/textures/SOURCES.md
+texture_left_lon_deg = -180.0

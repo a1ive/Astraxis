@@ -1,0 +1,47 @@
+# [SPHY] JPL SSD, Planetary Satellite Physical Parameters (https://ssd.jpl.nasa.gov/sats/phys_par/).
+#        Also the GM of the planets alone (body_gm_km3_s2), from its "Planet and Pluto GM
+#        Values" table; the satellite ephemeris each value comes from is noted with it.
+# [PCK]  NAIF pck00011.tpc (IAU 2015): radii, pole, prime meridian (T terms ignored
+#        unless given).
+# [MGRV] JPL Mars gravity field MRO120G (A. S. Konopliv et al. 2026, "Updated Mars Orientation
+#        and Gravity Field and Indication of Decadal Changes in Rotation Rate", Planet. Sci.
+#        J., doi:10.3847/PSJ/ae9ba7), PDS MRO-M-RSS-5-SDP-V1.0 jgmro_120g_sha.tab: reference
+#        radius 3,396.0 km, fully normalized C20 = -0.87502122700613e-3, C30 =
+#        -0.11896440358917e-4, C40 = 0.51294570050258e-5, so the unnormalized J_n =
+#        -sqrt(2n + 1) C_n0: J2 = 1956.607e-6, J3 = 31.475e-6, J4 = -15.388e-6. Only the
+#        orbit insertion ghosts use them; the tesseral terms are left out (C22 and S22 pull a
+#        tenth to a fifth as hard as J2).
+# Texture: see textures/SOURCES.md.
+# [ATM]  Atmosphere, single scattering (Rayleigh gas + Henyey-Greenstein haze; optical
+#        depths vertical, at 550 nm, from the base of the shell). Colors (haze albedo),
+#        phase functions and depths marked "illustrative" are chosen by eye.
+#        Dust only (the CO2 Rayleigh depth is ~0.004). Dust scale height 11.9 km, the
+#        model value adopted for Spirit (Lemmon et al. 2015, Icarus 251, 96, Sect. 2);
+#        vertical optical depth 0.5, between the clear aphelion season (~0.3) and the
+#        dusty perihelion season (~0.9 and more) in the same record; g = 0.63 (Ockert-Bell
+#        et al. 1997, JGR 102, 9039, near infrared); albedo illustrative (dust absorbs
+#        blue).
+
+radii_km = [3396.19, 3376.20]              # [PCK]
+body_gm_km3_s2 = 42828.37362               # [SPHY] (MAR097)
+pole_ra_dec_deg = [317.269202, 54.432516]  # [PCK]
+zonal_harmonics = [[2, 1956.607e-6], [3, 31.475e-6], [4, -15.388e-6]]  # [MGRV]
+gravity_radius_km = 3396.0                 # [MGRV]
+prime_meridian_deg = [176.049863, 350.891982443297]
+pole_rate_deg_per_century = [-0.10927547, -0.05827105]
+# pck00011's long-period terms (about 71,000 years; at J2000 the pole is 317.681, 52.886):
+# its ~0.0002 deg terms (under 15 m at the surface) are left out, so these angles are not
+# BODY4_NUT_PREC_ANGLES.
+nut_prec_angles = [[79.398797, 0.5042615], [166.325722, 0.5042615], [95.391654, 0.5042615]]
+nut_prec_ra = [0.419057]
+nut_prec_dec = [0.0, 1.591274]
+nut_prec_pm = [0.0, 0.0, 0.584542]
+color = "#c1673e"
+texture = "textures/mars.jpg"              # assets/textures/SOURCES.md
+texture_left_lon_deg = -180.0
+[atmosphere]                               # [ATM]
+height_km = 100.0
+haze_depth = 0.5
+haze_scale_height_km = 11.9
+haze_albedo = [0.97, 0.93, 0.75]
+haze_g = 0.63

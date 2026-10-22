@@ -43,7 +43,7 @@ Astraxis is an astronomy background app with planets, spacecraft and stars anima
 | PSR B1913+16 (Hulse-Taylor) | Binary neutron stars with relativistic orbital precession |
 | PSR J1141-6545 | A pulsar and white dwarf with relativistic orbital precession |
 
-Add scenes with TOML files in [assets/scenes](assets/scenes/). These files cite the orbital data and physical constants. Data licenses are listed in `assets/*/SOURCES.md`; modeling assumptions are documented in [limitations.md](limitations.md).
+Add scenes with TOML files in [assets/scenes](assets/scenes/). Shared body properties use [Body Templates](assets/bodies/README.md). Scene and template files cite the orbital data and physical constants. Data licenses are listed in `assets/*/SOURCES.md`; modeling assumptions are documented in [limitations.md](limitations.md).
 
 ## Preview
 

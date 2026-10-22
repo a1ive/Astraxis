@@ -23,10 +23,11 @@ their epoch (see assets/scenes/saturn.toml). Only the standard library is used.
 import math
 import os
 import sys
-import tomllib
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import horizons_bake as hb  # noqa: E402
+from scene_templates import load_scene  # noqa: E402
 
 DAY = 86400.0
 J2000_JD = 2451545.0
@@ -158,8 +159,7 @@ def main():
         sys.exit(__doc__)
     scene_path = sys.argv[1]
     only = set(sys.argv[2:])
-    with open(scene_path, 'rb') as f:
-        scene = tomllib.load(f)
+    scene = load_scene(scene_path)
     assets = os.path.dirname(os.path.dirname(os.path.abspath(scene_path)))
     for body in scene.get('bodies', []):
         orbit = body.get('orbit', {})

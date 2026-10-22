@@ -43,8 +43,7 @@
 #        4902.800118 / (398600.435507 + 4902.800118) = 0.0121505844.
 # [PCK]  NAIF pck00011.tpc (IAU 2015): radii, poles, prime meridians.
 # [SPHY] JPL SSD satellite physical parameters (Moon mean radius).
-# [ATM]  Atmospheres (single scattering): sources and choices in solar_system.toml.
-# [NIGHT] The Earth's night lights and aurora: sources and choices in solar_system.toml.
+# [NIGHT] The Earth's night lights and aurora: sources and choices in bodies/earth.toml.
 # [CAP]  Event captions (retrieved 2026-10-07; [LCR] and after 2026-10-08):
 #        [A2] NASA, www.nasa.gov/mission/artemis-ii/: crew Reid Wiseman, Victor Glover,
 #          Christina Koch (NASA) and Jeremy Hansen (CSA); launch 2026-04-01, splashdown
@@ -161,41 +160,16 @@ node_deg = [-5.11260389, -0.24123856]
 
 [[bodies]]
 name = "Earth"
-radii_km = [6378.1366, 6356.7519]          # [PCK]
+template = "bodies/earth.toml"
 gm_km3_s2 = 403503.235625                  # Earth + Moon, for the Moon's relative orbit [GM]
-body_gm_km3_s2 = 398600.435507             # [GM]
-pole_ra_dec_deg = [0.0, 90.0]              # [PCK]
-prime_meridian_deg = [190.147, 360.9856235]
-color = "#5b86c9"
-texture = "textures/earth.jpg"             # NASA Blue Marble NG (see textures/SOURCES.md)
-texture_left_lon_deg = -180.0
-[bodies.atmosphere]                        # [ATM]
-height_km = 60.0
-rayleigh_depth = 0.1085                    # 13.56e-6 m^-1 at 550 nm x 8 km
-rayleigh_scale_height_km = 8.0
-haze_depth = 0.005328
-haze_scale_height_km = 1.2
-haze_albedo = 0.9
-haze_g = 0.8
-[bodies.night_lights]                      # [NIGHT] (sources and choices in solar_system.toml)
-texture = "textures/earth_night.jpg"
-color = "#ffb46b"
-gain = 0.6
-[bodies.aurora]                            # [NIGHT]
-kp = "geomag/kp.bin"
 
 [[bodies]]
 name = "Moon"
+template = "bodies/moon.toml"
+unset = ["pole_rate_deg_per_century"]
 parent = "Earth"
-radii_km = [1737.4]                        # [SPHY]
 gm_km3_s2 = 4902.800118                    # [GM]
-body_gm_km3_s2 = 4902.800118               # [GM]
-pole_ra_dec_deg = [269.9949, 66.5392]      # [PCK] (libration terms ignored)
-prime_meridian_deg = [38.3213, 13.17635815]
-color = "#a8a49c"
 orbit_color = "#c8c4bc"
-texture = "textures/moon.jpg"              # NASA SVS CGI Moon Kit
-texture_left_lon_deg = -180.0
 [bodies.orbit]                             # [HZN] 301
 type = "ephemeris"
 file = "ephem/moon_geo.eph"

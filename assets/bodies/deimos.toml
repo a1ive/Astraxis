@@ -1,0 +1,27 @@
+# [SPHY] JPL SSD, Planetary Satellite Physical Parameters (https://ssd.jpl.nasa.gov/sats/phys_par/).
+#        Also the GM of the planets alone (body_gm_km3_s2), from its "Planet and Pluto GM
+#        Values" table; the satellite ephemeris each value comes from is noted with it.
+# [PCK]  NAIF pck00011.tpc (IAU 2015): radii, pole, prime meridian (T terms ignored
+#        unless given).
+# [THOM] Phobos and Deimos: P. C. Thomas, shape models and Viking Orbiter image mosaics
+#        (PDS SBN, Small Body Optical Shape Models, ast-sat.thomas.shape-models V1.0;
+#        Thomas 1993, Icarus 105, 326); equal-volume radii 11.11 / 6.23 km vs
+#        11.08 +- 0.04 / 6.2 +- 0.24 km in [SPHY]. See shapes/SOURCES.md.
+
+shape = "shapes/deimos.mesh"                # [THOM] 5-deg grid; assets/shapes/SOURCES.md
+radii_km = [7.8, 6.0, 5.1]                 # [PCK] (shadows, camera distances)
+body_gm_km3_s2 = 0.0000962                 # [SPHY] (MAR097)
+pole_ra_dec_deg = [316.65705808, 53.50992033]  # [PCK]
+prime_meridian_deg = [79.39932954, 285.16188899]
+pole_rate_deg_per_century = [-0.10518014, -0.05979094]
+# [PCK] BODY4_NUT_PREC_ANGLES M6-M10 and BODY402_NUT_PREC_*: the pole circles the Laplace
+# pole with the node (54.5 years).
+nut_prec_angles = [[121.46893664, 660.22803474], [231.05028581, 660.99123540],
+                   [251.37314025, 1320.50145245], [217.98635955, 38279.96125550],
+                   [196.19729402, 19139.83628608]]
+nut_prec_ra = [3.09217726, 0.22980637, 0.06418655, 0.02533537, 0.00778695]
+nut_prec_dec = [1.83936004, 0.14325320, 0.01911409, -0.01482590, 0.00192430]
+nut_prec_pm = [-2.73954829, -0.39968606, -0.06563259, -0.02912940, 0.01699160]
+color = "#8f857a"
+texture = "textures/deimos.jpg"            # [THOM] Viking mosaic, assets/textures/SOURCES.md
+texture_left_lon_deg = -180.0

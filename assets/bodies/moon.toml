@@ -1,0 +1,16 @@
+# Sources
+# [GM] JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
+# [PCK] NAIF pck00011.tpc (IAU 2015): pole, prime meridian and pole drift.
+# [SPHY] JPL SSD satellite physical parameters: mean radius.
+# Texture: NASA SVS CGI Moon Kit; see textures/SOURCES.md.
+# The IAU libration terms are omitted. Scenes can unset pole_rate_deg_per_century
+# to use a fixed pole (earth_moon.toml and space_telescopes.toml).
+
+radii_km = [1737.4]                        # [SPHY]
+body_gm_km3_s2 = 4902.800118               # [GM]
+pole_ra_dec_deg = [269.9949, 66.5392]      # [PCK] (libration terms ignored)
+prime_meridian_deg = [38.3213, 13.17635815]  # [PCK]
+pole_rate_deg_per_century = [0.0031, 0.0130] # [PCK]
+color = "#a8a49c"
+texture = "textures/moon.jpg"              # NASA SVS CGI Moon Kit (textures/SOURCES.md)
+texture_left_lon_deg = -180.0

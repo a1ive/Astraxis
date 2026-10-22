@@ -1,0 +1,30 @@
+# [SPHY] JPL SSD, Planetary Satellite Physical Parameters (https://ssd.jpl.nasa.gov/sats/phys_par/).
+#        Also the GM of the planets alone (body_gm_km3_s2), from its "Planet and Pluto GM
+#        Values" table; the satellite ephemeris each value comes from is noted with it.
+# [PCK]  NAIF pck00011.tpc (IAU 2015): radii, pole, prime meridian (T terms ignored
+#        unless given).
+# Texture: see textures/SOURCES.md.
+# [ATM]  Atmosphere, single scattering (Rayleigh gas + Henyey-Greenstein haze; optical
+#        depths vertical, at 550 nm, from the base of the shell). Colors (haze albedo),
+#        phase functions and depths marked "illustrative" are chosen by eye.
+#        The haze model of Tomasko et al. 2008 (PSS 56, 669, Huygens DISR): above 80 km
+#        the aerosol density falls off with a scale height of 65 km and the opacity
+#        varies as lambda^-2.34 (350-1600 nm). Below 80 km the haze is drawn as an opaque
+#        deck; the depth above it, albedo and g are illustrative. The shell reaches 530 km
+#        (the detached haze layer, not modelled separately).
+
+radii_km = [2574.76]                       # [SPHY]
+body_gm_km3_s2 = 8978.13710                # [SPHY] (SAT441)
+pole_ra_dec_deg = [39.4827, 83.4279]       # [PCK]
+prime_meridian_deg = [186.5855, 22.5769768]
+color = "#d39a4e"                          # the haze deck (illustrative)
+texture = "textures/titan.jpg"             # Cassini ISS 938 nm, shown without the atmosphere
+texture_left_lon_deg = 0.0
+[atmosphere]                               # [ATM]
+deck_altitude_km = 80.0
+height_km = 450.0
+haze_depth = 1.0
+haze_angstrom = 2.34
+haze_scale_height_km = 65.0
+haze_albedo = [0.95, 0.85, 0.6]
+haze_g = 0.6

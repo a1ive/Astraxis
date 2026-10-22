@@ -29,15 +29,16 @@ Only the Python standard library is used.
 import math
 import os
 import sys
-import tomllib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, os.path.join(REPO, 'tools', 'bake'))
+sys.path.insert(0, os.path.join(REPO, 'tools'))
 sys.path.insert(0, HERE)
 import c67p_spin  # noqa: E402
 import horizons_bake as hb  # noqa: E402
 import spk  # noqa: E402
+from scene_templates import load_scene  # noqa: E402
 
 LANDER_ID = -226800
 COMET_ID = 1000012
@@ -48,8 +49,7 @@ HOLD_UNTIL_TDB = (2488069.5 - 2451545.0) * 86400.0  # 2100-01-01 TDB
 
 def comet_rotation(scene_path):
     """The scene's spin table of 67P."""
-    with open(scene_path, 'rb') as f:
-        scene = tomllib.load(f)
+    scene = load_scene(scene_path)
     body = next(b for b in scene['bodies'] if b['name'] == '67P')
     return c67p_spin.Table.load(os.path.join(REPO, 'assets', body['spin_table']))
 

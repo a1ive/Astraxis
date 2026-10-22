@@ -1,0 +1,53 @@
+# Sources
+# [GM] JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
+# [PCK] NAIF pck00011.tpc (IAU 2015): radii, pole and prime meridian.
+# Surface map: NASA Blue Marble NG; see textures/SOURCES.md for source and processing.
+# [ATM]  Atmospheres, single scattering (Rayleigh gas + Henyey-Greenstein haze; optical
+#        depths vertical, at 550 nm, from the base of the shell). Colors (haze albedo),
+#        phase functions and depths marked "illustrative" are chosen by eye.
+#        Earth: E. Bruneton, Precomputed Atmospheric Scattering (2017 implementation,
+#          atmosphere/demo/demo.cc): Rayleigh 1.24062e-6 lambda^-4 m^-1 (lambda in um),
+#          scale height 8 km; aerosols with vertical extinction 5.328e-3 (Angstrom beta,
+#          alpha = 0), scale height 1.2 km, single-scattering albedo 0.9, g = 0.8; top at
+#          60 km. No ozone (it deepens the blue of twilight).
+# [NIGHT] The Earth at night (scene/aurora.hpp; simplifications in limitations.md).
+#        City lights: NASA Earth Observatory, Black Marble 2016 grayscale (Suomi NPP VIIRS
+#          day/night band, cloud-free composite), textures/earth_night.jpg (see
+#          textures/SOURCES.md). The map's brightness is a display stretch, read as sRGB;
+#          the gain (I/F of a white pixel) and the color (that of sodium street lights)
+#          are chosen by eye. The lights come on between sunset and the sun 6 deg below
+#          the horizon.
+#        Aurora: the planetary Kp index every 3 hours since 1932 (GFZ; Matzka et al. 2021,
+#          Space Weather 19, e2020SW002641; CC BY 4.0), geomag/kp.bin (see
+#          geomag/SOURCES.md); the auroral boundaries of Starkov 1994 as given by Sigernes
+#          et al. 2011 (Opt. Pura Apl. 44, 599, Table 1), around the centered dipole of
+#          IGRF-14; the electron hemispheric power from Kp (Emery et al. 2008, JGR 113,
+#          A06311, as quoted by Verkhoglyadova et al. 2016, J. Space Weather Space Clim. 6,
+#          A20); 427.8 nm per unit energy flux for 3 keV electrons (Mathieu, Robert & Lamy
+#          2025, J. Space Weather Space Clim. 15, 19, Table 2), the green and red lines
+#          from it by the ratios observed by Dashkevich et al. 2006 (Geomagn. Aeron. 46,
+#          366); emission peaks at 115 km (green, blue: Whiter et al. 2023, Ann. Geophys.
+#          41, 1) and 221 km (red: Mathieu et al., Fig. 7). The arcs and rays in the oval
+#          are illustrative; the brightness is boosted 2.5e6 times, as in a long exposure.
+
+radii_km = [6378.1366, 6356.7519]          # [PCK]
+body_gm_km3_s2 = 398600.435507             # [GM]
+pole_ra_dec_deg = [0.0, 90.0]              # [PCK]
+prime_meridian_deg = [190.147, 360.9856235] # [PCK]
+color = "#5b86c9"
+texture = "textures/earth.jpg"
+texture_left_lon_deg = -180.0
+[atmosphere]                               # [ATM]
+height_km = 60.0
+rayleigh_depth = 0.1085                    # 13.56e-6 m^-1 at 550 nm x 8 km
+rayleigh_scale_height_km = 8.0
+haze_depth = 0.005328
+haze_scale_height_km = 1.2
+haze_albedo = 0.9
+haze_g = 0.8
+[night_lights]                             # [NIGHT]
+texture = "textures/earth_night.jpg"
+color = "#ffb46b"
+gain = 0.6
+[aurora]                                   # [NIGHT]
+kp = "geomag/kp.bin"

@@ -132,12 +132,8 @@ sky_ra_dec_deg = [337.2927611, 58.4151938]
 
 [[bodies]]
 name = "Sun"
+template = "bodies/sun.toml"
 parent = "Delta Cephei"
-kind = "star"
-radii_km = [695700.0]
-body_gm_km3_s2 = 1.32712440041279419e11 # JPL DE440
-temperature_k = 5772.0
-luminosity_solar = 1.0
 trail = "none"
 [bodies.orbit]                 # opposite direction of the system as seen from the Sun [SIMB]
 type = "fixed"

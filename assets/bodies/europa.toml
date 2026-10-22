@@ -1,0 +1,14 @@
+# [SPHY] JPL SSD, Planetary Satellite Physical Parameters (https://ssd.jpl.nasa.gov/sats/phys_par/).
+#        Also the GM of the planets alone (body_gm_km3_s2), from its "Planet and Pluto GM
+#        Values" table; the satellite ephemeris each value comes from is noted with it.
+# [PCK]  NAIF pck00011.tpc (IAU 2015): radii, pole, prime meridian (T terms ignored
+#        unless given).
+# Texture: see textures/SOURCES.md.
+
+radii_km = [1560.80]
+body_gm_km3_s2 = 3202.71210 # [SPHY] (JUP365)
+pole_ra_dec_deg = [268.08, 64.51]
+prime_meridian_deg = [36.022, 101.3747235]
+color = "#dbccb3"
+texture = "textures/europa.jpg"
+texture_left_lon_deg = 0.0

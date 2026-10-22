@@ -19,7 +19,7 @@
 #        post-mission reconstruction), and the Galilean moons over the Galileo and Juno
 #        spans. Outside them the moons fade over one day into the mean-element model
 #        [ELEM], which drifts by degrees.
-# [PLM]  Plumes (always erupting): sources and choices in solar_system.toml.
+# [PLM]  Io's plumes (always erupting): sources and choices in bodies/io.toml.
 # [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
 # [STKS] P. Stooke, Stooke Small Body Shape Models V2.0 (PDS SBN, small_bodies.stooke.shape-models;
 #        EAR-A-5-DDR-STOOKE-SHAPE-MODELS-V2.0): Amalthea (Voyager; Stooke 1994, EMP 64, 87) and
@@ -28,14 +28,9 @@
 # [STKM] P. Stooke, Stooke Small Bodies Maps V3.0 (PDS SBN, small_bodies.stooke.maps;
 #        MULTI-SA-MULTI-6-STOOKEMAPS-V3.0): Amalthea airbrushed shaded relief from Voyager
 #        images, simple cylindrical, 0 deg at the center.
-# [PDSR] PDS Ring-Moon Systems Node, "Vital Statistics for Jupiter's Rings and Inner
-#        Satellites" (https://pds-rings.seti.org/jupiter/jupiter_tables.html), from Murray &
-#        Dermott 1999 (Solar System Dynamics) and Burns et al. 1999 (Science 284, 1146).
 # [APX]  E. M. Standish, Approximate Positions of the Planets, Tables 2a/2b
 #        (https://ssd.jpl.nasa.gov/planets/approx_pos.html), 3000 BC - 3000 AD.
-# [IESS] Iess et al. 2018, "Measurement of Jupiter's asymmetric gravity field", Nature 555,
-#        220, Table 1 (Juno PJ3 and PJ6): unnormalized J2 = 14,696.572e-6, J4 = -586.609e-6
-#        at the reference radius 71,492 km. Only the orbit insertion's ghost uses them.
+# [IESS] Jupiter's J2 and J4 (Iess et al. 2018, Nature 555, 220): bodies/jupiter.toml.
 #
 # [CAP]  Event captions (retrieved 2026-10-07):
 #        [GLL] NASA, science.nasa.gov/mission/galileo/: arrival on 1995-12-07 with flybys of
@@ -115,93 +110,14 @@ f = 38.35125000
 
 [[bodies]]
 name = "Jupiter"
-radii_km = [71492.0, 66854.0]          # equatorial, polar [PCK]
+template = "bodies/jupiter.toml"
 gm_km3_s2 = 126712764.1                # system [GM]; osculating orbits of the moons and spacecraft
-body_gm_km3_s2 = 126686531.9           # [SPHY] (JUP365)
-pole_ra_dec_deg = [268.056595, 64.495303] # [PCK]
-zonal_harmonics = [[2, 14696.572e-6], [4, -586.609e-6]] # [IESS]
-gravity_radius_km = 71492.0             # [IESS]
-prime_meridian_deg = [284.95, 870.5360000] # W0, deg/day (System III) [PCK]
-color = "#e0cdb0"
-style = "gas_giant"
-# Atmospheric features drift in longitude, so the map alignment is arbitrary.
-texture = "textures/jupiter.jpg"
-texture_left_lon_deg = -180.0
-
-# Faint dusty rings, single scattering (see shaders/ring.frag.hlsl). Radii, normal
-# optical depths and thicknesses [PDSR]. The real rings are about a millionth as
-# bright as Jupiter's disk, so `gain` is artistic; their relative brightness, the
-# brightening toward edge-on, the forward scattering and Jupiter's shadow are not.
-# Tint and phase asymmetry are illustrative (reddish dust, forward scattering).
-[bodies.rings]
-color = "#c9a487"
-gain = 5.0e4
-phase_g = 0.5
-
-[[bodies.rings.bands]]
-name = "Halo"
-inner_km = 89400.0
-outer_km = 123000.0
-optical_depth = 3.0e-6
-thickness_km = 10000.0
-
-[[bodies.rings.bands]]
-name = "Main ring"
-inner_km = 123000.0
-outer_km = 128940.0
-optical_depth = 5.0e-6
-thickness_km = 100.0
-
-[[bodies.rings.bands]]
-name = "Amalthea gossamer ring"
-inner_km = 128940.0
-outer_km = 181350.0
-optical_depth = 1.0e-7
-thickness_km = 2600.0
-
-[[bodies.rings.bands]]
-name = "Thebe gossamer ring"
-inner_km = 128940.0
-outer_km = 221900.0
-optical_depth = 1.0e-7
-thickness_km = 8800.0
-
-[[bodies.rings.bands]]
-name = "Thebe extension"
-inner_km = 221900.0
-outer_km = 280000.0
-optical_depth = 1.0e-8
-thickness_km = 8800.0
 
 [[bodies]]
 name = "Io"
+template = "bodies/io.toml"
 parent = "Jupiter"
-radii_km = [1821.49]                   # mean radius [SPHY]
-body_gm_km3_s2 = 5959.91547            # [SPHY] (JUP365)
-pole_ra_dec_deg = [268.05, 64.50]      # [PCK]
-prime_meridian_deg = [200.39, 203.4889538]
-color = "#edd173"
 orbit_color = "#f2cc66"
-texture = "textures/io.jpg"
-texture_left_lon_deg = -180.0
-
-[[bodies.plumes]]                          # [PLM]
-name = "Pele"
-type = "umbrella"
-lat_lon_deg = [-18.71, 104.72]             # 255.28 W
-height_km = 300.0
-radius_km = 600.0
-optical_depth = 0.02
-albedo = [0.85, 0.9, 1.0]
-g = 0.4
-[[bodies.plumes]]                          # [PLM]
-name = "Tvashtar"
-type = "umbrella"
-lat_lon_deg = [62.76, 236.47]              # 123.53 W
-height_km = 330.0
-optical_depth = 0.02
-albedo = [0.85, 0.9, 1.0]
-g = 0.4
 [bodies.orbit]                         # [HZN] 501, Juno span
 type = "ephemeris"
 file = "ephem/io_juno.eph"
@@ -227,15 +143,9 @@ laplace_pole_ra_dec_deg = [268.1, 64.5]
 
 [[bodies]]
 name = "Europa"
+template = "bodies/europa.toml"
 parent = "Jupiter"
-radii_km = [1560.80]
-body_gm_km3_s2 = 3202.71210 # [SPHY] (JUP365)
-pole_ra_dec_deg = [268.08, 64.51]
-prime_meridian_deg = [36.022, 101.3747235]
-color = "#dbccb3"
 orbit_color = "#bfd9f2"
-texture = "textures/europa.jpg"
-texture_left_lon_deg = 0.0
 
 [bodies.orbit]                         # [HZN] 502, Juno span
 type = "ephemeris"
@@ -262,15 +172,9 @@ laplace_pole_ra_dec_deg = [268.1, 64.5]
 
 [[bodies]]
 name = "Ganymede"
+template = "bodies/ganymede.toml"
 parent = "Jupiter"
-radii_km = [2631.20]
-body_gm_km3_s2 = 9887.83275 # [SPHY] (JUP365)
-pole_ra_dec_deg = [268.20, 64.57]
-prime_meridian_deg = [44.064, 50.3176081]
-color = "#9e9485"
 orbit_color = "#b3e6b3"
-texture = "textures/ganymede.jpg"
-texture_left_lon_deg = 0.0
 
 [bodies.orbit]                         # [HZN] 503, Juno span
 type = "ephemeris"
@@ -297,15 +201,9 @@ laplace_pole_ra_dec_deg = [268.2, 64.6]
 
 [[bodies]]
 name = "Callisto"
+template = "bodies/callisto.toml"
 parent = "Jupiter"
-radii_km = [2410.30]
-body_gm_km3_s2 = 7179.28340 # [SPHY] (JUP365)
-pole_ra_dec_deg = [268.72, 64.83]
-prime_meridian_deg = [259.51, 21.5710715]
-color = "#73695c"
 orbit_color = "#d9b3e6"
-texture = "textures/callisto.jpg"
-texture_left_lon_deg = 0.0
 
 [bodies.orbit]                         # [HZN] 504, Juno span
 type = "ephemeris"

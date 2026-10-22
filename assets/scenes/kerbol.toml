@@ -20,7 +20,7 @@
 # [PHY]  KSP 1.12.5 Physics.cfg: solarLuminosityAtHome = 1360 W/m^2, the flux at
 #        Kerbin's orbit (13,599,840.256 km), so L = 3.161e24 W = 0.0082574 L_sun
 #        (nominal L_sun 3.828e26 W, IAU 2015 Resolution B3).
-# [ATM]  The Earth's air and aerosols of solar_system.toml [ATM] (Bruneton).
+# [ATM]  The Earth's air and aerosols of bodies/earth.toml [ATM] (Bruneton).
 # [XFER] A schematic Kerbin -> Mun transfer designed by tools/kerbol/kerbol_transfer.py with
 #        the bodies of [KSP], in patched conics as the game flies it (Kerbin's pull only,
 #        then the Mun's only inside its sphere of influence): from a circular parking orbit

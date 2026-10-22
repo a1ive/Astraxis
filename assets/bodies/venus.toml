@@ -1,0 +1,27 @@
+# [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
+# [PCK]  NAIF pck00011.tpc (IAU 2015): radii, pole, prime meridian (T terms ignored
+#        unless given).
+# Texture: see textures/SOURCES.md.
+# [ATM]  Atmosphere, single scattering (Rayleigh gas + Henyey-Greenstein haze; optical
+#        depths vertical, at 550 nm, from the base of the shell). Colors (haze albedo),
+#        phase functions and depths marked "illustrative" are chosen by eye.
+#        The opaque deck is the cloud top, 74 +- 1 km at low and middle latitudes
+#        (Ignatiev et al. 2009, JGR 114, E00B43, Venus Express VIRTIS); upper haze above
+#        it with an aerosol scale height of 3.3 +- 0.7 km (Luginin et al. 2016, Icarus
+#        277, 154, SPICAV IR). Haze depth, color and g illustrative.
+
+radii_km = [6051.8]                        # [PCK]
+body_gm_km3_s2 = 324858.592                # [GM]
+pole_ra_dec_deg = [272.76, 67.16]
+prime_meridian_deg = [160.20, -1.4813688]
+color = "#e8d6ae"
+texture = "textures/venus.jpg"             # Magellan radar, shown without the atmosphere
+texture_left_lon_deg = -180.0
+[atmosphere]                               # [ATM]
+deck_altitude_km = 74.0
+height_km = 30.0
+haze_depth = 0.1
+haze_angstrom = 1.0
+haze_scale_height_km = 3.3
+haze_albedo = 0.99
+haze_g = 0.6

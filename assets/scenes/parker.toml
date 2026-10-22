@@ -13,10 +13,6 @@
 # [APX]  E. M. Standish, Approximate Positions of the Planets, Table 2a, for Mercury and
 #        Mars, and for Venus and the Earth outside the baked span.
 # [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
-# [SPHY] JPL SSD, Planetary Satellite Physical Parameters (https://ssd.jpl.nasa.gov/sats/phys_par/),
-#        "Planet and Pluto GM Values" table: the GM of Mars alone.
-# [ATM]  Atmospheres (single scattering): sources and choices in solar_system.toml.
-# [NIGHT] The Earth's night lights and aurora: sources and choices in solar_system.toml.
 # [PCK]  NAIF pck00011.tpc (IAU 2015): radii, poles, prime meridians (T terms ignored).
 # [CAP]  Event captions (retrieved 2026-10-07):
 #        [PSP] NASA, science.nasa.gov/mission/parker-solar-probe/: to "touch the Sun"; a
@@ -62,8 +58,7 @@ up = "ecliptic"            # for the Sun-centered frame
 
 [[bodies]]
 name = "Sun"
-kind = "star"
-radii_km = [695700.0]                      # [PCK]
+template = "bodies/sun.toml"
 gm_km3_s2 = 1.32712440041279419e11         # [GM]
 pole_ra_dec_deg = [286.13, 63.87]          # [PCK]
 prime_meridian_deg = [84.176, 14.1844]
@@ -71,15 +66,9 @@ color = "#fff4e0"
 
 [[bodies]]
 name = "Mercury"
+template = "bodies/mercury.toml"
 parent = "Sun"
-radii_km = [2440.53, 2438.26]              # [PCK]
-body_gm_km3_s2 = 22031.868551              # [GM]
-pole_ra_dec_deg = [281.0103, 61.4155]
-prime_meridian_deg = [329.5988, 6.1385108]
-color = "#9c958e"
 orbit_color = "#8f8a85"
-texture = "textures/mercury.jpg"           # assets/textures/SOURCES.md
-texture_left_lon_deg = -180.0
 [bodies.orbit]                             # [APX] Table 2a
 type = "jpl_approx_planet"
 a_au = [0.38709843, 0.00000000]
@@ -89,25 +78,11 @@ mean_longitude_deg = [252.25166724, 149472.67486623]
 lon_peri_deg = [77.45771895, 0.15940013]
 node_deg = [48.33961819, -0.12214182]
 
-[[bodies]]                                 # as in venus.toml
+[[bodies]]
 name = "Venus"
+template = "bodies/venus.toml"
 parent = "Sun"
-radii_km = [6051.8]                        # [PCK]
-body_gm_km3_s2 = 324858.592                # [GM]
-pole_ra_dec_deg = [272.76, 67.16]
-prime_meridian_deg = [160.20, -1.4813688]
-color = "#e8d6ae"
 orbit_color = "#d9c79f"
-texture = "textures/venus.jpg"             # Magellan radar, shown without the atmosphere
-texture_left_lon_deg = -180.0
-[bodies.atmosphere]                        # [ATM]
-deck_altitude_km = 74.0
-height_km = 30.0
-haze_depth = 0.1
-haze_angstrom = 1.0
-haze_scale_height_km = 3.3
-haze_albedo = 0.99
-haze_g = 0.6
 [bodies.orbit]                             # [HZN] 299 (Venus has no moon: body center)
 type = "ephemeris"
 file = "ephem/venus.eph"
@@ -122,29 +97,9 @@ node_deg = [76.67261496, -0.27274174]
 
 [[bodies]]
 name = "Earth"
+template = "bodies/earth.toml"
 parent = "Sun"
-radii_km = [6378.1366, 6356.7519]          # [PCK]
-body_gm_km3_s2 = 398600.435507             # [GM]
-pole_ra_dec_deg = [0.0, 90.0]
-prime_meridian_deg = [190.147, 360.9856235]
-color = "#5b86c9"
 orbit_color = "#7fa6e0"
-texture = "textures/earth.jpg"
-texture_left_lon_deg = -180.0
-[bodies.atmosphere]                        # [ATM]
-height_km = 60.0
-rayleigh_depth = 0.1085                    # 13.56e-6 m^-1 at 550 nm x 8 km
-rayleigh_scale_height_km = 8.0
-haze_depth = 0.005328
-haze_scale_height_km = 1.2
-haze_albedo = 0.9
-haze_g = 0.8
-[bodies.night_lights]                      # [NIGHT] (sources and choices in solar_system.toml)
-texture = "textures/earth_night.jpg"
-color = "#ffb46b"
-gain = 0.6
-[bodies.aurora]                            # [NIGHT]
-kp = "geomag/kp.bin"
 [bodies.orbit]                             # [HZN] Earth-Moon barycenter
 type = "ephemeris"
 file = "ephem/emb.eph"
@@ -159,29 +114,9 @@ node_deg = [-5.11260389, -0.24123856]
 
 [[bodies]]
 name = "Mars"
+template = "bodies/mars.toml"
 parent = "Sun"
-radii_km = [3396.19, 3376.20]              # [PCK]
-body_gm_km3_s2 = 42828.37362               # [SPHY] (MAR097)
-pole_ra_dec_deg = [317.269202, 54.432516]
-prime_meridian_deg = [176.049863, 350.891982443297]
-pole_rate_deg_per_century = [-0.10927547, -0.05827105]
-# pck00011's long-period terms (about 71,000 years; at J2000 the pole is 317.681, 52.886):
-# its ~0.0002 deg terms (under 15 m at the surface) are left out, so these angles are not
-# BODY4_NUT_PREC_ANGLES.
-nut_prec_angles = [[79.398797, 0.5042615], [166.325722, 0.5042615], [95.391654, 0.5042615]]
-nut_prec_ra = [0.419057]
-nut_prec_dec = [0.0, 1.591274]
-nut_prec_pm = [0.0, 0.0, 0.584542]
-color = "#c1673e"
 orbit_color = "#c98a6e"
-texture = "textures/mars.jpg"              # assets/textures/SOURCES.md
-texture_left_lon_deg = -180.0
-[bodies.atmosphere]                        # [ATM]
-height_km = 100.0
-haze_depth = 0.5
-haze_scale_height_km = 11.9
-haze_albedo = [0.97, 0.93, 0.75]
-haze_g = 0.63
 [bodies.orbit]                             # [APX] Table 2a
 type = "jpl_approx_planet"
 a_au = [1.52371243, 0.00000097]

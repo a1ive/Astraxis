@@ -1,0 +1,71 @@
+# [SPHY] JPL SSD, Planetary Satellite Physical Parameters (https://ssd.jpl.nasa.gov/sats/phys_par/).
+#        Also the GM of the planets alone (body_gm_km3_s2), from its "Planet and Pluto GM
+#        Values" table; the satellite ephemeris each value comes from is noted with it.
+# [PCK]  NAIF pck00011.tpc (IAU 2015): radii, pole, prime meridian (T terms ignored
+#        unless given).
+# Texture: see textures/SOURCES.md.
+# [PLM]  Plumes, always erupting (single scattering; optical depths, colors and phase
+#        functions are illustrative, chosen to be visible; real plumes are faint).
+#        Vent coordinates: IAU Gazetteer of Planetary Nomenclature (planetographic,
+#        used as planetocentric; the longitudes there are west-positive).
+#        Jets along the four tiger stripes. Stripe centers and lengths from the Gazetteer
+#        (Alexandria 75.63 S 137.56 W, 111 km; Cairo 81.62 S 154.48 W, 165 km; Baghdad
+#        86.91 S 230.54 W, 176 km; Damascus 80.59 S 285.87 W, 125 km); the centers lie on
+#        a line (spacing 30-36 km) and the stripes are drawn perpendicular to it, which
+#        matches the stripes in the Cassini mosaic. Porco et al. 2014 (AJ 148, 45) located
+#        ~100 jets on the stripes; here 8 per stripe, vertical, half-width 8 deg, density
+#        scale height 100 km (illustrative; the plume's ice grains were measured from 50
+#        to 300 km, Hedman et al. 2009, ApJ 693, 1749).
+
+radii_km = [252.1]
+body_gm_km3_s2 = 7.21037 # [SPHY] (SAT441)
+pole_ra_dec_deg = [40.66, 83.52]
+prime_meridian_deg = [6.32, 262.7318996]
+pole_rate_deg_per_century = [-0.036, -0.004]
+color = "#f2f2f0"
+texture = "textures/enceladus.jpg"
+texture_left_lon_deg = 0.0
+[[plumes]]                                 # [PLM]
+name = "Alexandria Sulcus"
+type = "jets"
+lat_lon_deg = [-72.87, 268.64]
+end_lat_lon_deg = [-69.07, 186.24]
+count = 8
+spread_deg = 8.0
+height_km = 100.0
+optical_depth = 0.08
+albedo = 1.0
+g = 0.8
+[[plumes]]                                 # [PLM]
+name = "Cairo Sulcus"
+type = "jets"
+lat_lon_deg = [-73.50, 297.42]
+end_lat_lon_deg = [-66.10, 161.90]
+count = 8
+spread_deg = 8.0
+height_km = 100.0
+optical_depth = 0.08
+albedo = 1.0
+g = 0.8
+[[plumes]]                                 # [PLM]
+name = "Baghdad Sulcus"
+type = "jets"
+lat_lon_deg = [-72.97, 326.55]
+end_lat_lon_deg = [-67.00, 142.02]
+count = 8
+spread_deg = 8.0
+height_km = 100.0
+optical_depth = 0.08
+albedo = 1.0
+g = 0.8
+[[plumes]]                                 # [PLM]
+name = "Damascus Sulcus"
+type = "jets"
+lat_lon_deg = [-75.93, 2.82]
+end_lat_lon_deg = [-70.44, 117.10]
+count = 8
+spread_deg = 8.0
+height_km = 100.0
+optical_depth = 0.08
+albedo = 1.0
+g = 0.8

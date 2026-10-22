@@ -1,0 +1,33 @@
+# [SPHY] JPL SSD, Planetary Satellite Physical Parameters (https://ssd.jpl.nasa.gov/sats/phys_par/).
+#        Also the GM of the planets alone (body_gm_km3_s2), from its "Planet and Pluto GM
+#        Values" table; the satellite ephemeris each value comes from is noted with it.
+# [PCK]  NAIF pck00011.tpc (IAU 2015): pole, prime meridian (System III), radii, the
+#        linear pole drift and the angles of the periodic terms (S1..S6, 2 S1, 2 S2),
+#        which the moons' terms use.
+# [IESS] Iess et al. 2019, "Measurement and implications of Saturn's gravity field and ring
+#        mass", Science 364, eaat2965, Table 1: unnormalized J2 = 16,290.573e-6 (with the
+#        satellites' mean tide), J4 = -935.314e-6 at the reference radius 60,330 km. Only
+#        the orbit insertion's ghost uses them.
+# [RSS]  Rings: normal optical depth from the Cassini Radio Science occultation of
+#        2005-05-03 (Rev 7 egress, X band), PDS volume CORSS_8001 (Marouf et al.),
+#        averaged to 8.8 km bins by tools/rings/make_saturn_rings.py; see
+#        rings/SOURCES.md. Opaque parts of the B ring are clipped at the detection
+#        threshold (tau ~ 5).
+
+radii_km = [60268.0, 54364.0]              # equatorial, polar [PCK]
+body_gm_km3_s2 = 37931206.23               # [SPHY] (SAT441)
+zonal_harmonics = [[2, 16290.573e-6], [4, -935.314e-6]] # [IESS]
+gravity_radius_km = 60330.0                 # [IESS]
+pole_ra_dec_deg = [40.589, 83.537]         # [PCK]
+prime_meridian_deg = [38.90, 810.7939024]  # System III [PCK]
+pole_rate_deg_per_century = [-0.036, -0.004]
+nut_prec_angles = [[353.32, 75706.7], [28.72, 75706.7], [177.40, -36505.5], [300.00, -7225.9],
+                   [316.45, 506.2], [345.20, -1016.3], [706.64, 151413.4], [57.44, 151413.4]]  # [PCK] BODY6
+color = "#e3d3a3"
+style = "saturn"
+
+[rings]                                    # [RSS]
+profile = "rings/saturn_rss.ring"
+color = "#d6c3a0"
+gain = 1.0
+phase_g = -0.3

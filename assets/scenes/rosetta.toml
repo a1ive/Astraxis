@@ -26,8 +26,6 @@
 #        outside the tables.
 # [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
 # [ELEM] JPL SSD, Planetary Satellite Mean Elements (the Moon, outside its table).
-# [ATM]  Atmospheres (single scattering): sources and choices in solar_system.toml.
-# [NIGHT] The Earth's night lights and aurora: sources and choices in solar_system.toml.
 # [PCK]  NAIF pck00011.tpc (IAU 2015).
 # [CHP]  67P frame: Scholten, Preusker, Jorda & Hviid, "Reference frames and mapping
 #        schemes of comet 67P" v2 (2015-09-24), PDS SBN RO-C-MULTI-5-67P-SHAPE-V2.0,
@@ -109,8 +107,7 @@ warp = 21600.0             # 6 hours per second: a triangle leg (3-4 days) in ab
 
 [[bodies]]
 name = "Sun"
-kind = "star"
-radii_km = [695700.0]                      # [PCK]
+template = "bodies/sun.toml"
 gm_km3_s2 = 1.32712440041279419e11         # [GM]
 pole_ra_dec_deg = [286.13, 63.87]          # [PCK]
 prime_meridian_deg = [84.176, 14.1844]
@@ -118,15 +115,9 @@ color = "#fff4e0"
 
 [[bodies]]
 name = "Venus"
+template = "bodies/venus.toml"
 parent = "Sun"
-radii_km = [6051.8]                        # [PCK]
-body_gm_km3_s2 = 324858.592                # [GM]
-pole_ra_dec_deg = [272.76, 67.16]
-prime_meridian_deg = [160.20, -1.4813688]
-color = "#e8d6ae"
 orbit_color = "#d9c79f"
-texture = "textures/venus.jpg"
-texture_left_lon_deg = -180.0
 [bodies.orbit]                             # [APX] Table 2a
 type = "jpl_approx_planet"
 a_au = [0.72332102, -0.00000026]
@@ -151,29 +142,9 @@ file = "ephem/emb.eph"
 
 [[bodies]]
 name = "Earth"
+template = "bodies/earth.toml"
 parent = "Earth-Moon barycenter"
-radii_km = [6378.1366, 6356.7519]          # [PCK]
-body_gm_km3_s2 = 398600.435507             # [GM]
-pole_ra_dec_deg = [0.0, 90.0]
-prime_meridian_deg = [190.147, 360.9856235]
-color = "#5b86c9"
 trail = "none"
-texture = "textures/earth.jpg"
-texture_left_lon_deg = -180.0
-[bodies.atmosphere]                        # [ATM]
-height_km = 60.0
-rayleigh_depth = 0.1085
-rayleigh_scale_height_km = 8.0
-haze_depth = 0.005328
-haze_scale_height_km = 1.2
-haze_albedo = 0.9
-haze_g = 0.8
-[bodies.night_lights]                      # [NIGHT] (sources and choices in solar_system.toml)
-texture = "textures/earth_night.jpg"
-color = "#ffb46b"
-gain = 0.6
-[bodies.aurora]                            # [NIGHT]
-kp = "geomag/kp.bin"
 [bodies.orbit]                             # [HZN] 301 (geocentric Moon), scaled by -mu
 scale = -0.0121505844
 type = "ephemeris"
@@ -194,16 +165,9 @@ laplace_pole_ra_dec_deg = [270.0, 66.56070889]
 
 [[bodies]]
 name = "Moon"
+template = "bodies/moon.toml"
 parent = "Earth-Moon barycenter"
-radii_km = [1737.4]                        # [PCK]
-body_gm_km3_s2 = 4902.800118               # [GM]
-pole_ra_dec_deg = [269.9949, 66.5392]      # [PCK] (libration terms ignored)
-prime_meridian_deg = [38.3213, 13.17635815]
-pole_rate_deg_per_century = [0.0031, 0.0130]
-color = "#a8a49c"
 orbit_color = "#b4b8c4"
-texture = "textures/moon.jpg"
-texture_left_lon_deg = -180.0
 [bodies.orbit]                             # [HZN] 301, scaled by 1 - mu
 scale = 0.9878494156
 type = "ephemeris"
@@ -224,29 +188,9 @@ laplace_pole_ra_dec_deg = [270.0, 66.56070889]
 
 [[bodies]]
 name = "Mars"
+template = "bodies/mars.toml"
 parent = "Sun"
-radii_km = [3396.19, 3376.20]              # [PCK]
-body_gm_km3_s2 = 42828.37362
-pole_ra_dec_deg = [317.269202, 54.432516]
-prime_meridian_deg = [176.049863, 350.891982443297]
-pole_rate_deg_per_century = [-0.10927547, -0.05827105]
-# pck00011's long-period terms (about 71,000 years; at J2000 the pole is 317.681, 52.886):
-# its ~0.0002 deg terms (under 15 m at the surface) are left out, so these angles are not
-# BODY4_NUT_PREC_ANGLES.
-nut_prec_angles = [[79.398797, 0.5042615], [166.325722, 0.5042615], [95.391654, 0.5042615]]
-nut_prec_ra = [0.419057]
-nut_prec_dec = [0.0, 1.591274]
-nut_prec_pm = [0.0, 0.0, 0.584542]
-color = "#c1673e"
 orbit_color = "#c98a6e"
-texture = "textures/mars.jpg"
-texture_left_lon_deg = -180.0
-[bodies.atmosphere]                        # [ATM]
-height_km = 100.0
-haze_depth = 0.5
-haze_scale_height_km = 11.9
-haze_albedo = [0.97, 0.93, 0.75]
-haze_g = 0.63
 [bodies.orbit]                             # [HZN] 499, 2004-2017
 type = "ephemeris"
 file = "ephem/mars.eph"

@@ -1,0 +1,12 @@
+# [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
+# [PCK]  NAIF pck00011.tpc (IAU 2015): radii, pole, prime meridian (T terms ignored
+#        unless given).
+# Texture: see textures/SOURCES.md.
+
+radii_km = [2440.53, 2438.26]              # [PCK]
+body_gm_km3_s2 = 22031.868551              # [GM]
+pole_ra_dec_deg = [281.0103, 61.4155]      # [PCK]
+prime_meridian_deg = [329.5988, 6.1385108]
+color = "#9c958e"
+texture = "textures/mercury.jpg"           # assets/textures/SOURCES.md
+texture_left_lon_deg = -180.0

@@ -14,10 +14,12 @@
 #include <glm/glm.hpp>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <filesystem>
+#include <fstream>
 #include <map>
 #include <memory>
 #include <string>
@@ -62,6 +64,206 @@ void test_scene_loader()
               error.find("parent 'C'") != std::string::npos,
           "rejects unknown parent");
     check(!load_scene_string("name = [", "bad3", bad, &error), "rejects TOML syntax error");
+}
+
+void test_body_templates()
+{
+    const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
+    const auto dir = std::filesystem::temp_directory_path() / ("astraxis_templates_" + std::to_string(stamp));
+    if (!std::filesystem::create_directory(dir)) {
+        check(false, "create template test directory");
+        return;
+    }
+    struct Cleanup {
+        std::filesystem::path dir;
+        ~Cleanup()
+        {
+            std::error_code ec;
+            std::filesystem::remove_all(dir, ec);
+        }
+    } cleanup{dir};
+    std::filesystem::create_directory(dir / "bodies");
+    std::filesystem::create_directory(dir / "scenes");
+    std::filesystem::create_directory(dir / "spin");
+    auto write = [&](const char* file, const std::string& text) {
+        std::ofstream out(dir / file, std::ios::binary);
+        out << text;
+        check(static_cast<bool>(out), "write template fixture");
+    };
+    const std::string properties = R"(
+radii_km = [10.0, 8.0]
+body_gm_km3_s2 = 20.0
+pole_ra_dec_deg = [0.0, 90.0]
+prime_meridian_deg = [20.0, 30.0]
+texture = "textures/example.jpg"
+[atmosphere]
+height_km = 1.0
+rayleigh_depth = 0.1
+rayleigh_scale_height_km = 0.1
+haze_g = 0.3
+)";
+    write("bodies/test.toml", properties);
+    const std::string head = "name = 'Templates'\n[[bodies]]\nname = 'A'\n";
+    const std::string use = head + "template = 'bodies/test.toml'\n";
+    Scene scene;
+    std::string error;
+    auto load = [&](const std::string& text) { return load_scene_string(text, "template_test", scene, &error, dir); };
+    if (!load(use + "radii_km = [4.0]\nbody_gm_km3_s2 = 5.0\ngm_km3_s2 = 6.0\n"
+                    "[bodies.atmosphere]\nhaze_g = 0.7\n")) {
+        check(false, error.c_str());
+        return;
+    }
+    const Body& a = scene.bodies[0];
+    check(a.equatorial_radius_km == 4.0 && a.polar_radius_km == 4.0, "template arrays replace as a whole");
+    check(a.body_gm_km3_s2 == 5.0 && a.gm_km3_s2 == 6.0, "own and orbital GM stay independent");
+    check(a.atmosphere.enabled && a.atmosphere.haze_g == 0.7 && a.atmosphere.height_km == 1.0 &&
+              a.atmosphere.rayleigh_scale_height_km == 0.1, "template tables merge by field");
+    check(a.texture == "textures/example.jpg", "texture path stays relative to assets");
+    check(load(use + "body_gm_km3_s2 = 0\ntexture = ''\n[bodies.atmosphere]\ngain = 0\n") &&
+              scene.bodies[0].body_gm_km3_s2 == 0.0 && scene.bodies[0].texture.empty() &&
+              scene.bodies[0].atmosphere.gain == 0.0, "zero and empty string override template values");
+    check(load(use + "[bodies.atmosphere]\n") && scene.bodies[0].atmosphere.height_km == 1.0,
+          "empty table inherits template properties");
+    check(load(use + "unset = ['atmosphere', 'prime_meridian_deg']\n") &&
+              !scene.bodies[0].atmosphere.enabled && scene.bodies[0].pm_rate_deg_per_day == 0.0,
+          "unset removes properties before body defaults are applied");
+    check(load(use + "unset = ['atmosphere']\n[bodies.atmosphere]\nheight_km = 2.0\n") &&
+              scene.bodies[0].atmosphere.height_km == 2.0 && scene.bodies[0].atmosphere.haze_g == 0.0,
+          "unset followed by a table replaces the whole inherited table");
+    const std::string children = use + "unset = ['atmosphere']\n[[bodies]]\nname = 'B'\nparent = 'A'\n"
+                                      "template = 'bodies/test.toml'\n"
+                                      "unset = ['pole_ra_dec_deg', 'prime_meridian_deg']\nsynchronous = true\n"
+                                      "[bodies.orbit]\ntype = 'fixed'\nra_dec_distance_pc = [0.0, 0.0, 1.0]\n";
+    check(load(children) && !scene.bodies[0].atmosphere.enabled && scene.bodies[1].atmosphere.enabled &&
+              scene.bodies[1].synchronous_with == 0, "instances are independent and can change rotation models");
+    write("spin/test.toml", "knots = [[2451545.0, 0.0, 90.0, 20.0, 30.0], [2451546.0, 0.0, 90.0, 50.0, 30.0]]\n");
+    write("bodies/spinning.toml", "radii_km = [1.0]\nspin_table = 'spin/test.toml'\n");
+    check(load(head + "template = 'bodies/spinning.toml'\n") && scene.bodies[0].spin_table != nullptr,
+          "template resource files resolve from asset root, not template directory");
+
+    auto rejects = [&](const std::string& text, const char* fragment) {
+        check(!load(text) && error.find(fragment) != std::string::npos, fragment);
+    };
+    rejects(use + "unset = ['orbit']\n", "absent from the template");
+    rejects(use + "unset = ['atmosphere.height_km']\n", "absent from the template");
+    rejects(use + "unset = ['atmosphere', 'atmosphere']\n", "repeated");
+    rejects(use + "unset = [1]\n", "non-string");
+    rejects(use + "unset = 'atmosphere'\n", "unset must be an array");
+    rejects(head + "unset = []\nradii_km = [1.0]\n", "unset needs a body template");
+    rejects(use + "atmosphere = false\n", "wrong type for 'atmosphere'");
+    rejects(use + "unset = ['atmosphere']\natmosphere = false\n", "wrong type for 'atmosphere'");
+    check(load(use + "[bodies.atmosphere]\nhaze_albedo = [0.9, 0.8, 0.7]\n") &&
+              scene.bodies[0].atmosphere.haze_albedo == glm::dvec3(0.9, 0.8, 0.7),
+          "a field may accept more than one type (haze_albedo: number or [r, g, b])");
+    rejects(use + "[bodies.atmosphere]\nhaze_albedo = 'grey'\n", "wrong type for 'haze_albedo'");
+    rejects(use + "[bodies.atmosphere]\ngian = 0.5\n", "'gian' is not allowed in a scene override");
+    rejects(use + "[bodies.atmosphere]\nheight_km = -1.0\n", "height_km and scale heights");
+    check(error.find("template_test") != std::string::npos && error.find("body 'A'") != std::string::npos &&
+              error.find("bodies/test.toml") != std::string::npos, "errors identify scene, body and template");
+    rejects(use + "[[bodies]]\nname = 'B'\nparent = 'A'\ntemplate = 'bodies/test.toml'\nsynchronous = true\n",
+            "synchronous replaces");
+    rejects(head + "template = 1\n", "non-string 'template'");
+    for (const char* path : {"", "../test.toml", "/test.toml", "C:/test.toml", "bodies\\test.toml"}) {
+        rejects(head + "template = '" + path + "'\n", "path must be relative");
+    }
+    rejects(head + "template = 'bodies/missing.toml'\n", "bodies/missing.toml");
+    check(!load_scene_string(use, "no_root", scene, &error) && error.find("asset_root") != std::string::npos,
+          "string loader requires asset root for templates");
+    for (const char* field : {"name = 'Hidden'", "parent = 'A'", "orbit = {}", "trail = 'none'",
+                              "gm_km3_s2 = 1.0", "synchronous = true", "roche = {}",
+                              "template = 'test.toml'", "unset = []", "raduis_km = [1.0]"}) {
+        write("bodies/test.toml", std::string(field) + "\n" + properties);
+        rejects(use, "not allowed in a body template");
+    }
+    write("bodies/test.toml", properties + "template = 'other.toml'\n");
+    rejects(use, "not allowed in a body template"); // nested in atmosphere
+    // Rings and plumes: tables and arrays of tables checked field by field.
+    const std::string ringed = "radii_km = [10.0]\n[rings]\ngain = 2.0\n"
+                               "[[rings.bands]]\nname = 'In'\ninner_km = 20.0\nouter_km = 30.0\noptical_depth = 0.1\n"
+                               "[[rings.bands]]\nname = 'Out'\ninner_km = 40.0\nouter_km = 50.0\noptical_depth = 0.2\n"
+                               "[[plumes]]\nname = 'Vent'\ntype = 'umbrella'\nlat_lon_deg = [0.0, 0.0]\n"
+                               "height_km = 1.0\noptical_depth = 0.1\nalbedo = [0.9, 0.9, 1.0]\n";
+    write("bodies/ringed.toml", ringed);
+    const std::string ringed_use = head + "template = 'bodies/ringed.toml'\n";
+    check(load(ringed_use) && scene.bodies[0].rings.bands.size() == 2 && scene.bodies[0].rings.gain == 2.0 &&
+              scene.bodies[0].plumes.size() == 1,
+          "template rings, bands and plumes load");
+    check(load(ringed_use + "[bodies.rings]\ngain = 3.0\n") && scene.bodies[0].rings.gain == 3.0 &&
+              scene.bodies[0].rings.bands.size() == 2,
+          "a scene overrides one ring field and keeps the template's bands");
+    check(load(ringed_use + "[[bodies.rings.bands]]\nname = 'Only'\ninner_km = 20.0\nouter_km = 25.0\n"
+                            "optical_depth = 0.3\n") &&
+              scene.bodies[0].rings.bands.size() == 1,
+          "scene bands replace the template's as a whole");
+    rejects(ringed_use + "[[bodies.rings.bands]]\nname = 'Typo'\ninner_km = 20.0\nouter_km = 25.0\n"
+                         "optical_dept = 0.3\n",
+            "'optical_dept' is not allowed in a scene override");
+    write("bodies/ringed.toml", ringed + "hieght_km = 2.0\n");
+    rejects(ringed_use, "'hieght_km' is not allowed in a body template");
+    write("bodies/ringed.toml", "radii_km = [10.0]\nplumes = [1.0]\n");
+    rejects(ringed_use, "'plumes' must be an array of tables");
+
+    // A moon's nut_prec terms may use its planet's angles, as in the PCK.
+    write("bodies/test.toml", "radii_km = [1.0]\npole_ra_dec_deg = [0.0, 90.0]\nnut_prec_ra = [1.0]\n");
+    rejects(use, "nut_prec terms need as many nut_prec_angles");
+    check(load("name = 'Templates'\n[[bodies]]\nname = 'P'\nradii_km = [2.0]\nnut_prec_angles = [[10.0, 1.0]]\n"
+               "[[bodies]]\nname = 'A'\nparent = 'P'\ntemplate = 'bodies/test.toml'\n"
+               "[bodies.orbit]\ntype = 'fixed'\nra_dec_distance_pc = [0.0, 0.0, 1.0]\n") &&
+              scene.bodies[1].nut_prec_source == 0,
+          "templated nut_prec terms use an ancestor's angles");
+    write("bodies/test.toml", "radii_km = [\n");
+    rejects(use, "bodies/test.toml");
+    write("bodies/test.toml", properties);
+    write("scenes/test.toml", use);
+    check(load_scene_file(dir / "scenes/test.toml", scene, &error), "file loader resolves asset root");
+
+    // Equivalent inline input exercises derived radii, orientation and relative motion.
+    std::string inline_properties = properties;
+    inline_properties.replace(inline_properties.find("[atmosphere]"), std::string("[atmosphere]").size(),
+                              "[bodies.atmosphere]");
+    const std::string orbit = "[bodies.orbit]\ntype = 'fixed'\nra_dec_distance_pc = [1.0, 2.0, 3.0]\n";
+    const std::string child_head = head + "radii_km = [1.0]\n[[bodies]]\nname = 'B'\nparent = 'A'\n";
+    Scene reference;
+    const bool inline_ok = load_scene_string(child_head + inline_properties + orbit, "inline", reference, &error, dir);
+    const bool template_ok = load(child_head + "template = 'bodies/test.toml'\n" + orbit);
+    check(inline_ok && template_ok, "inline and templated bodies both load");
+    if (inline_ok && template_ok) {
+        for (double t : {0.0, 86400.0, 1.0e8}) {
+            reference.update(t);
+            scene.update(t);
+            const Body& expected = reference.bodies[1];
+            const Body& actual = scene.bodies[1];
+            check(glm::length(actual.icrf_position - expected.icrf_position) == 0.0 &&
+                      actual.polar_radius_km == expected.polar_radius_km &&
+                      actual.body_gm_km3_s2 == expected.body_gm_km3_s2 &&
+                      body_rotation(actual, {}, t) == body_rotation(expected, {}, t),
+                  "template and inline bodies agree at representative times");
+        }
+    }
+    // Keep the documented examples executable against the shipped templates and resources.
+    std::ifstream documentation(ASTRAXIS_ASSET_DIR "/bodies/README.md", std::ios::binary);
+    check(static_cast<bool>(documentation), "open body template examples");
+    std::string line;
+    std::string example;
+    bool in_example = false;
+    int examples = 0;
+    while (std::getline(documentation, line)) {
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+        if (line == "```toml") {
+            in_example = true;
+            example.clear();
+        } else if (in_example && line == "```") {
+            check(load_scene_string(example, "body template example", scene, &error, ASTRAXIS_ASSET_DIR),
+                  "documented template example loads");
+            in_example = false;
+            ++examples;
+        } else if (in_example) {
+            example += line + '\n';
+        }
+    }
+    check(examples == 3 && !in_example, "all three body template examples checked");
 }
 
 // Event captions are placards: a few sentences, cleanly joined from the TOML's
@@ -1248,6 +1450,7 @@ void test_tour_events()
 void run_scene_tests()
 {
     test_scene_loader();
+    test_body_templates();
     test_satellite_fades();
     test_cross_scene_orbits();
     test_ephemeris_blends();
