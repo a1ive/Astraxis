@@ -1,6 +1,6 @@
 """Bake tables of slowly varying orbital elements (.elm) for moons close to an
 oblate planet, where Kepler-relative ephemerides (horizons_bake.py) need a knot
-every few hours: Janus and Epimetheus, Saturn's co-orbital pair.
+every few hours: Saturn's co-orbitals, ring moons and Trojan moons.
 
 Usage (numpy is needed; run from the repository root):
     python -E -P tools/bake/element_table_bake.py [name ...]
@@ -17,7 +17,7 @@ precessing ellipse:
 with a free semi-major axis a and a free mean motion n = dlambda/dt (Saturn's
 oblateness makes the orbit faster than Kepler's third law says), and the apsidal
 and nodal precession rates fixed for each moon (fitted to the whole span). Over a
-window of `WINDOW_DAYS` around every `STEP_DAYS`, a, e, varpi, i, node, lambda and
+window of `WINDOW_DAYS` (one day for Polydeuces) around every `STEP_DAYS`, a, e, varpi, i, node, lambda and
 n are fitted by least squares (Gauss-Newton, all windows at once); the series of
 fits is then thinned greedily, keeping a knot only where interpolating between
 its neighbours would miss the hourly positions by more than `TOLERANCE_KM`. The
@@ -26,7 +26,9 @@ curve through lambda and n (src/ephem/element_table.cpp, mirrored below).
 
 The model leaves out the short-period terms of the oblateness at order e J2 and
 the other moons' short-period pull: the fit residual (printed) sets the floor of
-the tolerance.
+the tolerance. Daphnis has its own coverage and two source-solution jumps;
+windows are fitted separately on each side, with a one-second table transition
+at each jump (see assets/ephem/SOURCES.md).
 
 Output format (little endian), see src/ephem/element_table.hpp:
     char[8]  magic "AXELM1\\0\\0"
@@ -50,8 +52,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 CACHE = os.path.join(HERE, 'cache')
 OUT = os.path.join(HERE, '..', '..', 'assets', 'ephem')
 
-# [ELEM] (JPL SSD Planetary Satellite Mean Elements, SAT415): Laplace pole of Janus
-# and Epimetheus.
+# [ELEM] (https://ssd.jpl.nasa.gov/sats/elem/): all targets below have this
+# Laplace pole, in both SAT415 and SAT441. It is not the IAU spin pole.
 POLE_RA_DEC = (40.6, 83.5)
 START, STOP = '1972-01-01', '2050-01-01'  # Horizons (sat415) covers 1949-12-27 .. 2050-01-09
 STEP_MINUTES = 60
@@ -62,6 +64,16 @@ TOLERANCE_KM = 10.0
 TARGETS = {
     'janus': {'command': '610', 'naif_id': 610},
     'epimetheus': {'command': '611', 'naif_id': 611},
+    'prometheus': {'command': '616', 'naif_id': 616},
+    'pandora': {'command': '617', 'naif_id': 617},
+    'pan': {'command': '618', 'naif_id': 618, 'tolerance_km': 1.0},
+    'daphnis': {'command': '635', 'naif_id': 635, 'tolerance_km': 1.0,
+               'start': '1990-06-16', 'stop': '2018-01-16',
+               'breaks': ('2010-01-01', '2016-01-01')},
+    'telesto': {'command': '613', 'naif_id': 613},
+    'calypso': {'command': '614', 'naif_id': 614},
+    'helene': {'command': '612', 'naif_id': 612},
+    'polydeuces': {'command': '634', 'naif_id': 634, 'window_days': 1.0},
 }
 CENTER, CENTER_ID = '500@699', 699
 GM = 37940584.8418  # Saturn system [GM], only for the initial guess
@@ -69,14 +81,14 @@ GM = 37940584.8418  # Saturn system [GM], only for the initial guess
 
 # --- Data ---------------------------------------------------------------------
 
-def samples(command):
-    """Hourly (t, positions[N, 3], velocities[N, 3]) over START .. STOP, cached."""
+def samples(command, start=START, stop=STOP, step_minutes=STEP_MINUTES):
+    """(t, positions[N, 3], velocities[N, 3]) over the requested span, cached."""
     os.makedirs(CACHE, exist_ok=True)
-    path = os.path.join(CACHE, f'{command}_{START}_{STOP}_{STEP_MINUTES}m.npz')
+    path = os.path.join(CACHE, f'{command}_{start}_{stop}_{step_minutes}m.npz'.replace(':', '-'))
     if not os.path.exists(path):
-        start_jd, stop_jd = hb.jd_from_text(START), hb.jd_from_text(STOP)
+        start_jd, stop_jd = hb.jd_from_text(start), hb.jd_from_text(stop)
         print(f'    fetching {command} from Horizons ...')
-        rows = hb.fetch(command, CENTER, start_jd, stop_jd, STEP_MINUTES)
+        rows = hb.fetch(command, CENTER, start_jd, stop_jd, step_minutes)
         t = np.array([r[0] for r in rows])
         p = np.array([r[1] for r in rows])
         v = np.array([r[2] for r in rows])
@@ -145,7 +157,7 @@ def fit_chunk(t, pos, vel, rates, centers, half):
     hn = hvec / np.linalg.norm(hvec, axis=1)[:, None]
     i0 = np.arccos(np.clip(hn[:, 2], -1, 1))
     node0 = np.arctan2(hn[:, 0], -hn[:, 1])
-    n0 = np.full_like(a0, 2 * math.pi / (0.6946 * 86400))
+    n0 = np.linalg.norm(hvec, axis=1) / rn**2
     params = np.stack([a0, e0 * np.cos(varpi0), e0 * np.sin(varpi0), i0 * np.cos(node0), i0 * np.sin(node0),
                        lam0, n0], axis=1)
     scale = np.array([1.0, 1e-4, 1e-4, 1e-5, 1e-5, 1e-5, 1e-10])  # finite-difference steps
@@ -168,10 +180,10 @@ def fit_chunk(t, pos, vel, rates, centers, half):
     return params, rms
 
 
-def fit_windows(t, pos, vel, rates):
+def fit_windows(t, pos, vel, rates, window_days=WINDOW_DAYS):
     """Least-squares elements over a window around every STEP_DAYS."""
     step = int(round(STEP_DAYS * 1440 / STEP_MINUTES))
-    half = int(round(WINDOW_DAYS / 2 * 1440 / STEP_MINUTES))
+    half = int(round(window_days / 2 * 1440 / STEP_MINUTES))
     centers = np.arange(half, len(t) - half, step)
     parts = [fit_chunk(t, pos, vel, rates, centers[c:c + 4000], half) for c in range(0, len(centers), 4000)]
     params = np.concatenate([p for p, _ in parts])
@@ -249,29 +261,67 @@ def write_elm(path, naif_id, knots, rates):
             f.write(struct.pack('<8d', *(knots[key][j] for key in ('t', 'a', 'e', 'varpi', 'i', 'node', 'lambda', 'n'))))
 
 
-def bake(name, spec):
-    print(f'{name}: {spec["command"]} @ {CENTER}, {START} .. {STOP}, every {STEP_MINUTES} min')
-    t, pos, vel = samples(spec['command'])
-    rot = reference_frame()
-    plane_pos = pos @ rot.T
-    plane_vel = vel @ rot.T
-    print(f'    {len(t)} samples')
-
+def fit_segment(t, plane_pos, plane_vel, window_days=WINDOW_DAYS):
     # Pass 1 with no precession (short windows); pass 2 with the rates fitted to pass 1.
     rates = (0.0, 0.0)
     for pass_no in (1, 2):
-        series = fit_windows(t, plane_pos, plane_vel, rates)
+        series = fit_windows(t, plane_pos, plane_vel, rates, window_days)
         rates = (np.polyfit(series['t'], series['varpi'], 1)[0], np.polyfit(series['t'], series['node'], 1)[0])
         print(f'    pass {pass_no}: {len(series['t'])} windows, rms {np.median(series["rms"]):.2f} km median, '
               f'{np.max(series["rms"]):.2f} max; apsides {math.degrees(rates[0]) * 86400:+.4f} deg/day, '
               f'node {math.degrees(rates[1]) * 86400:+.4f} deg/day')
-    kept = thin(series, t, plane_pos, TOLERANCE_KM)
-    knots = subset(series, kept)
+    return series, rates
+
+
+def extend_endpoint(series, when, rates, at_start):
+    """Carry the nearest window's fit to a source-segment boundary."""
+    j = 0 if at_start else -1
+    edge = {key: values[j] for key, values in series.items()}
+    dt = when - edge['t']
+    edge['t'] = when
+    edge['lambda'] += edge['n'] * dt
+    edge['varpi'] += rates[0] * dt
+    edge['node'] += rates[1] * dt
+    return {key: np.concatenate(([edge[key]], values) if at_start else (values, [edge[key]]))
+            for key, values in series.items()}
+
+
+def bake(name, spec):
+    start, stop = spec.get('start', START), spec.get('stop', STOP)
+    print(f'{name}: {spec["command"]} @ {CENTER}, {start} .. {stop}, every {STEP_MINUTES} min')
+    t, pos, vel = samples(spec['command'], start, stop)
+    rot = reference_frame()
+    plane_pos, plane_vel = pos @ rot.T, vel @ rot.T
+    print(f'    {len(t)} samples')
+    tolerance = spec.get('tolerance_km', TOLERANCE_KM)
+    breaks = [(hb.jd_from_text(date) - hb.J2000_JD) * hb.DAY for date in spec.get('breaks', ())]
+    bounds = [t[0], *breaks, t[-1] + 1.0]
+    parts, fits = [], 0
+    for segment, (lo, hi) in enumerate(zip(bounds, bounds[1:])):
+        inside = (t >= lo) & (t < hi)
+        st, sp, sv = t[inside], plane_pos[inside], plane_vel[inside]
+        series, rates = fit_segment(st, sp, sv, spec.get('window_days', WINDOW_DAYS))
+        fits += len(series['t'])
+        # Horizons' Daphnis solution jumps at 2010/2016. Fit either side separately
+        # and confine the interpolation across each source jump to one second.
+        if segment > 0:
+            series = extend_endpoint(series, lo, rates, True)
+        if segment < len(bounds) - 2:
+            series = extend_endpoint(series, hi - 1.0, rates, False)
+        kept = thin(series, st, sp, tolerance)
+        part = subset(series, kept)
+        if parts:
+            for key in ('varpi', 'node', 'lambda'):
+                part[key] += 2 * math.pi * round((parts[-1][key][-1] - part[key][0]) / (2 * math.pi))
+        parts.append(part)
+    knots = {key: np.concatenate([part[key] for part in parts]) for key in parts[0]}
     inside = (t >= knots['t'][0]) & (t <= knots['t'][-1])
     err = np.linalg.norm(interpolate(knots, t[inside]) - plane_pos[inside], axis=1)
+    if not np.all(np.isfinite(err)) or np.max(err) > tolerance:
+        raise RuntimeError(f'{name}: model residual {np.max(err):.3f} km exceeds {tolerance} km')
     path = os.path.join(OUT, f'{name}_sat.elm')
     write_elm(path, spec['naif_id'], knots, rates)
-    print(f'    {len(series["t"])} fits -> {len(kept)} knots, max error {np.max(err):.2f} km, '
+    print(f'    {fits} fits -> {len(knots["t"])} knots, max error {np.max(err):.2f} km, '
           f'rms {np.sqrt(np.mean(err ** 2)):.2f} km; wrote {os.path.relpath(path)} '
           f'({os.path.getsize(path) // 1024} KB)')
     return series, knots

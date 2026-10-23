@@ -1,10 +1,10 @@
 # Saturn, its rings, the seven major moons, Hyperion, Phoebe, the co-orbital Janus and
-# Epimetheus, and Cassini's tour (2004-2017) with the Huygens probe's descent to Titan.
+# Epimetheus, eight ring/Trojan moons, and Cassini's tour (2004-2017) with the Huygens probe's descent to Titan.
 #
 # Sources
 # [ELEM] JPL SSD, Planetary Satellite Mean Elements (https://ssd.jpl.nasa.gov/sats/elem/),
 #        ephemeris SAT441, Laplace-plane frame, epoch 2000-01-01.5 TDB.
-#        Janus and Epimetheus (SAT415): Laplace pole (40.6, 83.5 deg), only for [JE].
+#        Janus and Epimetheus (SAT415): Laplace pole (40.6, 83.5 deg), for [JE] and [SM] (including the SAT441 Trojans).
 # [SPHY] JPL SSD, Planetary Satellite Physical Parameters (https://ssd.jpl.nasa.gov/sats/phys_par/).
 #        Also the GM of Saturn alone (body_gm_km3_s2), from its "Planet and Pluto GM
 #        Values" table.
@@ -39,6 +39,20 @@
 #        thinned to within 10 km of every hourly position (rms 5 km). Kepler-relative tables
 #        would need a knot every few hours this close to Saturn (4 MB or more each). Outside
 #        the span the elements run on at their end rates, without further swaps.
+# [SM]   Prometheus, Pandora, Pan (SAT415) and Telesto, Calypso, Helene, Polydeuces
+#        (SAT441): hourly Horizons vectors fitted by element_table_bake.py, 1972-2050.
+#        Daphnis is available only 1990-06-15 .. 2018-01-17; its bake uses 1990-06-16
+#        .. 2018-01-16. Pan/Daphnis tolerance 1 km; the others 10 km. Outside the
+#        tables, endpoint rates continue: phase and Trojan libration are approximate.
+#        All reference poles are (40.6, 83.5 deg) from [ELEM]. Shapes: [TCAS], except
+#        Polydeuces' triaxial radii [PCK]. See ephem/SOURCES.md and shapes/SOURCES.md.
+# [PP]   Goldreich & Rappaport 2003, Origin of Chaos in the Prometheus-Pandora System,
+#        https://arxiv.org/abs/astro-ph/0307259: overlapping 121:118 resonances.
+#        NASA Science moon pages: Pan in the Encke gap, Daphnis in the Keeler gap;
+#        Telesto/Calypso lead/trail Tethys, Helene/Polydeuces lead/trail Dione.
+#        Polydeuces' 790-day libration: Spitale et al. 2006, AJ 132, 692, Fig. 10.
+#        Keeler width: NASA/JPL PIA06194. Ridge accretion: Quillen et al. 2021,
+#        https://arxiv.org/abs/2007.13227. Full links in ephem/SOURCES.md.
 # [DNC]  NASA/JPL PIA08170, "The Dancing Moons" (Cassini image of 2006-03-20): Janus and
 #        Epimetheus swap positions every four years, one moving closer to Saturn and the
 #        other farther away; the last swap on 2006-01-21; "never closer than about 15,000
@@ -212,6 +226,108 @@ orbit_color = "#a8bcc8"
 [bodies.orbit]                             # [JE] 611
 type = "element_table"
 file = "ephem/epimetheus_sat.elm"
+
+# Ring moons and Trojans [SM]. The Trojans orbit Saturn, with their mean longitude
+# librating around Tethys' or Dione's L4/L5 points. Polydeuces is a [PCK] ellipsoid:
+# the Thomas archive has no shape model for it.
+[[bodies]]
+name = "Prometheus"
+parent = "Saturn"
+body_gm_km3_s2 = 0.01071                   # [SPHY]
+shape = "shapes/prometheus.mesh"               # [TCAS]
+radii_km = [68.2, 41.6, 28.2]            # [PCK]
+synchronous = true                        # model +x toward Saturn; libration omitted
+color = "#c6c0b6"                          # illustrative, uniform albedo
+orbit_color = "#b5b9bf"
+[bodies.orbit]                             # [SM] 616
+type = "element_table"
+file = "ephem/prometheus_sat.elm"
+
+[[bodies]]
+name = "Pandora"
+parent = "Saturn"
+body_gm_km3_s2 = 0.00926                   # [SPHY]
+shape = "shapes/pandora.mesh"               # [TCAS]
+radii_km = [52.2, 40.8, 31.5]            # [PCK]
+synchronous = true                        # model +x toward Saturn; libration omitted
+color = "#c6c0b6"                          # illustrative, uniform albedo
+orbit_color = "#b5b9bf"
+[bodies.orbit]                             # [SM] 617
+type = "element_table"
+file = "ephem/pandora_sat.elm"
+
+[[bodies]]
+name = "Pan"
+parent = "Saturn"
+body_gm_km3_s2 = 0.00028                   # [SPHY]
+shape = "shapes/pan.mesh"               # [TCAS]
+radii_km = [17.2, 15.4, 10.4]            # [PCK]
+synchronous = true                        # model +x toward Saturn; libration omitted
+color = "#c6c0b6"                          # illustrative, uniform albedo
+orbit_color = "#b5b9bf"
+[bodies.orbit]                             # [SM] 618
+type = "element_table"
+file = "ephem/pan_sat.elm"
+
+[[bodies]]
+name = "Daphnis"
+parent = "Saturn"
+shape = "shapes/daphnis.mesh"               # [TCAS]
+radii_km = [4.6, 4.5, 2.8]            # [PCK]
+synchronous = true                        # model +x toward Saturn; libration omitted
+color = "#c6c0b6"                          # illustrative, uniform albedo
+orbit_color = "#b5b9bf"
+[bodies.orbit]                             # [SM] 635
+type = "element_table"
+file = "ephem/daphnis_sat.elm"
+
+[[bodies]]
+name = "Telesto"
+parent = "Saturn"
+shape = "shapes/telesto.mesh"               # [TCAS]
+radii_km = [16.3, 11.8, 9.8]            # [PCK]
+synchronous = true                        # model +x toward Saturn; libration omitted
+color = "#c6c0b6"                          # illustrative, uniform albedo
+orbit_color = "#b5b9bf"
+[bodies.orbit]                             # [SM] 613
+type = "element_table"
+file = "ephem/telesto_sat.elm"
+
+[[bodies]]
+name = "Calypso"
+parent = "Saturn"
+shape = "shapes/calypso.mesh"               # [TCAS]
+radii_km = [15.3, 9.3, 6.3]            # [PCK]
+synchronous = true                        # model +x toward Saturn; libration omitted
+color = "#c6c0b6"                          # illustrative, uniform albedo
+orbit_color = "#b5b9bf"
+[bodies.orbit]                             # [SM] 614
+type = "element_table"
+file = "ephem/calypso_sat.elm"
+
+[[bodies]]
+name = "Helene"
+parent = "Saturn"
+body_gm_km3_s2 = 0.00048                   # [SPHY]
+shape = "shapes/helene.mesh"               # [TCAS]
+radii_km = [22.5, 19.6, 13.3]            # [PCK]
+synchronous = true                        # model +x toward Saturn; libration omitted
+color = "#c6c0b6"                          # illustrative, uniform albedo
+orbit_color = "#b5b9bf"
+[bodies.orbit]                             # [SM] 612
+type = "element_table"
+file = "ephem/helene_sat.elm"
+
+[[bodies]]
+name = "Polydeuces"
+parent = "Saturn"
+radii_km = [1.5, 1.2, 1.0]            # [PCK]
+synchronous = true                        # model +x toward Saturn; libration omitted
+color = "#c6c0b6"                          # illustrative, uniform albedo
+orbit_color = "#b5b9bf"
+[bodies.orbit]                             # [SM] 634
+type = "element_table"
+file = "ephem/polydeuces_sat.elm"
 
 [[bodies]]
 name = "Mimas"
@@ -451,6 +567,41 @@ type = "rotating"
 primary = "Saturn"
 secondary = "Janus"                        # centered on Janus
 trail_history_days = 0.25                  # the other moons (and Cassini) lap it every few days
+
+[[frames]]
+name = "Saturn-Prometheus rotating"
+type = "rotating"
+primary = "Saturn"
+secondary = "Prometheus"
+trail_history_days = 0.25
+
+[[frames]]
+name = "Saturn-Pan rotating"
+type = "rotating"
+primary = "Saturn"
+secondary = "Pan"
+trail_history_days = 0.25
+
+[[frames]]
+name = "Saturn-Daphnis rotating"
+type = "rotating"
+primary = "Saturn"
+secondary = "Daphnis"
+trail_history_days = 0.25
+
+[[frames]]
+name = "Saturn-Tethys rotating"
+type = "rotating"
+primary = "Saturn"
+secondary = "Tethys"
+trail_history_days = 0.25
+
+[[frames]]
+name = "Saturn-Dione rotating"
+type = "rotating"
+primary = "Saturn"
+secondary = "Dione"
+trail_history_days = 0.25
 
 # --- Events -------------------------------------------------------------------------
 # Closest approaches (TDB at the spacecraft) and distances from the bake tool; flyby
@@ -701,3 +852,95 @@ caption = """\
     Cassini makes a planned plunge into Saturn to protect Enceladus and Titan from \
     a future impact that could contaminate them with life from the Earth. Its \
     signal ended at 11:55 UTC, a month short of twenty years after launch."""
+
+# Small-moon views: dates select the viewing geometry, not spacecraft encounters.
+[[events]]
+name = "Prometheus and Pandora beside the F ring"
+time_tdb = "2017-01-16 16:09"
+focus = "Prometheus"
+frame = "Saturn-Prometheus rotating"
+from_body = "Saturn"
+phase_deg = 180.0
+elevation_deg = 65.0
+distance_km = 25000.0
+warp = 300.0
+# [PP], [SM]
+caption = """\
+    Prometheus circles just inside the F ring and Pandora just outside it. Their \
+    mutual gravity makes both orbits chaotic: four overlapping resonances near \
+    the 121:118 period ratio change their pace. The paths follow the Horizons \
+    solution; the ring's changing strands and the channels pulled out by Prometheus \
+    are below the detail of this ring model."""
+
+[[events]]
+name = "Pan's equatorial ridge in the Encke gap"
+time_tdb = "2017-03-07 12:00"
+focus = "Pan"
+frame = "Saturn-Pan rotating"
+from_body = "Sun"
+phase_deg = 30.0
+elevation_deg = 25.0
+distance_km = 180.0
+warp = 1.0
+# [TCAS], [PP]
+caption = """\
+    Pan travels inside the Encke gap in Saturn's A ring, a lane about 325 km wide. \
+    Its equatorial ridge gives this small moon a walnut shape. The ridge is thought \
+    to have grown as ring material collected around the moon's waist. This surface \
+    comes from Thomas' reconstruction of Cassini images."""
+
+[[events]]
+name = "Daphnis in the Keeler gap"
+time_tdb = "2017-01-16 12:00"
+focus = "Daphnis"
+frame = "Saturn-Daphnis rotating"
+from_body = "Sun"
+phase_deg = 30.0
+elevation_deg = 30.0
+distance_km = 45.0
+warp = 1.0
+# [TCAS], [PP]
+caption = """\
+    Daphnis fits inside the Keeler gap, only about 42 km wide near the outer edge \
+    of the A ring. Its gravity raises waves along both edges of the gap. The moon's \
+    shape comes from Cassini images; this ring model has a fixed radial profile \
+    and leaves those waves out."""
+
+[[events]]
+name = "Tethys' Trojan moons: Telesto and Calypso"
+time_tdb = "2017-01-01 00:00"
+focus = "Saturn"
+frame = "Saturn-Tethys rotating"
+from_body = "Tethys"
+phase_deg = 180.0
+elevation_deg = 85.0
+distance_km = 1000000.0
+warp = 3600.0
+# [ELEM], [SM], [PP]
+caption = """\
+    Telesto leads Tethys around Saturn; Calypso follows it. They share Tethys' \
+    orbital period and librate around points about sixty degrees ahead and behind, \
+    the L4 and L5 Lagrange points. In this view turning with Tethys, the two tiny \
+    moons keep their places along its orbit while the other moons pass by."""
+
+[[events]]
+name = "Dione's Trojan moons: Helene and Polydeuces"
+time_tdb = "2014-01-01 00:00"
+focus = "Saturn"
+frame = "Saturn-Dione rotating"
+from_body = "Dione"
+phase_deg = 180.0
+elevation_deg = 85.0
+distance_km = 1300000.0
+warp = 864000.0
+# [ELEM], [SM], [PP]
+caption = """\
+    Helene leads Dione near L4, while Polydeuces follows near L5. Polydeuces makes \
+    a much wider excursion around its Lagrange point than Helene does, over a \
+    cycle of about 790 days. Both paths follow Horizons. Polydeuces is drawn as a \
+    smooth ellipsoid from its measured dimensions; the shape archive has no \
+    detailed surface model for it."""
+[[events.trails]]
+body = "Polydeuces"
+trail = "history"
+trail_history_days = 800.0

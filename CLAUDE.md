@@ -139,7 +139,7 @@ CMake 目标：
 
 ## 资源与工具
 
-- 星历烘焙：`python tools/bake/horizons_bake.py tools/bake/ephem.toml [name ...]`，联网访问 Horizons，输出到 `assets/ephem/`，说明见 `assets/ephem/SOURCES.md`。卫星相位拟合：`tools/bake/fit_moon_phase.py`。离扁行星很近的卫星用根数表：`python -E -P tools/bake/element_table_bake.py [janus|epimetheus]`（需要 numpy，下载每小时的样本缓存在 `tools/bake/cache/`，两颗约 5 分钟），输出 `assets/ephem/*.elm`
+- 星历烘焙：`python tools/bake/horizons_bake.py tools/bake/ephem.toml [name ...]`，联网访问 Horizons，输出到 `assets/ephem/`，说明见 `assets/ephem/SOURCES.md`。卫星相位拟合：`tools/bake/fit_moon_phase.py`。离扁行星很近的卫星用根数表：`python -E -P tools/bake/element_table_bake.py [name ...]`（支持 Janus、Epimetheus、环旁小卫星及特洛伊卫星，名称小写；需要 numpy，下载每小时的样本缓存在 `tools/bake/cache/`），输出 `assets/ephem/*.elm`。独立时刻复查：`python -E -P tools/bake/verify_saturn_small_moons.py`
 - `assets/stars/hyg.csv`：`tools/stars/convert_hyg.py`（HYG v4.4，带距离，供近邻系统重投影）；M4 星团天空：`tools/stars/make_m4.py`（Gaia DR3）
 - `assets/sky/`：远处场景和银心的模型星空，`tools/sky/make_galaxy_sky.py`（需要 numpy；先 `calibrate` 对照 `milky_way.jpg` 标定，结果在 `tools/sky/galaxy_calibration.json`，再 `render <场景.toml>`，一个场景约 10 分钟，银心约 20 分钟）。改了模型或标定要重新生成全部场景。工具用 multiprocessing：Windows 上子进程重新导入模块，在主进程里改的模块全局变量传不过去，参数要经 `_init` 传
 - `assets/belts/*.bin`：`tools/belts/make_belts.py`（JPL SBDB，主带 H < 15、全部 TNO）
@@ -158,6 +158,8 @@ CMake 目标：
 - `res/astraxis.ico`：`tools/icon/make_icon.py`（需要 Inkscape）从 `res/astraxis.svg`（≥ 48 px）和 `res/astraxis-small.svg`（≤ 40 px）生成；.ico 入库，CI 不依赖 Inkscape
 
 ## 已知的坑
+
+- Daphnis 的 Horizons 覆盖只有 1990-06-15 至 2018-01-17，且 2010、2016 年元旦有轨道文件接缝；根数拟合窗口要分段，不能跨接缝平滑，处理见 `assets/ephem/SOURCES.md`。
 
 各任务数据集自己的坑（SSCWeb、ICE 导航文件、卡西尼号最后一段等）写在 `assets/*/SOURCES.md` 里；实现上的取舍写在代码注释里。
 
@@ -297,13 +299,12 @@ CMake 目标：
 1. Dear ImGui 等 1.93.x 补丁版出来再从 v1.92.9b 升级（1.93.0 重写了 ImDrawList，刚发布）。SDL3/SDLGPU3 后端和用到的 API 都兼容，要截图核对的是：`label_overlay.cpp` 的空心圆点（`AddCircle` 半径不再减 0.5、默认内侧描边）和标记菱形（`AddQuad`）、`captions.cpp`/`app_ui.cpp` 里非整数坐标的 `AddRectFilled`（现在有抗锯齿边缘）、`StyleColorsDark()` 改过的面板配色
 2. B1913+16 自转轴的测地线进动：用 Weisberg & Taylor 2002（astro-ph/0205280）表 1 的解 1（i = 47.2°，与场景一致；δ = 21.1°、α = 157.5°、T0 = 1981.0）；Kramer 1998 表 1 的解 I 是同一几何（δ = 22°，α = 27° 即自转反向）。速率由质量按 Barker & O'Connell 算（1.215°/年，对照 WT02 的 1.213°/年写测试），自转轴绕轨道法线走半角 δ 的锥；画面上只有 ζ(t)（自转轴与视线的夹角）可见，它只依赖 cos Φ，不受进动方向和假设的天空节点影响，测试对照 WT02 的公式。`pulsar_beams` 要多传仿真时间。再加一个从地球方向（视线）看的事件，事件视角目前只有 `from_orbit_normal`、`from_body`，要新增一种：现有的“光束扫过相机时闪一下”会一直闪到约 2025 年（Kramer 的预测）后停下；停下的时刻取决于光束宽度（现在是示意的 10°，WT02 的光束是轴比 1.59 的沙漏形），要调或注明。2019 年以后没找到观测文献，展签写成“预测”。[WH16] 4.4 节说各家几何解“不一致”，是指精度不够扣除光行差，不影响画面
 3. 日冕：`sun.frag.hlsl` 现在只有临边昏暗加一圈示意的衰减光。真实的 K 日冕在日面边缘只有日面亮度的约 10⁻⁶，按物理亮度在泛光下看不见，日面被挡住时才显出来，所以先做两种场合：日食事件（相机在月影本影里，2017-08-21 或 2024-04-08；或者从月球看地球挡住太阳，顺带地球大气的一圈红光），和 Parker 场景（探测器就在日冕里）。结构按太阳周期的相位变化（极小期是赤道冕流加极区羽流，极大期四面放射），用几何模型，不做 PFSS 外推；要用黑子数定相位时先核实 SILSO 的许可证（GFZ 文件里的黑子数是 CC BY-NC）。不做 CME
-4. 土星的其他小卫星：用 `element_table_bake.py` 和 Thomas 的形状模型加牧羊卫星 Prometheus、Pandora（F 环两侧，混沌的相互作用）和 Pan、Daphnis（Encke、Keeler 缝里），以及 Tethys、Dione 的特洛伊卫星（Telesto、Calypso、Helene、Polydeuces）；先确认 Horizons 的覆盖范围，Laplace 极从 [ELEM] 取
-5. Kerbol 场景：高度图和法线（晨昏线上的立体感，也可用于月球、火星的 USGS DEM）与海面高光（Kerbin、Eve、Laythe、地球）；还可以用 `kerbol_transfer.py` 的办法加别的示意航线（Minmus、Duna 的转移窗口等，标明是设计的）
-6. 黑洞附近的天体做透镜：Gargantua 的示例行星和 Mann 星现在按真实位置画，转到黑洞背后时被挡住（真实情况下光会弯到阴影上方）。可以对每个天体解相机到天体的类光测地线，把球和标记画在主像（和次像）的位置
-7. 木星极光：主要发紫外光（H₂ 的 Lyman 和 Werner 带），可见光里几乎看不到，要像 WR 104 的红外伪彩色那样做成“紫外视图”的开关并在展签里写明。主卵之外，Io、Europa、Ganymede 的磁通管足点跟着卫星走，是好看的物理联系；足点和卵的位置要用 Juno 的磁场模型（JRM33）沿磁力线追踪，不能用偶极。可以复用地球极光的壳层 pass（`AuroraPass`），但卵的形状和活动要另找数据（哈勃和 Juno UVS 的统计卵）。别的天体的极光（土星、火星、Ganymede 自己的卵）做不做还没定
-8. 空间望远镜场景的其他望远镜：Spitzer（−79，和 Kepler 一样落在地球后面，2003–）、Herschel/Planck（2009–2013 在 L2）、WMAP（2001–2009）、Chandra（−151，64 小时的高椭圆轨道）只要烘焙星历加事件；Hubble（−48）的 Horizons 轨道是两行根数拼接的、只到预报的几个月，低轨每圈要节点，要放就用带 J2 交点进动的平根数（相位示意），只在近景事件里看。Roman、TESS、Euclid、JWST 的表大半是预报，过几个月重新烘焙
-9. DART 场景加 ESA 的 Hera（−91）：2026 年 10 月底到达 Didymos，Horizons 现在只有到 10-17 的跟踪数据和到 11-04 的预报（离 Didymos 约 30 km）。等 ESA 发布近距离阶段的重建轨道再烘焙，同时加两颗立方星 Milani、Juventas，以及 Hera 测出的撞击后 Dimorphos 的形状和撞击坑（Naidu 2024 推断长轴比约 1.3；形状模型发布后替换或在撞击时刻切换）。届时 Didymos 和 Dimorphos 的表要延长到 2027 年：解 547 的 SPK 覆盖到 2024 年底，2026 年起要用 ESA 的新解（Horizons 的 2026-07 以后已经换成 ESA 的文件）；DART 撞击也改变了系统的日心轨道（量级很小），新解里应该有
-10. 远期：macOS（Metal，需要 SPIR-V → MSL 和 macOS CI）；J1141-6545 的自转轴进动（Venkatraman Krishnan 2019 表 1：α ≈ 89°，δ 各模型从 35° 到 155° 不等，倾向的模型 3 是 91° ± 60°；Manchester 2010 约 110°），等几何解定下来再做
+4. Kerbol 场景：高度图和法线（晨昏线上的立体感，也可用于月球、火星的 USGS DEM）与海面高光（Kerbin、Eve、Laythe、地球）；还可以用 `kerbol_transfer.py` 的办法加别的示意航线（Minmus、Duna 的转移窗口等，标明是设计的）
+5. 黑洞附近的天体做透镜：Gargantua 的示例行星和 Mann 星现在按真实位置画，转到黑洞背后时被挡住（真实情况下光会弯到阴影上方）。可以对每个天体解相机到天体的类光测地线，把球和标记画在主像（和次像）的位置
+6. 木星极光：主要发紫外光（H₂ 的 Lyman 和 Werner 带），可见光里几乎看不到，要像 WR 104 的红外伪彩色那样做成“紫外视图”的开关并在展签里写明。主卵之外，Io、Europa、Ganymede 的磁通管足点跟着卫星走，是好看的物理联系；足点和卵的位置要用 Juno 的磁场模型（JRM33）沿磁力线追踪，不能用偶极。可以复用地球极光的壳层 pass（`AuroraPass`），但卵的形状和活动要另找数据（哈勃和 Juno UVS 的统计卵）。别的天体的极光（土星、火星、Ganymede 自己的卵）做不做还没定
+7. 空间望远镜场景的其他望远镜：Spitzer（−79，和 Kepler 一样落在地球后面，2003–）、Herschel/Planck（2009–2013 在 L2）、WMAP（2001–2009）、Chandra（−151，64 小时的高椭圆轨道）只要烘焙星历加事件；Hubble（−48）的 Horizons 轨道是两行根数拼接的、只到预报的几个月，低轨每圈要节点，要放就用带 J2 交点进动的平根数（相位示意），只在近景事件里看。Roman、TESS、Euclid、JWST 的表大半是预报，过几个月重新烘焙
+8. DART 场景加 ESA 的 Hera（−91）：2026 年 10 月底到达 Didymos，Horizons 现在只有到 10-17 的跟踪数据和到 11-04 的预报（离 Didymos 约 30 km）。等 ESA 发布近距离阶段的重建轨道再烘焙，同时加两颗立方星 Milani、Juventas，以及 Hera 测出的撞击后 Dimorphos 的形状和撞击坑（Naidu 2024 推断长轴比约 1.3；形状模型发布后替换或在撞击时刻切换）。届时 Didymos 和 Dimorphos 的表要延长到 2027 年：解 547 的 SPK 覆盖到 2024 年底，2026 年起要用 ESA 的新解（Horizons 的 2026-07 以后已经换成 ESA 的文件）；DART 撞击也改变了系统的日心轨道（量级很小），新解里应该有
+9. 远期：macOS（Metal，需要 SPIR-V → MSL 和 macOS CI）；J1141-6545 的自转轴进动（Venkatraman Krishnan 2019 表 1：α ≈ 89°，δ 各模型从 35° 到 155° 不等，倾向的模型 3 是 91° ± 60°；Manchester 2010 约 110°），等几何解定下来再做
 
 ## 不要做
 

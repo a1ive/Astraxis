@@ -728,6 +728,111 @@ void test_saturn_scene()
     }
 }
 
+// Independently timed Horizons vectors (00:30 start, 17-hour cadence), obtained by
+// tools/bake/verify_saturn_small_moons.py. The hourly fit samples use other times.
+void test_saturn_small_moons()
+{
+    Scene scene = load_scene_or_die("saturn.toml");
+    struct Sample {
+        const char* name;
+        double t;
+        glm::dvec3 position;
+        double tolerance;
+    };
+    const Sample samples[] = {
+        {"Prometheus", -579184199.999973, {51805.271949, -129168.369577, 5067.462528}, 11.0},
+        {"Prometheus", 189365400.000027, {110864.994304, 82509.562352, -15626.546668}, 11.0},
+        {"Prometheus", 1508138099.999973, {-113732.830985, 80724.382700, 3860.548121}, 11.0},
+        {"Pandora", -579184199.999973, {-140504.125896, -4675.319372, 12397.210613}, 11.0},
+        {"Pandora", 189365400.000027, {-141060.406860, -6919.708046, 12651.225555}, 11.0},
+        {"Pandora", 1508138099.999973, {124283.543485, -66770.449943, -5871.606756}, 11.0},
+        {"Pan", -579184199.999973, {-133089.494252, -497.049268, 11483.086924}, 1.1},
+        {"Pan", 189365400.000027, {86673.750945, 100555.684980, -14865.571574}, 1.1},
+        {"Pan", 1508138099.999973, {84817.595536, 102133.047346, -14827.475626}, 1.1},
+        {"Daphnis", -263655000.000000, {65757.578721, 118752.575846, -14407.263990}, 1.1},
+        {"Daphnis", 189347399.999973, {-22953.663172, -134037.270933, 11853.919448}, 1.1},
+        {"Daphnis", 537820199.999973, {33155.860853, -132238.946399, 6892.457534}, 1.1},
+        {"Telesto", -579184199.999973, {254003.078041, 146590.333462, -29060.187803}, 11.0},
+        {"Telesto", 189365400.000027, {283164.568095, 78215.454960, -24020.221988}, 11.0},
+        {"Telesto", 1508138099.999973, {-245390.604876, 162994.422740, 9126.475970}, 11.0},
+        {"Calypso", -579184199.999973, {6513.012748, -294196.605350, 14413.395288}, 11.0},
+        {"Calypso", 189365400.000027, {-49028.281902, -289978.199361, 18329.280109}, 11.0},
+        {"Calypso", 1508138099.999973, {253826.183222, 146478.125313, -29732.218750}, 11.0},
+        {"Helene", -579184199.999973, {-102388.258101, -362815.956935, 36780.308931}, 11.0},
+        {"Helene", 189365400.000027, {204867.901106, -319599.503008, 5539.605669}, 11.0},
+        {"Helene", 1508138099.999973, {82599.741757, -368290.359024, 20391.559085}, 11.0},
+        {"Polydeuces", -579184199.999973, {-298232.999721, 242396.205540, 8988.332435}, 11.0},
+        {"Polydeuces", 189365400.000027, {-325283.034290, 204866.896368, 13800.011564}, 11.0},
+        {"Polydeuces", 1508138099.999973, {-233765.865822, 292805.369979, -2098.266118}, 11.0},
+    };
+    for (const Sample& sample : samples) {
+        const int id = scene.find(sample.name);
+        check(id > 0, "small moon exists in Saturn scene");
+        if (id <= 0) {
+            continue;
+        }
+        const auto& body = scene.bodies[static_cast<size_t>(id)];
+        const auto* orbit = dynamic_cast<const ElementTableOrbit*>(body.motion.get());
+        check(orbit != nullptr, "small moon uses an element table");
+        if (!orbit) {
+            continue;
+        }
+        const double error = glm::length(scene.icrf_state_at(id, sample.t).position - sample.position);
+        check(error < sample.tolerance, "small-moon position against withheld Horizons vector (km)", error);
+        check(glm::length(orbit->table().plane_to_icrf()[2] - unit_toward(40.6, 83.5)) < 1e-12,
+              "small-moon Laplace pole is from ELEM");
+        scene.update(sample.t);
+        const glm::dvec3 toward_saturn = glm::normalize(scene.bodies[0].world_position - body.world_position);
+        check(glm::dot(body.orientation[0], toward_saturn) > 0.999999, "small moon long axis points to Saturn");
+    }
+
+    const glm::dvec3 pole = unit_toward(40.6, 83.5);
+    auto longitude_difference = [&](const char* moon, const char* primary, double t) {
+        const glm::dvec3 a = scene.icrf_state_at(scene.find(primary), t).position;
+        const glm::dvec3 b = scene.icrf_state_at(scene.find(moon), t).position;
+        return std::atan2(glm::dot(pole, glm::cross(a, b)), glm::dot(a, b)) * kRadToDeg;
+    };
+    const double start = tdb_from_jd_tdb(jd_from_calendar({2005, 1, 1, 0, 0, 0}));
+    double poly_min = 0.0, poly_max = -180.0;
+    for (int day = 0; day < 4000; day += 7) {
+        const double t = start + day * kSecondsPerDay;
+        const double telesto = longitude_difference("Telesto", "Tethys", t);
+        const double calypso = longitude_difference("Calypso", "Tethys", t);
+        const double helene = longitude_difference("Helene", "Dione", t);
+        const double polydeuces = longitude_difference("Polydeuces", "Dione", t);
+        check(telesto > 40.0 && telesto < 80.0 && calypso > -80.0 && calypso < -40.0,
+              "Tethys Trojans stay near L4 and L5");
+        check(helene > 30.0 && helene < 90.0 && polydeuces > -110.0 && polydeuces < -20.0,
+              "Dione Trojans lead and trail Dione");
+        poly_min = std::min(poly_min, polydeuces);
+        poly_max = std::max(poly_max, polydeuces);
+        const double pan = glm::length(scene.icrf_state_at(scene.find("Pan"), t).position);
+        const double daphnis = glm::length(scene.icrf_state_at(scene.find("Daphnis"), t).position);
+        check(pan > 133400.0 && pan < 133750.0, "Pan stays in the Encke gap (km)", pan);
+        check(daphnis > 136480.0 && daphnis < 136530.0, "Daphnis stays in the Keeler gap (km)", daphnis);
+    }
+    check(poly_max - poly_min > 40.0, "Polydeuces has a wide Trojan libration (deg)", poly_max - poly_min);
+    std::printf("info: Polydeuces relative longitude %.2f .. %.2f deg\n", poly_min, poly_max);
+
+    // Source-solution jumps are confined to one second, with a node on each side.
+    const auto* daphnis = dynamic_cast<const ElementTableOrbit*>(scene.bodies[static_cast<size_t>(scene.find("Daphnis"))].motion.get());
+    if (daphnis) {
+        for (int year : {2010, 2016}) {
+            const double seam = tdb_from_jd_tdb(jd_from_calendar({year, 1, 1, 0, 0, 0}));
+            int nearby = 0;
+            for (const auto& knot : daphnis->table().knots()) {
+                if (knot.t >= seam - 1.001 && knot.t <= seam + 0.001) {
+                    ++nearby;
+                }
+            }
+            check(nearby == 2, "Daphnis source seam has two bounding knots");
+        }
+    }
+    const auto& poly = scene.bodies[static_cast<size_t>(scene.find("Polydeuces"))];
+    check(!poly.shape && poly.equatorial_radius_km == 1.5 && poly.equatorial_radius_b_km == 1.2 &&
+              poly.polar_radius_km == 1.0, "Polydeuces uses the PCK ellipsoid");
+}
+
 // Janus and Epimetheus: the element tables against Horizons, and the swaps they hold.
 void test_saturn_coorbitals()
 {
@@ -1096,5 +1201,6 @@ void run_planet_scene_tests()
     test_mars_moon_rotation();
     test_saturn_scene();
     test_saturn_coorbitals();
+    test_saturn_small_moons();
     test_kerbol_scene();
 }

@@ -708,3 +708,45 @@ Philae 不在 Horizons 里，用 ESA SPICE Service 的着陆器星历（<https:/
 - 抽稀：节点之间 a、e、ϖ、i、Ω 线性插值，λ 按 (λ, n) 做三次 Hermite；贪心地删节点，保证每个小时样本的误差不超过 10 km。结果 Janus 1333 个节点（83 KB），Epimetheus 1534 个（95 KB），对全部样本均方根 5.3、5.5 km。节点在交换前后几个月里密，其间几十天一个。
 - 交换：19 次，都在 1 月（1974 .. 2046）。每次 Janus 的 a 变化约 21 km、Epimetheus 约 76 km，方向相反；两者之比在 0.2758 .. 0.2788 之间，JPL SSD 的 GM 比是 0.2775（`test_saturn_coorbitals`）。2006 年两者的 a 在 01-21 12:12 TDB 相等，NASA/JPL PIA08170 说交换发生在 2006-01-21。小时样本里两者中心最近 10,235 km（2006-01-20 09:40 TDB），各次在 10,150 .. 10,540 km 之间；PIA08170 说“从不近于约 15,000 km”，与 Horizons 对不上。
 - 表外：λ 按端点的 n、ϖ 和 Ω 按进动速率继续走，不再交换：几年以后两颗卫星在共同的轨道上会互相穿过。
+
+## 土星环旁小卫星与特洛伊卫星（`saturn.toml`）
+
+`tools/bake/element_table_bake.py` 从 [JPL Horizons](https://ssd.jpl.nasa.gov/api/horizons.api) 取相对土星本体中心（`500@699`）的几何 ICRF 状态向量，TDB 时间。JPL/NASA 星历为公有领域数据。Laplace 极逐颗核对 [ELEM](https://ssd.jpl.nasa.gov/sats/elem/)，八颗都是 RA 40.6°、Dec 83.5°，与 IAU 自转极不同。
+
+2026-10-24 实际 API 查询的覆盖范围：
+
+| 天体 | NAIF | 解 | Horizons 可查询范围（TDB） | 烘焙取样范围（TDB） |
+|---|---|---|---|---|
+| Prometheus、Pandora、Pan | 616、617、618 | `sat415_merged_DE437` | 1949-12-27 .. 2050-01-09 | 1972-01-01 .. 2050-01-01 |
+| Daphnis | 635 | SAT415 | 1990-06-15 .. 2018-01-17 | 1990-06-16 .. 2018-01-16 |
+| Telesto、Calypso、Helene、Polydeuces | 613、614、612、634 | `sat441l` | 1749-12-31 .. 2250-01-05 | 1972-01-01 .. 2050-01-01 |
+
+覆盖是逐颗查询得到的，包括越界请求的错误返回。[ELEM] 页面所列 SAT415 文件日期不能代替每颗天体的实际覆盖。Daphnis 页头说明该轨迹只在卡西尼观测区间有效；早年的可查询结果是外推，不是当时已有观测。
+
+生成与独立时刻复查（需要 numpy，在仓库根目录运行）：
+
+```powershell
+python -E -P tools/bake/element_table_bake.py prometheus pandora pan daphnis telesto calypso helene polydeuces
+python -E -P tools/bake/verify_saturn_small_moons.py
+```
+
+每小时取样、每 6 小时用两天窗口拟合进动椭圆，与 Janus / Epimetheus 相同。Polydeuces 用一天窗口，两天窗口对它的最大残差达到 11.8 km。平均运动初值由状态向量的角动量和距离估计，各天体分别拟合进动速率。Pan、Daphnis 的抽稀容差为 1 km，其余为 10 km。工具在写文件前检查整段小时样本的误差，超限或非有限值会报错。两端各半个窗口用于拟合，表的首末节点因此在取样范围以内。
+
+Daphnis 的源星历在 2010-01-01 和 2016-01-01 00:00 TDB 发生位置接缝，分别约 661.17 km、163.93 km。分钟向量和速度差分确认这是源数据的跳变。工具在每个连续段内单独拟合，把接缝前一秒和接缝时刻各存一个节点；中间一秒是插值过渡，不是实际运动。接缝两侧的独立分钟样本最大偏差为 0.051 km。源日期接缝附近不适合做物理速度或近遇分析。
+
+表外按端点平均运动及进动速率继续走。Daphnis 在 2018 年以后、其他卫星在 2050 年以后的位置只是近似；Prometheus / Pandora 的混沌变化和特洛伊卫星的天平动不会继续复现。表内的相互作用来自 Horizons 数值星历，程序运行时查表，不重新积分这组卫星的引力。
+
+| 文件 | 节点数 | 字节数 | 独立时刻最大误差（km） | 独立时刻 RMS（km） |
+|---|---:|---:|---:|---:|
+| `prometheus_sat.elm` | 764 | 48952 | 10.0386 | 5.0816 |
+| `pandora_sat.elm` | 1375 | 88056 | 10.0767 | 5.2268 |
+| `pan_sat.elm` | 2391 | 153080 | 1.0163 | 0.3820 |
+| `daphnis_sat.elm` | 404 | 25912 | 1.0030 | 0.5029 |
+| `telesto_sat.elm` | 12384 | 792632 | 10.0059 | 4.7924 |
+| `calypso_sat.elm` | 12363 | 791288 | 10.0109 | 4.7965 |
+| `helene_sat.elm` | 14791 | 946680 | 9.9948 | 5.8072 |
+| `polydeuces_sat.elm` | 17913 | 1146488 | 9.9982 | 5.3833 |
+
+`verify_saturn_small_moons.py` 从 00:30 TDB 起每 17 小时取未用于拟合的 Horizons 向量，跨过整张表（每颗约 40,219 个，Daphnis 14,222 个），容许采样间误差达到抽稀容差的 1.1 倍。源码测试保留其中每颗三个向量，另查环缝内的半径、L4/L5 前后关系、Polydeuces 的大幅天平动、同步朝向和 Daphnis 接缝。这里的 km 数字是相对源星历的拟合误差，不是轨道观测精度或混沌系统的长期预报精度。
+
+展签的动力学出处：Goldreich & Rappaport 2003，[Origin of Chaos in the Prometheus-Pandora System](https://arxiv.org/abs/astro-ph/0307259)；Polydeuces 约 790 天的天平动见 Spitale et al. 2006, AJ 132, 692, Fig. 10（[作者公开稿](https://ciclops.org/media/sp/2007/2686_7448_0.pdf)）。Pan 的 325 km 环缝见 [NASA Pan](https://science.nasa.gov/saturn/moons/pan/)，Keeler 缝的 42 km 见 [PIA06194](https://science.nasa.gov/resource/fingerprints-of-an-unseen-moon/)。环脊吸积解释见 Quillen et al. 2021，[Accretion of Ornamental Equatorial Ridges on Pan, Atlas and Daphnis](https://arxiv.org/abs/2007.13227)。

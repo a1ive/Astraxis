@@ -156,3 +156,29 @@
 - 硬边：文件带硬边标志，每个平面用自己的顶点；圆管的侧壁沿圆周共用顶点，看起来是圆的。
 - 反照率：脚本里的明暗值（0.12–0.9）按两个网格合起来的面积加权平均（0.584）归一，文件里是相对值（0.21–1.54），整体颜色由场景的 `color` 给。
 - 光照只有吸积盘的漫反射，没有自身阴影：环内侧和环后面的船体也会被照亮。
+
+## 环旁小卫星与特洛伊卫星（Thomas 卡西尼形状模型）
+
+Prometheus、Pandora、Pan、Daphnis、Telesto、Calypso 和 Helene 来自同一套 [Saturn Small Moon Shape Models V1.0](https://sbnarchive.psi.edu/pds4/cassini/saturn_satellite_shape_models_V1_0/)，作者 P. C. Thomas，观测为 Cassini ISS。沿用该 PDS 数据集的公有领域许可，请引用数据集及作者。数据目录下每颗的 `NAME_30k_plt.xml` 给出成像来源、坐标系及版本，板块表为 `NAME_30k_plt.tab`。
+
+下载板块表后运行（例如 Pan）：
+
+```powershell
+python tools/shapes/make_plate_shape.py pan_30k_plt.tab assets/shapes/pan.mesh
+```
+
+按发布的 km 坐标原样转换，保留全部顶点及三角形，无缩放、补面或纹理。模型 +x 是平均指向土星的本初子午线，+z 是北自转极，+y 朝公转的后随侧。场景按同步自转定向，长轴每时刻指向土星，未加入物理天平动。`radii_km` 使用 IAU 2015 / `pck00011.tpc` 的三轴半径，供阴影和相机距离使用；绘制尺寸由网格本身决定。颜色及均匀反照率是示意值。
+
+| 文件 | 顶点 | 三角形 | 等体积半径（km） | 原始板块表 SHA-256 |
+|---|---:|---:|---:|---|
+| `prometheus.mesh` | 14183 | 28362 | 42.764 | `78d1d11346d554f969d4c0f0df3969e5c7f50c715274f69a57ad31ec3be5425c` |
+| `pandora.mesh` | 13564 | 27124 | 40.035 | `d950c909cf9c991108ef92c07cf63bc6d3bdadc4b19028bb3599aae280f24294` |
+| `pan.mesh` | 13736 | 27468 | 13.696 | `18a96fbec0ab0493e78a707644db1a4314db54eec662094ea8d5210a614dbd1b` |
+| `daphnis.mesh` | 13465 | 26926 | 3.893 | `8fc85246848ad05de7c68b0686f9fde7d3c23529d02db9c1e7287864b74c34be` |
+| `telesto.mesh` | 13804 | 27604 | 12.287 | `46836f5785b12651f4b7ce8db8f14c9023bca897e13f0fe64a62cd05b58bae0f` |
+| `calypso.mesh` | 14140 | 28276 | 9.524 | `840fc381659291b29fbaa51bdaf09c870da6bcc96b4ae791709e2a354048fb63` |
+| `helene.mesh` | 13495 | 26986 | 18.074 | `d8fbff19525bca341bb3e4bde205ae77d8d05096f5244b77405ab27ebfd83e23` |
+
+Pan 和 Daphnis 的标签引用 `pan_mst2018.bpc`、`daphnis_mst2018.bpc`；这些是晚期卡西尼形状数据。网格上的环脊及大尺度凹凸来自该模型，细小表面纹理和环粒子没有重建。各卫星背面及较少成像区域受原模型的观测覆盖限制。
+
+Thomas 的这个归档没有 Polydeuces。场景用 [NAIF pck00011.tpc](https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/pck00011.tpc) 的 `BODY634_RADII = (1.5 1.2 1.0)` km 画光滑三轴椭球；这不是 Thomas 网格，也不代表已重建的表面地形。

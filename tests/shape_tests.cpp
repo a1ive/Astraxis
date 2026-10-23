@@ -332,6 +332,27 @@ void test_jupiter_saturn_small_moon_shapes()
             check(extent.z < extent.x && extent.z < extent.y, (name + " shortest axis along the spin axis").c_str(), extent.z);
         }
     }
+
+    // The PCK triaxial ellipsoids give an independent scale check for the seven
+    // Thomas meshes. Craters and equatorial ridges change their volume slightly.
+    for (const char* name : {"Prometheus", "Pandora", "Pan", "Daphnis", "Telesto", "Calypso", "Helene"}) {
+        const int id = saturn.find(name);
+        check(id > 0, "Saturn has the ring and Trojan moon");
+        if (id <= 0) {
+            continue;
+        }
+        const Body& body = saturn.bodies[static_cast<size_t>(id)];
+        check(body.shape != nullptr, "ring/Trojan moon has a Thomas shape");
+        if (!body.shape) {
+            continue;
+        }
+        const double r_mesh = std::cbrt(3.0 * signed_volume(*body.shape) / (4.0 * kPi));
+        const double r_pck = std::cbrt(body.equatorial_radius_km * body.equatorial_radius_b_km * body.polar_radius_km);
+        check(std::abs(r_mesh / r_pck - 1.0) < 0.1, "Thomas mesh scale agrees with PCK radii", r_mesh / r_pck);
+        check(body.synchronous_with == saturn.find("Saturn") && body.texture.empty(),
+              "small moons use synchronous, untextured shapes");
+        check(body.shape->positions.size() > 13000, "Thomas mesh retains the published vertices");
+    }
 }
 
 // Hyperion (Saturn scene) against Harbison, Thomas & Nicholson 2011 ([HSPN]). The mesh's
