@@ -7,6 +7,7 @@
 #include "render/render_output.hpp"
 #include "render/texture.hpp"
 #include "scene/light_curve.hpp"
+#include "scene/pulsar.hpp"
 #include "scene/simulation.hpp"
 
 #include <SDL3/SDL.h>
@@ -70,31 +71,14 @@ constexpr uint32_t kSkyCubeSize = 1024;
 // the camera.
 constexpr double kBeamLengthPerDistance = 0.9;
 constexpr float kBeamIntensity = 0.6f;
-constexpr double kBeamFlashGain = 300.0;
+// The radio pulse is an illustrative HDR boost. Applying it after SunPass's
+// stellar brightness cap keeps it visible even when the neutron star is close.
+constexpr double kBeamFlashGain = 8.0;
 
 double apparent_magnitude(double luminosity_solar, double distance_km)
 {
     const double d_au = distance_km / kAuKm;
     return kSunMagAt1Au - 2.5 * std::log10(luminosity_solar / (d_au * d_au));
-}
-
-// The two beam directions (display frame) of a pulsar after `real_time`
-// seconds of running clock: the magnetic axis, inclined to the spin axis and
-// turning about it once per display period. Returns false if not a pulsar.
-bool pulsar_beams(const Scene& scene, const Body& body, double real_time, glm::dvec3 out[2])
-{
-    if (!body.pulsar.enabled || body.pulsar.spin_axis_orbit_of < 0) {
-        return false;
-    }
-    const glm::dvec3 spin = scene.orbit_normal(body.pulsar.spin_axis_orbit_of);
-    const glm::dvec3 ref = std::abs(spin.z) < 0.9 ? glm::dvec3(0.0, 0.0, 1.0) : glm::dvec3(1.0, 0.0, 0.0);
-    const glm::dvec3 e1 = glm::normalize(glm::cross(spin, ref));
-    const glm::dvec3 e2 = glm::cross(spin, e1);
-    const double phase = kTwoPi * real_time / body.pulsar.display_period_s;
-    const double tilt = body.pulsar.magnetic_inclination_deg * kDegToRad;
-    out[0] = std::cos(tilt) * spin + std::sin(tilt) * (std::cos(phase) * e1 + std::sin(phase) * e2);
-    out[1] = -out[0];
-    return true;
 }
 
 glm::vec3 to_render(const glm::dvec3& world, const glm::dvec3& camera)
@@ -1315,13 +1299,12 @@ void SceneRenderer::draw_stars(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pas
         s.magnitude = static_cast<float>(apparent_magnitude(body.luminosity_solar, distance));
         s.draw_disk = s.angular_radius * viewport_half < 3.0f; // otherwise the sphere shows it
         glm::dvec3 beams[2];
-        if (pulsar_beams(scene, body, sim.animation_time(), beams)) {
+        if (pulsar_beams(scene, body, sim.clock().t_tdb, sim.animation_time(), beams)) {
             const glm::dvec3 to_camera = -to_star / distance;
             const double half_angle = body.pulsar.beam_half_angle_deg * kDegToRad;
             double flash = 0.0;
             for (const glm::dvec3& axis : beams) {
-                const double off = std::acos(std::clamp(glm::dot(axis, to_camera), -1.0, 1.0)) / half_angle;
-                flash += std::exp(-off * off);
+                flash += pulsar_beam_flash(body.pulsar, axis, to_camera);
                 BeamDrawItem beam;
                 beam.apex = glm::vec3(to_star);
                 beam.axis = glm::vec3(axis);
@@ -1331,7 +1314,7 @@ void SceneRenderer::draw_stars(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pas
                 beam.intensity = kBeamIntensity;
                 m_beam_items.push_back(beam);
             }
-            s.magnitude -= static_cast<float>(2.5 * std::log10(1.0 + kBeamFlashGain * flash));
+            s.display_gain = static_cast<float>(1.0 + kBeamFlashGain * flash);
         }
         m_sun.draw(cmd, pass, view, s);
     }

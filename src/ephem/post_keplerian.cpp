@@ -30,6 +30,16 @@ glm::dmat3 frame_at(const VisualOrbit& elements, double arg_peri_rad)
 
 } // namespace
 
+double geodetic_precession_rate(double pulsar_gm, double companion_gm, double period_s, double e)
+{
+    const double gm = pulsar_gm + companion_gm;
+    const double n = kTwoPi / period_s;
+    const double xp = pulsar_gm / gm;
+    const double xc = companion_gm / gm;
+    return 0.5 * n * std::pow(gm * n, 2.0 / 3.0) / (kSpeedOfLightKmS * kSpeedOfLightKmS) *
+           xc * (3.0 + xp) / (1.0 - e * e);
+}
+
 PostKeplerianOrbit make_post_keplerian(const VisualOrbit& elements, double period_s, double omega_dot_rad_s,
                                        double pb_dot, double gm)
 {

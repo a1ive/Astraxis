@@ -142,7 +142,7 @@ void SunPass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const Cam
     vu.sprite = glm::vec4(radius_px * (glow > 0.0f ? kSpriteRadii : 1.5f), 0.0f, view.viewport.x, view.viewport.y);
 
     FragmentUniforms fu;
-    fu.params = glm::vec4(radius_px, intensity, glow, 0.0f);
+    fu.params = glm::vec4(radius_px, intensity * star.display_gain, glow * star.display_gain, 0.0f);
     fu.color = glm::vec4(star.color, 1.0f);
 
     SDL_BindGPUGraphicsPipeline(pass, m_pipeline);

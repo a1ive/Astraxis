@@ -389,7 +389,7 @@ struct Body {
     } comet;
 
     // Pulsars: two radio beams from the magnetic poles, inclined to the spin
-    // axis (the orbit normal of `spin_axis_orbit_of`) and sweeping around it.
+    // axis, optionally precessing about the orbit normal of `spin_axis_orbit_of`.
     // The true spin (milliseconds) cannot be shown; the beams turn once every
     // display_period_s of real time while the clock runs.
     struct Pulsar {
@@ -398,6 +398,15 @@ struct Body {
         double display_period_s = 2.0;
         double magnetic_inclination_deg = 45.0;
         double beam_half_angle_deg = 8.0;
+        bool beam_cutoff = false; // taper the outer 20% to zero at the cone edge
+        struct Precession {
+            bool enabled = false;
+            double misalignment_deg = 0.0;
+            double epoch_tdb = 0.0; // WT02 T0: spin closest to the direction away from Earth
+            double rate_rad_s = 0.0; // Barker & O'Connell, from the timing orbit and masses
+            glm::dvec3 axis_icrf{0.0, 0.0, 1.0};
+            glm::dvec3 x_icrf{1.0, 0.0, 0.0}; // toward the projection of observer-to-pulsar
+        } precession;
         glm::vec3 beam_color{0.7f, 0.8f, 1.0f}; // sRGB
     } pulsar;
 
@@ -519,6 +528,7 @@ struct SceneEvent {
     int from_body = -1;         // >= 0: view from this body's direction (e.g. the Sun: as seen from Earth)
     bool from_sun = false;      // view from the sun's direction in a scene without a Sun body
                                 // (centered on a planet; from_body = "Sun" in the file)
+    bool from_earth = false;   // from -sky.viewer_pc, with a fixed line of sight
     double phase_deg = 0.0;     // with from_body: turned this far around the up axis (180 = from behind)
     double elevation_deg = std::numeric_limits<double>::quiet_NaN(); // set: camera this far above the
                                                                      // plane normal to the up axis

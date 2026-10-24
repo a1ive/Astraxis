@@ -2,6 +2,8 @@
 
 #include "test_util.hpp"
 
+#include "scene/pulsar.hpp"
+
 #include "core/math.hpp"
 #include "core/time.hpp"
 #include "ephem/kerr_null.hpp"
@@ -320,7 +322,7 @@ void test_psr_b1913_scene()
     std::printf("info: PSR B1913+16 periastron advance since discovery: %.2f deg\n", turned);
 
     // Ghosts pair among themselves and carry no mass; the pulsar's beams turn
-    // about the real orbit's normal.
+    // about a tilted spin axis precessing around the real orbit normal.
     check(scene.satellite_host(companion) == pulsar && scene.satellite_host(ghost_c) == ghost_p &&
               scene.satellite_host(ghost_p) == -1,
           "PSR B1913+16 hosts (ghosts pair with ghosts)");
@@ -328,7 +330,97 @@ void test_psr_b1913_scene()
               std::abs(scene.bodies[static_cast<size_t>(pulsar)].body_gm_km3_s2 / kSunGmKm3S2 - 1.438) < 1e-6,
           "PSR B1913+16 masses (ghosts massless)");
     check(scene.bodies[static_cast<size_t>(pulsar)].pulsar.spin_axis_orbit_of == companion,
-          "PSR B1913+16 spin axis along the orbit normal");
+          "PSR B1913+16 precession uses the companion orbit");
+
+    Body& body = scene.bodies[static_cast<size_t>(pulsar)];
+    const auto& prec = body.pulsar.precession;
+    const double year_s = kDaysPerJulianYear * kSecondsPerDay;
+    const double rate = prec.rate_rad_s * year_s * kRadToDeg;
+    check(prec.enabled && std::abs(rate - 1.213) < 0.003,
+          "B1913 spin precession against WT02 1.213 deg/yr (older masses)", rate);
+    // Independent relation to the GR apsidal advance: Omega_spin / omega_dot
+    // = m_c (4 m_p + 3 m_c) / [6 (m_p + m_c)^2].
+    const double rate_from_apsides = omdot_gr * 1.390 * (4.0 * 1.438 + 3.0 * 1.390) /
+                                      (6.0 * 2.828 * 2.828);
+    check(std::abs(rate - rate_from_apsides) < 1e-9, "B1913 precession rate from the scene masses", rate);
+    const double inclination = 47.1254 * kDegToRad;
+    const double tilt = 21.1 * kDegToRad;
+    check(std::abs(glm::dot(prec.axis_icrf, away) - std::cos(inclination)) < 1e-12,
+          "visual inclination converted to WT02 signed orbit normal");
+    check(prec.misalignment_deg == 21.1 && body.pulsar.magnetic_inclination_deg == 157.5 &&
+              prec.epoch_tdb == tdb_from_julian_year(1981.0), "WT02 Table 1 solution 1 parameters");
+    const double cycle = kTwoPi / prec.rate_rad_s;
+    for (double turns : {0.0, 0.125, 0.25, 0.5, 0.75, 1.0, -0.25, 100.0}) {
+        const double t = prec.epoch_tdb + turns * cycle;
+        scene.update(t);
+        const glm::dvec3 spin = pulsar_spin_axis(scene, body, t);
+        // WT02 Eq. 5, with the scene's updated timing inclination.
+        const double cos_zeta = -std::cos(kTwoPi * turns) * std::sin(tilt) * std::sin(inclination) -
+                                 std::cos(tilt) * std::cos(inclination);
+        check(std::abs(glm::dot(spin, -away) - cos_zeta) < 1e-11,
+              "B1913 line-of-sight colatitude follows WT02 Eq. 5");
+        check(std::abs(glm::length(spin) - 1.0) < 1e-12 &&
+                  std::abs(glm::dot(spin, scene.orbit_normal(companion)) - std::cos(tilt)) < 1e-12,
+              "B1913 spin stays on the 21.1 degree cone about orbital angular momentum");
+    }
+    const glm::dvec3 spin0 = pulsar_spin_axis(scene, body, prec.epoch_tdb);
+    const glm::dvec3 spin1 = pulsar_spin_axis(scene, body, prec.epoch_tdb + 0.01 * year_s);
+    check(glm::dot(spin1 - spin0, glm::cross(prec.axis_icrf, spin0)) > 0.0,
+          "B1913 precesses in the angular-momentum cross spin direction");
+    // The unknown sky node rotates both basis vectors around the line of sight.
+    const auto saved = body.pulsar.precession;
+    auto rotate_node = [&](const glm::dvec3& v) {
+        return std::cos(0.7) * v + std::sin(0.7) * glm::cross(away, v) +
+               (1.0 - std::cos(0.7)) * glm::dot(away, v) * away;
+    };
+    body.pulsar.precession.axis_icrf = rotate_node(saved.axis_icrf);
+    body.pulsar.precession.x_icrf = rotate_node(saved.x_icrf);
+    check(std::abs(glm::dot(pulsar_spin_axis(scene, body, prec.epoch_tdb + 0.01 * year_s), away) -
+                       glm::dot(spin1, away)) < 1e-12, "B1913 zeta is independent of the sky node");
+    body.pulsar.precession = saved;
+
+    auto max_flash = [&](double year) {
+        const double t = tdb_from_julian_year(year);
+        scene.update(t);
+        double peak = 0.0;
+        for (int j = 0; j < 2048; ++j) {
+            glm::dvec3 beams[2];
+            check(pulsar_beams(scene, body, t, body.pulsar.display_period_s * j / 2048.0, beams),
+                  "B1913 renders pulsar beams");
+            const glm::dvec3 spin = pulsar_spin_axis(scene, body, t);
+            check(glm::length(beams[0] + beams[1]) < 1e-12 &&
+                      std::abs(glm::dot(spin, beams[0]) - std::cos(157.5 * kDegToRad)) < 1e-12,
+                  "B1913 antipodal beams preserve magnetic inclination");
+            peak = std::max(peak, pulsar_beam_flash(body.pulsar, beams[0], -away) +
+                                  pulsar_beam_flash(body.pulsar, beams[1], -away));
+        }
+        return peak;
+    };
+    const double peak1974 = max_flash(1974.5);
+    const double peak2019 = max_flash(2019.0);
+    const double peak2026 = max_flash(2026.0);
+    check(peak1974 > 0.5 && peak2019 > 0.0 && peak2019 < peak1974 && peak2026 == 0.0 &&
+              max_flash(2035.0) == 0.0 && max_flash(1974.5) == peak1974,
+          "B1913 finite beam fades, misses Earth after 2025, and restores on rewind");
+    // Solve the edge crossing from WT02's analytic colatitude, independently of beam sampling.
+    const double zeta_edge = (157.5 - body.pulsar.beam_half_angle_deg) * kDegToRad;
+    const double phase_edge = std::acos((-std::cos(zeta_edge) - std::cos(tilt) * std::cos(inclination)) /
+                                        (std::sin(tilt) * std::sin(inclination)));
+    const double exit_year = 1981.0 + phase_edge / prec.rate_rad_s / year_s;
+    check(exit_year > 2024.5 && exit_year < 2025.5, "B1913 illustrative beam exits near 2025", exit_year);
+    // Changing display frames must rotate the same beams, preserving pulse phase.
+    const double render_time = tdb_from_julian_year(1998.0);
+    scene.update(render_time);
+    glm::dvec3 inertial_beams[2], rotating_beams[2];
+    pulsar_beams(scene, body, render_time, 0.37, inertial_beams);
+    scene.frames.push_back({"test rotating", DisplayFrame::Type::Rotating, 0, pulsar, companion});
+    scene.set_active_frame(static_cast<int>(scene.frames.size()) - 1);
+    scene.update(render_time);
+    pulsar_beams(scene, body, render_time, 0.37, rotating_beams);
+    check(glm::length(scene.current_transform().axes * rotating_beams[0] - inertial_beams[0]) < 1e-12,
+          "pulsar beam phase is independent of the display frame");
+    std::printf("info: B1913 spin precession %.6f deg/yr, illustrative beam exit %.3f\n", rate, exit_year);
+
 }
 
 void test_psr_j1141_scene()

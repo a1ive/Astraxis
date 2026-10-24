@@ -24,6 +24,10 @@ struct PostKeplerianOrbit {
     double pb_dot = 0.0;    // dimensionless (s/s)
 };
 
+// Orbit-averaged spin precession of the pulsar, rad/s (Barker & O'Connell
+// 1975, Phys. Rev. D 12, 329). GMs in km^3/s^2, period in s, 0 <= e < 1.
+double geodetic_precession_rate(double pulsar_gm, double companion_gm, double period_s, double e);
+
 // The orbit at one moment: its Keplerian elements then.
 struct PostKeplerianPhase {
     double arg_peri_rad = 0.0; // of the companion, like elements.arg_peri_deg

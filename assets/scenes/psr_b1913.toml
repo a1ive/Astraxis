@@ -24,6 +24,15 @@
 #        profile, more and more as our line of sight nears the edge of the beam.
 #        Sec. 4.4: the published fits of the spin geometry are inconsistent (too
 #        much so to correct the timing for aberration).
+# [WT02] Weisberg & Taylor 2002, ApJ 576, 942 (https://arxiv.org/abs/astro-ph/0205280):
+#        Table 1 solution 1: i = 47.2 deg, lambda = 21.1 deg, alpha = 157.5 deg,
+#        T0 = 1981.0. Eqs. 2 and 5 define the spin and its angle to Earth.
+#        The beam fit is an hourglass with axial ratio R = 1.59; not modeled here.
+# [BO75] Barker & O'Connell 1975, Phys. Rev. D 12, 329, doi:10.1103/PhysRevD.12.329:
+#        orbit-averaged geodetic rate from the [WH16] masses: 1.214665 deg/yr
+#        (WT02 quotes 1.213 deg/yr using earlier masses).
+# [KR98] Kramer 1998, ApJ 509, 856 (https://arxiv.org/abs/astro-ph/9808127):
+#        disappearance after 2025 is a model prediction, not a confirmed observation here.
 # [DA15] Damour 2015, Class. Quantum Grav. 32, 124009 (arXiv:1411.3930): discovered
 #        at Arecibo on 1974 July 2 (the binary nature found that September).
 # [CAP]  Event captions (retrieved 2026-10-07), besides the sources above:
@@ -38,13 +47,17 @@
 #   sin i = x c / (a m_c / M) = 0.73284, i = 47.125 deg (within 1 sigma of [WH16]).
 #   The GR (1PN) periastron advance for these masses is 4.2262 deg/yr, 0.0037 deg
 #   per orbit; 1974-07 to 2026-10 adds up to ~221 deg.
-# Assumed: the node on the sky (0) and the sense of the inclination (i < 90 deg; it
-# only mirrors the orbit); neutron stars 12 km in radius at 1e5 K (L = 2.7e-5 L_sun).
-# The pulsar's spin axis is taken along the orbit normal, magnetic axis 45 deg from it,
-# beams 10 deg wide. In reality the spin axis is tilted to the orbit and precesses
-# (see [WH16] Sec. 2) - which may soon turn the beam away from Earth; that is not
-# shown. The beams are radio and invisible; they are drawn bluish and turn once every
-# 2 s of real time (the true 59 ms cannot be shown), stopping when the clock is paused.
+# The sky node is assumed to be 0. WT02 defines i from orbital angular momentum
+# to observer-to-pulsar K; visual_orbit's north/east/depth basis gives h dot K = -cos(i).
+# Thus visual i = 132.8746 deg represents WT02 i = 47.1254 deg (the WH16 timing value).
+# Spin precession uses WT02 solution 1 and a constant BO75 rate. T0 is a Julian epoch.
+# Neutron stars are assumed 12 km in radius at 1e5 K (L = 2.7e-5 L_sun).
+# The two radio beams are invisible in reality, drawn bluish here. Their circular
+# half-angle 15.15 deg is chosen to leave Earth's sightline near 2025 with this
+# geometry; it is not a measured width. Flash intensity tapers to zero across the
+# outer 20% of this cone. WT02's hourglass and radio pulse profiles are not modeled.
+# Beams turn once every 2 s of real time (true spin: 59 ms), stopping on pause.
+# Precession follows simulated time, including jumps and reverse playback.
 # Times are those of the timing model, i.e. as seen from the solar system barycentre
 # (light travel time not removed).
 # [DE18] Deller et al. 2018 (arXiv:1806.10265), abstract: from the VLBI parallax, a distance
@@ -52,7 +65,8 @@
 # The sky is a model of the Milky Way as seen from here (tools/sky/make_galaxy_sky.py,
 # assets/sky/SOURCES.md): its stars and dust clouds are statistical, not real ones.
 # Check (tests/relativity_tests.cpp): the Roemer delay and velocity amplitude, the periastron
-# advance and period decay against the GR formulas, the 1974 Newtonian orbit.
+# advance and period decay against GR, the 1974 Newtonian orbit, WT02 spin geometry
+# and the illustrative beam exit. Event tests check the fixed Earth sightline.
 
 name = "PSR B1913+16 (Hulse-Taylor)"
 
@@ -85,17 +99,21 @@ luminosity_solar = 2.7e-5
 orbit_color = "#a0b8ff"
 [bodies.pulsar]
 spin_axis_orbit_normal = "B1913+16 companion"
-magnetic_inclination_deg = 45.0
-beam_half_angle_deg = 10.0
+magnetic_inclination_deg = 157.5 # [WT02] Table 1, solution 1
+beam_half_angle_deg = 15.15      # illustrative circular edge: exits near 2025, not a fitted beam
+beam_cutoff = true
 display_period_s = 2.0
 beam_color = "#b8c8ff"
+[bodies.pulsar.geodetic_precession]
+misalignment_deg = 21.1         # [WT02] Table 1, solution 1 (lambda, also called delta)
+epoch_year = 1981.0             # [WT02] T0; interpreted as a Julian epoch
 [bodies.orbit]
 scale = -0.491513437058        # -m_c / (m_p + m_c)
 type = "post_keplerian"
 gm_km3_s2 = 3.7531078044e11
 period_days = 0.322997448918
 e = 0.6171340
-i_deg = 47.1254
+i_deg = 132.8746               # visual_orbit i = 180 - WT02 i; h dot K = cos(47.1254 deg)
 node_deg = 0.0                 # assumed
 arg_peri_deg = 112.54450       # the companion's at T0
 t_peri_jd_tdb = 2452145.40097849 # T0 = MJD 52144.90097849
@@ -117,7 +135,7 @@ type = "post_keplerian"
 gm_km3_s2 = 3.7531078044e11
 period_days = 0.322997448918
 e = 0.6171340
-i_deg = 47.1254
+i_deg = 132.8746               # visual_orbit i = 180 - WT02 i; h dot K = cos(47.1254 deg)
 node_deg = 0.0
 arg_peri_deg = 112.54450
 t_peri_jd_tdb = 2452145.40097849
@@ -138,7 +156,7 @@ newtonian_from = "1974-07-02"
 gm_km3_s2 = 3.7531078044e11
 period_days = 0.322997448918
 e = 0.6171340
-i_deg = 47.1254
+i_deg = 132.8746               # visual_orbit i = 180 - WT02 i; h dot K = cos(47.1254 deg)
 node_deg = 0.0
 arg_peri_deg = 112.54450
 t_peri_jd_tdb = 2452145.40097849
@@ -158,7 +176,7 @@ newtonian_from = "1974-07-02"
 gm_km3_s2 = 3.7531078044e11
 period_days = 0.322997448918
 e = 0.6171340
-i_deg = 47.1254
+i_deg = 132.8746               # visual_orbit i = 180 - WT02 i; h dot K = cos(47.1254 deg)
 node_deg = 0.0
 arg_peri_deg = 112.54450
 t_peri_jd_tdb = 2452145.40097849
@@ -231,3 +249,18 @@ caption = """\
     minute: a full turn takes 85 years. Gravitational waves also carry energy \
     away, shrinking the orbit too slowly to see here. This matches the prediction \
     of general relativity and provided the first evidence for gravitational waves."""
+
+[[events]]
+name = "Seen from Earth: the beams precess out of view (prediction)"
+time = "1974-07-02"
+focus = "PSR B1913+16"
+from_earth = true
+distance_km = 3.0e5
+warp = 94672800.0              # three Julian years per second; reaches 2025 in 17 s
+# [WT02] spin geometry, [KR98] disappearance prediction; circular beam is illustrative.
+caption = """\
+    Seen from Earth's direction, the pulsar flashes as a radio beam sweeps past. \
+    Relativity turns its spin axis about 1.215 degrees a year. At three years per \
+    second, the pulses fade as the beam turns away. Disappearance around 2025 was \
+    a prediction; the circular beam drawn here is illustrative, and its width \
+    sets the date. The spin is slowed down."""

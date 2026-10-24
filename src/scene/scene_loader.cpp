@@ -380,7 +380,7 @@ private:
     std::map<std::string, std::shared_ptr<const EphemerisTable>> m_tables;
     std::map<std::string, toml::table> m_templates; // validated body templates
     std::vector<int> m_nbody_bodies; // bodies whose motion comes from [nbody]
-    std::vector<std::pair<int, std::string>> m_pulsar_axes; // pulsar, body whose orbit normal is its spin axis
+    std::vector<std::pair<int, std::string>> m_pulsar_axes; // pulsar, body defining its spin or precession axis
     struct RocheSpec {
         int body = -1;
         std::string companion;
@@ -1148,6 +1148,18 @@ void Loader::parse(const toml::table& root, Scene& out)
                 get_double_or(*p, "magnetic_inclination_deg", body.pulsar.magnetic_inclination_deg);
             body.pulsar.beam_half_angle_deg = get_double_or(*p, "beam_half_angle_deg", body.pulsar.beam_half_angle_deg);
             body.pulsar.beam_color = parse_color(*p, "beam_color", ctx + " pulsar", body.pulsar.beam_color);
+            body.pulsar.beam_cutoff = (*p)["beam_cutoff"].value<bool>().value_or(false);
+            if (const toml::table* precession = (*p)["geodetic_precession"].as_table()) {
+                auto& prec = body.pulsar.precession;
+                const std::string pctx = ctx + " pulsar geodetic_precession";
+                prec.enabled = true;
+                prec.misalignment_deg = get_double(*precession, "misalignment_deg", pctx);
+                prec.epoch_tdb = tdb_from_julian_year(get_double(*precession, "epoch_year", pctx));
+                if (!(prec.misalignment_deg >= 0.0 && prec.misalignment_deg <= 180.0) ||
+                    !std::isfinite(prec.epoch_tdb)) {
+                    fail(pctx, "needs 0 <= misalignment_deg <= 180 and a finite epoch_year");
+                }
+            }
             if (body.pulsar.display_period_s <= 0.0 || body.pulsar.beam_half_angle_deg <= 0.0) {
                 fail(ctx, "pulsar display_period_s and beam_half_angle_deg must be positive");
             }
@@ -1488,7 +1500,33 @@ void Loader::parse(const toml::table& root, Scene& out)
             fail("body '" + out.bodies[static_cast<size_t>(pulsar)].name + "' pulsar",
                  "spin_axis_orbit_normal needs a body with an orbit");
         }
-        out.bodies[static_cast<size_t>(pulsar)].pulsar.spin_axis_orbit_of = k;
+        Body& body = out.bodies[static_cast<size_t>(pulsar)];
+        body.pulsar.spin_axis_orbit_of = k;
+        auto& prec = body.pulsar.precession;
+        if (prec.enabled) {
+            const Body& companion = out.bodies[static_cast<size_t>(k)];
+            const MotionSource* motion = body.motion.get();
+            if (const auto* scaled = dynamic_cast<const ScaledMotion*>(motion)) {
+                motion = &scaled->inner();
+            }
+            const auto* timing = dynamic_cast<const PostKeplerianMotion*>(motion);
+            const std::string ctx = "body '" + body.name + "' geodetic_precession";
+            if (!timing || k == pulsar || companion.parent != body.parent ||
+                !(body.body_gm_km3_s2 > 0.0 && companion.body_gm_km3_s2 > 0.0)) {
+                fail(ctx, "needs a post_keplerian pulsar orbit and a massive sibling companion");
+            }
+            const auto& orbit = timing->orbit();
+            prec.rate_rad_s = geodetic_precession_rate(body.body_gm_km3_s2, companion.body_gm_km3_s2,
+                                                      orbit.period_s, orbit.elements.e);
+            prec.axis_icrf = glm::normalize(visual_orbit_frame(orbit.elements)[2]);
+            const glm::dvec3 away = unit_from_ra_dec(orbit.elements.ra_deg * kDegToRad,
+                                                    orbit.elements.dec_deg * kDegToRad);
+            const glm::dvec3 x = away - glm::dot(away, prec.axis_icrf) * prec.axis_icrf;
+            if (!(glm::length(x) > 1e-10) || !std::isfinite(prec.rate_rad_s)) {
+                fail(ctx, "needs a finite precession rate and an orbit inclined to the sky");
+            }
+            prec.x_icrf = glm::normalize(x);
+        }
     }
 
     if (const toml::table* nbody = root["nbody"].as_table()) {
@@ -1597,6 +1635,13 @@ void Loader::parse(const toml::table& root, Scene& out)
                 if (e.focus < 0 || e.from_body == e.focus || e.from_orbit_normal >= 0) {
                     fail(ctx, "from_body needs a focus (other than itself) and no from_orbit_normal");
                 }
+            }
+            e.from_earth = (*t)["from_earth"].value<bool>().value_or(false);
+            if (e.from_earth && (e.focus < 0 || e.from_body >= 0 || e.from_sun || e.from_orbit_normal >= 0 ||
+                                 t->contains("elevation_deg") || t->contains("flyby") ||
+                                 (e.frame >= 0 && out.frames[static_cast<size_t>(e.frame)].type !=
+                                                      DisplayFrame::Type::Inertial))) {
+                fail(ctx, "from_earth needs a focus, an inertial frame and no other viewing direction or flyby");
             }
             if (t->contains("flyby")) {
                 e.flyby = body_ref(out, *t, "flyby", ctx, false);
@@ -1767,6 +1812,12 @@ void Loader::parse(const toml::table& root, Scene& out)
             if (!load_cluster_stars(m_asset_root / get_string(*c, "file", ctx), view, out.sky.stars, &error)) {
                 fail(ctx, error);
             }
+        }
+    }
+
+    for (const SceneEvent& event : out.events) {
+        if (event.from_earth && !(glm::length(out.sky.viewer_pc) > 0.0)) {
+            fail("event '" + event.name + "'", "from_earth needs sky.viewer_ra_dec_distance_pc away from Earth");
         }
     }
 

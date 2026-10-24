@@ -8,6 +8,7 @@
 #include "scene/camera.hpp"
 #include "scene/camera_director.hpp"
 #include "scene/label_layout.hpp"
+#include "scene/pulsar.hpp"
 #include "scene/scene_loader.hpp"
 #include "scene/simulation.hpp"
 
@@ -960,6 +961,90 @@ void test_event_from_sun()
           "the camera is turned from the sun's direction by phase_deg (deg)", turn);
 }
 
+// Earth is absent from a distant scene; sky.viewer_pc supplies its direction.
+// The event keeps this sightline while the camera follows the orbiting pulsar.
+void test_event_from_earth()
+{
+    Simulation sim;
+    std::string error;
+    check(sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/psr_b1913.toml", &error), "Earth-view pulsar scene loads");
+    const Scene& scene = sim.scene();
+    size_t index = scene.events.size();
+    for (size_t i = 0; i < scene.events.size(); ++i) {
+        if (scene.events[i].from_earth) {
+            index = i;
+            break;
+        }
+    }
+    check(index < scene.events.size(), "B1913 has an Earth-view event");
+    if (index == scene.events.size()) {
+        return;
+    }
+    const SceneEvent& event = scene.events[index];
+    const Body& pulsar = scene.bodies[static_cast<size_t>(event.focus)];
+    const glm::dvec3 earth = -glm::normalize(scene.sky.viewer_pc);
+    auto aligned = [&] {
+        return glm::dot(glm::normalize(sim.camera().view(1280, 720).position - pulsar.world_position), earth);
+    };
+    sim.jump_to_event(index);
+    for (int step = 0; step < 250; ++step) {
+        sim.update(0.1);
+        if (step >= 25) {
+            check(aligned() > 1.0 - 1e-12, "Earth-view camera follows the pulsar without sightline drift");
+        }
+    }
+    check(sim.clock().t_tdb > tdb_from_julian_year(2030.0), "Earth-view event advances across beam exit");
+    sim.clock().paused = true;
+    const double paused_time = sim.clock().t_tdb;
+    const double paused_animation = sim.animation_time();
+    glm::dvec3 before[2], after[2];
+    pulsar_beams(scene, pulsar, paused_time, paused_animation, before);
+    for (int step = 0; step < 20; ++step) {
+        sim.update(0.1);
+    }
+    pulsar_beams(scene, pulsar, sim.clock().t_tdb, sim.animation_time(), after);
+    check(sim.clock().t_tdb == paused_time && sim.animation_time() == paused_animation &&
+              glm::length(before[0] - after[0]) == 0.0, "pause freezes precession and displayed spin");
+    sim.clock().paused = false;
+    sim.clock().reverse = true;
+    for (int step = 0; step < 250; ++step) {
+        sim.update(0.1);
+    }
+    check(std::abs(sim.clock().t_tdb - event.t_tdb) < 1e-5 && aligned() > 1.0 - 1e-12,
+          "reverse returns to the event epoch with the Earth sightline intact");
+    sim.clock().reverse = false;
+
+    sim.clock().t_tdb = event.t_tdb - 60.0;
+    sim.clock().warp = 1.0;
+    sim.update(0.0);
+    sim.start_tour(42);
+    int earth_frames = 0;
+    for (int step = 0; step < 6000 && earth_frames < 100; ++step) {
+        sim.update(0.1);
+        if (sim.tour_event() == static_cast<int>(index) && sim.tour_event_arrived()) {
+            ++earth_frames;
+            if (earth_frames > 25) {
+                check(aligned() > 1.0 - 1e-12, "auto-tour Earth event keeps its sightline without camera drift");
+            }
+        }
+    }
+    check(earth_frames == 100, "auto-tour visits the Earth-view event");
+    sim.stop_tour();
+
+    Scene bad;
+    const std::string head = "name = 'test'\n[[bodies]]\nname = 'A'\nradii_km = [1.0]\n";
+    const std::string event_text = "[[events]]\nname = 'Earth'\ntime = '2000-01-01'\nfrom_earth = true\n";
+    check(!load_scene_string(head + event_text + "focus = 'A'\n", "earth_test", bad, &error) &&
+              error.find("viewer_ra_dec_distance_pc") != std::string::npos,
+          "Earth event rejects a missing sky sightline");
+    check(!load_scene_string(head + event_text, "earth_test", bad, &error) &&
+              error.find("needs a focus") != std::string::npos, "Earth event requires a focus");
+    check(!load_scene_string(head + event_text + "focus = 'A'\nfrom_body = 'Sun'\n", "earth_test", bad, &error),
+          "Earth event rejects conflicting directions");
+    check(!load_scene_string(head + event_text + "focus = 'A'\nelevation_deg = 0.0\n", "earth_test", bad, &error),
+          "Earth event rejects elevation overrides");
+}
+
 // Label layout: priority order, easing, no overlapping labels once settled, picking.
 void test_label_layout()
 {
@@ -1461,6 +1546,7 @@ void run_scene_tests()
     test_pinwheel_fades();
     test_pinwheel_exposure();
     test_event_from_sun();
+    test_event_from_earth();
     test_body_fixed_frames();
     test_label_layout();
     test_orbit_center();
