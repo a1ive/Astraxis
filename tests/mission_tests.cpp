@@ -6,6 +6,8 @@
 #include "core/time.hpp"
 #include "ephem/ephemeris.hpp"
 #include "ephem/kepler.hpp"
+#include "ephem/mean_element_orbit.hpp"
+#include "scene/simulation.hpp"
 
 #include <glm/glm.hpp>
 
@@ -2137,7 +2139,9 @@ void test_space_telescopes_scene()
         double max_km;
     };
     for (const Span& s : {Span{"JWST", "2022-07-01", "2031-09-01", 9.0e5}, Span{"Euclid", "2023-09-01", "2031-10-01", 9.0e5},
-                          Span{"Roman", "2026-10-01", "2028-10-01", 9.0e5}, Span{"Gaia", "2014-02-01", "2025-02-01", 4.5e5}}) {
+                          Span{"Roman", "2026-10-01", "2028-10-01", 9.0e5}, Span{"Gaia", "2014-02-01", "2025-02-01", 4.5e5},
+                          Span{"Herschel", "2009-09-01", "2013-04-01", 9.0e5},
+                          Span{"Planck", "2009-09-01", "2013-07-01", 4.5e5}}) {
         double worst = 0.0;
         for (double t = at(s.from); t < at(s.to); t += 5.0 * kSecondsPerDay) {
             scene.update(t);
@@ -2149,6 +2153,111 @@ void test_space_telescopes_scene()
             worst = std::max(worst, glm::length(pos(s.name) - l2));
         }
         check(worst < s.max_km, (std::string(s.name) + " stays near L2 (km)").c_str(), worst);
+    }
+
+    // Fresh Horizons queries (2026-10-24), independent of the bake grid:
+    // geocentric ICRF geometric vectors, KM-S. Include short source seams / burns
+    // missed by a uniform two-hour verification grid; t is TDB seconds from J2000.
+    struct VectorCheck {
+        const char* name;
+        double t;
+        glm::dvec3 position;
+    };
+    for (const VectorCheck& v : {
+             VectorCheck{"Spitzer", 349977917.0, {134213490.5576793, 36974949.23263077, 18821472.06356023}},
+             VectorCheck{"Herschel", 349977917.0, {-463693.8639576982, 1194605.40533179, 306965.8072545305}},
+             VectorCheck{"Planck", 349977917.0, {-848482.7376102738, 1063117.120169815, 293740.7324689996}},
+             VectorCheck{"Spitzer", 502199717.00000614, {87840704.73260117, -178285831.696045, -76050135.70872363}},
+             VectorCheck{"Spitzer", 615210376.1428311, {-164214619.7384374, 184544393.1690128, 78677919.70928411}},
+             VectorCheck{"Herschel", 421756096.9999552, {-1163028.339526808, -1444277.981362698, -197058.1949327354}},
+             VectorCheck{"Planck", 434790556.9999024, {1577352.479456798, 616369.9624622678, 88051.85973410349}}}) {
+        const int index = scene.find(v.name);
+        check(index >= 0, (std::string(v.name) + " is in Space Telescopes").c_str());
+        if (index < 0) {
+            continue;
+        }
+        const Body& body = scene.bodies[static_cast<size_t>(index)];
+        const double error = glm::length(body.motion->eval(v.t).position - v.position);
+        check(error < 20.0, (std::string(v.name) + " off-grid Horizons position (km)").c_str(), error);
+        check(!body.motion->valid_at(at("2003-01-01")) && !body.motion->valid_at(at("2100-01-01")),
+              "historical telescope has no extrapolation outside its table");
+    }
+
+    // NASA [SP], 2019-06-13, reports roughly 254 million km; the final navigation
+    // solution gives 259.9 million km that day. Compare the published scale to 3%.
+    scene.update(at("2019-06-13"));
+    const double spitzer_distance = glm::length(pos("Spitzer"));
+    check(std::abs(spitzer_distance / 2.54e8 - 1.0) < 0.03, "Spitzer distance vs NASA June 2019 (km)", spitzer_distance);
+    scene.update(at("2005-01-01"));
+    const double spitzer_y = pos("Spitzer").y;
+    scene.update(at("2010-01-01"));
+    check(spitzer_y < -1.0e7 && pos("Spitzer").y < spitzer_y - 5.0e7,
+          "Spitzer trails Earth and drifts farther behind", pos("Spitzer").y);
+
+    // Both leave L2 in 2013 [HE, PE], then remain on heliocentric disposal orbits.
+    scene.update(at("2014-06-01"));
+    for (const char* name : {"Herschel", "Planck"}) {
+        const double d = glm::length(pos(name) - scene.markers[0].world_position);
+        check(d > 5.0e6, (std::string(name) + " has left L2 by June 2014 (km)").c_str(), d);
+    }
+
+    // Horizons retains an older (2013-Aug-26) Herschel navigation prediction:
+    // 2027-10-13 20:55:54 UTC, 8,236,194 km. The final 2014 solution changed it
+    // to ~8,292,000 km on Oct 14, so compare the older distance to 1%.
+    scene.update(at("2027-10-13 20:55:54"));
+    check(std::abs(glm::length(pos("Herschel")) / 8236194.184 - 1.0) < 0.01,
+          "Herschel disposal orbit vs older navigation prediction (km)", glm::length(pos("Herschel")));
+
+    // Hubble is an illustration of its initial orbit [HB], with J2 nodal regression.
+    // Exercise event visibility through Simulation, including leaving the event.
+    Simulation hubble_sim;
+    std::string hubble_error;
+    check(hubble_sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/space_telescopes.toml", &hubble_error),
+          "Hubble close-up scene loads");
+    const Scene& hs = hubble_sim.scene();
+    const int hi = hs.find("Hubble");
+    check(hi >= 0, "Hubble is in Space Telescopes");
+    if (hi >= 0) {
+        const Body& h = hs.bodies[static_cast<size_t>(hi)];
+        check(!h.visible && h.event >= 0, "Hubble is hidden outside its event");
+        if (h.event >= 0) {
+            const size_t event = static_cast<size_t>(h.event);
+            hubble_sim.jump_to_event(event);
+            hubble_sim.update(0.0);
+            check(h.visible, "Hubble appears in its close-up event");
+            check(hs.trail_mode(hi) == TrailMode::Orbit, "Hubble draws its current orbit, not centuries of history");
+            const SceneEvent& shot = hs.events[event];
+            const auto* motion = dynamic_cast<const MeanElementOrbit*>(h.motion.get());
+            check(motion != nullptr, "Hubble uses precessing mean elements");
+            if (motion) {
+                const double t = shot.t_tdb;
+                const State state = motion->eval(t);
+                const glm::dvec3 normal = glm::normalize(glm::cross(state.position, state.velocity));
+                const double inclination = std::acos(normal.z) / kDegToRad;
+                const double altitude = glm::length(state.position) - 6378.1366;
+                const double minutes = kTwoPi / motion->mean_motion() / 60.0;
+                check(std::abs(altitude - 569.0) < 0.01, "Hubble nominal altitude vs ESA fact sheet (km)", altitude);
+                check(std::abs(inclination - 28.5) < 1e-6, "Hubble inclination vs ESA fact sheet (deg)", inclination);
+                check(std::abs(minutes - 96.0) < 0.1, "Hubble period vs ESA fact sheet (min)", minutes);
+                const State later = motion->eval(t + kSecondsPerDay);
+                const glm::dvec3 normal1 = glm::normalize(glm::cross(later.position, later.velocity));
+                const double turn = std::atan2(normal.x * normal1.y - normal.y * normal1.x,
+                                               normal.x * normal1.x + normal.y * normal1.y) / kDegToRad;
+                check(std::abs(turn + 6.493) < 0.002, "Hubble's J2 node regresses westward (deg/day)", turn);
+                std::vector<glm::dvec3> orbit;
+                std::vector<float> fades;
+                hs.trail(hi, t, 128, orbit, fades);
+                check(orbit.size() == 128 && fades.size() == orbit.size(), "Hubble draws one sampled orbit");
+                for (const auto& point : orbit) {
+                    check(glm::length(point) > 6900.0, "Hubble orbit line stays above Earth");
+                    check(std::abs(glm::dot(point, normal)) < 1e-6, "Hubble trail stays in its current orbital plane");
+                }
+            }
+            // Any other event must hide Hubble, even when its mean orbit is still valid.
+            hubble_sim.jump_to_event(event == 0 ? 1 : 0);
+            hubble_sim.update(0.0);
+            check(!h.visible, "Hubble disappears when another event is selected");
+        }
     }
 
     // Roman goes straight into its halo orbit: within a month of launch it is as far

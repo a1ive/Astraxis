@@ -311,6 +311,89 @@ base_step_minutes = 60     # the phasing loops of the first two months dip to a 
 verify_step_minutes = 20
 kepler_gm_km3_s2 = 398600.435507   # the Earth (DE440, JPL SSD astrodynamic parameters)
 
+# Historical telescopes; Horizons checked 2026-10-24. Spitzer uses tracking through
+# 2020-01-30 22:30 UTC, then a nominal prediction. Herschel (H20140117_0001)
+# includes post-disposal optical astrometry; Planck uses P20131024_0001.
+# Both ESA tables predict disposal orbits through 2050-01-01.
+# After baking Spitzer, run: python tools/bake/spitzer_seams.py
+# This brackets source discontinuities at month boundaries with one-second anchors.
+
+[[target]]
+name = "spitzer_geo"
+command = "-79"
+naif_id = -79
+center = "500@399"
+center_naif_id = 399
+start = "2003-08-25 06:27"
+stop = "2099-12-31"
+base_step_minutes = 360
+verify_step_minutes = 120
+# Minute knots around short trajectory seams / burns found by off-grid checks.
+keep_all = [
+  ["2003-08-25 06:27:59", "2003-08-25 07:54:59"],
+  ["2006-02-28 22:42:59", "2006-03-01 00:44:00"],
+  ["2006-04-30 22:52:00", "2006-05-01 00:53:00"],
+  ["2006-06-30 23:01:00", "2006-07-01 01:02:00"],
+  ["2007-07-31 22:44:59", "2007-08-01 00:45:59"],
+  ["2007-09-30 22:53:59", "2007-10-01 00:55:00"],
+  ["2008-06-30 22:19:59", "2008-07-01 00:21:00"],
+  ["2009-09-30 22:12:59", "2009-10-01 00:13:59"],
+  ["2009-11-30 22:21:59", "2009-12-01 00:22:59"],
+  ["2010-06-30 22:56:59", "2010-07-01 00:57:59"],
+  ["2011-03-31 22:22:59", "2011-04-01 00:23:59"],
+  ["2011-05-31 22:31:59", "2011-06-01 00:33:00"],
+  ["2011-07-31 22:41:00", "2011-08-01 00:42:00"],
+  ["2011-09-30 22:50:00", "2011-10-01 00:51:00"],
+  ["2015-11-30 22:54:59", "2015-12-01 00:56:00"],
+  ["2016-06-30 22:11:59", "2016-07-01 00:12:59"],
+  ["2017-01-31 22:40:00", "2017-02-01 00:41:00"],
+  ["2018-02-28 22:30:59", "2018-03-01 00:32:00"],
+  ["2018-06-30 22:49:00", "2018-07-01 00:49:59"],
+  ["2019-05-31 22:23:59", "2019-06-01 00:24:59"],
+  ["2019-07-31 22:32:59", "2019-08-01 00:33:59"],
+  ["2040-08-03 20:05:59", "2040-08-03 22:07:00"],
+  ["2078-08-03 09:38:59", "2078-08-03 11:39:59"],
+  ["2079-01-04 09:57:59", "2079-01-04 11:59:00"],
+  ["2079-02-01 03:49:59", "2079-02-01 05:50:59"],
+  ["2079-03-08 03:44:00", "2079-03-08 05:45:00"],
+  ["2080-02-25 16:27:00", "2080-02-25 18:27:59"],
+  ["2083-08-15 03:45:00", "2083-08-15 05:46:00"],
+  ["2086-01-24 19:53:59", "2086-01-24 21:55:00"],
+]
+
+
+[[target]]
+name = "herschel_geo"
+command = "-486"
+naif_id = -486
+center = "500@399"
+center_naif_id = 399
+start = "2009-05-14 13:40"
+stop = "2049-12-31"
+base_step_minutes = 360
+verify_step_minutes = 120
+# Minute knots around short trajectory seams / burns found by off-grid checks.
+keep_all = [
+  ["2013-05-13 20:00:00", "2013-05-14 09:59:59"],
+]
+
+
+[[target]]
+name = "planck_geo"
+command = "-489"
+naif_id = -489
+center = "500@399"
+center_naif_id = 399
+start = "2009-05-14 13:42"
+stop = "2049-12-31"
+base_step_minutes = 360
+verify_step_minutes = 120
+# Minute knots around short trajectory seams / burns found by off-grid checks.
+keep_all = [
+  ["2013-10-11 18:09:00", "2013-10-11 20:10:00"],
+]
+
+
 # --- Jupiter-centered (center: Jupiter body center, 500@599) ---------------
 #
 # Galileo's and Juno's orbits around Jupiter, and the Galilean moons over the

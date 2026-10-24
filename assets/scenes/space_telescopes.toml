@@ -1,5 +1,6 @@
-# Space telescopes around the Earth: JWST, Euclid, Roman and Gaia at Sun-Earth L2,
-# TESS in a 2:1 resonance with the Moon, and Kepler drifting behind the Earth.
+# Space telescopes: Hubble close to Earth, TESS in resonance with the Moon,
+# Herschel, Planck, Gaia, JWST, Euclid and Roman around Sun-Earth L2,
+# and Spitzer and Kepler drifting behind the Earth.
 #
 # In the default "Sun-Earth rotating" frame the x axis always points from the Sun
 # through the Earth, so L2 (1.5 million km beyond the Earth) stays fixed and the halo
@@ -23,6 +24,12 @@
 #                         2018-10-30)
 #          TESS (-95)     2018-04-18 .. 2028-04-19 (concatenated tag-up predictions; tracking
 #                         to 2026-10-18)
+#          Spitzer (-79)  2003-08-25 .. 2099-12-31 (tracking to 2020-01-30 22:30 UTC,
+#                         then a nominal prediction; retrieved 2026-10-24)
+#          Herschel (-486) 2009-05-14 .. 2049-12-31 (ESA H20140117_0001, including
+#                         post-disposal optical astrometry, then a prediction)
+#          Planck (-489)  2009-05-14 .. 2049-12-31 (ESA P20131024_0001, then a
+#                         prediction of the disposal orbit)
 #          Moon (301)     1972 .. 2099 (as in solar_system.toml)
 #        Horizons' notes: Kepler's Earth-trailing heliocentric orbit has "a period of 372.5
 #        days" and "very-low disturbing torque on spacecraft"; Gaia arrived at its Lissajous
@@ -78,6 +85,35 @@
 #          final orbit; the data are sent down at each perigee.
 #        The dates and distances of arrivals, departures and flybys: [HZN] (bake tool and
 #        scene tests).
+#        Retrieved 2026-10-24:
+#        [SP] NASA, "How NASA's Spitzer Has Stayed Alive for So Long", 2019-06-13:
+#          https://www.nasa.gov/missions/spitzer/how-nasas-spitzer-has-stayed-alive-for-so-long/
+#          Earth-trailing solar orbit; reports a distance of about 254 million km. Its
+#          solar panels turn away from the Sun when its antenna points at Earth. Retirement:
+#          [HZN], 2020-01-30.
+#        [HP] ESA, "Herschel overview":
+#          https://www.esa.int/Science_Exploration/Space_Science/Herschel_overview
+#          Herschel and Planck launched together on 2009-05-14, then separated;
+#          Herschel's halo orbit is around Sun-Earth L2, 1.5 million km from Earth.
+#          Tauber et al. 2010, A&A 520, A1:
+#          https://doi.org/10.1051/0004-6361/200912983
+#          Planck's smaller Lissajous orbit has a six-month period.
+#        [HE] ESA, "Herschel ends operations as orbiting testbed", 2013-06-17:
+#          https://www.esa.int/Enabling_Support/Operations/Herschel_ends_operations_as_orbiting_testbed
+#          Helium exhausted on 29 April; main disposal burn on 13-14 May;
+#          final command on 17 June, leaving it in a slower orbit around the Sun.
+#        [PE] ESA, "Last command sent to ESA's Planck space telescope", 2013-10-23:
+#          https://www.esa.int/Newsroom/Press_Releases/Last_command_sent_to_ESA_s_Planck_space_telescope
+#          Departure from L2 began in August; final transmitter shutdown on 23 October.
+#        [HB] ESA/Hubble fact sheet, https://esahubble.org/about/general/fact_sheet/:
+#          initial circular orbit ~569 km high, inclination 28.5 deg, period ~96 min;
+#          dimensions 13.2 x 4.2 m. Hubble's phase and node here are illustrative.
+#        [J2] NASA, https://ntrs.nasa.gov/citations/20070038369, Table 1:
+#          Earth J2 = 1.08263e-3. With R = 6378.1366 km [PCK], GM = 398600.435507 [GM],
+#          a = R + 569 km, e = 0, i = 28.5 deg, n = sqrt(GM/a^3), the secular rate
+#          dOmega/dt = -1.5 J2 n (R/a)^2 cos(i) = -6.4929532952 deg/day.
+#          The period is Keplerian; short-period J2 terms, drag, reboosts and the
+#          equator's precession are omitted. This is an initial-orbit illustration.
 # [PCK]  NAIF pck00011.tpc (IAU 2015).
 # [SPHY] JPL SSD satellite physical parameters (Moon mean radius).
 
@@ -198,6 +234,67 @@ trail_history_days = 365.0                 # one loop
 type = "ephemeris"
 file = "ephem/kepler_geo.eph"
 
+[[bodies]]
+name = "Spitzer"
+parent = "Earth"
+kind = "spacecraft"
+radii_km = [0.0023]                       # illustrative marker size
+color = "#ed9386"
+orbit_color = "#e98272"
+trail = "history"
+trail_history_days = 365.0
+[bodies.orbit]                             # [HZN]
+type = "ephemeris"
+file = "ephem/spitzer_geo.eph"
+
+[[bodies]]
+name = "Herschel"
+parent = "Earth"
+kind = "spacecraft"
+radii_km = [0.00375]                      # 7.5 m tall [HZN]
+color = "#f4e3a6"
+orbit_color = "#e6ce85"
+trail = "history"
+trail_history_days = 365.0
+[bodies.orbit]                             # [HZN]
+type = "ephemeris"
+file = "ephem/herschel_geo.eph"
+
+[[bodies]]
+name = "Planck"
+parent = "Earth"
+kind = "spacecraft"
+radii_km = [0.00225]                      # 4.5 m wide [HZN]
+color = "#8edddc"
+orbit_color = "#68c9c7"
+trail = "history"
+trail_history_days = 365.0
+[bodies.orbit]                             # [HZN]
+type = "ephemeris"
+file = "ephem/planck_geo.eph"
+
+# Hubble's initial orbit [HB], displayed only by its close-up event below.
+[[bodies]]
+name = "Hubble"
+parent = "Earth"
+kind = "spacecraft"
+radii_km = [0.0066]
+color = "#d3e0ef"
+orbit_color = "#b0c6e0"
+trail = "orbit"                         # one osculating ellipse in the close-up
+[bodies.orbit]
+type = "mean_elements"
+epoch_jd_tdb = 2448007.5                   # 1990-04-26 00:00 TDB; chosen phase origin
+a_km = 6947.1366                          # [PCK] equatorial radius + 569 km [HB]
+e = 0.0
+i_deg = 28.5                              # [HB], relative to the J2000 equator
+node_deg = 0.0                           # illustrative orientation
+arg_peri_deg = 0.0
+mean_anomaly_deg = 0.0                   # illustrative phase
+period_days = 0.06669695378032205         # 2 pi sqrt(a^3 / GM_Earth), ~96.04 min
+node_period_years = -0.15179937981320174  # J2 nodal regression [J2]
+laplace_pole_ra_dec_deg = [0.0, 90.0]
+
 [[frames]]
 name = "Sun-Earth rotating"
 type = "rotating"
@@ -230,6 +327,42 @@ mass_ratio = 3.04042340e-6
 # Events, in time order. Arrivals, departures and distances: [HZN] (the scene tests
 # check them).
 
+[[events]]
+name = "Hubble close to Earth (illustrative orbit)"
+time = "1990-04-26"
+focus = "Earth"
+frame = "Earth-centered (ICRF)"
+from_orbit_normal = "Hubble"
+distance_km = 24000.0
+warp = 120.0
+show = ["Hubble"]
+# [HB], [J2]. A view of the initial orbit, with a chosen phase and node.
+caption = """\
+    Discovery released Hubble into low Earth orbit in April 1990. About 570 km \
+    above the ground, it circles the Earth in 96 minutes, tilted 28.5 degrees to \
+    the equator. Earth's equatorial bulge slowly turns the orbital plane westward. \
+    This view illustrates that initial orbit; Hubble's position along it and the \
+    plane's starting direction are chosen for the scene."""
+
+[[events]]
+name = "Spitzer falls behind the Earth (2003)"
+time = "2003-08-26"
+focus = "Earth"
+frame = "Sun-Earth rotating"
+from_body = "Sun"
+elevation_deg = 75.0
+distance_km = 1.4e8
+warp = 2592000.0
+# [SP], [HZN]
+caption = """\
+    Spitzer heads into its own orbit around the Sun after its August 2003 launch. \
+    Its year is longer than Earth's, so the infrared telescope gradually falls \
+    behind. In this view, which turns with the Earth, its path makes an annual \
+    loop as it drifts away."""
+[[events.trails]]
+body = "Spitzer"
+trail_history_days = 1500.0
+
 # Kepler's annual loops in the rotating frame come from its orbit's eccentricity and tilt
 # relative to the Earth's; the drift from its longer year.
 [[events]]
@@ -250,6 +383,49 @@ caption = """\
 [[events.trails]]
 body = "Kepler"
 trail_history_days = 1500.0
+
+[[events]]
+name = "Herschel and Planck at L2 (2009)"
+time = "2009-05-15"
+focus = "Earth"
+frame = "Sun-Earth rotating"
+distance_km = 4.0e6
+warp = 604800.0
+# [HP], [HZN]
+caption = """\
+    Herschel and Planck leave Earth together on an Ariane 5 on 14 May 2009, then \
+    separate and travel to different orbits around L2. Herschel follows a wide \
+    halo orbit to study cold dust and star formation in the far infrared. Planck \
+    traces a smaller Lissajous orbit while mapping the cosmic microwave background. \
+    Each loop takes roughly six months."""
+
+[[events]]
+name = "Herschel leaves L2 (2013)"
+time = "2013-05-01"
+focus = "Earth"
+frame = "Sun-Earth rotating"
+distance_km = 8.0e6
+warp = 172800.0
+# [HE], [HZN]
+caption = """\
+    Herschel's helium runs out on 29 April 2013, ending its infrared observations. \
+    A long burn on 13-14 May sends it away from L2 into a slower orbit around the \
+    Sun. Controllers switch it off on 17 June. Its path beyond the final tracking \
+    and optical observations is a prediction of where the silent telescope drifts."""
+
+[[events]]
+name = "Planck leaves L2 (2013)"
+time = "2013-08-01"
+focus = "Earth"
+frame = "Sun-Earth rotating"
+distance_km = 8.0e6
+warp = 172800.0
+# [PE], [HZN]
+caption = """\
+    In August 2013, Planck starts leaving L2 for a parking orbit around the Sun. \
+    Its last instrument continues observing into October, and on 23 October \
+    controllers turn off the transmitter. The later path is ESA's prediction \
+    of its disposal orbit."""
 
 [[events]]
 name = "Gaia at L2 (2014-2025)"
@@ -322,6 +498,26 @@ caption = """\
 [[events.trails]]
 body = "TESS"
 trail_history_days = 82.0                  # three months of the Moon
+
+[[events]]
+name = "Spitzer retires (2020-01-30)"
+time = "2020-01-30"
+focus = "Earth"
+frame = "Sun-Earth rotating"
+from_body = "Sun"
+elevation_deg = 75.0
+phase_deg = 90.0
+distance_km = 8.0e8
+warp = 2592000.0
+# [SP], [HZN]
+caption = """\
+    After more than sixteen years, Spitzer is retired on 30 January 2020, far \
+    behind Earth. At this distance, pointing its antenna home turns the solar \
+    panels away from the Sun, limiting the time available to send data. The \
+    telescope keeps orbiting the Sun; its path after retirement is a prediction."""
+[[events.trails]]
+body = "Spitzer"
+trail_history_days = 6000.0
 
 [[events]]
 name = "Webb launches (2021-12-25)"
