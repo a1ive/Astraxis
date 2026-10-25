@@ -37,6 +37,8 @@ struct FragmentUniforms {
     glm::vec4 shape;
     glm::vec4 color;
     glm::vec4 occluders[kMaxCometOccluders];
+    glm::mat4 to_nucleus;
+    glm::uvec4 mesh; // x = node count
 };
 
 SDL_GPUGraphicsPipeline* create_pipeline(SDL_GPUDevice* device, const SceneTargetFormat& format,
@@ -105,7 +107,10 @@ bool CometPass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
     m_vertex_count = static_cast<uint32_t>(vertices.size());
     m_vertices = create_static_buffer(device, SDL_GPU_BUFFERUSAGE_VERTEX, vertices.data(),
                                       static_cast<uint32_t>(vertices.size() * sizeof(glm::vec3)));
-    return m_vertices != nullptr;
+    const ShapeOcclusionNode empty;
+    m_empty_nodes = create_static_buffer(device, SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ,
+                                         &empty, sizeof(empty));
+    return m_vertices != nullptr && m_empty_nodes != nullptr;
 }
 
 bool CometPass::set_format(const SceneTargetFormat& format)
@@ -127,6 +132,7 @@ bool CometPass::create_pipelines(const SceneTargetFormat& format)
     SDL_GPUShader* fs = create_shader(device, {.dxil = kCometFragDxil,
                                                .spirv = kCometFragSpirv,
                                                .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
+                                               .num_storage_buffers = 1,
                                                .num_uniform_buffers = 1});
     if (!vs || !fs) {
         SDL_ReleaseGPUShader(device, vs);
@@ -144,11 +150,38 @@ bool CometPass::create_pipelines(const SceneTargetFormat& format)
     return true;
 }
 
+void CometPass::clear_meshes()
+{
+    for (const Mesh& mesh : m_meshes) {
+        SDL_ReleaseGPUBuffer(m_device, mesh.nodes);
+    }
+    m_meshes.clear();
+}
+
+int CometPass::add_mesh(const ShapeModel& shape)
+{
+    const auto nodes = build_shape_occlusion(shape);
+    if (nodes.empty()) {
+        return -1;
+    }
+    SDL_GPUBuffer* buffer = create_static_buffer(m_device, SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ,
+        nodes.data(), static_cast<uint32_t>(nodes.size() * sizeof(ShapeOcclusionNode)));
+    if (!buffer) {
+        SDL_LogError(SDL_LOG_CATEGORY_GPU, "Comet nucleus mesh upload failed: %s", SDL_GetError());
+        return -1;
+    }
+    m_meshes.push_back({buffer, static_cast<uint32_t>(nodes.size())});
+    return static_cast<int>(m_meshes.size() - 1);
+}
+
 void CometPass::shutdown()
 {
     if (!m_device) {
         return;
     }
+    clear_meshes();
+    SDL_ReleaseGPUBuffer(m_device, m_empty_nodes);
+    m_empty_nodes = nullptr;
     SDL_ReleaseGPUBuffer(m_device, m_vertices);
     SDL_ReleaseGPUGraphicsPipeline(m_device, m_outside);
     SDL_ReleaseGPUGraphicsPipeline(m_device, m_inside);
@@ -195,6 +228,14 @@ void CometPass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const C
         for (int k = 0; k < item.occluder_count && k < kMaxCometOccluders; ++k) {
             fu.occluders[k] = item.occluders[k];
         }
+        fu.to_nucleus = glm::mat4(item.to_nucleus);
+        SDL_GPUBuffer* nodes = m_empty_nodes;
+        if (item.nucleus_mesh >= 0) {
+            const Mesh& mesh = m_meshes[static_cast<size_t>(item.nucleus_mesh)];
+            nodes = mesh.nodes;
+            fu.mesh.x = mesh.count;
+        }
+        SDL_BindGPUFragmentStorageBuffers(pass, 0, &nodes, 1);
         SDL_PushGPUFragmentUniformData(cmd, 0, &fu, sizeof(fu));
 
         SDL_DrawGPUPrimitives(pass, m_vertex_count, 1, 0, 0);

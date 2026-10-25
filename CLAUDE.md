@@ -186,6 +186,7 @@ CMake 目标：
 - TOML 的表头会“吞掉”后面的键：顶层键（如 `name`）必须写在第一个 `[table]` 之前
 - 以行星为根、没有太阳天体的场景（木星、土星、火星）里，事件的 `from_body = "Sun"` 指太阳方向（`SceneEvent::from_sun`，用 `Scene::sun_position()`），不是天体；这类场景里不要再加名叫 Sun 的天体
 - 撞击不能当飞掠事件（`flyby`）：`find_flyby` 要找前后都有数据的距离极小值，星历在撞击点结束就找不到（场景测试报“the named flyby is found”）。撞击事件用 `from_body` + `phase_deg` 定视角（撞在背面时 `from_body = "Earth"`、`phase_deg = 180`）
+- 有形状模型的彗核，彗发和离子尾的光线要按网格求交，并使用与表面相同的 `Body::orientation`；用等体积球遮挡会在不规则彗核周围显出圆形暗斑。网格 BVH 在加载场景时上传，自转时把光线转到本体系。
 - 彗星可以是行星根天体的子天体（火星场景的赛丁泉），但尘埃彗尾要按太阳的 GM 传播（`Scene::sun_gm`），不能用父天体的 GM；彗星的星历要相对那颗行星烘焙，日心表减去近似根数的行星位置会差几千 km
 - 改了 `assets/` 里的场景要重新构建才生效：程序读的是构建时复制到 exe 旁的副本。复制用的是 `copy_directory_if_different`，不删文件：场景改名或删除后，旧副本还留在 `build/*/<配置>/assets/scenes/`，场景列表里会多出一项，要手动删掉
 - 航天器默认画历史轨迹。给 Hubble 这样的近地航天器用 `mean_elements` 时，要写 `trail = "orbit"`；否则默认历史窗口会取几百年，密集的低轨路径叠成一圈亮带。

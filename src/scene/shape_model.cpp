@@ -2,10 +2,12 @@
 
 #include <glm/geometric.hpp>
 
+#include <algorithm>
 #include <array>
 #include <cstring>
 #include <fstream>
 #include <map>
+#include <numeric>
 
 namespace astraxis {
 
@@ -82,6 +84,59 @@ bool load_shape_model(const std::filesystem::path& path, ShapeModel& out, std::s
         out.normals[i] = len > 0.0f ? n / len : glm::vec3(0.0f, 0.0f, 1.0f);
     }
     return true;
+}
+
+std::vector<ShapeOcclusionNode> build_shape_occlusion(const ShapeModel& shape)
+{
+    static_assert(sizeof(ShapeOcclusionNode) == 48);
+    const size_t count = shape.indices.size() / 3;
+    if (count == 0) {
+        return {};
+    }
+    std::vector<size_t> triangles(count);
+    std::iota(triangles.begin(), triangles.end(), size_t{0});
+    std::vector<ShapeOcclusionNode> nodes;
+    nodes.reserve(2 * count - 1);
+    auto vertex = [&](size_t triangle, size_t corner) {
+        return shape.positions[shape.indices[3 * triangle + corner]];
+    };
+    auto build = [&](auto&& self, size_t begin, size_t end) -> void {
+        const size_t index = nodes.size();
+        nodes.emplace_back();
+        if (end - begin == 1) {
+            const size_t t = triangles[begin];
+            nodes[index].a = vertex(t, 0);
+            nodes[index].b = vertex(t, 1);
+            nodes[index].c = vertex(t, 2);
+            nodes[index].leaf = 1;
+        } else {
+            glm::vec3 lo = vertex(triangles[begin], 0), hi = lo;
+            for (size_t i = begin; i < end; ++i) {
+                for (size_t k = 0; k < 3; ++k) {
+                    lo = glm::min(lo, vertex(triangles[i], k));
+                    hi = glm::max(hi, vertex(triangles[i], k));
+                }
+            }
+            // Pad the slabs for float ray transforms and shared-edge rounding.
+            const glm::vec3 margin = 1e-6f * (glm::max(glm::abs(lo), glm::abs(hi)) + 1.0f);
+            nodes[index].a = lo - margin;
+            nodes[index].b = hi + margin;
+            const glm::vec3 extent = hi - lo;
+            const int axis = extent.x >= extent.y && extent.x >= extent.z ? 0 : (extent.y >= extent.z ? 1 : 2);
+            const size_t middle = begin + (end - begin) / 2;
+            std::nth_element(triangles.begin() + static_cast<std::ptrdiff_t>(begin),
+                             triangles.begin() + static_cast<std::ptrdiff_t>(middle),
+                             triangles.begin() + static_cast<std::ptrdiff_t>(end), [&](size_t a, size_t b) {
+                return vertex(a, 0)[axis] + vertex(a, 1)[axis] + vertex(a, 2)[axis] <
+                       vertex(b, 0)[axis] + vertex(b, 1)[axis] + vertex(b, 2)[axis];
+            });
+            self(self, begin, middle);
+            self(self, middle, end);
+        }
+        nodes[index].escape = static_cast<uint32_t>(nodes.size());
+    };
+    build(build, 0, count);
+    return nodes;
 }
 
 } // namespace astraxis

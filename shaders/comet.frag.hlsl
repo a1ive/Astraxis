@@ -29,6 +29,9 @@ static const int kComaSteps = 32;
 static const int kTailSteps = 64;
 static const float kPi = 3.14159265;
 
+// ShapeOcclusionNode records, shared by all three components of a nucleus.
+ByteAddressBuffer u_nucleus : register(t0, space2);
+
 cbuffer Uniforms : register(b0, space3)
 {
     float4x4 u_to_local;  // camera-relative world vector -> local frame (3x3 rotation)
@@ -38,6 +41,8 @@ cbuffer Uniforms : register(b0, space3)
     float4 u_shape;       // coma: Lp, Ld, nucleus radius; tail: w0, tan(opening), L; w = brightness
     float4 u_color;       // rgb = color (sRGB), w = time (s)
     float4 u_occluders[MAX_OCCLUDERS]; // xyz = center (local), w = radius
+    float4x4 u_to_nucleus; // comet-local vector -> body-fixed vector
+    uint4 u_mesh;         // x = node count (zero for the spherical fallback)
 };
 
 struct PSInput
@@ -112,6 +117,56 @@ float tail_density(float3 p)
     return density / (kPi * w0 * w0 * u_shape.z);
 }
 
+// Stackless BVH traversal. Transform only the ray; the mesh remains static as
+// the nucleus tumbles. Both triangle sides occlude, including concave surfaces.
+float nucleus_hit(float3 o, float3 dir, float limit)
+{
+    o = mul((float3x3)u_to_nucleus, o);
+    dir = mul((float3x3)u_to_nucleus, dir);
+    uint node = 0;
+    while (node < u_mesh.x) {
+        uint offset = node * 48;
+        float3 a = asfloat(u_nucleus.Load3(offset));
+        uint escape = u_nucleus.Load(offset + 12);
+        float3 b = asfloat(u_nucleus.Load3(offset + 16));
+        uint leaf = u_nucleus.Load(offset + 28);
+        if (leaf != 0) {
+            float3 c = asfloat(u_nucleus.Load3(offset + 32)) - a;
+            b -= a;
+            float3 p = cross(dir, c);
+            float det = dot(b, p);
+            if (abs(det) > 1e-7 * length(b) * length(c)) {
+                float3 s = o - a;
+                float u = dot(s, p) / det;
+                float3 q = cross(s, b);
+                float v = dot(dir, q) / det;
+                float t = dot(c, q) / det;
+                if (u >= 0.0 && v >= 0.0 && u + v <= 1.0 && t > 0.0) {
+                    limit = min(limit, t);
+                }
+            }
+            node = escape;
+        } else {
+            float near_t = 0.0;
+            float far_t = limit;
+            for (int axis = 0; axis < 3; ++axis) {
+                if (abs(dir[axis]) < 1e-8) {
+                    if (o[axis] < a[axis] || o[axis] > b[axis]) {
+                        far_t = -1.0;
+                    }
+                } else {
+                    float t0 = (a[axis] - o[axis]) / dir[axis];
+                    float t1 = (b[axis] - o[axis]) / dir[axis];
+                    near_t = max(near_t, min(t0, t1));
+                    far_t = min(far_t, max(t0, t1));
+                }
+            }
+            node = near_t <= far_t ? node + 1 : escape;
+        }
+    }
+    return limit;
+}
+
 float4 main(PSInput input) : SV_Target0
 {
     float3 dir = normalize(mul((float3x3)u_to_local, input.rel_pos));
@@ -129,8 +184,8 @@ float4 main(PSInput input) : SV_Target0
     for (int k = 0; k < count; ++k) {
         float3 oc = o - u_occluders[k].xyz;
         float b = dot(oc, dir);
-        float c = dot(oc, oc) - u_occluders[k].w * u_occluders[k].w;
-        float disc = b * b - c;
+        float3 across = cross(oc, dir);
+        float disc = u_occluders[k].w * u_occluders[k].w - dot(across, across);
         if (disc > 0.0) {
             float hit = -b - sqrt(disc);
             if (hit > 0.0) {
@@ -138,6 +193,7 @@ float4 main(PSInput input) : SV_Target0
             }
         }
     }
+    t1 = nucleus_hit(o, dir, t1);
     if (t1 <= t0) {
         return float4(0.0, 0.0, 0.0, 1.0);
     }

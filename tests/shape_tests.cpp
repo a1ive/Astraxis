@@ -16,6 +16,119 @@ using namespace astraxis;
 
 namespace {
 
+// Plane intersection and oriented edge tests provide a geometric reference
+// independent of the shader's barycentric triangle intersection.
+double triangle_hit(const glm::dvec3& o, const glm::dvec3& d, const glm::dvec3& a,
+                    const glm::dvec3& b, const glm::dvec3& c, double limit)
+{
+    const glm::dvec3 n = glm::cross(b - a, c - a);
+    const double denominator = glm::dot(n, d);
+    if (std::abs(denominator) < 1e-12) {
+        return limit;
+    }
+    const double t = glm::dot(n, a - o) / denominator;
+    const glm::dvec3 p = o + t * d;
+    if (t > 0.0 && t < limit && glm::dot(n, glm::cross(b - a, p - a)) >= 0.0 &&
+        glm::dot(n, glm::cross(c - b, p - b)) >= 0.0 && glm::dot(n, glm::cross(a - c, p - c)) >= 0.0) {
+        return t;
+    }
+    return limit;
+}
+
+void test_shape_occlusion()
+{
+    check(build_shape_occlusion(ShapeModel{}).empty(), "empty mesh has no occlusion tree");
+    for (const char* file : {"halley.mesh", "67p.mesh"}) {
+        ShapeModel shape;
+        std::string error;
+        const bool loaded = load_shape_model(std::filesystem::path(ASTRAXIS_ASSET_DIR) / "shapes" / file, shape, &error);
+        check(loaded, "load comet occlusion mesh");
+        if (!loaded) {
+            continue;
+        }
+        const auto nodes = build_shape_occlusion(shape);
+        check(nodes.size() == 2 * shape.indices.size() / 3 - 1 && nodes.front().escape == nodes.size(),
+              "occlusion tree covers all triangles");
+        bool links_valid = true;
+        for (size_t i = 0; i < nodes.size(); ++i) {
+            const auto& n = nodes[i];
+            links_valid = links_valid && n.escape > i && n.escape <= nodes.size();
+            if (n.leaf) {
+                links_valid = links_valid && n.escape == i + 1;
+            } else {
+                const size_t right = nodes[i + 1].escape;
+                links_valid = links_valid && right < n.escape && nodes[right].escape == n.escape;
+            }
+        }
+        check(links_valid, "occlusion subtree escape links");
+        if (!links_valid) {
+            continue;
+        }
+        double radius = 0.0;
+        for (const auto& p : shape.positions) {
+            radius = std::max(radius, glm::length(glm::dvec3(p)));
+        }
+        int hits = 0, misses = 0;
+        double worst = 0.0;
+        // Six perspective views include axis-parallel rays, the limb, and both
+        // lobes of 67P. Limit each ray to a foreground plane and beyond the nucleus.
+        for (int axis = 0; axis < 3; ++axis) {
+            for (double side : {-1.0, 1.0}) {
+                for (int x = -6; x <= 6; ++x) {
+                    for (int y = -6; y <= 6; ++y) {
+                        glm::dvec3 o(0.0), target(0.0);
+                        o[axis] = side * 4.0 * radius;
+                        target[(axis + 1) % 3] = x * radius / 5.0;
+                        target[(axis + 2) % 3] = y * radius / 5.0;
+                        const glm::dvec3 d = glm::normalize(target - o);
+                        for (double limit : {3.5 * radius, 10.0 * radius}) {
+                            double reference = limit;
+                            for (size_t i = 0; i < shape.indices.size(); i += 3) {
+                                reference = triangle_hit(o, d, glm::dvec3(shape.positions[shape.indices[i]]),
+                                    glm::dvec3(shape.positions[shape.indices[i + 1]]),
+                                    glm::dvec3(shape.positions[shape.indices[i + 2]]), reference);
+                            }
+                            double hit = limit;
+                            size_t index = 0;
+                            while (index < nodes.size()) {
+                                const auto& n = nodes[index];
+                                const glm::dvec3 a(n.a), b(n.b), c(n.c);
+                                if (n.leaf) {
+                                    hit = triangle_hit(o, d, a, b, c, hit);
+                                    index = n.escape;
+                                } else {
+                                    double near_t = 0.0, far_t = hit;
+                                    for (int k = 0; k < 3; ++k) {
+                                        if (std::abs(d[k]) < 1e-8) {
+                                            if (o[k] < a[k] || o[k] > b[k]) {
+                                                far_t = -1.0;
+                                            }
+                                        } else {
+                                            const double t0 = (a[k] - o[k]) / d[k];
+                                            const double t1 = (b[k] - o[k]) / d[k];
+                                            near_t = std::max(near_t, std::min(t0, t1));
+                                            far_t = std::min(far_t, std::max(t0, t1));
+                                        }
+                                    }
+                                    index = near_t <= far_t ? index + 1 : n.escape;
+                                }
+                            }
+                            worst = std::max(worst, std::abs(hit - reference));
+                            if (reference < limit) {
+                                ++hits;
+                            } else {
+                                ++misses;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        check(hits > 50 && misses > 50, "occlusion rays cover surface and sky");
+        check(worst < 1e-4, "comet BVH hits match unaccelerated mesh (km)", worst);
+    }
+}
+
 // Signed volume of a closed mesh (positive: counter-clockwise seen from outside).
 double signed_volume(const ShapeModel& shape)
 {
@@ -640,6 +753,7 @@ void run_shape_tests()
     test_jupiter_saturn_small_moon_shapes();
     test_hyperion_spin_state();
     test_halley_shape();
+    test_shape_occlusion();
     test_didymos_shapes();
     test_endurance_shape();
 }

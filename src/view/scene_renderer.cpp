@@ -530,6 +530,8 @@ void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, u
     m_body_textures.assign(scene.bodies.size(), nullptr);
     m_ring_textures.assign(scene.bodies.size(), nullptr);
     m_night_textures.assign(scene.bodies.size(), nullptr);
+    m_comets.clear_meshes();
+    m_comet_meshes.assign(scene.bodies.size(), -1);
     m_bodies.clear_meshes();
     m_body_meshes.assign(scene.bodies.size(), -1);
     m_rotor_meshes.assign(scene.bodies.size(), -1);
@@ -538,6 +540,9 @@ void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, u
         if (body.shape) {
             m_body_meshes[i] = m_bodies.add_mesh(body.shape->positions, body.shape->normals, body.shape->albedo,
                                                  body.shape->map_u, body.shape->indices);
+        }
+        if (body.shape && body.comet.enabled) {
+            m_comet_meshes[i] = m_comets.add_mesh(*body.shape);
         }
         if (const ShapeModel* rotor = body.rotor.shape.get()) {
             m_rotor_meshes[i] =
@@ -1158,7 +1163,11 @@ void SceneRenderer::build_comet_items(const Simulation& sim, const OutputView& o
         base.camera_local = glm::vec3(to_local * rel);
         // Rays stop at the nucleus and the bodies nearest the camera.
         const double nucleus = std::cbrt(body.equatorial_radius_km * body.equatorial_radius_b_km * body.polar_radius_km);
-        base.occluders[base.occluder_count++] = glm::vec4(0.0f, 0.0f, 0.0f, static_cast<float>(nucleus));
+        base.nucleus_mesh = m_comet_meshes[i];
+        base.to_nucleus = glm::mat3(glm::transpose(glm::dmat3(body.orientation)) * rot);
+        if (base.nucleus_mesh < 0) {
+            base.occluders[base.occluder_count++] = glm::vec4(0.0f, 0.0f, 0.0f, static_cast<float>(nucleus));
+        }
         std::vector<std::pair<double, size_t>> near;
         for (size_t k = 0; k < scene.bodies.size(); ++k) {
             const Body& other = scene.bodies[k];

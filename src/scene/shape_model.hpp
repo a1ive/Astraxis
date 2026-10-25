@@ -22,6 +22,21 @@ struct ShapeModel {
     std::vector<uint32_t> indices;    // 3 per triangle, counter-clockwise seen from outside
 };
 
+// Preorder BVH for ray occlusion, packed into 48-byte GPU records. Internal
+// nodes store bounds in a/b; leaves store three triangle vertices in a/b/c.
+// escape is the first node after this subtree (also the next node for a leaf).
+struct ShapeOcclusionNode {
+    glm::vec3 a{0.0f};
+    uint32_t escape = 0;
+    glm::vec3 b{0.0f};
+    uint32_t leaf = 0;
+    glm::vec3 c{0.0f};
+    uint32_t padding = 0;
+};
+
+// Build once from a loaded mesh; the tree stays in body-fixed coordinates.
+std::vector<ShapeOcclusionNode> build_shape_occlusion(const ShapeModel& shape);
+
 // Loads a mesh written by the tools in tools/shapes/ (axmesh.py).
 bool load_shape_model(const std::filesystem::path& path, ShapeModel& out, std::string* error);
 

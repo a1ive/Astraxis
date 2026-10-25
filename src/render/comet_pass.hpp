@@ -2,6 +2,7 @@
 
 #include "render/gpu_device.hpp"
 #include "scene/camera.hpp"
+#include "scene/shape_model.hpp"
 
 #include <SDL3/SDL_gpu.h>
 #include <glm/mat3x3.hpp>
@@ -10,6 +11,7 @@
 #include <glm/vec4.hpp>
 
 #include <span>
+#include <vector>
 
 namespace astraxis {
 
@@ -31,6 +33,8 @@ struct CometDrawItem {
     glm::vec3 shape{0.0f};
     glm::vec3 color{1.0f};  // sRGB
     float brightness = 0.0f; // linear HDR radiance per unit column of the normalized density
+    int nucleus_mesh = -1; // CometPass mesh index; -1 uses the spherical fallback
+    glm::mat3 to_nucleus{1.0f}; // comet-local vector -> body-fixed vector
     int occluder_count = 0;
     glm::vec4 occluders[kMaxCometOccluders] = {}; // local center, radius: the rays stop there
 };
@@ -44,6 +48,9 @@ public:
     // Recreates the pipelines for another scene format (e.g. MSAA sample count).
     bool set_format(const SceneTargetFormat& format);
 
+    void clear_meshes();
+    int add_mesh(const ShapeModel& shape);
+
     // `time`: seconds for the tails' slow animation.
     void draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const CameraView& view, float time,
               std::span<const CometDrawItem> items) const;
@@ -51,6 +58,12 @@ public:
 private:
     bool create_pipelines(const SceneTargetFormat& format);
 
+    struct Mesh {
+        SDL_GPUBuffer* nodes = nullptr;
+        uint32_t count = 0;
+    };
+    std::vector<Mesh> m_meshes;
+    SDL_GPUBuffer* m_empty_nodes = nullptr;
     SDL_GPUDevice* m_device = nullptr;
     SDL_GPUGraphicsPipeline* m_outside = nullptr;
     SDL_GPUGraphicsPipeline* m_inside = nullptr;
