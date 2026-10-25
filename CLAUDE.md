@@ -1,6 +1,6 @@
 # Astraxis
 
-用来“发呆”的天文动态背景程序：太阳系与各探测器轨迹、地球夜侧的城市灯光和极光（按 1932 年以来的 Kp）、空间望远镜（近地轨道上的 Hubble，L2 上的 Herschel、Planck、JWST、Euclid、Roman、Gaia，与月球 2:1 共振的 TESS，落在地球后面的 Spitzer 和 Kepler）、金星、火星、木星和土星系统、彗星与哈雷舰队、DART 撞击 Dimorphos（幽灵是没被撞的轨道）、Alpha Centauri、系外行星共振链、多星系统、食变星 Algol 和造父变星 δ Cephei、北极星（带从地球看的光变曲线）、WR 104 的尘埃风车（几何模型，倾斜 42° 的轨道从地球看仍像正对的螺线）和 WR 140 每次近星点产生的尘埃壳（JWST 看到的 17 层）、脉冲星双星、Sgr A* 黑洞外观、《星际穿越》的虚构黑洞 Gargantua（按论文参数，电影版与带多普勒频移的真实样子对比；还有致敬的 Endurance 号，环在转）、致敬《坎巴拉太空计划》的 Kerbol 系统（游戏里读出的轨道、Kerbin 历法、程序生成的表面）等，共 30 个场景（含 2017 / 2024 太空视点日食）。
+用来“发呆”的天文动态背景程序：太阳系与各探测器轨迹、地球夜侧的城市灯光和极光（按 1932 年以来的 Kp）、空间望远镜（近地轨道上的 Hubble，高椭圆轨道上的 Chandra，L2 上的 WMAP、Herschel、Planck、JWST、Euclid、Roman、Gaia，与月球 2:1 共振的 TESS，落在地球后面的 Spitzer 和 Kepler）、金星、火星、木星和土星系统、彗星与哈雷舰队、DART 撞击 Dimorphos（幽灵是没被撞的轨道）、Alpha Centauri、系外行星共振链、多星系统、食变星 Algol 和造父变星 δ Cephei、北极星（带从地球看的光变曲线）、WR 104 的尘埃风车（几何模型，倾斜 42° 的轨道从地球看仍像正对的螺线）和 WR 140 每次近星点产生的尘埃壳（JWST 看到的 17 层）、脉冲星双星、Sgr A* 黑洞外观、《星际穿越》的虚构黑洞 Gargantua（按论文参数，电影版与带多普勒频移的真实样子对比；还有致敬的 Endurance 号，环在转）、致敬《坎巴拉太空计划》的 Kerbol 系统（游戏里读出的轨道、Kerbin 历法、程序生成的表面）等，共 30 个场景（含 2017 / 2024 太空视点日食）。
 C++20 + CMake + SDL3 + SDL_GPU。Windows（D3D12）和 Linux（Vulkan）都能构建运行；Windows 上还有全屏、屏保和动态壁纸。将来做 macOS。
 
 - **目标**：安静、好看、物理上可信，主要用来发呆，交互只是辅助；功耗低，可以长时间挂在后台当壁纸；单个 exe，启动快，依赖少
@@ -129,7 +129,7 @@ CMake 目标：
 | `core_tests.cpp` | 日历（含 Kerbin 历法）/时间尺度、星表（含重投影）与黑体颜色和波段份额、银道坐标系 |
 | `ephem_tests.cpp` | 开普勒方程与传播、幽灵的外推（带状谐项、潮汐）与 Δv、星历表、目视/凌星轨道约定、N 体 |
 | `planet_scene_tests.cpp` | 场景里的行星和卫星：太阳系、木星、地月、土星；Janus 和 Epimetheus 的根数表对照 Horizons、19 次交换（a 的跳变之比对照 GM 比、2006-01-21、最近距离）；Kerbol 系统对照游戏里的位置和自转角、6 小时太阳日、潮汐锁定、Laythe:Vall:Tylo ≈ 1:2:4、示意的 Mun 转移（停泊轨道、两次点火的 Δv、捕获轨道） |
-| `mission_tests.cpp` | 探测器：先驱者/新视野、Parker、伽利略/朱诺、Artemis/CAPSTONE/嫦娥五号 T1 及其火箭末级、卡西尼/惠更斯、信使/贝皮科伦坡、火星的八个轨道器（含天问一号 2021 年的重建）、赛丁泉彗星与 3I/ATLAS、太阳系场景的 1I/3I、Europa Clipper/Hera 飞掠、金星快车/破晓号/Zoozve 与金星借力飞掠、ISEE-3、哈雷舰队、Rosetta/Philae、空间望远镜（JWST、Euclid、Roman、Gaia、Herschel、Planck 在 L2 附近和弃置轨道、TESS 与月球的 2:1 共振、Spitzer 和 Kepler 的漂离、Hubble 示意轨道的周期与 J2 交点进动及事件显隐）、DART 与 Dimorphos（解 547 的撞前周期和撞后稳定周期、同步自转对照 Horizons、幽灵三天后仍在旧轨道上、2.65 mm/s 的读数、撞击速度和来向、LICIACube 的最近距离） |
+| `mission_tests.cpp` | 探测器：先驱者/新视野、Parker、伽利略/朱诺、Artemis/CAPSTONE/嫦娥五号 T1 及其火箭末级、卡西尼/惠更斯、信使/贝皮科伦坡、火星的八个轨道器（含天问一号 2021 年的重建）、赛丁泉彗星与 3I/ATLAS、太阳系场景的 1I/3I、Europa Clipper/Hera 飞掠、金星快车/破晓号/Zoozve 与金星借力飞掠、ISEE-3、哈雷舰队、Rosetta/Philae、空间望远镜（WMAP 的月球借力与 L2 轨道、Chandra 的近远地点与周期、JWST、Euclid、Roman、Gaia、Herschel、Planck 在 L2 附近和弃置轨道、TESS 与月球的 2:1 共振、Spitzer 和 Kepler 的漂离、Hubble 示意轨道的周期与 J2 交点进动及事件显隐）、DART 与 Dimorphos（解 547 的撞前周期和撞后稳定周期、同步自转对照 Horizons、幽灵三天后仍在旧轨道上、2.65 mm/s 的读数、撞击速度和来向、LICIACube 的最近距离） |
 | `shape_tests.cpp` | 小天体形状模型（含 Didymos、Dimorphos 的体积）；Endurance 致敬模型（硬边、尺寸、环的转速对应 1 g） |
 | `appearance_tests.cpp` | 彗尾、尘埃彗尾、大气层、羽流（含各场景参数一致）；地球的夜间灯光和极光（各场景一致、大磁暴的 Kp、Starkov 卵的性质、Longyearbyen 在磁正午处于 Kp 3 的卵下、IGRF 偶极极、半球功率、谱线产额和比值、Kp 随倍速的平均） |
 | `stellar_system_tests.cpp` | α Cen（含 Ab 对照 S1/C1 的位置和相互倾角、只在事件里显示的 Bb）、TRAPPIST-1、Kepler 系统、TIC 168789840、Algol（CHARA 位置与 B 的拉长、TESS 极小、GCVS 食深）与光变曲线模型、洛希面（Kim 1989 的半径、Eggleton 公式）、δ Cephei（SPIPS 半径、Engle 极大、视向速度轨道）、北极星（Anderson 的脉动视向速度、Evans 的极大时刻、光极大在视向速度极小前 0.21 d、V 振幅、Ab 对照 HST/CHARA/斑点干涉的位置、K1）、PSR B1620-26、WR 104（Hill 的合相和 K、Richardson 的质量、旋臂间距、从地球看的旋向和 Tuthill 的 θ0、宽锥让投影的旋臂接近圆、Soulain 的 r⁻³ 径向剖面、伴星 B 的位置、可见光里成核处以热辐射为主而一圈外只剩散射光）、WR 140（Thomas 的视向速度、Monnier 和 Thomas 的干涉位置、质量、产尘窗口和时长、开始时的星距、远星点时最新的尘埃、近星点产尘率的低谷和后缘的密度比、Han 式 1 的三段运动、Lau 的壳间距、壳的朝向对照 Han 的代码、最新的壳最亮） |
@@ -261,6 +261,7 @@ CMake 目标：
 - **期刊网站的验证**：SWSC（swsc-journal.org）对 curl 和 WebFetch 返回 captcha 或 403，内置浏览器能打开 full_html，表格在单独的页面（`.../T2.html`）；AGU/Wiley（agupubs.onlinelibrary.wiley.com）连内置浏览器也过不了 Cloudflare 验证，换开放的转述或同作者的开放版本（Sigernes 2011 的 Starkov 系数用 uib 上的 Opt. Pura Apl. 版本，表 1 有一处印成“-4-44”）
 - **Jena 的宇宙尘埃光学常数库**（OCDB，`www2.astro.uni-jena.de`）：curl 报 TLS 握手失败（沙箱内外都一样），内置浏览器也打不开。WR 104 的颗粒反照率改从 Harries 2004 图 3 读（他们用的就是 Zubko 1996 的无定形碳常数）
 - **Stooke 形状模型 V2.0**：小行星和彗星的经度表改成了东经（360° 减 V1.0），但标签里的说明文字照抄 V1.0，其中的经度数值（如 Halley 的 270°）仍是西经。Vega 电视图像的时间有 UT（`TIM--OBS`、`TIME-ENC`）和开机后的星上计数（`TONBHRDW`，4.766485 计数/秒）两种，Stooke 标签里的“2:00:30”看来是后者
+- **Chandra 的 Horizons 简介**：近远地点高度把英里的数值标成了 km（5,999 / 86,487）；1999 年入轨公告给的是约 9,700 / 139,200 km。用状态向量和任务中心原始公告核对，勿抄简介的单位。
 - **Horizons 不给的数据**：Didymos 本体（920065803）和 Dimorphos（120065803）的说明写着覆盖 2000–2030，可 2026-10 起查 2026-07 以前什么都不返回（没有数据也没有报错，大概是质心换成 ESA 的 Hera 文件后断了链）。解 547 的 SPK 在 figshare（`tools/dart/s547_bake.py`），是 ECLIPJ2000 坐标的 5 型段，要转到 ICRF
 - **DART 的最后 48 秒**：Horizons 在导航重建后接了一段到撞击的 `spc` 段，起点偏 6.8 km、方向偏 1.3°。重建本身在撞击时刻离 Dimorphos 中心不到 2 km（早 0.3 s），场景用重建并整体平移（`tools/dart/approach_bake.py`）
 - **卫星的幽灵**：要让外推的周期等于撞前的周期，按论文的 J2 和系统 GM 还差 0.1%（Dimorphos 每圈慢 49 s，三天后偏 213 m，是撞击效应的一成），因为撞前的轨道是拟合的圆，GM 本身有 4% 的误差。系统 GM 取 n0² a³ / (1 + 3/2 J2 (R/a)²)，在 GM 的误差内，三天只偏 1 m。Didymos 的 J2 让 n 比开普勒第三定律给的快 1.7%：画轨道用的 `gm_km3_s2` 要取 n0² a³，否则吻切周期和偏心率是错的（12.3 h、0.015）
@@ -309,7 +310,7 @@ CMake 目标：
 3. Kerbol 场景：高度图和法线（晨昏线上的立体感，也可用于月球、火星的 USGS DEM）与海面高光（Kerbin、Eve、Laythe、地球）；还可以用 `kerbol_transfer.py` 的办法加别的示意航线（Minmus、Duna 的转移窗口等，标明是设计的）
 4. 黑洞附近的天体做透镜：Gargantua 的示例行星和 Mann 星现在按真实位置画，转到黑洞背后时被挡住（真实情况下光会弯到阴影上方）。可以对每个天体解相机到天体的类光测地线，把球和标记画在主像（和次像）的位置
 5. 木星极光：主要发紫外光（H₂ 的 Lyman 和 Werner 带），可见光里几乎看不到，要像 WR 104 的红外伪彩色那样做成“紫外视图”的开关并在展签里写明。主卵之外，Io、Europa、Ganymede 的磁通管足点跟着卫星走，是好看的物理联系；足点和卵的位置要用 Juno 的磁场模型（JRM33）沿磁力线追踪，不能用偶极。可以复用地球极光的壳层 pass（`AuroraPass`），但卵的形状和活动要另找数据（哈勃和 Juno UVS 的统计卵）。别的天体的极光（土星、火星、Ganymede 自己的卵）做不做还没定
-6. 空间望远镜场景的其他望远镜：WMAP（2001–2009）、Chandra（−151，64 小时的高椭圆轨道）只要烘焙星历加事件。Roman、TESS、Euclid、JWST 的表大半是预报，过几个月重新烘焙
+6. 空间望远镜星历更新：Roman、TESS、Euclid、JWST 的表大半是预报，Chandra 的预报到 2027-03-30，过几个月重新烘焙
 7. DART 场景加 ESA 的 Hera（−91）：2026 年 10 月底到达 Didymos，Horizons 现在只有到 10-17 的跟踪数据和到 11-04 的预报（离 Didymos 约 30 km）。等 ESA 发布近距离阶段的重建轨道再烘焙，同时加两颗立方星 Milani、Juventas，以及 Hera 测出的撞击后 Dimorphos 的形状和撞击坑（Naidu 2024 推断长轴比约 1.3；形状模型发布后替换或在撞击时刻切换）。届时 Didymos 和 Dimorphos 的表要延长到 2027 年：解 547 的 SPK 覆盖到 2024 年底，2026 年起要用 ESA 的新解（Horizons 的 2026-07 以后已经换成 ESA 的文件）；DART 撞击也改变了系统的日心轨道（量级很小），新解里应该有
 8. 远期：macOS（Metal，需要 SPIR-V → MSL 和 macOS CI）；J1141-6545 的自转轴进动（Venkatraman Krishnan 2019 表 1：α ≈ 89°，δ 各模型从 35° 到 155° 不等，倾向的模型 3 是 91° ± 60°；Manchester 2010 约 110°），等几何解定下来再做
 

@@ -23,6 +23,8 @@
 | `gaia_geo.eph` | −139479 Gaia | 地球 | 2013-12-19 09:56 .. 2099-12-31 | 20 km（2 小时复查） | 7031 |
 | `kepler_geo.eph` | −227 Kepler | 地球 | 2009-03-07 04:58 .. 2099-12-31 | 20 km（2 小时复查） | 7792 |
 | `tess_geo.eph` | −95 TESS | 地球 | 2018-04-18 23:37 .. 2028-04-19 12:00 | 20 km（AXEPH2，地球 GM；1 小时基础步长，20 分钟复查） | 1324 |
+| `chandra_geo.eph` | -151 Chandra | 地球 | 1999-08-07 07:32 .. 2027-03-30 12:00 | 5 km（AXEPH2，20 分钟复查） | 11578 |
+| `wmap_geo.eph` | -165 WMAP | 地球 | 2001-06-30 21:16 .. 2009-04-07 10:16 | 5 km（20 分钟复查） | 1018 |
 | `spitzer_geo.eph` | -79 Spitzer | 地球 | 2003-08-25 06:27 .. 2099-12-31 | 20 km（另见接缝说明） | 12094 |
 | `herschel_geo.eph` | -486 Herschel | 地球 | 2009-05-14 13:40 .. 2049-12-31 | 20 km（2 小时复查） | 4174 |
 | `planck_geo.eph` | -489 Planck | 地球 | 2009-05-14 13:42 .. 2049-12-31 | 20 km（2 小时复查） | 3491 |
@@ -164,6 +166,14 @@
   - 处理：6 小时基础采样，自适应细化到 1 分钟，以 20 km 容差精简为 AXEPH1 Hermite 节点。精简后用错开基础网格 37 秒的 2 小时样本复查，超差窗口补取 1 分钟样本再精简。Spitzer 月初附近的短区段、Herschel 2013-05-13 至 14 日的离轨点火，以及 Planck 2013-10-11 的区段额外保留逐分钟节点，窗口列在 `keep_all`；这些变化会落在均匀复查的采样点之间。另用每 227 分钟和每 181 分钟、分别错开 17 秒和 29 秒的两组全区间样本，以及发射后首日的分钟样本核对：Spitzer 共 506,115 点，最大偏差 20.042 km；Herschel 和 Planck 各 215,099 点，最大偏差分别为 20.058 km、20.002 km。这里约 20 km 的容差衡量对 Horizons 的插值误差，不能衡量长期预报误差。测试保留了 2011-02-03 04:05:17 TDB 的地心向量及短区段的独立向量，并对照 NASA 在 2019-06-13 发布的 Spitzer 地距约 2.54 亿 km。最终导航解在同一天给出 2.599 亿 km，比报道的概数大 2.3%，这项对照采用 3% 容差。
   - Spitzer 源数据的月初接缝：`spitzer_seams.py` 用 TLIST 查询 2003-09 至 2020-02 共 198 个月初前后各一秒的状态。在这两秒内扣除正常运动后，147 处位置差大于 1 km，最大为 2015-10-01 的 32,765.490 km，2019-07-01 则为 372.874 km。表保留接缝两侧的原始位置和速度，只在中间两秒插值过渡，避免粗网格把跳变摊到前后数小时。在每个接缝前后 2 秒和 61 秒另查 792 个独立向量，最大插值偏差为 0.002565 km。这些是源星历的拼接，不是实际机动；过渡区间不适合分析速度、加速度或近遇。
   - 来源与使用：NASA/JPL-Caltech 的 Horizons 计算结果，Spitzer 来自 JPL 导航，Herschel、Planck 来自 ESA/IPAC。入库内容是位置和速度等科学数值事实，按上述来源署名；未收录来源网页、影像或航天器模型。
+- WMAP、Chandra（2026-10-25 烘焙）：
+  - 下载：JPL Horizons API，目标 `-165`、`-151`，中心 `500@399`，ICRF 几何状态向量、TDB 时间、km 和 km/s。重建命令：`python tools/bake/horizons_bake.py tools/bake/ephem.toml wmap_geo chandra_geo`；独立复查：`python tools/bake/verify_wmap_chandra.py`。复查样本缓存在 `tools/bake/cache/`，删除对应 JSON 后会重新查询。
+  - WMAP：NASA/GSFC 的 `MAP_Mission_20090417`，Horizons 于 2009-05-13 收录。可用范围是 2001-06-30 21:15:04.184 至 2009-04-07 10:16:05.184 TDB，烘焙取内部的整分钟。源说明写明轨道由自由飞行弧段组成，没有模拟点火过程。NASA 的 [WMAP overview](https://science.nasa.gov/mission/wmap/wmap-overview/) 说明科学数据采集到 2010-08-19；场景在星历表结束后隐藏 WMAP，无法展示任务最后一年和弃置轨道。
+  - Chandra：Harvard-Smithsonian CfA 提供的 `cxo_99219_06045`、`cxo_06002_10103`、`CXO_10056_27089`，Horizons 说明修订于 2026-10-02。覆盖 1999-08-07 07:31:04.1831 至 2027-03-30 12:01:09.1857 TDB，烘焙同样取内部整分钟；2026-10-01 以后的状态是预报。表从最后一次抬轨点火之后开始，未包含发射和早期抬轨。
+  - 处理：均以 1 小时为基础步长，5 km 容差精简节点，再用错开 37 秒的 20 分钟样本查找超差区段、补取分钟样本。WMAP 使用 AXEPH1；Chandra 使用 AXEPH2，参考 GM 为 DE440 地球的 398600.435507 km³/s²。该 GM 用于节点之间的插值；原始节点包含太阳、月球等摄动。5 km 是相对 Horizons 的插值容差，不能衡量原始轨道或未来预报的不确定度。
+  - 独立复查：以错开基础网格 17 秒、每 173 分钟的样本检查全区间，并逐分钟检查 WMAP 发射后首段和月球借力、Chandra 最初六天的运行轨道。WMAP 共 26,668 点，最大偏差 4.999 km；Chandra 共 92,692 点，最大偏差 5.093 km（复查阈值 5.1 km）。C++ 场景测试保留六个另外查询的向量，并检查飞掠时刻、近远地点、周期、事件轨迹与表外显隐。
+  - 事件依据：[WMAP nine-year Explanatory Supplement](https://lambda.gsfc.nasa.gov/product/wmap/current/pub_papers/nineyear/supplement/WMAP_supplement.pdf) 第 1.3、1.3.7 节记载三次地球调相轨道及 2001-07-30 16:37 UTC 的月球借力。星历与月球表的最近距离约 7,003 km（距月心），时刻约 16:38 UTC。Chandra 的 [1999-08-09 入轨公告](https://chandra.harvard.edu/chronicle/080999/weekend.html) 给出约 9,700 / 139,200 km 的近远地点高度；初期向量在 1999-08-08 至 14 日给出约 9,639 / 139,174 km。Horizons 简介把 5,999 / 86,487 英里误标为 km，场景采用向量，展签采用任务中心公告。约 64 小时的周期和远离辐射带的观测条件见 [Tracking Chandra](https://chandra.harvard.edu/about/tracking.html)。
+  - 来源与使用：入库的是位置、速度等科学数值事实，署名 NASA/GSFC、NASA/JPL-Caltech、Harvard-Smithsonian Center for Astrophysics。页面、论文插图和航天器模型未收录；场景中两台望远镜均用示意大小的标记显示。
 - Hubble 的轨道直接写在 `assets/scenes/space_telescopes.toml`，没有星历文件。ESA/Hubble [fact sheet](https://esahubble.org/about/general/fact_sheet/) 给出的初始名义高度为 569 km、倾角 28.5°、周期约 96 分钟。取圆轨道，地球半径 6378.1366 km（NAIF `pck00011.tpc`），GM 398600.435507 km³/s²（DE440），算得半长轴 6947.1366 km、二体周期 0.06669695378032205 天。
   - J2 = 1.08263×10⁻³，取自 Turbe 等 2007《SPARTAN: A High-Fidelity Simulation for Automated Rendezvous and Docking Applications》[表 1](https://ntrs.nasa.gov/citations/20070038369)（NTRS 标注 U.S. Government work，允许公众使用）。以 `n = sqrt(GM/a³)`、`dΩ/dt = −1.5 J2 n (R/a)² cos(i)` 算得 −6.4929532952°/天，即 `node_period_years = -0.15179937981320174`。
   - 历元取 1990-04-26 00:00 TDB（JD 2448007.5），交点和平均近点角取零，均为场景选择。使用已有 `mean_elements` 运动源，以 J2000 赤道为参考面。数值是已发表的科学事实，相位和朝向由项目选择；长期漂移及显示限制见 `limitations.md`。

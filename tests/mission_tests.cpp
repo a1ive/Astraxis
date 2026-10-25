@@ -2141,7 +2141,8 @@ void test_space_telescopes_scene()
     for (const Span& s : {Span{"JWST", "2022-07-01", "2031-09-01", 9.0e5}, Span{"Euclid", "2023-09-01", "2031-10-01", 9.0e5},
                           Span{"Roman", "2026-10-01", "2028-10-01", 9.0e5}, Span{"Gaia", "2014-02-01", "2025-02-01", 4.5e5},
                           Span{"Herschel", "2009-09-01", "2013-04-01", 9.0e5},
-                          Span{"Planck", "2009-09-01", "2013-07-01", 4.5e5}}) {
+                          Span{"Planck", "2009-09-01", "2013-07-01", 4.5e5},
+                          Span{"WMAP", "2002-01-01", "2009-04-01", 4.5e5}}) {
         double worst = 0.0;
         for (double t = at(s.from); t < at(s.to); t += 5.0 * kSecondsPerDay) {
             scene.update(t);
@@ -2155,15 +2156,22 @@ void test_space_telescopes_scene()
         check(worst < s.max_km, (std::string(s.name) + " stays near L2 (km)").c_str(), worst);
     }
 
-    // Fresh Horizons queries (2026-10-24), independent of the bake grid:
+    // Fresh Horizons queries (2026-10-24/25), independent of the bake grid:
     // geocentric ICRF geometric vectors, KM-S. Include short source seams / burns
     // missed by a uniform two-hour verification grid; t is TDB seconds from J2000.
     struct VectorCheck {
         const char* name;
         double t;
         glm::dvec3 position;
+        double tolerance_km = 20.0;
     };
     for (const VectorCheck& v : {
+             VectorCheck{"WMAP", 49783096.99999988, {-93742.13462505622, -351500.7151564544, -138323.6493746857}, 5.1},
+             VectorCheck{"WMAP", 63115216.99998826, {-258406.218620208, 1280568.67644474, 635682.9376225594}, 5.1},
+             VectorCheck{"WMAP", 292371197.0000088, {-1408551.831508985, -330920.4857712177, -342919.1650053819}, 5.1},
+             VectorCheck{"Chandra", -12470083.000002801, {49997.48276067643, -113796.8719038102, 66331.50262958142}, 5.1},
+             VectorCheck{"Chandra", 844013116.9999971, {-40090.52578809944, -57180.86568803087, 93850.64340492764}, 5.1},
+             VectorCheck{"Chandra", 859679836.999999, {13755.57455619608, -91344.61786789444, 30070.29729866157}, 5.1},
              VectorCheck{"Spitzer", 349977917.0, {134213490.5576793, 36974949.23263077, 18821472.06356023}},
              VectorCheck{"Herschel", 349977917.0, {-463693.8639576982, 1194605.40533179, 306965.8072545305}},
              VectorCheck{"Planck", 349977917.0, {-848482.7376102738, 1063117.120169815, 293740.7324689996}},
@@ -2178,9 +2186,106 @@ void test_space_telescopes_scene()
         }
         const Body& body = scene.bodies[static_cast<size_t>(index)];
         const double error = glm::length(body.motion->eval(v.t).position - v.position);
-        check(error < 20.0, (std::string(v.name) + " off-grid Horizons position (km)").c_str(), error);
-        check(!body.motion->valid_at(at("2003-01-01")) && !body.motion->valid_at(at("2100-01-01")),
+        check(error < v.tolerance_km, (std::string(v.name) + " off-grid Horizons position (km)").c_str(), error);
+        check(!body.motion->valid_at(at("1999-01-01")) && !body.motion->valid_at(at("2100-01-01")),
               "historical telescope has no extrapolation outside its table");
+    }
+
+    // WMAP's lunar swing-by: NASA/LAMBDA nine-year supplement sec. 1.3.7
+    // gives 2001-07-30 16:37 UTC. Horizons places it within two minutes of that.
+    // The ~7,003 km center distance is from the navigation solution, not altitude.
+    {
+        double closest = 1e30;
+        double closest_t = 0.0;
+        for (double t = at("2001-07-30 15:00"); t < at("2001-07-30 18:00"); t += 10.0) {
+            scene.update(t);
+            const double d = glm::length(pos("WMAP") - pos("Moon"));
+            if (d < closest) {
+                closest = d;
+                closest_t = t;
+            }
+        }
+        check(std::abs(closest - 7003.0) < 15.0, "WMAP lunar flyby center distance (km)", closest);
+        check(std::abs(closest_t - at("2001-07-30 16:37")) < 120.0,
+              "WMAP lunar flyby vs mission supplement UTC", closest_t - at("2001-07-30 16:37"));
+    }
+
+    // CXC's 1999-08-09 announcement gives initial altitudes ~9,700 / 139,200 km.
+    // Measure actual radial extrema and their spacing, including perturbations.
+    {
+        double perigee = 1e30;
+        double apogee = 0.0;
+        double previous = 1e30;
+        double before_previous = 1e30;
+        std::vector<double> perigee_times;
+        for (double t = at("1999-08-08"); t < at("1999-08-18"); t += 300.0) {
+            scene.update(t);
+            const double r = glm::length(pos("Chandra") - pos("Earth"));
+            perigee = std::min(perigee, r - 6378.1366);
+            apogee = std::max(apogee, r - 6378.1366);
+            if (previous < before_previous && previous < r) {
+                perigee_times.push_back(t - 300.0);
+            }
+            before_previous = previous;
+            previous = r;
+        }
+        check(std::abs(perigee - 9700.0) < 500.0, "Chandra initial perigee altitude vs CXC (km)", perigee);
+        check(std::abs(apogee - 139200.0) < 500.0, "Chandra initial apogee altitude vs CXC (km)", apogee);
+        check(perigee_times.size() >= 3, "Chandra completes multiple orbits in ten days");
+        for (size_t i = 1; i < perigee_times.size(); ++i) {
+            const double hours = (perigee_times[i] - perigee_times[i - 1]) / 3600.0;
+            check(std::abs(hours - 64.0) < 1.0, "Chandra ~64-hour radial period", hours);
+        }
+    }
+
+    // Historical coverage must control visibility through the product Simulation path.
+    // WMAP continued operating after its Horizons table ends; never freeze the marker.
+    {
+        Simulation sim;
+        std::string error;
+        check(sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/space_telescopes.toml", &error),
+              "WMAP and Chandra event scene loads");
+        const Scene& sc = sim.scene();
+        for (const char* name : {"WMAP", "Chandra"}) {
+            const int index = sc.find(name);
+            check(index >= 0, "new telescope is present");
+            if (index < 0) {
+                continue;
+            }
+            const Body& body = sc.bodies[static_cast<size_t>(index)];
+            const bool wmap = std::string(name) == "WMAP";
+            check(body.motion->valid_at(at("2002-01-01")), "new telescope is valid in 2002");
+            check(!body.motion->valid_at(at("1999-01-01")), "new telescope is absent before coverage");
+            check(!body.motion->valid_at(at(wmap ? "2009-04-08" : "2027-03-31")),
+                  "new telescope has no extrapolation after coverage");
+            int event_count = 0;
+            for (size_t e = 0; e < sc.events.size(); ++e) {
+                if (sc.events[e].name.find(name) == std::string::npos) {
+                    continue;
+                }
+                ++event_count;
+                sim.jump_to_event(e);
+                sim.update(0.0);
+                check(body.visible, "telescope appears when its event is selected");
+                check(sc.active_frame() == sc.events[e].frame, "telescope event selects its reference frame");
+                std::vector<glm::dvec3> trail;
+                std::vector<float> fades;
+                sc.trail(index, sc.events[e].t_tdb, 512, trail, fades);
+                check(trail.size() > 4 && fades.size() == trail.size(), "new telescope has a history trail");
+                for (const auto& point : trail) {
+                    check(std::isfinite(point.x) && std::isfinite(point.y) && std::isfinite(point.z),
+                          "new telescope trail is finite");
+                }
+                if (sc.events[e].flyby >= 0) {
+                    check(sc.events[e].flyby == index && sc.events[e].focus == sc.find("Moon"),
+                          "WMAP flyby selects WMAP and the Moon");
+                }
+            }
+            check(event_count == (wmap ? 2 : 1), "new telescope events are registered");
+            sim.clock().t_tdb = at(wmap ? "2009-04-08" : "2027-03-31");
+            sim.update(0.0);
+            check(!body.visible, "telescope disappears after table coverage");
+        }
     }
 
     // NASA [SP], 2019-06-13, reports roughly 254 million km; the final navigation

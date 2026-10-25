@@ -311,6 +311,35 @@ base_step_minutes = 60     # the phasing loops of the first two months dip to a 
 verify_step_minutes = 20
 kepler_gm_km3_s2 = 398600.435507   # the Earth (DE440, JPL SSD astrodynamic parameters)
 
+# WMAP and Chandra: Horizons coverage checked 2026-10-25.
+# WMAP is GSFC MAP_Mission_20090417 (free-flight arcs; burns not modeled).
+# Chandra is CFA cxo_99219_06045 / cxo_06002_10103 / CXO_10056_27089;
+# states after 2026-10-01 are predictions. Stop inside the published coverage.
+[[target]]
+name = "wmap_geo"
+command = "-165"
+naif_id = -165
+center = "500@399"
+center_naif_id = 399
+start = "2001-06-30 21:16"
+stop = "2009-04-07 10:16"
+base_step_minutes = 60
+verify_step_minutes = 20
+tolerance_km = 5.0
+
+[[target]]
+name = "chandra_geo"
+command = "-151"
+naif_id = -151
+center = "500@399"
+center_naif_id = 399
+start = "1999-08-07 07:32"
+stop = "2027-03-30 12:00"
+base_step_minutes = 60
+verify_step_minutes = 20
+tolerance_km = 5.0
+kepler_gm_km3_s2 = 398600.435507   # Earth, DE440 / JPL SSD
+
 # Historical telescopes; Horizons checked 2026-10-24. Spitzer uses tracking through
 # 2020-01-30 22:30 UTC, then a nominal prediction. Herschel (H20140117_0001)
 # includes post-disposal optical astrometry; Planck uses P20131024_0001.

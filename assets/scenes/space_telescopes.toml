@@ -1,4 +1,5 @@
-# Space telescopes: Hubble close to Earth, TESS in resonance with the Moon,
+# Space telescopes: Hubble close to Earth, Chandra on a high elliptical orbit,
+# TESS in resonance with the Moon, WMAP,
 # Herschel, Planck, Gaia, JWST, Euclid and Roman around Sun-Earth L2,
 # and Spitzer and Kepler drifting behind the Earth.
 #
@@ -30,6 +31,10 @@
 #                         post-disposal optical astrometry, then a prediction)
 #          Planck (-489)  2009-05-14 .. 2049-12-31 (ESA P20131024_0001, then a
 #                         prediction of the disposal orbit)
+#          WMAP (-165)   2001-06-30 .. 2009-04-07 (GSFC MAP_Mission_20090417;
+#                         free-flight arcs, maneuvers not modeled)
+#          Chandra (-151) 1999-08-07 .. 2027-03-30 (CFA; prediction after
+#                         2026-10-01, retrieved 2026-10-25)
 #          Moon (301)     1972 .. 2099 (as in solar_system.toml)
 #        Horizons' notes: Kepler's Earth-trailing heliocentric orbit has "a period of 372.5
 #        days" and "very-low disturbing torque on spacecraft"; Gaia arrived at its Lissajous
@@ -114,6 +119,17 @@
 #          dOmega/dt = -1.5 J2 n (R/a)^2 cos(i) = -6.4929532952 deg/day.
 #          The period is Keplerian; short-period J2 terms, drag, reboosts and the
 #          equator's precession are omitted. This is an initial-orbit illustration.
+#        Retrieved 2026-10-25:
+#        [WM] NASA/LAMBDA, WMAP nine-year Explanatory Supplement, sec. 1.3, 1.3.7:
+#          https://lambda.gsfc.nasa.gov/product/wmap/current/pub_papers/nineyear/supplement/WMAP_supplement.pdf
+#          Three Earth phasing loops, then lunar swing-by on 2001-07-30 at 16:37 UTC;
+#          Lissajous orbit about Sun-Earth L2. Six-month loops: [HZN].
+#        [CX] Chandra X-ray Center, "Chandra Stars In Double Feature Weekend", 1999-08-09:
+#          https://chandra.harvard.edu/chronicle/080999/weekend.html
+#          Final orbit-raising burn on 1999-08-07; initial perigee/apogee altitudes
+#          ~9,700 / 139,200 km. Horizons' prose mislabels miles as km; use vectors.
+#          https://chandra.harvard.edu/about/tracking.html
+#          About 64 hours per orbit; long observations outside the radiation belts.
 # [PCK]  NAIF pck00011.tpc (IAU 2015).
 # [SPHY] JPL SSD satellite physical parameters (Moon mean radius).
 
@@ -273,6 +289,32 @@ trail_history_days = 365.0
 type = "ephemeris"
 file = "ephem/planck_geo.eph"
 
+[[bodies]]
+name = "WMAP"
+parent = "Earth"
+kind = "spacecraft"
+radii_km = [0.0025]                       # illustrative marker size
+color = "#c7e896"
+orbit_color = "#b1d775"
+trail = "history"
+trail_history_days = 365.0
+[bodies.orbit]                             # [HZN] -165; stops in April 2009
+type = "ephemeris"
+file = "ephem/wmap_geo.eph"
+
+[[bodies]]
+name = "Chandra"
+parent = "Earth"
+kind = "spacecraft"
+radii_km = [0.01]                         # illustrative marker size
+color = "#c4b5ed"
+orbit_color = "#ac97dd"
+trail = "history"
+trail_history_days = 3.0                  # just over one ~64-hour orbit
+[bodies.orbit]                             # [HZN] -151; includes lunar/solar perturbations
+type = "ephemeris"
+file = "ephem/chandra_geo.eph"
+
 # Hubble's initial orbit [HB], displayed only by its close-up event below.
 [[bodies]]
 name = "Hubble"
@@ -343,6 +385,50 @@ caption = """\
     the equator. Earth's equatorial bulge slowly turns the orbital plane westward. \
     This view illustrates that initial orbit; Hubble's position along it and the \
     plane's starting direction are chosen for the scene."""
+
+[[events]]
+name = "Chandra's high elliptical orbit (1999)"
+time = "1999-08-10"
+focus = "Earth"
+frame = "Earth-centered (ICRF)"
+from_orbit_normal = "Chandra"
+distance_km = 440000.0
+warp = 7200.0
+# [CX], [HZN]. Start after a full orbit is available in the table.
+caption = """\
+    Chandra has reached its observing orbit after the final engine burn on \
+    7 August 1999. It takes about 64 hours to sweep from roughly 9,700 km above \
+    Earth to 139,200 km. The X-ray telescope moves slowly through the distant \
+    part of its orbit, allowing long observations outside Earth's radiation belts."""
+
+[[events]]
+name = "WMAP swings past the Moon (2001)"
+time = "2001-07-30 16:15"
+focus = "Moon"
+flyby = "WMAP"
+frame = "Earth-centered (ICRF)"
+distance_km = 30000.0
+warp = 120.0
+# [WM], [HZN]. Start before closest approach so the flyby shot shows the approach.
+caption = """\
+    After three phasing loops around Earth, WMAP swings past the Moon on \
+    30 July 2001. Lunar gravity redirects the spacecraft toward Sun-Earth L2, \
+    about 1.5 million km beyond Earth on the side away from the Sun. Its engines \
+    remain off during the encounter."""
+
+[[events]]
+name = "WMAP maps the microwave sky at L2"
+time = "2002-01-01"
+focus = "Earth"
+frame = "Sun-Earth rotating"
+distance_km = 4.0e6
+warp = 604800.0
+# [WM], [HZN]
+caption = """\
+    WMAP traces a Lissajous orbit around Sun-Earth L2, completing a loop in \
+    about six months. Sheltered from the Sun by its shield, it measures tiny \
+    temperature differences in the cosmic microwave background across the sky. \
+    Occasional station-keeping maneuvers keep it near L2."""
 
 [[events]]
 name = "Spitzer falls behind the Earth (2003)"
