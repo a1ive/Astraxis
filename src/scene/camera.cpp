@@ -78,6 +78,10 @@ bool OrbitCamera::radial_angles(int body, const Scene& scene, double* yaw, doubl
 
 void OrbitCamera::fly_to(const CameraShot& shot, double duration, const Scene& scene)
 {
+    m_observer = shot.observer;
+    m_observer_offset_km = shot.observer_offset_km;
+    m_fov_y = std::clamp(shot.fov_deg, 0.1, 120.0) * kDegToRad;
+    if (m_observer >= 0) duration = 0.0; // observer shots are placed, not swept through the planet
     // Current absolute angles, re-expressed in the new shot's reference.
     const double abs_yaw = m_yaw + m_base_yaw;
     const double abs_pitch = m_pitch + m_base_pitch;
@@ -123,6 +127,8 @@ void OrbitCamera::angles_for_direction(const glm::dvec3& dir_world, double* yaw,
 
 void OrbitCamera::look_from(const glm::dvec3& dir_world)
 {
+    m_observer = -1;
+    m_fov_y = 45.0 * kDegToRad;
     angles_for_direction(dir_world, &m_yaw, &m_pitch);
     m_relative = false;
     m_base_yaw = m_base_pitch = 0.0;
@@ -131,6 +137,7 @@ void OrbitCamera::look_from(const glm::dvec3& dir_world)
 
 void OrbitCamera::rotate(double d_yaw, double d_pitch)
 {
+    m_observer = -1;
     m_animate_view = false;
     m_yaw = wrap_pi(m_yaw + d_yaw);
     m_pitch = std::clamp(m_pitch + m_base_pitch + d_pitch, -kPitchLimit, kPitchLimit) - m_base_pitch;
@@ -139,12 +146,36 @@ void OrbitCamera::rotate(double d_yaw, double d_pitch)
 void OrbitCamera::zoom(double steps)
 {
     m_animate_view = false;
-    m_distance *= std::pow(0.85, steps);
+    if (m_observer >= 0) {
+        m_fov_y = std::clamp(m_fov_y * std::pow(0.85, steps), 0.1 * kDegToRad, 120.0 * kDegToRad);
+    } else {
+        m_distance *= std::pow(0.85, steps);
+    }
 }
 
 void OrbitCamera::update(double real_dt, const Scene& scene)
 {
     const glm::dvec3 target_pos = scene.bodies[static_cast<size_t>(m_target)].world_position;
+    if (m_observer >= 0) {
+        const Body& observer = scene.bodies[static_cast<size_t>(m_observer)];
+        const glm::dvec3 position = observer.world_position +
+                                   scene.current_transform().direction_to_display(m_observer_offset_km);
+        const double distance = glm::length(position - target_pos);
+        if (observer.visible && std::isfinite(distance) && distance > min_distance(m_target, scene)) {
+            m_focus_point = target_pos;
+            m_position = position;
+            m_distance = distance;
+            angles_for_direction(m_position - target_pos, &m_yaw, &m_pitch);
+            m_relative = false;
+            m_base_yaw = m_base_pitch = 0.0;
+            return;
+        }
+        // A spacecraft can disappear outside its ephemeris coverage. Return to
+        // orbit control instead of following its unavailable position.
+        m_observer = -1;
+        m_fov_y = 45.0 * kDegToRad;
+        m_distance = default_distance(m_target, scene);
+    }
     if (m_relative) {
         radial_angles(m_target, scene, &m_base_yaw, &m_base_pitch);
     }

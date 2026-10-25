@@ -47,6 +47,11 @@
 
 name = "Parker Solar Probe"
 
+# White-light K corona: assets/corona/SOURCES.md.
+[corona]
+display_gain = 8.0e5
+display_gamma = 0.65
+
 [view]
 focus = "Sun"
 frame = "Sun-Venus rotating"
@@ -332,3 +337,14 @@ caption = """\
     surface, at roughly 690,000 km/h, the fastest any human-made object has traveled. \
     Out of contact during the pass, Parker sent a beacon tone late on 26 December: it \
     had come through."""
+
+
+[[events]]
+name = "Inside the corona (enhanced white light)"
+time_tdb = "2024-12-24 11:42"
+focus = "Sun"
+observer = "Parker Solar Probe"
+fov_deg = 55.0
+corona_enhanced = true
+warp = 300.0
+caption = """Looking toward the Sun from Parker at its closest approach, inside the modeled corona. Electrons scatter sunlight along the view into streamers that change with the viewing angle as the spacecraft moves. The structure is illustrative and the white light is enhanced. WISPR looks away from the solar disk; this view is not a reconstruction of its images. Dust-scattered light and coronal mass ejections are not included."""

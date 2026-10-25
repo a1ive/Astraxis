@@ -3,6 +3,7 @@
 #include "core/time.hpp"
 #include "ephem/motion.hpp"
 #include "scene/aurora.hpp"
+#include "scene/corona.hpp"
 #include "scene/pinwheel.hpp"
 #include "scene/roche.hpp"
 #include "scene/shape_model.hpp"
@@ -532,6 +533,10 @@ struct SceneEvent {
     double phase_deg = 0.0;     // with from_body: turned this far around the up axis (180 = from behind)
     double elevation_deg = std::numeric_limits<double>::quiet_NaN(); // set: camera this far above the
                                                                      // plane normal to the up axis
+    int observer = -1; // camera anchored to this body's center plus an ICRF offset
+    glm::dvec3 observer_offset_km{0.0};
+    double fov_deg = 45.0;
+    bool corona_enhanced = false; // white-light enhancement near Parker
     // Black holes' disks: Doppler and gravitational frequency shifts (color and
     // brightness) while the event is active. Off: the disk as filmed for
     // Interstellar, which left them out.
@@ -617,6 +622,7 @@ inline constexpr int kMaxStarLights = 2;
 inline constexpr double kMinRelativeStarFlux = 1e-3;
 
 struct SceneView {
+    int initial_event = -1; // named event selected when the scene opens
     int focus = 0;
     double distance_km = 0.0; // 0 = automatic
     double pitch_rad = 0.35;  // camera elevation above the frame's reference plane
@@ -650,6 +656,7 @@ public:
     LightCurve light_curve;
     // A colliding-wind binary's dust spiral (WR 104); disabled in most scenes.
     Pinwheel pinwheel;
+    Corona corona;
 
     // Heliocentric motion of the scene origin, used for the sun position when
     // the scene has no Star body.

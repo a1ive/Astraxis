@@ -57,6 +57,8 @@ add_library(astraxis_sim STATIC
     src/ephem/mean_element_orbit.cpp
     src/ephem/mean_element_orbit.hpp
     src/ephem/motion.hpp
+    src/scene/corona.cpp
+    src/scene/corona.hpp
     src/scene/aurora.cpp
     src/scene/aurora.hpp
     src/scene/camera.cpp
@@ -107,6 +109,8 @@ astraxis_set_warnings(astraxis_settings)
 astraxis_add_shaders(astraxis_shaders
     shaders/atmosphere.vert.hlsl
     shaders/atmosphere.frag.hlsl
+    shaders/corona.frag.hlsl
+    shaders/corona_composite.frag.hlsl
     shaders/aurora.frag.hlsl
     shaders/beam.vert.hlsl
     shaders/beam.frag.hlsl
@@ -165,6 +169,9 @@ add_executable(astraxis
     src/platform/window.hpp
     src/render/atmosphere_pass.cpp
     src/render/atmosphere_pass.hpp
+    src/render/corona_pass.cpp
+    src/render/corona_pass.hpp
+    src/render/corona_uniforms.hpp
     src/render/aurora_pass.cpp
     src/render/aurora_pass.hpp
     src/render/beam_pass.cpp

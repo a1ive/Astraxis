@@ -7,6 +7,7 @@
 #include "render/black_hole_pass.hpp"
 #include "render/body_pass.hpp"
 #include "render/comet_pass.hpp"
+#include "render/corona_pass.hpp"
 #include "render/dust_pass.hpp"
 #include "render/orbit_line_pass.hpp"
 #include "render/pinwheel_pass.hpp"
@@ -98,6 +99,7 @@ private:
     BeltPass m_belts;
     PinwheelPass m_pinwheel;
     SunPass m_sun;
+    CoronaPass m_corona;
     BeamPass m_beams;
     BlackHolePass m_black_hole;
     PostProcess m_post;

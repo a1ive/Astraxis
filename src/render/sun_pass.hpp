@@ -26,6 +26,7 @@ public:
         float angular_radius = 0.0f; // radians
         glm::vec3 color{1.0f};       // linear, normalized
         float magnitude = 0.0f;      // apparent (bolometric-ish) magnitude
+        float glow_gain = 1.0f; // visible photospheric fraction when a corona is modeled
         float display_gain = 1.0f;   // illustrative pulse gain, after stellar brightness limits
         bool draw_disk = true;       // false when the body pass draws the star as a sphere
     };

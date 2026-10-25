@@ -153,6 +153,10 @@ bool Simulation::load_scene(const std::filesystem::path& file, std::string* erro
     if (m_scene.pinwheel.enabled()) {
         m_pinwheel_exposure = astraxis::pinwheel_exposure(m_scene.pinwheel, m_clock.t_tdb, pinwheel_camera_km());
     }
+    if (m_scene.view.initial_event >= 0) {
+        jump_to_event(static_cast<size_t>(m_scene.view.initial_event));
+        m_camera.update(0.0, m_scene);
+    }
     if (touring) {
         start_tour();
     }
@@ -365,6 +369,9 @@ CameraShot Simulation::event_shot(size_t index, const Flyby& flyby) const
     const SceneEvent& e = m_scene.events[index];
     CameraShot shot;
     shot.target = e.focus;
+    shot.observer = e.observer;
+    shot.observer_offset_km = e.observer_offset_km;
+    shot.fov_deg = e.fov_deg;
     shot.distance = e.distance_km > 0.0 ? e.distance_km : m_camera.default_distance(e.focus, m_scene);
     shot.yaw = -1.2;
     shot.pitch = 0.3;
@@ -550,7 +557,7 @@ void Simulation::aim_at_tour_event(double duration)
     const SceneEvent& e = m_scene.events[static_cast<size_t>(m_tour_event)];
     const CameraShot shot = event_shot(static_cast<size_t>(m_tour_event), m_event_flyby);
     double drift = (m_tour_event % 2 == 0 ? 1.0 : -1.0) * kEventDrift;
-    if (e.from_earth || e.from_orbit_normal >= 0 || (e.from_body < 0 && !e.from_sun && m_event_flyby.body >= 0)) {
+    if (e.observer >= 0 || e.from_earth || e.from_orbit_normal >= 0 || (e.from_body < 0 && !e.from_sun && m_event_flyby.body >= 0)) {
         drift = 0.0; // preserve the requested sightline
     }
     m_camera.set_drift(drift);

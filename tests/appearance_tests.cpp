@@ -6,6 +6,7 @@
 #include "core/time.hpp"
 #include "scene/aurora.hpp"
 #include "scene/comet.hpp"
+#include "scene/corona.hpp"
 #include "scene/scene_loader.hpp"
 #include "scene/simulation.hpp"
 
@@ -572,6 +573,112 @@ void test_night_and_aurora()
           "rejects a missing Kp record");
 }
 
+void test_corona()
+{
+    auto utc = [](int y, int m, int d, int h) { return tdb_from_utc_jd(jd_from_calendar({y, m, d, h, 0, 0})); };
+    check(std::abs(corona_electron_density(10.0) - 3790.0) < 1e-9,
+          "Leblanc density at 10 solar radii, cm^-3");
+    check(corona_electron_density(0.9) == 0.0, "no coronal density inside photosphere");
+    const double column = 6.6524587051e-29 * kSunRadiusKm * 1e9;
+    const glm::dvec2 surface = corona_scattering(1.0, 0.0);
+    const double isotropic = 0.5 * column * corona_electron_density(1.0);
+    check(std::abs(surface.x / isotropic - 1.0) < 1e-5 && std::abs(surface.y / isotropic) < 1e-5,
+          "uniform hemispheric illumination gives isotropic Thomson brightness");
+    const glm::dvec2 distant = corona_scattering(100.0);
+    const double point = 3.0 / 16.0 * column * corona_electron_density(100.0) / 10000.0;
+    check(std::abs(distant.x / point - 1.0) < 2e-4 && std::abs(distant.y / point - 1.0) < 2e-4,
+          "finite disk approaches the point-source Thomson kernel");
+    for (double r : {1.0, 1.01, 1.5, 2.0, 10.0, 32.0}) {
+        const auto c = corona_scattering(r);
+        check(std::isfinite(c.x) && c.x > 0.0 && c.x + c.y > 0.0,
+              "finite positive coronal scattering at the limb and throughout the volume");
+    }
+    check(corona_visible_fraction(1.0, 1.1, 0.0) == 0.0, "total eclipse hides all photospheric light");
+    check(corona_visible_fraction(1.0, 1.0, 2.1) == 1.0, "separate disks leave all photospheric light");
+    check(corona_visible_fraction(1.0, 0.9, 0.0) > 0.0, "annular eclipse keeps a bright photospheric ring");
+    double previous = 0.0;
+    for (int i = 0; i <= 300; ++i) {
+        const double visible = corona_visible_fraction(1.0, 1.1, i / 100.0);
+        check(visible >= previous - 1e-10 && visible >= 0.0 && visible <= 1.0,
+              "remaining photospheric flux increases continuously through egress");
+        previous = visible;
+    }
+    check(corona_activity(utc(2019, 12, 1, 0)) == 0.0, "corona minimum anchor");
+    check(corona_activity(utc(2024, 10, 15, 0)) == 1.0, "corona maximum-phase anchor");
+    check(corona_activity(utc(2017, 8, 21, 0)) < corona_activity(utc(2024, 4, 8, 0)),
+          "2017 descending activity is below 2024");
+
+    Simulation sim;
+    std::string error;
+    check(sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/solar_eclipse.toml", &error), "eclipse scene loads");
+    sim.stop_tour();
+    check(sim.scene().active_event() == 1, "eclipse scene opens its named 2024 event");
+    for (size_t i = 0; i < sim.scene().events.size(); ++i) {
+        sim.jump_to_event(i);
+        sim.update(0.0);
+        OutputView output;
+        sim.compute_view(1280, 720, 1.0, output);
+        const Scene& scene = sim.scene();
+        const SceneEvent& event = scene.events[i];
+        const glm::dvec3 p = output.camera.position;
+        check(glm::length(p - event.observer_offset_km) < 1e-8,
+              "observer is at its designed Earth-relative ICRF offset");
+        check(std::abs(glm::length(p) - 7378.1366) < 1e-5, "eclipse viewpoint is 1000 km above Earth");
+        const glm::dvec3 sun = scene.sun_position() - p;
+        const glm::dvec3 moon = scene.bodies[static_cast<size_t>(scene.find("Moon"))].world_position - p;
+        const double alpha = std::asin(kSunRadiusKm / glm::length(sun));
+        const double beta = std::asin(1737.4 / glm::length(moon));
+        const double sep = std::atan2(glm::length(glm::cross(glm::normalize(sun), glm::normalize(moon))),
+                                      glm::dot(glm::normalize(sun), glm::normalize(moon)));
+        check(beta > alpha + sep, "designed observer is in the lunar umbra");
+        const double expected = i == 0 ? 1.0345665 : 1.0606412;
+        check(std::abs(beta / alpha - expected) < 2e-6, "apparent disk sizes agree with independent bake");
+        const double focal = 1.0 / std::tan(event.fov_deg * kDegToRad * 0.5);
+        check(std::abs(output.camera.focal_y / focal - 1.0) < 1e-6, "eclipse event applies its narrow field of view");
+        sim.camera().zoom(1.0);
+        sim.update(0.0);
+        sim.compute_view(1280, 720, 1.0, output);
+        check(glm::length(output.camera.position - p) < 1e-8 && output.camera.focal_y > focal,
+              "observer zoom changes optics without leaving the umbra");
+    }
+    sim.set_focus(sim.scene().find("Earth"));
+    sim.update(3.0);
+    OutputView normal;
+    sim.compute_view(1280, 720, 1.0, normal);
+    check(std::abs(normal.camera.focal_y - 1.0 / std::tan(22.5 * kDegToRad)) < 1e-6,
+          "ordinary orbit shots restore the default field of view");
+
+    Scene hidden;
+    hidden.bodies.resize(2);
+    hidden.bodies[0].equatorial_radius_km = 1.0;
+    hidden.bodies[1].equatorial_radius_km = 0.001;
+    hidden.bodies[1].world_position = glm::dvec3(10.0, 0.0, 0.0);
+    OrbitCamera observer_camera;
+    CameraShot shot;
+    shot.target = 0;
+    shot.observer = 1;
+    shot.fov_deg = 10.0;
+    observer_camera.fly_to(shot, 0.0, hidden);
+    observer_camera.update(0.0, hidden);
+    hidden.bodies[1].visible = false;
+    observer_camera.update(0.0, hidden);
+    const CameraView fallback = observer_camera.view(1280, 720);
+    check(std::isfinite(glm::length(fallback.position)) &&
+          std::abs(fallback.focal_y - 1.0 / std::tan(22.5 * kDegToRad)) < 1e-6,
+          "unavailable observer returns to a finite ordinary orbit view");
+
+    Scene bad;
+    const std::string base = "name='x'\n[[bodies]]\nname='Earth'\nradii_km=[1.0]\n"
+                             "[[bodies]]\nname='Moon'\nradii_km=[0.1]\n";
+    check(!load_scene_string(base + "[[events]]\nname='bad'\ntime='2024-04-08'\nfocus='Moon'\n"
+                            "observer='Earth'\nobserver_offset_km=[0,0,0]\n", "bad_observer", bad, &error),
+          "rejects an observer inside a planet");
+    check(!load_scene_string(base + "[[events]]\nname='bad'\ntime='2024-04-08'\nfov_deg=nan\n",
+                            "bad_fov", bad, &error), "rejects non-finite field of view");
+    check(!load_scene_string(base + "[corona]\ndisplay_gain=-1\n", "bad_corona", bad, &error),
+          "rejects negative corona gain");
+}
+
 } // namespace
 
 void run_appearance_tests()
@@ -581,4 +688,5 @@ void run_appearance_tests()
     test_atmospheres();
     test_plumes();
     test_night_and_aurora();
+    test_corona();
 }

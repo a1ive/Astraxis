@@ -1,0 +1,69 @@
+# White-light solar corona from designed space observation points.
+# [HZN] JPL Horizons, geometric ICRF/TDB vectors retrieved 2026-10-25:
+#       Earth (399) relative to Sun (10), Moon (301) relative to Earth (399).
+#       2017-08-20 .. 23 and 2024-04-07 .. 10, 30-minute knots; independent
+#       half-step samples differ by at most 1.20 m (Earth), 0.045 m (Moon).
+#       tools/corona/eclipse_bake.py reproduces the tables and observer offsets.
+# [OBS] Designed viewpoints at the shadow-axis intersection with a sphere
+#       1000 km above Earth's equatorial radius at the stated UTC time. Their
+#       offsets stay fixed in ICRF relative to Earth, not on its rotating surface.
+#       The times label space views, not ground-observer contact predictions.
+# [COR] assets/corona/SOURCES.md: electron density, scattering and cycle anchors.
+
+name = "Solar eclipses"
+
+[view]
+focus = "Moon"
+start = "2024-04-08 18:17:20"
+warp = 1.0
+event = "2024 eclipse from space"
+
+[corona]
+display_gain = 8.0e5
+display_gamma = 0.65
+
+[origin_heliocentric]
+type = "ephemeris"
+file = "ephem/eclipse_earth.eph"
+[origin_heliocentric.fallback]
+type = "ephemeris"
+file = "ephem/emb.eph"
+
+[[bodies]]
+name = "Earth"
+template = "bodies/earth.toml"
+gm_km3_s2 = 403503.235625 # DE440 Earth + Moon GM, as in earth_moon.toml
+
+[[bodies]]
+name = "Moon"
+template = "bodies/moon.toml"
+unset = ["pole_rate_deg_per_century"]
+parent = "Earth"
+gm_km3_s2 = 4902.800118
+orbit_color = "#c8c4bc"
+[bodies.orbit]
+type = "ephemeris"
+file = "ephem/eclipse_moon.eph"
+[bodies.orbit.fallback]
+type = "ephemeris"
+file = "ephem/moon_geo.eph"
+
+[[events]]
+name = "2017 eclipse from space"
+time = "2017-08-21 18:26:40"
+focus = "Moon"
+observer = "Earth"
+observer_offset_km = [-5706.653669776, 2346.240262098, 4045.511119006]
+fov_deg = 2.8
+warp = 1.0
+caption = """The Moon covers the solar disk, seen from a point 1,000 km above Earth. Free electrons scatter sunlight into the faint white corona. The Sun was moving toward its 2019 activity minimum. These streamers illustrate that quieter structure; they do not reconstruct the corona on this date. Brightness is enhanced as in a long exposure. The viewpoint follows Earth without rotating with its surface."""
+
+[[events]]
+name = "2024 eclipse from space"
+time = "2024-04-08 18:17:20"
+focus = "Moon"
+observer = "Earth"
+observer_offset_km = [6740.259527405, 1028.090470842, 2819.367158644]
+fov_deg = 2.8
+warp = 1.0
+caption = """The Moon hides the bright photosphere, revealing sunlight scattered by the corona. This view is 1,000 km above Earth, with brightness enhanced as in a long exposure. Near the maximum of solar activity, streamers spread to higher latitudes. Their shapes here are illustrative. The observer follows Earth without rotating with its surface, so this eclipse's duration differs from the view at any ground observatory."""

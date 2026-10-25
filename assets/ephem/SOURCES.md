@@ -764,3 +764,36 @@ Daphnis 的源星历在 2010-01-01 和 2016-01-01 00:00 TDB 发生位置接缝�
 `verify_saturn_small_moons.py` 从 00:30 TDB 起每 17 小时取未用于拟合的 Horizons 向量，跨过整张表（每颗约 40,219 个，Daphnis 14,222 个），容许采样间误差达到抽稀容差的 1.1 倍。源码测试保留其中每颗三个向量，另查环缝内的半径、L4/L5 前后关系、Polydeuces 的大幅天平动、同步朝向和 Daphnis 接缝。这里的 km 数字是相对源星历的拟合误差，不是轨道观测精度或混沌系统的长期预报精度。
 
 展签的动力学出处：Goldreich & Rappaport 2003，[Origin of Chaos in the Prometheus-Pandora System](https://arxiv.org/abs/astro-ph/0307259)；Polydeuces 约 790 天的天平动见 Spitale et al. 2006, AJ 132, 692, Fig. 10（[作者公开稿](https://ciclops.org/media/sp/2007/2686_7448_0.pdf)）。Pan 的 325 km 环缝见 [NASA Pan](https://science.nasa.gov/saturn/moons/pan/)，Keeler 缝的 42 km 见 [PIA06194](https://science.nasa.gov/resource/fingerprints-of-an-unseen-moon/)。环脊吸积解释见 Quillen et al. 2021，[Accretion of Ornamental Equatorial Ridges on Pan, Atlas and Daphnis](https://arxiv.org/abs/2007.13227)。
+
+## Solar eclipses 2017 and 2024
+
+`eclipse_earth.eph` and `eclipse_moon.eph` contain JPL Horizons geometric ICRF
+vectors, Earth (399) relative to Sun (10) and Moon (301) relative to Earth (399).
+Credit NASA/JPL-Caltech; numerical ephemeris data, covered by the JPL Horizons
+entry in `THIRD_PARTY_NOTICES.md`. No photographs or eclipse maps are included.
+
+Rebuild: `python -E -P tools/corona/eclipse_bake.py`. The script uses the existing
+Horizons API client, caches raw JSON under `tools/bake/cache/corona/`, and writes
+AXEPH1 positions and velocities at 30-minute TDB intervals for 2017-08-20 through
+2017-08-23 and 2024-04-07 through 2024-04-10 (290 knots per body).
+The maximum interpolation gap is 3600 seconds, so the two windows are not
+interpolated across their seven-year separation. Independent Horizons samples
+at the intervening 15-minute offsets gave maximum position differences:
+
+| Window | Earth | Moon |
+|---|---:|---:|
+| 2017 | 0.001186 km | 0.000044 km |
+| 2024 | 0.001198 km | 0.000045 km |
+
+These are interpolation differences from the source, not observational accuracy.
+Outside those windows the scene falls back to `emb.eph` and `moon_geo.eph`;
+the Earth-Moon barycenter fallback does not preserve eclipse alignment.
+
+The observer is constructed on the lunar shadow axis at 1000 km above a
+6378.1366 km spherical Earth. Reference times are 2017-08-21 18:26:40 UTC and
+2024-04-08 18:17:20 UTC (UTC to TDB approximated by +69.184 s for the bake).
+The resulting Moon/Sun angular-radius ratios are 1.0345665 and 1.0606412.
+Offsets remain fixed in geocentric ICRF while time runs, rather than following
+Earth's surface or the moving shadow. Light time, aberration, atmospheric
+refraction and lunar limb relief are omitted; contact times and totality
+durations must not be interpreted as predictions for a ground observer.

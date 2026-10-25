@@ -932,6 +932,20 @@ void Loader::parse(const toml::table& root, Scene& out)
         out.origin_heliocentric = parse_motion(*helio, "origin_heliocentric", nullptr);
     }
 
+    if (const toml::table* corona = root["corona"].as_table()) {
+        out.corona.enabled = true;
+        out.corona.display_gamma = get_double_or(*corona, "display_gamma", out.corona.display_gamma);
+        if (!std::isfinite(out.corona.display_gamma) || out.corona.display_gamma < 0.2 ||
+            out.corona.display_gamma > 1.0) {
+            fail("corona", "display_gamma must be finite and in [0.2, 1]");
+        }
+        out.corona.display_gain = get_double_or(*corona, "display_gain", out.corona.display_gain);
+        if (!std::isfinite(out.corona.display_gain) || out.corona.display_gain <= 0.0 ||
+            out.corona.display_gain > 1e10) {
+            fail("corona", "display_gain must be finite and in (0, 1e10]");
+        }
+    }
+
     const toml::array* bodies = root["bodies"].as_array();
     if (!bodies || bodies->empty()) {
         fail("scene", "needs at least one [[bodies]] entry");
@@ -1659,6 +1673,33 @@ void Loader::parse(const toml::table& root, Scene& out)
                     fail(ctx, "elevation_deg needs a focus, no from_orbit_normal and |elevation| <= 90");
                 }
             }
+            e.fov_deg = get_double_or(*t, "fov_deg", 45.0);
+            if (!std::isfinite(e.fov_deg) || e.fov_deg < 0.1 || e.fov_deg > 120.0) {
+                fail(ctx, "fov_deg must be finite and between 0.1 and 120");
+            }
+            if (t->contains("observer")) {
+                e.observer = body_ref(out, *t, "observer", ctx, false);
+                if (e.focus < 0 || e.focus == e.observer || e.from_body >= 0 || e.from_sun ||
+                    e.from_earth || e.from_orbit_normal >= 0 || e.flyby >= 0 || t->contains("elevation_deg")) {
+                    fail(ctx, "observer needs another focus and no other viewing direction or flyby");
+                }
+                if (t->contains("observer_offset_km")) {
+                    double offset[3];
+                    get_array(*t, "observer_offset_km", ctx, offset, 3, 3);
+                    e.observer_offset_km = glm::dvec3(offset[0], offset[1], offset[2]);
+                    if (!std::isfinite(glm::length(e.observer_offset_km))) {
+                        fail(ctx, "observer_offset_km must be finite");
+                    }
+                }
+                const Body& observer = out.bodies[static_cast<size_t>(e.observer)];
+                if (observer.kind != BodyKind::Spacecraft &&
+                    glm::length(e.observer_offset_km) < 1.1 * observer.equatorial_radius_km) {
+                    fail(ctx, "observer_offset_km must clear the observer body by 10 percent of its radius");
+                }
+            } else if (t->contains("observer_offset_km")) {
+                fail(ctx, "observer_offset_km needs observer");
+            }
+            e.corona_enhanced = (*t)["corona_enhanced"].value<bool>().value_or(false);
             e.disk_shifts = (*t)["disk_shifts"].value<bool>().value_or(true);
             e.dust_visible = (*t)["dust_visible"].value<bool>().value_or(false);
             e.caption = get_string_or(*t, "caption", "");
@@ -1825,6 +1866,13 @@ void Loader::parse(const toml::table& root, Scene& out)
         const std::string ctx = "view";
         if (view->contains("focus")) {
             out.view.focus = body_ref(out, *view, "focus", ctx, false);
+        }
+        if (view->contains("event")) {
+            const std::string name = get_string(*view, "event", ctx);
+            for (size_t i = 0; i < out.events.size(); ++i) {
+                if (out.events[i].name == name) out.view.initial_event = static_cast<int>(i);
+            }
+            if (out.view.initial_event < 0) fail(ctx, "unknown initial event '" + name + "'");
         }
         out.view.distance_km = get_double_or(*view, "distance_km", 0.0);
         out.view.pitch_rad = get_double_or(*view, "pitch_deg", out.view.pitch_rad * kRadToDeg) * kDegToRad;

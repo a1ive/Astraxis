@@ -1,6 +1,7 @@
 #pragma once
 
 #include "render/black_hole_uniforms.hpp"
+#include "render/corona_uniforms.hpp"
 #include "render/gpu_device.hpp"
 
 #include <SDL3/SDL_gpu.h>
@@ -40,6 +41,14 @@ struct PinwheelTargets {
     bool drawn = false; // waits to be composited
 };
 
+struct CoronaTargets {
+    SDL_GPUTexture* color = nullptr;
+    uint32_t width = 0;
+    uint32_t height = 0;
+    bool drawn = false;
+    CoronaUniforms uniforms;
+};
+
 // The render targets of one output, all of its size: MSAA HDR color resolved
 // into a sampleable HDR texture, reversed-Z depth, and the size-dependent
 // textures of the passes (bloom chain, black-hole trace). Each output keeps
@@ -58,6 +67,7 @@ public:
     SDL_GPURenderPass* begin_scene_pass(SDL_GPUCommandBuffer* cmd, SDL_FColor clear_color) const;
     SDL_GPUTexture* hdr() const { return m_hdr; }
 
+    CoronaTargets corona;
     BloomChain bloom;              // managed by PostProcess
     BlackHoleTargets black_hole;   // managed by BlackHolePass
     PinwheelTargets pinwheel;      // managed by PinwheelPass

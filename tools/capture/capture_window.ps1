@@ -22,6 +22,7 @@ param(
     [Parameter(Mandatory = $true)][string]$Exe,
     [Parameter(Mandatory = $true)][string]$Out,
     [string]$Scene = "",
+    [string]$Config = "",       # optional isolated settings file for repeatable captures
     [int]$Event = -1,
     [string]$Keys = "",          # letters pressed after startup, e.g. "OLH" hides orbits, labels and UI
     [int]$Width = 1280,          # client area size
@@ -67,6 +68,7 @@ public static class AstraxisCapture {
 $exePath = (Resolve-Path $Exe).Path
 $arguments = @()
 if ($Scene) { $arguments += @("--scene", $Scene) }
+if ($Config) { $arguments += @("--config", (Resolve-Path $Config).Path) }
 if ($Event -ge 0) { $arguments += @("--event", "$Event") }
 $startArgs = @{ FilePath = $exePath; WorkingDirectory = (Split-Path $exePath); PassThru = $true }
 if ($arguments.Count -gt 0) { $startArgs.ArgumentList = $arguments }

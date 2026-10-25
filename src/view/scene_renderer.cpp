@@ -22,6 +22,83 @@ namespace astraxis {
 
 namespace {
 
+// The brightest remaining photospheric fraction controls the eclipse display.
+double solar_visible_fraction(const Scene& scene, const CameraView& view)
+{
+    const glm::dvec3 sun = scene.sun_position() - view.position;
+    const double distance = glm::length(sun);
+    const double alpha = std::asin(std::min(1.0, kSunRadiusKm / distance));
+    double visible = 1.0;
+    const int star = scene.star_index();
+    for (size_t i = 0; i < scene.bodies.size(); ++i) {
+        const Body& b = scene.bodies[i];
+        if (static_cast<int>(i) == star || !b.visible || b.kind == BodyKind::Ghost) continue;
+        const glm::dvec3 p = b.world_position - view.position;
+        const double d = glm::length(p);
+        if (d <= b.equatorial_radius_km || d >= distance) continue;
+        const double angle = std::atan2(glm::length(glm::cross(sun / distance, p / d)),
+                                        glm::dot(sun / distance, p / d));
+        const double radius = std::asin(std::min(1.0, b.equatorial_radius_km / d));
+        visible = std::min(visible, corona_visible_fraction(alpha, radius, angle));
+    }
+    return visible;
+}
+
+CoronaUniforms corona_uniforms(const Scene& scene, const CameraView& view)
+{
+    CoronaUniforms u;
+    if (!scene.corona.enabled) return u;
+    const glm::dvec3 camera = view.position - scene.sun_position();
+    const double distance = glm::length(camera);
+    if (distance <= kSunRadiusKm) return u;
+    const double radius_px = kSunRadiusKm / distance * 0.5 * view.viewport.y * view.focal_y;
+    if (radius_px < 1.0) return u;
+    const bool enhanced = scene.active_event() >= 0 &&
+        scene.events[static_cast<size_t>(scene.active_event())].corona_enhanced;
+    const double visible = solar_visible_fraction(scene, view);
+    // Separate long-exposure enhancement from the physical radiance. Full
+    // photospheric visibility keeps the ordinary view below perceptibility.
+    const double gain = 6.0 + scene.corona.display_gain / (enhanced ? 1.0 : 1.0 + 1e6 * visible);
+    if (gain < 100.0) return u;
+
+    // IAU 2015 solar pole and prime meridian (NAIF pck00011.tpc).
+    const double w = (84.176 + 14.1844 * scene.time() / kSecondsPerDay) * kDegToRad;
+    const glm::dmat3 solar_to_icrf = iau_pole_frame(286.13 * kDegToRad, 63.87 * kDegToRad) * rotation_z(wrap_two_pi(w));
+    const glm::dmat3 to_solar = glm::transpose(solar_to_icrf) * scene.current_transform().axes;
+    u.ray_to_solar = glm::mat4(glm::mat3(to_solar)) * glm::inverse(view.view_proj);
+    u.camera = glm::vec4(to_solar * camera / kSunRadiusKm, 0.0);
+    u.params = glm::vec4(static_cast<float>(gain), static_cast<float>(corona_activity(scene.time())),
+                        static_cast<float>(kCoronaOuterRadius), 0.0f);
+    // Sunlight's white-light continuum, normalized to its largest component.
+    glm::dvec3 tint = blackbody_linear_srgb(5772.0);
+    tint /= std::max({tint.x, tint.y, tint.z});
+    u.color = glm::vec4(tint, scene.corona.display_gamma);
+    u.screen = glm::vec4(view.viewport, 0.0f, 0.0f);
+
+    std::vector<const Body*> occluders;
+    const int star = scene.star_index();
+    for (size_t i = 0; i < scene.bodies.size(); ++i) {
+        const Body& b = scene.bodies[i];
+        const double d = glm::length(b.world_position - view.position);
+        if (static_cast<int>(i) == star || !b.visible || b.kind == BodyKind::Ghost ||
+            d <= b.equatorial_radius_km || d > distance + kCoronaOuterRadius * kSunRadiusKm) continue;
+        if (b.equatorial_radius_km / d * view.focal_y * view.viewport.y < 0.2) continue;
+        occluders.push_back(&b);
+    }
+    std::sort(occluders.begin(), occluders.end(), [&](const Body* a, const Body* b) {
+        return a->equatorial_radius_km / glm::length(a->world_position - view.position) >
+               b->equatorial_radius_km / glm::length(b->world_position - view.position);
+    });
+    const size_t count = std::min(occluders.size(), static_cast<size_t>(kCoronaOccluders));
+    for (size_t i = 0; i < count; ++i) {
+        const Body& b = *occluders[i];
+        u.occluders[i] = glm::vec4(to_solar * (b.world_position - view.position) / kSunRadiusKm,
+                                  b.equatorial_radius_km / kSunRadiusKm);
+    }
+    u.params.w = static_cast<float>(count);
+    return u;
+}
+
 constexpr int kTrailPoints = 2048;
 constexpr float kOrbitOpacity = 0.55f;
 // An orbit the clock runs through in under kEvenOrbitFastS of real time would
@@ -373,7 +450,7 @@ bool SceneRenderer::init(const GpuDevice& gpu, SDL_GPUTextureFormat output_forma
            m_rings.init(device, format) && m_atmospheres.init(device, format) && m_auroras.init(device, format) &&
            m_plumes.init(device, format) && m_comets.init(device, format) && m_dust.init(device, format) &&
            m_orbits.init(device, format) && m_belts.init(device, format) && m_pinwheel.init(device, format) &&
-           m_sun.init(device, format) && m_beams.init(device, format) && m_black_hole.init(device, format) &&
+           m_corona.init(device, format) && m_sun.init(device, format) && m_beams.init(device, format) && m_black_hole.init(device, format) &&
            m_post.init(device, format.color, output_format);
 }
 
@@ -383,7 +460,7 @@ bool SceneRenderer::refresh_pipelines()
     return m_starfield.set_format(format) && m_bodies.set_format(format) && m_rings.set_format(format) &&
            m_atmospheres.set_format(format) && m_auroras.set_format(format) && m_plumes.set_format(format) &&
            m_comets.set_format(format) && m_dust.set_format(format) && m_orbits.set_format(format) &&
-           m_belts.set_format(format) && m_pinwheel.set_format(format) && m_sun.set_format(format) &&
+           m_belts.set_format(format) && m_pinwheel.set_format(format) && m_corona.set_format(format) && m_sun.set_format(format) &&
            m_beams.set_format(format) && m_black_hole.set_format(format);
 }
 
@@ -406,6 +483,7 @@ void SceneRenderer::shutdown()
     m_post.shutdown();
     m_beams.shutdown();
     m_sun.shutdown();
+    m_corona.shutdown();
     m_orbits.shutdown();
     m_belts.shutdown();
     m_pinwheel.shutdown();
@@ -1283,6 +1361,10 @@ void SceneRenderer::draw_stars(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pas
     const CameraView& view = output_view.camera;
     const float viewport_half = 0.5f * view.viewport.y * view.focal_y;
     bool any_star = false;
+    const bool enhanced = scene.corona.enabled && scene.active_event() >= 0 &&
+        scene.events[static_cast<size_t>(scene.active_event())].corona_enhanced;
+    const float visible = enhanced ? 0.0f : (scene.corona.enabled ?
+        static_cast<float>(solar_visible_fraction(scene, view)) : 1.0f);
     m_beam_items.clear();
     for (const Body& body : scene.bodies) {
         if (body.kind != BodyKind::Star || !body.visible) {
@@ -1294,6 +1376,7 @@ void SceneRenderer::draw_stars(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pas
         SunPass::Star s;
         s.position = glm::vec3(to_star);
         s.finite = true;
+        s.glow_gain = visible;
         s.angular_radius = static_cast<float>(body.equatorial_radius_km / distance);
         s.color = glm::vec3(blackbody_linear_srgb(body.temperature_k));
         s.magnitude = static_cast<float>(apparent_magnitude(body.luminosity_solar, distance));
@@ -1324,6 +1407,7 @@ void SceneRenderer::draw_stars(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pas
         SunPass::Star s;
         s.position = glm::vec3(to_sun / distance);
         s.finite = false;
+        s.glow_gain = visible;
         s.angular_radius = static_cast<float>(kSunRadiusKm / distance);
         s.color = glm::vec3(blackbody_linear_srgb(5772.0)); // IAU 2015 B3 nominal solar Teff
         s.magnitude = static_cast<float>(apparent_magnitude(1.0, distance));
@@ -1392,6 +1476,8 @@ void SceneRenderer::render(const Frame& frame, const Simulation& sim, const Outp
                           frame.height);
     }
 
+    m_corona.render(frame.cmd, targets.corona, corona_uniforms(sim.scene(), view), frame.width, frame.height);
+
     SDL_GPURenderPass* pass = targets.begin_scene_pass(frame.cmd, {0.0f, 0.0f, 0.0f, 1.0f});
     const float sky = static_cast<float>(sim.sky_visibility());
     m_starfield.draw(frame.cmd, pass, view, options.star_brightness * sky, sky);
@@ -1399,6 +1485,7 @@ void SceneRenderer::render(const Frame& frame, const Simulation& sim, const Outp
     SunLight sun;
     sun.ambient = kAmbient;
     m_bodies.draw(frame.cmd, pass, view, sun, m_body_items);
+    m_corona.composite(frame.cmd, pass, targets.corona);
     m_atmospheres.draw(frame.cmd, pass, view, m_atmosphere_items);
     m_auroras.draw(frame.cmd, pass, view, m_aurora_items);
     m_plumes.draw(frame.cmd, pass, view, time, m_plume_items);

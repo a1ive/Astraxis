@@ -131,7 +131,7 @@ void SunPass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const Cam
     const float intensity = star.draw_disk ? std::min(point_intensity, glare_intensity) : 0.0f;
     // Glare only for stars much brighter than any night-sky star.
     const float glare = std::clamp((-3.0f - star.magnitude) / 9.0f, 0.0f, 1.0f);
-    const float glow = kGlowIntensity * glare * glare;
+    const float glow = kGlowIntensity * glare * glare * star.glow_gain;
     if (intensity <= 0.0f && glow <= 0.0f) {
         return;
     }
