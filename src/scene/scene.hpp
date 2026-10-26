@@ -552,6 +552,9 @@ struct SceneEvent {
     // A pinwheel's dust in visible light, as the eye would see it, while the
     // event is active; otherwise in false-color near infrared.
     bool dust_visible = false;
+    // Nebulae in the false-color thermal infrared while the event is active
+    // (only those with infrared layers show); otherwise in visible light.
+    bool nebula_infrared = false;
     int flyby = -1;             // >= 0: the body whose pass of the focus the event shows (-1: looked for)
     std::string caption;        // a museum-style note on why the view is worth seeing; may be empty
 
@@ -611,7 +614,10 @@ struct LightCurve {
 
 // A star's recorded brightness through history ([observed_light_curve]: a
 // table of binned observations, not a model), plotted over its whole span
-// with the clock's moment marked (eta Carinae's Great Eruption).
+// with the clock's moment marked (eta Carinae's Great Eruption). It may also
+// set how bright `stars` are shown, and with them what they light (the
+// nebulae, a pinwheel): as observed, relative to the reference time, when the
+// scene's own brightness holds (observed_magnitude_offset).
 struct ObservedLightCurve {
     std::string band = "V";
     std::string source;        // credited with the plot, e.g. "AAVSO"
@@ -620,6 +626,8 @@ struct ObservedLightCurve {
     double gap_s = 0.0;        // points further apart are not joined
     std::vector<double> t_tdb; // ascending
     std::vector<float> magnitude;
+    std::vector<int> stars;          // shown as bright as observed; empty: none
+    double reference_magnitude = 0.0; // observed at the reference time
 
     bool enabled() const { return t_tdb.size() >= 2; }
 };
@@ -680,8 +688,9 @@ public:
     ObservedLightCurve observed_light_curve;
     // A colliding-wind binary's dust spiral (WR 104); disabled in most scenes.
     Pinwheel pinwheel;
-    // An expanding dusty shell lit by its star (eta Carinae's Homunculus); disabled in most scenes.
-    Nebula nebula;
+    // Expanding shells lit by their star (eta Carinae's Homunculus and Little
+    // Homunculus); none in most scenes.
+    std::vector<Nebula> nebulae;
     Corona corona;
 
     // Heliocentric motion of the scene origin, used for the sun position when

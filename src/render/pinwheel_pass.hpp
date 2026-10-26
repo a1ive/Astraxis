@@ -42,6 +42,7 @@ struct PinwheelDrawItem {
     float radiance = 1.0f;                  // face-on surface radiance at reference_km (linear HDR)
     float gamma = 1.0f;                     // display compression of the falloff
     float cull_radiance = 0.0f;             // splats fainter than this at their center are skipped
+    float max_age = 1e30f;                  // older grains (periods) left before the start: not drawn
     // At ln(r / r_nuc) / ln(r_end / r_nuc) = i / (kPinwheelColorCount - 1): linear
     // RGB (largest component 1), and in alpha a factor on the brightness
     // (already raised to `gamma`).

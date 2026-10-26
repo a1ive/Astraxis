@@ -62,7 +62,7 @@ void PinwheelPass::render(SDL_GPUCommandBuffer* cmd, SplatTargets& targets, cons
     vu.light = glm::vec4(item.radiance, item.gamma, log_span > 0.0f ? 1.0f / log_span : 0.0f, item.cull_radiance);
     // Splat sizes in the off-screen target's pixels (the projection itself is the scene's).
     vu.screen = glm::vec4(static_cast<float>(w), static_cast<float>(h), 0.5f * static_cast<float>(h) * view.focal_y,
-                          0.0f);
+                          item.max_age);
     vu.colors = item.colors;
     vu.radius = item.radius;
     m_splats.render(cmd, targets, &vu, sizeof(vu), width, height);

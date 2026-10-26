@@ -1757,6 +1757,7 @@ void Loader::parse(const toml::table& root, Scene& out)
             e.corona_enhanced = (*t)["corona_enhanced"].value<bool>().value_or(false);
             e.disk_shifts = (*t)["disk_shifts"].value<bool>().value_or(true);
             e.dust_visible = (*t)["dust_visible"].value<bool>().value_or(false);
+            e.nebula_infrared = (*t)["nebula_infrared"].value<bool>().value_or(false);
             e.caption = get_string_or(*t, "caption", "");
             if (const toml::node* trails = t->get("trails")) {
                 const toml::array* list = trails->as_array();
@@ -1995,6 +1996,22 @@ void Loader::parse(const toml::table& root, Scene& out)
         if (curve.to_tdb <= curve.from_tdb || curve.gap_s <= 0.0) {
             fail(ctx, "needs from before to and a positive gap_years");
         }
+        // Optional: stars shown as bright as observed, relative to the reference time.
+        if (const toml::node* stars = olc->get("stars")) {
+            const toml::array* list = stars->as_array();
+            if (!list || list->empty()) {
+                fail(ctx, "stars must be an array of star names");
+            }
+            for (const auto& name : *list) {
+                const auto s = name.value<std::string>();
+                const int i = s ? out.find(*s) : -1;
+                if (i < 0 || out.bodies[static_cast<size_t>(i)].kind != BodyKind::Star) {
+                    fail(ctx, "stars must name star bodies");
+                }
+                curve.stars.push_back(i);
+            }
+            curve.reference_magnitude = observed_magnitude_held(curve, parse_time(*olc, "reference_time", ctx));
+        }
     }
 
     // [light_curve]: the stars' light as seen from `observer` (see LightCurve).
@@ -2033,10 +2050,16 @@ void Loader::parse(const toml::table& root, Scene& out)
         p.speed_km_s = get_double(*pw, "speed_km_s", ctx);
         p.opening_angle_deg = get_double(*pw, "opening_angle_deg", ctx);
         p.nucleation_radius_km = get_double(*pw, "nucleation_radius_au", ctx) * kAuKm;
-        p.nucleation_temperature_k = get_double(*pw, "nucleation_temperature_k", ctx);
-        p.temperature_index = get_double(*pw, "temperature_index", ctx);
         p.wall_sigma_km = get_double(*pw, "wall_sigma_au", ctx) * kAuKm;
-        p.visible_albedo = get_double(*pw, "visible_albedo", ctx);
+        // Gas glowing in a line, or dust: its temperatures and albedo.
+        p.emission = pw->contains("emission_color");
+        if (p.emission) {
+            p.emission_color = parse_color(*pw, "emission_color", ctx, glm::vec3(1.0f));
+        } else {
+            p.nucleation_temperature_k = get_double(*pw, "nucleation_temperature_k", ctx);
+            p.temperature_index = get_double(*pw, "temperature_index", ctx);
+            p.visible_albedo = get_double(*pw, "visible_albedo", ctx);
+        }
         const double turns = get_double(*pw, "turns", ctx);
         const double rings = get_double(*pw, "rings_per_turn", ctx);
         const double grains = get_double(*pw, "grains_per_ring", ctx);
@@ -2080,6 +2103,17 @@ void Loader::parse(const toml::table& root, Scene& out)
         if (p.display_reference_km < 0.0 || p.display_gamma <= 0.0 || p.display_gamma > 1.0) {
             fail(ctx, "display_reference_au must not be negative, and 0 < display_gamma <= 1");
         }
+        const std::string ring_weights = get_string_or(*pw, "ring_weights", "time");
+        if (ring_weights != "time" && ring_weights != "angle") {
+            fail(ctx, "ring_weights must be \"time\" or \"angle\"");
+        }
+        p.weight_by_angle = ring_weights == "angle";
+        if (p.weight_by_angle && !p.windowed) {
+            fail(ctx, "ring_weights = \"angle\" needs dust_true_anomaly_deg");
+        }
+        if (pw->contains("from")) {
+            p.t_from_tdb = parse_time(*pw, "from", ctx);
+        }
         p.modulation_sigma_deg = get_double_or(*pw, "modulation_sigma_deg", 0.0);
         p.trailing_sigma_deg = get_double_or(*pw, "trailing_sigma_deg", 0.0);
         if (p.modulation_sigma_deg < 0.0 || p.trailing_sigma_deg < 0.0 || (p.modulation_sigma_deg > 0.0 && !p.windowed)) {
@@ -2110,45 +2144,94 @@ void Loader::parse(const toml::table& root, Scene& out)
         build_pinwheel_grains(out, p, static_cast<int>(rings), static_cast<int>(grains));
     }
 
-    // [nebula]: an expanding dusty shell lit by its star (see Nebula), from a
+    // [[nebulae]]: expanding shells lit by their star (see Nebula), each from a
     // 3D model in its own units: where the star is in the model, how large a
     // unit was at the reference time, and how the model sits on the sky.
-    if (const toml::table* nb = root["nebula"].as_table()) {
-        const std::string ctx = "nebula";
-        Nebula& n = out.nebula;
-        n.center = body_ref(out, *nb, "center", ctx, false);
-        n.t_ejection_tdb = parse_time(*nb, "ejection_time", ctx);
-        n.t_reference_tdb = parse_time(*nb, "reference_time", ctx);
-        const double unit_km = get_double(*nb, "unit_au", ctx) * kAuKm;
-        double center[3];
-        get_array(*nb, "model_center", ctx, center, 3, 3);
-        double sky[2];
-        get_array(*nb, "sky_ra_dec_deg", ctx, sky, 2, 2);
-        const glm::dmat3 to_icrf =
-            nebula_model_to_icrf(sky[0], sky[1], get_double(*nb, "axis_pa_deg", ctx),
-                                 get_double(*nb, "axis_tilt_deg", ctx), get_double(*nb, "roll_deg", ctx));
-        n.wall_sigma_km = get_double(*nb, "wall_sigma_au", ctx) * kAuKm;
-        n.asymmetry_g = get_double(*nb, "asymmetry_g", ctx);
-        n.color = parse_color(*nb, "color", ctx, glm::vec3(1.0f));
-        n.display_reference_km = get_double(*nb, "display_reference_au", ctx) * kAuKm;
-        n.display_gamma = get_double_or(*nb, "display_gamma", n.display_gamma);
-        const double grains = get_double(*nb, "grains", ctx);
-        if (n.t_reference_tdb <= n.t_ejection_tdb || unit_km <= 0.0 || n.wall_sigma_km <= 0.0 ||
-            std::abs(n.asymmetry_g) >= 1.0 || n.display_reference_km <= 0.0 || n.display_gamma <= 0.0 ||
-            n.display_gamma > 1.0) {
-            fail(ctx, "needs reference_time after ejection_time, positive unit_au, wall_sigma_au and "
-                      "display_reference_au, |asymmetry_g| < 1 and 0 < display_gamma <= 1");
+    if (const toml::node* node = root.get("nebulae")) {
+        const toml::array* list = node->as_array();
+        if (!list) {
+            fail("nebulae", "must be an array of tables ([[nebulae]])");
         }
-        if (grains < 1.0 || grains > 2.0e6 || grains != std::floor(grains)) {
-            fail(ctx, "grains must be whole, 1 .. 2 million");
+        for (const auto& entry : *list) {
+            const toml::table* nb = entry.as_table();
+            if (!nb) {
+                fail("nebulae", "entries must be tables");
+            }
+            Nebula n;
+            n.name = get_string(*nb, "name", "nebulae");
+            const std::string ctx = "nebula '" + n.name + "'";
+            n.center = body_ref(out, *nb, "center", ctx, false);
+            n.t_ejection_tdb = parse_time(*nb, "ejection_time", ctx);
+            n.t_reference_tdb = parse_time(*nb, "reference_time", ctx);
+            const double unit_km = get_double(*nb, "unit_au", ctx) * kAuKm;
+            const double polar_scale = get_double_or(*nb, "polar_scale", 1.0);
+            double center[3];
+            get_array(*nb, "model_center", ctx, center, 3, 3);
+            double sky[2];
+            get_array(*nb, "sky_ra_dec_deg", ctx, sky, 2, 2);
+            const glm::dmat3 to_icrf =
+                nebula_model_to_icrf(sky[0], sky[1], get_double(*nb, "axis_pa_deg", ctx),
+                                     get_double(*nb, "axis_tilt_deg", ctx), get_double(*nb, "roll_deg", ctx));
+            const std::string light = get_string_or(*nb, "light", "scattered");
+            if (light != "scattered" && light != "emission") {
+                fail(ctx, "light must be \"scattered\" or \"emission\"");
+            }
+            n.light = light == "emission" ? NebulaLight::Emission : NebulaLight::Scattered;
+            n.wall_sigma_km = get_double(*nb, "wall_sigma_au", ctx) * kAuKm;
+            n.asymmetry_g = n.light == NebulaLight::Scattered ? get_double(*nb, "asymmetry_g", ctx) : 0.0;
+            n.color = parse_color(*nb, "color", ctx, glm::vec3(1.0f));
+            n.display_reference_km = get_double(*nb, "display_reference_au", ctx) * kAuKm;
+            n.display_gamma = get_double_or(*nb, "display_gamma", n.display_gamma);
+            const double grains = get_double(*nb, "grains", ctx);
+            if (n.t_reference_tdb <= n.t_ejection_tdb || unit_km <= 0.0 || polar_scale <= 0.0 ||
+                n.wall_sigma_km <= 0.0 || std::abs(n.asymmetry_g) >= 1.0 || n.display_reference_km <= 0.0 ||
+                n.display_gamma <= 0.0 || n.display_gamma > 1.0) {
+                fail(ctx, "needs reference_time after ejection_time, positive unit_au, polar_scale, wall_sigma_au "
+                          "and display_reference_au, |asymmetry_g| < 1 and 0 < display_gamma <= 1");
+            }
+            if (grains < 1.0 || grains > 2.0e6 || grains != std::floor(grains)) {
+                fail(ctx, "grains must be whole, 1 .. 2 million");
+            }
+            // Optional: its dust in the thermal infrared, layer by layer.
+            n.temperature_index = get_double_or(*nb, "temperature_index", n.temperature_index);
+            if (const toml::node* layers = nb->get("infrared")) {
+                const toml::array* arr = layers->as_array();
+                if (!arr || arr->empty() || arr->size() > 4) {
+                    fail(ctx, "infrared must be 1 to 4 tables ([[nebulae.infrared]])");
+                }
+                for (const auto& layer_node : *arr) {
+                    const toml::table* lt = layer_node.as_table();
+                    if (!lt) {
+                        fail(ctx, "infrared entries must be tables");
+                    }
+                    NebulaLayer layer;
+                    layer.radius_share = get_double(*lt, "radius_share", ctx);
+                    layer.wall_sigma_km = get_double(*lt, "wall_sigma_au", ctx) * kAuKm;
+                    layer.column = get_double(*lt, "column", ctx);
+                    layer.temperature_k = get_double(*lt, "temperature_k", ctx);
+                    if (layer.radius_share <= 0.0 || layer.wall_sigma_km <= 0.0 || layer.column <= 0.0 ||
+                        layer.temperature_k <= 0.0) {
+                        fail(ctx, "infrared layers need positive radius_share, wall_sigma_au, column and "
+                                  "temperature_k");
+                    }
+                    n.infrared.push_back(layer);
+                }
+                if (n.temperature_index < 0.0 || n.temperature_index > 1.0) {
+                    fail(ctx, "temperature_index must be 0 .. 1");
+                }
+            }
+            ShapeModel shape;
+            std::string error;
+            if (!load_shape_model(m_asset_root / get_string(*nb, "shape", ctx), shape, &error)) {
+                fail(ctx, error);
+            }
+            build_nebula_grains(shape, glm::dvec3(center[0], center[1], center[2]), unit_km, polar_scale, to_icrf,
+                                static_cast<int>(grains), n);
+            out.nebulae.push_back(std::move(n));
         }
-        ShapeModel shape;
-        std::string error;
-        if (!load_shape_model(m_asset_root / get_string(*nb, "shape", ctx), shape, &error)) {
-            fail(ctx, error);
+        if (out.nebulae.size() > 4) {
+            fail("nebulae", "at most 4");
         }
-        build_nebula_grains(shape, glm::dvec3(center[0], center[1], center[2]), unit_km, to_icrf,
-                            static_cast<int>(grains), n);
     }
     out.set_active_frame(out.view.frame);
 }

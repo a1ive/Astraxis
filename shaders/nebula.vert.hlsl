@@ -1,12 +1,17 @@
-// Patches of an expanding nebula's dusty shell (scene/nebula.hpp, eta
-// Carinae's Homunculus), splatted as flat 3D Gaussians like a pinwheel's dust
-// (pinwheel.vert.hlsl): round along the shell, thin across it, projected to a
-// 2D Gaussian on the screen (EWA splatting), so the shell seen edge-on gets
-// its column density (limb brightening). The whole shell is scaled from the
-// star by the expansion since the reference time. Each patch scatters the
-// star's light: 1 / d^2 from the star, the column thinning as 1 / scale^2,
-// and the Henyey-Greenstein phase function, compressed for display. The
-// fragment shader is dust.frag.hlsl.
+// Patches of an expanding nebula's shell (scene/nebula.hpp, eta Carinae's
+// Homunculus and Little Homunculus), splatted as flat 3D Gaussians like a
+// pinwheel's dust (pinwheel.vert.hlsl): round along the shell, thin across
+// it, projected to a 2D Gaussian on the screen (EWA splatting), so the shell
+// seen edge-on gets its column density (limb brightening). The whole shell is
+// scaled from the star by the expansion since the reference time (and a layer
+// of it by its own share). Each patch is lit by the star, 1 / d^2, and
+//   scattered light: the column thinning as 1 / scale^2 and the
+//     Henyey-Greenstein phase function;
+//   emission: as much as reaches it, the same in every direction;
+//   thermal infrared: the column (thinning as 1 / scale^2) times a black
+//     body's light in the infrared band at the grains' temperature (warming
+//     as d^-temperature_index), in false color (the thermal table);
+// all compressed for display. The fragment shader is dust.frag.hlsl.
 
 #include "common.hlsli"
 
@@ -14,6 +19,8 @@
 // bytes (NebulaGpuGrain): xyz = position at the reference time relative to the
 // star (ICRF, km), w = weight; xyz = the shell's outward normal (unit, ICRF).
 ByteAddressBuffer u_grains : register(t0, space0);
+
+#define THERMAL_SIZE 32
 
 cbuffer Uniforms : register(b0, space1)
 {
@@ -25,8 +32,12 @@ cbuffer Uniforms : register(b0, space1)
     float4 u_display_z;
     float4 u_shape;     // x = patch sigma (km), y = wall sigma (km), both at the reference time; z = min sigma (px), w = g
     float4 u_light;     // x = face-on radiance at the reference distance, y = display gamma, z = reference distance (km), w = cull radiance
-    float4 u_color;     // rgb = color of the scattered light (sRGB)
-    float4 u_screen;    // xy = viewport (px), z = pixels per radian
+    float4 u_color;     // rgb = color in visible light (sRGB), w = light: 0 scattered, 1 emission, 2 thermal
+    float4 u_screen;    // xy = viewport (px), z = pixels per radian, w = first patch of this draw
+    float4 u_layer;     // x = size share of the layer, y = column / the infrared emission with the reference
+                        // brightness, z = temperature (K) at distance 1 / w (km), w (see z)
+    float4 u_thermal;   // x = temperature index, y = ln of the table's lowest temperature, z = table steps per ln K
+    float4 u_thermal_colors[THERMAL_SIZE]; // at ln(T / T_lo) * z = i: linear RGB (largest 1), infrared emission
 };
 
 struct VSOutput
@@ -65,13 +76,14 @@ VSOutput main(uint vertex_id : SV_VertexID)
         float2(-1, -1), float2(1, -1), float2(1, 1),
         float2(-1, -1), float2(1, 1), float2(-1, 1),
     };
-    uint grain = vertex_id / 6;
+    uint grain = uint(u_screen.w) + vertex_id / 6;
     float2 corner = kCorners[vertex_id % 6];
     float4 a = asfloat(u_grains.Load4(grain * 32u));
     float4 b = asfloat(u_grains.Load4(grain * 32u + 16u));
 
     float scale = u_center.w;
-    float3 offset = to_display(a.xyz) * scale; // from the star
+    float size = scale * u_layer.x;
+    float3 offset = to_display(a.xyz) * size; // from the star
     float d = length(offset);
     float3 world = u_center.xyz + offset;       // relative to the camera, display axes
     float3 p = to_camera(world);
@@ -80,17 +92,31 @@ VSOutput main(uint vertex_id : SV_VertexID)
         return culled();
     }
 
-    // Light scattered toward the camera: starlight falling off from the star,
-    // spread over a column thinning as the shell grows, and the phase function
-    // at the scattering angle (cos = 1 when the light goes straight on to the
-    // camera), all compressed by the display gamma.
+    // Light toward the camera: starlight falling off from the star, for dust
+    // spread over a column thinning as the shell grows, and scattered with
+    // the phase function at the scattering angle (cos = 1 when the light goes
+    // straight on to the camera); or the dust's own glow in the infrared band
+    // at its temperature; all compressed by the display gamma.
     float q = u_light.z / d;
-    q = q * q / (scale * scale);
-    float g = u_shape.w;
-    float cos_theta = dot(offset / d, -normalize(world));
-    float h = 1.0 + g * g - 2.0 * g * cos_theta;
-    float phase = (1.0 - g * g) / (h * sqrt(h));
-    float surface = u_light.x * pow(q * phase, u_light.y) * a.w;
+    q = q * q;
+    float3 color = srgb_to_linear(u_color.rgb);
+    float light;
+    if (u_color.w < 0.5) {
+        float g = u_shape.w;
+        float cos_theta = dot(offset / d, -normalize(world));
+        float h = 1.0 + g * g - 2.0 * g * cos_theta;
+        light = q / (scale * scale) * (1.0 - g * g) / (h * sqrt(h));
+    } else if (u_color.w < 1.5) {
+        light = q;
+    } else {
+        float kelvin = u_layer.z * pow(d * u_layer.w, -u_thermal.x);
+        float t = clamp((log(kelvin) - u_thermal.y) * u_thermal.z, 0.0, THERMAL_SIZE - 1.001);
+        uint i = uint(t);
+        float4 thermal = lerp(u_thermal_colors[i], u_thermal_colors[i + 1], t - float(i));
+        color = thermal.rgb;
+        light = u_layer.y * thermal.a / (scale * scale);
+    }
+    float surface = u_light.x * pow(light, u_light.y) * a.w;
 
     float3 normal = to_camera(to_display(b.xyz)); // across the shell
     float3 helper = abs(normal.x) < 0.9 ? float3(1, 0, 0) : float3(0, 1, 0);
@@ -100,7 +126,7 @@ VSOutput main(uint vertex_id : SV_VertexID)
     // Screen covariance (px^2) of the patch: J S J^T with J the projection's
     // Jacobian at p, plus the minimum size.
     float f = u_screen.z;
-    float s_patch = u_shape.x * scale;
+    float s_patch = u_shape.x * size;
     float s_wall = u_shape.y * scale;
     float2 ja = f / depth * (along.xy + along.z * p.xy / depth) * s_patch;
     float2 jc = f / depth * (across.xy + across.z * p.xy / depth) * s_patch;
@@ -122,7 +148,7 @@ VSOutput main(uint vertex_id : SV_VertexID)
     float flux = surface * area / (depth * depth);
     float peak = flux * f * f / (kTwoPi * sqrt(l1 * l2));
 
-    float3 radiance = srgb_to_linear(u_color.rgb) * peak;
+    float3 radiance = color * peak;
     if (max(radiance.r, max(radiance.g, radiance.b)) < u_light.w) {
         return culled();
     }

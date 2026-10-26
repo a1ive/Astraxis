@@ -180,8 +180,16 @@ bool SplatPass::ensure_targets(SplatTargets& targets, uint32_t width, uint32_t h
 void SplatPass::render(SDL_GPUCommandBuffer* cmd, SplatTargets& targets, const void* uniforms, uint32_t size,
                        uint32_t width, uint32_t height)
 {
+    const Draw draw = {uniforms, size, m_count};
+    render(cmd, targets, &draw, 1, width, height);
+}
+
+void SplatPass::render(SDL_GPUCommandBuffer* cmd, SplatTargets& targets, const Draw* draws, size_t draw_count,
+                       uint32_t width, uint32_t height)
+{
     targets.drawn = false;
-    if (m_count == 0 || !m_buffer || !ensure_targets(targets, target_size(width), target_size(height))) {
+    if (m_count == 0 || !m_buffer || draw_count == 0 ||
+        !ensure_targets(targets, target_size(width), target_size(height))) {
         return;
     }
     SDL_GPUColorTargetInfo color = {};
@@ -196,8 +204,13 @@ void SplatPass::render(SDL_GPUCommandBuffer* cmd, SplatTargets& targets, const v
     SDL_BindGPUGraphicsPipeline(pass, m_splat_pipeline);
     SDL_GPUBuffer* storage = m_buffer;
     SDL_BindGPUVertexStorageBuffers(pass, 0, &storage, 1);
-    SDL_PushGPUVertexUniformData(cmd, 0, uniforms, size);
-    SDL_DrawGPUPrimitives(pass, m_count * 6u, 1, 0, 0);
+    for (size_t i = 0; i < draw_count; ++i) {
+        if (draws[i].count == 0) {
+            continue;
+        }
+        SDL_PushGPUVertexUniformData(cmd, 0, draws[i].uniforms, draws[i].size);
+        SDL_DrawGPUPrimitives(pass, draws[i].count * 6u, 1, 0, 0);
+    }
     SDL_EndGPURenderPass(pass);
     targets.drawn = true;
 }

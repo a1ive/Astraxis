@@ -23,6 +23,14 @@ namespace astraxis {
 // radiance at the center).
 class SplatPass {
 public:
+    // One draw of `count` points (a range the vertex shader picks out with
+    // its uniforms) with `uniforms` (`size` bytes) as uniform buffer 0.
+    struct Draw {
+        const void* uniforms = nullptr;
+        uint32_t size = 0;
+        uint32_t count = 0;
+    };
+
     bool init(SDL_GPUDevice* device, const SceneTargetFormat& format, const ShaderDesc& vertex_shader);
     void shutdown();
     // Recreates the pipelines for another scene format (e.g. MSAA sample count).
@@ -39,6 +47,10 @@ public:
     // with `uniforms` (`size` bytes) as the vertex shader's uniform buffer 0;
     // outside any render pass.
     void render(SDL_GPUCommandBuffer* cmd, SplatTargets& targets, const void* uniforms, uint32_t size,
+                uint32_t width, uint32_t height);
+    // The same with several draws into the one target (several nebulae, or
+    // one in layers).
+    void render(SDL_GPUCommandBuffer* cmd, SplatTargets& targets, const Draw* draws, size_t draw_count,
                 uint32_t width, uint32_t height);
     // Adds what render() drew to the scene pass.
     void composite(SDL_GPURenderPass* pass, SplatTargets& targets);

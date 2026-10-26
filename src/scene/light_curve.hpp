@@ -57,6 +57,16 @@ void measure_light_curve_depth(Scene& scene, double t_tdb, double days);
 // points on either side; NaN outside the points or across a gap (gap_s).
 double observed_magnitude(const ObservedLightCurve& curve, double t_tdb);
 
+// As observed_magnitude, but joined across gaps and held at the first and
+// last points: the magnitude to light the scene by at any time.
+double observed_magnitude_held(const ObservedLightCurve& curve, double t_tdb);
+
+// How much brighter (negative) or fainter than at the reference time the
+// curve's stars, and what they light, are shown at t_tdb (magnitudes; 0
+// without stars), and the same as a factor on their light.
+double observed_magnitude_offset(const ObservedLightCurve& curve, double t_tdb);
+double observed_light_factor(const ObservedLightCurve& curve, double t_tdb);
+
 // Plot opacity at a simulated-seconds-per-real-second rate (0 when paused).
 // Fades as the whole span passes in 4 to 2 real seconds.
 double light_curve_visibility(const LightCurve& curve, double rate);

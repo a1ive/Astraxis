@@ -244,14 +244,32 @@ constexpr float kPinwheelCullRadiance = 1e-4f;
 // An expanding nebula's shell (scene/nebula.hpp, the Homunculus) in scattered
 // starlight: a face-on patch at the scene's reference distance, seen at right
 // angles to the starlight, is kNebulaRadiance bright; patches are at least
-// kNebulaMinPx on screen and skipped below kNebulaCullRadiance.
+// kNebulaMinPx on screen and skipped below kNebulaCullRadiance. In the
+// thermal infrared, a patch of the column seen in visible light at the
+// temperature of the first layer at that distance is as bright.
 constexpr float kNebulaRadiance = 0.5f;
+// Warm dust in false color: a black body kNebulaInfraredShift times the
+// grains' temperature, which moves the middle of the infrared band
+// (kNebulaInfraredLoNm .. HiNm, 8-25 um) to the middle of the visible one
+// (Wien: wavelength x temperature is what counts): 140 K dust orange, 200 K
+// near white. The table spans kNebulaThermalLoK .. HiK.
+const double kNebulaInfraredShift =
+    std::sqrt(kNebulaInfraredLoNm * kNebulaInfraredHiNm / (kVisibleLoNm * kVisibleHiNm));
+constexpr double kNebulaThermalLoK = 30.0;
+constexpr double kNebulaThermalHiK = 1000.0;
 // Close to the stars, deep inside the shell, the eye adapts to them: nearer
 // than kNebulaAdaptShare of the shell's extent the shell dims in proportion to
 // the distance (a binary's close-up is not lost in the glow of the walls).
 constexpr double kNebulaAdaptShare = 0.1;
 constexpr float kNebulaMinPx = 0.7f;
 constexpr float kNebulaCullRadiance = 1e-4f;
+
+// sRGB (IEC 61966-2-1) to linear, per channel.
+glm::dvec3 srgb_to_linear(const glm::dvec3& c)
+{
+    auto channel = [](double v) { return v <= 0.04045 ? v / 12.92 : std::pow((v + 0.055) / 1.055, 2.4); };
+    return {channel(c.r), channel(c.g), channel(c.b)};
+}
 
 // Henyey-Greenstein phase function (mean 1 over the sphere); `cos_angle` between
 // the incoming sunlight and the direction toward the camera (1 = forward).
@@ -541,7 +559,7 @@ void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, u
         m_belt_radius_km.push_back(a.empty() ? 0.0 : a[a.size() / 2] * kAuKm);
     }
     load_pinwheel(scene);
-    load_nebula(scene);
+    load_nebulae(scene);
     m_body_textures.assign(scene.bodies.size(), nullptr);
     m_ring_textures.assign(scene.bodies.size(), nullptr);
     m_night_textures.assign(scene.bodies.size(), nullptr);
@@ -1059,6 +1077,14 @@ void SceneRenderer::load_pinwheel(const Scene& scene)
         m_pinwheel_radius[static_cast<size_t>(i)] =
             static_cast<float>(pinwheel_radius(p, share * share * p.turns * p.period_s));
     }
+    if (p.emission) {
+        // Gas glowing in a line: the same color everywhere, in both views.
+        glm::dvec3 line = srgb_to_linear(glm::dvec3(p.emission_color));
+        line /= std::max({line.r, line.g, line.b, 1e-30});
+        m_pinwheel_colors.fill(glm::vec4(glm::vec3(line), 1.0f));
+        m_pinwheel_visible_colors = m_pinwheel_colors;
+        return;
+    }
     // In visible light: the dust's own glow at its temperature and the
     // starlight it scatters (the stars' color), in proportion to their
     // light, brightness relative to the nucleation radius.
@@ -1109,9 +1135,13 @@ PinwheelDrawItem SceneRenderer::pinwheel_item(const Simulation& sim, const Outpu
     item.wall_sigma_km = static_cast<float>(p.wall_sigma_km);
     item.min_sigma_px = static_cast<float>(kPinwheelMinPx * output_view.content_scale);
     const double camera_km = glm::length(glm::dvec3(item.center));
+    const double light = observed_light_factor(scene.observed_light_curve, sim.clock().t_tdb);
     item.radiance = static_cast<float>(kPinwheelRadiance * sim.pinwheel_visibility() *
                                        std::min(1.0, camera_km / (kPinwheelAdaptRadii * p.nucleation_radius_km)) *
-                                       sim.pinwheel_exposure());
+                                       sim.pinwheel_exposure() * std::pow(light, p.display_gamma));
+    if (std::isfinite(p.t_from_tdb)) {
+        item.max_age = static_cast<float>(std::max((sim.clock().t_tdb - p.t_from_tdb) / p.period_s, -1.0));
+    }
     item.gamma = static_cast<float>(p.display_gamma);
     item.reference_km = static_cast<float>(p.display_reference_km > 0.0 ? p.display_reference_km
                                                                         : p.nucleation_radius_km);
@@ -1123,43 +1153,90 @@ PinwheelDrawItem SceneRenderer::pinwheel_item(const Simulation& sim, const Outpu
     return item;
 }
 
-void SceneRenderer::load_nebula(const Scene& scene)
+void SceneRenderer::load_nebulae(const Scene& scene)
 {
-    const Nebula& n = scene.nebula;
-    if (!n.enabled()) {
+    m_nebula_first.clear();
+    std::vector<NebulaGpuGrain> gpu;
+    for (const Nebula& n : scene.nebulae) {
+        m_nebula_first.push_back(static_cast<uint32_t>(gpu.size()));
+        for (const NebulaGrain& g : n.grains) {
+            gpu.push_back({g.position, g.weight, g.normal, 0.0f});
+        }
+    }
+    if (gpu.empty()) {
         m_nebula.clear();
         return;
     }
-    std::vector<NebulaGpuGrain> gpu;
-    gpu.reserve(n.grains.size());
-    for (const NebulaGrain& g : n.grains) {
-        gpu.push_back({g.position, g.weight, g.normal, 0.0f});
-    }
     m_nebula.set_grains(gpu.data(), static_cast<uint32_t>(gpu.size()));
+    NebulaThermalColors thermal;
+    thermal.lo_k = kNebulaThermalLoK;
+    thermal.hi_k = kNebulaThermalHiK;
+    for (int i = 0; i < kNebulaThermalCount; ++i) {
+        const double t = kNebulaThermalLoK *
+                         std::pow(kNebulaThermalHiK / kNebulaThermalLoK, static_cast<double>(i) / (kNebulaThermalCount - 1));
+        thermal.colors[static_cast<size_t>(i)] = glm::vec4(glm::vec3(blackbody_linear_srgb(kNebulaInfraredShift * t)),
+                                                           static_cast<float>(nebula_infrared_emission(t)));
+    }
+    m_nebula.set_thermal_colors(thermal);
 }
 
-NebulaDrawItem SceneRenderer::nebula_item(const Simulation& sim, const OutputView& output_view) const
+void SceneRenderer::build_nebula_items(const Simulation& sim, const OutputView& output_view)
 {
     const Scene& scene = sim.scene();
-    const Nebula& n = scene.nebula;
     const double t = sim.clock().t_tdb;
-    NebulaDrawItem item;
-    item.center = to_render(scene.bodies[static_cast<size_t>(n.center)].world_position, output_view.camera.position);
-    item.display_from_icrf = glm::mat3(glm::transpose(scene.current_transform().axes));
-    item.scale = static_cast<float>(nebula_scale(n, t));
-    item.patch_sigma_km = static_cast<float>(n.patch_sigma_km);
-    item.wall_sigma_km = static_cast<float>(n.wall_sigma_km);
-    item.min_sigma_px = static_cast<float>(kNebulaMinPx * output_view.content_scale);
-    item.asymmetry_g = static_cast<float>(n.asymmetry_g);
-    item.reference_km = static_cast<float>(n.display_reference_km);
-    const double camera_km = glm::length(glm::dvec3(item.center));
-    const double adapt_km = kNebulaAdaptShare * nebula_extent_km(n, t);
-    item.radiance = static_cast<float>(kNebulaRadiance * nebula_exposure(n, t) *
-                                       (adapt_km > 0.0 ? std::min(1.0, camera_km / adapt_km) : 1.0));
-    item.gamma = static_cast<float>(n.display_gamma);
-    item.cull_radiance = kNebulaCullRadiance;
-    item.color = n.color;
-    return item;
+    const int event = scene.active_event();
+    const bool infrared = event >= 0 && scene.events[static_cast<size_t>(event)].nebula_infrared;
+    // What the stars light follows their observed brightness, compressed like the rest.
+    const double light = observed_light_factor(scene.observed_light_curve, t);
+    m_nebula_items.clear();
+    for (size_t k = 0; k < scene.nebulae.size(); ++k) {
+        const Nebula& n = scene.nebulae[k];
+        const double scale = nebula_scale(n, t);
+        if (!n.enabled() || scale <= 0.0 || (infrared && n.infrared.empty())) {
+            continue;
+        }
+        NebulaDrawItem item;
+        item.first = m_nebula_first[k];
+        item.count = static_cast<uint32_t>(n.grains.size());
+        item.light = n.light == NebulaLight::Emission ? NebulaDrawLight::Emission : NebulaDrawLight::Scattered;
+        item.center =
+            to_render(scene.bodies[static_cast<size_t>(n.center)].world_position, output_view.camera.position);
+        item.display_from_icrf = glm::mat3(glm::transpose(scene.current_transform().axes));
+        item.scale = static_cast<float>(scale);
+        item.patch_sigma_km = static_cast<float>(n.patch_sigma_km);
+        item.wall_sigma_km = static_cast<float>(n.wall_sigma_km);
+        item.min_sigma_px = static_cast<float>(kNebulaMinPx * output_view.content_scale);
+        item.asymmetry_g = static_cast<float>(n.asymmetry_g);
+        item.reference_km = static_cast<float>(n.display_reference_km);
+        const double camera_km = glm::length(glm::dvec3(item.center));
+        const double adapt_km = kNebulaAdaptShare * nebula_extent_km(n, t);
+        item.radiance = static_cast<float>(kNebulaRadiance * nebula_exposure(n, t) *
+                                           std::pow(light, n.display_gamma) *
+                                           (adapt_km > 0.0 ? std::min(1.0, camera_km / adapt_km) : 1.0));
+        item.gamma = static_cast<float>(n.display_gamma);
+        item.cull_radiance = kNebulaCullRadiance;
+        item.color = n.color;
+        if (!infrared) {
+            m_nebula_items.push_back(item);
+            continue;
+        }
+        // Layer by layer, brightness relative to the first layer's grains at the
+        // reference distance.
+        const NebulaLayer& first = n.infrared.front();
+        const double reference_emission =
+            nebula_infrared_emission(nebula_dust_temperature(n, first, n.display_reference_km));
+        for (const NebulaLayer& layer : n.infrared) {
+            NebulaDrawItem l = item;
+            l.light = NebulaDrawLight::Thermal;
+            l.radius_share = static_cast<float>(layer.radius_share);
+            l.wall_sigma_km = static_cast<float>(layer.wall_sigma_km);
+            l.column = static_cast<float>(layer.column / reference_emission);
+            l.temperature_k = static_cast<float>(layer.temperature_k);
+            l.temperature_km = static_cast<float>(layer.radius_share * n.mean_distance_km);
+            l.temperature_index = static_cast<float>(n.temperature_index);
+            m_nebula_items.push_back(l);
+        }
+    }
 }
 
 void SceneRenderer::build_comet_items(const Simulation& sim, const OutputView& output_view, const ViewOptions& options)
@@ -1433,6 +1510,9 @@ void SceneRenderer::draw_stars(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pas
     const float visible = enhanced ? 0.0f : (scene.corona.enabled ?
         static_cast<float>(solar_visible_fraction(scene, view)) : 1.0f);
     m_beam_items.clear();
+    // Stars shown as bright as observed (eta Carinae's eruptions).
+    const ObservedLightCurve& observed = scene.observed_light_curve;
+    const double observed_offset = observed_magnitude_offset(observed, sim.clock().t_tdb);
     for (const Body& body : scene.bodies) {
         if (body.kind != BodyKind::Star || !body.visible) {
             continue;
@@ -1447,6 +1527,10 @@ void SceneRenderer::draw_stars(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pas
         s.angular_radius = static_cast<float>(body.equatorial_radius_km / distance);
         s.color = glm::vec3(blackbody_linear_srgb(body.temperature_k));
         s.magnitude = static_cast<float>(apparent_magnitude(body.luminosity_solar, distance));
+        if (std::find(observed.stars.begin(), observed.stars.end(), &body - scene.bodies.data()) !=
+            observed.stars.end()) {
+            s.magnitude += static_cast<float>(observed_offset);
+        }
         s.draw_disk = s.angular_radius * viewport_half < 3.0f; // otherwise the sphere shows it
         glm::dvec3 beams[2];
         if (pulsar_beams(scene, body, sim.clock().t_tdb, sim.animation_time(), beams)) {
@@ -1542,8 +1626,11 @@ void SceneRenderer::render(const Frame& frame, const Simulation& sim, const Outp
         m_pinwheel.render(frame.cmd, targets.pinwheel, view, pinwheel_item(sim, output_view), frame.width,
                           frame.height);
     }
-    if (m_nebula.has_grains() && nebula_scale(sim.scene().nebula, sim.clock().t_tdb) > 0.0) {
-        m_nebula.render(frame.cmd, targets.nebula, view, nebula_item(sim, output_view), frame.width, frame.height);
+    if (m_nebula.has_grains()) {
+        build_nebula_items(sim, output_view);
+        if (!m_nebula_items.empty()) {
+            m_nebula.render(frame.cmd, targets.nebula, view, m_nebula_items, frame.width, frame.height);
+        }
     }
 
     m_corona.render(frame.cmd, targets.corona, corona_uniforms(sim.scene(), view), frame.width, frame.height);

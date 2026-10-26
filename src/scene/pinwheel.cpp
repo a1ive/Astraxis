@@ -99,7 +99,9 @@ void build_pinwheel_grains(const Scene& scene, Pinwheel& pinwheel, int rings_per
             const double t = orbit.t_peri + mean_anomaly_at(nu, orbit.e) / orbit.n;
             const double x = (t - pinwheel.t_ref_tdb) / pinwheel.period_s;
             phases[static_cast<size_t>(k)] = x - std::floor(x);
-            const double sweep = 1.0 / ((1.0 + orbit.e * std::cos(nu)) * (1.0 + orbit.e * std::cos(nu)));
+            const double sweep = pinwheel.weight_by_angle
+                                     ? 1.0
+                                     : 1.0 / ((1.0 + orbit.e * std::cos(nu)) * (1.0 + orbit.e * std::cos(nu)));
             weights[static_cast<size_t>(k)] = pinwheel_orbit_rate(pinwheel, nu_deg) * sweep;
             heaviest = std::max(heaviest, weights[static_cast<size_t>(k)]);
         }
@@ -203,6 +205,11 @@ double pinwheel_grain_age(const Pinwheel& pinwheel, const PinwheelGrain& grain, 
     return n * pinwheel.period_s * (y - std::floor(y));
 }
 
+bool pinwheel_grain_born(const Pinwheel& pinwheel, const PinwheelGrain& grain, double t_tdb)
+{
+    return t_tdb - pinwheel_grain_age(pinwheel, grain, t_tdb) >= pinwheel.t_from_tdb;
+}
+
 glm::dvec3 pinwheel_grain_offset(const Pinwheel& pinwheel, const PinwheelGrain& grain, double t_tdb)
 {
     return glm::dvec3(grain.direction) * pinwheel_radius(pinwheel, pinwheel_grain_age(pinwheel, grain, t_tdb));
@@ -246,6 +253,9 @@ double pinwheel_peak_brightness(const Pinwheel& pinwheel, double t_tdb)
     for (const Pinwheel::Ring& ring : pinwheel.rings) {
         const double y = x - ring.phase;
         const double age = (y - std::floor(y)) * pinwheel.period_s;
+        if (t_tdb - age < pinwheel.t_from_tdb) {
+            continue;
+        }
         const double r = std::max(pinwheel_radius(pinwheel, age), pinwheel.nucleation_radius_km);
         const double q = reference / r;
         peak = std::max(peak, ring.weight * std::pow(q * q * q * q, pinwheel.display_gamma));

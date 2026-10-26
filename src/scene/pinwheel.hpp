@@ -2,6 +2,7 @@
 
 #include <glm/vec3.hpp>
 
+#include <limits>
 #include <vector>
 
 namespace astraxis {
@@ -31,7 +32,10 @@ struct PinwheelGrain {
 // cone turns and the rings wind into a spiral (an Archimedean one for a
 // circular orbit at constant speed). An eccentric binary may make dust only
 // around periastron (`windowed`: from true anomaly window_on to window_off),
-// at a rate that varies along the orbit and around the cone.
+// at a rate that varies along the orbit and around the cone. The same
+// geometry draws the shells of compressed wind that a binary's colliding
+// winds leave behind (eta Carinae's "fossil" wind shells), glowing in an
+// emission line instead of as dust.
 //
 // The plume is a fixed set of grains. The orbit repeats every period, so a
 // grain that leaves `phase` periods (plus whole periods) after the reference
@@ -76,6 +80,17 @@ struct Pinwheel {
     double window_off_deg = 180.0;
     double modulation_sigma_deg = 0.0;
     double trailing_sigma_deg = 0.0;
+    // Rings over the window carry the dust made in the time they stand for
+    // (dt/dnu: few near periastron, where the cone sweeps fast), or the same
+    // amount each (weight_by_angle: a shell of even density over the sky the
+    // cone sweeps, as when the walls are the other wind swept up).
+    bool weight_by_angle = false;
+    // Dust launched before this time is not drawn (the plume began then).
+    double t_from_tdb = -std::numeric_limits<double>::infinity();
+    // Gas glowing in an emission line (sRGB, largest component 1) in both
+    // views, rather than dust in its infrared and visible light.
+    bool emission = false;
+    glm::vec3 emission_color{1.0f};
     // Display: a face-on wall is as bright at display_reference_km as the
     // renderer's reference brightness (0: at the nucleation radius), and its
     // fall-off with distance (r^-4) is raised to display_gamma, which keeps
@@ -116,6 +131,9 @@ double pinwheel_radius(const Pinwheel& pinwheel, double age_s);
 
 // Age of a grain at t_tdb (seconds; 0 .. turns * period).
 double pinwheel_grain_age(const Pinwheel& pinwheel, const PinwheelGrain& grain, double t_tdb);
+
+// Whether a grain at t_tdb left at or after the pinwheel's start (t_from_tdb).
+bool pinwheel_grain_born(const Pinwheel& pinwheel, const PinwheelGrain& grain, double t_tdb);
 
 // Position of a grain relative to the center (ICRF, km) at t_tdb.
 glm::dvec3 pinwheel_grain_offset(const Pinwheel& pinwheel, const PinwheelGrain& grain, double t_tdb);

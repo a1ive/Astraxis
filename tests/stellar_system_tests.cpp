@@ -2,6 +2,7 @@
 
 #include "test_util.hpp"
 
+#include "core/color.hpp"
 #include "core/math.hpp"
 #include "core/time.hpp"
 #include "ephem/ephemeris.hpp"
@@ -1907,7 +1908,11 @@ void test_eta_carinae_scene()
     check(year_2025 > 2025.55 && year_2025 < 2025.7, "Eta Car periastron of 2025.6 [KS26] (year)", year_2025);
 
     // The Homunculus.
-    const Nebula& n = scene.nebula;
+    check(scene.nebulae.size() == 2, "Eta Carinae nebulae", static_cast<double>(scene.nebulae.size()));
+    if (scene.nebulae.size() != 2) {
+        return;
+    }
+    const Nebula& n = scene.nebulae[0];
     check(n.enabled() && n.center == root && n.grains.size() >= 149990 && n.grains.size() <= 150000,
           "Homunculus patches", static_cast<double>(n.grains.size()));
     if (!n.enabled()) {
@@ -1998,6 +2003,162 @@ void test_eta_carinae_scene()
     std::printf("info: Homunculus %.0f au tip to tip in 2012 ([SM06] scaled: %.0f)\n", hi - lo, length_au);
     check(std::abs((hi - lo) / length_au - 1.0) < 0.03, "Homunculus length in 2012 (au)", hi - lo);
 
+    // [SM09]'s infrared layers: the cool outer skin, and a warm inner layer
+    // 10% smaller, each at its color temperature at its mean distance in
+    // 2005; the waist, closest to the stars, warmest.
+    check(n.infrared.size() == 2 && n.infrared[0].radius_share == 1.0 && n.infrared[1].radius_share == 0.9,
+          "Homunculus infrared layers [SM09]");
+    if (n.infrared.size() == 2) {
+        const NebulaLayer& outer = n.infrared[0];
+        const NebulaLayer& inner = n.infrared[1];
+        const double t_outer = nebula_dust_temperature(n, outer, n.mean_distance_km);
+        const double t_inner = nebula_dust_temperature(n, inner, 0.9 * n.mean_distance_km);
+        check(std::abs(t_outer - 140.0) < 1e-9 && std::abs(t_inner - 200.0) < 1e-9,
+              "Homunculus layers at 140 K and 200 K [SM09] (K)", t_inner);
+        double nearest = n.extent_km;
+        for (const NebulaGrain& g : n.grains) {
+            nearest = std::min(nearest, static_cast<double>(glm::length(glm::dvec3(g.position))));
+        }
+        const double t_waist = nebula_dust_temperature(n, outer, nearest);
+        std::printf("info: Homunculus mean distance %.0f au in 2005, the nearest patch %.0f au at %.0f K\n",
+                    n.mean_distance_km / kAuKm, nearest / kAuKm, t_waist);
+        // [SM06] Sect. 6: the warmest dust, T > 250 K, in the core.
+        check(t_waist > 250.0, "Homunculus waist warmest [SM06] (K)", t_waist);
+        // [SM06] Sect. 2: the warm layer dominates images at 8-13 um, the cool
+        // skin longer wavelengths (each layer's light: its column times a black
+        // body's light in the band).
+        auto light = [&](const NebulaLayer& layer, double kelvin, double lo_nm, double hi_nm) {
+            return layer.column * std::pow(kelvin, 4.0) * blackbody_band_share(kelvin, lo_nm, hi_nm);
+        };
+        const double short_ratio = light(inner, 200.0, 8000.0, 13000.0) / light(outer, 140.0, 8000.0, 13000.0);
+        const double long_ratio = light(inner, 200.0, 18000.0, 25000.0) / light(outer, 140.0, 18000.0, 25000.0);
+        std::printf("info: Homunculus inner / outer layer light: %.2f at 8-13 um, %.2f at 18-25 um\n", short_ratio,
+                    long_ratio);
+        check(short_ratio > 1.0 && long_ratio < 1.0,
+              "Homunculus warm layer brighter at 8-13 um, the cool one longer [SM06]", short_ratio);
+        // Cooling as the shell grows (d^-0.4): about 9% cooler by 2030.
+        double t2030 = 0.0;
+        parse_utc("2030-01-01", &t2030);
+        const double cooled = nebula_dust_temperature(n, outer, n.mean_distance_km * nebula_scale(n, t2030));
+        check(cooled < 140.0 && cooled > 120.0, "Homunculus dust cools as it expands (K)", cooled);
+    }
+
+    // The Little Homunculus [SM05]: the same shape set the same way, glowing,
+    // ejected in 1890; in 2004 its poles a quarter of the Homunculus' polar
+    // radius away [SM06] and its caps 1.6" (3,760 au) in radius [SM05].
+    const Nebula& lh = scene.nebulae[1];
+    double t_lh = 0.0;
+    double t1890 = 0.0;
+    parse_utc("2004-05-15", &t_lh);
+    parse_utc("1890-01-01", &t1890);
+    check(lh.enabled() && lh.light == NebulaLight::Emission && lh.infrared.empty() &&
+              nebula_scale(lh, t1890 - kSecondsPerDay) == 0.0 && std::abs(nebula_scale(lh, t_lh) - 1.0) < 1e-12,
+          "Little Homunculus glows, from 1890, unseen in the thermal infrared [SM05]");
+    double lh_tip = 0.0;
+    for (const NebulaGrain& g : lh.grains) {
+        lh_tip = std::max(lh_tip, std::abs(glm::dot(glm::dvec3(g.position), axis)));
+    }
+    double cap = 0.0;
+    for (const NebulaGrain& g : lh.grains) {
+        const glm::dvec3 p(g.position);
+        const double along = std::abs(glm::dot(p, axis));
+        if (along > 0.5 * lh_tip) {
+            cap = std::max(cap, glm::length(p - glm::dot(p, axis) * axis));
+        }
+    }
+    const double h_tip_2004 = 0.5 * (tip[0] + tip[1]) * nebula_scale(n, t_lh);
+    std::printf("info: Little Homunculus in 2004: poles %.0f au (%.2f of the Homunculus'), caps %.0f au wide\n",
+                lh_tip / kAuKm, lh_tip / kAuKm / h_tip_2004, cap / kAuKm);
+    check(std::abs(lh_tip / kAuKm / h_tip_2004 - 0.25) < 0.02, "Little Homunculus a quarter as long [SM06]",
+          lh_tip / kAuKm / h_tip_2004);
+    check(std::abs(cap / kAuKm / 3760.0 - 1.0) < 0.1, "Little Homunculus caps 1.6\" in radius [SM05] (au)",
+          cap / kAuKm);
+    // Inside the Homunculus' lobes from the start: in every direction within
+    // 60 deg of the axis (bins of 10 deg around it by 10 deg from it; nearer
+    // the equator the Homunculus pinches in to the stars), farther out than
+    // the Little Homunculus' farthest patch is from the stars.
+    {
+        constexpr int kBins = 36 * 18;
+        const glm::dvec3 x = glm::normalize(glm::cross(axis, north));
+        const glm::dvec3 y = glm::cross(axis, x);
+        auto bin = [&](const glm::dvec3& p) {
+            const glm::dvec3 d = glm::normalize(p);
+            const double polar = std::acos(std::clamp(glm::dot(d, axis), -1.0, 1.0)) * kRadToDeg;
+            const double around = std::atan2(glm::dot(d, y), glm::dot(d, x)) * kRadToDeg + 180.0;
+            return std::min(static_cast<int>(polar / 10.0), 17) * 36 + std::min(static_cast<int>(around / 10.0), 35);
+        };
+        std::vector<double> homunculus(kBins, 1e300);
+        std::vector<double> little(kBins, 0.0);
+        for (const NebulaGrain& g : n.grains) {
+            double& d = homunculus[static_cast<size_t>(bin(glm::dvec3(g.position)))];
+            d = std::min(d, static_cast<double>(glm::length(glm::dvec3(g.position))));
+        }
+        for (const NebulaGrain& g : lh.grains) {
+            double& d = little[static_cast<size_t>(bin(glm::dvec3(g.position)))];
+            d = std::max(d, static_cast<double>(glm::length(glm::dvec3(g.position))));
+        }
+        for (double year : {1900.0, 2004.4, 2100.0}) {
+            const double t = tdb_from_julian_year(year);
+            double worst = 0.0;
+            for (int k = 0; k < kBins; ++k) {
+                const int polar = k / 36;
+                if (polar >= 6 && polar < 12) {
+                    continue;
+                }
+                if (little[static_cast<size_t>(k)] > 0.0 && homunculus[static_cast<size_t>(k)] < 1e300) {
+                    worst = std::max(worst, little[static_cast<size_t>(k)] * nebula_scale(lh, t) /
+                                                (homunculus[static_cast<size_t>(k)] * nebula_scale(n, t)));
+                }
+            }
+            std::printf("info: Little Homunculus in %.0f: at most %.2f of the way out to the Homunculus\n", year,
+                        worst);
+            check(worst < 1.0, "Little Homunculus inside the Homunculus", worst);
+        }
+    }
+
+    // The fossil wind shells [GU16], [MA13b]: glowing gas on a cone of
+    // 55 deg half-opening angle, 470 km/s, from 1896.
+    const Pinwheel& pw = scene.pinwheel;
+    check(pw.enabled() && pw.emission && pw.weight_by_angle && pw.primary == a && pw.secondary == b &&
+              std::abs(pw.opening_angle_deg - 110.0) < 1e-12 && pw.turns == 4,
+          "Eta Car fossil wind shells");
+    if (pw.enabled()) {
+        // [GU16]: arcs 0.2, 0.45 and 0.7" from the star, 0.25" apart: 587 au at
+        // 2350 pc (projected on the sky, no farther apart than in space).
+        const double step_au = pw.step_km() / kAuKm;
+        std::printf("info: Eta Car fossil shells %.0f au apart ([GU16]'s arcs: 587 au on the sky)\n", step_au);
+        check(std::abs(step_au / 587.0 - 1.0) < 0.1, "Eta Car fossil shell spacing against [GU16] (au)", step_au);
+        // The same dust in each ring, all on the periastron side, behind the
+        // stars as seen from Earth [GU16].
+        bool even = true;
+        for (const Pinwheel::Ring& ring : pw.rings) {
+            even = even && std::abs(ring.weight - 1.0) < 1e-12;
+        }
+        check(even, "Eta Car fossil shell rings of even weight");
+        glm::dvec3 mean(0.0);
+        for (const PinwheelGrain& g : pw.grains) {
+            mean += glm::dvec3(g.direction) * static_cast<double>(g.weight);
+        }
+        mean = glm::normalize(mean);
+        const glm::dvec3 periastron = glm::normalize(s0.position);
+        std::printf("info: Eta Car fossil shells' mean direction: %.2f along periastron, %.2f away from Earth\n",
+                    glm::dot(mean, periastron), glm::dot(mean, away));
+        check(glm::dot(mean, periastron) > 0.5 && glm::dot(mean, away) > 0.3,
+              "Eta Car fossil shells on the periastron side, behind the stars [GU16]");
+        // None from before 1896; all four turns by the 2020s.
+        auto born = [&](double year) {
+            const double t = tdb_from_julian_year(year);
+            size_t count = 0;
+            for (const PinwheelGrain& g : pw.grains) {
+                count += pinwheel_grain_born(pw, g, t) ? 1 : 0;
+            }
+            return static_cast<double>(count) / static_cast<double>(pw.grains.size());
+        };
+        check(born(1896.5) < 0.1 && born(1930.0) == 1.0, "Eta Car fossil shells from 1896", born(1896.5));
+        check(pinwheel_peak_brightness(pw, tdb_from_julian_year(1890.0)) == 0.0,
+              "Eta Car fossil shells: no new shell before 1896");
+    }
+
     // The recorded light curve [AAVSO]: brightest at the Great Eruption's peak
     // of December 1844 (-1.0, [SF11]), at the limit of the naked eye by 1868,
     // nothing across the 1916-1943 gap, about fourth magnitude now.
@@ -2016,9 +2177,24 @@ void test_eta_carinae_scene()
         std::printf("info: Eta Car V %.2f in 1868.5, %.2f in 2026.3\n", v1868, v2026);
         check(v1868 > 5.8 && v1868 < 6.5 && std::isnan(v1930) && v2026 > 3.7 && v2026 < 4.2,
               "Eta Car light curve: 1868, the 1930s gap and now", v2026);
+
+        // The brightness it sets: as in 2005 at [SM06]'s epoch, some 6
+        // magnitudes brighter at the peak, fainter across the 1930s gap
+        // (bridged), held before the first point.
+        check(lc.stars.size() == 2, "Eta Car stars shown as bright as observed", static_cast<double>(lc.stars.size()));
+        const double at_reference = observed_magnitude_offset(lc, reference);
+        const double at_peak = observed_magnitude_offset(lc, lc.t_tdb[peak]);
+        const double in_gap = observed_magnitude_offset(lc, tdb_from_julian_year(1930.0));
+        const double before = observed_magnitude_offset(lc, tdb_from_julian_year(1500.0));
+        std::printf("info: Eta Car shown %.2f mag at the peak, %+.2f in 1930 against 2005\n", at_peak, in_gap);
+        check(std::abs(at_reference) < 1e-9 && std::abs(observed_light_factor(lc, reference) - 1.0) < 1e-9,
+              "Eta Car as bright as the scene's own in 2005");
+        check(at_peak < -5.5 && at_peak > -6.5 && in_gap > 1.5 && std::isfinite(in_gap) &&
+                  std::abs(before - (lc.magnitude.front() - lc.reference_magnitude)) < 1e-9,
+              "Eta Car brightness from the light curve (mag)", at_peak);
     }
 
-    check(scene.events.size() == 5, "Eta Carinae events", static_cast<double>(scene.events.size()));
+    check(scene.events.size() == 8, "Eta Carinae events", static_cast<double>(scene.events.size()));
     for (size_t k = 1; k < scene.events.size(); ++k) {
         check(scene.events[k].t_tdb > scene.events[k - 1].t_tdb, "Eta Carinae events in time order");
     }

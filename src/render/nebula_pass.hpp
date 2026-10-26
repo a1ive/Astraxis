@@ -8,8 +8,11 @@
 #include <SDL3/SDL_gpu.h>
 #include <glm/mat3x3.hpp>
 #include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
 
+#include <array>
 #include <cstdint>
+#include <vector>
 
 namespace astraxis {
 
@@ -22,11 +25,21 @@ struct NebulaGpuGrain {
 };
 static_assert(sizeof(NebulaGpuGrain) == 32, "NebulaGpuGrain must match the shader's raw buffer loads");
 
-// What an expanding nebula looks like this frame (see shaders/nebula.vert.hlsl).
+inline constexpr int kNebulaThermalCount = 32; // THERMAL_SIZE in nebula.vert.hlsl
+
+// How a draw's patches shine (see shaders/nebula.vert.hlsl).
+enum class NebulaDrawLight { Scattered = 0, Emission = 1, Thermal = 2 };
+
+// One draw of an expanding nebula this frame, a shell or one layer of it
+// (see shaders/nebula.vert.hlsl).
 struct NebulaDrawItem {
+    uint32_t first = 0; // its patches in the uploaded grains
+    uint32_t count = 0;
+    NebulaDrawLight light = NebulaDrawLight::Scattered;
     glm::vec3 center{0.0f};         // the star relative to the camera (km, display axes)
     glm::mat3 display_from_icrf{1.0f};
     float scale = 1.0f;             // size relative to the reference time
+    float radius_share = 1.0f;      // of the layer drawn, relative to the shell
     float patch_sigma_km = 0.0f;    // at the reference time
     float wall_sigma_km = 0.0f;     // at the reference time
     float min_sigma_px = 0.7f;      // in the off-screen target's pixels
@@ -35,12 +48,29 @@ struct NebulaDrawItem {
     float radiance = 1.0f;          // linear HDR
     float gamma = 1.0f;             // display compression
     float cull_radiance = 0.0f;     // splats fainter than this at their center are skipped
-    glm::vec3 color{1.0f};          // of the scattered light (sRGB)
+    glm::vec3 color{1.0f};          // in visible light (sRGB)
+    // Thermal: the layer's column over the infrared emission that has
+    // `radiance`, its grains' temperature at temperature_km from the star,
+    // and how it varies with distance.
+    float column = 1.0f;
+    float temperature_k = 0.0f;
+    float temperature_km = 1.0f;
+    float temperature_index = 0.0f;
 };
 
-// An expanding dusty shell (scene/nebula.hpp): its patches are uploaded once
-// (set_grains, when a scene is loaded), scaled from the star on the GPU each
-// frame and splatted off-screen (SplatPass).
+// The false colors of warm dust (Thermal draws): at temperature
+// lo_k * (hi_k / lo_k)^(i / (kNebulaThermalCount - 1)), linear RGB (largest
+// component 1) and in alpha its light in the infrared band (nebula_infrared_emission).
+struct NebulaThermalColors {
+    double lo_k = 1.0;
+    double hi_k = 2.0;
+    std::array<glm::vec4, kNebulaThermalCount> colors{};
+};
+
+// Expanding shells (scene/nebula.hpp): their patches are uploaded once
+// (set_grains, all nebulae of a scene in one buffer, when it is loaded),
+// scaled from the star on the GPU each frame and splatted off-screen
+// (SplatPass), one draw per shell or layer.
 class NebulaPass {
 public:
     bool init(SDL_GPUDevice* device, const SceneTargetFormat& format);
@@ -51,16 +81,18 @@ public:
     void clear() { m_splats.clear(); }
     bool set_grains(const NebulaGpuGrain* grains, uint32_t count);
     bool has_grains() const { return m_splats.has_points(); }
+    void set_thermal_colors(const NebulaThermalColors& colors) { m_thermal = colors; }
 
-    // Draws the shell into targets.nebula for a scene of width x height
+    // Draws the items into targets.nebula for a scene of width x height
     // pixels; outside any render pass.
-    void render(SDL_GPUCommandBuffer* cmd, SplatTargets& targets, const CameraView& view, const NebulaDrawItem& item,
-                uint32_t width, uint32_t height);
+    void render(SDL_GPUCommandBuffer* cmd, SplatTargets& targets, const CameraView& view,
+                const std::vector<NebulaDrawItem>& items, uint32_t width, uint32_t height);
     // Adds the shell drawn by render() to the scene pass.
     void composite(SDL_GPURenderPass* pass, SplatTargets& targets) { m_splats.composite(pass, targets); }
 
 private:
     SplatPass m_splats;
+    NebulaThermalColors m_thermal;
 };
 
 } // namespace astraxis

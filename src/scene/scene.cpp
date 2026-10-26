@@ -592,9 +592,11 @@ void Scene::update(double t_tdb)
         extent = std::max(extent, glm::length(bodies[static_cast<size_t>(pinwheel.center)].icrf_position) +
                                       pinwheel_radius(pinwheel, kPinwheelExtentTurns * pinwheel.period_s));
     }
-    if (nebula.enabled()) {
-        extent = std::max(extent, glm::length(bodies[static_cast<size_t>(nebula.center)].icrf_position) +
-                                      nebula_extent_km(nebula, t_tdb));
+    for (const Nebula& nebula : nebulae) {
+        if (nebula.enabled()) {
+            extent = std::max(extent, glm::length(bodies[static_cast<size_t>(nebula.center)].icrf_position) +
+                                          nebula_extent_km(nebula, t_tdb));
+        }
     }
     m_system_extent_km = std::max(extent, bodies.empty() ? 1.0 : bodies[0].equatorial_radius_km);
 

@@ -402,6 +402,36 @@ double observed_magnitude(const ObservedLightCurve& curve, double t_tdb)
     return curve.magnitude[i - 1] + u * (curve.magnitude[i] - curve.magnitude[i - 1]);
 }
 
+double observed_magnitude_held(const ObservedLightCurve& curve, double t_tdb)
+{
+    const std::vector<double>& t = curve.t_tdb;
+    if (t.empty()) {
+        return 0.0;
+    }
+    if (t_tdb <= t.front() || t.size() < 2) {
+        return curve.magnitude.front();
+    }
+    if (t_tdb >= t.back()) {
+        return curve.magnitude.back();
+    }
+    const size_t i = static_cast<size_t>(std::upper_bound(t.begin(), t.end(), t_tdb) - t.begin());
+    const double u = (t_tdb - t[i - 1]) / (t[i] - t[i - 1]);
+    return curve.magnitude[i - 1] + u * (curve.magnitude[i] - curve.magnitude[i - 1]);
+}
+
+double observed_magnitude_offset(const ObservedLightCurve& curve, double t_tdb)
+{
+    if (curve.stars.empty() || !curve.enabled()) {
+        return 0.0;
+    }
+    return observed_magnitude_held(curve, t_tdb) - curve.reference_magnitude;
+}
+
+double observed_light_factor(const ObservedLightCurve& curve, double t_tdb)
+{
+    return std::pow(10.0, -0.4 * observed_magnitude_offset(curve, t_tdb));
+}
+
 double light_curve_visibility(const LightCurve& curve, double rate)
 {
     if (!curve.enabled()) {

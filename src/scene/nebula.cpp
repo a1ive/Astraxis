@@ -1,5 +1,6 @@
 #include "scene/nebula.hpp"
 
+#include "core/color.hpp"
 #include "core/math.hpp"
 #include "scene/shape_model.hpp"
 
@@ -52,10 +53,15 @@ glm::dmat3 nebula_model_to_icrf(double ra_deg, double dec_deg, double axis_pa_de
 }
 
 void build_nebula_grains(const ShapeModel& shape, const glm::dvec3& model_center, double km_per_unit,
-                         const glm::dmat3& model_to_icrf, int count, Nebula& nebula)
+                         double polar_scale, const glm::dmat3& model_to_icrf, int count, Nebula& nebula)
 {
     nebula.grains.clear();
     nebula.extent_km = 0.0;
+    nebula.mean_distance_km = 0.0;
+    // Model units to km, the z axis stretched by polar_scale; normals by the
+    // inverse transpose.
+    const glm::dvec3 stretch(km_per_unit, km_per_unit, km_per_unit * polar_scale);
+    const glm::dvec3 normal_stretch(1.0, 1.0, 1.0 / polar_scale);
     const size_t triangles = shape.indices.size() / 3;
     std::vector<double> area(triangles);
     double total = 0.0;
@@ -63,7 +69,7 @@ void build_nebula_grains(const ShapeModel& shape, const glm::dvec3& model_center
         const glm::dvec3 a(shape.positions[shape.indices[3 * k]]);
         const glm::dvec3 b(shape.positions[shape.indices[3 * k + 1]]);
         const glm::dvec3 c(shape.positions[shape.indices[3 * k + 2]]);
-        area[k] = 0.5 * glm::length(glm::cross(b - a, c - a));
+        area[k] = 0.5 * glm::length(glm::cross((b - a) * stretch, (c - a) * stretch));
         total += area[k];
     }
     if (total <= 0.0 || count <= 0) {
@@ -102,13 +108,20 @@ void build_nebula_grains(const ShapeModel& shape, const glm::dvec3& model_center
                 n_model = glm::cross(glm::dvec3(shape.positions[ib]) - a, glm::dvec3(shape.positions[ic]) - a);
             }
             NebulaGrain g;
-            g.position = glm::vec3(model_to_icrf * ((p - model_center) * km_per_unit));
-            g.normal = glm::vec3(glm::normalize(model_to_icrf * n_model));
+            g.position = glm::vec3(model_to_icrf * ((p - model_center) * stretch));
+            g.normal = glm::vec3(glm::normalize(model_to_icrf * (n_model * normal_stretch)));
             nebula.grains.push_back(g);
-            nebula.extent_km = std::max(nebula.extent_km, static_cast<double>(glm::length(g.position)));
+            const double d = glm::length(glm::dvec3(g.position));
+            nebula.extent_km = std::max(nebula.extent_km, d);
+            nebula.mean_distance_km += d;
         }
     }
-    nebula.patch_sigma_km = kNebulaPatch * std::sqrt(total / static_cast<double>(nebula.grains.size())) * km_per_unit;
+    if (nebula.grains.empty()) {
+        return;
+    }
+    nebula.mean_distance_km /= static_cast<double>(nebula.grains.size());
+    // The area is in km^2 already.
+    nebula.patch_sigma_km = kNebulaPatch * std::sqrt(total / static_cast<double>(nebula.grains.size()));
 }
 
 double nebula_scale(const Nebula& nebula, double t_tdb)
@@ -134,6 +147,21 @@ double nebula_exposure(const Nebula& nebula, double t_tdb)
         return 1.0;
     }
     return std::min(1.0, kNebulaMaxBrightening * std::pow(s, 4.0 * nebula.display_gamma));
+}
+
+double nebula_dust_temperature(const Nebula& nebula, const NebulaLayer& layer, double distance_km)
+{
+    const double reference = layer.radius_share * nebula.mean_distance_km;
+    if (reference <= 0.0 || distance_km <= 0.0) {
+        return layer.temperature_k;
+    }
+    return layer.temperature_k * std::pow(distance_km / reference, -nebula.temperature_index);
+}
+
+double nebula_infrared_emission(double kelvin)
+{
+    const double t = kelvin / 100.0;
+    return t * t * t * t * blackbody_band_share(kelvin, kNebulaInfraredLoNm, kNebulaInfraredHiNm);
 }
 
 } // namespace astraxis

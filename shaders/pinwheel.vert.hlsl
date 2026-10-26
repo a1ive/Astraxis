@@ -29,7 +29,7 @@ cbuffer Uniforms : register(b0, space1)
     float4 u_cycle;       // x = frac((t - t_ref) / period / turns), y = turns, z = reference radius (km), w = r_nuc (km)
     float4 u_shape;       // x, y = patch sigma along the ring and across the rings / r, z = wall sigma (km), w = min sigma (px)
     float4 u_light;       // x = face-on radiance at r_nuc, y = display gamma, z = 1 / ln(r_end / r_nuc), w = cull radiance
-    float4 u_screen;      // xy = viewport (px), z = pixels per radian
+    float4 u_screen;      // xy = viewport (px), z = pixels per radian, w = oldest age drawn (periods: the start)
     float4 u_colors[LUT_SIZE]; // at ln(r / r_nuc) / ln(r_end / r_nuc) = i / (LUT_SIZE - 1): linear RGB, brightness factor
     float4 u_radius[RADIUS_SIZE / 4]; // distance (km) at age = turns * (i / (RADIUS_SIZE - 1))^2 periods
 };
@@ -93,7 +93,7 @@ VSOutput main(uint vertex_id : SV_VertexID)
     float age = turns * frac(u_cycle.x - a.w / turns);
     float r = radius_at(age / turns);
     float r_nuc = u_cycle.w;
-    if (r <= r_nuc) {
+    if (r <= r_nuc || age > u_screen.w) {
         return culled();
     }
     // Faded in beyond r_nuc and out over the last turn (pinwheel_grain_brightness).

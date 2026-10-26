@@ -9,9 +9,13 @@
 # of [ST14] (ESO's 3dmodel_004, assets/shapes/SOURCES.md), covered with
 # patches of dust that scatter the stars' light (scene/nebula.hpp) and grown
 # from the stars in proportion to the time since the ejection (homologous
-# expansion). The shell is optically thin here: no shadows, no extinction of
-# the central stars; the Little Homunculus of the 1890 eruption, the equatorial
-# skirt and the outer ejecta are not drawn.
+# expansion); in the thermal infrared, its two dust layers [SM09]. Inside it
+# the Little Homunculus of the 1890 eruption glows in emission lines, and
+# around the stars the shells of compressed wind that each periastron leaves
+# behind expand (scene/pinwheel.hpp). The shells are optically thin here: no
+# shadows, no extinction of the central stars; the equatorial skirt and the
+# outer ejecta are not drawn. The stars, and what they light, are shown as
+# bright as observers saw them [AAVSO].
 #
 # [SIMB] SIMBAD: ICRS position 10 45 03.545808 -59 41 03.95124
 #        = 161.2647742, -59.6844309 deg.
@@ -25,6 +29,21 @@
 #        (blue, SE) lobe and the receding (red, NW) one; Table 1, the Blue and
 #        Red Protrusions at -55 and +55 deg of longitude from the apastron
 #        direction, the polar trenches and holes.
+# [SM05] Smith 2005, MNRAS 357, 1330 (arXiv:astro-ph/0412580): [Fe II]
+#        16435 spectra of 2004 May 15. Sect. 3: the Little Homunculus is "a
+#        miniature version of the larger Homunculus", more scrunched in the
+#        polar direction, with an equatorial ring tilted like it; not seen in
+#        visual images (overwhelmed by the Homunculus' light) nor in the
+#        thermal infrared (too little dust); Sect. 5, it matches the extent of
+#        the UV "Purple Haze"; Sect. 6.1, its polar caps are disks of radius
+#        1.6 arcsec, 0.4 arcsec thick; abstract, ejected in 1890 at 200 km/s
+#        and since accelerated by the wind.
+# [SM09] Smith 2009, "All Things Homunculus" (arXiv:0906.2204), Sect. 3,
+#        from Smith et al. 2003's 8-25 um images: a thin outer shell of 140 K
+#        dust holding about 11 M_sun and a thicker inner one of 200 K dust
+#        with 1.5 M_sun; the warm dust is 10% less extended than the scattered
+#        light. [SM06] Sect. 3.2: the two layers together are 1/8 of the
+#        radius thick.
 # [SM17] Smith 2017 (arXiv:1709.06210): proper motions in 13 years of HST
 #        images date the Homunculus to 1847.1 +- 0.8.
 # [SF11] Smith & Frew 2011, MNRAS 415, 2009 (arXiv:1010.3719): precursor
@@ -48,6 +67,16 @@
 # [KS26] Kashi & Soker 2026 (arXiv:2609.20046): the X-ray minimum of 2025.6,
 #        the sixth observed (1998, 2003.5, 2009, 2014.6, 2020.1); the minima
 #        come from the colliding winds' collapse near periastron.
+# [MA13b] The same paper, Sect. 3.1 and 3.2: the cavity B's wind carves
+#        has a half-opening angle of 55 deg (their case A); around periastron
+#        it sweeps around A, leaving compressed shells of A's wind on the
+#        periastron side that flow out at about A's wind speed.
+# [GU16] Gull et al. 2016, MNRAS 462, 3196 (arXiv:1608.06193): the "fossil"
+#        wind shells mapped with HST/STIS in [Fe II] 4815.88 A and [Fe III]
+#        4659.35 A, 2009-2015; Sect. 1 and 3, they expand at 470 km/s
+#        (Teodoro et al. 2013), arcs 0.2, 0.45 and 0.7 arcsec from the star in
+#        2010.8 (phase 12.315), "three, possibly four" shells, only on the far
+#        (red-shifted, periastron) side.
 # [DR03] Draine 2003, ApJ 598, 1017; the table kext_albedo_WD_MW_3.1_60_D03
 #        (www.astro.princeton.edu/~draine/dust/): Milky Way dust (R_V = 3.1) at
 #        V (0.547 um), albedo 0.677 and <cos theta> = 0.538.
@@ -74,14 +103,44 @@
 # about its axis so that the model's azimuth 95 deg faces us. A model unit is
 # 5600 au at [SM06]'s epoch (its polar radius, 3.87 units, is [SM06]'s
 # 21,690 au) and grows from [SM17]'s 1847.1.
+# The Little Homunculus: [ST14]'s model again, as [SM05]'s "miniature
+# version" set like the Homunculus, ejected in 1890 [SM05] and scaled to its
+# size in 2004: the polar extent a quarter of the Homunculus' (in [SM06]'s
+# slit along the axis, +-2 arcsec against +-8; 0.25 * 21,690 au) and the
+# lobes as wide as [SM05]'s caps, 1.6 arcsec = 3,760 au at 2350 pc, where the
+# Homunculus model is 1.9 units wide: a unit of 1,980 au, and the model's
+# polar axis scaled by 0.71 more (0.25 * 21,690 / 3.87 / 1,980). Its walls are
+# [SM05]'s 0.4 arcsec (940 au) thick. Its color is illustrative, the purple of
+# the Purple Haze it matches [SM05].
+# The infrared view: [SM09]'s two layers, the inner one 10% smaller, thicker
+# (1/8 of the 21,690 au polar radius for both [SM06], 2,700 au, less the outer
+# 450 au: 2,250 au FWHM) and with 1.5 / 11 of the dust over 0.81 of the area
+# (column 0.168); their color temperatures at each layer's mean distance in
+# 2005, warmer closer in as d^-0.4 (grains in equilibrium with the starlight,
+# T ~ d^(-2/(4+beta)) for an emissivity ~ lambda^-beta, beta = 1: our
+# assumption); each glows as its column times a black body's light in the
+# band (optically thin, as the masses are fitted). Shown in false color
+# (src/view/scene_renderer.cpp).
+# The fossil wind shells: (scene/pinwheel.hpp)'s cone around the line from A
+# to B, [MA13b]'s 55 deg half-opening angle, its walls flowing out at
+# [GU16]'s 470 km/s (shells 549 au apart). They are drawn only while B is on
+# the periastron half of its orbit (true anomaly -90 .. 90 deg, 38 days around
+# periastron), each direction the cone sweeps getting the same amount (the
+# swept-up wind of A), four turns [GU16], from 1896 (after the lesser
+# eruption: earlier winds were the eruptions' own). The walls' thickness and
+# brightness are illustrative; the color is near that of [Fe II] 4816 A [GU16]
+# (480 nm, outside sRGB, desaturated).
 # The sky is a model of the Milky Way as seen from here (tools/sky/make_galaxy_sky.py,
 # assets/sky/SOURCES.md): its stars and dust clouds are statistical, not real
 # ones; the Carina Nebula around the star is not in it.
 # Checks (tests/stellar_system_tests.cpp): the orbit's period, size and
 # orientation against [MA12], B behind A at periastron, the periastron dates
 # of the X-ray minima, the Homunculus' axis and size against [SM06], its
-# alignment with the orbit, the protrusions around the apastron direction, and
-# the recorded light curve (the peak of December 1844, the gap of 1916-1943).
+# alignment with the orbit, the protrusions around the apastron direction,
+# its infrared layers' temperatures [SM09], the Little Homunculus' size
+# [SM05], [SM06] and place inside the Homunculus, the fossil shells' spacing
+# against [GU16] and their side of the system, the recorded light curve (the
+# peak of December 1844, the gap of 1916-1943) and the brightness it sets.
 
 name = "Eta Carinae"
 
@@ -99,7 +158,8 @@ up = "orbit_normal:Eta Car B"
 pitch_deg = 20.0
 
 # The Homunculus (scene/nebula.hpp).
-[nebula]
+[[nebulae]]
+name = "Homunculus"
 center = "Eta Car"
 shape = "shapes/homunculus.mesh"
 model_center = [0.80, 0.0, 0.0]
@@ -120,6 +180,62 @@ color = "#f0c8a0"              # illustrative: the orange of the dust-reddened s
 display_reference_au = 2500.0
 display_gamma = 0.5
 grains = 150000
+temperature_index = 0.4        # T ~ d^(-2/(4+beta)), beta = 1 (assumed)
+
+# [SM09]: the cool outer skin, where the scattered light comes from...
+[[nebulae.infrared]]
+radius_share = 1.0
+wall_sigma_au = 190.0
+column = 1.0
+temperature_k = 140.0
+
+# ... and the warm inner layer, 10% smaller and thicker.
+[[nebulae.infrared]]
+radius_share = 0.9
+wall_sigma_au = 955.0          # 2,250 au FWHM
+column = 0.168                 # 1.5 / 11 M_sun over 0.81 of the area
+temperature_k = 200.0
+
+# The Little Homunculus, from the 1890 eruption, in [Fe II] emission [SM05].
+[[nebulae]]
+name = "Little Homunculus"
+center = "Eta Car"
+shape = "shapes/homunculus.mesh"
+model_center = [0.80, 0.0, 0.0]
+unit_au = 1980.0               # the caps' 3,760 au over the model's 1.9 units [SM05]
+polar_scale = 0.71             # the poles at 5,420 au [SM06]
+reference_time = "2004-05-15"  # [SM05]
+ejection_time = "1890-01-01"   # [SM05]
+sky_ra_dec_deg = [161.2647742, -59.6844309]
+axis_pa_deg = 130.0            # like the Homunculus [SM05]
+axis_tilt_deg = 41.0
+roll_deg = 95.0
+light = "emission"
+wall_sigma_au = 400.0          # 940 au thick (FWHM) [SM05]
+color = "#b49cff"              # illustrative: the Purple Haze [SM05]
+display_reference_au = 500.0
+display_gamma = 0.5
+grains = 60000
+
+# The fossil wind shells, glowing in [Fe II] (scene/pinwheel.hpp) [MA13b], [GU16].
+[pinwheel]
+center = "Eta Car"
+primary = "Eta Car A"          # the denser wind
+secondary = "Eta Car B"
+period_days = 2022.7           # [TE16]
+speed_km_s = 470.0             # [GU16]
+opening_angle_deg = 110.0      # [MA13b]
+nucleation_radius_au = 30.0    # drawn from about the stars' separation at apastron out
+wall_sigma_au = 15.0           # illustrative: thin
+emission_color = "#30b0ff"     # illustrative: near [Fe II] 4816 A
+dust_true_anomaly_deg = [-90.0, 90.0]
+ring_weights = "angle"
+from = "1896-01-01"            # after the lesser eruption [FR04]
+turns = 4                      # [GU16]
+rings_per_turn = 160
+grains_per_ring = 160
+display_reference_au = 300.0
+display_gamma = 0.4
 
 # The record of its brightness from Earth since 1820 [AAVSO], [FR04], [SF11].
 [observed_light_curve]
@@ -128,6 +244,10 @@ band = "V"
 source = "AAVSO"
 from = "1820-01-01"
 gap_years = 5.0                # the 1916-1943 gap shows as one
+# The stars, and what they light, shown as bright as observed, relative to
+# [SM06]'s epoch (where the scene's own brightness holds); gaps are bridged.
+stars = ["Eta Car A", "Eta Car B"]
+reference_time = "2005-03-01"
 
 [[bodies]]
 name = "Eta Car"
@@ -216,7 +336,59 @@ caption = """\
     From 1858 the star faded fast, by 1868 to the limit of the naked eye, \
     perhaps hidden by dust forming in its own wind. In 1887-95 it brightened \
     again by a magnitude, the lesser eruption, which threw off a smaller pair \
-    of lobes inside the first: the Little Homunculus, not drawn here."""
+    of lobes inside the first: the Little Homunculus, appearing here in \
+    1890. The star and the lobes are shown as bright as observers saw them."""
+
+[[events]]
+name = "The Homunculus in the infrared"
+time = "2003-01-01"            # the year of Smith et al.'s images [SM09]
+focus = "Eta Car"
+frame = "Eta Car, north up"
+from_earth = true
+distance_km = 1.4e13
+warp = 2592000.0
+nebula_infrared = true
+# [SM09], [SM06]
+caption = """\
+    In false color, the dust's own glow at 8 to 25 microns, where most of \
+    the star's light comes out again. The lobes have two layers: a thin \
+    outer skin of 140 K dust, orange here, holding about 11 solar masses, \
+    and inside it a thicker, warmer layer at 200 K with 1.5. The waist, \
+    closest to the star, is warmest. Seen in heat, the near lobe is no \
+    brighter than the far one."""
+
+[[events]]
+name = "The Little Homunculus"
+time = "2004-05-15"            # [SM05]'s spectra
+focus = "Eta Car"
+from_body = "Sun"
+phase_deg = 90.0
+elevation_deg = 0.0
+distance_km = 3.5e12           # 23,400 au: outside the Homunculus' waist
+warp = 2592000.0
+# [SM05], [SM06]
+caption = """\
+    Inside the Homunculus, a smaller pair of lobes thrown off in the lesser \
+    eruption of 1890, a tenth of a solar mass where the first had more than \
+    ten, yet the same shape. Telescopes cannot see it in ordinary light, lost \
+    in the glare of the big lobes; it was found from the Doppler shifts of \
+    its glowing iron, here in illustrative purple."""
+
+[[events]]
+name = "Fossil winds"
+time = "2010-10-01"            # [GU16]'s phase 12.315
+focus = "Eta Car"
+frame = "Eta Car, north up"
+from_earth = true
+distance_km = 1.0e12           # 6,700 au: outside the Little Homunculus
+warp = 864000.0                # ten days per second
+# [GU16], [MA13b]
+caption = """\
+    Every periastron, the companion's fast wind sweeps around the primary \
+    and shovels its slow, dense wind into a shell, which then coasts outward \
+    at 470 km/s. Hubble mapped three, possibly four, of these nested shells \
+    in the glow of iron, all on the far side where periastron happens; the \
+    side toward us is the cavity the companion's wind keeps open."""
 
 [[events]]
 name = "The Homunculus, as Hubble sees it"

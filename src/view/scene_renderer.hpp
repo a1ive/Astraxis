@@ -77,9 +77,11 @@ private:
     // A colliding-wind binary's dust spiral: its grains (once per scene) and this frame's look.
     void load_pinwheel(const Scene& scene);
     PinwheelDrawItem pinwheel_item(const Simulation& sim, const OutputView& view) const;
-    // An expanding nebula's shell: its patches (once per scene) and this frame's look.
-    void load_nebula(const Scene& scene);
-    NebulaDrawItem nebula_item(const Simulation& sim, const OutputView& view) const;
+    // Expanding nebulae: their patches (once per scene) and this frame's draws
+    // (fills m_nebula_items: a shell each in visible light, or a layer each in
+    // the infrared).
+    void load_nebulae(const Scene& scene);
+    void build_nebula_items(const Simulation& sim, const OutputView& view);
     // Earth's aurora around `body`, in its unit-sphere frame (linear: body axes
     // times radii; to_unit: its inverse); sun_direction: toward the sun (world).
     AuroraDrawItem aurora_item(const Simulation& sim, const OutputView& view, const Body& body,
@@ -134,10 +136,12 @@ private:
                                                                              // infrared (see PinwheelDrawItem)
     std::array<glm::vec4, kPinwheelColorCount> m_pinwheel_visible_colors{}; // and in visible light
     std::array<float, kPinwheelRadiusCount> m_pinwheel_radius{};            // its distance by age
+    std::vector<uint32_t> m_nebula_first;         // per scene nebula: its first patch in the buffer
 
     // Per-frame scratch.
     std::vector<BodyDrawItem> m_body_items;
     std::vector<RingDrawItem> m_ring_items;
+    std::vector<NebulaDrawItem> m_nebula_items;
     std::vector<AtmosphereDrawItem> m_atmosphere_items;
     std::vector<AuroraDrawItem> m_aurora_items;
     std::vector<PlumeDrawItem> m_plume_items;
