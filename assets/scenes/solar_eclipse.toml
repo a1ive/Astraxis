@@ -1,8 +1,8 @@
 # White-light solar corona from designed space observation points.
-# [HZN] JPL Horizons, geometric ICRF/TDB vectors retrieved 2026-10-25:
+# [HZN] JPL Horizons, geometric ICRF/TDB vectors retrieved 2026-10-25/26:
 #       Earth (399) relative to Sun (10), Moon (301) relative to Earth (399).
-#       2017-08-20 .. 23 and 2024-04-07 .. 10, 30-minute knots; independent
-#       half-step samples differ by at most 1.20 m (Earth), 0.045 m (Moon).
+#       2017-08-20 .. 23, 2022-11-07 .. 10 and 2024-04-07 .. 10, 30-minute knots;
+#       independent half-step samples differ by at most 1.21 m (Earth), 0.045 m (Moon).
 #       tools/corona/eclipse_bake.py reproduces the tables and observer offsets.
 # [OBS] Designed viewpoints at the shadow-axis intersection with a sphere
 #       1000 km above Earth's equatorial radius at the stated UTC time. Their
@@ -33,6 +33,8 @@ file = "ephem/emb.eph"
 name = "Earth"
 template = "bodies/earth.toml"
 gm_km3_s2 = 403503.235625 # DE440 Earth + Moon GM, as in earth_moon.toml
+[bodies.atmosphere]
+refraction_gain = 64.0 # display exposure; physical optics remain in the Earth template
 
 [[bodies]]
 name = "Moon"
@@ -67,3 +69,17 @@ observer_offset_km = [6740.259527405, 1028.090470842, 2819.367158644]
 fov_deg = 2.8
 warp = 1.0
 caption = """The Moon hides the bright photosphere, revealing sunlight scattered by the corona. This view is 1,000 km above Earth, with brightness enhanced as in a long exposure. Near the maximum of solar activity, streamers spread to higher latitudes. Their shapes here are illustrative. The observer follows Earth without rotating with its surface, so this eclipse's duration differs from the view at any ground observatory."""
+
+# [LE] NASA/GSFC, Eclipses During 2022: greatest lunar eclipse at 10:59 UT.
+# https://eclipse.gsfc.nasa.gov/OH/OH2022.html
+# [OBS] Designed viewpoint 200 km above the lunar near side at the event time,
+# fixed in ICRF relative to the Moon. Refraction model: [COR].
+[[events]]
+name = "Earth eclipses the Sun from the Moon"
+time = "2022-11-08 10:59:00"
+focus = "Earth"
+observer = "Moon"
+observer_offset_km = [-1353.787047072, -1268.353007826, -558.623342440]
+fov_deg = 3.5
+warp = 1.0
+caption = """Earth hides the Sun during the November 2022 lunar eclipse, seen from a designed viewpoint 200 km above the Moon's near side. Sunlight bends through Earth's atmosphere; blue light scatters away more strongly, leaving a thin red rim. Its brightness varies around Earth as different rays reach the solar disk. The clear, smooth atmosphere and boosted exposure are illustrative. The viewpoint follows the Moon at a fixed offset, without following its rotation."""

@@ -43,6 +43,9 @@ struct FragmentUniforms {
     glm::vec4 haze;
     glm::vec4 haze_scatter;
     glm::vec4 params;
+    glm::vec4 refraction; // min/max impact, enabled, inverse sun distance
+    glm::vec4 sun_color;
+    std::array<glm::vec4, kRefractionSamples> refracted;
 };
 
 SDL_GPUGraphicsPipeline* create_pipeline(SDL_GPUDevice* device, const SceneTargetFormat& format,
@@ -207,7 +210,7 @@ void AtmospherePass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, co
         SDL_PushGPUVertexUniformData(cmd, 0, &vu, sizeof(vu));
 
         const AtmosphereOptics& o = item.optics;
-        FragmentUniforms fu;
+        FragmentUniforms fu{};
         fu.to_unit = glm::mat4(item.to_unit);
         fu.camera = glm::vec4(item.camera_unit, inside ? 1.0f : 0.0f);
         fu.sun = glm::vec4(item.sun_direction, item.sun_angular_radius);
@@ -216,6 +219,12 @@ void AtmospherePass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, co
         fu.haze = glm::vec4(o.haze_attenuation, o.haze_scale_height);
         fu.haze_scatter = glm::vec4(o.haze_scattering, o.haze_g);
         fu.params = glm::vec4(item.gain, 0.0f, 0.0f, 0.0f);
+        if (item.refraction && !inside) {
+            fu.refraction = glm::vec4(item.refraction->min_impact, item.refraction->max_impact,
+                                     1.0, item.inverse_sun_distance);
+            fu.sun_color = glm::vec4(item.refracted_sun_color, 0.0f);
+            fu.refracted = item.refraction->samples;
+        }
         SDL_PushGPUFragmentUniformData(cmd, 0, &fu, sizeof(fu));
 
         SDL_DrawGPUIndexedPrimitives(pass, m_index_count, 1, 0, 0, 0);

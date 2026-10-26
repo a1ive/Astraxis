@@ -785,14 +785,16 @@ entry in `THIRD_PARTY_NOTICES.md`. No photographs or eclipse maps are included.
 Rebuild: `python -E -P tools/corona/eclipse_bake.py`. The script uses the existing
 Horizons API client, caches raw JSON under `tools/bake/cache/corona/`, and writes
 AXEPH1 positions and velocities at 30-minute TDB intervals for 2017-08-20 through
-2017-08-23 and 2024-04-07 through 2024-04-10 (290 knots per body).
-The maximum interpolation gap is 3600 seconds, so the two windows are not
-interpolated across their seven-year separation. Independent Horizons samples
+2017-08-23, 2022-11-07 through 2022-11-10 and 2024-04-07 through 2024-04-10
+(435 knots per body; the 2022 lunar-eclipse window was retrieved 2026-10-26).
+The maximum interpolation gap is 3600 seconds, so separate windows are not
+interpolated across the intervening years. Independent Horizons samples
 at the intervening 15-minute offsets gave maximum position differences:
 
 | Window | Earth | Moon |
 |---|---:|---:|
 | 2017 | 0.001186 km | 0.000044 km |
+| 2022 | 0.001210 km | 0.000042 km |
 | 2024 | 0.001198 km | 0.000045 km |
 
 These are interpolation differences from the source, not observational accuracy.
@@ -807,3 +809,5 @@ Offsets remain fixed in geocentric ICRF while time runs, rather than following
 Earth's surface or the moving shadow. Light time, aberration, atmospheric
 refraction and lunar limb relief are omitted; contact times and totality
 durations must not be interpreted as predictions for a ground observer.
+
+2022 年月食的参考时刻为 11 月 8 日 10:59:00 UTC，与 [NASA/GSFC 当年预报](https://eclipse.gsfc.nasa.gov/OH/OH2022.html) 给出的食甚分钟一致。视点在该时刻从月心朝地心方向、月球半径 1737.4 km 加 200 km 处，地心月距为 390651.871445 km；偏移固定在月心 ICRF，随月球平移。它是月球附近的设计视点，不是着陆点或绕月轨道。地球边缘的折射像由大气模型另算，几何星历不因此改变。其他几何简化与上述日食相同。

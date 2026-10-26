@@ -902,6 +902,10 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
             shell.sun_angular_radius = item.sun_angular_radius;
             shell.optics = optics;
             shell.gain = static_cast<float>(atmosphere.gain);
+            shell.refraction = atmosphere.refraction.get();
+            shell.refracted_sun_color = glm::vec3(blackbody_linear_srgb(5772.0)) *
+                (kStarSurface * static_cast<float>(atmosphere.refraction_gain));
+            shell.inverse_sun_distance = static_cast<float>(base_km / glm::length(scene.sun_position() - body.world_position));
             m_atmosphere_items.push_back(shell);
 
             // Earth's aurora goes with the atmospheres.

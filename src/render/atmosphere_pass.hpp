@@ -2,6 +2,7 @@
 
 #include "render/gpu_device.hpp"
 #include "scene/camera.hpp"
+#include "scene/refraction.hpp"
 
 #include <SDL3/SDL_gpu.h>
 #include <glm/mat3x3.hpp>
@@ -35,6 +36,9 @@ struct AtmosphereDrawItem {
     float sun_angular_radius = 0.0f;
     AtmosphereOptics optics;
     float gain = 1.0f;
+    const RefractionProfile* refraction = nullptr;
+    glm::vec3 refracted_sun_color{0.0f}; // solar surface radiance, including display gain
+    float inverse_sun_distance = 0.0f; // in planet radii
 };
 
 // Draws atmospheres as shells around their planets: single-scattered sunlight

@@ -25,7 +25,7 @@ Astraxis is an astronomy background app with planets, spacecraft and stars anima
 | DART & Didymos | DART's impact on the asteroid moon Dimorphos, LICIACube's flyby, and the orbit Dimorphos would have kept without the impact |
 | ISEE-3 / ICE | L1 halo orbit, lunar flybys and comet encounters |
 | Parker Solar Probe | Venus gravity assists, close passes of the Sun and an enhanced white-light view from inside the corona |
-| Solar eclipses | The 2017 and 2024 eclipses from designed viewpoints above Earth, with a geometric white-light corona |
+| Solar eclipses | The 2017 and 2024 eclipses above Earth, plus Earth eclipsing the Sun from near the Moon in 2022: white-light corona and a refracted red atmospheric rim |
 | Alpha Centauri | A, B and Proxima in an N-body simulation |
 | Sgr A* | Ray-traced Galactic Centre black hole and orbiting S-stars |
 | Gargantua (Interstellar) | The film's fictional black hole, and a tribute model of the ship Endurance with its turning ring |

@@ -4,6 +4,7 @@
 #include "ephem/motion.hpp"
 #include "scene/aurora.hpp"
 #include "scene/corona.hpp"
+#include "scene/refraction.hpp"
 #include "scene/pinwheel.hpp"
 #include "scene/roche.hpp"
 #include "scene/shape_model.hpp"
@@ -160,6 +161,9 @@ struct Atmosphere {
     glm::dvec3 haze_albedo{1.0}; // single-scattering albedo
     double haze_g = 0.0;         // Henyey-Greenstein asymmetry (> 0: forward scattering)
     double gain = 1.0;           // scales the scattered light (1 = physical)
+    double refractivity = 0.0;   // n-1 at the base; 0 disables the refracted solar image
+    double refraction_gain = 1.0; // display multiplier for transmitted sunlight
+    std::shared_ptr<const RefractionProfile> refraction; // built once when loading
 };
 
 // A plume of particles above a vent (or a row of vents), always erupting,

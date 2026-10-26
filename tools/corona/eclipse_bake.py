@@ -1,10 +1,11 @@
-"""Bake geometric Earth/Sun and Moon/Earth vectors around two solar eclipses.
+"""Bake geometric Earth/Sun and Moon/Earth vectors around solar and lunar eclipses.
 
 Run from any directory: python -E -P tools/corona/eclipse_bake.py
 Uses horizons_bake.py's ICRF/TDB vector query and AXEPH1 writer. Cached JSON
 responses live in tools/bake/cache/corona/. Off-grid samples independently
 check the 30-minute Hermite tables. Prints designed observer offsets for a
-space view 1000 km above a spherical Earth at each event's reference time.
+space view 1000 km above Earth (solar eclipse) or 200 km above the lunar near
+side (lunar eclipse), at each event's reference time.
 These fixed ICRF offsets are not ground observatories or spacecraft orbits.
 """
 
@@ -30,6 +31,7 @@ def cached(command, center, start, stop, step, name):
 
 def main():
     windows = [('2017-08-20', '2017-08-23', '2017-08-21 18:26:40'),
+               ('2022-11-07', '2022-11-10', '2022-11-08 10:59:00'),
                ('2024-04-07', '2024-04-10', '2024-04-08 18:17:20')]
     all_rows = {'earth': [], 'moon': []}
     for start, stop, utc in windows:
@@ -46,11 +48,19 @@ def main():
             print(f'{name} {start} .. {stop}: {len(rows)} knots, off-grid max {error:.9f} km', flush=True)
             all_rows[name].extend(rows)
             tables[name] = table
-        # UTC to TDB: TT-UTC=69.184 s on both dates; the project's <2 ms
+        # UTC to TDB: TT-UTC=69.184 s on these dates; the project's <2 ms
         # TDB-TT approximation also applies here (core/time.hpp).
         t = (h.jd_from_text(utc) - h.J2000_JD) * h.DAY + 69.184
         earth = h.eval_eph(tables['earth'], t)
         moon = h.eval_eph(tables['moon'], t)
+        if start == '2022-11-07':
+            # A designed point 200 km above the lunar near side at this instant.
+            # It follows the Moon at a fixed ICRF offset, not a landed observer.
+            norm = math.sqrt(sum(v*v for v in moon))
+            observer = [-v / norm * (1737.4 + 200.0) for v in moon]
+            print(f'{utc} UTC: lunar observer_offset_km = [{", ".join(f"{v:.9f}" for v in observer)}]', flush=True)
+            print(f'  geocentric lunar distance {norm:.6f} km', flush=True)
+            continue
         direction = [moon[i] + earth[i] for i in range(3)]
         norm = math.sqrt(sum(v*v for v in direction))
         direction = [v / norm for v in direction]

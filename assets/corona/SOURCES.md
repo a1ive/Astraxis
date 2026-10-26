@@ -66,4 +66,40 @@ the two observer offsets used by the scene. See
 verification errors and data attribution. These viewpoints are 1000 km above
 a spherical Earth, fixed in geocentric ICRF at each event, not ground sites or
 propagated satellite orbits. The events use UTC; the ephemerides use TDB.
-The scene opens the 2024 event; the event menu also offers 2017.
+The scene opens the 2024 event; the event menu also offers 2017 and the
+2022 lunar viewpoint described below.
+
+## 地球边缘的大气折射像
+
+运行 `astraxis --scene solar_eclipse --event 3`，从月球近地侧上方 200 km 看 2022-11-08 的地球遮日。相机在 10:59 UTC 的位置由 `tools/corona/eclipse_bake.py` 计算，随后保持月心 ICRF 偏移；它是设计的观测点。星历取样和独立核对见 [星历来源](../ephem/SOURCES.md#solar-eclipses-2017-and-2024)。
+
+物理参数来自地球模板 `assets/bodies/earth.toml`：气体标高 8 km，550 nm 的垂直 Rayleigh 光学厚度 0.1085，按波长的负四次方换算到项目的 RGB 代表波长。气溶胶消光厚度 0.005328、标高 1.2 km，与既有大气散射采用同一组参数。直射光沿弯曲路径的衰减采用完整消光厚度，不使用单次散射显示中的前向峰折减。
+
+底部折射率采用 Ciddor 的标准干空气（15 °C、101325 Pa、450 ppm CO2）公式：
+
+```text
+sigma = 1 / 0.55                 # vacuum wavenumber, um^-1
+n0 - 1 = 1e-8 * (5792105 / (238.0185 - sigma^2)
+                 + 167917 / (57.362 - sigma^2))
+       = 0.000277837635429306
+```
+
+系数核对 [NIST Appendix A, A22](https://emtoolbox.nist.gov/Wavelength/EquationA22.asp)，计算式见 [A32](https://emtoolbox.nist.gov/Wavelength/EquationA32.asp)。密度和折射率都采用指数剖面：`n(r)=1+(n0-1) exp(-(r-R)/H)`。这是本项目选择的晴空简化，未使用当日温压观测。
+
+`src/scene/refraction.cpp` 从球对称介质的 Snell 不变量 `b=n(r) r sin(psi)` 计算整条光线，其中 `psi` 是光线与径向的夹角。在切点 `r_t`，`b=n(r_t) r_t`。由此得到：
+
+```text
+bending = -2 b integral[r_t..infinity] ((d ln n / dr) / sqrt((n r)^2 - b^2)) dr
+optical_depth = 2 integral[r_t..infinity] (extinction(r) n r / sqrt((n r)^2 - b^2)) dr
+transmission = exp(-optical_depth)
+```
+
+积分用 `r=r_t+x^2` 去掉切点奇性，以 512 个中点积分到切点以上 32 个最大标高。加载器拒绝任意高度的 `n(r)r` 非递增、表顶低于最低出射瞄准距离或非有限参数。128 个表项均匀分布在渐近瞄准距离 `b` 上，分别存 RGB 透射率和折射角；天体半径、气体标高与折射率决定表的实际范围。没有逐帧重算积分。
+
+着色器把相机射线朝天体中心弯折，再检查它是否落在有限日面上；日面采用线性临边昏暗系数 0.6。对观察方向积分辐亮度和沿曲线路径使用 Beer-Lambert 衰减的物理依据，见 [García Muñoz et al. (2012), Section II](https://arxiv.org/html/1206.4344)。这里独立实现了球对称直接光的积分，没有移植论文的代码、图像或观测光谱。论文的多次散射和完整大气光谱模型不在本实现内。
+
+环常常窄于一个像素，GPU 按像素的径向覆盖宽度取 24 个样本并平均，以保留环的覆盖率。太阳色取现有 5772 K 连续谱，基础辐亮度使用恒星表面的 6 个线性 HDR 单位。`refraction_gain=64` 是日食场景的显示取值，其他场景默认 1；它不改变积分出的折射角或透射率。关闭大气显示也会关闭红环。
+
+几何仍有近似：球对称表应用在现有椭球单位坐标中，折射使用 550 nm 的同一个角度，未计色散、臭氧、云层、地形或天气。只补充直射日面外的折射像，直射日面和既有单次散射仍沿直线绘制；不计算月面收到的折射照明或星空畸变。径向像素平均未做完整二维像素积分。图像适合展示地球边缘的红环，不能用来预测实际曝光或当日环上的细节。
+
+新增代码由本项目独立编写，按 GPL-3.0-or-later 发布。引用的是公式和数值事实；没有新增第三方纹理或代码依赖。测试用另一条数值路径（笛卡尔坐标中的 eikonal 方程，按弧长 RK4 积分）核对折射、守恒的瞄准距离和三个通道的消光，并检查月球视点的本影位置。

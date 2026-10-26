@@ -45,6 +45,10 @@ haze_depth = 0.005328
 haze_scale_height_km = 1.2
 haze_albedo = 0.9
 haze_g = 0.8
+# [REF] Ciddor standard dry air at 550 nm, 15 C, 101325 Pa, 450 ppm CO2.
+#       n-1 = 1e-8 * (5792105/(238.0185-sigma^2) + 167917/(57.362-sigma^2)),
+#       sigma = 1/0.55 um^-1. NIST Appendix A, Eq. A22/A32; corona/SOURCES.md.
+refractivity = 0.0002778376354
 [night_lights]                             # [NIGHT]
 texture = "textures/earth_night.jpg"
 color = "#ffb46b"

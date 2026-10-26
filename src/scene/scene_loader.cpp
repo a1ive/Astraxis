@@ -175,6 +175,12 @@ Atmosphere parse_atmosphere(const toml::table& t, const std::string& ctx)
     a.haze_albedo = get_rgb_or(t, "haze_albedo", ctx, glm::dvec3(1.0));
     a.haze_g = get_double_or(t, "haze_g", 0.0);
     a.gain = get_double_or(t, "gain", 1.0);
+    a.refractivity = get_double_or(t, "refractivity", 0.0);
+    a.refraction_gain = get_double_or(t, "refraction_gain", 1.0);
+    if (!std::isfinite(a.refractivity) || a.refractivity < 0.0 ||
+        !std::isfinite(a.refraction_gain) || a.refraction_gain < 0.0) {
+        fail(ctx, "refractivity and refraction_gain must be finite and non-negative");
+    }
     if (!(a.height_km > 0.0) || a.deck_altitude_km < 0.0 || rayleigh < 0.0 || haze < 0.0 ||
         !(a.rayleigh_scale_height_km > 0.0) || !(a.haze_scale_height_km > 0.0) || a.gain < 0.0) {
         fail(ctx, "height_km and scale heights must be positive; depths, deck_altitude_km and gain non-negative");
@@ -449,6 +455,7 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
         {"height_km", number}, {"deck_altitude_km", number}, {"rayleigh_depth", number},
         {"rayleigh_scale_height_km", number}, {"haze_depth", number}, {"haze_scale_height_km", number},
         {"haze_angstrom", number}, {"haze_albedo", rgb}, {"haze_g", number}, {"gain", number},
+        {"refractivity", number}, {"refraction_gain", number},
     };
     static const TemplateFields night_lights = {{"texture", text}, {"color", text}, {"gain", number}};
     static const TemplateFields aurora = {{"kp", text}};
@@ -1369,6 +1376,23 @@ void Loader::parse(const toml::table& root, Scene& out)
                 fail(ctx, "only ellipsoidal planets and moons can have an atmosphere");
             }
             body.atmosphere = parse_atmosphere(*atmosphere, ctx + " atmosphere");
+            Atmosphere& a = body.atmosphere;
+            if (a.refractivity > 0.0) {
+                const double radius = body.equatorial_radius_km + a.deck_altitude_km;
+                const double h = a.rayleigh_scale_height_km;
+                // n(r) r must increase at every altitude: ducted rays have no single turning point.
+                const double min_slope = radius >= 2.0 * h
+                    ? 1.0 + a.refractivity * (1.0 - radius / h)
+                    : 1.0 - a.refractivity * std::exp(radius / h - 2.0);
+                if (!std::isfinite(radius) || radius <= 0.0 || !std::isfinite(h) ||
+                    !std::isfinite(a.height_km) || !std::isfinite(a.haze_scale_height_km) ||
+                    !std::isfinite(min_slope) || min_slope <= 0.0 ||
+                    a.refractivity * radius >= a.height_km ||
+                    !std::isfinite(glm::length(a.rayleigh_depth)) || !std::isfinite(glm::length(a.haze_depth))) {
+                    fail(ctx, "refraction requires finite optics, a positive radius, increasing n(r)*r and a shell above n(base)*base");
+                }
+                a.refraction = std::make_shared<RefractionProfile>(atmosphere_refraction_profile(a, radius));
+            }
         }
         if (const toml::table* lights = (*t)["night_lights"].as_table()) {
             const std::string lctx = ctx + " night_lights";

@@ -77,6 +77,8 @@ file = "ephem/moon_geo.eph"
 | 表面与形状 | `color`、`style`、`shape`、`texture`、`texture_left_lon_deg`、`texture_lon_direction` |
 | 外观子表 | `atmosphere`、`night_lights`、`aurora`、`rotor`、`rings`（含 `[[rings.bands]]`）、`[[plumes]]` |
 
+`atmosphere.refractivity` 是大气底部的 `n-1`，默认 0；设为 0 可关闭折射像。地球模板采用 550 nm 标准干空气的值，随 Rayleigh 气体的指数密度变化。`atmosphere.refraction_gain` 默认 1，独立调整折射像的显示亮度，日食场景采用 64。加载时计算弯折和透射率表；不支持 `n(r)r` 非单调的波导大气。公式与适用范围见 [日冕与折射来源](../corona/SOURCES.md#地球边缘的大气折射像)。
+
 表数组（`[[rings.bands]]`、`[[plumes]]`）和其他数组一样整体替换：场景写了 `[[bodies.rings.bands]]`，就替换模板里的全部环带；只改 `[bodies.rings]` 里的 `gain` 等字段时，环带沿用模板。
 
 `nut_prec_ra/dec/pm` 可以使用祖先天体的 `nut_prec_angles`，和 PCK 一样：土星的卫星（`mimas.toml`、`tethys.toml`、`rhea.toml`）只写周期项的系数，角度取自 `saturn.toml`。加载器检查本体或最近的祖先给出的角度够不够用，不够时报错。

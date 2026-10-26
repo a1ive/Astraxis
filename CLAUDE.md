@@ -1,6 +1,6 @@
 # Astraxis
 
-用来“发呆”的天文动态背景程序：太阳系与各探测器轨迹、地球夜侧的城市灯光和极光（按 1932 年以来的 Kp）、空间望远镜（近地轨道上的 Hubble，高椭圆轨道上的 Chandra，L2 上的 WMAP、Herschel、Planck、JWST、Euclid、Roman、Gaia，与月球 2:1 共振的 TESS，落在地球后面的 Spitzer 和 Kepler）、金星、火星、木星和土星系统、彗星与哈雷舰队、DART 撞击 Dimorphos（幽灵是没被撞的轨道）、Alpha Centauri、系外行星共振链、多星系统、食变星 Algol 和造父变星 δ Cephei、北极星（带从地球看的光变曲线）、WR 104 的尘埃风车（几何模型，倾斜 42° 的轨道从地球看仍像正对的螺线）和 WR 140 每次近星点产生的尘埃壳（JWST 看到的 17 层）、脉冲星双星、Sgr A* 黑洞外观、《星际穿越》的虚构黑洞 Gargantua（按论文参数，电影版与带多普勒频移的真实样子对比；还有致敬的 Endurance 号，环在转）、致敬《坎巴拉太空计划》的 Kerbol 系统（游戏里读出的轨道、Kerbin 历法、程序生成的表面）等，共 30 个场景（含 2017 / 2024 太空视点日食）。
+用来“发呆”的天文动态背景程序：太阳系与各探测器轨迹、地球夜侧的城市灯光和极光（按 1932 年以来的 Kp）、空间望远镜（近地轨道上的 Hubble，高椭圆轨道上的 Chandra，L2 上的 WMAP、Herschel、Planck、JWST、Euclid、Roman、Gaia，与月球 2:1 共振的 TESS，落在地球后面的 Spitzer 和 Kepler）、金星、火星、木星和土星系统、彗星与哈雷舰队、DART 撞击 Dimorphos（幽灵是没被撞的轨道）、Alpha Centauri、系外行星共振链、多星系统、食变星 Algol 和造父变星 δ Cephei、北极星（带从地球看的光变曲线）、WR 104 的尘埃风车（几何模型，倾斜 42° 的轨道从地球看仍像正对的螺线）和 WR 140 每次近星点产生的尘埃壳（JWST 看到的 17 层）、脉冲星双星、Sgr A* 黑洞外观、《星际穿越》的虚构黑洞 Gargantua（按论文参数，电影版与带多普勒频移的真实样子对比；还有致敬的 Endurance 号，环在转）、致敬《坎巴拉太空计划》的 Kerbol 系统（游戏里读出的轨道、Kerbin 历法、程序生成的表面）等，共 30 个场景（含 2017 / 2024 太空视点日食和 2022 月球附近视点的地球遮日）。
 C++20 + CMake + SDL3 + SDL_GPU。Windows（D3D12）和 Linux（Vulkan）都能构建运行；Windows 上还有全屏、屏保和动态壁纸。将来做 macOS。
 
 - **目标**：安静、好看、物理上可信，主要用来发呆，交互只是辅助；功耗低，可以长时间挂在后台当壁纸；单个 exe，启动快，依赖少
@@ -298,6 +298,9 @@ CMake 目标：
 - 光变曲线在食外也不为 0（洛希形状和照射带来的起伏）：判断是否在食中，要比较有遮挡和无遮挡时的光；食深从最亮处量起，不要从 0 量
 - 导演测试用多个随机种子长时间跑，抓相机穿过天体、掠过黑洞这类问题；带滚动窗口积分的场景要用低倍速，否则 Debug 下很慢
 
+- **大气折射红环**：地球模板的 `refractivity` 控制折射，`refraction_gain` 单独控制显示增益。加载时沿弯曲光线积分成 128 点表，`AtmospherePass` 查表并按像素径向宽度积分；只取像素中心会让不足一像素宽的红环断裂。月球旁的 `observer_offset_km` 也要满足镜头离表面至少 0.1 个半径的限制，2022 月食事件采用 200 km 高度。散射、夜光和极光继续使用已有大气模型
+- **日冕范围**：K 日冕的几何结构、2017 / 2024 太空视点日食、Parker 增强白光和 2022 月球附近的折射红环已实现；不做 CME。若引入黑子数序列，先核实 SILSO 的许可证
+
 - **日冕遮挡**：月球在太阳半径单位里很小，射线与球的判别式用 `r² - |cross(center, ray)|²`，不要用两个大数相减的 `b² - c`，否则月缘会因 float 精度破碎。半分辨率积分也要在遮挡轮廓附近全分辨率重算，避免日冕漏进黑色月面
 
 `[corona]` 启用白光 K 日冕，`display_gain` / `display_gamma` 是显示增强参数。`CoronaPass` 先在本输出 `SceneTargets` 的半分辨率单采样纹理里积分，再叠加到主 HDR pass；MSAA 切换要同步重建合成管线。事件的 `observer` + `observer_offset_km` 把相机放在指定天体旁的固定 ICRF 偏移，`fov_deg` 控制视场；这类镜头滚轮改视场，拖动解除锚定，切换普通焦点恢复 45°。`corona_enhanced` 用于 Parker 的增强视图。`[view].event` 按名称选择初始事件。散射、遮挡、日食本影位置及相机行为在 `appearance_tests.cpp` 检查。
@@ -307,13 +310,12 @@ CMake 目标：
 按容易程度排：
 
 1. Dear ImGui 等 1.93.x 补丁版出来再从 v1.92.9b 升级（1.93.0 重写了 ImDrawList，刚发布）。SDL3/SDLGPU3 后端和用到的 API 都兼容，要截图核对的是：`label_overlay.cpp` 的空心圆点（`AddCircle` 半径不再减 0.5、默认内侧描边）和标记菱形（`AddQuad`）、`captions.cpp`/`app_ui.cpp` 里非整数坐标的 `AddRectFilled`（现在有抗锯齿边缘）、`StyleColorsDark()` 改过的面板配色
-2. 日冕后续：从月球看地球遮日时的大气折射红环。K 日冕、2017 / 2024 太空视点日食和 Parker 增强白光事件已有；继续使用几何结构，不做 CME。若以后引入黑子数序列，先核实 SILSO 的许可证
-3. Kerbol 场景：高度图和法线（晨昏线上的立体感，也可用于月球、火星的 USGS DEM）与海面高光（Kerbin、Eve、Laythe、地球）；还可以用 `kerbol_transfer.py` 的办法加别的示意航线（Minmus、Duna 的转移窗口等，标明是设计的）
-4. 黑洞附近的天体做透镜：Gargantua 的示例行星和 Mann 星现在按真实位置画，转到黑洞背后时被挡住（真实情况下光会弯到阴影上方）。可以对每个天体解相机到天体的类光测地线，把球和标记画在主像（和次像）的位置
-5. 木星极光：主要发紫外光（H₂ 的 Lyman 和 Werner 带），可见光里几乎看不到，要像 WR 104 的红外伪彩色那样做成“紫外视图”的开关并在展签里写明。主卵之外，Io、Europa、Ganymede 的磁通管足点跟着卫星走，是好看的物理联系；足点和卵的位置要用 Juno 的磁场模型（JRM33）沿磁力线追踪，不能用偶极。可以复用地球极光的壳层 pass（`AuroraPass`），但卵的形状和活动要另找数据（哈勃和 Juno UVS 的统计卵）。别的天体的极光（土星、火星、Ganymede 自己的卵）做不做还没定
-6. 空间望远镜星历更新：Roman、TESS、Euclid、JWST 的表大半是预报，Chandra 的预报到 2027-03-30，过几个月重新烘焙
-7. DART 场景加 ESA 的 Hera（−91）：2026 年 10 月底到达 Didymos，Horizons 现在只有到 10-17 的跟踪数据和到 11-04 的预报（离 Didymos 约 30 km）。等 ESA 发布近距离阶段的重建轨道再烘焙，同时加两颗立方星 Milani、Juventas，以及 Hera 测出的撞击后 Dimorphos 的形状和撞击坑（Naidu 2024 推断长轴比约 1.3；形状模型发布后替换或在撞击时刻切换）。届时 Didymos 和 Dimorphos 的表要延长到 2027 年：解 547 的 SPK 覆盖到 2024 年底，2026 年起要用 ESA 的新解（Horizons 的 2026-07 以后已经换成 ESA 的文件）；DART 撞击也改变了系统的日心轨道（量级很小），新解里应该有
-8. 远期：macOS（Metal，需要 SPIR-V → MSL 和 macOS CI）；J1141-6545 的自转轴进动（Venkatraman Krishnan 2019 表 1：α ≈ 89°，δ 各模型从 35° 到 155° 不等，倾向的模型 3 是 91° ± 60°；Manchester 2010 约 110°），等几何解定下来再做
+2. Kerbol 场景：高度图和法线（晨昏线上的立体感，也可用于月球、火星的 USGS DEM）与海面高光（Kerbin、Eve、Laythe、地球）；还可以用 `kerbol_transfer.py` 的办法加别的示意航线（Minmus、Duna 的转移窗口等，标明是设计的）
+3. 黑洞附近的天体做透镜：Gargantua 的示例行星和 Mann 星现在按真实位置画，转到黑洞背后时被挡住（真实情况下光会弯到阴影上方）。可以对每个天体解相机到天体的类光测地线，把球和标记画在主像（和次像）的位置
+4. 木星极光：主要发紫外光（H₂ 的 Lyman 和 Werner 带），可见光里几乎看不到，要像 WR 104 的红外伪彩色那样做成“紫外视图”的开关并在展签里写明。主卵之外，Io、Europa、Ganymede 的磁通管足点跟着卫星走，是好看的物理联系；足点和卵的位置要用 Juno 的磁场模型（JRM33）沿磁力线追踪，不能用偶极。可以复用地球极光的壳层 pass（`AuroraPass`），但卵的形状和活动要另找数据（哈勃和 Juno UVS 的统计卵）。别的天体的极光（土星、火星、Ganymede 自己的卵）做不做还没定
+5. 空间望远镜星历更新：Roman、TESS、Euclid、JWST 的表大半是预报，Chandra 的预报到 2027-03-30，过几个月重新烘焙
+6. DART 场景加 ESA 的 Hera（−91）：2026 年 10 月底到达 Didymos，Horizons 现在只有到 10-17 的跟踪数据和到 11-04 的预报（离 Didymos 约 30 km）。等 ESA 发布近距离阶段的重建轨道再烘焙，同时加两颗立方星 Milani、Juventas，以及 Hera 测出的撞击后 Dimorphos 的形状和撞击坑（Naidu 2024 推断长轴比约 1.3；形状模型发布后替换或在撞击时刻切换）。届时 Didymos 和 Dimorphos 的表要延长到 2027 年：解 547 的 SPK 覆盖到 2024 年底，2026 年起要用 ESA 的新解（Horizons 的 2026-07 以后已经换成 ESA 的文件）；DART 撞击也改变了系统的日心轨道（量级很小），新解里应该有
+7. 远期：macOS（Metal，需要 SPIR-V → MSL 和 macOS CI）；J1141-6545 的自转轴进动（Venkatraman Krishnan 2019 表 1：α ≈ 89°，δ 各模型从 35° 到 155° 不等，倾向的模型 3 是 91° ± 60°；Manchester 2010 约 110°），等几何解定下来再做
 
 ## 不要做
 

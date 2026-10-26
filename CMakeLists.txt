@@ -57,6 +57,8 @@ add_library(astraxis_sim STATIC
     src/ephem/mean_element_orbit.cpp
     src/ephem/mean_element_orbit.hpp
     src/ephem/motion.hpp
+    src/scene/refraction.cpp
+    src/scene/refraction.hpp
     src/scene/corona.cpp
     src/scene/corona.hpp
     src/scene/aurora.cpp

@@ -236,7 +236,7 @@ void test_atmospheres()
             check(a.enabled && a.height_km == ref.height_km && a.deck_altitude_km == ref.deck_altitude_km &&
                       a.rayleigh_depth == ref.rayleigh_depth && a.haze_depth == ref.haze_depth &&
                       a.haze_albedo == ref.haze_albedo && a.haze_g == ref.haze_g &&
-                      a.haze_scale_height_km == ref.haze_scale_height_km &&
+                      a.haze_scale_height_km == ref.haze_scale_height_km && a.refractivity == ref.refractivity &&
                       b.texture == scene.bodies[static_cast<size_t>(k)].texture,
                   (std::string(file) + ": " + b.name + " atmosphere as in solar_system.toml").c_str());
         }
@@ -573,6 +573,108 @@ void test_night_and_aurora()
           "rejects a missing Kp record");
 }
 
+void test_refraction()
+{
+    const Scene solar = load_scene_or_die("solar_system.toml");
+    const Body& earth = solar.bodies[static_cast<size_t>(solar.find("Earth"))];
+    const Atmosphere& a = earth.atmosphere;
+    const double radius = earth.equatorial_radius_km;
+    check(a.refraction != nullptr, "Earth template builds the refraction table");
+    if (!a.refraction) return;
+    const double sigma2 = 1.0 / (0.55 * 0.55);
+    const double ciddor = 1e-8 * (5792105.0 / (238.0185 - sigma2) + 167917.0 / (57.362 - sigma2));
+    check(std::abs(a.refractivity - ciddor) < 1e-13, "Ciddor standard air at 550 nm (NIST A22/A32)");
+
+    // Independent eikonal ODE in Cartesian coordinates, integrated in arc
+    // length from the tangent point. The product integrates in radius instead.
+    using State = std::array<double, 7>; // position xy, direction xy, optical depth RGB
+    auto derivative = [&](const State& s) {
+        const glm::dvec2 p(s[0], s[1]), v(s[2], s[3]);
+        const double r = glm::length(p), h = r - radius;
+        const double gas = std::exp(-h / a.rayleigh_scale_height_km);
+        const double nu = a.refractivity * gas;
+        const glm::dvec2 gradient = -p / r * (nu / ((1.0 + nu) * a.rayleigh_scale_height_km));
+        const glm::dvec2 dv = gradient - v * glm::dot(v, gradient);
+        const glm::dvec3 extinction = a.rayleigh_depth * (gas / a.rayleigh_scale_height_km) +
+            a.haze_depth * (std::exp(-h / a.haze_scale_height_km) / a.haze_scale_height_km);
+        return State{v.x, v.y, dv.x, dv.y, extinction.x, extinction.y, extinction.z};
+    };
+    auto advance = [](State s, const State& delta, double step) {
+        for (size_t i = 0; i < s.size(); ++i) s[i] += step * delta[i];
+        return s;
+    };
+    for (double height : {0.0, 3.0, 12.0, 40.0}) {
+        State s{radius + height, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0};
+        for (int step = 0; step < 3000; ++step) {
+            const auto k1 = derivative(s);
+            const auto k2 = derivative(advance(s, k1, 0.5));
+            const auto k3 = derivative(advance(s, k2, 0.5));
+            const auto k4 = derivative(advance(s, k3, 1.0));
+            for (size_t i = 0; i < s.size(); ++i) s[i] += (k1[i] + 2.0 * k2[i] + 2.0 * k3[i] + k4[i]) / 6.0;
+        }
+        const auto ray = atmosphere_refracted_ray(a, radius, height);
+        check(std::abs(ray.bending_rad + 2.0 * std::asin(s[2])) < 2e-8,
+              "radial bending integral agrees with independent Cartesian ray propagation");
+        check(std::abs(ray.impact_km - (s[0] * s[3] - s[1] * s[2])) < 1e-6,
+              "curved ray preserves asymptotic impact parameter");
+        for (int c = 0; c < 3; ++c) {
+            check(std::abs(ray.transmission[c] - std::exp(-2.0 * s[static_cast<size_t>(4 + c)])) < 2e-6,
+                  "curved-ray extinction agrees with independent path integral");
+        }
+    }
+    const auto low = atmosphere_refracted_ray(a, radius, 3.0);
+    check(low.transmission.r > 5.0 * low.transmission.g && low.transmission.g > 5.0 * low.transmission.b,
+          "low tangent rays lose blue and green more strongly than red");
+    check(low.bending_rad > 0.01 && low.bending_rad < 0.025, "low rays bend enough to reach the lunar umbra");
+    Atmosphere vacuum = a;
+    vacuum.refractivity = 0.0;
+    vacuum.rayleigh_depth = vacuum.haze_depth = glm::dvec3(0.0);
+    const auto straight = atmosphere_refracted_ray(vacuum, radius, 0.0);
+    check(straight.bending_rad == 0.0 && straight.transmission == glm::dvec3(1.0),
+          "vacuum leaves a ray straight and unattenuated");
+    for (size_t i = 1; i < a.refraction->samples.size(); ++i) {
+        const auto before = a.refraction->samples[i - 1], after = a.refraction->samples[i];
+        check(after.w < before.w && glm::all(glm::greaterThanEqual(glm::vec3(after), glm::vec3(before))),
+              "higher rays bend less and transmit more light");
+    }
+
+    Simulation sim;
+    std::string error;
+    check(sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/solar_eclipse.toml", &error), "lunar eclipse scene loads");
+    sim.stop_tour();
+    sim.jump_to_event(2);
+    sim.update(0.0);
+    OutputView output;
+    sim.compute_view(1280, 720, 1.0, output);
+    const Scene& scene = sim.scene();
+    const auto& event = scene.events[2];
+    const glm::dvec3 moon = scene.bodies[static_cast<size_t>(scene.find("Moon"))].world_position;
+    const glm::dvec3 observer = output.camera.position;
+    check(event.observer == scene.find("Moon") && event.focus == scene.find("Earth"),
+          "lunar eclipse observer looks from the Moon toward Earth");
+    check(glm::length(observer - moon - event.observer_offset_km) < 1e-8 &&
+          std::abs(glm::length(observer - moon) - 1937.4) < 1e-6,
+          "lunar viewpoint is 200 km above the Moon at the reference time");
+    const glm::dvec3 sun = scene.sun_position() - observer;
+    const double alpha = std::asin(kSunRadiusKm / glm::length(sun));
+    const double beta = std::asin(radius / glm::length(observer));
+    const double separation = std::atan2(glm::length(glm::cross(glm::normalize(sun), glm::normalize(-observer))),
+                                        glm::dot(glm::normalize(sun), glm::normalize(-observer)));
+    check(beta > separation + alpha, "the Moon-side observer is in Earth's umbra");
+    check(std::abs(glm::length(moon) - 390651.871445) < 0.01, "lunar distance agrees with Horizons bake");
+    check(std::abs(output.camera.focal_y - 1.0 / std::tan(1.75 * kDegToRad)) < 1e-5,
+          "lunar eclipse applies its 3.5 degree field of view");
+    Scene bad;
+    const std::string base = "name='x'\n[[bodies]]\nname='Earth'\ntemplate='bodies/earth.toml'\n[bodies.atmosphere]\n";
+    for (const char* invalid : {"refractivity=-1", "refractivity=nan", "refractivity=0.01", "refraction_gain=inf"}) {
+        check(!load_scene_string(base + invalid, "bad_refraction", bad, &error, ASTRAXIS_ASSET_DIR), "rejects invalid or ducting refraction optics");
+        check(error.find("refraction requires") != std::string::npos || error.find("must be finite and non-negative") != std::string::npos,
+              "invalid refraction fails in the optics validation");
+    }
+    check(load_scene_string(base + "refractivity=0", "no_refraction", bad, &error, ASTRAXIS_ASSET_DIR) && !bad.bodies[0].atmosphere.refraction,
+          "zero refractivity disables the table through a template override");
+}
+
 void test_corona()
 {
     auto utc = [](int y, int m, int d, int h) { return tdb_from_utc_jd(jd_from_calendar({y, m, d, h, 0, 0})); };
@@ -613,7 +715,7 @@ void test_corona()
     check(sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/solar_eclipse.toml", &error), "eclipse scene loads");
     sim.stop_tour();
     check(sim.scene().active_event() == 1, "eclipse scene opens its named 2024 event");
-    for (size_t i = 0; i < sim.scene().events.size(); ++i) {
+    for (size_t i = 0; i < 2; ++i) {
         sim.jump_to_event(i);
         sim.update(0.0);
         OutputView output;
@@ -688,5 +790,6 @@ void run_appearance_tests()
     test_atmospheres();
     test_plumes();
     test_night_and_aurora();
+    test_refraction();
     test_corona();
 }

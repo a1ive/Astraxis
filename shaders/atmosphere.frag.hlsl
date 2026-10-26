@@ -28,7 +28,12 @@ cbuffer Uniforms : register(b0, space3)
     float4 u_haze;        // rgb = vertical attenuation optical depth, tau (1 - w g), w = scale height
     float4 u_haze_scatter; // rgb = vertical scattering optical depth, tau w; w = asymmetry g
     float4 u_params;      // x = gain
+    float4 u_refraction;  // min/max impact, enabled, inverse sun distance
+    float4 u_sun_color;
+    float4 u_refracted[128]; // RGB transmission, W bending (radians)
 };
+
+#include "refraction.hlsli"
 
 struct PSInput
 {
@@ -54,6 +59,7 @@ float4 main(PSInput input) : SV_Target0
     float b = dot(o, dir);
     float3 perp = o - b * dir;
     float p2 = dot(perp, perp);
+    float3 refracted = refracted_sun(dir, perp, fwidth(length(perp)));
     if (p2 >= top * top) {
         return float4(0.0, 0.0, 0.0, 1.0);
     }
@@ -98,5 +104,5 @@ float4 main(PSInput input) : SV_Target0
     }
 
     float3 transmission = exp(-tau);
-    return float4(0.25 * u_params.x * sum, dot(transmission, 1.0 / 3.0));
+    return float4(0.25 * u_params.x * sum + refracted, dot(transmission, 1.0 / 3.0));
 }
