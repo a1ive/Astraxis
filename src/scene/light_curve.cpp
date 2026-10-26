@@ -385,6 +385,23 @@ void measure_light_curve_depth(Scene& scene, double t_tdb, double days)
     lc.depth_mag = std::max(std::ceil(deepest * 10.0 - 1e-6) / 10.0, 0.1);
 }
 
+double observed_magnitude(const ObservedLightCurve& curve, double t_tdb)
+{
+    const std::vector<double>& t = curve.t_tdb;
+    if (t.size() < 2 || t_tdb < t.front() || t_tdb > t.back()) {
+        return std::nan("");
+    }
+    const size_t i = std::min(static_cast<size_t>(std::upper_bound(t.begin(), t.end(), t_tdb) - t.begin()),
+                              t.size() - 1);
+    const double t0 = t[i - 1];
+    const double t1 = t[i];
+    if (t1 - t0 > curve.gap_s) {
+        return std::nan("");
+    }
+    const double u = t1 > t0 ? (t_tdb - t0) / (t1 - t0) : 0.0;
+    return curve.magnitude[i - 1] + u * (curve.magnitude[i] - curve.magnitude[i - 1]);
+}
+
 double light_curve_visibility(const LightCurve& curve, double rate)
 {
     if (!curve.enabled()) {

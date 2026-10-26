@@ -51,6 +51,14 @@
 # [DR03] Draine 2003, ApJ 598, 1017; the table kext_albedo_WD_MW_3.1_60_D03
 #        (www.astro.princeton.edu/~draine/dust/): Milky Way dust (R_V = 3.1) at
 #        V (0.547 um), albedo 0.677 and <cos theta> = 0.538.
+# [FR04] Frew 2004, Journal of Astronomical Data 10, 6: the visual light
+#        curve 1595-2000 reduced to V (table 4); the decline from 1858, the
+#        lesser eruption of 1887-95.
+# [AAVSO] AAVSO International Database, visual and V estimates of eta Car,
+#        retrieved 2026-10-26 (assets/stars/SOURCES.md): before 1916 it holds
+#        [FR04]'s estimates with [SF11]'s additions. We acknowledge with thanks
+#        the variable star observations from the AAVSO International Database
+#        contributed by observers worldwide and used in this research.
 #
 # The orbit: [MA12]'s orientation converted to the scene's visual-orbit
 # elements (B relative to A): i = 138 deg, node = PAz - 90 = 227 deg, omega_B
@@ -72,7 +80,8 @@
 # Checks (tests/stellar_system_tests.cpp): the orbit's period, size and
 # orientation against [MA12], B behind A at periastron, the periastron dates
 # of the X-ray minima, the Homunculus' axis and size against [SM06], its
-# alignment with the orbit, and the protrusions around the apastron direction.
+# alignment with the orbit, the protrusions around the apastron direction, and
+# the recorded light curve (the peak of December 1844, the gap of 1916-1943).
 
 name = "Eta Carinae"
 
@@ -111,6 +120,14 @@ color = "#f0c8a0"              # illustrative: the orange of the dust-reddened s
 display_reference_au = 2500.0
 display_gamma = 0.5
 grains = 150000
+
+# The record of its brightness from Earth since 1820 [AAVSO], [FR04], [SF11].
+[observed_light_curve]
+file = "stars/eta_car_aavso.csv"
+band = "V"
+source = "AAVSO"
+from = "1820-01-01"
+gap_years = 5.0                # the 1916-1943 gap shows as one
 
 [[bodies]]
 name = "Eta Car"
@@ -170,20 +187,36 @@ ra_dec_distance_pc = [341.2647742, 59.6844309, 2350.0]
 
 [[events]]
 name = "The Great Eruption"
-time = "1850-01-01"
+time = "1843-01-01"            # before the flare of March 1843 [SF11]
 focus = "Eta Car"
 from_body = "Sun"
 phase_deg = 90.0
 elevation_deg = 0.0
-distance_km = 6.0e11           # 4,000 au: the young shell, 1,000 au long, grows to fill the view
-warp = 7889400.0               # three months per second: ten years in 40 s
-# [SF11], [SM17]
+distance_km = 2.0e11           # 1,300 au: the lobes appear in 1847 and are 700 au long by 1850
+warp = 5259600.0               # two months per second: seven years in 40 s
+# [SF11], [SM17], [AAVSO]
 caption = """\
-    From 1838 the star flared again and again, and at its peak in December \
-    1844 it was the second brightest star in the sky, orange-red, for about a \
-    decade. More than ten solar masses were thrown off. Hubble images taken \
-    years apart trace the ejecta back to 1847: these two lobes have been \
-    coasting outward ever since."""
+    The plot is the record of what observers saw. The star flared in 1838 \
+    and 1843, and at its peak in December 1844 it was the second brightest \
+    star in the sky, orange-red, for about a decade. More than ten solar \
+    masses were thrown off: Hubble images taken years apart trace these \
+    lobes back to 1847, and here they appear and start to grow."""
+
+[[events]]
+name = "Fading, and a second outburst"
+time = "1856-01-01"
+focus = "Eta Car"
+from_body = "Sun"
+phase_deg = 90.0
+elevation_deg = 0.0
+distance_km = 3.0e12           # 20,000 au: the lobes reach 9,000 au by 1890
+warp = 31557600.0              # a year per second: to 1896 in 40 s
+# [AAVSO], [FR04], [SF11]
+caption = """\
+    From 1858 the star faded fast, by 1868 to the limit of the naked eye, \
+    perhaps hidden by dust forming in its own wind. In 1887-95 it brightened \
+    again by a magnitude, the lesser eruption, which threw off a smaller pair \
+    of lobes inside the first: the Little Homunculus, not drawn here."""
 
 [[events]]
 name = "The Homunculus, as Hubble sees it"

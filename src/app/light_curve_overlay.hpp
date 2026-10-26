@@ -21,6 +21,9 @@ ImVec2 light_curve_plot_size();
 ScreenRect light_curve_plot_rect(const ImVec2& display, float bottom, float margin, float caption_width,
                                  std::span<const ScreenRect> avoid = {});
 
+// A recorded light curve (Scene::observed_light_curve) takes its place: the
+// whole record, apparent magnitudes, the clock's moment marked.
+//
 // The scene's light curve (Scene::light_curve) as a small plot: magnitudes
 // below the unhidden brightness (brighter up) over the samples' span, with
 // the clock's moment marked. Draws into the background draw list, with

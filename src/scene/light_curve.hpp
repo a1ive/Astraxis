@@ -53,6 +53,10 @@ void set_light_curve_reference(Scene& scene);
 // t_tdb (at least 0.1 mag), rounded up to a tenth of a magnitude.
 void measure_light_curve_depth(Scene& scene, double t_tdb, double days);
 
+// An observed light curve's magnitude at t_tdb, interpolated between the
+// points on either side; NaN outside the points or across a gap (gap_s).
+double observed_magnitude(const ObservedLightCurve& curve, double t_tdb);
+
 // Plot opacity at a simulated-seconds-per-real-second rate (0 when paused).
 // Fades as the whole span passes in 4 to 2 real seconds.
 double light_curve_visibility(const LightCurve& curve, double rate);

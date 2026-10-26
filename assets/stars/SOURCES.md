@@ -43,3 +43,13 @@
 - 天球位置取自 Gaia 实测数据。视线方向的深度未测得，按 King（1962）密度分布随机抽取，参数取自 Harris 2010：c = 1.65，r_c = 1.16′。随机种子固定，三维结构表示统计分布。
 - 列：`east_pc,north_pc,away_pc,abs_vmag,bv`（相对星团中心，中心处的切平面坐标）。
 - 缺失：G > 19（约 0.65 M☉ 以下）的暗星，以及星团核心中因拥挤而未被 Gaia 检出的星。
+
+## η Carinae 的历史光变曲线
+
+`eta_car_aavso.csv` 是 η Car（恒星加 Homunculus 星云的整体）从 1596 年到 2026 年的 V 星等，供 `eta_carinae.toml` 的 `[observed_light_curve]` 使用。
+
+- 来源：AAVSO International Database（<https://apps.aavso.org/v2/data/search/photometry/>，目标 “eta Car”，波段 Visual 和 Johnson V，2026-10-26 检索，32,872 条）。库里 1916 年以前的记录就是 Frew 2004（Journal of Astronomical Data 10, 6）表 4 里换算到 V 星等的历史估计，1838–1845 年加上了 Smith & Frew 2011（MNRAS 415, 2009）补充的 Smyth 和 Maclear 的观测：抽查 Herschel 1836 年的 1.1–1.3 等、1837 年 12 月跳到 −0.2 等、1843 年 3 月的 −0.8 等、1844 年 12 月的 −1.0 等，都与两篇论文的表一致
+- 许可证：AAVSO 的数据对所有人免费开放，使用时须致谢（AAVSO Data Usage Guidelines）：We acknowledge with thanks the variable star observations from the AAVSO International Database contributed by observers worldwide and used in this research. 没有写明 CC 之类的开放许可；历史部分请同时引用 Frew 2004 和 Smith & Frew 2011
+- 处理：AAVSO 的检索页有浏览器验证，命令行取不到，`tools/eta_car/aavso_light_curve.js` 要在浏览器里打开检索页后在开发者控制台运行（不用登录），每页取 1000 条，打印归并后的表。去掉重复的行（检索结果里有些行出现两次）和上下限（“<”“>”），按 0.25 年分箱取中位数：2004 年以前用目视估计，之后用 CCD、光电和 DSLR 的 V；某一箱没有这一类时用另一类。1970–1990 年代目视估计比光电 V 暗约 0.3 等（星云是展源），两类混着取会来回跳。年份是 (JD − 2451545)/365.25 + 2000，取箱里所用观测的平均
+- 列：`year,v,count,source`（`source` 为 `vis` 目视或 `V` 仪器测光）
+- 缺口：1916–1943 年没有记录（场景里画成断开），1590–1820 年代只有零星几点

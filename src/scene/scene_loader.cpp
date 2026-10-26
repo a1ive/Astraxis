@@ -1951,6 +1951,52 @@ void Loader::parse(const toml::table& root, Scene& out)
         }
     }
 
+    // [observed_light_curve]: a recorded light curve (see ObservedLightCurve):
+    // '#' comments, a header line, then "year,magnitude,..." rows (Julian
+    // years, ascending; further columns ignored).
+    if (const toml::table* olc = root["observed_light_curve"].as_table()) {
+        const std::string ctx = "observed_light_curve";
+        ObservedLightCurve& curve = out.observed_light_curve;
+        const std::string file = get_string(*olc, "file", ctx);
+        std::ifstream in(m_asset_root / file);
+        if (!in) {
+            fail(ctx, "cannot open " + file);
+        }
+        std::string line;
+        bool header_seen = false;
+        while (std::getline(in, line)) {
+            if (line.empty() || line[0] == '#') {
+                continue;
+            }
+            if (!header_seen) {
+                header_seen = true;
+                continue;
+            }
+            double year = 0.0;
+            double magnitude = 0.0;
+            if (std::sscanf(line.c_str(), "%lf,%lf", &year, &magnitude) != 2) {
+                fail(ctx, file + ": bad line '" + line + "'");
+            }
+            const double t = tdb_from_julian_year(year);
+            if (!curve.t_tdb.empty() && t <= curve.t_tdb.back()) {
+                fail(ctx, file + ": years must ascend");
+            }
+            curve.t_tdb.push_back(t);
+            curve.magnitude.push_back(static_cast<float>(magnitude));
+        }
+        if (curve.t_tdb.size() < 2) {
+            fail(ctx, file + ": needs at least two points");
+        }
+        curve.band = get_string_or(*olc, "band", curve.band);
+        curve.source = get_string_or(*olc, "source", "");
+        curve.from_tdb = olc->contains("from") ? parse_time(*olc, "from", ctx) : curve.t_tdb.front();
+        curve.to_tdb = olc->contains("to") ? parse_time(*olc, "to", ctx) : curve.t_tdb.back();
+        curve.gap_s = get_double_or(*olc, "gap_years", 3.0) * kDaysPerJulianYear * kSecondsPerDay;
+        if (curve.to_tdb <= curve.from_tdb || curve.gap_s <= 0.0) {
+            fail(ctx, "needs from before to and a positive gap_years");
+        }
+    }
+
     // [light_curve]: the stars' light as seen from `observer` (see LightCurve).
     if (const toml::table* lc = root["light_curve"].as_table()) {
         const std::string ctx = "light_curve";

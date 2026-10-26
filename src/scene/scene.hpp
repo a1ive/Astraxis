@@ -609,6 +609,21 @@ struct LightCurve {
     bool enabled() const { return observer >= 0 && !stars.empty(); }
 };
 
+// A star's recorded brightness through history ([observed_light_curve]: a
+// table of binned observations, not a model), plotted over its whole span
+// with the clock's moment marked (eta Carinae's Great Eruption).
+struct ObservedLightCurve {
+    std::string band = "V";
+    std::string source;        // credited with the plot, e.g. "AAVSO"
+    double from_tdb = 0.0;     // the plot's span
+    double to_tdb = 0.0;
+    double gap_s = 0.0;        // points further apart are not joined
+    std::vector<double> t_tdb; // ascending
+    std::vector<float> magnitude;
+
+    bool enabled() const { return t_tdb.size() >= 2; }
+};
+
 // Osculating two-body orbit.
 struct OrbitElements {
     double eccentricity = 0.0;
@@ -662,6 +677,7 @@ public:
     Calendar calendar = Calendar::Gregorian;
     std::vector<SceneBelt> belts;
     LightCurve light_curve;
+    ObservedLightCurve observed_light_curve;
     // A colliding-wind binary's dust spiral (WR 104); disabled in most scenes.
     Pinwheel pinwheel;
     // An expanding dusty shell lit by its star (eta Carinae's Homunculus); disabled in most scenes.

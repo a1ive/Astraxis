@@ -1998,7 +1998,27 @@ void test_eta_carinae_scene()
     std::printf("info: Homunculus %.0f au tip to tip in 2012 ([SM06] scaled: %.0f)\n", hi - lo, length_au);
     check(std::abs((hi - lo) / length_au - 1.0) < 0.03, "Homunculus length in 2012 (au)", hi - lo);
 
-    check(scene.events.size() == 4, "Eta Carinae events", static_cast<double>(scene.events.size()));
+    // The recorded light curve [AAVSO]: brightest at the Great Eruption's peak
+    // of December 1844 (-1.0, [SF11]), at the limit of the naked eye by 1868,
+    // nothing across the 1916-1943 gap, about fourth magnitude now.
+    const ObservedLightCurve& lc = scene.observed_light_curve;
+    check(lc.enabled() && lc.t_tdb.size() > 400, "Eta Carinae light curve points", static_cast<double>(lc.t_tdb.size()));
+    if (lc.enabled()) {
+        const size_t peak = static_cast<size_t>(std::min_element(lc.magnitude.begin(), lc.magnitude.end()) -
+                                                lc.magnitude.begin());
+        const double peak_year = 2000.0 + lc.t_tdb[peak] / (kDaysPerJulianYear * kSecondsPerDay);
+        std::printf("info: Eta Car brightest V = %.1f in %.2f\n", lc.magnitude[peak], peak_year);
+        check(lc.magnitude[peak] == -1.0f && peak_year > 1844.8 && peak_year < 1845.1,
+              "Eta Car brightest in December 1844 [SF11]", peak_year);
+        const double v1868 = observed_magnitude(lc, tdb_from_julian_year(1868.5));
+        const double v1930 = observed_magnitude(lc, tdb_from_julian_year(1930.0));
+        const double v2026 = observed_magnitude(lc, tdb_from_julian_year(2026.3));
+        std::printf("info: Eta Car V %.2f in 1868.5, %.2f in 2026.3\n", v1868, v2026);
+        check(v1868 > 5.8 && v1868 < 6.5 && std::isnan(v1930) && v2026 > 3.7 && v2026 < 4.2,
+              "Eta Car light curve: 1868, the 1930s gap and now", v2026);
+    }
+
+    check(scene.events.size() == 5, "Eta Carinae events", static_cast<double>(scene.events.size()));
     for (size_t k = 1; k < scene.events.size(); ++k) {
         check(scene.events[k].t_tdb > scene.events[k - 1].t_tdb, "Eta Carinae events in time order");
     }
