@@ -128,9 +128,9 @@ CMake 目标：
 |---|---|
 | `core_tests.cpp` | 日历（含 Kerbin 历法）/时间尺度、星表（含重投影）与黑体颜色和波段份额、银道坐标系 |
 | `ephem_tests.cpp` | 开普勒方程与传播、幽灵的外推（带状谐项、潮汐）与 Δv、星历表、目视/凌星轨道约定、N 体 |
-| `planet_scene_tests.cpp` | 场景里的行星和卫星：太阳系、木星、地月、土星；Janus 和 Epimetheus 的根数表对照 Horizons、19 次交换（a 的跳变之比对照 GM 比、2006-01-21、最近距离）；Kerbol 系统对照游戏里的位置和自转角、6 小时太阳日、潮汐锁定、Laythe:Vall:Tylo ≈ 1:2:4、示意的 Mun 转移（停泊轨道、两次点火的 Δv、捕获轨道） |
+| `planet_scene_tests.cpp` | 场景里的行星和卫星：太阳系（含 Proteus 对照 NEP098 的独立时刻和同步自转）、木星、地月、土星；Janus 和 Epimetheus 的根数表对照 Horizons、19 次交换（a 的跳变之比对照 GM 比、2006-01-21、最近距离）；Kerbol 系统对照游戏里的位置和自转角、6 小时太阳日、潮汐锁定、Laythe:Vall:Tylo ≈ 1:2:4、示意的 Mun 转移（停泊轨道、两次点火的 Δv、捕获轨道） |
 | `mission_tests.cpp` | 探测器：先驱者/新视野、Parker、伽利略/朱诺、Artemis/CAPSTONE/嫦娥五号 T1 及其火箭末级、卡西尼/惠更斯、信使/贝皮科伦坡、火星的八个轨道器（含天问一号 2021 年的重建）、赛丁泉彗星与 3I/ATLAS、太阳系场景的 1I/3I、Europa Clipper/Hera 飞掠、金星快车/破晓号/Zoozve 与金星借力飞掠、ISEE-3、哈雷舰队、Rosetta/Philae、空间望远镜（WMAP 的月球借力与 L2 轨道、Chandra 的近远地点与周期、JWST、Euclid、Roman、Gaia、Herschel、Planck 在 L2 附近和弃置轨道、TESS 与月球的 2:1 共振、Spitzer 和 Kepler 的漂离、Hubble 示意轨道的周期与 J2 交点进动及事件显隐）、DART 与 Dimorphos（解 547 的撞前周期和撞后稳定周期、同步自转对照 Horizons、幽灵三天后仍在旧轨道上、2.65 mm/s 的读数、撞击速度和来向、LICIACube 的最近距离） |
-| `shape_tests.cpp` | 小天体形状模型（含 Didymos、Dimorphos 的体积）；Endurance 致敬模型（硬边、尺寸、环的转速对应 1 g） |
+| `shape_tests.cpp` | 小天体形状模型（含 Didymos、Dimorphos 的体积，Proteus 的体积和 PDS 西经约定）；Endurance 致敬模型（硬边、尺寸、环的转速对应 1 g） |
 | `appearance_tests.cpp` | 彗尾、尘埃彗尾、大气层、羽流（含各场景参数一致）；地球的夜间灯光和极光（各场景一致、大磁暴的 Kp、Starkov 卵的性质、Longyearbyen 在磁正午处于 Kp 3 的卵下、IGRF 偶极极、半球功率、谱线产额和比值、Kp 随倍速的平均） |
 | `stellar_system_tests.cpp` | α Cen（含 Ab 对照 S1/C1 的位置和相互倾角、只在事件里显示的 Bb）、TRAPPIST-1、Kepler 系统、TIC 168789840、Algol（CHARA 位置与 B 的拉长、TESS 极小、GCVS 食深）与光变曲线模型、洛希面（Kim 1989 的半径、Eggleton 公式）、δ Cephei（SPIPS 半径、Engle 极大、视向速度轨道）、北极星（Anderson 的脉动视向速度、Evans 的极大时刻、光极大在视向速度极小前 0.21 d、V 振幅、Ab 对照 HST/CHARA/斑点干涉的位置、K1）、PSR B1620-26、WR 104（Hill 的合相和 K、Richardson 的质量、旋臂间距、从地球看的旋向和 Tuthill 的 θ0、宽锥让投影的旋臂接近圆、Soulain 的 r⁻³ 径向剖面、伴星 B 的位置、可见光里成核处以热辐射为主而一圈外只剩散射光）、WR 140（Thomas 的视向速度、Monnier 和 Thomas 的干涉位置、质量、产尘窗口和时长、开始时的星距、远星点时最新的尘埃、近星点产尘率的低谷和后缘的密度比、Han 式 1 的三段运动、Lau 的壳间距、壳的朝向对照 Han 的代码、最新的壳最亮） |
 | `relativity_tests.cpp` | Kerr 测地线（类时/类光）、后开普勒双脉冲星、B1913+16 测地线进动（WT02 视线夹角、速率、示意光束退出）、Sgr A*、Gargantua（[JA15] 的盘和相机、最内稳定圆轨道上的示例行星、米勒星的时间膨胀、Mann 星的轨道对照 [TH14]、假想的 Edmunds 星看到的阴影大小和用光线追踪积分的盘的辐射、Endurance 假设的 30 M 轨道的周期和时间膨胀） |
@@ -140,6 +140,7 @@ CMake 目标：
 ## 资源与工具
 
 - 星历烘焙：`python tools/bake/horizons_bake.py tools/bake/ephem.toml [name ...]`，联网访问 Horizons，输出到 `assets/ephem/`，说明见 `assets/ephem/SOURCES.md`。卫星相位拟合：`tools/bake/fit_moon_phase.py`。离扁行星很近的卫星用根数表：`python -E -P tools/bake/element_table_bake.py [name ...]`（支持 Janus、Epimetheus、环旁小卫星及特洛伊卫星，名称小写；需要 numpy，下载每小时的样本缓存在 `tools/bake/cache/`），输出 `assets/ephem/*.elm`。独立时刻复查：`python -E -P tools/bake/verify_saturn_small_moons.py`
+- Proteus 星历：`python -E tools/bake/proteus_bake.py <nep098 摘取文件.bsp>`（numpy、jplephem），直接读取 JPL NEP098，下载命令见 `assets/ephem/SOURCES.md`。SPK 的 808 和 899 都相对系统质心 8，需相减后才能作为海王星中心的卫星轨道；每四小时偏移 37 秒的独立时刻检查拟合误差。
 - `assets/stars/hyg.csv`：`tools/stars/convert_hyg.py`（HYG v4.4，带距离，供近邻系统重投影）；M4 星团天空：`tools/stars/make_m4.py`（Gaia DR3）
 - `assets/sky/`：远处场景和银心的模型星空，`tools/sky/make_galaxy_sky.py`（需要 numpy；先 `calibrate` 对照 `milky_way.jpg` 标定，结果在 `tools/sky/galaxy_calibration.json`，再 `render <场景.toml>`，一个场景约 10 分钟，银心约 20 分钟）。改了模型或标定要重新生成全部场景。工具用 multiprocessing：Windows 上子进程重新导入模块，在主进程里改的模块全局变量传不过去，参数要经 `_init` 传
 - `assets/belts/*.bin`：`tools/belts/make_belts.py`（JPL SBDB，主带 H < 15、全部 TNO）
@@ -281,6 +282,7 @@ CMake 目标：
 - **WR 104 的论文约定**：Tuthill 2008 的 θ0 是阿基米德螺线原点处的位置角（拟合时把投影的旋臂当平面螺线）；Richardson 2026 图 6 的交点 78° 是 xenomorph 自己的约定，和场景的目视双星约定（16.12°）对不上，不能直接搬
 - **星表距离和场景距离不一致**：场景采用的视差（例如轨道视差）和 Hipparcos 不同时，星表里的“自己”会离观察者超过 `kOwnSystemPc`，在天空里成为一颗极亮的星（Algol 差 1.25 pc，−4.6 等）：用 `[sky] hide_hip` 去掉
 - **KSP / kOS**：kOS 脚本的变量和参数名不能遮住内置函数（`v`、`r`、`q` 等，报 CLOBBERBUILTINS）。kOS 的向量在 Unity 的左手系里，y 轴朝系统北极，原点在飞船，低空时坐标轴还会转：换成场景坐标要 y、z 互换，x 轴取同一物理帧里采样的 `SOLARPRIMEVECTOR`。天体的 `VELOCITY:ORBIT` 是相对飞船所在 SOI 的速度，不是相对母天体，要和母天体的相减。游戏里的根数多是 float32（e = 0.2 读出来是 0.200000002980232，历元平近点角的配置值是 3.14 rad 而不是 π），照抄读出的值。历法常数在 `Assembly-CSharp.dll` 的 KerbinDay/KerbinYear getter 里（`ldc.i4 21600; ret` 和 `ldc.i4 9201600; ret`）
+- **SPK 摘取的分段范围**：jplephem 的 `excerpt` 可能把每一段的摘要时间都写成整个请求区间。读取跨段文件时，还要按 Chebyshev 记录的起点、步长和记录数限制有效范围，否则会在段切换处报 `OutOfRangeError`（Proteus / NEP098）。
 - **时间和距离**：MJD 转 JD 要加 2400000.5；新闻稿里的时间是地面接收时间（差光行时），对照测试只比较距离；NASA 的“离地球多远”和飞掠高度从地表算；地面成像给出的环弧、卫星经度是光离开天体时的位置，对应的时刻要从观测 UT 里减去光行时（海王星约 4 h，Adams 环弧段转 137°），论文按 UT 算的时间间隔还会少掉其间的闰秒
 - **借力飞掠的“速度改变”**：新闻稿的口径不一。卡西尼号 1998 年的“about 7 km/s”是相对金星速度的转折 |v_out − v_in|，伽利略号、信使号的是日心轨道能量的变化折合成金星距离上的速度（信使号 2007 年转折 6.95 km/s，能量口径 6.64 km/s，即“nearly 15,000 mph”）；对照前两种都算一下
 

@@ -303,6 +303,27 @@ void test_solar_system_bodies()
         std::printf("info: %s vs Horizons in 2026: %.2f deg\n", r.moon, a);
     }
 
+    // NEP098 SPK, 808 minus 899, ICRF km; 37 s after midnight TDB.
+    // These epochs are between the hourly samples used to fit the table.
+    const int proteus_id = scene.find("Proteus");
+    check(proteus_id >= 0, "Proteus orbit is present");
+    if (proteus_id >= 0) {
+        const Body& proteus = scene.bodies[static_cast<size_t>(proteus_id)];
+        struct ProteusRef { double jd; glm::dvec3 position; };
+        for (const ProteusRef& r : {
+                 ProteusRef{2447763.5, {-102987.723530, 1907.901742, 56768.018253}},
+                 ProteusRef{2461041.5, {-64302.506103, 51610.092051, 83898.580840}},
+                 ProteusRef{2488067.5, {101302.030627, -4296.040541, -59554.216314}}}) {
+            const double epoch = tdb_from_jd_tdb(r.jd) + 37.0;
+            const glm::dvec3 relative = at("Proteus", epoch) - at("Neptune", epoch);
+            const double error = glm::length(relative - r.position);
+            check(error < 10.0, "Proteus vs NEP098 at independent epochs (km)", error);
+            const glm::dmat3 spin = scene.body_to_icrf(proteus, epoch);
+            check(glm::dot(spin[0], -glm::normalize(relative)) > 0.999999,
+                  "Proteus zero meridian faces Neptune");
+        }
+    }
+
     // Earth and Moon around their barycenter (Horizons @ 500@3), Pluto and Charon
     // around theirs (@ 500@9), from one scaled relative table each.
     const glm::dvec3 moon_hzn(142572.086, 286065.541, 158212.898);

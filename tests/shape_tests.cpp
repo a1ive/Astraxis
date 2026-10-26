@@ -213,6 +213,34 @@ glm::dmat3 symmetric_eigen(glm::dmat3 m, glm::dvec3& values)
     return sorted;
 }
 
+void test_proteus_shape()
+{
+    Scene scene = load_scene_or_die("solar_system.toml");
+    const int id = scene.find("Proteus");
+    check(id >= 0, "Proteus exists in the Solar System");
+    if (id < 0) {
+        return;
+    }
+    const Body& body = scene.bodies[static_cast<size_t>(id)];
+    check(body.parent == scene.find("Neptune") && body.shape != nullptr, "Proteus mesh orbits Neptune");
+    if (!body.shape) {
+        return;
+    }
+    const ShapeModel& shape = *body.shape;
+    const double radius = std::cbrt(3.0 * signed_volume(shape) / (4.0 * kPi));
+    check(std::abs(radius - 201.0) < 0.1, "Proteus mesh has km units and outward winding", radius);
+    // Independent PDS n8proteus.tab: west longitude 5 deg, latitude -50 deg,
+    // radius 220 km. A reflected longitude convention misses this point.
+    const double lon = -5.0 * kDegToRad, lat = -50.0 * kDegToRad;
+    const glm::dvec3 reference = 220.0 * glm::dvec3(std::cos(lat) * std::cos(lon),
+                                                  std::cos(lat) * std::sin(lon), std::sin(lat));
+    double nearest = 1e300;
+    for (const glm::vec3& p : shape.positions) {
+        nearest = std::min(nearest, glm::length(glm::dvec3(p) - reference));
+    }
+    check(nearest < 0.00002, "Proteus orientation matches PDS west longitudes (km)", nearest);
+}
+
 // Arrokoth's shape model and pole against independent numbers in Porter et al. 2024,
 // Table 2: the volume (equal-volume diameter 19.896 km) and the pole's inclination to
 // the heliocentric orbit (100.39 deg) and to New Horizons' approach direction (41.096 deg).
@@ -746,6 +774,7 @@ void test_endurance_shape()
 
 void run_shape_tests()
 {
+    test_proteus_shape();
     test_arrokoth_shape();
     test_mars_moon_shapes();
     test_vesta_shape();

@@ -811,3 +811,24 @@ refraction and lunar limb relief are omitted; contact times and totality
 durations must not be interpreted as predictions for a ground observer.
 
 2022 年月食的参考时刻为 11 月 8 日 10:59:00 UTC，与 [NASA/GSFC 当年预报](https://eclipse.gsfc.nasa.gov/OH/OH2022.html) 给出的食甚分钟一致。视点在该时刻从月心朝地心方向、月球半径 1737.4 km 加 200 km 处，地心月距为 390651.871445 km；偏移固定在月心 ICRF，随月球平移。它是月球附近的设计视点，不是着陆点或绕月轨道。地球边缘的折射像由大气模型另算，几何星历不因此改变。其他几何简化与上述日食相同。
+
+## Proteus（NEP098）
+
+`proteus_nep.elm` 使用 JPL 的 [NEP098 卫星星历](https://ssd.jpl.nasa.gov/sats/ephem/)，来源为 Brozović 与 Jacobson 2026 的海王星内卫星及 Triton 轨道解。原始文件 [nep098.bsp](https://ssd.jpl.nasa.gov/ftp/eph/satellites/bsp/nep098.bsp) 覆盖 1800-01-01 至 2100-01-10。取 NAIF 808 和 899 相对海王星系统质心（8）的 ICRF 状态后相减，得到 Proteus 相对海王星中心的 km、km/s 状态，时间为 TDB。
+
+需要 numpy 和 jplephem；SPK 摘取文件不入库。复现命令：
+
+```powershell
+python -m jplephem excerpt --targets 808,899 1972/1/1 2100/1/1 https://ssd.jpl.nasa.gov/ftp/eph/satellites/bsp/nep098.bsp nep098_proteus.bsp
+python -E tools/bake/proteus_bake.py nep098_proteus.bsp
+```
+
+`proteus_bake.py` 共用 `element_table_bake.py` 的拟合与 AXELM1 写入函数。每小时采样，使用两天的窗口、每六小时拟合一次，以 10 km 为抽稀容差。参考基底为 `pck00011.tpc` 的海王星固定极（RA 299.36°、Dec 43.46°），轨道倾角和交点在这个基底中拟合。[ELEM] 的 NEP098 条目使用赤道参考系，未提供 Proteus 的 Laplace 极，因此这里的极是坐标基底，不是从平根数表取得的 Laplace 极。表外按两端的平均运动和进动速率继续，不保证长期相位。
+
+独立检查在每四小时加 37 秒的时刻读取 SPK，再与拟合表对比；脚本在任一误差超过 10 km 时拒绝输出。场景把相对海王星中心的状态接在海王星系统质心上，与其他太阳系场景卫星的处理一致。NEP098 数据按 JPL/NAIF 科学数据引用使用，未改变轨道解。
+
+本次使用的 1972 至 2100 年、目标 808/899 的 SPK 摘取文件 SHA-256：`0cccb7b18733f60a7f8d09c7648b5fcad6b6ca75b6b1f1c583fa54611723cabc`。摘取工具可能把跨段摘要写成同一时间区间，读取时用 Chebyshev 记录的实际覆盖范围再限制一次。
+
+生成结果：849 个节点（54,392 字节），1,122,049 个小时样本；280,512 个独立时刻的最大位置误差为 9.9953 km，RMS 为 4.1432 km。这里衡量的是拟合表相对 NEP098 的误差，不是该轨道解相对观测的绝对精度。
+
+输出 `proteus_nep.elm` 的 SHA-256：`dbd3cc8a15acf190398995cb669cc557837a21e34ab7abf63508573b8a1f7166`.

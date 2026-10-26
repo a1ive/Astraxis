@@ -53,6 +53,8 @@ Per-file details, original download URLs and processing steps are in each direct
 | `assets/textures/{mercury,mars,vesta,ceres}.jpg` | USGS Astrogeology Science Center (Vesta, Ceres with DLR), MESSENGER, Viking and Dawn global mosaics | Public domain |
 | `assets/textures/venus.jpg` | USGS Astrogeology Science Center, Venus Magellan Global C3-MDIR Synthetic Color Mosaic 4641m | Public domain |
 | `assets/textures/titan.jpg` | USGS Astrogeology Science Center / Cassini ISS Team, Titan Cassini ISS Global Mosaic 4005m | Public domain; please cite the authors |
+| `assets/ephem/proteus_nep.elm` | JPL NEP098, Brozović & Jacobson 2026; Proteus (808) relative to Neptune (899), 1972-2100 | JPL/NAIF scientific ephemeris data; source and fitting procedure in `assets/ephem/SOURCES.md` |
+| `assets/shapes/proteus.mesh` | Philip Stooke, Stooke small bodies shape models V1.0 (NASA PDS, 2025), doi:10.26033/yt84-5y91; Stooke 1994, EMP 65, 31-54; Voyager 2 ISSN | Public domain (PDS data); supplied OBJ verified against `n8proteus.tab`; processing and hashes in `assets/shapes/SOURCES.md` |
 | `assets/shapes/{amalthea,thebe}.mesh` | P. Stooke, Stooke Small Body Shape Models V2.0 (PDS Small Bodies Node) | Public domain (PDS data) |
 | `assets/textures/amalthea.jpg` | P. Stooke, Stooke Small Bodies Maps V3.0 (PDS Small Bodies Node), Amalthea shaded relief | Public domain; credit: Stooke, P., Stooke Small Bodies Maps V3.0, NASA PDS, 2015 |
 | `assets/shapes/{67p,steins,lutetia}.mesh` | ESA Rosetta OSIRIS shape models (PDS Small Bodies Node: RO-C-MULTI-5-67P-SHAPE-V2.0, SHAP5, Gaskell & Jorda; RO-A-OSINAC_OSIWAC-5-STEINS-SHAPE-V1.0, Jorda et al. 2012; RO-A-OSINAC_OSIWAC-5-LUTETIA-SHAPE-V1.0, Sierks et al. 2011) | PDS archive data; cite the datasets and authors |

@@ -1,6 +1,6 @@
 # The Solar System: the Sun, the planets, the major moons, the dwarf planets and the
 # largest asteroids (radius > 400 km, plus Phobos, Deimos, Vesta, Pallas, Enceladus,
-# Mimas and Miranda, and Arrokoth), the interstellar objects 1I/'Oumuamua, 2I/Borisov and
+# Mimas, Miranda, Proteus, and Arrokoth), the interstellar objects 1I/'Oumuamua, 2I/Borisov and
 # 3I/ATLAS, and the Pioneer, Voyager and New Horizons probes, 1972 onward.
 #
 # Sources
@@ -37,6 +37,13 @@
 #        Mercury, Venus and Mars, and outside the baked span for the others.
 # [ELEM] JPL SSD, Planetary Satellite Mean Elements (https://ssd.jpl.nasa.gov/sats/elem/),
 #        epoch 2000-01-01.5 TDB; ephemerides as noted at each moon.
+# [PROT] Proteus: Stooke 1994, The Surfaces of Larissa and Proteus (EMP 65, 31-54),
+#        PDS shape model (https://sbn.psi.edu/pds/resource/stkshape.html); supplied OBJ
+#        converted without scaling (assets/shapes/SOURCES.md). Uniform illustrative color.
+#        Orbit: JPL NEP098 SPK, 1972-2100, fitted by tools/bake/proteus_bake.py;
+#        10 km tolerance, endpoint-rate extrapolation outside the table. Neptune-centered
+#        states are attached to the scene's Neptune system barycenter. Synchronous spin
+#        omits physical libration. See assets/ephem/SOURCES.md.
 # [SPHY] JPL SSD, Planetary Satellite Physical Parameters (https://ssd.jpl.nasa.gov/sats/phys_par/).
 #        Also the GM of the planets alone (body_gm_km3_s2), from its "Planet and Pluto GM
 #        Values" table; the satellite ephemeris each value comes from is noted with it.
@@ -1179,6 +1186,18 @@ arc_length_deg = 1.0
 arc_rate_deg_per_day = 820.11178           # [SOU22]
 fade_out = ["1989-08-18 12:00", "2009-01-01"] # [NRV]
 
+
+[[bodies]]
+name = "Proteus"
+parent = "Neptune"
+radii_km = [218.0, 208.0, 201.0]            # [PCK]
+shape = "shapes/proteus.mesh"
+synchronous = true
+color = "#777777"                         # illustrative gray; no surface albedo map
+orbit_color = "#9ca6b3"
+[bodies.orbit]                             # [PROT] 808 relative to 899, ICRF
+type = "element_table"
+file = "ephem/proteus_nep.elm"
 
 # Triton: retrograde (i > 90 deg) around its Laplace plane [ELEM] (NEP097, pole RA 299.8,
 # Dec 43.1). [ELEM]'s phases and periods drift by tens of degrees against Horizons

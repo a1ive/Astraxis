@@ -13,7 +13,7 @@ Astraxis is an astronomy background app with planets, spacecraft and stars anima
 
 | Scene | Highlights |
 |---|---|
-| Solar System (default) | Planets, moons, dwarf planets, asteroids and interstellar objects |
+| Solar System (default) | Planets, moons (including Proteus with its Voyager-based shape), dwarf planets, asteroids and interstellar objects |
 | Jupiter | Rings and moons, Galileo and Juno orbits, Cassini flyby |
 | Space Telescopes | Hubble in low Earth orbit, Chandra on a high elliptical orbit, TESS in step with the Moon, WMAP, Herschel, Planck, Gaia, JWST, Euclid and Roman around L2, Spitzer and Kepler drifting behind Earth |
 | Earth-Moon | Artemis missions, CAPSTONE and other lunar spacecraft; the Earth's city lights and aurora (from the Kp record since 1932) |

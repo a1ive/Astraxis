@@ -182,3 +182,25 @@ python tools/shapes/make_plate_shape.py pan_30k_plt.tab assets/shapes/pan.mesh
 Pan 和 Daphnis 的标签引用 `pan_mst2018.bpc`、`daphnis_mst2018.bpc`；这些是晚期卡西尼形状数据。网格上的环脊及大尺度凹凸来自该模型，细小表面纹理和环粒子没有重建。各卫星背面及较少成像区域受原模型的观测覆盖限制。
 
 Thomas 的这个归档没有 Polydeuces。场景用 [NAIF pck00011.tpc](https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/pck00011.tpc) 的 `BODY634_RADII = (1.5 1.2 1.0)` km 画光滑三轴椭球；这不是 Thomas 网格，也不代表已重建的表面地形。
+
+## Proteus
+
+`proteus.mesh` 来源为 [Stooke Small Body Shape Models](https://sbn.psi.edu/pds/resource/stkshape.html)，作者 Philip Stooke；论文为 Stooke 1994, *The Surfaces of Larissa and Proteus*, EMP 65, 31–54，doi:10.1007/BF00572198。数据集引用：Stooke, P. 2025, *Stooke small bodies shape models V1.0*, NASA PDS，doi:10.26033/yt84-5y91。
+
+许可：PDS 存档数据，公有领域，使用时请引用作者与数据集（[PDS 数据使用说明](https://pds-geosciences.wustl.edu/faq.html)）。[原始产品标签](https://sbnarchive.psi.edu/pds4/non_mission/small_bodies.stooke.shape-models/data/n8proteus.xml) 将观测来源列为 Voyager 2 ISSN，网格间隔为 5°，半径单位为 km，经度向西增加。
+
+转换命令：
+
+```powershell
+python -X utf8 tools/shapes/make_plate_shape.py Proteus_Stooke.obj assets/shapes/proteus.mesh
+```
+
+保留 OBJ 的 2,522 个顶点和 5,040 个三角面，坐标单位 km，+z 朝北，+x 指向零经线，+y 指向东经 90°；未缩放或旋转。将 PDS `n8proteus.tab` 的西经转换为右手直角坐标后，OBJ 每个顶点与最近的表格点相差不超过 0.02 m。模型范围约 437.3 × 398.4 × 411.0 km，等体积半径约 201.00 km。场景的 `radii_km` 取 [NAIF pck00011.tpc](https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/pck00011.tpc) 的 `BODY808_RADII = (218 208 201)` km，几何绘制使用网格本身。
+
+OBJ 文件头注明由 MeshLab 导出。几何与 PDS 网格的核对支持上述来源；OBJ 没有附带纹理。顶点反照率统一为 1，场景灰色是显示用的示意值。5° 网格只描述大尺度形状，旅行者 2 号未充分成像的区域受原模型约束；同步自转省略物理天平动。
+
+SHA-256：
+
+- 输入 OBJ：`0f28d321156cd74e39167f3f83a0205cf39aab88f8df3e389655bcf04e289faa`
+- PDS `n8proteus.tab`：`d079c8eac52d84224d5cb413526ff9415ab33afd48965e7e025544832ddd1868`
+- 输出 `proteus.mesh`：`3425f7459d83a0b200f30d34a9f88d4d6d4e1747ebc7467394f786390306fe5a`
