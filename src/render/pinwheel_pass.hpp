@@ -2,6 +2,7 @@
 
 #include "render/gpu_device.hpp"
 #include "render/scene_targets.hpp"
+#include "render/splat_pass.hpp"
 #include "scene/camera.hpp"
 
 #include <SDL3/SDL_gpu.h>
@@ -51,39 +52,27 @@ struct PinwheelDrawItem {
 
 // A colliding-wind binary's dust spiral (scene/pinwheel.hpp): its grains are
 // uploaded once (set_grains, when a scene is loaded) and placed on the GPU
-// each frame from the time alone. They are splatted off-screen at half the
-// scene's resolution with one sample per pixel (render), then added to the
-// scene pass (composite): the nebula is smooth, and blending its overlapping
-// splats into every MSAA sample at full resolution costs ~16 times the fill
-// rate (8 frames per second on an Arc A380 at 1280 x 720, 4x MSAA).
+// each frame from the time alone, splatted off-screen (SplatPass).
 class PinwheelPass {
 public:
     bool init(SDL_GPUDevice* device, const SceneTargetFormat& format);
-    void shutdown();
+    void shutdown() { m_splats.shutdown(); }
     // Recreates the pipelines for another scene format (e.g. MSAA sample count).
-    bool set_format(const SceneTargetFormat& format);
+    bool set_format(const SceneTargetFormat& format) { return m_splats.set_format(format); }
 
-    void clear();
+    void clear() { m_splats.clear(); }
     bool set_grains(const PinwheelGpuGrain* grains, uint32_t count);
-    bool has_grains() const { return m_count > 0; }
+    bool has_grains() const { return m_splats.has_points(); }
 
     // Draws the dust into targets.pinwheel for a scene of width x height
     // pixels; outside any render pass.
-    void render(SDL_GPUCommandBuffer* cmd, PinwheelTargets& targets, const CameraView& view,
+    void render(SDL_GPUCommandBuffer* cmd, SplatTargets& targets, const CameraView& view,
                 const PinwheelDrawItem& item, uint32_t width, uint32_t height);
     // Adds the dust drawn by render() to the scene pass.
-    void composite(SDL_GPURenderPass* pass, PinwheelTargets& targets);
+    void composite(SDL_GPURenderPass* pass, SplatTargets& targets) { m_splats.composite(pass, targets); }
 
 private:
-    bool create_pipelines(const SceneTargetFormat& format);
-    bool ensure_targets(PinwheelTargets& targets, uint32_t width, uint32_t height);
-
-    SDL_GPUDevice* m_device = nullptr;
-    SDL_GPUGraphicsPipeline* m_splat_pipeline = nullptr;
-    SDL_GPUGraphicsPipeline* m_composite_pipeline = nullptr;
-    SDL_GPUSampler* m_linear = nullptr;
-    SDL_GPUBuffer* m_buffer = nullptr;
-    uint32_t m_count = 0;
+    SplatPass m_splats;
 };
 
 } // namespace astraxis

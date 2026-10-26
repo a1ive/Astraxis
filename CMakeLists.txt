@@ -75,6 +75,8 @@ add_library(astraxis_sim STATIC
     src/scene/pulsar.hpp
     src/scene/light_curve.cpp
     src/scene/light_curve.hpp
+    src/scene/nebula.cpp
+    src/scene/nebula.hpp
     src/scene/pinwheel.cpp
     src/scene/pinwheel.hpp
     src/scene/roche.cpp
@@ -134,8 +136,9 @@ astraxis_add_shaders(astraxis_shaders
     shaders/plume.frag.hlsl
     shaders/orbit_line.vert.hlsl
     shaders/orbit_line.frag.hlsl
+    shaders/nebula.vert.hlsl
     shaders/pinwheel.vert.hlsl
-    shaders/pinwheel_composite.frag.hlsl
+    shaders/splat_composite.frag.hlsl
     shaders/ring.vert.hlsl
     shaders/ring.frag.hlsl
     shaders/starfield.vert.hlsl
@@ -196,6 +199,8 @@ add_executable(astraxis
     src/render/offscreen_output.cpp
     src/render/offscreen_output.hpp
     src/render/orbit_line_pass.cpp
+    src/render/nebula_pass.cpp
+    src/render/nebula_pass.hpp
     src/render/orbit_line_pass.hpp
     src/render/pinwheel_pass.cpp
     src/render/pinwheel_pass.hpp
@@ -211,6 +216,8 @@ add_executable(astraxis
     src/render/ring_pass.hpp
     src/render/shader.cpp
     src/render/shader.hpp
+    src/render/splat_pass.cpp
+    src/render/splat_pass.hpp
     src/render/texture.cpp
     src/render/texture.hpp
     src/render/starfield_pass.cpp

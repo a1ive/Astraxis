@@ -380,6 +380,7 @@ private:
     std::shared_ptr<const SpinTable> load_spin_table(const std::string& file, const std::string& ctx) const;
     int body_ref(const Scene& scene, const toml::table& t, std::string_view key, const std::string& ctx,
                  bool allow_sun) const;
+    glm::dvec3 parse_up(const Scene& scene, const std::string& up, const std::string& ctx, double t_tdb) const;
 
     std::filesystem::path m_asset_root;
     Scene* m_scene = nullptr; // the scene being parsed
@@ -906,6 +907,33 @@ std::unique_ptr<MotionSource> Loader::parse_motion(const toml::table& t, const s
     }
 
     fail(ctx, "unknown motion type '" + type + "'");
+}
+
+// "Up" on screen (ICRF): "north" (the celestial pole), "ecliptic" (its pole),
+// "orbit_normal:<body>" (that body's orbital angular momentum at t_tdb) or a
+// body's name (its spin pole).
+glm::dvec3 Loader::parse_up(const Scene& scene, const std::string& up, const std::string& ctx, double t_tdb) const
+{
+    const std::string kOrbitNormal = "orbit_normal:";
+    if (up == "north") {
+        return {0.0, 0.0, 1.0};
+    }
+    if (up == "ecliptic") {
+        return ecliptic_pole_icrf();
+    }
+    if (up.rfind(kOrbitNormal, 0) == 0) {
+        const int b = scene.find(up.substr(kOrbitNormal.size()));
+        if (b < 0 || !scene.bodies[static_cast<size_t>(b)].motion) {
+            fail(ctx, "orbit_normal: needs a body with an orbit");
+        }
+        const State s = scene.bodies[static_cast<size_t>(b)].motion->eval(t_tdb);
+        return glm::normalize(glm::cross(s.position, s.velocity));
+    }
+    const int b = scene.find(up);
+    if (b < 0) {
+        fail(ctx, "up must be \"north\", \"ecliptic\", \"orbit_normal:<body>\" or a body name");
+    }
+    return scene.bodies[static_cast<size_t>(b)].pole;
 }
 
 int Loader::body_ref(const Scene& scene, const toml::table& t, std::string_view key, const std::string& ctx,
@@ -1591,6 +1619,9 @@ void Loader::parse(const toml::table& root, Scene& out)
             if (type == "inertial") {
                 f.type = DisplayFrame::Type::Inertial;
                 f.origin = body_ref(out, *t, "origin", ctx, false);
+                if (const std::string up = get_string_or(*t, "up", ""); !up.empty()) {
+                    f.up_icrf = parse_up(out, up, ctx, 0.0);
+                }
             } else if (type == "rotating") {
                 f.type = DisplayFrame::Type::Rotating;
                 f.primary = body_ref(out, *t, "primary", ctx, true);
@@ -1915,24 +1946,8 @@ void Loader::parse(const toml::table& root, Scene& out)
             fail(ctx, "star_surfaces must be \"equal\" or \"relative\"");
         }
         out.view.relative_star_surfaces = surfaces == "relative";
-        const std::string up = get_string_or(*view, "up", "");
-        const std::string kOrbitNormal = "orbit_normal:";
-        if (up == "ecliptic") {
-            out.view.up_icrf = ecliptic_pole_icrf();
-        } else if (up.rfind(kOrbitNormal, 0) == 0) {
-            const int b = out.find(up.substr(kOrbitNormal.size()));
-            if (b < 0 || !out.bodies[static_cast<size_t>(b)].motion) {
-                fail(ctx, "orbit_normal: needs a body with an orbit");
-            }
-            const double t = out.view.start_now ? 0.0 : out.view.start_tdb;
-            const State s = out.bodies[static_cast<size_t>(b)].motion->eval(t);
-            out.view.up_icrf = glm::normalize(glm::cross(s.position, s.velocity));
-        } else if (!up.empty()) {
-            const int b = out.find(up);
-            if (b < 0) {
-                fail(ctx, "up must be \"ecliptic\" or a body name");
-            }
-            out.view.up_icrf = out.bodies[static_cast<size_t>(b)].pole;
+        if (const std::string up = get_string_or(*view, "up", ""); !up.empty()) {
+            out.view.up_icrf = parse_up(out, up, ctx, out.view.start_now ? 0.0 : out.view.start_tdb);
         }
     }
 
@@ -2047,6 +2062,47 @@ void Loader::parse(const toml::table& root, Scene& out)
             }
         }
         build_pinwheel_grains(out, p, static_cast<int>(rings), static_cast<int>(grains));
+    }
+
+    // [nebula]: an expanding dusty shell lit by its star (see Nebula), from a
+    // 3D model in its own units: where the star is in the model, how large a
+    // unit was at the reference time, and how the model sits on the sky.
+    if (const toml::table* nb = root["nebula"].as_table()) {
+        const std::string ctx = "nebula";
+        Nebula& n = out.nebula;
+        n.center = body_ref(out, *nb, "center", ctx, false);
+        n.t_ejection_tdb = parse_time(*nb, "ejection_time", ctx);
+        n.t_reference_tdb = parse_time(*nb, "reference_time", ctx);
+        const double unit_km = get_double(*nb, "unit_au", ctx) * kAuKm;
+        double center[3];
+        get_array(*nb, "model_center", ctx, center, 3, 3);
+        double sky[2];
+        get_array(*nb, "sky_ra_dec_deg", ctx, sky, 2, 2);
+        const glm::dmat3 to_icrf =
+            nebula_model_to_icrf(sky[0], sky[1], get_double(*nb, "axis_pa_deg", ctx),
+                                 get_double(*nb, "axis_tilt_deg", ctx), get_double(*nb, "roll_deg", ctx));
+        n.wall_sigma_km = get_double(*nb, "wall_sigma_au", ctx) * kAuKm;
+        n.asymmetry_g = get_double(*nb, "asymmetry_g", ctx);
+        n.color = parse_color(*nb, "color", ctx, glm::vec3(1.0f));
+        n.display_reference_km = get_double(*nb, "display_reference_au", ctx) * kAuKm;
+        n.display_gamma = get_double_or(*nb, "display_gamma", n.display_gamma);
+        const double grains = get_double(*nb, "grains", ctx);
+        if (n.t_reference_tdb <= n.t_ejection_tdb || unit_km <= 0.0 || n.wall_sigma_km <= 0.0 ||
+            std::abs(n.asymmetry_g) >= 1.0 || n.display_reference_km <= 0.0 || n.display_gamma <= 0.0 ||
+            n.display_gamma > 1.0) {
+            fail(ctx, "needs reference_time after ejection_time, positive unit_au, wall_sigma_au and "
+                      "display_reference_au, |asymmetry_g| < 1 and 0 < display_gamma <= 1");
+        }
+        if (grains < 1.0 || grains > 2.0e6 || grains != std::floor(grains)) {
+            fail(ctx, "grains must be whole, 1 .. 2 million");
+        }
+        ShapeModel shape;
+        std::string error;
+        if (!load_shape_model(m_asset_root / get_string(*nb, "shape", ctx), shape, &error)) {
+            fail(ctx, error);
+        }
+        build_nebula_grains(shape, glm::dvec3(center[0], center[1], center[2]), unit_km, to_icrf,
+                            static_cast<int>(grains), n);
     }
     out.set_active_frame(out.view.frame);
 }

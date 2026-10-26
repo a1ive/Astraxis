@@ -1848,6 +1848,162 @@ void test_wr140_scene()
     }
 }
 
+void test_eta_carinae_scene()
+{
+    Scene scene = load_scene_or_die("eta_carinae.toml");
+    check_model_sky(scene, "Eta Carinae model sky");
+    const double ra = 161.2647742 * kDegToRad;
+    const double dec = -59.6844309 * kDegToRad;
+    const glm::dvec3 away = unit_toward(161.2647742, -59.6844309);
+    const glm::dvec3 north(-std::sin(dec) * std::cos(ra), -std::sin(dec) * std::sin(ra), std::cos(dec));
+    const glm::dvec3 east(-std::sin(ra), std::cos(ra), 0.0);
+    auto position_angle = [&](const glm::dvec3& d) {
+        return std::fmod(std::atan2(glm::dot(d, east), glm::dot(d, north)) * kRadToDeg + 360.0, 360.0);
+    };
+    const int root = scene.find("Eta Car");
+    const int a = scene.find("Eta Car A");
+    const int b = scene.find("Eta Car B");
+    check(root == 0 && a > 0 && b > 0, "Eta Carinae bodies");
+    if (a <= 0 || b <= 0) {
+        return;
+    }
+    constexpr double kPeriodDays = 2022.7;
+    constexpr double kT0Jd = 2456874.4;
+    auto relative = [&](double t) {
+        const State sa = scene.icrf_state_at(a, t);
+        const State sb = scene.icrf_state_at(b, t);
+        return State{sb.position - sa.position, sb.velocity - sa.velocity};
+    };
+
+    // [MA13] Table 1: a = 15.45 au, e = 0.9, from the masses and [TE16]'s period.
+    const double t0 = tdb_from_jd_tdb(kT0Jd);
+    const double peri = glm::length(relative(t0).position) / kAuKm;
+    const double apo = glm::length(relative(t0 + 0.5 * kPeriodDays * kSecondsPerDay).position) / kAuKm;
+    check(std::abs(0.5 * (peri + apo) / 15.45 - 1.0) < 0.005, "Eta Car semi-major axis against [MA13] (au)",
+          0.5 * (peri + apo));
+    check(std::abs((apo - peri) / (apo + peri) - 0.9) < 1e-6, "Eta Car eccentricity", (apo - peri) / (apo + peri));
+    const double later = glm::length(relative(t0 + 2.0 * kPeriodDays * kSecondsPerDay).position) / kAuKm;
+    check(std::abs(later - peri) < 1e-6, "Eta Car periastron repeats every [TE16] period (au)", later - peri);
+
+    // [MA12]'s orientation: the orbital angular momentum at i = 138 deg from
+    // the line of sight toward us and at P.A. 317 deg on the sky; the line of
+    // sight's projection on the orbit 7 deg from the apastron side, prograde.
+    const State s0 = relative(t0);
+    const glm::dvec3 h = glm::normalize(glm::cross(s0.position, s0.velocity));
+    const glm::dvec3 toward = -away;
+    const double i_deg = std::acos(glm::dot(h, toward)) * kRadToDeg;
+    check(std::abs(i_deg - 138.0) < 0.01, "Eta Car orbit inclination against [MA12] (deg)", i_deg);
+    const double paz = position_angle(h);
+    check(std::abs(paz - 317.0) < 0.01, "Eta Car orbital axis on the sky against [MA12] (P.A., deg)", paz);
+    const glm::dvec3 apastron = -glm::normalize(s0.position);
+    const glm::dvec3 los = glm::normalize(toward - glm::dot(toward, h) * h);
+    const double phi = std::atan2(glm::dot(glm::cross(apastron, los), h), glm::dot(apastron, los)) * kRadToDeg;
+    check(std::abs(phi - 7.0) < 0.01, "Eta Car line of sight from the apastron side against [MA12] (deg)", phi);
+    // B behind A at periastron, on our side at apastron [MA12].
+    check(glm::dot(s0.position, away) > 0.0 && glm::dot(apastron, away) < 0.0,
+          "Eta Car B behind A at periastron, in front at apastron");
+    // The 2025 periastron within [KS26]'s 2025.6 X-ray minimum.
+    const double year_2025 = 2000.0 + (t0 + 2.0 * kPeriodDays * kSecondsPerDay) / (kDaysPerJulianYear * kSecondsPerDay);
+    check(year_2025 > 2025.55 && year_2025 < 2025.7, "Eta Car periastron of 2025.6 [KS26] (year)", year_2025);
+
+    // The Homunculus.
+    const Nebula& n = scene.nebula;
+    check(n.enabled() && n.center == root && n.grains.size() >= 149990 && n.grains.size() <= 150000,
+          "Homunculus patches", static_cast<double>(n.grains.size()));
+    if (!n.enabled()) {
+        return;
+    }
+    double reference = 0.0;
+    double ejection = 0.0;
+    parse_utc("2005-03-01", &reference);
+    parse_utc("1847-02-06", &ejection);
+    check(nebula_scale(n, ejection - kSecondsPerDay) == 0.0 && std::abs(nebula_scale(n, reference) - 1.0) < 1e-12,
+          "Homunculus grows from [SM17]'s 1847.1");
+    // Its long axis (the patches' principal axis), toward the blue lobe: [SM06]'s
+    // P.A. 310 deg for the far (red) lobe, 41 deg from the line of sight.
+    glm::dmat3 c(0.0);
+    for (const NebulaGrain& g : n.grains) {
+        const glm::dvec3 p(g.position);
+        c += glm::outerProduct(p, p);
+    }
+    glm::dvec3 axis(0.0, 0.0, 1.0);
+    for (int k = 0; k < 100; ++k) {
+        axis = glm::normalize(c * axis);
+    }
+    if (glm::dot(axis, toward) < 0.0) {
+        axis = -axis;
+    }
+    const double tilt = std::acos(glm::dot(axis, toward)) * kRadToDeg;
+    const double pa = position_angle(axis);
+    std::printf("info: Homunculus axis P.A. %.1f deg, %.1f deg from the line of sight\n", pa, tilt);
+    check(std::abs(pa - 130.0) < 2.0 && std::abs(tilt - 41.0) < 2.0,
+          "Homunculus blue lobe toward P.A. 130 deg, 41 deg from the line of sight [SM06]", pa);
+    // [SM06] Table 1: 21,690 au at the pole (latitude 89.1 deg) on 2005-03-01;
+    // the farthest patch along the axis, at either end.
+    double tip[2] = {0.0, 0.0};
+    for (const NebulaGrain& g : n.grains) {
+        const double along = glm::dot(glm::dvec3(g.position), axis) / kAuKm;
+        double& t = tip[along > 0.0 ? 0 : 1];
+        t = std::max(t, std::abs(along));
+    }
+    std::printf("info: Homunculus polar radii %.0f and %.0f au in 2005 (blue, red)\n", tip[0], tip[1]);
+    check(std::abs(tip[0] / 21690.0 - 1.0) < 0.03 && std::abs(tip[1] / 21690.0 - 1.0) < 0.03,
+          "Homunculus polar radius against [SM06] (au)", tip[0]);
+    check(std::abs(n.extent_km / kAuKm / 21690.0 - 1.0) < 0.06, "Homunculus extent in 2005 (au)", n.extent_km / kAuKm);
+    // [ST14]: the orbit's axis along the lobes (the angular momentum toward
+    // the receding red lobe).
+    const double misalign = std::acos(glm::dot(-axis, h)) * kRadToDeg;
+    std::printf("info: Homunculus axis %.1f deg from [MA12]'s orbital axis\n", misalign);
+    check(misalign < 10.0, "Homunculus axis aligned with the binary's orbit (deg)", misalign);
+    // [ST14] Table 1: the Blue and Red Protrusions, the farthest patches from
+    // the axis near the waist on each lobe, 55 deg of longitude either side of
+    // the apastron direction (counterclockwise as seen from Earth: about the
+    // axis toward us), measured in the orbit plane.
+    for (int lobe : {1, -1}) {
+        double widest = 0.0;
+        glm::dvec3 bump(0.0);
+        for (const NebulaGrain& g : n.grains) {
+            const glm::dvec3 p(g.position);
+            const double along = lobe * glm::dot(p, axis);
+            if (along < 0.1 * tip[0] * kAuKm || along > 0.45 * tip[0] * kAuKm) {
+                continue;
+            }
+            const glm::dvec3 across = p - glm::dot(p, axis) * axis;
+            if (glm::length(across) > widest) {
+                widest = glm::length(across);
+                bump = across;
+            }
+        }
+        const glm::dvec3 in_plane = glm::normalize(bump - glm::dot(bump, h) * h);
+        const double longitude =
+            std::atan2(glm::dot(glm::cross(apastron, in_plane), -h), glm::dot(apastron, in_plane)) * kRadToDeg;
+        const double want = lobe > 0 ? -55.0 : 55.0;
+        std::printf("info: Homunculus %s Protrusion at longitude %.1f deg, %.0f au from the axis\n",
+                    lobe > 0 ? "Blue" : "Red", longitude, widest / kAuKm);
+        check(std::abs(longitude - want) < 15.0, "Homunculus protrusions around the apastron direction [ST14] (deg)",
+              longitude);
+    }
+
+    // Seen from Earth in 2012 (the second event): tip to tip along the axis.
+    double t2012 = 0.0;
+    parse_utc("2012-03-10", &t2012);
+    const double length_au = 2.0 * 21690.0 * nebula_scale(n, t2012);
+    double lo = 0.0;
+    double hi = 0.0;
+    for (const NebulaGrain& g : n.grains) {
+        const double along = glm::dot(glm::dvec3(g.position), axis) * nebula_scale(n, t2012) / kAuKm;
+        lo = std::min(lo, along);
+        hi = std::max(hi, along);
+    }
+    std::printf("info: Homunculus %.0f au tip to tip in 2012 ([SM06] scaled: %.0f)\n", hi - lo, length_au);
+    check(std::abs((hi - lo) / length_au - 1.0) < 0.03, "Homunculus length in 2012 (au)", hi - lo);
+
+    check(scene.events.size() == 4, "Eta Carinae events", static_cast<double>(scene.events.size()));
+    for (size_t k = 1; k < scene.events.size(); ++k) {
+        check(scene.events[k].t_tdb > scene.events[k - 1].t_tdb, "Eta Carinae events in time order");
+    }
+}
+
 } // namespace
 
 void run_stellar_system_tests()
@@ -1864,4 +2020,5 @@ void run_stellar_system_tests()
     test_psr_b1620_scene();
     test_wr104_scene();
     test_wr140_scene();
+    test_eta_carinae_scene();
 }

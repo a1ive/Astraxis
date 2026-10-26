@@ -4,6 +4,7 @@
 #include "ephem/motion.hpp"
 #include "scene/aurora.hpp"
 #include "scene/corona.hpp"
+#include "scene/nebula.hpp"
 #include "scene/refraction.hpp"
 #include "scene/pinwheel.hpp"
 #include "scene/roche.hpp"
@@ -461,6 +462,9 @@ struct DisplayFrame {
     // Caps every history trail while this frame is active (0: no cap), e.g. a
     // few days of orbits in a planet-centered view of a years-long tour.
     double trail_history_days = 0.0;
+    // An inertial frame's own "up" on screen (ICRF; zero: the scene's view.up),
+    // e.g. celestial north for a view as astronomers show the sky.
+    glm::dvec3 up_icrf{0.0};
 };
 
 // display = axes^T * (icrf - origin)
@@ -660,6 +664,8 @@ public:
     LightCurve light_curve;
     // A colliding-wind binary's dust spiral (WR 104); disabled in most scenes.
     Pinwheel pinwheel;
+    // An expanding dusty shell lit by its star (eta Carinae's Homunculus); disabled in most scenes.
+    Nebula nebula;
     Corona corona;
 
     // Heliocentric motion of the scene origin, used for the sun position when

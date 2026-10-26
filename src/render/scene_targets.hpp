@@ -33,8 +33,8 @@ struct BlackHoleTargets {
     BlackHoleUniforms uniforms;  // of that trace (the composite traces again at edges)
 };
 
-// PinwheelPass's off-screen dust (reduced resolution, one sample per pixel).
-struct PinwheelTargets {
+// A SplatPass's off-screen nebula (reduced resolution, one sample per pixel).
+struct SplatTargets {
     SDL_GPUTexture* color = nullptr; // RGBA16F
     uint32_t width = 0;
     uint32_t height = 0;
@@ -70,7 +70,8 @@ public:
     CoronaTargets corona;
     BloomChain bloom;              // managed by PostProcess
     BlackHoleTargets black_hole;   // managed by BlackHolePass
-    PinwheelTargets pinwheel;      // managed by PinwheelPass
+    SplatTargets pinwheel;         // managed by PinwheelPass
+    SplatTargets nebula;           // managed by NebulaPass
 
 private:
     void release_scene();

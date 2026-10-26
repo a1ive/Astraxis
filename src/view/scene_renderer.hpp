@@ -10,6 +10,7 @@
 #include "render/corona_pass.hpp"
 #include "render/dust_pass.hpp"
 #include "render/orbit_line_pass.hpp"
+#include "render/nebula_pass.hpp"
 #include "render/pinwheel_pass.hpp"
 #include "render/plume_pass.hpp"
 #include "render/post_process.hpp"
@@ -76,6 +77,9 @@ private:
     // A colliding-wind binary's dust spiral: its grains (once per scene) and this frame's look.
     void load_pinwheel(const Scene& scene);
     PinwheelDrawItem pinwheel_item(const Simulation& sim, const OutputView& view) const;
+    // An expanding nebula's shell: its patches (once per scene) and this frame's look.
+    void load_nebula(const Scene& scene);
+    NebulaDrawItem nebula_item(const Simulation& sim, const OutputView& view) const;
     // Earth's aurora around `body`, in its unit-sphere frame (linear: body axes
     // times radii; to_unit: its inverse); sun_direction: toward the sun (world).
     AuroraDrawItem aurora_item(const Simulation& sim, const OutputView& view, const Body& body,
@@ -98,6 +102,7 @@ private:
     OrbitLinePass m_orbits;
     BeltPass m_belts;
     PinwheelPass m_pinwheel;
+    NebulaPass m_nebula;
     SunPass m_sun;
     CoronaPass m_corona;
     BeamPass m_beams;

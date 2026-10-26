@@ -241,6 +241,18 @@ constexpr double kPinwheelPatch = 0.5;
 constexpr float kPinwheelMinPx = 0.7f;
 constexpr float kPinwheelCullRadiance = 1e-4f;
 
+// An expanding nebula's shell (scene/nebula.hpp, the Homunculus) in scattered
+// starlight: a face-on patch at the scene's reference distance, seen at right
+// angles to the starlight, is kNebulaRadiance bright; patches are at least
+// kNebulaMinPx on screen and skipped below kNebulaCullRadiance.
+constexpr float kNebulaRadiance = 0.5f;
+// Close to the stars, deep inside the shell, the eye adapts to them: nearer
+// than kNebulaAdaptShare of the shell's extent the shell dims in proportion to
+// the distance (a binary's close-up is not lost in the glow of the walls).
+constexpr double kNebulaAdaptShare = 0.1;
+constexpr float kNebulaMinPx = 0.7f;
+constexpr float kNebulaCullRadiance = 1e-4f;
+
 // Henyey-Greenstein phase function (mean 1 over the sphere); `cos_angle` between
 // the incoming sunlight and the direction toward the camera (1 = forward).
 double dust_phase(double cos_angle)
@@ -450,6 +462,7 @@ bool SceneRenderer::init(const GpuDevice& gpu, SDL_GPUTextureFormat output_forma
            m_rings.init(device, format) && m_atmospheres.init(device, format) && m_auroras.init(device, format) &&
            m_plumes.init(device, format) && m_comets.init(device, format) && m_dust.init(device, format) &&
            m_orbits.init(device, format) && m_belts.init(device, format) && m_pinwheel.init(device, format) &&
+           m_nebula.init(device, format) &&
            m_corona.init(device, format) && m_sun.init(device, format) && m_beams.init(device, format) && m_black_hole.init(device, format) &&
            m_post.init(device, format.color, output_format);
 }
@@ -460,7 +473,7 @@ bool SceneRenderer::refresh_pipelines()
     return m_starfield.set_format(format) && m_bodies.set_format(format) && m_rings.set_format(format) &&
            m_atmospheres.set_format(format) && m_auroras.set_format(format) && m_plumes.set_format(format) &&
            m_comets.set_format(format) && m_dust.set_format(format) && m_orbits.set_format(format) &&
-           m_belts.set_format(format) && m_pinwheel.set_format(format) && m_corona.set_format(format) && m_sun.set_format(format) &&
+           m_belts.set_format(format) && m_pinwheel.set_format(format) && m_nebula.set_format(format) && m_corona.set_format(format) && m_sun.set_format(format) &&
            m_beams.set_format(format) && m_black_hole.set_format(format);
 }
 
@@ -487,6 +500,7 @@ void SceneRenderer::shutdown()
     m_orbits.shutdown();
     m_belts.shutdown();
     m_pinwheel.shutdown();
+    m_nebula.shutdown();
     m_rings.shutdown();
     m_atmospheres.shutdown();
     m_auroras.shutdown();
@@ -527,6 +541,7 @@ void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, u
         m_belt_radius_km.push_back(a.empty() ? 0.0 : a[a.size() / 2] * kAuKm);
     }
     load_pinwheel(scene);
+    load_nebula(scene);
     m_body_textures.assign(scene.bodies.size(), nullptr);
     m_ring_textures.assign(scene.bodies.size(), nullptr);
     m_night_textures.assign(scene.bodies.size(), nullptr);
@@ -1108,6 +1123,45 @@ PinwheelDrawItem SceneRenderer::pinwheel_item(const Simulation& sim, const Outpu
     return item;
 }
 
+void SceneRenderer::load_nebula(const Scene& scene)
+{
+    const Nebula& n = scene.nebula;
+    if (!n.enabled()) {
+        m_nebula.clear();
+        return;
+    }
+    std::vector<NebulaGpuGrain> gpu;
+    gpu.reserve(n.grains.size());
+    for (const NebulaGrain& g : n.grains) {
+        gpu.push_back({g.position, g.weight, g.normal, 0.0f});
+    }
+    m_nebula.set_grains(gpu.data(), static_cast<uint32_t>(gpu.size()));
+}
+
+NebulaDrawItem SceneRenderer::nebula_item(const Simulation& sim, const OutputView& output_view) const
+{
+    const Scene& scene = sim.scene();
+    const Nebula& n = scene.nebula;
+    const double t = sim.clock().t_tdb;
+    NebulaDrawItem item;
+    item.center = to_render(scene.bodies[static_cast<size_t>(n.center)].world_position, output_view.camera.position);
+    item.display_from_icrf = glm::mat3(glm::transpose(scene.current_transform().axes));
+    item.scale = static_cast<float>(nebula_scale(n, t));
+    item.patch_sigma_km = static_cast<float>(n.patch_sigma_km);
+    item.wall_sigma_km = static_cast<float>(n.wall_sigma_km);
+    item.min_sigma_px = static_cast<float>(kNebulaMinPx * output_view.content_scale);
+    item.asymmetry_g = static_cast<float>(n.asymmetry_g);
+    item.reference_km = static_cast<float>(n.display_reference_km);
+    const double camera_km = glm::length(glm::dvec3(item.center));
+    const double adapt_km = kNebulaAdaptShare * nebula_extent_km(n, t);
+    item.radiance = static_cast<float>(kNebulaRadiance * nebula_exposure(n, t) *
+                                       (adapt_km > 0.0 ? std::min(1.0, camera_km / adapt_km) : 1.0));
+    item.gamma = static_cast<float>(n.display_gamma);
+    item.cull_radiance = kNebulaCullRadiance;
+    item.color = n.color;
+    return item;
+}
+
 void SceneRenderer::build_comet_items(const Simulation& sim, const OutputView& output_view, const ViewOptions& options)
 {
     const Scene& scene = sim.scene();
@@ -1488,6 +1542,9 @@ void SceneRenderer::render(const Frame& frame, const Simulation& sim, const Outp
         m_pinwheel.render(frame.cmd, targets.pinwheel, view, pinwheel_item(sim, output_view), frame.width,
                           frame.height);
     }
+    if (m_nebula.has_grains() && nebula_scale(sim.scene().nebula, sim.clock().t_tdb) > 0.0) {
+        m_nebula.render(frame.cmd, targets.nebula, view, nebula_item(sim, output_view), frame.width, frame.height);
+    }
 
     m_corona.render(frame.cmd, targets.corona, corona_uniforms(sim.scene(), view), frame.width, frame.height);
 
@@ -1508,6 +1565,7 @@ void SceneRenderer::render(const Frame& frame, const Simulation& sim, const Outp
     build_belt_items(sim, output_view, options);
     m_belts.draw(frame.cmd, pass, view, m_belt_items);
     m_pinwheel.composite(pass, targets.pinwheel);
+    m_nebula.composite(pass, targets.nebula);
     m_black_hole.composite(frame.cmd, pass, targets.black_hole);
     draw_stars(frame.cmd, pass, sim, output_view);
     m_beams.draw(frame.cmd, pass, view, m_beam_items);

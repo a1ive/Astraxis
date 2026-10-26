@@ -1,0 +1,240 @@
+# Eta Carinae: the most luminous star system within some 10,000 light-years, a
+# ~90 M_sun star and a ~30 M_sun companion on a 5.54-year orbit that brings
+# them within 1.5 au. In the 1840s the system threw off more than 10 M_sun in
+# the "Great Eruption", briefly becoming the second brightest star in the
+# sky; that ejecta is the Homunculus, a pair of dusty lobes now nearly 50,000 au
+# long, still coasting outward.
+#
+# The binary is a two-body (Keplerian) orbit. The Homunculus is the 3D model
+# of [ST14] (ESO's 3dmodel_004, assets/shapes/SOURCES.md), covered with
+# patches of dust that scatter the stars' light (scene/nebula.hpp) and grown
+# from the stars in proportion to the time since the ejection (homologous
+# expansion). The shell is optically thin here: no shadows, no extinction of
+# the central stars; the Little Homunculus of the 1890 eruption, the equatorial
+# skirt and the outer ejecta are not drawn.
+#
+# [SIMB] SIMBAD: ICRS position 10 45 03.545808 -59 41 03.95124
+#        = 161.2647742, -59.6844309 deg.
+# [SM06] Smith 2006, ApJ 644, 1151 (arXiv:astro-ph/0602464): H2 velocity maps of
+#        2005 March 1. Sect. 4.1: D = 2350 +- 50 pc, the polar axis tilted
+#        i = 41.0 +- 0.5 deg from the line of sight (49 deg from the sky), the
+#        symmetry axis at P.A. 310 deg; Table 1, the radius at latitude 89.1
+#        deg, 21,690 au; Sect. 3, the H2 shell is 300-600 au thick.
+# [ST14] Steffen et al. 2014, MNRAS 442, 3316 (arXiv:1407.4096): the 3D model
+#        (SHAPE, from VLT/X-shooter H2 maps of 2012 March); the approaching
+#        (blue, SE) lobe and the receding (red, NW) one; Table 1, the Blue and
+#        Red Protrusions at -55 and +55 deg of longitude from the apastron
+#        direction, the polar trenches and holes.
+# [SM17] Smith 2017 (arXiv:1709.06210): proper motions in 13 years of HST
+#        images date the Homunculus to 1847.1 +- 0.8.
+# [SF11] Smith & Frew 2011, MNRAS 415, 2009 (arXiv:1010.3719): precursor
+#        eruptions in 1838 and 1843, the peak in December 1844, ~10 years
+#        bright; "the second brightest star in the sky", orange-red; the 1890
+#        eruption; more than 10 M_sun ejected (Smith et al. 2003).
+# [MA12] Madura et al. 2012, MNRAS 420, 2064 (arXiv:1111.2226), Sect. 3.3.2
+#        and 6: the orbit's orientation i = 138 deg (130-145), phi = 7 deg (the
+#        line of sight's projection on the orbit plane from the apastron side;
+#        omega = 270 - phi for the primary), PAz = 317 deg (302-327, the +z
+#        orbital axis on the sky): B orbits clockwise on the sky, is behind A at
+#        periastron and on our side at apastron; the orbital axis is aligned
+#        with the Homunculus' polar axis.
+# [MA13] Madura et al. 2013, MNRAS 436, 3820 (arXiv:1310.0487), Table 1:
+#        M = 90 and 30 M_sun, R = 60 and 30 R_sun, e = 0.9, a = 15.45 au,
+#        L_A = 5e6 L_sun and L_A / L_B = 22.28 (their case A, Mdot_A = 8.5e-4
+#        M_sun/yr).
+# [TE16] Teodoro et al. 2016, ApJ 819, 131 (arXiv:1601.03396): P = 2022.7 +-
+#        0.3 d; periastron T0 = JD 2456874.4 +- 1.3 (2014 August 4); their own
+#        fit puts i at 135-153 deg and omega at 234-252 deg.
+# [KS26] Kashi & Soker 2026 (arXiv:2609.20046): the X-ray minimum of 2025.6,
+#        the sixth observed (1998, 2003.5, 2009, 2014.6, 2020.1); the minima
+#        come from the colliding winds' collapse near periastron.
+# [DR03] Draine 2003, ApJ 598, 1017; the table kext_albedo_WD_MW_3.1_60_D03
+#        (www.astro.princeton.edu/~draine/dust/): Milky Way dust (R_V = 3.1) at
+#        V (0.547 um), albedo 0.677 and <cos theta> = 0.538.
+#
+# The orbit: [MA12]'s orientation converted to the scene's visual-orbit
+# elements (B relative to A): i = 138 deg, node = PAz - 90 = 227 deg, omega_B
+# = omega_A - 180 = 83 deg (checked in tests/stellar_system_tests.cpp); period
+# and periastron from [TE16]; masses, radii and luminosities from [MA13],
+# temperatures from those (L = 4 pi R^2 sigma T^4: 35,200 K and 22,900 K); the
+# masses give a = 15.44 au. GM = mass * GM_sun (1.32712440041279419e11
+# km^3/s^2, JPL DE440).
+# The Homunculus model ([ST14], in its own units, its +z axis along the blue
+# lobe) is placed by fitting it to [ST14]'s figures (assets/shapes/SOURCES.md):
+# the stars at model (0.80, 0, 0), where the shell is most point-symmetric;
+# the blue lobe toward P.A. 130 deg, tilted 41 deg toward us [SM06]; turned
+# about its axis so that the model's azimuth 95 deg faces us. A model unit is
+# 5600 au at [SM06]'s epoch (its polar radius, 3.87 units, is [SM06]'s
+# 21,690 au) and grows from [SM17]'s 1847.1.
+# The sky is a model of the Milky Way as seen from here (tools/sky/make_galaxy_sky.py,
+# assets/sky/SOURCES.md): its stars and dust clouds are statistical, not real
+# ones; the Carina Nebula around the star is not in it.
+# Checks (tests/stellar_system_tests.cpp): the orbit's period, size and
+# orientation against [MA12], B behind A at periastron, the periastron dates
+# of the X-ray minima, the Homunculus' axis and size against [SM06], its
+# alignment with the orbit, and the protrusions around the apastron direction.
+
+name = "Eta Carinae"
+
+[sky]
+viewer_ra_dec_distance_pc = [161.2647742, -59.6844309, 2350.0]   # [SIMB], [SM06]
+milky_way = "sky/eta_carinae.jpg"
+stars = "sky/eta_carinae_stars.csv"
+
+[view]
+focus = "Eta Car"
+distance_km = 1.2e13           # ~80,000 au: the whole Homunculus
+start = "now"
+warp = 2592000.0               # 30 days per second: an orbit in 67 s
+up = "orbit_normal:Eta Car B"
+pitch_deg = 20.0
+
+# The Homunculus (scene/nebula.hpp).
+[nebula]
+center = "Eta Car"
+shape = "shapes/homunculus.mesh"
+model_center = [0.80, 0.0, 0.0]
+unit_au = 5600.0               # [SM06]'s polar radius at reference_time
+reference_time = "2005-03-01"  # [SM06]
+ejection_time = "1847-02-06"   # 1847.1 [SM17]
+sky_ra_dec_deg = [161.2647742, -59.6844309]
+axis_pa_deg = 130.0            # the blue lobe: [SM06]'s axis, 310 - 180
+axis_tilt_deg = 41.0           # [SM06]
+roll_deg = 95.0
+wall_sigma_au = 190.0          # 450 au thick (FWHM) [SM06]
+asymmetry_g = 0.54             # [DR03]
+color = "#f0c8a0"              # illustrative: the orange of the dust-reddened starlight in color photographs
+# Display: a face-on patch 2,500 au from the stars in 2005, seen at right
+# angles to their light, has the reference brightness; the range from the
+# bright waist to the faint caps, and from forward to back scattering, is
+# compressed by display_gamma.
+display_reference_au = 2500.0
+display_gamma = 0.5
+grains = 150000
+
+[[bodies]]
+name = "Eta Car"
+kind = "barycenter"
+
+# B relative to A, split around the barycenter.
+[[bodies]]
+name = "Eta Car A"
+parent = "Eta Car"
+kind = "star"
+radii_km = [41742000.0]        # 60 R_sun [MA13]
+body_gm_km3_s2 = 1.194411960e13 # 90 M_sun
+temperature_k = 35200.0
+luminosity_solar = 5.0e6       # [MA13]
+orbit_color = "#c8b0ff"
+[bodies.orbit]
+scale = -0.25                  # -M_B / M
+type = "visual_orbit"
+gm_km3_s2 = 1.592549280e13     # 120 M_sun
+period_days = 2022.7           # [TE16]
+e = 0.9                        # [MA13]
+i_deg = 138.0                  # [MA12]
+node_deg = 227.0
+arg_peri_deg = 83.0
+t_peri_jd_tdb = 2456874.4      # [TE16]
+sky_ra_dec_deg = [161.2647742, -59.6844309]
+
+[[bodies]]
+name = "Eta Car B"
+parent = "Eta Car"
+kind = "star"
+radii_km = [20871000.0]        # 30 R_sun [MA13]
+body_gm_km3_s2 = 3.981373201e12 # 30 M_sun
+temperature_k = 22900.0
+luminosity_solar = 2.244e5     # L_A / 22.28 [MA13]
+orbit_color = "#a8c8ff"
+[bodies.orbit]
+scale = 0.75                   # M_A / M
+type = "visual_orbit"
+gm_km3_s2 = 1.592549280e13
+period_days = 2022.7
+e = 0.9
+i_deg = 138.0
+node_deg = 227.0
+arg_peri_deg = 83.0
+t_peri_jd_tdb = 2456874.4
+sky_ra_dec_deg = [161.2647742, -59.6844309]
+
+[[bodies]]
+name = "Sun"
+template = "bodies/sun.toml"
+parent = "Eta Car"
+trail = "none"
+[bodies.orbit]                 # opposite direction of the system as seen from the Sun [SIMB]
+type = "fixed"
+ra_dec_distance_pc = [341.2647742, 59.6844309, 2350.0]
+
+[[events]]
+name = "The Great Eruption"
+time = "1850-01-01"
+focus = "Eta Car"
+from_body = "Sun"
+phase_deg = 90.0
+elevation_deg = 0.0
+distance_km = 6.0e11           # 4,000 au: the young shell, 1,000 au long, grows to fill the view
+warp = 7889400.0               # three months per second: ten years in 40 s
+# [SF11], [SM17]
+caption = """\
+    From 1838 the star flared again and again, and at its peak in December \
+    1844 it was the second brightest star in the sky, orange-red, for about a \
+    decade. More than ten solar masses were thrown off. Hubble images taken \
+    years apart trace the ejecta back to 1847: these two lobes have been \
+    coasting outward ever since."""
+
+[[events]]
+name = "The Homunculus, as Hubble sees it"
+time = "2012-03-10"            # [ST14]'s X-shooter maps
+focus = "Eta Car"
+frame = "Eta Car, north up"
+from_earth = true
+distance_km = 1.4e13           # 94,000 au: 45,000 au of nebula, filling most of the view
+warp = 2592000.0
+# [SM06], [ST14], [DR03]
+caption = """\
+    Seen from Earth, the southeast lobe leans toward us and the northwest \
+    one away: the two are tilted 41 degrees from our line of sight. The near \
+    lobe is brighter because dust scatters light mostly forward, and the \
+    starlight reaching us from it goes almost straight on. From tip to tip \
+    it spans some 45,000 au, 7,700 light-years away."""
+
+[[events]]
+name = "Shaped by the companion?"
+time = "2022-11-24"            # apastron: B in the apastron direction
+focus = "Eta Car"
+from_body = "Eta Car B"
+elevation_deg = 0.0
+distance_km = 1.2e13
+warp = 864000.0
+# [ST14], [MA12]
+caption = """\
+    Looking along the binary's long axis from the apastron side: the 3D model \
+    made from VLT spectra shows two bumps near the waist, one on each lobe, \
+    55 degrees either side of this direction, and polar trenches facing the \
+    same way. The orbit's axis lines up with the lobes too. The companion may \
+    have helped shape the eruption."""
+
+[[events]]
+name = "Periastron, 1.5 au apart"
+time = "2025-08-20"            # periastron 2025-09-01 [TE16]
+focus = "Eta Car"
+from_orbit_normal = "Eta Car B"
+distance_km = 1.5e9            # 10 au
+warp = 43200.0                 # half a day per second
+# [MA13], [TE16], [KS26]
+caption = """\
+    Every 5.54 years the companion swings to 1.5 au from the primary, about \
+    Mars' distance from the Sun, deep in its dense wind. The X-rays from the \
+    colliding winds collapse for weeks, as they did again in 2025, the sixth \
+    such minimum observed; the companion's faster wind carves a spiral \
+    cavity in the primary's outflow."""
+
+# As astronomers show the sky: north up (east to the left when seen from Earth).
+[[frames]]
+name = "Eta Car, north up"
+type = "inertial"
+origin = "Eta Car"
+up = "north"

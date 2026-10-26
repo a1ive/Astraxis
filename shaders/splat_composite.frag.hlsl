@@ -1,6 +1,7 @@
-// A pinwheel's dust, drawn off-screen at reduced resolution (pinwheel.vert.hlsl),
-// added to the scene: the nebula is smooth, and thousands of overlapping
-// splats blended into every MSAA sample cost far too much fill rate.
+// A nebula's splats (a pinwheel's dust, the Homunculus), drawn off-screen at
+// reduced resolution (render/splat_pass.hpp), added to the scene: the nebula
+// is smooth, and thousands of overlapping splats blended into every MSAA
+// sample cost far too much fill rate.
 
 #include "common.hlsli"
 

@@ -592,6 +592,10 @@ void Scene::update(double t_tdb)
         extent = std::max(extent, glm::length(bodies[static_cast<size_t>(pinwheel.center)].icrf_position) +
                                       pinwheel_radius(pinwheel, kPinwheelExtentTurns * pinwheel.period_s));
     }
+    if (nebula.enabled()) {
+        extent = std::max(extent, glm::length(bodies[static_cast<size_t>(nebula.center)].icrf_position) +
+                                      nebula_extent_km(nebula, t_tdb));
+    }
     m_system_extent_km = std::max(extent, bodies.empty() ? 1.0 : bodies[0].equatorial_radius_km);
 
     // Fade radii (after the loop: orbit_center looks at every sibling). The
@@ -787,7 +791,10 @@ glm::dvec3 Scene::up_axis() const
     if (frame_is_rotating()) {
         return glm::dvec3(0.0, 0.0, 1.0);
     }
-    const glm::dvec3 up = glm::length(view.up_icrf) > 0.0 ? view.up_icrf : bodies[0].pole;
+    const glm::dvec3& own = frame().up_icrf;
+    const glm::dvec3 up = glm::length(own) > 0.0           ? own
+                          : glm::length(view.up_icrf) > 0.0 ? view.up_icrf
+                                                            : bodies[0].pole;
     return glm::normalize(m_transform.direction_to_display(up));
 }
 

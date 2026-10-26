@@ -18,6 +18,7 @@
 | `endurance_hull.mesh`、`endurance_ring.mesh` | 本项目原创的简化造型，致敬电影《星际穿越》（2014）里的飞船 Endurance，由 `tools/shapes/make_endurance.py` 生成（只用标准库）；不是电影的模型或制作数据 | 随本项目（GPL-3.0-or-later） |
 | `didymos.mesh`、`dimorphos.mesh` | DART Shapemodel Archive Bundle（Daly, T.; Barnouin, O.; Ernst, C.; Nair, H.; Espiritu, R.; Waller, D.，PDS SBN `urn:nasa:pds:dart_shapemodel::1.0`，doi:[10.26007/96fn-p578](https://doi.org/10.26007/96fn-p578)），<https://pdssbn.astro.umd.edu/holdings/pds4-dart_shapemodel-v1.0/>：Didymos v003 的 9.3 m 版本 `data_derived_didymos_model_v003/didymos_g_9309mm_spc_obj_0000n00000_v003.obj`（SHA-256 `b5349374186d254ca21b7b00ddd9f6dea7e2762ca6bbff13f43151ee448e3f20`），Dimorphos v004 的 1.9 m 版本 `data_derived_dimorphos_model_v004/dimorphos_g_1940mm_spc_obj_0000n00000_v004.obj`（SHA-256 `833eaeac8c49338abe64012a679b1b9695f774f1b5e4842a8e5b9f0af1d28664`）；Daly et al. 2023, Nature 616, 443；Daly et al. 2024, PSJ 5, 24 | NASA DART 任务的 PDS 数据，公有领域（请引用数据集与作者） |
 | `arrokoth.mesh` | Porter, S. et al. 2024, “New Horizons Porter (2024) Arrokoth Shape Model Collection”，PDS Small Bodies Node，doi:[10.26007/97r3-1e19](https://doi.org/10.26007/97r3-1e19)，<https://pdssbn.astro.umd.edu/holdings/pds4-nh_derived-v3.0/arrokoth_shapemodel_porter2024/>；方法见同目录的 `porteretal2024b.pdf`（Porter et al. 2024, “The Shape of (486958) Arrokoth”） | NASA 新视野号项目的 PDS 数据，公有领域（请引用作者） |
+| `homunculus.mesh` | η Carinae 的 Homunculus 星云三维模型（Steffen et al. 2014, MNRAS 442, 3316，arXiv:1407.4096；SHAPE 软件拟合 VLT/X-shooter 的 H₂ 2.12 μm 速度图），ESO “A 3D Model of the Homunculus Nebula around the star Eta Carinae”（3dmodel_004，2014-07-28），<https://www.eso.org/public/products/models3d/3dmodel_004/>，文件 `model_3d_obj/3dmodel_004.zip` 里的 `Eta_Car_Homunuculus_model.obj` | ESO 公开素材，CC BY 4.0（模型页面的使用条款指向 ESO 的 CC BY 4.0 声明）；署名：NASA's Goddard Space Flight Center/Ed Campion & UNAM/W. Steffen |
 
 原始文件（同一目录下）：
 
@@ -204,3 +205,29 @@ SHA-256：
 - 输入 OBJ：`0f28d321156cd74e39167f3f83a0205cf39aab88f8df3e389655bcf04e289faa`
 - PDS `n8proteus.tab`：`d079c8eac52d84224d5cb413526ff9415ab33afd48965e7e025544832ddd1868`
 - 输出 `proteus.mesh`：`3425f7459d83a0b200f30d34a9f88d4d6d4e1747ebc7467394f786390306fe5a`
+
+## Homunculus（η Carinae，Steffen 2014 的 SHAPE 模型）
+
+`homunculus.mesh` 由 ESO 的 3dmodel_004（OBJ）转换，坐标原样保留（单位是模型自己的，不是 km）：
+
+```
+python -E tools/shapes/make_plate_shape.py Eta_Car_Homunuculus_model.obj assets/shapes/homunculus.mesh
+```
+
+- 8,552 个顶点、17,101 个三角形，一个连通块，拓扑上是球面（χ = 2），有向体积为正（法线朝外）。有小缺陷：2 条边界边、3 条被三个三角形共用的边、1 个退化三角形，不影响按面积撒点
+- 极轴就是模型的 z 轴（表面惯性主轴与 z 相差不到 1.5°），两瓣到 z = ±3.8；x 方向 −1.28 .. 2.72，y 方向 −1.80 .. 1.82
+- 中心星不在原点：两瓣各截面的中心都在 x ≈ +0.85 的直线上，原点在两瓣连接的“腰”的一侧。网格关于 (0.75–0.85, 0, 0) 点对称得最好（每个顶点镜像后离网格平均 0.13 个单位，约为半径的 3%，Smith 2006 说真实的不对称就是 2–3%；以原点为中心时是 0.63）。Steffen 2014 说极区的沟是关于中心星点对称的，场景取 (0.80, 0, 0)。从这里到两极是 3.87 和 3.88 个单位（以原点为中心时是 4.03 和 3.83）
+- 哪端是蓝瓣（朝向我们的东南瓣）：Steffen 2014 图 5 里红瓣上有一片“irregularities”，蓝瓣只有一个孔和一道沟；−z 那瓣凹凸明显多，所以 +z 是蓝瓣
+- 两个凸起（表 1 的 Blue/Red Protrusion）：+z 瓣在方位角 48°（从 +x 向 +y 量）、离轴最远处高于腰 0.8 个单位，−z 瓣在 164°；两者相隔 116°（论文约 110°），平分线方位角约 106° 就是远星点方向。按“从地球看逆时针”（绕指向我们的蓝瓣轴）量经度，蓝凸起 −58°、红凸起 +58°，符号与表 1 的 −55°、+55° 一致，所以模型没有被镜像。两极附近凹得最深的地方也大致对得上表 1 的沟（蓝瓣在方位角约 280°，即经度 180°；红瓣在约 100°，即经度 0°），但离轴约 33°，表 1 是 15°，只算旁证
+- 在天空中的朝向：论文没有给数字。轴的位置角和倾角用 Smith 2006 4.1 节的 PA 310°、i = 41°（极轴与视线的夹角）；绕轴的转角按论文图 4 左（“从地球看，北上东左”）对出来：远星点方向的投影位置角 330° 对应模型方位角约 88° 朝向我们，两个凸起的投影方向对应约 102°（图上两条虚线画成一条直线，110° 的夹角投影后不可能是 180°，那张图是示意的），取 95° ± 10°。按这个朝向从地球方向渲染，和图 5 上图一致（蓝凸起在两瓣连接处的右下，红凸起在上方）
+- 独立核对：这样摆出的极轴和 Madura 2012 的轨道轴差 4.7°，凸起的平分线和轨道的远星点方向差 2.1°（`tests/stellar_system_tests.cpp`）
+- 尺度：模型单位不是 10¹⁵ m（那样极半径约 25,400 au，比 Smith 2006 大 11%），看来是任意单位。场景按 Smith 2006 表 1 的极半径（纬度 89.1° 处 21,690 au，2005-03-01 的观测、2350 pc）定为每单位 5,600 au，再从 1847.1 年（Smith 2017）起均匀膨胀。Steffen 的形状在低纬度（20°–35°）比 Smith 2006 的胖 20–60%（他们说外形更接近圆柱），所以只用极半径标定
+- 模型描的是 H₂ 层（尘埃在它里面一点），不是散射光的尘埃面；赤道的“裙边”在 H₂ 里描得不完整，没有 1890 年喷发的 Little Homunculus
+
+SHA-256：
+
+- 输入 `3dmodel_004.zip`：`d2dc1cfef4ebccbc8649aac0548a7708288b8e3c9a62e7bff22b66de9ebe717f`
+- 输入 OBJ：`51af9b8ce70c71eb57f0118da17288f2ed1b12d9de21689b64d065ff921c64f4`
+- 输出 `homunculus.mesh`：`96eaa06eb18132e7a9dd0c9b666d74492a4e47a742195cbe2ef3cf2e6234f433`
+
+NASA 科学网站上有同一模型的 STL（“Eta Carinae Homunculus Nebula”，835 KB），页面没写许可，没有用。同一网站上 Madura 2015 的“High Mass-Loss Rate”打印模型（碰撞星风在远星点、近星点和相位 1.045 的三个快照，CC BY 4.0）是 Madura 2013 的 SPH 模拟，以后做碰撞星风时可以拿来核对。
