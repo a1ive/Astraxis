@@ -67,6 +67,10 @@ double observed_magnitude_held(const ObservedLightCurve& curve, double t_tdb);
 double observed_magnitude_offset(const ObservedLightCurve& curve, double t_tdb);
 double observed_light_factor(const ObservedLightCurve& curve, double t_tdb);
 
+// Display gain for a selected star, after brightness limiting (1 for other
+// bodies). Shared by the point sprite, glow and resolved stellar surface.
+double observed_star_display_gain(const ObservedLightCurve& curve, int star, double t_tdb);
+
 // Plot opacity at a simulated-seconds-per-real-second rate (0 when paused).
 // Fades as the whole span passes in 4 to 2 real seconds.
 double light_curve_visibility(const LightCurve& curve, double rate);

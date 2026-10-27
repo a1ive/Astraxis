@@ -127,7 +127,7 @@ double henyey_greenstein(double g, double cos_theta);
 
 // The exposure the eye would adapt to at t_tdb (a factor on the shell's
 // brightness, 0..1): the young, small shell is brighter by scale^(-4 gamma)
-// than at the reference time, and is shown dimmed to at most
+// (scale^(-2 gamma) for emission) than at the reference time, dimmed to at most
 // kNebulaMaxBrightening times as bright, the older shell as it is.
 double nebula_exposure(const Nebula& nebula, double t_tdb);
 

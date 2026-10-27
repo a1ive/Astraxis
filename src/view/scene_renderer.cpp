@@ -857,6 +857,8 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
                               static_cast<float>(planck_shape(body.temperature_k, kStarSurfaceWavelengthNm) /
                                                  hottest_surface);
             }
+            item.color *= static_cast<float>(observed_star_display_gain(
+                scene.observed_light_curve, static_cast<int>(i), sim.clock().t_tdb));
             item.texture = nullptr;
             m_body_items.push_back(item);
             continue;
@@ -1512,7 +1514,6 @@ void SceneRenderer::draw_stars(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pas
     m_beam_items.clear();
     // Stars shown as bright as observed (eta Carinae's eruptions).
     const ObservedLightCurve& observed = scene.observed_light_curve;
-    const double observed_offset = observed_magnitude_offset(observed, sim.clock().t_tdb);
     for (const Body& body : scene.bodies) {
         if (body.kind != BodyKind::Star || !body.visible) {
             continue;
@@ -1527,10 +1528,8 @@ void SceneRenderer::draw_stars(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pas
         s.angular_radius = static_cast<float>(body.equatorial_radius_km / distance);
         s.color = glm::vec3(blackbody_linear_srgb(body.temperature_k));
         s.magnitude = static_cast<float>(apparent_magnitude(body.luminosity_solar, distance));
-        if (std::find(observed.stars.begin(), observed.stars.end(), &body - scene.bodies.data()) !=
-            observed.stars.end()) {
-            s.magnitude += static_cast<float>(observed_offset);
-        }
+        s.display_gain = static_cast<float>(observed_star_display_gain(
+            observed, static_cast<int>(&body - scene.bodies.data()), sim.clock().t_tdb));
         s.draw_disk = s.angular_radius * viewport_half < 3.0f; // otherwise the sphere shows it
         glm::dvec3 beams[2];
         if (pulsar_beams(scene, body, sim.clock().t_tdb, sim.animation_time(), beams)) {
@@ -1548,7 +1547,7 @@ void SceneRenderer::draw_stars(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pas
                 beam.intensity = kBeamIntensity;
                 m_beam_items.push_back(beam);
             }
-            s.display_gain = static_cast<float>(1.0 + kBeamFlashGain * flash);
+            s.display_gain *= static_cast<float>(1.0 + kBeamFlashGain * flash);
         }
         m_sun.draw(cmd, pass, view, s);
     }

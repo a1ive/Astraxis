@@ -146,7 +146,9 @@ double nebula_exposure(const Nebula& nebula, double t_tdb)
     if (s <= 0.0) {
         return 1.0;
     }
-    return std::min(1.0, kNebulaMaxBrightening * std::pow(s, 4.0 * nebula.display_gamma));
+    // Emission lacks the additional column dilution of scattered light.
+    const double power = nebula.light == NebulaLight::Emission ? 2.0 : 4.0;
+    return std::min(1.0, kNebulaMaxBrightening * std::pow(s, power * nebula.display_gamma));
 }
 
 double nebula_dust_temperature(const Nebula& nebula, const NebulaLayer& layer, double distance_km)

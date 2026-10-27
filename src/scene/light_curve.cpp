@@ -395,6 +395,12 @@ double observed_magnitude(const ObservedLightCurve& curve, double t_tdb)
                               t.size() - 1);
     const double t0 = t[i - 1];
     const double t1 = t[i];
+    if (t_tdb == t0) {
+        return curve.magnitude[i - 1];
+    }
+    if (t_tdb == t1) {
+        return curve.magnitude[i];
+    }
     if (t1 - t0 > curve.gap_s) {
         return std::nan("");
     }
@@ -430,6 +436,16 @@ double observed_magnitude_offset(const ObservedLightCurve& curve, double t_tdb)
 double observed_light_factor(const ObservedLightCurve& curve, double t_tdb)
 {
     return std::pow(10.0, -0.4 * observed_magnitude_offset(curve, t_tdb));
+}
+
+double observed_star_display_gain(const ObservedLightCurve& curve, int star, double t_tdb)
+{
+    if (std::find(curve.stars.begin(), curve.stars.end(), star) == curve.stars.end()) {
+        return 1.0;
+    }
+    // Match SunPass's magnitude compression, applied after its brightness cap.
+    constexpr double kMagnitudeGamma = 0.56;
+    return std::pow(observed_light_factor(curve, t_tdb), kMagnitudeGamma);
 }
 
 double light_curve_visibility(const LightCurve& curve, double rate)
