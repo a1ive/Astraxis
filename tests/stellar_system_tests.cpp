@@ -1849,6 +1849,49 @@ void test_wr140_scene()
     }
 }
 
+void test_observed_light_and_exposure()
+{
+    ObservedLightCurve lc;
+    lc.t_tdb = {0.0, 1.0, 10.0};
+    lc.magnitude = {1.0f, 2.0f, 3.0f};
+    lc.gap_s = 2.0;
+    for (size_t i = 0; i < lc.t_tdb.size(); ++i) {
+        check(observed_magnitude(lc, lc.t_tdb[i]) == lc.magnitude[i],
+              "Recorded endpoints survive adjacent gaps");
+    }
+    check(observed_magnitude(lc, 0.5) == 1.5 && std::isnan(observed_magnitude(lc, 5.0)) &&
+              std::isnan(observed_magnitude(lc, -1.0)) && std::isnan(observed_magnitude(lc, 11.0)),
+          "Observed interpolation preserves gaps and record bounds");
+    lc.stars = {1};
+    lc.reference_magnitude = 2.0;
+    // Offsets of -1 and +1 magnitude: flux ratios 10^(+/-0.4),
+    // compressed by the required 0.56 exponent after brightness limiting.
+    const double brighter_gain = std::pow(10.0, 0.4 * 0.56);
+    const double fainter_gain = std::pow(10.0, -0.4 * 0.56);
+    check(std::abs(observed_star_display_gain(lc, 1, 0.0) - brighter_gain) < 1e-12,
+          "One magnitude brighter uses 0.56-power display compression");
+    check(std::abs(observed_star_display_gain(lc, 1, 10.0) - fainter_gain) < 1e-12,
+          "One magnitude fainter uses 0.56-power display compression");
+    check(observed_star_display_gain(lc, 1, 1.0) == 1.0 &&
+              observed_star_display_gain(lc, 2, 0.0) == 1.0,
+          "Reference brightness and unselected stars retain unit display gain");
+    Nebula n;
+    n.t_ejection_tdb = 0.0;
+    n.t_reference_tdb = 100.0;
+    n.display_gamma = 0.5;
+    for (NebulaLight light : {NebulaLight::Scattered, NebulaLight::Emission}) {
+        n.light = light;
+        const double power = light == NebulaLight::Emission ? 2.0 : 4.0;
+        for (double scale : {0.01, 0.1}) {
+            const double surface = nebula_exposure(n, scale * 100.0) *
+                                   std::pow(scale, -power * n.display_gamma);
+            check(std::abs(surface - 2.0) < 1e-12, "Young shell exposure caps both light laws at twice reference");
+        }
+        check(nebula_exposure(n, 100.0) == 1.0 && nebula_exposure(n, 200.0) == 1.0,
+              "Mature shells retain their natural fading");
+    }
+}
+
 void test_eta_carinae_scene()
 {
     Scene scene = load_scene_or_die("eta_carinae.toml");
@@ -2216,5 +2259,6 @@ void run_stellar_system_tests()
     test_psr_b1620_scene();
     test_wr104_scene();
     test_wr140_scene();
+    test_observed_light_and_exposure();
     test_eta_carinae_scene();
 }
