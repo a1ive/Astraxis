@@ -1864,11 +1864,17 @@ void test_observed_light_and_exposure()
           "Observed interpolation preserves gaps and record bounds");
     lc.stars = {1};
     lc.reference_magnitude = 2.0;
-    check(observed_star_display_gain(lc, 1, 0.0) > 1.0 &&
-              observed_star_display_gain(lc, 1, 1.0) == 1.0 &&
-              observed_star_display_gain(lc, 1, 10.0) < 1.0 &&
+    // Offsets of -1 and +1 magnitude: flux ratios 10^(+/-0.4),
+    // compressed by the required 0.56 exponent after brightness limiting.
+    const double brighter_gain = std::pow(10.0, 0.4 * 0.56);
+    const double fainter_gain = std::pow(10.0, -0.4 * 0.56);
+    check(std::abs(observed_star_display_gain(lc, 1, 0.0) - brighter_gain) < 1e-12,
+          "One magnitude brighter uses 0.56-power display compression");
+    check(std::abs(observed_star_display_gain(lc, 1, 10.0) - fainter_gain) < 1e-12,
+          "One magnitude fainter uses 0.56-power display compression");
+    check(observed_star_display_gain(lc, 1, 1.0) == 1.0 &&
               observed_star_display_gain(lc, 2, 0.0) == 1.0,
-          "Observed display gain brightens and dims only selected stars");
+          "Reference brightness and unselected stars retain unit display gain");
     Nebula n;
     n.t_ejection_tdb = 0.0;
     n.t_reference_tdb = 100.0;
