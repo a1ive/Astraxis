@@ -220,6 +220,48 @@ void test_alpha_centauri_scene()
     const double mutual = std::acos(glm::dot(n_planet, n_binary)) * kRadToDeg;
     check(std::abs(mutual - 70.56) < 0.1, "alpha Cen Ab mutual inclination (deg)", mutual);
 
+    // The Avatar reconstruction is a separate event-only hierarchy. Check its
+    // loaded states against the gravitational screening estimates [HW99, DWY06].
+    const int poly = scene.find("Polyphemus (Avatar)");
+    const int pandora = scene.find("Pandora (Avatar)");
+    check(poly >= 0 && pandora >= 0, "Avatar bodies exist");
+    const Body& giant = scene.bodies[static_cast<size_t>(poly)];
+    const Body& moon = scene.bodies[static_cast<size_t>(pandora)];
+    check(giant.parent == a && moon.parent == poly, "Avatar parent hierarchy");
+    check(giant.event >= 0 && moon.event == giant.event, "Avatar shares one event");
+    const double avatar_t = scene.events[static_cast<size_t>(giant.event)].t_tdb;
+    for (int event : {-1, giant.event, -1}) {
+        scene.set_active_event(event);
+        scene.update(avatar_t);
+        check(giant.visible == (event >= 0) && moon.visible == (event >= 0),
+              "Avatar visibility on entry and exit");
+    }
+    const State pg = giant.motion->eval(avatar_t);
+    const State pm = moon.motion->eval(avatar_t);
+    const double ag = glm::length(pg.position);
+    const double am = glm::length(pm.position);
+    const double gm_g = giant.body_gm_km3_s2;
+    const double gm_m = moon.body_gm_km3_s2;
+    const double gm_a = 1.43170182e11;
+    check(std::abs(ag / kAuKm - 1.25) < 1e-8, "Avatar stellar orbit (au)", ag / kAuKm);
+    check(std::abs(am - 1e6) < 0.01, "Avatar moon orbit (km)", am);
+    check(std::abs(glm::dot(pm.velocity, pm.velocity) * am / (gm_g + gm_m) - 1.0) < 1e-8,
+          "Avatar moon obeys Kepler with both masses");
+    const glm::dvec3 ng = glm::normalize(glm::cross(pg.position, pg.velocity));
+    const glm::dvec3 nm = glm::normalize(glm::cross(pm.position, pm.velocity));
+    check(glm::dot(ng, n_binary) > 0.999999 && glm::dot(nm, ng) > 0.999999,
+          "Avatar orbits are coplanar prograde");
+    const double mu = 0.9092 / (1.0788 + 0.9092);
+    const double eb = 0.51947;
+    const double critical = (17.493 / 0.75081) * kAuKm *
+        (0.464 - 0.380 * mu - 0.631 * eb + 0.586 * mu * eb +
+         0.150 * eb * eb - 0.198 * mu * eb * eb);
+    const double hill = ag * std::cbrt(gm_g / (3.0 * gm_a));
+    const double roche = 2.44 * moon.equatorial_radius_km * std::cbrt(gm_g / gm_m);
+    check(ag < critical && am > roche && am < 0.4895 * hill,
+          "Avatar within approximate orbital stability limits");
+    check(moon.synchronous_with == poly, "Avatar moon assumed tidally locked");
+
     // B's false positive [Dumusque et al. 2012; Rajpaul et al. 2016]: drawn only
     // during its own event, in front of B at the conjunction from the RVs
     // [Demory et al. 2015], and (coplanar with AB) passing beside the star.

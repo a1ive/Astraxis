@@ -104,6 +104,30 @@
 # Check (tests/stellar_system_tests.cpp): Proxima's reflex velocity is -K sin(2 pi (t - T0) / P);
 # the sky's viewer is opposite the Sun body.
 
+# [AV] Avatar Wiki, Polyphemus / Pandora / Alpha_Centauri_System (2026-11-02):
+#      https://james-camerons-avatar.fandom.com/wiki/Polyphemus
+#      https://james-camerons-avatar.fandom.com/wiki/Pandora
+#      Polyphemus diameter 123900 km; Pandora diameter 11447 km, mass 0.72 Earth.
+#      These are one published interpretation: Avatar.com's Pandorapedia instead
+#      calls Polyphemus Neptune-sized. Neither source supplies complete orbits.
+#      https://www.avatar.com/pandorapedia/polyphemus
+# [AVMODEL] Fictional reconstruction, not a fit to the real Ab candidate:
+#      Polyphemus: assumed Jupiter mass (JUP365 GM, bodies/jupiter.toml), circular
+#      1.25 au orbit coplanar/prograde with AB. A supplies 0.964 Earth insolation.
+#      Pandora: assumed circular 1000000 km orbit in the same plane, synchronous
+#      rotation (6.45 days, not the Wiki's 27-hour day or 29-degree obliquity).
+#      Both phases are arbitrary at 2154.0; colours and giant bands are artistic.
+#      Nested Kepler orbits omit stellar/moon perturbations, tides and reflex motion.
+# [HW99] Holman & Wiegert 1999, AJ 117, 621, eq. 1 (initially circular coplanar
+#      test particles): https://arxiv.org/abs/astro-ph/9809315
+#      With [AK21], A's circumstellar critical semimajor axis is about 2.74 au.
+# [DWY06] Domingos et al. 2006, MNRAS 373, 1227, circular prograde satellite
+#      limit 0.4895 Hill radii: https://doi.org/10.1111/j.1365-2966.2006.11104.x
+#      This model: Hill radius 12.4 million km, outer limit 6.09 million km;
+#      fluid Roche estimate 2.44 R_moon (M_planet/M_moon)^(1/3) = 106000 km.
+#      These are screening estimates, not a long-term stability/habitability proof.
+#      The other fictional planets/moons have insufficient orbital data to rebuild.
+#
 name = "Alpha Centauri"
 
 [sky]
@@ -250,6 +274,46 @@ arg_peri_deg = 0.0
 i_deg = 79.2430
 node_deg = 205.073
 transit_u_deg = 90.0           # e = 0: no omega to convert
+sky_ra_dec_deg = [219.85892215, -60.83163195]
+
+[[bodies]]
+name = "Polyphemus (Avatar)"
+parent = "Alpha Centauri A"
+radii_km = [61950.0]           # [AV]
+body_gm_km3_s2 = 126686531.9   # assumed Jupiter mass [AVMODEL]
+pole_ra_dec_deg = [146.88900410, 21.46199136] # assumed parallel to AB orbital pole
+prime_meridian_deg = [0.0, 830.76923077] # assumed 10.4 hours, within [AV] range
+color = "#92b9ce"
+style = "saturn"              # procedural bands tinted blue; no rings
+orbit_color = "#91bdde"
+[bodies.orbit]                 # [AVMODEL], plane from [AK21]
+type = "visual_orbit"
+gm_km3_s2 = 143296868531.899994
+a_au = 1.25
+e = 0.0
+i_deg = 79.2430
+node_deg = 205.073
+arg_peri_deg = 0.0
+t_peri_year = 2154.0
+sky_ra_dec_deg = [219.85892215, -60.83163195]
+
+[[bodies]]
+name = "Pandora (Avatar)"
+parent = "Polyphemus (Avatar)"
+radii_km = [5723.5]            # [AV]
+body_gm_km3_s2 = 286992.313565 # 0.72 Earth [AV]
+synchronous = true            # assumed [AVMODEL]
+color = "#5a998c"
+orbit_color = "#83d8b9"
+[bodies.orbit]                 # [AVMODEL]
+type = "visual_orbit"
+gm_km3_s2 = 126973524.213565
+a_au = 0.006684587122268           # 1000000 km between centres
+e = 0.0
+i_deg = 79.2430
+node_deg = 205.073
+arg_peri_deg = 90.0
+t_peri_year = 2154.0
 sky_ra_dec_deg = [219.85892215, -60.83163195]
 
 [[bodies]]
@@ -403,3 +467,29 @@ caption = """\
     Proxima is gravitationally bound to A and B, some 13,000 au away on an orbit \
     lasting about half a million years. At this distance, the pair's 80-year orbit \
     appears as a single point of light."""
+
+[[frames]]
+name = "Polyphemus-centered (Avatar)"
+type = "inertial"
+origin = "Polyphemus (Avatar)"
+up = "orbit_normal:Pandora (Avatar)"
+
+[[events]]
+name = "Avatar: Polyphemus and Pandora (fictional reconstruction)"
+time = "2154-01-01"            # illustrative epoch, not a dated film scene
+focus = "Polyphemus (Avatar)"
+distance_km = 2800000.0
+warp = 10800.0                 # 3 hours per second; Pandora circles in about 52 s
+frame = "Polyphemus-centered (Avatar)"
+from_body = "Alpha Centauri A"
+phase_deg = 35.0
+elevation_deg = 25.0
+show = ["Polyphemus (Avatar)", "Pandora (Avatar)"]
+# [AV], [AVMODEL], [HW99], [DWY06]
+caption = """\
+    In Avatar, Pandora is a moon of Polyphemus, a gas giant orbiting Alpha \
+    Centauri A. This fictional reconstruction places the giant at 1.25 au \
+    and Pandora a million km from it, on a 6.45-day orbit. Both fit within \
+    approximate gravitational stability limits. Their orbits and the giant's \
+    mass are assumed; the colours are illustrative. The real Ab candidate \
+    belongs to a separate observational interpretation."""
