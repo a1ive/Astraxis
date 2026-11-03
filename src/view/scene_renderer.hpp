@@ -82,7 +82,7 @@ private:
     // the infrared).
     void load_nebulae(const Scene& scene);
     void build_nebula_items(const Simulation& sim, const OutputView& view);
-    // Earth's aurora around `body`, in its unit-sphere frame (linear: body axes
+    // Aurora around `body`, in its unit-sphere frame (linear: body axes
     // times radii; to_unit: its inverse); sun_direction: toward the sun (world).
     AuroraDrawItem aurora_item(const Simulation& sim, const OutputView& view, const Body& body,
                                const glm::dmat3& linear, const glm::dmat3& to_unit,

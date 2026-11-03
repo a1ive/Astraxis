@@ -15,6 +15,7 @@
 namespace astraxis {
 
 inline constexpr int kAuroraOvalSamples = 48; // AuroraEmission::kOvalSamples
+inline constexpr int kJovianOvalSamples = 256; // JovianAurora::kSamples
 
 struct AuroraDrawItem {
     // Camera-relative translation * body-fixed axes * radii: the planet's
@@ -44,10 +45,16 @@ struct AuroraDrawItem {
     // Boundaries around the oval (AuroraEmission::oval): colatitudes (rad) of
     // the diffuse aurora, the oval's equatorward and poleward edges.
     std::array<glm::vec4, kAuroraOvalSamples> oval{};
+    bool ultraviolet = false;
+    float polar_ratio = 1.0f;
+    float width_km = 200.0f; // illustrative Gaussian sigma across the UV contour
+    // In UV mode pole/noon are the northern center/east basis. These are the south's.
+    glm::vec3 south_center{0.0f};
+    glm::vec3 south_east{0.0f};
+    std::array<glm::vec4, kJovianOvalSamples> jovian_oval{};
 };
 
-// Draws Earth's aurora as an emitting shell (Chapman layers in height, the
-// auroral ovals around the geomagnetic poles), added to what lies behind.
+// Emitting shells: Earth's visible aurora or Jupiter's UV reference ovals.
 class AuroraPass {
 public:
     bool init(SDL_GPUDevice* device, const SceneTargetFormat& format);

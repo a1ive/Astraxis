@@ -23,6 +23,11 @@ style = "gas_giant"
 texture = "textures/jupiter.jpg"
 texture_left_lon_deg = -180.0
 
+# [HEAD] Head et al. 2024, A&A 688 A205, Juno-UVS PJ1-54 reference ovals.
+# CC BY 4.0, Linus Head; resampling and sources: geomag/SOURCES.md.
+[aurora]
+jovian_oval = "geomag/jupiter_oval.txt"
+
 # Faint dusty rings, single scattering (see shaders/ring.frag.hlsl). Radii, normal
 # optical depths and thicknesses [PDSR]. The real rings are about a millionth as
 # bright as Jupiter's disk, so `gain` is artistic; their relative brightness, the

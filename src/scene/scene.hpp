@@ -3,6 +3,7 @@
 #include "core/time.hpp"
 #include "ephem/motion.hpp"
 #include "scene/aurora.hpp"
+#include "scene/jovian_aurora.hpp"
 #include "scene/corona.hpp"
 #include "scene/nebula.hpp"
 #include "scene/refraction.hpp"
@@ -372,6 +373,7 @@ struct Body {
     } night_lights;
     // Earth's aurora (scene/aurora.hpp), driven by this Kp record; null: none.
     std::shared_ptr<const KpRecord> aurora;
+    std::shared_ptr<const JovianAurora> jovian_aurora;
     std::vector<Plume> plumes;
 
     // Comets: a gas coma (C2, Haser model), an ion tail and dust (a coma and a
@@ -555,6 +557,7 @@ struct SceneEvent {
     // Nebulae in the false-color thermal infrared while the event is active
     // (only those with infrared layers show); otherwise in visible light.
     bool nebula_infrared = false;
+    bool aurora_ultraviolet = false; // UV false-color overlay on the visible planet
     int flyby = -1;             // >= 0: the body whose pass of the focus the event shows (-1: looked for)
     std::string caption;        // a museum-style note on why the view is worth seeing; may be empty
 

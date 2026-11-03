@@ -92,7 +92,7 @@ file = "ephem/moon_geo.eph"
 - [earth.toml](earth.toml)：地球的半径、自身 GM、自转、表面、大气、夜光和极光。物理参数、散射模型和显示取值的来源在文件头。
 - [moon.toml](moon.toml)：月球的半径、自身 GM、简化 IAU 自转和贴图。地月与空间望远镜场景通过 `unset` 省略长期极轴漂移。
 - [sun.toml](sun.toml)：太阳的半径、自身 GM、温度和光度。各场景的自转和显示颜色单独定义。
-- 行星：[mercury.toml](mercury.toml)、[venus.toml](venus.toml)（含大气）、[mars.toml](mars.toml)（含大气和 J2–J4）、[jupiter.toml](jupiter.toml)（含 J2、J4 和环）、[saturn.toml](saturn.toml)（含 J2、J4、环和卫星周期项的角度）。
+- 行星：[mercury.toml](mercury.toml)、[venus.toml](venus.toml)（含大气）、[mars.toml](mars.toml)（含大气和 J2–J4）、[jupiter.toml](jupiter.toml)（含 J2、J4、环和紫外统计极光卵）、[saturn.toml](saturn.toml)（含 J2、J4、环和卫星周期项的角度）。
 - 火卫：[phobos.toml](phobos.toml)、[deimos.toml](deimos.toml)（形状模型）。
 - 伽利略卫星：[io.toml](io.toml)（含羽流）、[europa.toml](europa.toml)、[ganymede.toml](ganymede.toml)、[callisto.toml](callisto.toml)。
 - 土星的大卫星：[mimas.toml](mimas.toml)、[enceladus.toml](enceladus.toml)（含羽流）、[tethys.toml](tethys.toml)、[dione.toml](dione.toml)、[rhea.toml](rhea.toml)、[titan.toml](titan.toml)（含大气）、[iapetus.toml](iapetus.toml)。

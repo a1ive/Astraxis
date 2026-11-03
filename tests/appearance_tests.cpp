@@ -781,6 +781,83 @@ void test_corona()
           "rejects negative corona gain");
 }
 
+void test_jovian_aurora()
+{
+    Scene scene = load_scene_or_die("jupiter.toml");
+    const Body& jupiter = scene.bodies[static_cast<size_t>(scene.find("Jupiter"))];
+    check(bool(jupiter.jovian_aurora) && !jupiter.aurora && !jupiter.atmosphere.enabled,
+          "Jupiter UV oval loads independently of Earth Kp and scattering atmosphere");
+    if (!jupiter.jovian_aurora) return;
+    const JovianAurora& oval = *jupiter.jovian_aurora;
+    // Original Zenodo 12067692 CSV rows 0, 2500, 5000, 7500 (zero based,
+    // excluding the header). System III WEST longitude, planetocentric latitude.
+    const glm::dvec2 original[2][4] = {
+        {{143.4605214673, 70.0201788883}, {182.7042086665, 57.6216824431},
+         {220.9960067981, 68.7569755327}, {231.2970437547, 88.2575270876}},
+        {{70.7399992225, -69.7600020669}, {146.1569465194, -82.6114458176},
+         {301.3481340070, -77.2112209631}, {12.3009156519, -70.2662567914}}
+    };
+    for (int h = 0; h < 2; ++h) {
+        const glm::dmat3 frame = JovianAurora::frame(h != 0);
+        for (const auto& point : original[h]) {
+            const double lon = -point.x * kDegToRad;
+            const double lat = point.y * kDegToRad;
+            const glm::dvec3 p{std::cos(lat) * std::cos(lon), std::cos(lat) * std::sin(lon), std::sin(lat)};
+            const glm::dvec3 local = glm::transpose(frame) * p;
+            const double angle = std::atan2(local.y, local.x);
+            const double radius = oval.radius(h != 0, angle);
+            const double error_km = std::abs(radius - std::acos(std::clamp(local.z, -1.0, 1.0))) * 71492.0;
+            check(error_km < 100.0, "UV oval matches independent published lon/lat samples (km)", error_km);
+            check(std::abs(radius - oval.radius(h != 0, angle + kTwoPi)) < 1e-12,
+                  "UV oval wraps across the angular seam");
+        }
+        check(std::abs(oval.radius(h != 0, -1e-9) - oval.radius(h != 0, 1e-9)) < 1e-7,
+              "UV oval is continuous through zero azimuth");
+    }
+    Scene solar = load_scene_or_die("solar_system.toml");
+    const auto& other = solar.bodies[static_cast<size_t>(solar.find("Jupiter"))].jovian_aurora;
+    check(other && other->radii == oval.radii, "Jupiter reference ovals agree across scene templates");
+
+    Simulation sim;
+    std::string error;
+    check(sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/jupiter.toml", &error), "UV event simulation loads");
+    sim.stop_tour();
+    int uv_events = 0;
+    for (size_t i = 0; i < sim.scene().events.size(); ++i) {
+        const SceneEvent& event = sim.scene().events[i];
+        if (!event.aurora_ultraviolet) continue;
+        ++uv_events;
+        sim.jump_to_event(i);
+        sim.update(0.0);
+        sim.camera().update(3.0, sim.scene());
+        OutputView view;
+        sim.compute_view(1280, 720, 1.0, view);
+        const Body& body = sim.scene().bodies[static_cast<size_t>(event.focus)];
+        const double latitude = std::asin(glm::dot(glm::normalize(view.camera.position - body.world_position),
+                                                   glm::normalize(body.orientation[2]))) / kDegToRad;
+        check(std::abs(latitude - event.elevation_deg) < 0.01, "UV event looks at the intended pole", latitude);
+        check(sim.last_event() == static_cast<int>(i), "UV event activates its overlay");
+    }
+    check(uv_events == 2, "both hemispheres have UV close-up events");
+    sim.set_frame(0);
+    check(sim.scene().active_event() == -1, "leaving the UV event clears its automatic display selection");
+    sim.clock().paused = false;
+    sim.clock().warp = 1e6;
+    const double time = sim.aurora_time();
+    sim.update(0.1);
+    check(std::abs(sim.aurora_time() - time - 3.0) < 1e-9, "Jupiter illustrative animation caps at 30x");
+    sim.clock().paused = true;
+    const double paused = sim.aurora_time();
+    sim.update(0.1);
+    check(sim.aurora_time() == paused, "paused UV animation stays still");
+
+    Scene bad;
+    check(!load_scene_string("name='x'\n[[bodies]]\nname='Jupiter'\nradii_km=[71492,66854]\n"
+                            "[bodies.aurora]\nkp='geomag/kp.bin'\njovian_oval='geomag/jupiter_oval.txt'\n",
+                            "mixed_aurora", bad, &error, ASTRAXIS_ASSET_DIR),
+          "rejects mixed terrestrial and Jovian aurora models");
+}
+
 } // namespace
 
 void run_appearance_tests()
@@ -790,6 +867,7 @@ void run_appearance_tests()
     test_atmospheres();
     test_plumes();
     test_night_and_aurora();
+    test_jovian_aurora();
     test_refraction();
     test_corona();
 }

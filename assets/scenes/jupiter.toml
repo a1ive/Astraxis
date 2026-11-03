@@ -79,6 +79,12 @@
 
 name = "Jupiter"
 
+[[frames]]
+name = "Jupiter equator"
+type = "inertial"
+origin = "Jupiter"
+up = "Jupiter"
+
 # Background sky, optional. Without [sky]: the catalog stars (assets/stars/hyg.csv)
 # and the Milky Way map as seen from Earth, i.e. these defaults:
 #   [sky]
@@ -575,3 +581,38 @@ caption = """\
     About 1,500 km above Io, the closest in over twenty years. Juno caught Loki \
     Patera, a lava lake 200 km long dotted with islands, with a surface so smooth \
     that it reflected the Sun like glass."""
+
+# [HEAD] Head et al. 2024, A&A 688 A205, Juno-UVS PJ1-54 statistical
+# reference ovals (geomag/SOURCES.md). Dates set the lighting and rotation;
+# these views illustrate the average morphology across the observing period.
+[[events]]
+name = "Jupiter's northern aurora (UV overlay)"
+time_tdb = "2023-01-22 12:00"
+focus = "Jupiter"
+frame = "Jupiter equator"
+from_body = "Sun"
+elevation_deg = 65.0
+distance_km = 230000.0
+warp = 120.0
+aurora_ultraviolet = true
+caption = """\
+    Jupiter's northern aurora, shown in ultraviolet false color over the \
+    visible-light clouds. The irregular oval follows the average measured \
+    by Juno-UVS over its first 54 close passes. Its small brightness changes \
+    are illustrative; this is not a reconstruction of this date."""
+
+[[events]]
+name = "Jupiter's southern aurora (UV overlay)"
+time_tdb = "2023-01-22 17:00"
+focus = "Jupiter"
+frame = "Jupiter equator"
+from_body = "Sun"
+elevation_deg = -65.0
+distance_km = 230000.0
+warp = 120.0
+aurora_ultraviolet = true
+caption = """\
+    The southern ultraviolet oval has its own shape and position. Both \
+    outlines come from Juno-UVS observations, including the night side. \
+    Blue represents ultraviolet emission over visible-light clouds; \
+    the brightness and slow changes are illustrative."""

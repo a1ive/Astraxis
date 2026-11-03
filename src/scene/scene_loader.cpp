@@ -459,7 +459,7 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
         {"refractivity", number}, {"refraction_gain", number},
     };
     static const TemplateFields night_lights = {{"texture", text}, {"color", text}, {"gain", number}};
-    static const TemplateFields aurora = {{"kp", text}};
+    static const TemplateFields aurora = {{"kp", text}, {"jovian_oval", text}};
     static const TemplateFields rotor = {{"shape", text}, {"period_s", number}};
     static const TemplateFields ring_band = {
         {"name", text}, {"inner_km", number}, {"outer_km", number}, {"optical_depth", number},
@@ -1439,12 +1439,17 @@ void Loader::parse(const toml::table& root, Scene& out)
             if (body.kind != BodyKind::Planet || body.shape) {
                 fail(ctx, "only ellipsoidal planets can have an aurora");
             }
-            auto kp = std::make_shared<KpRecord>();
             std::string error;
-            if (!kp->load(m_asset_root / get_string(*aurora, "kp", actx), &error)) {
-                fail(actx, error);
+            if (aurora->contains("jovian_oval")) {
+                if (aurora->contains("kp")) fail(actx, "jovian_oval and kp are mutually exclusive");
+                auto oval = std::make_shared<JovianAurora>();
+                if (!oval->load(m_asset_root / get_string(*aurora, "jovian_oval", actx), &error)) fail(actx, error);
+                body.jovian_aurora = oval;
+            } else {
+                auto kp = std::make_shared<KpRecord>();
+                if (!kp->load(m_asset_root / get_string(*aurora, "kp", actx), &error)) fail(actx, error);
+                body.aurora = kp;
             }
-            body.aurora = kp;
         }
         if (const toml::array* plumes = (*t)["plumes"].as_array()) {
             if (body.kind != BodyKind::Planet || body.shape) {
@@ -1758,6 +1763,7 @@ void Loader::parse(const toml::table& root, Scene& out)
             e.disk_shifts = (*t)["disk_shifts"].value<bool>().value_or(true);
             e.dust_visible = (*t)["dust_visible"].value<bool>().value_or(false);
             e.nebula_infrared = (*t)["nebula_infrared"].value<bool>().value_or(false);
+            e.aurora_ultraviolet = (*t)["aurora_ultraviolet"].value<bool>().value_or(false);
             e.caption = get_string_or(*t, "caption", "");
             if (const toml::node* trails = t->get("trails")) {
                 const toml::array* list = trails->as_array();

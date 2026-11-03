@@ -38,8 +38,11 @@ cbuffer Uniforms : register(b0, space3)
     float4 u_red;       // rgb = 1 kR of the red line; w = radians per pixel
     float4 u_blue;      // x = 427.8 nm of a column through the oval (kR)
     float4 u_layers;    // low peak (km), low scale height, high peak, high scale height
-    float4 u_misc;      // x = diffuse aurora's flux relative to the oval's
+    float4 u_misc;      // diffuse flux, UV mode, polar/equatorial radius, UV width (km)
     float4 u_oval[kOvalSamples]; // colatitudes (rad): x = diffuse, y = equatorward, z = poleward
+    float4 u_south_center;
+    float4 u_south_east;
+    float4 u_jovian_oval[256]; // x/y: north/south planetocentric angular radius
 };
 
 struct PSInput
@@ -73,10 +76,46 @@ float chapman(float h, float peak, float scale)
     return exp(-z - exp(-z)) / scale;
 }
 
+// Head 2024 reference contours in System III. The two hemispheres have
+// separate centers and shapes. The latitude is planetocentric, so undo
+// the unit-sphere frame's polar stretching before locating the contour.
+float jovian_pattern(float3 n, float footprint_km)
+{
+    n = normalize(n * float3(1.0, 1.0, u_misc.z));
+    if (abs(n.z) < 0.65) return 0.0;
+    bool south = n.z < 0.0;
+    float3 center = south ? u_south_center.xyz : u_pole.xyz;
+    float3 east = south ? u_south_east.xyz : u_noon.xyz;
+    float3 north = cross(center, east);
+    float2 q = float2(dot(n, east), dot(n, north));
+    float rho = atan2(length(q), dot(n, center));
+    float angle = atan2(q.y, q.x);
+    float x = frac(angle / (2.0 * kPi) + 1.0) * 256.0;
+    int i = (int)floor(x);
+    float2 a = u_jovian_oval[i].xy;
+    float2 b = u_jovian_oval[(i + 1) % 256].xy;
+    float radius = south ? lerp(a.y, b.y, frac(x)) : lerp(a.x, b.x, frac(x));
+    float slope = (south ? b.y - a.y : b.x - a.x) * (256.0 / (2.0 * kPi));
+    float distance = (rho - radius) * u_pole.w /
+        sqrt(1.0 + pow(slope / max(sin(radius), 0.01), 2.0));
+    // Gaussian pixel filtering keeps a subpixel oval's integrated brightness.
+    float sigma = sqrt(u_misc.w * u_misc.w + footprint_km * footprint_km / 12.0);
+    float band = exp(-0.5 * pow(distance / sigma, 2.0)) * u_misc.w / sigma;
+    if (band < 0.0001) return 0.0;
+    // Smooth illustrative modulation. Mean dusk/dawn contrast is 2 (Head
+    // 2024); the texture detail is not a reconstruction of an observation.
+    float2 dusk = float2(-u_sun.y, u_sun.x);
+    float local = dot(n.xy, dusk) / max(length(n.xy) * length(dusk), 0.001);
+    float2 p = q * u_pole.w;
+    float detail = 0.7 + 0.6 * noise(p + float2(u_low.w * 0.8, 0.0), 1500.0).r;
+    return band * (1.0 + local / 3.0) * detail;
+}
+
 // Brightness of the aurora at unit direction n (relative to the oval's mean
 // flux), seen with a pixel footprint of footprint_km.
 float aurora_pattern(float3 n, float footprint_km)
 {
+    if (u_misc.y > 0.5) return jovian_pattern(n, footprint_km);
     float3 pole = u_pole.xyz;
     float m = dot(n, pole);
     float colat = acos(min(abs(m), 1.0));
@@ -135,7 +174,8 @@ float4 main(PSInput input) : SV_Target0
     float top = u_sun.w;
     float bottom = u_noon.w;
     float b = dot(o, dir);
-    float p2 = dot(o, o) - b * b;
+    float3 perpendicular = cross(o, dir);
+    float p2 = dot(perpendicular, perpendicular);
     if (p2 >= top * top) {
         return float4(0.0, 0.0, 0.0, 1.0);
     }
@@ -163,6 +203,8 @@ float4 main(PSInput input) : SV_Target0
     }
 
     float km = u_pole.w;
+    float ray_km = km;
+    if (u_misc.y > 0.5) ray_km *= length(dir * float3(1.0, 1.0, u_misc.z));
     float ds = length_total / kSteps;
     float jitter = gradient_noise(input.position.xy);
     float3 sum = 0.0;
@@ -173,7 +215,7 @@ float4 main(PSInput input) : SV_Target0
         float r = length(p);
         float3 n = p / r;
         // Fades in from sunset at the point below to the sun 12 deg below the horizon.
-        float night = 1.0 - smoothstep(-0.2079, 0.0, dot(n, u_sun.xyz));
+        float night = u_misc.y > 0.5 ? 1.0 : 1.0 - smoothstep(-0.2079, 0.0, dot(n, u_sun.xyz));
         if (night <= 0.0) {
             continue;
         }
@@ -183,10 +225,11 @@ float4 main(PSInput input) : SV_Target0
             continue;
         }
         float h = (r - 1.0) * km;
+        if (u_misc.y > 0.5) h *= length(n * float3(1.0, 1.0, u_misc.z));
         float blue = u_blue.x * pattern;
         float3 emission = u_low.rgb * (pattern * chapman(h, u_layers.x, u_layers.y)) +
                           u_red.rgb * (blue * red_over_blue(blue) * chapman(h, u_layers.z, u_layers.w));
-        sum += emission * (night * ds * km);
+        sum += emission * (night * ds * ray_km);
     }
     return float4(sum, 1.0);
 }

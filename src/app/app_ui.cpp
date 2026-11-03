@@ -334,6 +334,12 @@ void App::build_control_panel()
         ImGui::SameLine();
         ImGui::Checkbox("Belts", &m_view_options.belts);
     }
+    if (std::any_of(scene.bodies.begin(), scene.bodies.end(),
+                    [](const Body& b) { return bool(b.jovian_aurora); })) {
+        ImGui::Combo("Jupiter aurora", &m_view_options.aurora_view,
+                     "Event setting\0Visible light\0UV aurora overlay\0");
+        ImGui::SetItemTooltip("Statistical UV ovals in false color, over the visible-light planet");
+    }
     // Second row, so the panel stays narrow.
     bool row_started = false;
     if (std::any_of(scene.bodies.begin(), scene.bodies.end(),

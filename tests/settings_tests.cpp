@@ -51,6 +51,7 @@ void test_settings()
     window.view.post.exposure = 1.25f;
     window.view.post.bloom_strength = 0.04f;
     window.view.orbits = false;
+    window.view.aurora_view = 2;
     window.display = 2;
     window.display_name = "Test Monitor";
     check(save_settings(path, SettingsSection::Window, window), "config saves");
@@ -58,6 +59,13 @@ void test_settings()
     Settings wallpaper_again;
     load_settings(path, SettingsSection::Window, again);
     load_settings(path, SettingsSection::Wallpaper, wallpaper_again);
+    check(again.view.aurora_view == 2, "UV overlay selection survives saving");
+    wallpaper_again.view.aurora_view = 1;
+    check(save_settings(path, SettingsSection::Wallpaper, wallpaper_again, nullptr, ViewScope::Overrides),
+          "mode-specific UV selection saves");
+    Settings uv_override;
+    load_settings(path, SettingsSection::Wallpaper, uv_override);
+    check(uv_override.view.aurora_view == 1, "mode-specific UV selection remains an integer");
     check(again.view.post.exposure == 1.25f && !again.view.orbits && again.display == 2 &&
               again.display_name == "Test Monitor" && again.scene == "jupiter" && again.fullscreen,
           "saved [window] settings read back");

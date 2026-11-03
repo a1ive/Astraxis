@@ -9,6 +9,7 @@ struct ViewOptions {
     bool orbits = true;
     bool belts = true;
     bool atmospheres = true; // otherwise the surface under Venus' and Titan's clouds; also Earth's aurora
+    int aurora_view = 0; // 0: event setting, 1: visible light, 2: UV aurora overlay
     bool plumes = true;
     bool comets = true;      // comae, ion and dust tails
     float star_brightness = 1.0f;

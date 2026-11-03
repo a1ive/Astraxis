@@ -43,6 +43,7 @@ void visit_view_keys(S& s, F&& f)
     f("captions", s.captions);
     f("belts", s.view.belts);
     f("atmospheres", s.view.atmospheres);
+    f("aurora_view", s.view.aurora_view, 0, 2);
     f("plumes", s.view.plumes);
     f("comets", s.view.comets);
     // Ranges as on the control panel's sliders.
@@ -149,6 +150,12 @@ struct Writer {
 struct OverrideWriter {
     toml::table& table;
     const toml::table& shared;
+
+    void operator()(const char* key, int value, int lo, int hi) const
+    {
+        if (shared[key].value<int64_t>() == value) table.erase(key);
+        else Writer{table}(key, value, lo, hi);
+    }
 
     void operator()(const char* key, bool value) const
     {

@@ -79,6 +79,7 @@ CMake 目标：
 - 膨胀星云（场景的 `[[nebulae]]`，最多 4 个，`scene/nebula.hpp`，η Car 的 Homunculus 和 Little Homunculus）：一次喷发抛出、此后匀速飞离的壳，形状按 (t − t_ejection) / (t_reference − t_ejection) 等比放大（均匀膨胀）。壳是观测做的三维网格（`shape`，模型自己的单位；`model_center` 是中心星在模型里的位置，`unit_au` 是 `reference_time` 时一个单位的长度，`polar_scale` 再沿模型的 z 轴缩放），朝向由 `axis_pa_deg`、`axis_tilt_deg`、`roll_deg` 定（`nebula_model_to_icrf`）。加载时按面积在三角形上撒固定的面片（R2 序列，法线取网格的平滑法线），所有星云的面片放在一个缓冲区里，`NebulaPass` 每个星云（红外视图里每一层）一次绘制，在 GPU 上缩放，按风车星云的办法画成 EWA 光斑。`light = "scattered"`（默认）：亮度 = 星光 1/d² × 柱密度 1/scale² × Henyey-Greenstein 相函数；`"emission"`：谱线发光，1/d²、各向同性。都按 `display_gamma` 压缩，年轻的小星云最多亮 2 倍（`nebula_exposure`）。`[[nebulae.infrared]]` 是热红外的尘埃层（大小份额、壁厚、相对柱密度、平均距离处的温度，温度按 d^−`temperature_index` 变），事件 `nebula_infrared` 时逐层画成伪彩色：光 = 柱密度（1/scale²）× 黑体在 8–25 μm 的光（T⁴ × 份额，`nebula_infrared_emission`），颜色查一张按 ln T 的表（温度乘 26.7 的黑体色）。风车星云和它共用 `SplatPass`（点缓冲区、半分辨率单采样的离屏目标 `SplatTargets`、合成；一次 render 可以有多次绘制，各自推 uniform，面片的起点由 uniform 给，不用 first_vertex），新的光斑类效果也用它
 - 地球的夜间灯光和极光：天体的 `[bodies.night_lights]`（灰度灯光图，和 `texture` 同一投影，在天体着色器里按地面的太阳高度角亮起）和 `[bodies.aurora]`（Kp 记录，`scene/aurora.hpp`）。`Simulation::aurora_kp()` 按倍速取 Kp 的滑动平均（画面上 3 秒，最少 3 小时），`aurora_emission(kp)` 由 Starkov 卵、半球功率和谱线比值算出卵的边界（按磁地方时 48 个采样）和一个竖直柱的颜色；`AuroraPass` 在 80–450 km 的壳层里光线步进两层 Chapman 发光剖面，磁极取 IGRF 偶极，红线按局部 427.8 nm 亮度逐点算。卵里的弧和射线查一张平铺噪声纹理（投影到垂直于偶极轴的平面，没有接缝）。灯光和极光都按“长曝光”放大（`kAuroraExposure`、场景里的 `gain`），白天淡出
 - `SceneRenderer` 持有 pass 和每个场景的 GPU 资源，显示选项通过 `ViewOptions` 传入
+- 木星紫外主卵：模板 `[aurora].jovian_oval` 读取 Head 2024 的南北统计轮廓（`JovianAurora`，每极 256 点），`AuroraPass` 在木星本体坐标中画成发光壳。`ViewOptions::aurora_view` / 设置键 `aurora_view`：0 跟随事件、1 可见光、2 紫外极光叠加；事件用 `aurora_ultraviolet = true` 开启。叠加保留可见光云层，蓝色和明暗细节是示意，白天也画。木星不需要配置大气散射；加载与地球的 `kp` 互斥。烘焙命令及许可见 `assets/geomag/SOURCES.md`。
 - GPU 分两层：`GpuDevice` 只有一个；`RenderOutput` 每个窗口一个，持有交换链和本输出的 `SceneTargets`。`Frame` 的 `width/height` 是场景尺寸，`output_width/output_height` 是交换链尺寸，两者在有渲染缩放（`render_scale`，各模式都有）时不同。MSAA 采样数（`msaa` 设置：1/2/4，`GpuDevice::set_msaa` 按硬件支持往下取）存在 `GpuDevice` 的 `SceneTargetFormat` 里，各 pass 的管线和 `SceneTargets` 都依赖它：运行时切换要调 `SceneRenderer::refresh_pipelines()` 重建管线，`SceneTargets::ensure` 发现采样数变了会自己重建。新 pass 要实现 `set_format`，并加进 `refresh_pipelines`。所有和输出尺寸相关的纹理（MSAA/HDR/深度、泛光链、黑洞追踪目标）都放在 `SceneTargets` 里，pass 内部不要再缓存按尺寸分配的纹理，否则多个不同尺寸的输出轮流渲染时会反复重建。各输出都用 SDR 交换链，格式相同，共用一个 `SceneRenderer`
 
 宿主（`App`、屏保、壁纸）只负责窗口、输入、UI 和闲置策略，不要把仿真或渲染逻辑放回 `src/app/`。宿主每帧只 `sim.update` 一次，再对每个输出调用 `SceneRenderer::render`；与相机无关的工作（例如尘埃彗尾的传播）不要每个输出重做一遍。
@@ -222,6 +223,8 @@ CMake 目标：
 
 ### 数据源
 
+- **木星统计极光卵**：Head 2024 的 CSV 经度是 System III 西经，纬度是行星中心纬度。着色器里的椭球单位坐标要先乘回极半径/赤道半径之比再归一化，否则极区轮廓会偏。主卵的 400 km 投影高度也不同于卫星足点常用的 900 km。
+
 - **Horizons**：
   - 航天器轨道不全是重建值：看说明里的轨道段名，`*_PREDICT` 是预报
   - 用 curl 查向量要加 `REF_PLANE='FRAME'`，默认是黄道坐标
@@ -322,7 +325,7 @@ CMake 目标：
 1. Dear ImGui 等 1.93.x 补丁版出来再从 v1.92.9b 升级（1.93.0 重写了 ImDrawList，刚发布）。SDL3/SDLGPU3 后端和用到的 API 都兼容，要截图核对的是：`label_overlay.cpp` 的空心圆点（`AddCircle` 半径不再减 0.5、默认内侧描边）和标记菱形（`AddQuad`）、`captions.cpp`/`app_ui.cpp` 里非整数坐标的 `AddRectFilled`（现在有抗锯齿边缘）、`StyleColorsDark()` 改过的面板配色
 2. Kerbol 场景：高度图和法线（晨昏线上的立体感，也可用于月球、火星的 USGS DEM）与海面高光（Kerbin、Eve、Laythe、地球）；还可以用 `kerbol_transfer.py` 的办法加别的示意航线（Minmus、Duna 的转移窗口等，标明是设计的）
 3. 黑洞附近的天体做透镜：Gargantua 的示例行星和 Mann 星现在按真实位置画，转到黑洞背后时被挡住（真实情况下光会弯到阴影上方）。可以对每个天体解相机到天体的类光测地线，把球和标记画在主像（和次像）的位置
-4. 木星极光：主要发紫外光（H₂ 的 Lyman 和 Werner 带），可见光里几乎看不到，要像 WR 104 的红外伪彩色那样做成“紫外视图”的开关并在展签里写明。主卵之外，Io、Europa、Ganymede 的磁通管足点跟着卫星走，是好看的物理联系；足点和卵的位置要用 Juno 的磁场模型（JRM33）沿磁力线追踪，不能用偶极。可以复用地球极光的壳层 pass（`AuroraPass`），但卵的形状和活动要另找数据（哈勃和 Juno UVS 的统计卵）。别的天体的极光（土星、火星、Ganymede 自己的卵）做不做还没定
+4. 木星极光的卫星足点：南北统计主卵与紫外伪彩色叠加已实现（Head 2024 / Juno-UVS PJ1–54，`geomag/jupiter_oval.txt`）。下一步用 JRM33 内部磁场 + CON2020 电流片离线追踪 Io、Europa、Ganymede 的磁通管，结合 Hue 2023 的经验领先角定位主足点；先验证 Io，再扩展另外两颗。主卵目前固定，明暗变化是示意；多重亮斑、尾迹、极区发射与黎明风暴暂缓。别的天体的极光（土星、火星、Ganymede 自己的卵）做不做还没定
 5. 空间望远镜星历更新：Roman、TESS、Euclid、JWST 的表大半是预报，Chandra 的预报到 2027-03-30，过几个月重新烘焙
 6. DART 场景加 ESA 的 Hera（−91）：2026 年 10 月底到达 Didymos，Horizons 现在只有到 10-17 的跟踪数据和到 11-04 的预报（离 Didymos 约 30 km）。等 ESA 发布近距离阶段的重建轨道再烘焙，同时加两颗立方星 Milani、Juventas，以及 Hera 测出的撞击后 Dimorphos 的形状和撞击坑（Naidu 2024 推断长轴比约 1.3；形状模型发布后替换或在撞击时刻切换）。届时 Didymos 和 Dimorphos 的表要延长到 2027 年：解 547 的 SPK 覆盖到 2024 年底，2026 年起要用 ESA 的新解（Horizons 的 2026-07 以后已经换成 ESA 的文件）；DART 撞击也改变了系统的日心轨道（量级很小），新解里应该有
 7. 远期：macOS（Metal，需要 SPIR-V → MSL 和 macOS CI）；J1141-6545 的自转轴进动（Venkatraman Krishnan 2019 表 1：α ≈ 89°，δ 各模型从 35° 到 155° 不等，倾向的模型 3 是 91° ± 60°；Manchester 2010 约 110°），等几何解定下来再做

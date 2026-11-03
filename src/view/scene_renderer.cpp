@@ -788,6 +788,9 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
     m_ring_items.clear();
     m_atmosphere_items.clear();
     m_aurora_items.clear();
+    const int event = scene.active_event();
+    const bool ultraviolet = options.aurora_view == 2 || (options.aurora_view == 0 && event >= 0 &&
+        scene.events[static_cast<size_t>(event)].aurora_ultraviolet);
     m_atmosphere_optics.resize(scene.bodies.size());
     m_plume_items.clear();
     const glm::dvec3& cam = view.position;
@@ -947,6 +950,12 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
             if (body.aurora) {
                 m_aurora_items.push_back(aurora_item(sim, output_view, body, linear, to_unit, item.sun_direction));
             }
+        }
+        if (body.jovian_aurora && ultraviolet) {
+            const glm::dmat3 linear = body.orientation * glm::dmat3(
+                glm::dvec3(body.equatorial_radius_km, 0, 0),
+                glm::dvec3(0, body.equatorial_radius_b_km, 0), glm::dvec3(0, 0, body.polar_radius_km));
+            m_aurora_items.push_back(aurora_item(sim, output_view, body, linear, glm::inverse(linear), item.sun_direction));
         }
         if (i < m_night_textures.size() && m_night_textures[i] && item.texture) {
             item.night_lights = m_night_textures[i];
@@ -1570,7 +1579,6 @@ AuroraDrawItem SceneRenderer::aurora_item(const Simulation& sim, const OutputVie
                                           const glm::vec3& sun_direction) const
 {
     const CameraView& view = output_view.camera;
-    const AuroraEmission emission = aurora_emission(sim.aurora_kp());
     const double radius_km = body.equatorial_radius_km;
     AuroraDrawItem a;
     a.model = glm::translate(glm::mat4(1.0f), to_render(body.world_position, view.position)) *
@@ -1578,6 +1586,31 @@ AuroraDrawItem SceneRenderer::aurora_item(const Simulation& sim, const OutputVie
     a.to_unit = glm::mat3(to_unit);
     a.camera_unit = glm::vec3(to_unit * (view.position - body.world_position));
     a.km_per_unit = static_cast<float>(radius_km);
+    if (body.jovian_aurora) {
+        static_assert(JovianAurora::kSamples == kJovianOvalSamples);
+        a.ultraviolet = true;
+        a.polar_ratio = static_cast<float>(body.polar_radius_km / radius_km);
+        a.bottom = static_cast<float>(1.0 + 150.0 / radius_km);
+        a.top = static_cast<float>(1.0 + 1000.0 / body.polar_radius_km);
+        const glm::dmat3 north = JovianAurora::frame(false);
+        const glm::dmat3 south = JovianAurora::frame(true);
+        a.pole = glm::vec3(north[2]);
+        a.noon = glm::vec3(north[0]);
+        a.south_center = glm::vec3(south[2]);
+        a.south_east = glm::vec3(south[0]);
+        a.sun = glm::vec3(glm::normalize(glm::transpose(body.orientation) * glm::dvec3(sun_direction)));
+        // False color and display gain. The column brightness is illustrative.
+        a.low_rgb = glm::vec3(srgb_to_linear(glm::dvec3(0.3, 0.55, 1.0)) * 2.0);
+        // Head 2024 uses a 400 km projection altitude. Scale height is assumed.
+        a.layers = glm::vec4(400.0f, 80.0f, 400.0f, 80.0f);
+        a.time = static_cast<float>(sim.aurora_time());
+        a.pixel_angle = 2.0f / (view.viewport.y * view.focal_y);
+        for (size_t k = 0; k < a.jovian_oval.size(); ++k) {
+            a.jovian_oval[k] = glm::vec4(glm::vec2(body.jovian_aurora->radii[k]), 0.0f, 0.0f);
+        }
+        return a;
+    }
+    const AuroraEmission emission = aurora_emission(sim.aurora_kp());
     a.bottom = static_cast<float>(1.0 + kAuroraBottomKm / radius_km);
     a.top = static_cast<float>(1.0 + kAuroraTopKm / radius_km);
 
