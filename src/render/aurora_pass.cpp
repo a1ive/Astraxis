@@ -46,6 +46,7 @@ struct FragmentUniforms {
     glm::vec4 south_center;
     glm::vec4 south_east;
     glm::vec4 jovian_oval[kJovianOvalSamples];
+    glm::vec4 footprints[6];
 };
 
 // Four independent tiling value noises, one per channel: random values on a
@@ -279,7 +280,8 @@ void AuroraPass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const 
         fu.red = glm::vec4(item.red_per_kr, item.pixel_angle);
         fu.blue = glm::vec4(item.blue_kr, 0.0f, 0.0f, 0.0f);
         fu.layers = item.layers;
-        fu.misc = glm::vec4(item.diffuse_flux, item.ultraviolet ? 1.0f : 0.0f, item.polar_ratio, item.width_km);
+        fu.misc = glm::vec4(item.diffuse_flux, item.footprints_only ? 2.0f : (item.ultraviolet ? 1.0f : 0.0f),
+                           item.polar_ratio, item.width_km);
         for (int k = 0; k < kAuroraOvalSamples; ++k) {
             fu.oval[k] = item.oval[static_cast<size_t>(k)];
         }
@@ -288,6 +290,7 @@ void AuroraPass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const 
         for (int k = 0; k < kJovianOvalSamples; ++k) {
             fu.jovian_oval[k] = item.jovian_oval[static_cast<size_t>(k)];
         }
+        for (size_t k = 0; k < item.footprints.size(); ++k) fu.footprints[k] = item.footprints[k];
         SDL_PushGPUFragmentUniformData(cmd, 0, &fu, sizeof(fu));
         SDL_GPUTextureSamplerBinding noise = {.texture = m_noise, .sampler = m_sampler};
         SDL_BindGPUFragmentSamplers(pass, 0, &noise, 1);

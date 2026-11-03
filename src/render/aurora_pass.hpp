@@ -46,6 +46,8 @@ struct AuroraDrawItem {
     // the diffuse aurora, the oval's equatorward and poleward edges.
     std::array<glm::vec4, kAuroraOvalSamples> oval{};
     bool ultraviolet = false;
+    bool footprints_only = false;
+    std::array<glm::vec4, 6> footprints{}; // physical unit direction, display gain
     float polar_ratio = 1.0f;
     float width_km = 200.0f; // illustrative Gaussian sigma across the UV contour
     // In UV mode pole/noon are the northern center/east basis. These are the south's.

@@ -374,6 +374,8 @@ struct Body {
     // Earth's aurora (scene/aurora.hpp), driven by this Kp record; null: none.
     std::shared_ptr<const KpRecord> aurora;
     std::shared_ptr<const JovianAurora> jovian_aurora;
+    // Io N/S, Europa N/S, Ganymede N/S; zero means absent/outside the table.
+    std::array<glm::dvec3, 6> jovian_footprints{};
     std::vector<Plume> plumes;
 
     // Comets: a gas coma (C2, Haser model), an ion tail and dust (a coma and a

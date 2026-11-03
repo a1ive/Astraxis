@@ -43,6 +43,7 @@ cbuffer Uniforms : register(b0, space3)
     float4 u_south_center;
     float4 u_south_east;
     float4 u_jovian_oval[256]; // x/y: north/south planetocentric angular radius
+    float4 u_footprints[6]; // physical unit direction, illustrative display gain
 };
 
 struct PSInput
@@ -83,6 +84,19 @@ float jovian_pattern(float3 n, float footprint_km)
 {
     n = normalize(n * float3(1.0, 1.0, u_misc.z));
     if (abs(n.z) < 0.65) return 0.0;
+    if (u_misc.y > 1.5) {
+        float variance = u_misc.w * u_misc.w + footprint_km * footprint_km / 12.0;
+        float spots = 0.0;
+        for (int k = 0; k < 6; ++k) {
+            float4 spot = u_footprints[k];
+            if (spot.w <= 0.0 || dot(n, spot.xyz) < 0.5) continue;
+            float3 d = cross(n, spot.xyz) * u_pole.w;
+            // Two-dimensional filtering preserves unresolved spot flux.
+            spots += spot.w * exp(-0.5 * dot(d, d) / variance) *
+                     (u_misc.w * u_misc.w / variance);
+        }
+        return spots;
+    }
     bool south = n.z < 0.0;
     float3 center = south ? u_south_center.xyz : u_pole.xyz;
     float3 east = south ? u_south_east.xyz : u_noon.xyz;

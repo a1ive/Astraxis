@@ -27,6 +27,7 @@ texture_left_lon_deg = -180.0
 # CC BY 4.0, Linus Head; resampling and sources: geomag/SOURCES.md.
 [aurora]
 jovian_oval = "geomag/jupiter_oval.txt"
+footprints = "geomag/jupiter_footprints.txt"
 
 # Faint dusty rings, single scattering (see shaders/ring.frag.hlsl). Radii, normal
 # optical depths and thicknesses [PDSR]. The real rings are about a millionth as

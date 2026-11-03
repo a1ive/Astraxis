@@ -956,6 +956,22 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
                 glm::dvec3(body.equatorial_radius_km, 0, 0),
                 glm::dvec3(0, body.equatorial_radius_b_km, 0), glm::dvec3(0, 0, body.polar_radius_km));
             m_aurora_items.push_back(aurora_item(sim, output_view, body, linear, glm::inverse(linear), item.sun_direction));
+            AuroraDrawItem spots = m_aurora_items.back();
+            spots.footprints_only = true;
+            spots.bottom = static_cast<float>(1.0 + 150.0 / body.equatorial_radius_km);
+            spots.top = static_cast<float>(1.0 + 3500.0 / body.polar_radius_km);
+            spots.layers = glm::vec4(900.0f, 366.0f, 900.0f, 366.0f);
+            // Illustrative spot size and relative brightness, not photometry.
+            spots.width_km = 250.0f;
+            constexpr float gains[3] = {6.0f, 2.0f, 4.0f};
+            bool any = false;
+            for (size_t k = 0; k < body.jovian_footprints.size(); ++k) {
+                const auto& p = body.jovian_footprints[k];
+                const bool active = glm::dot(p, p) > 0.5;
+                spots.footprints[k] = glm::vec4(glm::vec3(p), active ? gains[k / 2] : 0.0f);
+                any = any || active;
+            }
+            if (any) m_aurora_items.push_back(spots);
         }
         if (i < m_night_textures.size() && m_night_textures[i] && item.texture) {
             item.night_lights = m_night_textures[i];

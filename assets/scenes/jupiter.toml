@@ -585,6 +585,8 @@ caption = """\
 # [HEAD] Head et al. 2024, A&A 688 A205, Juno-UVS PJ1-54 statistical
 # reference ovals (geomag/SOURCES.md). Dates set the lighting and rotation;
 # these views illustrate the average morphology across the observing period.
+# Footprints: JRM33 + CON2020 with Hue et al. 2023 empirical lead angles;
+# sources, analytic approximation and display assumptions: geomag/SOURCES.md.
 [[events]]
 name = "Jupiter's northern aurora (UV overlay)"
 time_tdb = "2023-01-22 12:00"
@@ -598,8 +600,9 @@ aurora_ultraviolet = true
 caption = """\
     Jupiter's northern aurora, shown in ultraviolet false color over the \
     visible-light clouds. The irregular oval follows the average measured \
-    by Juno-UVS over its first 54 close passes. Its small brightness changes \
-    are illustrative; this is not a reconstruction of this date."""
+    by Juno-UVS over its first 54 close passes. Three moving spots mark the \
+    modeled footprints of Io, Europa and Ganymede. Their positions follow \
+    the moons and magnetic field; brightness and sizes are illustrative."""
 
 [[events]]
 name = "Jupiter's southern aurora (UV overlay)"
@@ -614,5 +617,6 @@ aurora_ultraviolet = true
 caption = """\
     The southern ultraviolet oval has its own shape and position. Both \
     outlines come from Juno-UVS observations, including the night side. \
-    Blue represents ultraviolet emission over visible-light clouds; \
-    the brightness and slow changes are illustrative."""
+    Io, Europa and Ganymede also leave moving spots here, with a different \
+    magnetic mapping from the north. Blue represents ultraviolet emission; \
+    this view models the geometry, not the aurora observed on this date."""

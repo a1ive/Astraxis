@@ -858,6 +858,117 @@ void test_jovian_aurora()
           "rejects mixed terrestrial and Jovian aurora models");
 }
 
+void test_jovian_footprints()
+{
+    Scene scene = load_scene_or_die("jupiter.toml");
+    const int index = scene.find("Jupiter");
+    const auto& model = *scene.bodies[static_cast<size_t>(index)].jovian_aurora;
+    // Independent scipy DOP853 integration with a terminal spheroid event;
+    // tools/geomag/jupiter_footprint_check.py. Input longitude 0 E, latitude
+    // 0.37 N, nominal radius; each hemisphere has its own eastward lead.
+    const glm::dvec3 oracle[3][2] = {
+        {{.1818101235137252, .1240225903079459, .9754811510640435},
+         {.4723908679903595, -.0355644655884435, -.8806713556297395}},
+        {{.0885374619738735, .1132414547584144, .9896148193875346},
+         {.4034604622620909, -.0292434238759410, -.9145296482625765}},
+        {{.0302769013630110, .1401158610503802, .9896720945474642},
+         {.3607216865484141, -.0081370681424426, -.9326380074689820}}
+    };
+    for (int m = 0; m < 3; ++m) {
+        const auto& path = model.footpaths[static_cast<size_t>(m)];
+        check(path.points.size() == 9 * JovianAurora::kLongitudes, "satellite magnetic table loads");
+        for (int h = 0; h < 2; ++h) {
+            const double left = JovianAurora::lead_angle(m, h != 0, -1e-8);
+            const double right = JovianAurora::lead_angle(m, h != 0, 1e-8);
+            check(std::abs(left-right) < 1e-8, "empirical lead is continuous across System III seam");
+            for (int degree = -360; degree <= 720; degree += 7) {
+                const double x = degree * kDegToRad;
+                const double lead = JovianAurora::lead_angle(m, h != 0, x);
+                check(lead > 0 && lead < 22*kDegToRad &&
+                      std::abs(lead-JovianAurora::lead_angle(m, h != 0, x+kTwoPi)) < 1e-12,
+                      "lead remains positive and periodic through multiple rotations");
+            }
+            glm::dvec3 a, b;
+            const double radius = .5*(path.min_radius+path.max_radius)*71492;
+            const double latitude = .37*kDegToRad;
+            check(model.footprint(m, h != 0, {radius*std::cos(latitude), 0, radius*std::sin(latitude)}, a) &&
+                  glm::length(a-oracle[m][h])*71492 < 30,
+                  "footprints agree with independent integration after hemisphere-specific eastward lead");
+            check(model.footprint(m, h != 0, {radius, -1e-4, 0}, a) &&
+                  model.footprint(m, h != 0, {radius, 1e-4, 0}, b) && glm::length(a-b) < 1e-8,
+                  "magnetic lookup and lead correction share a continuous seam");
+            check(!model.footprint(m, h != 0, {1e7, 0, 0}, a) && a == glm::dvec3(0),
+                  "out-of-domain radius suppresses footprint");
+            check(!model.footprint(m, h != 0, {0, 0, radius}, a), "out-of-domain latitude suppresses footprint");
+        }
+    }
+    check(std::abs(JovianAurora::lead_angle(0, false, kPi/2)/kDegToRad - 4.56) < 1e-12 &&
+          std::abs(JovianAurora::lead_angle(0, true, kPi/2)/kDegToRad - 3.22) < 1e-12,
+          "Io lead agrees with Hue 2023 table 1 at 90 degrees west");
+
+    // Cover historical flybys, the UV events and ephemeris fallback dates.
+    // The 3-D domain must contain the actual scene positions, not just a
+    // nominal equatorial circular orbit.
+    const double start = scene.events.back().t_tdb;
+    for (int sample = 0; sample < 120; ++sample) {
+        const double t = start + (sample - 60) * 337.17 * 86400.0;
+        scene.update(t);
+        const auto& p = scene.bodies[static_cast<size_t>(index)].jovian_footprints;
+        for (size_t k = 0; k < p.size(); ++k) {
+            check(std::abs(glm::length(p[k])-1.0) < 1e-10 && (k%2 == 0 ? p[k].z > .5 : p[k].z < -.5),
+                  "all six footprints cover scene ephemerides and fallback orbits");
+        }
+    }
+    scene.update(start);
+    const auto original = scene.bodies[static_cast<size_t>(index)].jovian_footprints;
+    scene.update(start + 3600);
+    const auto advanced = scene.bodies[static_cast<size_t>(index)].jovian_footprints;
+    check(glm::length(original[0]-advanced[0]) > .01, "footprints follow the satellite synodic motion");
+    scene.update(start);
+    check(scene.bodies[static_cast<size_t>(index)].jovian_footprints == original,
+          "backward jump recovers the same footprints without animation history");
+    scene.set_active_frame(0);
+    scene.update(start);
+    check(scene.bodies[static_cast<size_t>(index)].jovian_footprints == original,
+          "display reference frame does not change magnetic coordinates");
+
+    Simulation sim;
+    std::string error;
+    check(sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/jupiter.toml", &error), "footprint simulation loads");
+    sim.stop_tour();
+    sim.clock().t_tdb = start;
+    sim.clock().paused = true;
+    sim.update(0);
+    const auto current = sim.scene().bodies[static_cast<size_t>(index)].jovian_footprints;
+    OutputView small, large;
+    sim.compute_view(640, 480, 1, small);
+    sim.compute_view(2560, 1440, 2, large);
+    sim.update(.2);
+    check(sim.scene().bodies[static_cast<size_t>(index)].jovian_footprints == current,
+          "different output sizes and pause preserve the shared footprint positions");
+    sim.clock().paused = false;
+    sim.clock().warp = 3600;
+    sim.clock().reverse = true;
+    sim.update(1);
+    scene.update(start-3600);
+    check(sim.scene().bodies[static_cast<size_t>(index)].jovian_footprints ==
+          scene.bodies[static_cast<size_t>(index)].jovian_footprints,
+          "reverse playback uses current ephemerides without the aurora animation speed cap");
+    Scene bad;
+    check(!load_scene_string("name='x'\n[[bodies]]\nname='Earth'\nradii_km=[6378]\n"
+                            "[bodies.aurora]\nkp='geomag/kp.bin'\nfootprints='geomag/jupiter_footprints.txt'\n",
+                            "bad_footprints", bad, &error, ASTRAXIS_ASSET_DIR),
+          "terrestrial Kp cannot acquire Jovian footprints");
+    Scene alone;
+    check(load_scene_string("name='x'\n[[bodies]]\nname='Jupiter'\ntemplate='bodies/jupiter.toml'\n",
+                            "no_moons", alone, &error, ASTRAXIS_ASSET_DIR), "Jupiter template loads without satellites");
+    if (!alone.bodies.empty()) {
+        alone.update(start);
+        for (const auto& p : alone.bodies[0].jovian_footprints)
+            check(p == glm::dvec3(0), "missing satellites leave no stale footprints");
+    }
+}
+
 } // namespace
 
 void run_appearance_tests()
@@ -868,6 +979,7 @@ void run_appearance_tests()
     test_plumes();
     test_night_and_aurora();
     test_jovian_aurora();
+    test_jovian_footprints();
     test_refraction();
     test_corona();
 }

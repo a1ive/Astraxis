@@ -338,7 +338,8 @@ void App::build_control_panel()
                     [](const Body& b) { return bool(b.jovian_aurora); })) {
         ImGui::Combo("Jupiter aurora", &m_view_options.aurora_view,
                      "Event setting\0Visible light\0UV aurora overlay\0");
-        ImGui::SetItemTooltip("Statistical UV ovals in false color, over the visible-light planet");
+        ImGui::SetItemTooltip("UV false color over visible-light clouds: average ovals and modeled\n"
+                             "Io, Europa and Ganymede footprints. Brightness and spot sizes are illustrative.");
     }
     // Second row, so the panel stays narrow.
     bool row_started = false;

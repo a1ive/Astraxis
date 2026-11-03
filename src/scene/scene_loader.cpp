@@ -459,7 +459,7 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
         {"refractivity", number}, {"refraction_gain", number},
     };
     static const TemplateFields night_lights = {{"texture", text}, {"color", text}, {"gain", number}};
-    static const TemplateFields aurora = {{"kp", text}, {"jovian_oval", text}};
+    static const TemplateFields aurora = {{"kp", text}, {"jovian_oval", text}, {"footprints", text}};
     static const TemplateFields rotor = {{"shape", text}, {"period_s", number}};
     static const TemplateFields ring_band = {
         {"name", text}, {"inner_km", number}, {"outer_km", number}, {"optical_depth", number},
@@ -1444,8 +1444,15 @@ void Loader::parse(const toml::table& root, Scene& out)
                 if (aurora->contains("kp")) fail(actx, "jovian_oval and kp are mutually exclusive");
                 auto oval = std::make_shared<JovianAurora>();
                 if (!oval->load(m_asset_root / get_string(*aurora, "jovian_oval", actx), &error)) fail(actx, error);
+                if (aurora->contains("footprints")) {
+                    if (std::abs(body.equatorial_radius_km - 71492.0) > 1.0 ||
+                        std::abs(body.equatorial_radius_b_km - 71492.0) > 1.0 ||
+                        std::abs(body.polar_radius_km - 66854.0) > 1.0) fail(actx, "footprints require Jupiter's one-bar radii");
+                    if (!oval->load_footprints(m_asset_root / get_string(*aurora, "footprints", actx), &error)) fail(actx, error);
+                }
                 body.jovian_aurora = oval;
             } else {
+                if (aurora->contains("footprints")) fail(actx, "footprints require jovian_oval");
                 auto kp = std::make_shared<KpRecord>();
                 if (!kp->load(m_asset_root / get_string(*aurora, "kp", actx), &error)) fail(actx, error);
                 body.aurora = kp;

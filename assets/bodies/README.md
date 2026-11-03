@@ -101,6 +101,8 @@ file = "ephem/moon_geo.eph"
 
 属性移入模板时，将它的来源与简化说明一起放入模板。贴图、形状和数据文件的许可证与处理步骤仍在各资源目录的 `SOURCES.md` 中。场景保留轨道、事件与覆盖值的依据。
 
+木星模板的 `[aurora]` 用 `jovian_oval` 指定统计主卵、`footprints` 指定卫星磁场映射表。后者需要木星的 1 bar 半径，只计算场景中名为 Io、Europa、Ganymede 的直属卫星，缺少某颗时跳过它。两项数据用于紫外叠加视图，与地球的 `kp` 模型互斥；格式、领先角和显示假设见 [地磁与极光来源](../geomag/SOURCES.md)。
+
 ## 加载接口与离线工具
 
 `load_scene_file` 按 `<assets>/scenes/<file>.toml` 推导资源根目录。使用 `load_scene_string` 加载带模板的内容时，需要传入 `asset_root`。错误信息包含场景来源、天体名和模板路径。
