@@ -47,6 +47,7 @@ struct FragmentUniforms {
     glm::vec4 south_east;
     glm::vec4 jovian_oval[kJovianOvalSamples];
     glm::vec4 footprints[6];
+    glm::vec4 ring_radii;
 };
 
 // Four independent tiling value noises, one per channel: random values on a
@@ -183,7 +184,12 @@ bool AuroraPass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
     sampler.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
     sampler.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
     m_sampler = SDL_CreateGPUSampler(device, &sampler);
-    return m_vertices && m_indices && m_noise && m_sampler;
+    sampler.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
+    sampler.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+    sampler.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+    sampler.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+    m_ring_sampler = SDL_CreateGPUSampler(device, &sampler);
+    return m_vertices && m_indices && m_noise && m_sampler && m_ring_sampler;
 }
 
 bool AuroraPass::set_format(const SceneTargetFormat& format)
@@ -206,7 +212,7 @@ bool AuroraPass::create_pipelines(const SceneTargetFormat& format)
     SDL_GPUShader* fs = create_shader(device, {.dxil = kAuroraFragDxil,
                                                .spirv = kAuroraFragSpirv,
                                                .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
-                                               .num_samplers = 1,
+                                               .num_samplers = 2,
                                                .num_uniform_buffers = 1});
     if (!vs || !fs) {
         SDL_ReleaseGPUShader(device, vs);
@@ -233,6 +239,8 @@ void AuroraPass::shutdown()
     SDL_ReleaseGPUBuffer(m_device, m_indices);
     SDL_ReleaseGPUTexture(m_device, m_noise);
     SDL_ReleaseGPUSampler(m_device, m_sampler);
+    SDL_ReleaseGPUSampler(m_device, m_ring_sampler);
+    m_ring_sampler = nullptr;
     m_noise = nullptr;
     m_sampler = nullptr;
     SDL_ReleaseGPUGraphicsPipeline(m_device, m_outside);
@@ -245,7 +253,7 @@ void AuroraPass::shutdown()
 }
 
 void AuroraPass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const CameraView& view,
-                      std::span<const AuroraDrawItem> items) const
+                      std::span<const AuroraDrawItem> items, bool after_rings) const
 {
     if (items.empty()) {
         return;
@@ -257,6 +265,7 @@ void AuroraPass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const 
 
     const SDL_GPUGraphicsPipeline* bound = nullptr;
     for (const AuroraDrawItem& item : items) {
+        if (item.saturn != after_rings) continue;
         const bool inside = glm::length(item.camera_unit) < item.top * kInsideMargin;
         SDL_GPUGraphicsPipeline* pipeline = inside ? m_inside : m_outside;
         if (pipeline != bound) {
@@ -280,7 +289,8 @@ void AuroraPass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const 
         fu.red = glm::vec4(item.red_per_kr, item.pixel_angle);
         fu.blue = glm::vec4(item.blue_kr, 0.0f, 0.0f, 0.0f);
         fu.layers = item.layers;
-        fu.misc = glm::vec4(item.diffuse_flux, item.footprints_only ? 2.0f : (item.ultraviolet ? 1.0f : 0.0f),
+        fu.misc = glm::vec4(item.diffuse_flux, item.saturn ? 3.0f :
+                           (item.footprints_only ? 2.0f : (item.ultraviolet ? 1.0f : 0.0f)),
                            item.polar_ratio, item.width_km);
         for (int k = 0; k < kAuroraOvalSamples; ++k) {
             fu.oval[k] = item.oval[static_cast<size_t>(k)];
@@ -291,9 +301,12 @@ void AuroraPass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const 
             fu.jovian_oval[k] = item.jovian_oval[static_cast<size_t>(k)];
         }
         for (size_t k = 0; k < item.footprints.size(); ++k) fu.footprints[k] = item.footprints[k];
+        fu.ring_radii = item.ring_radii;
         SDL_PushGPUFragmentUniformData(cmd, 0, &fu, sizeof(fu));
-        SDL_GPUTextureSamplerBinding noise = {.texture = m_noise, .sampler = m_sampler};
-        SDL_BindGPUFragmentSamplers(pass, 0, &noise, 1);
+        const SDL_GPUTextureSamplerBinding textures[] = {
+            {.texture = m_noise, .sampler = m_sampler},
+            {.texture = item.ring_profile ? item.ring_profile : m_noise, .sampler = m_ring_sampler}};
+        SDL_BindGPUFragmentSamplers(pass, 0, textures, 2);
         SDL_DrawGPUIndexedPrimitives(pass, m_index_count, 1, 0, 0, 0);
     }
 }

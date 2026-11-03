@@ -17,7 +17,7 @@ Astraxis is an astronomy background app with planets, spacecraft and stars anima
 | Jupiter | Rings and moons, Galileo and Juno orbits, Cassini flyby; northern and southern UV aurora overlays with modeled Io, Europa and Ganymede footprints |
 | Space Telescopes | Hubble in low Earth orbit, Chandra on a high elliptical orbit, TESS in step with the Moon, WMAP, Herschel, Planck, Gaia, JWST, Euclid and Roman around L2, Spitzer and Kepler drifting behind Earth |
 | Earth-Moon | Artemis missions, CAPSTONE and other lunar spacecraft; the Earth's city lights and aurora (from the Kp record since 1932) |
-| Saturn | Rings, major moons, retrograde Phoebe, the co-orbital Janus and Epimetheus trading orbits, Cassini's tour and Huygens' descent |
+| Saturn | Rings, major moons, retrograde Phoebe, the co-orbital Janus and Epimetheus trading orbits, Cassini's tour and Huygens' descent; northern and southern UV aurora overlays |
 | Mercury: MESSENGER & BepiColombo | Gravity assists and orbits around Mercury |
 | Venus | Venus Express, Akatsuki, Zoozve and spacecraft flybys |
 | Mars | Phobos, Deimos, eight orbiters, comet Siding Spring and interstellar comet 3I/ATLAS |
@@ -47,7 +47,7 @@ Astraxis is an astronomy background app with planets, spacecraft and stars anima
 
 Add scenes with TOML files in [assets/scenes](assets/scenes/). Shared body properties use [Body Templates](assets/bodies/README.md). Scene and template files cite the orbital data and physical constants. Data licenses are listed in `assets/*/SOURCES.md`; modeling assumptions are documented in [limitations.md](limitations.md).
 
-In the Jupiter scene, the two aurora events show ultraviolet false color over visible-light clouds. The **Jupiter aurora** control selects the event setting, visible light, or the UV overlay. Main ovals use statistical Juno-UVS contours; satellite spots follow the moons through a magnetic-field lookup with empirical lead angles. Spot sizes and brightness are illustrative, and the event dates do not identify recorded auroral images. See [sources and model limits](assets/geomag/SOURCES.md).
+The Jupiter and Saturn scenes each have two polar aurora events. The **Planetary aurora** control selects the event setting, visible light, or a UV false-color overlay on visible-light clouds. Jupiter uses statistical Juno-UVS contours and modeled satellite footprints. Saturn uses Cassini UVIS statistical ovals, with a brighter, narrower dawn sector and attenuation through its rings. Colors and exposure are illustrative; the event dates do not identify recorded auroral images. See [sources and model limits](assets/geomag/SOURCES.md).
 
 ## Preview
 

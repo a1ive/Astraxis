@@ -858,6 +858,100 @@ void test_jovian_aurora()
           "rejects mixed terrestrial and Jovian aurora models");
 }
 
+void test_saturn_aurora()
+{
+    // An independent DFT recovers the published coefficients, including
+    // the phase multiplier for each harmonic (Carbary 2012 equation 2).
+    for (int h = 0; h < 2; ++h) {
+        const double amplitudes[2][4] = {{15.1, 1.4, 0.2, 0.1}, {15.9, 2.4, 0.8, 0.3}};
+        const double phases[2][3] = {{4.0, 20.7, 1.9}, {4.3, 21.9, 2.8}};
+        for (int n = 0; n <= 3; ++n) {
+            double cosine = 0.0, sine = 0.0;
+            for (int k = 0; k < 240; ++k) {
+                const double hour = k / 10.0;
+                const double theta = SaturnAurora::profile(hour)[h] / kDegToRad;
+                cosine += theta * std::cos(n * hour * kPi / 12.0) / 240.0;
+                sine += theta * std::sin(n * hour * kPi / 12.0) / 240.0;
+            }
+            const double amplitude = n == 0 ? cosine : 2.0 * std::hypot(cosine, sine);
+            check(std::abs(amplitude - amplitudes[h][n]) < 1e-10, "Saturn harmonic amplitude matches table 1");
+            if (n > 0) {
+                const double phase = n * phases[h][n - 1] * kPi / 12.0;
+                check(std::abs(2.0 * cosine - amplitude * std::cos(phase)) < 1e-10 &&
+                      std::abs(2.0 * sine - amplitude * std::sin(phase)) < 1e-10,
+                      "Saturn local-time harmonic phase matches table 1");
+            }
+        }
+    }
+    for (double hour : {-36.0, -0.01, 0.0, 5.0, 12.0, 23.99}) {
+        check(glm::length(SaturnAurora::profile(hour) - SaturnAurora::profile(hour + 24.0)) < 1e-12,
+              "Saturn UV profile is periodic across midnight");
+    }
+    check(std::abs(SaturnAurora::profile(6).z * 2.354820045 / kDegToRad - 4.0) < 1e-10 &&
+          std::abs(SaturnAurora::profile(18).z * 2.354820045 / kDegToRad - 8.0) < 1e-10,
+          "Saturn dawn/dusk FWHM interpolates the observed widths");
+    check(SaturnAurora::profile(5).w == 1.0 && SaturnAurora::profile(18).w < 0.003,
+          "Saturn column brightness reaches the dawn peak and dusk baseline");
+    check(glm::length(SaturnAurora::noon({0, 2, 3}) - glm::dvec3(0, 1, 0)) < 1e-12,
+          "Saturn noon projects the Sun onto the spin equator");
+    check(glm::length(SaturnAurora::noon({0, 0, 1})) == 1.0, "polar Sun has a finite noon fallback");
+
+    Scene scene = load_scene_or_die("saturn.toml");
+    const Body& saturn = scene.bodies[static_cast<size_t>(scene.find("Saturn"))];
+    check(saturn.saturn_aurora && !saturn.aurora && !saturn.jovian_aurora && !saturn.atmosphere.enabled,
+          "Saturn UV loads independently of Kp, Jupiter and atmospheric scattering");
+    Scene solar = load_scene_or_die("solar_system.toml");
+    check(solar.bodies[static_cast<size_t>(solar.find("Saturn"))].saturn_aurora,
+          "solar-system Saturn inherits the same UV model");
+    // Local-time geometry stays fixed relative to the Sun as System III turns.
+    glm::dvec3 previous{};
+    const double epoch = (jd_from_calendar({2008, 8, 26, 12, 0, 0}) - kJ2000Jd) * kSecondsPerDay;
+    for (int k = 0; k < 2; ++k) {
+        scene.update(epoch + k * 10000.0);
+        const glm::dvec3 sun = scene.sun_position() - saturn.world_position;
+        const glm::dvec3 noon = saturn.orientation * SaturnAurora::noon(glm::transpose(saturn.orientation) * sun);
+        if (k) check(glm::dot(previous, noon) > 0.99999, "Saturn UV noon does not corotate with System III");
+        previous = noon;
+    }
+    Simulation sim;
+    std::string error;
+    check(sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/saturn.toml", &error), "Saturn UV simulation loads");
+    sim.stop_tour();
+    int count = 0;
+    for (size_t i = 0; i < sim.scene().events.size(); ++i) {
+        const SceneEvent& event = sim.scene().events[i];
+        if (!event.aurora_ultraviolet) continue;
+        ++count;
+        sim.jump_to_event(i);
+        sim.update(0.0);
+        sim.camera().update(3.0, sim.scene());
+        OutputView view;
+        sim.compute_view(1280, 720, 1.0, view);
+        const Body& body = sim.scene().bodies[static_cast<size_t>(event.focus)];
+        const double latitude = std::asin(glm::dot(glm::normalize(view.camera.position - body.world_position),
+                                                   glm::normalize(body.orientation[2]))) / kDegToRad;
+        check(std::abs(latitude - event.elevation_deg) < 0.01, "Saturn UV event views its intended pole", latitude);
+        check(sim.scene().active_event() == static_cast<int>(i), "Saturn event activates UV overlay");
+    }
+    check(count == 2, "Saturn has both polar UV tours");
+    sim.set_frame(0);
+    check(sim.scene().active_event() == -1, "leaving Saturn UV event clears automatic overlay");
+    Scene bad;
+    const std::string base = "name='x'\n[[bodies]]\nname='Saturn'\nradii_km=[60268,54364]\n[bodies.aurora]\n";
+    for (const char* conflict : {"kp='geomag/kp.bin'", "jovian_oval='geomag/jupiter_oval.txt'",
+                                 "footprints='geomag/jupiter_footprints.txt'"}) {
+        check(!load_scene_string(base + "saturn_oval=true\n" + conflict, "mixed_saturn", bad, &error, ASTRAXIS_ASSET_DIR),
+              "Saturn model rejects incompatible aurora fields");
+    }
+    check(!load_scene_string(base + "saturn_oval='true'", "bad_saturn", bad, &error, ASTRAXIS_ASSET_DIR),
+          "Saturn aurora rejects wrong flag type");
+    check(!load_scene_string("name='x'\n[[bodies]]\nname='Earth'\nradii_km=[6378]\n"
+                            "[bodies.aurora]\nsaturn_oval=true", "bad_radii", bad, &error, ASTRAXIS_ASSET_DIR),
+          "Saturn UV cannot silently use another planet's radii");
+    check(load_scene_string(base + "saturn_oval=false", "disabled_saturn", bad, &error, ASTRAXIS_ASSET_DIR) &&
+          !bad.bodies[0].saturn_aurora, "Saturn UV can be disabled explicitly");
+}
+
 void test_jovian_footprints()
 {
     Scene scene = load_scene_or_die("jupiter.toml");
@@ -979,6 +1073,7 @@ void run_appearance_tests()
     test_plumes();
     test_night_and_aurora();
     test_jovian_aurora();
+    test_saturn_aurora();
     test_jovian_footprints();
     test_refraction();
     test_corona();

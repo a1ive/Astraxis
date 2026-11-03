@@ -944,3 +944,43 @@ caption = """\
 body = "Polydeuces"
 trail = "history"
 trail_history_days = 800.0
+
+# Carbary 2012 statistical UV morphology; see geomag/SOURCES.md.
+# Dates set viewing geometry only, not an auroral reconstruction.
+[[frames]]
+name = "Saturn equator"
+type = "inertial"
+origin = "Saturn"
+up = "Saturn"
+
+[[events]]
+name = "Saturn's northern aurora (UV overlay)"
+time_tdb = "2008-08-26 12:00"
+focus = "Saturn"
+frame = "Saturn equator"
+from_body = "Sun"
+elevation_deg = 65.0
+distance_km = 340000.0
+warp = 120.0
+aurora_ultraviolet = true
+caption = """\
+    Saturn's northern ultraviolet aurora, shown in blue over the visible-light \
+    clouds and rings. Its shape follows Cassini's 2007-2009 statistical average. \
+    The morning side is brighter and narrower than the evening side. The glow \
+    peaks about 1,100 km above the clouds; color and exposure are illustrative."""
+
+[[events]]
+name = "Saturn's southern aurora (UV overlay)"
+time_tdb = "2008-08-26 12:00"
+focus = "Saturn"
+frame = "Saturn equator"
+from_body = "Sun"
+elevation_deg = -65.0
+distance_km = 340000.0
+warp = 120.0
+aurora_ultraviolet = true
+caption = """\
+    The southern ultraviolet oval has its own shape and is brighter in the \
+    2007-2009 average. Both ovals follow local solar time, so the brighter side \
+    stays near dawn as Saturn rotates. This is a statistical illustration, \
+    not the aurora on this date or a prediction of a storm."""

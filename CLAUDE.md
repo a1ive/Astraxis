@@ -80,6 +80,7 @@ CMake 目标：
 - 地球的夜间灯光和极光：天体的 `[bodies.night_lights]`（灰度灯光图，和 `texture` 同一投影，在天体着色器里按地面的太阳高度角亮起）和 `[bodies.aurora]`（Kp 记录，`scene/aurora.hpp`）。`Simulation::aurora_kp()` 按倍速取 Kp 的滑动平均（画面上 3 秒，最少 3 小时），`aurora_emission(kp)` 由 Starkov 卵、半球功率和谱线比值算出卵的边界（按磁地方时 48 个采样）和一个竖直柱的颜色；`AuroraPass` 在 80–450 km 的壳层里光线步进两层 Chapman 发光剖面，磁极取 IGRF 偶极，红线按局部 427.8 nm 亮度逐点算。卵里的弧和射线查一张平铺噪声纹理（投影到垂直于偶极轴的平面，没有接缝）。灯光和极光都按“长曝光”放大（`kAuroraExposure`、场景里的 `gain`），白天淡出
 - `SceneRenderer` 持有 pass 和每个场景的 GPU 资源，显示选项通过 `ViewOptions` 传入
 - 木星紫外主卵：模板 `[aurora].jovian_oval` 读取 Head 2024 的南北统计轮廓（`JovianAurora`，每极 256 点），`AuroraPass` 在木星本体坐标中画成发光壳。`ViewOptions::aurora_view` / 设置键 `aurora_view`：0 跟随事件、1 可见光、2 紫外极光叠加；事件用 `aurora_ultraviolet = true` 开启。叠加保留可见光云层，蓝色和明暗细节是示意，白天也画。木星不需要配置大气散射；加载与地球的 `kp` 互斥。烘焙命令及许可见 `assets/geomag/SOURCES.md`。
+- 土星紫外主卵：模板 `[aurora].saturn_oval = true` 启用 Carbary 2012 的南北地方时统计轮廓，与 `kp` / `jovian_oval` / `footprints` 互斥。`SaturnAurora::profile` 按半小时采样形状、宽度、晨侧亮度；`noon` 从本体坐标的太阳方向投影得到，不能随 System III 转。仍用 `aurora_view` 和 `aurora_ultraviolet` 切换。先画环，再画土星极光；每个样本光路查 RSS 环剖面，只有环在样本前面时衰减。环纹理导数要在发散的壳层裁剪前算。参数、假设和许可边界见 `assets/geomag/SOURCES.md`。
 - 木星卫星足点：同表的 `footprints` 读取 JRM33（13 阶）+ CON2020 的离线三维表，覆盖 Io、Europa、Ganymede 的本体经度、纬度和距离。`Scene::update` 按卫星相对木星的 ICRF 位置转回 System III，先加 Hue 2023 的半球独立赤道领先角，再查南北交点；多个输出共用结果，位置不走限速动画时钟。`AuroraPass` 单独积分足点的 900 km 发光层，主卵仍用 400 km 层；光斑大小和显示强度为示意。
 - GPU 分两层：`GpuDevice` 只有一个；`RenderOutput` 每个窗口一个，持有交换链和本输出的 `SceneTargets`。`Frame` 的 `width/height` 是场景尺寸，`output_width/output_height` 是交换链尺寸，两者在有渲染缩放（`render_scale`，各模式都有）时不同。MSAA 采样数（`msaa` 设置：1/2/4，`GpuDevice::set_msaa` 按硬件支持往下取）存在 `GpuDevice` 的 `SceneTargetFormat` 里，各 pass 的管线和 `SceneTargets` 都依赖它：运行时切换要调 `SceneRenderer::refresh_pipelines()` 重建管线，`SceneTargets::ensure` 发现采样数变了会自己重建。新 pass 要实现 `set_format`，并加进 `refresh_pipelines`。所有和输出尺寸相关的纹理（MSAA/HDR/深度、泛光链、黑洞追踪目标）都放在 `SceneTargets` 里，pass 内部不要再缓存按尺寸分配的纹理，否则多个不同尺寸的输出轮流渲染时会反复重建。各输出都用 SDR 交换链，格式相同，共用一个 `SceneRenderer`
 
@@ -87,7 +88,7 @@ CMake 目标：
 
 渲染流程：
 1. 黑洞光追（有黑洞时）：在屏幕外以半分辨率追踪，记下每条光线的天空方向和盘的光（`shaders/black_hole.hlsli` 是两边共用的追踪代码）；第 2 步的黑洞合成按全分辨率逐像素插值方向，相邻光线不一致处（阴影边缘、光子环附近）在合成着色器里重新追踪；天空逐像素查：星按局部线性化的透镜映射画成点（`StarfieldPass` 把星按方向排进网格，供合成着色器查找），银河直接采样它自己的贴图，天空被压缩到星点超出网格查找范围处（光子环附近）改用带 mip 的立方体贴图。有风车星云或膨胀星云时，尘埃也在这一步画进屏幕外半分辨率、单采样的纹理
-2. 场景 pass，渲染到 HDR（RGBA16F + MSAA）：银河 → 星空 → 天体 → 日冕合成 → 大气层 → 极光 → 羽流 → 彗发/离子彗尾 → 尘埃彗尾 → 行星环 → 小行星带/柯伊伯带 → 风车星云合成 → 膨胀星云合成 → 黑洞合成 → 恒星 → 脉冲星光束 → 轨道线
+2. 场景 pass，渲染到 HDR（RGBA16F + MSAA）：银河 → 星空 → 天体 → 日冕合成 → 大气层 → 极光 → 羽流 → 彗发/离子彗尾 → 尘埃彗尾 → 行星环 → 土星极光 → 小行星带/柯伊伯带 → 风车星云合成 → 膨胀星云合成 → 黑洞合成 → 恒星 → 脉冲星光束 → 轨道线
 3. `PostProcess`：泛光 → ACES → sRGB → 交换链
 4. ImGui 叠加 pass
 

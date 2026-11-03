@@ -335,11 +335,11 @@ void App::build_control_panel()
         ImGui::Checkbox("Belts", &m_view_options.belts);
     }
     if (std::any_of(scene.bodies.begin(), scene.bodies.end(),
-                    [](const Body& b) { return bool(b.jovian_aurora); })) {
-        ImGui::Combo("Jupiter aurora", &m_view_options.aurora_view,
+                    [](const Body& b) { return bool(b.jovian_aurora) || b.saturn_aurora; })) {
+        ImGui::Combo("Planetary aurora", &m_view_options.aurora_view,
                      "Event setting\0Visible light\0UV aurora overlay\0");
-        ImGui::SetItemTooltip("UV false color over visible-light clouds: average ovals and modeled\n"
-                             "Io, Europa and Ganymede footprints. Brightness and spot sizes are illustrative.");
+        ImGui::SetItemTooltip("UV false color over visible-light clouds: statistical polar ovals.\n"
+                             "Jupiter also shows modeled moon footprints. Colors and exposure are illustrative.");
     }
     // Second row, so the panel stays narrow.
     bool row_started = false;

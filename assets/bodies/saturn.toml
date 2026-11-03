@@ -26,6 +26,11 @@ nut_prec_angles = [[353.32, 75706.7], [28.72, 75706.7], [177.40, -36505.5], [300
 color = "#e3d3a3"
 style = "saturn"
 
+# Carbary 2012, solar-local-time statistical UV ovals (2007-2009).
+# Parameters, altitude and display assumptions: geomag/SOURCES.md.
+[aurora]
+saturn_oval = true
+
 [rings]                                    # [RSS]
 profile = "rings/saturn_rss.ring"
 color = "#d6c3a0"

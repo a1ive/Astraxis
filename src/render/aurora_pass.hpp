@@ -46,6 +46,11 @@ struct AuroraDrawItem {
     // the diffuse aurora, the oval's equatorward and poleward edges.
     std::array<glm::vec4, kAuroraOvalSamples> oval{};
     bool ultraviolet = false;
+    bool saturn = false;
+    // Saturn is composited after the rings; each ray sample behind their
+    // equatorial plane uses the same radial optical-depth profile.
+    SDL_GPUTexture* ring_profile = nullptr;
+    glm::vec4 ring_radii{0.0f}; // inner/outer km, unused, unused
     bool footprints_only = false;
     std::array<glm::vec4, 6> footprints{}; // physical unit direction, display gain
     float polar_ratio = 1.0f;
@@ -56,7 +61,7 @@ struct AuroraDrawItem {
     std::array<glm::vec4, kJovianOvalSamples> jovian_oval{};
 };
 
-// Emitting shells: Earth's visible aurora or Jupiter's UV reference ovals.
+// Emitting shells: Earth's visible aurora or planetary UV reference ovals.
 class AuroraPass {
 public:
     bool init(SDL_GPUDevice* device, const SceneTargetFormat& format);
@@ -65,7 +70,7 @@ public:
     bool set_format(const SceneTargetFormat& format);
 
     void draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const CameraView& view,
-              std::span<const AuroraDrawItem> items) const;
+              std::span<const AuroraDrawItem> items, bool after_rings = false) const;
 
 private:
     bool create_pipelines(const SceneTargetFormat& format);
@@ -80,6 +85,7 @@ private:
     uint32_t m_index_count = 0;
     SDL_GPUTexture* m_noise = nullptr; // tiling value noise for the arcs and rays
     SDL_GPUSampler* m_sampler = nullptr;
+    SDL_GPUSampler* m_ring_sampler = nullptr;
 };
 
 } // namespace astraxis

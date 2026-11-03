@@ -446,6 +446,7 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
     using Type = toml::node_type;
     static const TemplateField number{{Type::floating_point}, nullptr};
     static const TemplateField text{{Type::string}, nullptr};
+    static const TemplateField boolean{{Type::boolean}, nullptr};
     static const TemplateField list{{Type::array}, nullptr};
     static const TemplateField rgb{{Type::floating_point, Type::array}, nullptr}; // one value or [r, g, b]
     static const TemplateFields free_precession = {
@@ -459,7 +460,8 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
         {"refractivity", number}, {"refraction_gain", number},
     };
     static const TemplateFields night_lights = {{"texture", text}, {"color", text}, {"gain", number}};
-    static const TemplateFields aurora = {{"kp", text}, {"jovian_oval", text}, {"footprints", text}};
+    static const TemplateFields aurora = {{"kp", text}, {"jovian_oval", text}, {"footprints", text},
+                                          {"saturn_oval", boolean}};
     static const TemplateFields rotor = {{"shape", text}, {"period_s", number}};
     static const TemplateFields ring_band = {
         {"name", text}, {"inner_km", number}, {"outer_km", number}, {"optical_depth", number},
@@ -1440,7 +1442,17 @@ void Loader::parse(const toml::table& root, Scene& out)
                 fail(ctx, "only ellipsoidal planets can have an aurora");
             }
             std::string error;
-            if (aurora->contains("jovian_oval")) {
+            if (aurora->contains("saturn_oval")) {
+                if (aurora->contains("kp") || aurora->contains("jovian_oval") || aurora->contains("footprints"))
+                    fail(actx, "saturn_oval cannot be combined with kp, jovian_oval or footprints");
+                const auto enabled = (*aurora)["saturn_oval"].value<bool>();
+                if (!enabled) fail(actx, "saturn_oval must be a boolean");
+                body.saturn_aurora = *enabled;
+                if (body.saturn_aurora && (std::abs(body.equatorial_radius_km - 60268.0) > 1.0 ||
+                    std::abs(body.equatorial_radius_b_km - 60268.0) > 1.0 ||
+                    std::abs(body.polar_radius_km - 54364.0) > 1.0))
+                    fail(actx, "saturn_oval requires Saturn's one-bar radii");
+            } else if (aurora->contains("jovian_oval")) {
                 if (aurora->contains("kp")) fail(actx, "jovian_oval and kp are mutually exclusive");
                 auto oval = std::make_shared<JovianAurora>();
                 if (!oval->load(m_asset_root / get_string(*aurora, "jovian_oval", actx), &error)) fail(actx, error);

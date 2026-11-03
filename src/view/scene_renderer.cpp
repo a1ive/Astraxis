@@ -980,6 +980,16 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
         }
 
         SDL_GPUTexture* ring_texture = i < m_ring_textures.size() ? m_ring_textures[i] : nullptr;
+        if (body.saturn_aurora && ultraviolet) {
+            const glm::dmat3 linear = body.orientation * glm::dmat3(
+                glm::dvec3(body.equatorial_radius_km, 0, 0),
+                glm::dvec3(0, body.equatorial_radius_b_km, 0), glm::dvec3(0, 0, body.polar_radius_km));
+            AuroraDrawItem aurora = aurora_item(sim, output_view, body, linear, glm::inverse(linear), item.sun_direction);
+            aurora.ring_profile = ring_texture;
+            if (ring_texture) aurora.ring_radii = glm::vec4(
+                static_cast<float>(body.rings.inner_km), static_cast<float>(body.rings.outer_km), 0.0f, 0.0f);
+            m_aurora_items.push_back(aurora);
+        }
         if (ring_texture) {
             // The rings shade the planet...
             item.ring_profile = ring_texture;
@@ -1602,6 +1612,23 @@ AuroraDrawItem SceneRenderer::aurora_item(const Simulation& sim, const OutputVie
     a.to_unit = glm::mat3(to_unit);
     a.camera_unit = glm::vec3(to_unit * (view.position - body.world_position));
     a.km_per_unit = static_cast<float>(radius_km);
+    if (body.saturn_aurora) {
+        a.ultraviolet = true;
+        a.saturn = true;
+        a.polar_ratio = static_cast<float>(body.polar_radius_km / radius_km);
+        a.bottom = static_cast<float>(1.0 + SaturnAurora::kBottomKm / radius_km);
+        a.top = static_cast<float>(1.0 + SaturnAurora::kTopKm / body.polar_radius_km);
+        a.sun = glm::vec3(glm::normalize(glm::transpose(body.orientation) * glm::dvec3(sun_direction)));
+        a.noon = glm::vec3(SaturnAurora::noon(glm::dvec3(a.sun)));
+        // A 40 kR column gets this arbitrary false color / exposure.
+        a.low_rgb = glm::vec3(srgb_to_linear(glm::dvec3(0.3, 0.55, 1.0)) * 2.0);
+        a.layers = glm::vec4(SaturnAurora::kPeakKm, SaturnAurora::kScaleKm,
+                            SaturnAurora::kPeakKm, SaturnAurora::kScaleKm);
+        a.pixel_angle = 2.0f / (view.viewport.y * view.focal_y);
+        for (size_t k = 0; k < a.oval.size(); ++k)
+            a.oval[k] = glm::vec4(SaturnAurora::profile(24.0 * k / a.oval.size()));
+        return a;
+    }
     if (body.jovian_aurora) {
         static_assert(JovianAurora::kSamples == kJovianOvalSamples);
         a.ultraviolet = true;
@@ -1697,6 +1724,7 @@ void SceneRenderer::render(const Frame& frame, const Simulation& sim, const Outp
     m_comets.draw(frame.cmd, pass, view, time, m_comet_items);
     m_dust.draw(frame.cmd, pass, view, static_cast<float>(kDustMinPx));
     m_rings.draw(frame.cmd, pass, view, m_ring_items);
+    m_auroras.draw(frame.cmd, pass, view, m_aurora_items, true);
     build_belt_items(sim, output_view, options);
     m_belts.draw(frame.cmd, pass, view, m_belt_items);
     m_pinwheel.composite(pass, targets.pinwheel);

@@ -26,6 +26,7 @@ static const float kPi = 3.14159265;
 static const float kNoiseCells = 32.0; // lattice cells across the noise tile
 
 FRAGMENT_TEXTURE(Texture2D, u_noise, u_noise_sampler, 0); // four independent value noises (rgba), tiling
+FRAGMENT_TEXTURE(Texture2D, u_ring, u_ring_sampler, 1);
 
 cbuffer Uniforms : register(b0, space3)
 {
@@ -44,6 +45,7 @@ cbuffer Uniforms : register(b0, space3)
     float4 u_south_east;
     float4 u_jovian_oval[256]; // x/y: north/south planetocentric angular radius
     float4 u_footprints[6]; // physical unit direction, illustrative display gain
+    float4 u_ring_radii; // inner/outer km (zero disables ring attenuation)
 };
 
 struct PSInput
@@ -127,8 +129,28 @@ float jovian_pattern(float3 n, float footprint_km)
 
 // Brightness of the aurora at unit direction n (relative to the oval's mean
 // flux), seen with a pixel footprint of footprint_km.
+float saturn_pattern(float3 n, float footprint_km)
+{
+    n = normalize(n * float3(1.0, 1.0, u_misc.z));
+    float colat = acos(min(abs(n.z), 1.0));
+    if (colat > 0.65) return 0.0;
+    float3 dusk = cross(float3(0.0, 0.0, 1.0), u_noon.xyz);
+    float hour = 12.0 + atan2(dot(n, dusk), dot(n, u_noon.xyz)) * (12.0 / kPi);
+    float x = hour * (kOvalSamples / 24.0);
+    int k = (int)floor(x) % kOvalSamples;
+    float4 oval = lerp(u_oval[k], u_oval[(k + 1) % kOvalSamples], frac(x));
+    float radius = n.z < 0.0 ? oval.y : oval.x;
+    float sigma_km = oval.z * u_pole.w;
+    float sigma = sqrt(sigma_km * sigma_km + footprint_km * footprint_km / 12.0);
+    float band = exp(-0.5 * pow((colat - radius) * u_pole.w / sigma, 2.0)) * sigma_km / sigma;
+    // Statistical peak columns ~40/60 kR north/south near 05 h; dusk ~10 kR.
+    // No System III rotation, stochastic storm or terrestrial Kp modulation.
+    return band * (10.0 + (n.z < 0.0 ? 50.0 : 30.0) * oval.w) / 40.0;
+}
+
 float aurora_pattern(float3 n, float footprint_km)
 {
+    if (u_misc.y > 2.5) return saturn_pattern(n, footprint_km);
     if (u_misc.y > 0.5) return jovian_pattern(n, footprint_km);
     float3 pole = u_pole.xyz;
     float m = dot(n, pole);
@@ -184,6 +206,23 @@ float4 main(PSInput input) : SV_Target0
 {
     float3 dir = normalize(mul((float3x3)u_to_unit, input.rel_pos));
     float3 o = u_camera.w > 0.5 ? u_camera.xyz : input.unit_pos;
+
+    // Sample the ring before divergent shell clipping. Explicit gradients
+    // select the same radial mip footprint as the ring's visible surface.
+    float ring_t = 0.0;
+    float transmission = 1.0;
+    if (u_ring_radii.y > u_ring_radii.x) {
+        float dz = abs(dir.z) > 1e-7 ? dir.z : 1e-7;
+        ring_t = -o.z / dz;
+        float3 crossing = o + ring_t * dir;
+        float radius = length(crossing.xy) * u_pole.w;
+        float u = (radius - u_ring_radii.x) / (u_ring_radii.y - u_ring_radii.x);
+        float2 profile = u_ring.SampleGrad(u_ring_sampler, float2(u, 0.5),
+                                          float2(ddx_fine(u), 0.0), float2(ddy_fine(u), 0.0)).rg;
+        float mu = abs(normalize(dir * float3(1.0, 1.0, u_misc.z)).z);
+        if (abs(dir.z) > 1e-7 && u >= 0.0 && u <= 1.0 && dot(crossing - u_camera.xyz, dir) > 0.0)
+            transmission = exp(-profile.r / max(mu, max(profile.g, 1e-4)));
+    }
 
     float top = u_sun.w;
     float bottom = u_noon.w;
@@ -243,7 +282,8 @@ float4 main(PSInput input) : SV_Target0
         float blue = u_blue.x * pattern;
         float3 emission = u_low.rgb * (pattern * chapman(h, u_layers.x, u_layers.y)) +
                           u_red.rgb * (blue * red_over_blue(blue) * chapman(h, u_layers.z, u_layers.w));
-        sum += emission * (night * ds * ray_km);
+        float ring_visibility = t > ring_t ? transmission : 1.0;
+        sum += emission * (night * ring_visibility * ds * ray_km);
     }
     return float4(sum, 1.0);
 }
