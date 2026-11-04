@@ -779,6 +779,7 @@ caption = """\
 # storm (Kp from the GFZ record, [NIGHT]).
 [[events]]
 name = "Geomagnetic storm: Kp 9 (2024-05-11)"
+aurora_visible = true
 time_tdb = "2024-05-11 02:00"
 focus = "Earth"
 from_body = "Sun"

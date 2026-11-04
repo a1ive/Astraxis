@@ -672,6 +672,7 @@ up = "Europa"
 # de Kleer et al. 2023, Table 2. Emission strengths are a fixed reference.
 [[events]]
 name = "Europa's oxygen aurora in eclipse"
+aurora_visible = true
 time_tdb = "2021-05-20 13:40"
 focus = "Europa"
 frame = "Europa equator"

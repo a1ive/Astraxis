@@ -554,6 +554,12 @@ void test_night_and_aurora()
     std::string error;
     check(sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/earth_moon.toml", &error), "earth_moon loads");
     sim.stop_tour();
+    const auto storm_event = std::find_if(sim.scene().events.begin(), sim.scene().events.end(),
+        [](const SceneEvent& e) { return e.name == "Geomagnetic storm: Kp 9 (2024-05-11)"; });
+    check(storm_event != sim.scene().events.end() && storm_event->aurora_visible && !storm_event->aurora_ultraviolet,
+          "geomagnetic storm tour enables visible aurora");
+    check(!sim.scene().events.front().aurora_visible && !sim.scene().events.front().aurora_ultraviolet,
+          "ordinary Earth-Moon event leaves aurora off");
     sim.clock().t_tdb = utc(2024, 5, 11, 1) + 30.0 * 60.0;
     sim.clock().warp = 60.0;
     sim.update(0.0);
@@ -939,7 +945,7 @@ void test_saturn_aurora()
         [](const SceneEvent& e) { return e.name == "Saturn's visible aurora"; });
     check(visible != sim.scene().events.end(), "Saturn has a visible aurora tour");
     if (visible != sim.scene().events.end()) {
-        check(!visible->aurora_ultraviolet, "visible aurora tour selects visible emission");
+        check(visible->aurora_visible && !visible->aurora_ultraviolet, "visible aurora tour selects visible emission");
         sim.jump_to_event(static_cast<size_t>(visible - sim.scene().events.begin()));
         sim.update(0.0);
         sim.camera().update(3.0, sim.scene());
@@ -1009,7 +1015,7 @@ void test_europa_aurora()
         const double miss = glm::length(oc - along * light);
         check(along > 0.0 && miss + R + 300.0 + along * 695700.0 / glm::length(scene.sun_position() - moon.world_position) < parent.polar_radius_km,
               "Europa aurora tour lies inside Jupiter shadow", miss);
-        check(!event.aurora_ultraviolet, "Europa tour uses visible spectrum");
+        check(event.aurora_visible && !event.aurora_ultraviolet, "Europa tour uses visible spectrum");
         scene.update(event.t_tdb + 3.0 * 3600.0);
         const auto day_light = glm::normalize(scene.sun_position() - moon.world_position);
         const auto day_oc = parent.world_position - moon.world_position;

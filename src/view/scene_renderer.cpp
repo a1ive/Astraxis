@@ -798,8 +798,11 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
     m_atmosphere_items.clear();
     m_aurora_items.clear();
     const int event = scene.active_event();
-    const bool ultraviolet = options.aurora_view == 2 || (options.aurora_view == 0 && event >= 0 &&
-        scene.events[static_cast<size_t>(event)].aurora_ultraviolet);
+    const SceneEvent* event_settings = event >= 0 ? &scene.events[static_cast<size_t>(event)] : nullptr;
+    const bool ultraviolet = options.aurora_view == 2 ||
+        (options.aurora_view == 0 && event_settings && event_settings->aurora_ultraviolet);
+    const bool visible_aurora = options.aurora_view == 1 || ultraviolet ||
+        (options.aurora_view == 0 && event_settings && event_settings->aurora_visible);
     m_atmosphere_optics.resize(scene.bodies.size());
     m_plume_items.clear();
     const glm::dvec3& cam = view.position;
@@ -956,19 +959,19 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
             m_atmosphere_items.push_back(shell);
 
             // Earth's aurora goes with the atmospheres.
-            if (body.aurora) {
+            if (body.aurora && visible_aurora) {
                 m_aurora_items.push_back(aurora_item(sim, output_view, body, linear, to_unit, item.sun_direction));
             }
         }
-        if (body.europa_aurora) {
+        if (body.europa_aurora && visible_aurora) {
             const glm::dmat3 linear = body.orientation * glm::dmat3(body.equatorial_radius_km);
             const glm::dmat3 inverse = glm::inverse(linear);
             auto aurora = aurora_item(sim, output_view, body, linear, inverse, item.sun_direction);
             aurora.blue_kr = item.sun_angular_radius;
             if (body.parent >= 0) {
-                const auto& parent = scene.bodies[static_cast<size_t>(body.parent)];
-                aurora.footprints[0] = glm::vec4(glm::vec3(inverse * (parent.world_position - body.world_position)),
-                    static_cast<float>(parent.equatorial_radius_km / body.equatorial_radius_km));
+                const auto& parent_body = scene.bodies[static_cast<size_t>(body.parent)];
+                aurora.footprints[0] = glm::vec4(glm::vec3(inverse * (parent_body.world_position - body.world_position)),
+                    static_cast<float>(parent_body.equatorial_radius_km / body.equatorial_radius_km));
             }
             m_aurora_items.push_back(aurora);
         }
@@ -1007,7 +1010,7 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
         }
 
         SDL_GPUTexture* ring_texture = i < m_ring_textures.size() ? m_ring_textures[i] : nullptr;
-        if (body.saturn_aurora) {
+        if (body.saturn_aurora && visible_aurora) {
             const glm::dmat3 linear = body.orientation * glm::dmat3(
                 glm::dvec3(body.equatorial_radius_km, 0, 0),
                 glm::dvec3(0, body.equatorial_radius_b_km, 0), glm::dvec3(0, 0, body.polar_radius_km));

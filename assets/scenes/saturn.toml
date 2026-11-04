@@ -988,6 +988,7 @@ caption = """\
 # Dyudina et al. 2015, Fig. 8; statistical illustration at the observation date.
 [[events]]
 name = "Saturn's visible aurora"
+aurora_visible = true
 time_tdb = "2010-11-27 01:13:19"
 focus = "Saturn"
 frame = "Saturn equator"

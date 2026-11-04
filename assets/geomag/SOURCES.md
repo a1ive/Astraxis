@@ -1,5 +1,7 @@
 # 地磁与极光数据来源
 
+`Planetary aurora` 的 `Event setting` 由活动事件的 `aurora_visible`、`aurora_ultraviolet` 控制。普通事件和无活动事件时关闭所有极光。`Visible light` 手动开启地球、Europa 和土星的可见光极光；`UV aurora overlay` 开启紫外叠加，同时保留可见光发射（土星改用紫外卵）。地球极光还需要开启 `Atmospheres`。
+
 ## Ganymede 自身的紫外极光
 
 木星场景末尾的两个 Ganymede 导览分别朝向前导与拖尾半球，也可在面板的 `Planetary aurora` 中选择 `UV aurora overlay`。太阳系场景通过木卫三模板使用同一份数据。
@@ -41,7 +43,7 @@ CPU 每半小时取样，GPU 周期线性插值。半高全宽用 `6 − 2 sin(�
 
 ## 土星可见光极光
 
-面板 `Planetary aurora` 选择 `Visible light`，或打开土星场景的 `Saturn's visible aurora` 事件，可看夜侧粉红、紫色极光。`Event setting` 在普通视图使用可见光，在紫外事件中使用 UV 叠加。
+面板 `Planetary aurora` 选择 `Visible light`，或在 `Event setting` 下打开土星场景的 `Saturn's visible aurora` 事件，可看夜侧粉红、紫色极光。该事件通过 `aurora_visible = true` 开启可见光发射。
 
 依据 Dyudina, Ingersoll, Ewald & Wellington 2015, *Saturn's aurora observed by the Cassini camera at visible wavelengths*, [arXiv:1506.00664](https://arxiv.org/html/1506.00664v1)，[Icarus DOI](https://doi.org/10.1016/j.icarus.2015.05.022)，§1、§4 和图 8。2010-11-27 的观测显示距地平线几百公里为粉红色，1000 至 1500 km 为紫色，Hα 发射明显。可见光极光亮度约为日面的百万分之一至十万分之一。
 

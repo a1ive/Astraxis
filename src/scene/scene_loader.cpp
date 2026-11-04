@@ -1802,6 +1802,7 @@ void Loader::parse(const toml::table& root, Scene& out)
             e.disk_shifts = (*t)["disk_shifts"].value<bool>().value_or(true);
             e.dust_visible = (*t)["dust_visible"].value<bool>().value_or(false);
             e.nebula_infrared = (*t)["nebula_infrared"].value<bool>().value_or(false);
+            e.aurora_visible = (*t)["aurora_visible"].value<bool>().value_or(false);
             e.aurora_ultraviolet = (*t)["aurora_ultraviolet"].value<bool>().value_or(false);
             e.caption = get_string_or(*t, "caption", "");
             if (const toml::node* trails = t->get("trails")) {
