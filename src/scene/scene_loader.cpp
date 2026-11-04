@@ -462,7 +462,7 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
     static const TemplateFields night_lights = {{"texture", text}, {"color", text}, {"gain", number}};
     static const TemplateFields aurora = {{"kp", text}, {"jovian_oval", text}, {"footprints", text},
                                           {"saturn_oval", boolean}, {"ganymede_map", text}, {"europa_visible", boolean},
-                                          {"io_visible", boolean}, {"callisto_visible", boolean}};
+                                          {"io_visible", boolean}, {"callisto_visible", boolean}, {"mars_visible", boolean}};
     static const TemplateFields rotor = {{"shape", text}, {"period_s", number}};
     static const TemplateFields ring_band = {
         {"name", text}, {"inner_km", number}, {"outer_km", number}, {"optical_depth", number},
@@ -1443,7 +1443,16 @@ void Loader::parse(const toml::table& root, Scene& out)
                 fail(ctx, "only ellipsoidal planets can have an aurora");
             }
             std::string error;
-            if (aurora->contains("europa_visible") || aurora->contains("io_visible") || aurora->contains("callisto_visible")) {
+            if (aurora->contains("mars_visible")) {
+                if (aurora->size() != 1) fail(actx, "mars_visible cannot be combined with other aurora fields");
+                const auto enabled = (*aurora)["mars_visible"].value<bool>();
+                if (!enabled) fail(actx, "mars_visible must be a boolean");
+                if (*enabled && (std::abs(body.equatorial_radius_km - 3396.19) > 1.0 ||
+                    std::abs(body.equatorial_radius_b_km - 3396.19) > 1.0 ||
+                    std::abs(body.polar_radius_km - 3376.20) > 1.0))
+                    fail(actx, "mars_visible requires Mars radii");
+                body.mars_aurora = *enabled;
+            } else if (aurora->contains("europa_visible") || aurora->contains("io_visible") || aurora->contains("callisto_visible")) {
                 const char* key = aurora->contains("io_visible") ? "io_visible" :
                                   aurora->contains("callisto_visible") ? "callisto_visible" : "europa_visible";
                 if (aurora->size() != 1) fail(actx, "visible moon aurora cannot be combined with other aurora fields");

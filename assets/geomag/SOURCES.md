@@ -177,3 +177,33 @@ Callisto 来源为 de Kleer et al. (2023), doi:10.3847/PSJ/acb53c，[论文](htt
 `tools/geomag/aurora_colors.py` 增加上述钠、硫及 636.4 nm 波长，继续按 CIE 1931 2° 配色函数、5772 K 阳光白平衡和保持亮度的色域压缩换算。Io/Callisto 的红双线分别计算；Europa 原有的近邻红线近似保持不变。
 
 CVRL 下载不可用时，本次从 Colour 的 `DATA_CMFS_STANDARD_OBSERVER["CIE 1931 2 Degree Standard Observer"]` 提取 1 nm 网格，写成 `wavelength,x,y,z` CSV 后输入原脚本。固定来源：[cmfs.py](https://github.com/colour-science/colour/blob/9072a98d04e048fe0ea2b1e3aa8429d6e95d37b6/colour/colorimetry/datasets/cmfs.py)，该文件 SHA-256 为 `a53076b9e6be4843443067986c925898d40a3c32c4eef9cb32ff08ca42e6493d`。Colour 为 BSD-3-Clause，声明见 `tools/geomag/Colour-LICENSE.txt`。不分发完整配色表、论文或图像，只保留计算后的常数和测量事实；不将论文素材声明为公有领域。
+
+
+## Mars visible diffuse aurora
+
+Enable with `[aurora] mars_visible = true` in the Mars body template. The Mars
+scene includes **Mars visible aurora (2024-03-18)**; manual Visible light and
+UV overlay also show this visible emission.
+
+- Knutsen et al. (2025), *Detection of visible-wavelength aurora on Mars*,
+  Science Advances 11, eads1563, https://doi.org/10.1126/sciadv.ads1563
+  (full text: https://pmc.ncbi.nlm.nih.gov/articles/PMC12077521/).
+- SuperCam measured OI 557.7 nm at 101 +/- 14 R, elevation 20 degrees,
+  beginning 2024-03-18 06:46 UTC. Vertical dust optical depth was 1.1.
+  The paper's radiative transfer model estimates **2.1 kR at the orbital limb**.
+  That modeled limb estimate sets our reference intensity; 101 R is a
+  dust-attenuated ground measurement and is not used as a zenith column.
+- `src/scene/mars_aurora.hpp` assumes a horizontally uniform Gaussian layer,
+  peak 60 km, sigma 15 km, truncated at 20 and 140 km. These heights approximate
+  diffuse SEP emission; they are not a retrieved 2024 profile. A numerical
+  tangent-ray integral normalizes its peak to 2.1 kR for radius 3396.19 km.
+  The renderer approximates constant physical radial altitude on Mars' ellipsoid.
+- 557.7 nm linear RGB per kR is the existing `aurora_colors.py` spectral conversion.
+  Display gain is independently set to 3e7. Daylight masking fades between
+  solar elevations -12 and 0 degrees; it represents visibility, not excitation.
+- The event time is rounded to 06:47 TDB; its orbital camera is illustrative.
+  The reference emission stays constant while enabled. There is no storm time
+  series, terrestrial Kp driver, crustal-field structure, red-line upper-limit
+  emission, dust transfer, multiple scattering or surface illumination.
+- No paper images or datasets are redistributed; the implementation uses the
+  cited scalar measurements and an independently written illustrative profile.

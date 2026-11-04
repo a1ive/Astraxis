@@ -45,3 +45,7 @@ haze_depth = 0.5
 haze_scale_height_km = 11.9
 haze_albedo = [0.97, 0.93, 0.75]
 haze_g = 0.63
+
+# Knutsen 2025 diffuse green SEP aurora; assets/geomag/SOURCES.md.
+[aurora]
+mars_visible = true

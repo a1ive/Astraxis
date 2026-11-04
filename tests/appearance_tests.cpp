@@ -7,6 +7,7 @@
 #include "scene/aurora.hpp"
 #include "scene/europa_aurora.hpp"
 #include "scene/satellite_aurora.hpp"
+#include "scene/mars_aurora.hpp"
 #include "scene/comet.hpp"
 #include "scene/corona.hpp"
 #include "scene/scene_loader.hpp"
@@ -978,6 +979,43 @@ void test_saturn_aurora()
           !bad.bodies[0].saturn_aurora, "Saturn UV can be disabled explicitly");
 }
 
+void test_mars_aurora()
+{
+    const auto scene = load_scene_or_die("mars.toml");
+    const auto solar = load_scene_or_die("solar_system.toml");
+    check(scene.bodies[scene.find("Mars")].mars_aurora && solar.bodies[solar.find("Mars")].mars_aurora,
+          "Mars aurora template loads in both scenes");
+    int events = 0;
+    for (const auto& e : scene.events) {
+        if (e.name.find("Mars visible aurora") == std::string::npos) continue;
+        ++events;
+        check(e.aurora_visible && !e.aurora_ultraviolet && e.focus == scene.find("Mars"), "Mars visible tour settings");
+    }
+    check(events == 1, "Mars has one visible aurora event");
+    // Independent dense tangent-ray quadrature checks the orbit-limb scaling.
+    double maximum = 0.0;
+    for (int h = 20; h <= 140; ++h) {
+        const double b = 3396.19 + h;
+        const double end = std::sqrt(std::pow(3396.19 + 140.0, 2) - b*b);
+        double integral = 0.0;
+        for (int j = 0; j < 8000; ++j) {
+            const double x = end * (j + 0.5) / 8000.0;
+            const double altitude = std::sqrt(b*b + x*x) - 3396.19;
+            integral += std::exp(-0.5 * std::pow((altitude - 60.0) / 15.0, 2)) * 2.0 * end / 8000.0;
+        }
+        maximum = std::max(maximum, integral);
+    }
+    check(std::abs(maximum / MarsAurora::limb_integral() - 1.0) < 0.001, "Mars reference limb normalization", maximum);
+    Scene bad;
+    std::string error;
+    const std::string base = "name='x'\n[[bodies]]\nname='Mars'\nradii_km=[3396.19,3376.20]\n[bodies.aurora]\n";
+    for (const char* conflict : {"kp='x'", "europa_visible=true", "io_visible=true", "callisto_visible=true", "saturn_oval=true", "ganymede_map='x'", "jovian_oval='x'", "footprints='x'"})
+        check(!load_scene_string(base + "mars_visible=true\n" + conflict, "bad", bad, &error, ASTRAXIS_ASSET_DIR), "Mars rejects mixed aurora models");
+    check(!load_scene_string(base + "mars_visible='true'", "bad", bad, &error, ASTRAXIS_ASSET_DIR), "Mars flag requires boolean");
+    check(load_scene_string(base + "mars_visible=false", "off", bad, &error, ASTRAXIS_ASSET_DIR) && !bad.bodies[0].mars_aurora, "Mars can disable aurora");
+    check(!load_scene_string("name='x'\n[[bodies]]\nname='x'\nradii_km=[6378]\n[bodies.aurora]\nmars_visible=true", "bad", bad, &error, ASTRAXIS_ASSET_DIR), "Mars validates radii");
+}
+
 void test_io_callisto_aurora()
 {
     auto scene = load_scene_or_die("jupiter.toml");
@@ -1308,6 +1346,7 @@ void run_appearance_tests()
     test_ganymede_aurora();
     test_europa_aurora();
     test_io_callisto_aurora();
+    test_mars_aurora();
     test_jovian_footprints();
     test_refraction();
     test_corona();

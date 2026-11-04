@@ -936,6 +936,23 @@ caption = """\
     captured asteroid, suggesting that both moons may be debris from an impact on \
     Mars."""
 
+# Knutsen et al. 2025, doi:10.1126/sciadv.ads1563. SuperCam 06:46 UTC;
+# TDB rounded to the minute. Orbital view and height profile are illustrative.
+[[events]]
+name = "Mars visible aurora (2024-03-18)"
+time_tdb = "2024-03-18 06:47"
+focus = "Mars"
+from_body = "Sun"
+phase_deg = 145.0
+distance_km = 16000.0
+warp = 1.0
+aurora_visible = true
+caption = """A solar storm fills the Martian night with a faint green glow. \
+    Perseverance detected the 557.7 nm oxygen line from Jezero crater on \
+    18 March 2024. Here the diffuse emission is shown from orbit with enhanced \
+    exposure and an assumed height profile, scaled to the study's estimated \
+    limb brightness. This is not the rover's view or a naked-eye rendering."""
+
 # Europa Clipper's closest approach 2025-03-01 17:58:03 TDB, 4,274 km from the center (885 km
 # above the mean radius, 3389.5 km [SPHY]) [HZN].
 [[events]]

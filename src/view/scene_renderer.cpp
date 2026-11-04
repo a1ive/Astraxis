@@ -1,6 +1,7 @@
 #include "view/scene_renderer.hpp"
 #include "scene/europa_aurora.hpp"
 #include "scene/satellite_aurora.hpp"
+#include "scene/mars_aurora.hpp"
 
 #include "core/color.hpp"
 #include "core/math.hpp"
@@ -964,6 +965,11 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
                 m_aurora_items.push_back(aurora_item(sim, output_view, body, linear, to_unit, item.sun_direction));
             }
         }
+        if (body.mars_aurora && visible_aurora) {
+            const glm::dmat3 linear = body.orientation * glm::dmat3(
+                body.equatorial_radius_km, 0, 0, 0, body.equatorial_radius_b_km, 0, 0, 0, body.polar_radius_km);
+            m_aurora_items.push_back(aurora_item(sim, output_view, body, linear, glm::inverse(linear), item.sun_direction));
+        }
         if ((body.europa_aurora || body.io_aurora || body.callisto_aurora) && visible_aurora) {
             const glm::dmat3 linear = body.orientation * glm::dmat3(body.equatorial_radius_km);
             const glm::dmat3 inverse = glm::inverse(linear);
@@ -1653,6 +1659,17 @@ AuroraDrawItem SceneRenderer::aurora_item(const Simulation& sim, const OutputVie
     a.to_unit = glm::mat3(to_unit);
     a.camera_unit = glm::vec3(to_unit * (view.position - body.world_position));
     a.km_per_unit = static_cast<float>(radius_km);
+    if (body.mars_aurora) {
+        a.mars = true;
+        a.polar_ratio = static_cast<float>(body.polar_radius_km / radius_km);
+        a.bottom = static_cast<float>(1.0 + MarsAurora::bottom_km / radius_km);
+        a.top = static_cast<float>(1.0 + MarsAurora::top_km / body.polar_radius_km);
+        a.layers = glm::vec4(MarsAurora::peak_km, MarsAurora::sigma_km, MarsAurora::bottom_km, MarsAurora::top_km);
+        a.sun = glm::vec3(glm::normalize(glm::transpose(body.orientation) * glm::dvec3(sun_direction)));
+        a.low_rgb = glm::vec3(glm::dvec3(1.7361e-9, 6.3813e-9, 0.0) *
+            (MarsAurora::limb_rayleigh / 1000.0 * MarsAurora::display_gain / MarsAurora::limb_integral()));
+        return a;
+    }
     if (body.io_aurora || body.callisto_aurora) {
         const auto& model = body.io_aurora ? io_visible_aurora() : callisto_visible_aurora();
         a.optical_moon = body.io_aurora ? 7 : 8;

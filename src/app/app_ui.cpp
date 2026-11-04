@@ -361,11 +361,11 @@ void App::build_control_panel()
 
     if (std::any_of(scene.bodies.begin(), scene.bodies.end(),
                     [](const Body& b) { return bool(b.aurora) || b.europa_aurora || b.io_aurora || b.callisto_aurora || bool(b.jovian_aurora) ||
-                                              b.saturn_aurora || bool(b.ganymede_aurora); })) {
+                                              b.saturn_aurora || b.mars_aurora || bool(b.ganymede_aurora); })) {
         ImGui::Combo("Planetary aurora", &m_view_options.aurora_view,
                      "Event setting\0Visible light\0UV aurora overlay\0");
         ImGui::SetItemTooltip("Event setting: aurora is off unless the event enables visible or UV emission.\n"
-                             "Visible light: Earth, Io, Europa, Callisto and Saturn.\n"
+                             "Visible light: Earth, Io, Europa, Callisto, Saturn and Mars.\n"
                              "UV false color over visible-light surfaces: average auroral emission.\n"
                              "UV overlay also keeps visible aurora. Earth's aurora requires Atmospheres.\n"
                              "Colors and exposure are illustrative.");

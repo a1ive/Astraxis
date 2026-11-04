@@ -40,7 +40,7 @@ cbuffer Uniforms : register(b0, space3)
     float4 u_red;       // rgb = 1 kR of red, or Saturn's purple column; w = radians per pixel
     float4 u_blue;      // x = 427.8 nm of a column through the oval (kR)
     float4 u_layers;    // low peak (km), low scale height, high peak, high scale height
-    float4 u_misc;      // diffuse flux, mode (0 Earth, 1/2 Jupiter, 3 Saturn UV, 4 Ganymede, 5 Saturn visible, 6 Europa, 7 Io, 8 Callisto visible), polar ratio, width
+    float4 u_misc;      // diffuse flux, mode (0 Earth, 1/2 Jupiter, 3 Saturn UV, 4 Ganymede, 5 Saturn visible, 6 Europa, 7 Io, 8 Callisto visible, 9 Mars visible), polar ratio, width
     float4 u_oval[kOvalSamples]; // colatitudes (rad): x = diffuse, y = equatorward, z = poleward
     float4 u_south_center;
     float4 u_south_east;
@@ -280,11 +280,12 @@ float4 main(PSInput input) : SV_Target0
         float r = length(p);
         float3 n = p / r;
         // Fades in from sunset at the point below to the sun 12 deg below the horizon.
-        bool optical_moon = u_misc.y > 5.5;
-        bool saturn_visible = u_misc.y > 4.5 && !optical_moon;
+        bool mars_visible = u_misc.y > 8.5;
+        bool optical_moon = u_misc.y > 5.5 && u_misc.y < 8.5;
+        bool saturn_visible = u_misc.y > 4.5 && u_misc.y < 5.5;
         // Ellipsoid surface normal in physical body coordinates.
-        float3 normal = saturn_visible ? normalize(n / float3(1.0, 1.0, u_misc.z)) : n;
-        float night = u_misc.y > 0.5 && !saturn_visible && !optical_moon ? 1.0 :
+        float3 normal = (saturn_visible || mars_visible) ? normalize(n / float3(1.0, 1.0, u_misc.z)) : n;
+        float night = u_misc.y > 0.5 && !saturn_visible && !optical_moon && !mars_visible ? 1.0 :
                       1.0 - smoothstep(-0.2079, 0.0, dot(normal, u_sun.xyz));
         if (optical_moon) {
             // Same spherical parent/soft penumbra approximation as body shading.
@@ -311,7 +312,10 @@ float4 main(PSInput input) : SV_Target0
         if (u_misc.y > 0.5) h *= length(n * float3(1.0, 1.0, u_misc.z));
         float blue = u_blue.x * pattern;
         float3 emission;
-        if (optical_moon) {
+        if (mars_visible) {
+            float z = (h - u_layers.x) / u_layers.y;
+            emission = u_low.rgb * exp(-0.5 * z * z) * step(u_layers.z, h) * step(h, u_layers.w);
+        } else if (optical_moon) {
             emission = u_low.rgb * pattern * exp(-h / u_layers.x) /
                        (u_layers.x * (1.0 - exp(-u_layers.y / u_layers.x)));
             if (u_misc.y > 6.5 && u_misc.y < 7.5) {
