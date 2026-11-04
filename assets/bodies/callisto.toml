@@ -12,3 +12,6 @@ prime_meridian_deg = [259.51, 21.5710715]
 color = "#73695c"
 texture = "textures/callisto.jpg"
 texture_left_lon_deg = 0.0
+
+[aurora]
+callisto_visible = true

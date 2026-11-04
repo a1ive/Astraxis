@@ -144,3 +144,36 @@ python -I tools/geomag/kp_bake.py <放 kpYYYY.wdc 的目录> assets/geomag/kp.bi
 - 木星场景事件 18（从 0 计数）为 2021-05-20 13:40 TDB，测试确认整个发光层处于木星本影。观测表使用地球接收 UTC，而导览使用当地发射时刻的模拟 TDB；镜头不是望远镜视点，也不逐帧复现观测曝光。任意日期重复使用同组谱线强度，未实现电流片驱动或进出影后的大气变化。
 
 模板开关为 `[aurora].europa_visible = true`，与其他极光字段互斥。可见光和紫外叠加视图中均保留这层可见光；没有把它改画成紫外伪彩。
+
+## Io 与 Callisto 的可见光极光
+
+`src/scene/satellite_aurora.hpp` 保存谱线的波长、Rayleigh 亮度、统计误差及每 kR 颜色。模板分别用 `[aurora].io_visible`、`[aurora].callisto_visible`，与其他极光字段互斥。普通事件默认不显示，导览的 `aurora_visible = true` 或手动可见光/UV 叠加模式启用；UV 模式仍保留这些可见光发射。
+
+Io 来源为 Milby, de Kleer & Schmidt (2025), *Detection of New Auroral Emissions at Io and Implications for Its Interaction with the Plasma Torus*, doi:10.3847/PSJ/ade0b1，[论文](https://arxiv.org/abs/2508.04807)，表 2 的 2023-08-09 列。只采用这一天检测到的八条线，不拼接其他日期或填补未覆盖波段：
+
+| 波长 nm | 发射 | 亮度 R | 统计误差 R |
+|---|---|---:|---:|
+| 406.9 | [S II] | 310 | 18 |
+| 407.6 | [S II] | 87 | 11 |
+| 458.9 | [S I] | 100 | 8 |
+| 557.7 | [O I] | 461 | 12 |
+| 589.0 | Na I | 12100 | 300 |
+| 589.6 | Na I | 5070 | 140 |
+| 630.0 | [O I] | 6090 | 110 |
+| 636.4 | [O I] | 2200 | 20 |
+
+这些是食中曝光的加权平均，误差不包含全部系统误差，尤其钠线。模型固定使用这组值，不随时间拟合钠消耗。Schmidt et al. (2023), *Io’s Optical Aurorae in Jupiter’s Shadow*, doi:10.3847/PSJ/ac85b0，[论文](https://arxiv.org/abs/2302.10849)，指出钠在入影后衰减、出影后恢复，时间尺度不同。当前没有实现这些化学过程，也没有用 SO₂ 凝结比例直接缩放氧发射。
+
+Callisto 来源为 de Kleer et al. (2023), doi:10.3847/PSJ/acb53c，[论文](https://arxiv.org/abs/2302.08487)，表 2 的 2021-07-04 测量：630.0 nm 为 6.1±1.7 R，636.4 nm 为 3.3±1.2 R。其余谱线只有上限，不加入颜色。
+
+空间模型均为自行实现的近似。Io 的氧/硫柱用 `1 + 0.75*(n.y² - n.z²)` 表示宽阔的赤道两侧增强，钠柱均匀；n 是本体单位方向。这不是磁场追踪，也不复现实际亮斑或火山发光。氧/硫指数标高 50 km、钠标高 100 km，上界均为 600 km。Callisto 使用均匀球壳，标高 50 km、上界 300 km，不添加极区形状。全部高度和横向对比为假设。
+
+每层先按可见球壳（包含实体盘之外的临边发射）积分，换算为除以实体盘面积的孔径亮度。Io 横向权重在朝木星方向的投影积分中均值为 1，因 y²、z² 项抵消。没有拟合真实望远镜孔径和 PSF。独立显示增益为 Io `1e6`、Callisto `3e9`；不能按屏幕亮度比较它们的物理强弱。两者沿用 Europa 的逐样本球形母行星遮挡、近似半影和日照淡出。
+
+导览事件 19、20（从 0 计数）分别为 Io 的 2023-08-09 13:40 TDB、Callisto 的 2021-07-04 14:00 TDB。测试确认整个发光层在木星本影。它们是相应观测日期的示意视点，不是地球望远镜位置，也不把接收 UTC 当作当地发射时刻。
+
+### 配色复算与许可
+
+`tools/geomag/aurora_colors.py` 增加上述钠、硫及 636.4 nm 波长，继续按 CIE 1931 2° 配色函数、5772 K 阳光白平衡和保持亮度的色域压缩换算。Io/Callisto 的红双线分别计算；Europa 原有的近邻红线近似保持不变。
+
+CVRL 下载不可用时，本次从 Colour 的 `DATA_CMFS_STANDARD_OBSERVER["CIE 1931 2 Degree Standard Observer"]` 提取 1 nm 网格，写成 `wavelength,x,y,z` CSV 后输入原脚本。固定来源：[cmfs.py](https://github.com/colour-science/colour/blob/9072a98d04e048fe0ea2b1e3aa8429d6e95d37b6/colour/colorimetry/datasets/cmfs.py)，该文件 SHA-256 为 `a53076b9e6be4843443067986c925898d40a3c32c4eef9cb32ff08ca42e6493d`。Colour 为 BSD-3-Clause，声明见 `tools/geomag/Colour-LICENSE.txt`。不分发完整配色表、论文或图像，只保留计算后的常数和测量事实；不将论文素材声明为公有领域。

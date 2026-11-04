@@ -687,3 +687,41 @@ caption = """\
     This is an enhanced-exposure illustration: the smooth trailing-side \
     enhancement and atmospheric height are assumed, not an observed map. \
     The eclipse removes sunlight; plasma continues to excite the oxygen."""
+
+[[frames]]
+name = "Io equator"
+type = "inertial"
+origin = "Io"
+up = "Io"
+
+[[events]]
+name = "Io's visible aurora in eclipse"
+aurora_visible = true
+time_tdb = "2023-08-09 13:40"
+focus = "Io"
+frame = "Io equator"
+from_body = "Jupiter"
+phase_deg = 0.0
+elevation_deg = 0.0
+distance_km = 7600.0
+warp = 1.0
+caption = "Io glows yellow-orange in Jupiter's shadow. This view combines measured sodium, oxygen and sulfur lines from the August 9, 2023 eclipse. The broad equatorial enhancement and layer heights are assumed. Line strengths stay at their eclipse averages; the model does not follow sodium depletion or the changing volcanic atmosphere."
+
+[[frames]]
+name = "Callisto equator"
+type = "inertial"
+origin = "Callisto"
+up = "Callisto"
+
+[[events]]
+name = "Callisto's visible aurora in eclipse"
+aurora_visible = true
+time_tdb = "2021-07-04 14:00"
+focus = "Callisto"
+frame = "Callisto equator"
+from_body = "Jupiter"
+phase_deg = 0.0
+elevation_deg = 0.0
+distance_km = 10000.0
+warp = 1.0
+caption = "Callisto's faint oxygen aurora was detected during the July 4, 2021 eclipse. Only the red doublet is used here; the other measured lines were upper limits. A smooth emitting shell represents the unresolved atmosphere. Exposure is amplified much more than for Io or Europa, so their displayed brightnesses cannot be compared directly."

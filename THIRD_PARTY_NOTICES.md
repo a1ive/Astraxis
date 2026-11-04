@@ -606,3 +606,9 @@ You may add additional accurate notices of copyright ownership.
 ### Europa optical aurora measurements
 
 The Europa model uses factual line-brightness measurements from de Kleer et al. (2023), *The Optical Aurorae of Europa, Ganymede, and Callisto*, PSJ 4, 37, doi:10.3847/PSJ/acb53c, Table 2 ([arXiv](https://arxiv.org/abs/2302.08487)). The smooth spatial model is an original approximation informed by de Kleer & Brown (2018), [Europa’s Optical Aurora](https://arxiv.org/abs/1809.04617). No paper images or maps are redistributed. Parameters, color conversion and limitations are recorded in `assets/geomag/SOURCES.md`; no public-domain claim is made for the papers.
+
+### Io and Callisto optical aurora measurements and colors
+
+The Io model uses the eight detected optical lines from the 2023-08-09 column of Table 2 in Milby, de Kleer & Schmidt (2025), *Detection of New Auroral Emissions at Io and Implications for Its Interaction with the Plasma Torus*, doi:10.3847/PSJ/ade0b1 ([arXiv](https://arxiv.org/abs/2508.04807)). Callisto uses the 2021-07-04 red doublet measurements in de Kleer et al. (2023), doi:10.3847/PSJ/acb53c ([arXiv](https://arxiv.org/abs/2302.08487)). The models use factual measurements with original approximate spatial profiles; no paper images are redistributed.
+
+The new line-color coefficients were calculated with `aurora_colors.py` using CIE 1931 2-degree matching functions distributed by Colour, revision `9072a98d04e048fe0ea2b1e3aa8429d6e95d37b6`. Copyright 2013 Colour Developers, BSD-3-Clause; the full notice is in [Colour-LICENSE.txt](tools/geomag/Colour-LICENSE.txt). The matching-function table and Colour implementation are not runtime dependencies. Processing and model limitations are recorded in `assets/geomag/SOURCES.md`.

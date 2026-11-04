@@ -31,7 +31,9 @@ SIGMA = 5.670374419e-8
 
 # Lines: wavelength (nm). 391.4 and 427.8 nm: N2+ first negative (0-0), (0-1);
 # 557.7 nm: O(1S); 630.0 nm: O(1D) (with its weaker 636.4 nm companion).
-LINES = {'violet': 391.4, 'blue': 427.8, 'green': 557.7, 'red': 630.0}
+LINES = {'violet': 391.4, 'blue': 427.8, 'green': 557.7, 'red': 630.0, 'red_companion': 636.4,
+         'sodium_1': 589.0, 'sodium_2': 589.6, 'sulfur_ii_1': 406.9,
+         'sulfur_ii_2': 407.6, 'sulfur_i': 458.9}
 
 XYZ_TO_SRGB = [  # IEC 61966-2-1
     (3.2406, -1.5372, -0.4986),

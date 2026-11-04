@@ -6,6 +6,7 @@
 #include "core/time.hpp"
 #include "scene/aurora.hpp"
 #include "scene/europa_aurora.hpp"
+#include "scene/satellite_aurora.hpp"
 #include "scene/comet.hpp"
 #include "scene/corona.hpp"
 #include "scene/scene_loader.hpp"
@@ -977,6 +978,77 @@ void test_saturn_aurora()
           !bad.bodies[0].saturn_aurora, "Saturn UV can be disabled explicitly");
 }
 
+void test_io_callisto_aurora()
+{
+    auto scene = load_scene_or_die("jupiter.toml");
+    const auto solar = load_scene_or_die("solar_system.toml");
+    for (const char* name : {"Io", "Callisto"}) {
+        const int index = scene.find(name);
+        const auto& moon = scene.bodies[index];
+        const bool io = std::string(name) == "Io";
+        check(io ? moon.io_aurora : moon.callisto_aurora, "visible moon aurora loads");
+        const auto& other = solar.bodies[solar.find(name)];
+        check(io ? other.io_aurora : other.callisto_aurora, "visible moon aurora template shared across scenes");
+        check(!moon.europa_aurora && !moon.ganymede_aurora && !moon.jovian_aurora && !moon.saturn_aurora,
+              "moon has only its own aurora model");
+        const auto& model = io ? io_visible_aurora() : callisto_visible_aurora();
+        int count = 0;
+        for (const auto& event : scene.events) {
+            if (event.focus != index || event.name.find("visible aurora") == std::string::npos) continue;
+            ++count;
+            scene.update(event.t_tdb);
+            const auto& parent = scene.bodies[moon.parent];
+            const auto sun = scene.sun_position() - moon.world_position;
+            const auto direction = glm::normalize(sun);
+            const auto oc = parent.world_position - moon.world_position;
+            const double along = glm::dot(oc, direction);
+            const double miss = glm::length(glm::cross(oc, direction));
+            check(along > 0.0 && miss + moon.equatorial_radius_km + model.top_km +
+                  along * 695700.0 / glm::length(sun) < parent.polar_radius_km,
+                  "Io/Callisto event shell is within Jupiter umbra", miss);
+            check(event.aurora_visible && !event.aurora_ultraviolet, "moon tour selects visible aurora");
+        }
+        check(count == 1, "moon has one visible aurora tour");
+        // Independent view-ray integral checks both assumed layer heights.
+        for (double H : {model.scale_km, model.sodium_scale_km}) {
+            const double R = moon.equatorial_radius_km, top = R + model.top_km;
+            double flux = 0.0;
+            constexpr int radial = 4000, depth = 400;
+            for (int i = 0; i < radial; ++i) {
+                const double b2 = top * top * (i + 0.5) / radial;
+                const double z1 = std::sqrt(top * top - b2);
+                const double z0 = b2 < R * R ? std::sqrt(R * R - b2) : -z1;
+                for (int j = 0; j < depth; ++j) {
+                    const double z = z0 + (z1 - z0) * (j + 0.5) / depth;
+                    const double h = std::sqrt(b2 + z * z) - R;
+                    flux += std::exp(-h / H) / (H * (1.0 - std::exp(-model.top_km / H))) *
+                            (z1 - z0) / depth * top * top / (R * R * radial);
+                }
+            }
+            check(std::abs(flux - europa_aurora_disk_factor(R, H, model.top_km)) < 0.004,
+                  "moon column conversion matches independent aperture integral", flux);
+        }
+        Scene bad;
+        std::string error;
+        const std::string key = io ? "io_visible" : "callisto_visible";
+        const std::string base = "name='x'\n[[bodies]]\nname='moon'\nradii_km=[" +
+                                std::to_string(moon.equatorial_radius_km) + "]\n[bodies.aurora]\n";
+        for (const char* conflict : {"europa_visible=true", "ganymede_map='x'", "kp='x'", "saturn_oval=true", "jovian_oval='x'", "footprints='x'"})
+            check(!load_scene_string(base + key + "=true\n" + conflict, "mixed_moon", bad, &error, ASTRAXIS_ASSET_DIR),
+                  "moon rejects incompatible aurora fields");
+        check(!load_scene_string(base + key + "='true'", "bad_moon", bad, &error, ASTRAXIS_ASSET_DIR),
+              "moon aurora requires boolean");
+        check(!load_scene_string("name='x'\n[[bodies]]\nname='x'\nradii_km=[6378]\n[bodies.aurora]\n" +
+                                key + "=true", "wrong_moon", bad, &error, ASTRAXIS_ASSET_DIR), "moon radius is validated");
+    }
+    check(kCallistoOxygenLines.size() == 2 && kCallistoOxygenLines[0].rayleigh == 6.1 &&
+          kCallistoOxygenLines[1].rayleigh == 3.3, "Callisto uses detected red lines, not upper limits");
+    check(kIoSodiumLines[0].rayleigh + kIoSodiumLines[1].rayleigh == 17170.0,
+          "Io sodium brightness retains the measured eclipse average");
+    check(io_visible_aurora().sodium_column_rgb.g > 0.0 && callisto_visible_aurora().column_rgb.g == 0.0,
+          "Io sodium and Callisto oxygen have distinct spectra");
+}
+
 void test_europa_aurora()
 {
     auto scene = load_scene_or_die("jupiter.toml");
@@ -1235,6 +1307,7 @@ void run_appearance_tests()
     test_saturn_aurora();
     test_ganymede_aurora();
     test_europa_aurora();
+    test_io_callisto_aurora();
     test_jovian_footprints();
     test_refraction();
     test_corona();

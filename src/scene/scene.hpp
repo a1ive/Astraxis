@@ -378,6 +378,8 @@ struct Body {
     std::shared_ptr<const JovianAurora> jovian_aurora;
     bool saturn_aurora = false;
     bool europa_aurora = false;
+    bool io_aurora = false;
+    bool callisto_aurora = false;
     std::shared_ptr<const GanymedeAurora> ganymede_aurora;
     // Io N/S, Europa N/S, Ganymede N/S; zero means absent/outside the table.
     std::array<glm::dvec3, 6> jovian_footprints{};

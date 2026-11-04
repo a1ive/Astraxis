@@ -48,7 +48,7 @@ struct AuroraDrawItem {
     std::array<glm::vec4, kAuroraOvalSamples> oval{};
     bool ultraviolet = false;
     bool saturn = false;
-    bool europa = false; // footprints[0]: parent center/radius in unit frame; blue_kr: solar angular radius
+    int optical_moon = 0; // 0 none, 6 Europa, 7 Io, 8 Callisto; footprints[0]: parent center/radius in unit frame; blue_kr: solar angular radius
     SDL_GPUTexture* ganymede_map = nullptr;
     // Saturn is composited after the rings; each ray sample behind their
     // equatorial plane uses the same radial optical-depth profile.
