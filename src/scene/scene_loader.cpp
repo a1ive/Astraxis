@@ -461,7 +461,7 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
     };
     static const TemplateFields night_lights = {{"texture", text}, {"color", text}, {"gain", number}};
     static const TemplateFields aurora = {{"kp", text}, {"jovian_oval", text}, {"footprints", text},
-                                          {"saturn_oval", boolean}};
+                                          {"saturn_oval", boolean}, {"ganymede_map", text}};
     static const TemplateFields rotor = {{"shape", text}, {"period_s", number}};
     static const TemplateFields ring_band = {
         {"name", text}, {"inner_km", number}, {"outer_km", number}, {"optical_depth", number},
@@ -1442,7 +1442,18 @@ void Loader::parse(const toml::table& root, Scene& out)
                 fail(ctx, "only ellipsoidal planets can have an aurora");
             }
             std::string error;
-            if (aurora->contains("saturn_oval")) {
+            if (aurora->contains("ganymede_map")) {
+                if (aurora->contains("kp") || aurora->contains("jovian_oval") ||
+                    aurora->contains("footprints") || aurora->contains("saturn_oval"))
+                    fail(actx, "ganymede_map cannot be combined with other aurora models");
+                if (std::abs(body.equatorial_radius_km - 2631.2) > 1.0 ||
+                    std::abs(body.equatorial_radius_b_km - 2631.2) > 1.0 ||
+                    std::abs(body.polar_radius_km - 2631.2) > 1.0)
+                    fail(actx, "ganymede_map requires Ganymede's spherical radius");
+                auto map = std::make_shared<GanymedeAurora>();
+                if (!map->load(m_asset_root / get_string(*aurora, "ganymede_map", actx), &error)) fail(actx, error);
+                body.ganymede_aurora = map;
+            } else if (aurora->contains("saturn_oval")) {
                 if (aurora->contains("kp") || aurora->contains("jovian_oval") || aurora->contains("footprints"))
                     fail(actx, "saturn_oval cannot be combined with kp, jovian_oval or footprints");
                 const auto enabled = (*aurora)["saturn_oval"].value<bool>();

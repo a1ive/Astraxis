@@ -1,5 +1,25 @@
 # 地磁与极光数据来源
 
+## Ganymede 自身的紫外极光
+
+木星场景末尾的两个 Ganymede 导览分别朝向前导与拖尾半球，也可在面板的 `Planetary aurora` 中选择 `UV aurora overlay`。太阳系场景通过木卫三模板使用同一份数据。
+
+`ganymede_aurora.txt` 来自 Marzok、Schlegel、Saur、Roth、Grodent、Strobel 和 Retherford 的 [Zenodo 6564687 数据集](https://doi.org/10.5281/zenodo.6564687)，原文件为 `Fig5_BrightnessMap.txt`，许可 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)。引用：Marzok et al. 2022, *Mapping the Brightness of Ganymede's Ultraviolet Aurora Using Hubble Space Telescope Observations*, JGR Planets 127, e2022JE007256，[论文](https://doi.org/10.1029/2022JE007256)。再分发依据是 Zenodo 数据许可；论文正文另采用 CC BY-NC，未随程序分发。
+
+该图合并了 1998 至 2017 年的 46 次 HST/STIS 观测，记录 OI 135.6 nm 的垂直柱亮度（Rayleigh）。数组为 80×40，像元中心西经 2.25° 至 357.75°、纬度 −87.75° 至 87.75°，两轴步长均为 4.5°。烘焙保留网格和正亮度，将负背景残差截为零；原图中零值区域仍为零。运行时把东经取负后采样，纬度从南向北，经度环绕、纬度夹紧。上传线性 UNORM 纹理的范围为 0 至 200 R，最大量化误差小于 0.4 R，远景使用 mipmap。
+
+发光分布采用论文 §2.3 校正视线柱长时使用的均匀 70 km 壳层，垂直积分还原图中的柱亮度。地图固定于木卫三本体；蓝色及每 100 R 的显示增益是示意。数据的低信噪比像元也参与双线性插值，部分暗区来自缺测，不能解释为没有极光。当前没有按木星电流片位置切换分组图，也没有模拟摇摆、风暴或细小斑块。
+
+重新生成（Python 标准库）：
+
+```powershell
+New-Item -ItemType Directory -Force build/ganymede_aurora | Out-Null
+curl.exe -L --fail https://zenodo.org/api/records/6564687/files/Fig5_BrightnessMap.txt/content -o build/ganymede_aurora/Fig5_BrightnessMap.txt
+python tools/geomag/ganymede_aurora_bake.py build/ganymede_aurora/Fig5_BrightnessMap.txt assets/geomag/ganymede_aurora.txt
+```
+
+原文件 SHA-256：`f0dd34cdb5fd0f43353631eb26c488866c78e4081cf829879bd419028646a5d5`。工具检查此哈希及坐标网格，数据修订需要重新核对。`appearance_tests.cpp` 检查经纬度、接缝、量化、跨场景一致性和导览朝向，并用论文报告的前导低纬、拖尾高纬形态独立检查地图方向。
+
 ## 土星紫外主卵
 
 `src/scene/saturn_aurora.cpp` 独立实现 [Carbary 2012, *The morphology of Saturn's ultraviolet aurora*](https://doi.org/10.1029/2012JA017670) 的式 (2)、表 1。输入是太阳地方时，纬度是行星中心纬度。论文统计 Cassini UVIS 2007–2009 年观测；模型在任意日期沿用这一时期的南北差异。

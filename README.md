@@ -47,7 +47,7 @@ Astraxis is an astronomy background app with planets, spacecraft and stars anima
 
 Add scenes with TOML files in [assets/scenes](assets/scenes/). Shared body properties use [Body Templates](assets/bodies/README.md). Scene and template files cite the orbital data and physical constants. Data licenses are listed in `assets/*/SOURCES.md`; modeling assumptions are documented in [limitations.md](limitations.md).
 
-The Jupiter and Saturn scenes each have two polar aurora events. The **Planetary aurora** control selects the event setting, visible light, or a UV false-color overlay on visible-light clouds. Jupiter uses statistical Juno-UVS contours and modeled satellite footprints. Saturn uses Cassini UVIS statistical ovals, with a brighter, narrower dawn sector and attenuation through its rings. Colors and exposure are illustrative; the event dates do not identify recorded auroral images. See [sources and model limits](assets/geomag/SOURCES.md).
+The Jupiter and Saturn scenes each have two polar aurora events. The **Planetary aurora** control selects the event setting, visible light, or a UV false-color overlay on visible-light surfaces. Jupiter uses statistical Juno-UVS contours and modeled satellite footprints. Saturn uses Cassini UVIS statistical ovals, with a brighter, narrower dawn sector and attenuation through its rings. The Jupiter scene also has leading and trailing Ganymede aurora views, using the 1998-2017 HST oxygen-emission map. Colors and exposure are illustrative; the event dates do not identify recorded auroral images. See [sources and model limits](assets/geomag/SOURCES.md).
 
 ## Preview
 

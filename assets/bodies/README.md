@@ -103,6 +103,8 @@ file = "ephem/moon_geo.eph"
 
 木星模板的 `[aurora]` 用 `jovian_oval` 指定统计主卵、`footprints` 指定卫星磁场映射表。后者需要木星的 1 bar 半径，只计算场景中名为 Io、Europa、Ganymede 的直属卫星，缺少某颗时跳过它。两项数据用于紫外叠加视图，与地球的 `kp` 模型互斥；格式、领先角和显示假设见 [地磁与极光来源](../geomag/SOURCES.md)。
 
+Ganymede 模板的 `[aurora].ganymede_map` 读取 HST 平均柱亮度图，要求木卫三的球形半径，与其他极光字段互斥。它随本体旋转，通过紫外叠加开关显示；数据和 70 km 壳层的说明见 [极光来源](../geomag/SOURCES.md#ganymede-自身的紫外极光)。
+
 ## 加载接口与离线工具
 
 `load_scene_file` 按 `<assets>/scenes/<file>.toml` 推导资源根目录。使用 `load_scene_string` 加载带模板的内容时，需要传入 `asset_root`。错误信息包含场景来源、天体名和模板路径。

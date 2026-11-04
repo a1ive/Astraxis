@@ -16,10 +16,10 @@ namespace astraxis {
 SDL_GPUTexture* load_texture_srgb(SDL_GPUDevice* device, const std::filesystem::path& path, std::string* error,
                                   uint32_t* width = nullptr);
 
-// RGBA8 texture without mipmaps; `srgb` selects the sRGB format (sampling
+// RGBA8 texture with optional mipmaps; `srgb` selects the sRGB format (sampling
 // decodes to linear), otherwise values are used as they are.
 SDL_GPUTexture* create_texture_rgba8(SDL_GPUDevice* device, const uint8_t* rgba, uint32_t width, uint32_t height,
-                                     bool srgb);
+                                     bool srgb, bool mipmaps = false);
 
 // One-row R16G16_FLOAT texture of a radial profile (e.g. a ring's optical
 // depth), with a mip chain of pairwise averages so that distant rings do not

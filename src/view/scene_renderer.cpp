@@ -563,6 +563,7 @@ void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, u
     m_body_textures.assign(scene.bodies.size(), nullptr);
     m_ring_textures.assign(scene.bodies.size(), nullptr);
     m_night_textures.assign(scene.bodies.size(), nullptr);
+    m_aurora_textures.assign(scene.bodies.size(), nullptr);
     m_comets.clear_meshes();
     m_comet_meshes.assign(scene.bodies.size(), -1);
     m_bodies.clear_meshes();
@@ -583,6 +584,13 @@ void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, u
         }
         if (!body.rings.profile.empty()) {
             m_ring_textures[i] = create_profile_texture(m_device->device(), body.rings.profile);
+        }
+        if (body.ganymede_aurora) {
+            const auto pixels = body.ganymede_aurora->texture_rgba();
+            m_aurora_textures[i] = create_texture_rgba8(m_device->device(), pixels.data(),
+                GanymedeAurora::kWidth, GanymedeAurora::kHeight, false, true);
+            if (!m_aurora_textures[i])
+                SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Aurora texture for %s unavailable", body.name.c_str());
         }
         if (body.texture.empty()) {
             continue;
@@ -770,7 +778,7 @@ void SceneRenderer::trace_black_hole(SDL_GPUCommandBuffer* cmd, uint32_t width, 
 
 void SceneRenderer::release_body_textures()
 {
-    for (auto* textures : {&m_body_textures, &m_ring_textures, &m_night_textures}) {
+    for (auto* textures : {&m_body_textures, &m_ring_textures, &m_night_textures, &m_aurora_textures}) {
         for (SDL_GPUTexture* texture : *textures) {
             if (texture) {
                 SDL_ReleaseGPUTexture(m_device->device(), texture);
@@ -950,6 +958,12 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
             if (body.aurora) {
                 m_aurora_items.push_back(aurora_item(sim, output_view, body, linear, to_unit, item.sun_direction));
             }
+        }
+        if (body.ganymede_aurora && ultraviolet && i < m_aurora_textures.size() && m_aurora_textures[i]) {
+            const glm::dmat3 linear = body.orientation * glm::dmat3(body.equatorial_radius_km);
+            auto aurora = aurora_item(sim, output_view, body, linear, glm::inverse(linear), item.sun_direction);
+            aurora.ganymede_map = m_aurora_textures[i];
+            m_aurora_items.push_back(aurora);
         }
         if (body.jovian_aurora && ultraviolet) {
             const glm::dmat3 linear = body.orientation * glm::dmat3(
@@ -1612,6 +1626,17 @@ AuroraDrawItem SceneRenderer::aurora_item(const Simulation& sim, const OutputVie
     a.to_unit = glm::mat3(to_unit);
     a.camera_unit = glm::vec3(to_unit * (view.position - body.world_position));
     a.km_per_unit = static_cast<float>(radius_km);
+    if (body.ganymede_aurora) {
+        a.ultraviolet = true;
+        a.bottom = 1.0f;
+        a.top = static_cast<float>(1.0 + GanymedeAurora::kTopKm / radius_km);
+        // Display exposure per 100 R, independent of Jupiter's much brighter UV.
+        a.low_rgb = glm::vec3(srgb_to_linear(glm::dvec3(0.3, 0.55, 1.0)) * 0.2);
+        a.layers.x = static_cast<float>(GanymedeAurora::kTopKm);
+        a.diffuse_flux = static_cast<float>(GanymedeAurora::kTextureRange / 100.0);
+        a.pixel_angle = 2.0f / (view.viewport.y * view.focal_y);
+        return a;
+    }
     if (body.saturn_aurora) {
         a.ultraviolet = true;
         a.saturn = true;

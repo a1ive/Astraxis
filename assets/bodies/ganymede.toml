@@ -12,3 +12,9 @@ prime_meridian_deg = [44.064, 50.3176081]
 color = "#9e9485"
 texture = "textures/ganymede.jpg"
 texture_left_lon_deg = 0.0
+
+# [MARZOK] Marzok et al. 2022, Fig. 5, doi:10.1029/2022JE007256.
+# HST mean OI 135.6 nm zenith brightness; CC BY 4.0 data and processing:
+# geomag/SOURCES.md. Blue UV overlay, with illustrative exposure.
+[aurora]
+ganymede_map = "geomag/ganymede_aurora.txt"

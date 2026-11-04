@@ -111,9 +111,9 @@ SDL_GPUTexture* load_texture_srgb(SDL_GPUDevice* device, const std::filesystem::
 }
 
 SDL_GPUTexture* create_texture_rgba8(SDL_GPUDevice* device, const uint8_t* rgba, uint32_t width, uint32_t height,
-                                     bool srgb)
+                                     bool srgb, bool mipmaps)
 {
-    return create_and_upload(device, rgba, width, height, false, srgb);
+    return create_and_upload(device, rgba, width, height, mipmaps, srgb);
 }
 
 SDL_GPUTexture* create_profile_texture(SDL_GPUDevice* device, const std::vector<glm::vec2>& samples)

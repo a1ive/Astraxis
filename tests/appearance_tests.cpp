@@ -825,7 +825,7 @@ void test_jovian_aurora()
     int uv_events = 0;
     for (size_t i = 0; i < sim.scene().events.size(); ++i) {
         const SceneEvent& event = sim.scene().events[i];
-        if (!event.aurora_ultraviolet) continue;
+        if (!event.aurora_ultraviolet || event.focus != sim.scene().find("Jupiter")) continue;
         ++uv_events;
         sim.jump_to_event(i);
         sim.update(0.0);
@@ -952,6 +952,84 @@ void test_saturn_aurora()
           !bad.bodies[0].saturn_aurora, "Saturn UV can be disabled explicitly");
 }
 
+void test_ganymede_aurora()
+{
+    Scene scene = load_scene_or_die("jupiter.toml");
+    const auto& moon = scene.bodies[static_cast<size_t>(scene.find("Ganymede"))];
+    check(bool(moon.ganymede_aurora) && !moon.aurora && !moon.jovian_aurora && !moon.saturn_aurora,
+          "Ganymede loads its own UV map independently of Jupiter's footprint");
+    if (!moon.ganymede_aurora) return;
+    const auto& map = *moon.ganymede_aurora;
+    Scene solar = load_scene_or_die("solar_system.toml");
+    const auto& other = solar.bodies[static_cast<size_t>(solar.find("Ganymede"))].ganymede_aurora;
+    check(other && other->rayleigh == map.rayleigh, "Ganymede UV map is shared across scenes");
+    // Independent published morphology: Marzok 2022 section 3.3, Fig. 8.
+    // Leading (90 W) crescents lie closer to the equator than trailing (270 W).
+    for (int sign : {-1, 1}) {
+        double peaks[2]{};
+        for (int h = 0; h < 2; ++h) {
+            double maximum = -1.0;
+            for (double lat = 5.0; lat <= 65.0; lat += 0.25) {
+                const double b = map.brightness(-(90.0 + h * 180.0) * kDegToRad, sign * lat * kDegToRad);
+                if (b > maximum) { maximum = b; peaks[h] = lat; }
+            }
+        }
+        check(peaks[0] < 30.0 && peaks[1] > 30.0 && peaks[1] > peaks[0] + 10.0,
+              "HST leading crescents reach lower latitude than trailing crescents", peaks[1] - peaks[0]);
+    }
+    for (double lat : {-90.0, -42.75, 0.0, 20.25, 90.0}) {
+        check(std::abs(map.brightness(-1e-9, lat * kDegToRad) - map.brightness(1e-9, lat * kDegToRad)) < 1e-5,
+              "Ganymede UV map is continuous across the prime meridian");
+        check(std::abs(map.brightness(0.3, lat * kDegToRad) - map.brightness(0.3 + kTwoPi, lat * kDegToRad)) < 1e-10,
+              "Ganymede east-to-west lookup wraps longitude");
+    }
+    const auto pixels = map.texture_rgba();
+    for (int y = 0; y < GanymedeAurora::kHeight; ++y) {
+        for (int x = 0; x < GanymedeAurora::kWidth; ++x) {
+            const size_t k = static_cast<size_t>(y * GanymedeAurora::kWidth + x);
+            const double b = map.brightness(-(2.25 + 4.5 * x) * kDegToRad, (-87.75 + 4.5 * y) * kDegToRad);
+            check(std::abs(b - map.rayleigh[k]) < 1e-10, "UV cell centers preserve west longitude and latitude");
+            check(std::abs(pixels[4 * k] * GanymedeAurora::kTextureRange / 255.0 - b) < 0.4,
+                  "GPU UV texture quantization is below 0.4 Rayleigh");
+        }
+    }
+    Simulation sim;
+    std::string error;
+    check(sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/jupiter.toml", &error), "Ganymede UV simulation loads");
+    sim.stop_tour();
+    int count = 0;
+    for (size_t i = 0; i < sim.scene().events.size(); ++i) {
+        const auto& event = sim.scene().events[i];
+        if (!event.aurora_ultraviolet || event.focus != sim.scene().find("Ganymede")) continue;
+        ++count;
+        sim.jump_to_event(i);
+        sim.update(0.0);
+        sim.camera().update(3.0, sim.scene());
+        OutputView view;
+        sim.compute_view(1280, 720, 1.0, view);
+        const auto& body = sim.scene().bodies[static_cast<size_t>(event.focus)];
+        const glm::dvec3 direction = glm::transpose(body.orientation) * (view.camera.position - body.world_position);
+        const double east = std::atan2(direction.y, direction.x) / kDegToRad;
+        check(std::abs(std::remainder(east - event.phase_deg, 360.0)) < 3.0,
+              "Ganymede UV tours face their intended leading or trailing hemisphere", east);
+        check(sim.scene().active_event() == static_cast<int>(i), "Ganymede event activates UV overlay");
+    }
+    check(count == 2, "Ganymede has leading and trailing UV tours");
+    Scene bad;
+    const std::string base = "name='x'\n[[bodies]]\nname='Ganymede'\nradii_km=[2631.2]\n[bodies.aurora]\n";
+    const std::string field = "ganymede_map='geomag/ganymede_aurora.txt'\n";
+    for (const char* conflict : {"kp='geomag/kp.bin'", "jovian_oval='geomag/jupiter_oval.txt'",
+                                "saturn_oval=false", "footprints='geomag/jupiter_footprints.txt'"})
+        check(!load_scene_string(base + field + conflict, "mixed_ganymede", bad, &error, ASTRAXIS_ASSET_DIR),
+              "Ganymede map rejects conflicting aurora fields");
+    check(!load_scene_string(base + "ganymede_map=true", "bad_map_type", bad, &error, ASTRAXIS_ASSET_DIR),
+          "Ganymede map requires a file path");
+    check(!load_scene_string(base + "ganymede_map='geomag/jupiter_oval.txt'", "bad_map", bad, &error, ASTRAXIS_ASSET_DIR),
+          "Ganymede map rejects wrong resource format");
+    check(!load_scene_string("name='x'\n[[bodies]]\nname='Earth'\nradii_km=[6378]\n[bodies.aurora]\n" + field,
+                            "wrong_moon", bad, &error, ASTRAXIS_ASSET_DIR), "Ganymede map checks the body's radius");
+}
+
 void test_jovian_footprints()
 {
     Scene scene = load_scene_or_die("jupiter.toml");
@@ -1074,6 +1152,7 @@ void run_appearance_tests()
     test_night_and_aurora();
     test_jovian_aurora();
     test_saturn_aurora();
+    test_ganymede_aurora();
     test_jovian_footprints();
     test_refraction();
     test_corona();

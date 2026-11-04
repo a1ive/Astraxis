@@ -47,6 +47,7 @@ struct AuroraDrawItem {
     std::array<glm::vec4, kAuroraOvalSamples> oval{};
     bool ultraviolet = false;
     bool saturn = false;
+    SDL_GPUTexture* ganymede_map = nullptr;
     // Saturn is composited after the rings; each ray sample behind their
     // equatorial plane uses the same radial optical-depth profile.
     SDL_GPUTexture* ring_profile = nullptr;
@@ -86,6 +87,7 @@ private:
     SDL_GPUTexture* m_noise = nullptr; // tiling value noise for the arcs and rays
     SDL_GPUSampler* m_sampler = nullptr;
     SDL_GPUSampler* m_ring_sampler = nullptr;
+    SDL_GPUSampler* m_map_sampler = nullptr; // longitude wraps, latitude clamps
 };
 
 } // namespace astraxis

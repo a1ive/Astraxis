@@ -5,6 +5,7 @@
 #include "scene/aurora.hpp"
 #include "scene/jovian_aurora.hpp"
 #include "scene/saturn_aurora.hpp"
+#include "scene/ganymede_aurora.hpp"
 #include "scene/corona.hpp"
 #include "scene/nebula.hpp"
 #include "scene/refraction.hpp"
@@ -376,6 +377,7 @@ struct Body {
     std::shared_ptr<const KpRecord> aurora;
     std::shared_ptr<const JovianAurora> jovian_aurora;
     bool saturn_aurora = false;
+    std::shared_ptr<const GanymedeAurora> ganymede_aurora;
     // Io N/S, Europa N/S, Ganymede N/S; zero means absent/outside the table.
     std::array<glm::dvec3, 6> jovian_footprints{};
     std::vector<Plume> plumes;

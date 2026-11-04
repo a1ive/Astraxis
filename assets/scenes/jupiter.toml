@@ -620,3 +620,45 @@ caption = """\
     Io, Europa and Ganymede also leave moving spots here, with a different \
     magnetic mapping from the north. Blue represents ultraviolet emission; \
     this view models the geometry, not the aurora observed on this date."""
+
+[[frames]]
+name = "Ganymede equator"
+type = "inertial"
+origin = "Ganymede"
+up = "Ganymede"
+
+# [MARZOK] Marzok et al. 2022, doi:10.1029/2022JE007256, Fig. 5.
+# Dates choose the lighting; the emission is the 1998-2017 HST average.
+[[events]]
+name = "Ganymede's leading aurora (UV overlay)"
+time_tdb = "2021-06-11 02:00"
+focus = "Ganymede"
+frame = "Ganymede equator"
+from_body = "Jupiter"
+phase_deg = -90.0
+elevation_deg = 10.0
+distance_km = 11000.0
+warp = 30.0
+aurora_ultraviolet = true
+caption = """\
+    Ganymede has aurora of its own. On its leading hemisphere, two broad \
+    crescents reach low latitudes. Blue shows oxygen emission at 135.6 nm \
+    over the visible-light ice, using Hubble's 1998-2017 average brightness \
+    map. Color and exposure are illustrative; the map stays fixed in time."""
+
+[[events]]
+name = "Ganymede's trailing aurora (UV overlay)"
+time_tdb = "2021-06-07 12:00"
+focus = "Ganymede"
+frame = "Ganymede equator"
+from_body = "Jupiter"
+phase_deg = 90.0
+elevation_deg = -10.0
+distance_km = 11000.0
+warp = 30.0
+aurora_ultraviolet = true
+caption = """\
+    Jupiter's corotating plasma overtakes Ganymede on this trailing side. \
+    The average ultraviolet crescents lie farther from the equator here. \
+    Hubble's map also records fainter emission toward and away from Jupiter. \
+    This view shows the long-term average, with an assumed 70 km emitting layer."""

@@ -27,6 +27,7 @@ static const float kNoiseCells = 32.0; // lattice cells across the noise tile
 
 FRAGMENT_TEXTURE(Texture2D, u_noise, u_noise_sampler, 0); // four independent value noises (rgba), tiling
 FRAGMENT_TEXTURE(Texture2D, u_ring, u_ring_sampler, 1);
+FRAGMENT_TEXTURE(Texture2D, u_ganymede, u_ganymede_sampler, 2);
 
 cbuffer Uniforms : register(b0, space3)
 {
@@ -150,6 +151,13 @@ float saturn_pattern(float3 n, float footprint_km)
 
 float aurora_pattern(float3 n, float footprint_km)
 {
+    if (u_misc.y > 3.5) {
+        // Marzok 2022 Fig. 5: west longitude, south-to-north rows, cell centers.
+        float2 uv = float2(-atan2(n.y, n.x) / (2.0 * kPi), asin(clamp(n.z, -1.0, 1.0)) / kPi + 0.5);
+        float cell_km = u_pole.w * (kPi / 40.0);
+        float lod = max(0.0, log2(max(footprint_km / cell_km, 1.0)));
+        return u_ganymede.SampleLevel(u_ganymede_sampler, uv, lod).r * u_misc.x;
+    }
     if (u_misc.y > 2.5) return saturn_pattern(n, footprint_km);
     if (u_misc.y > 0.5) return jovian_pattern(n, footprint_km);
     float3 pole = u_pole.xyz;
@@ -280,8 +288,14 @@ float4 main(PSInput input) : SV_Target0
         float h = (r - 1.0) * km;
         if (u_misc.y > 0.5) h *= length(n * float3(1.0, 1.0, u_misc.z));
         float blue = u_blue.x * pattern;
-        float3 emission = u_low.rgb * (pattern * chapman(h, u_layers.x, u_layers.y)) +
-                          u_red.rgb * (blue * red_over_blue(blue) * chapman(h, u_layers.z, u_layers.w));
+        float3 emission;
+        if (u_misc.y > 3.5) {
+            // The published zenith correction uses a uniform 70 km column.
+            emission = u_low.rgb * (pattern / u_layers.x);
+        } else {
+            emission = u_low.rgb * (pattern * chapman(h, u_layers.x, u_layers.y)) +
+                       u_red.rgb * (blue * red_over_blue(blue) * chapman(h, u_layers.z, u_layers.w));
+        }
         float ring_visibility = t > ring_t ? transmission : 1.0;
         sum += emission * (night * ring_visibility * ds * ray_km);
     }
