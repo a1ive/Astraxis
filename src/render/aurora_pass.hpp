@@ -33,7 +33,8 @@ struct AuroraDrawItem {
     glm::vec3 sun{1.0f, 0.0f, 0.0f};
     // A vertical column through the oval: the linear RGB of its low layer
     // (green, blue), exposure included, and its 427.8 nm brightness (kR); the
-    // red line's linear RGB per kR, exposure included.
+    // red line's linear RGB per kR, exposure included. Saturn visible uses
+    // low_rgb / red_per_kr as independent pink / purple column colors.
     glm::vec3 low_rgb{0.0f};
     float blue_kr = 0.0f;
     glm::vec3 red_per_kr{0.0f};
@@ -62,7 +63,7 @@ struct AuroraDrawItem {
     std::array<glm::vec4, kJovianOvalSamples> jovian_oval{};
 };
 
-// Emitting shells: Earth's visible aurora or planetary UV reference ovals.
+// Emitting shells: Earth/Saturn visible aurora and planetary UV reference ovals.
 class AuroraPass {
 public:
     bool init(SDL_GPUDevice* device, const SceneTargetFormat& format);

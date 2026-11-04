@@ -37,10 +37,10 @@ cbuffer Uniforms : register(b0, space3)
     float4 u_noon;      // xyz = magnetic noon (unit, across the pole), w = shell bottom radius
     float4 u_sun;       // xyz = toward the sun (unit), w = shell top radius
     float4 u_low;       // rgb = column through the oval, low layer; w = animation time (s)
-    float4 u_red;       // rgb = 1 kR of the red line; w = radians per pixel
+    float4 u_red;       // rgb = 1 kR of red, or Saturn's purple column; w = radians per pixel
     float4 u_blue;      // x = 427.8 nm of a column through the oval (kR)
     float4 u_layers;    // low peak (km), low scale height, high peak, high scale height
-    float4 u_misc;      // diffuse flux, UV mode, polar/equatorial radius, UV width (km)
+    float4 u_misc;      // diffuse flux, mode (0 Earth, 1/2 Jupiter, 3 Saturn UV, 4 Ganymede, 5 Saturn visible), polar ratio, width
     float4 u_oval[kOvalSamples]; // colatitudes (rad): x = diffuse, y = equatorward, z = poleward
     float4 u_south_center;
     float4 u_south_east;
@@ -151,6 +151,7 @@ float saturn_pattern(float3 n, float footprint_km)
 
 float aurora_pattern(float3 n, float footprint_km)
 {
+    if (u_misc.y > 4.5) return saturn_pattern(n, footprint_km);
     if (u_misc.y > 3.5) {
         // Marzok 2022 Fig. 5: west longitude, south-to-north rows, cell centers.
         float2 uv = float2(-atan2(n.y, n.x) / (2.0 * kPi), asin(clamp(n.z, -1.0, 1.0)) / kPi + 0.5);
@@ -276,7 +277,11 @@ float4 main(PSInput input) : SV_Target0
         float r = length(p);
         float3 n = p / r;
         // Fades in from sunset at the point below to the sun 12 deg below the horizon.
-        float night = u_misc.y > 0.5 ? 1.0 : 1.0 - smoothstep(-0.2079, 0.0, dot(n, u_sun.xyz));
+        bool saturn_visible = u_misc.y > 4.5;
+        // Ellipsoid surface normal in physical body coordinates.
+        float3 normal = saturn_visible ? normalize(n / float3(1.0, 1.0, u_misc.z)) : n;
+        float night = u_misc.y > 0.5 && !saturn_visible ? 1.0 :
+                      1.0 - smoothstep(-0.2079, 0.0, dot(normal, u_sun.xyz));
         if (night <= 0.0) {
             continue;
         }
@@ -289,7 +294,12 @@ float4 main(PSInput input) : SV_Target0
         if (u_misc.y > 0.5) h *= length(n * float3(1.0, 1.0, u_misc.z));
         float blue = u_blue.x * pattern;
         float3 emission;
-        if (u_misc.y > 3.5) {
+        if (saturn_visible) {
+            // Independent pink/purple columns; exposure and layer profiles
+            // are display assumptions, not a UV-to-visible conversion.
+            emission = pattern * (u_low.rgb * chapman(h, u_layers.x, u_layers.y) +
+                                  u_red.rgb * chapman(h, u_layers.z, u_layers.w));
+        } else if (u_misc.y > 3.5) {
             // The published zenith correction uses a uniform 70 km column.
             emission = u_low.rgb * (pattern / u_layers.x);
         } else {

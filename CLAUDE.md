@@ -81,6 +81,7 @@ CMake 目标：
 - `SceneRenderer` 持有 pass 和每个场景的 GPU 资源，显示选项通过 `ViewOptions` 传入
 - 木星紫外主卵：模板 `[aurora].jovian_oval` 读取 Head 2024 的南北统计轮廓（`JovianAurora`，每极 256 点），`AuroraPass` 在木星本体坐标中画成发光壳。`ViewOptions::aurora_view` / 设置键 `aurora_view`：0 跟随事件、1 可见光、2 紫外极光叠加；事件用 `aurora_ultraviolet = true` 开启。叠加保留可见光云层，蓝色和明暗细节是示意，白天也画。木星不需要配置大气散射；加载与地球的 `kp` 互斥。烘焙命令及许可见 `assets/geomag/SOURCES.md`。
 - 土星紫外主卵：模板 `[aurora].saturn_oval = true` 启用 Carbary 2012 的南北地方时统计轮廓，与 `kp` / `jovian_oval` / `footprints` 互斥。`SaturnAurora::profile` 按半小时采样形状、宽度、晨侧亮度；`noon` 从本体坐标的太阳方向投影得到，不能随 System III 转。仍用 `aurora_view` 和 `aurora_ultraviolet` 切换。先画环，再画土星极光；每个样本光路查 RSS 环剖面，只有环在样本前面时衰减。环纹理导数要在发散的壳层裁剪前算。参数、假设和许可边界见 `assets/geomag/SOURCES.md`。
+- 土星可见光极光：`aurora_view` 的可见光模式和普通事件使用夜侧粉红/紫色双 Chapman 层（Dyudina 2015），紫外事件使用蓝色统计叠加。两种模式都在环后合成并逐样本处理透射。可见光的高度、颜色和增益是观测趋势约束下的显示假设，横向仍取 Carbary 地方时统计卵。土星末尾的 2010-11-27 导览给出夜侧示意视点；参数及局限见 `assets/geomag/SOURCES.md`。
 - Ganymede 自身极光：模板 `[aurora].ganymede_map` 读取 Marzok 2022 的 80×40 HST 平均柱亮度图，西经、南至北纬度，和其他极光字段互斥。`GanymedeAurora` 校验资源；`AuroraPass` 在 0 至 70 km 均匀壳层积分，使用独立线性纹理和 mipmap，紫外叠加开关控制显示。木星场景末尾两个导览看前导、拖尾半球。缺测零值和负残差截零不能解释为无极光，颜色、曝光和高度近似见 `assets/geomag/SOURCES.md`。
 - 木星卫星足点：同表的 `footprints` 读取 JRM33（13 阶）+ CON2020 的离线三维表，覆盖 Io、Europa、Ganymede 的本体经度、纬度和距离。`Scene::update` 按卫星相对木星的 ICRF 位置转回 System III，先加 Hue 2023 的半球独立赤道领先角，再查南北交点；多个输出共用结果，位置不走限速动画时钟。`AuroraPass` 单独积分足点的 900 km 发光层，主卵仍用 400 km 层；光斑大小和显示强度为示意。
 - GPU 分两层：`GpuDevice` 只有一个；`RenderOutput` 每个窗口一个，持有交换链和本输出的 `SceneTargets`。`Frame` 的 `width/height` 是场景尺寸，`output_width/output_height` 是交换链尺寸，两者在有渲染缩放（`render_scale`，各模式都有）时不同。MSAA 采样数（`msaa` 设置：1/2/4，`GpuDevice::set_msaa` 按硬件支持往下取）存在 `GpuDevice` 的 `SceneTargetFormat` 里，各 pass 的管线和 `SceneTargets` 都依赖它：运行时切换要调 `SceneRenderer::refresh_pipelines()` 重建管线，`SceneTargets::ensure` 发现采样数变了会自己重建。新 pass 要实现 `set_format`，并加进 `refresh_pipelines`。所有和输出尺寸相关的纹理（MSAA/HDR/深度、泛光链、黑洞追踪目标）都放在 `SceneTargets` 里，pass 内部不要再缓存按尺寸分配的纹理，否则多个不同尺寸的输出轮流渲染时会反复重建。各输出都用 SDR 交换链，格式相同，共用一个 `SceneRenderer`
@@ -226,6 +227,7 @@ CMake 目标：
 
 ### 数据源
 
+- **事件的太阳视点**：`from_body = "Sun"` 在加载后可表示为 `from_sun = true`、`from_body = -1`。检查视点方向时用 `Scene::sun_position()`，直接用 `from_body` 索引天体会越界。
 - **极光亮度地图与 mipmap**：Marzok 2022 的 Ganymede 图用西经、南至北纬度，已按 70 km 壳层校正成垂直柱亮度；体积分直接恢复视线柱长，勿再做一次临边校正。创建带 mipmap 的采样器时要设置 `max_lod`，零初始化会把采样限制在第 0 层。
 - **木星统计极光卵**：Head 2024 的 CSV 经度是 System III 西经，纬度是行星中心纬度。着色器里的椭球单位坐标要先乘回极半径/赤道半径之比再归一化，否则极区轮廓会偏。主卵的 400 km 投影高度也不同于卫星足点常用的 900 km。
 
@@ -333,7 +335,8 @@ CMake 目标：
 3. 空间望远镜星历更新：Roman、TESS、Euclid、JWST 的表大半是预报，Chandra 的预报到 2027-03-30，过几个月重新烘焙
 4. DART 场景加 ESA 的 Hera（−91）：2026 年 10 月底到达 Didymos，Horizons 现在只有到 10-17 的跟踪数据和到 11-04 的预报（离 Didymos 约 30 km）。等 ESA 发布近距离阶段的重建轨道再烘焙，同时加两颗立方星 Milani、Juventas，以及 Hera 测出的撞击后 Dimorphos 的形状和撞击坑（Naidu 2024 推断长轴比约 1.3；形状模型发布后替换或在撞击时刻切换）。届时 Didymos 和 Dimorphos 的表要延长到 2027 年：解 547 的 SPK 覆盖到 2024 年底，2026 年起要用 ESA 的新解（Horizons 的 2026-07 以后已经换成 ESA 的文件）；DART 撞击也改变了系统的日心轨道（量级很小），新解里应该有
 5. Ganymede 极光后续：依据木星电流片位置使用 Marzok 2022 的分组图；先处理各组覆盖不一致的缺测区，并验证平均图与分组图的亮度衔接。当前版本采用固定的 HST 平均图
-6. 远期：macOS（Metal，需要 SPIR-V → MSL 和 macOS CI）；J1141-6545 的自转轴进动（Venkatraman Krishnan 2019 表 1：α ≈ 89°，δ 各模型从 35° 到 155° 不等，倾向的模型 3 是 91° ± 60°；Manchester 2010 约 110°），等几何解定下来再做
+6. 土星可见光极光后续：以 Cassini 滤光片测光约束颜色和高度剖面，加入有观测依据的近共转亮弧；当前为统计卵与粉红/紫色双层近似
+7. 远期：macOS（Metal，需要 SPIR-V → MSL 和 macOS CI）；J1141-6545 的自转轴进动（Venkatraman Krishnan 2019 表 1：α ≈ 89°，δ 各模型从 35° 到 155° 不等，倾向的模型 3 是 91° ± 60°；Manchester 2010 约 110°），等几何解定下来再做
 
 ## 不要做
 

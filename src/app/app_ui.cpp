@@ -363,7 +363,8 @@ void App::build_control_panel()
                     [](const Body& b) { return bool(b.jovian_aurora) || b.saturn_aurora || bool(b.ganymede_aurora); })) {
         ImGui::Combo("Planetary aurora", &m_view_options.aurora_view,
                      "Event setting\0Visible light\0UV aurora overlay\0");
-        ImGui::SetItemTooltip("UV false color over visible-light surfaces: average auroral emission.\n"
+        ImGui::SetItemTooltip("Visible light: Saturn's pink-purple nightside aurora.\n"
+                             "UV false color over visible-light surfaces: average auroral emission.\n"
                              "Colors and exposure are illustrative.");
     }
 

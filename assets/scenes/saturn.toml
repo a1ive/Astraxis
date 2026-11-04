@@ -984,3 +984,21 @@ caption = """\
     2007-2009 average. Both ovals follow local solar time, so the brighter side \
     stays near dawn as Saturn rotates. This is a statistical illustration, \
     not the aurora on this date or a prediction of a storm."""
+
+# Dyudina et al. 2015, Fig. 8; statistical illustration at the observation date.
+[[events]]
+name = "Saturn's visible aurora"
+time_tdb = "2010-11-27 01:13:19"
+focus = "Saturn"
+frame = "Saturn equator"
+from_body = "Sun"
+phase_deg = 180.0
+elevation_deg = -25.0
+distance_km = 190000.0
+warp = 30.0
+caption = """\
+    Cassini saw pink and purple auroral curtains above Saturn's dark southern \
+    limb. The lower glow is pink, turning purple higher up, with hydrogen \
+    emission prominent in the spectrum. This view uses a statistical oval and \
+    enhanced exposure; it illustrates the colors reported on November 27, 2010, \
+    rather than reconstructing the observed arcs."""

@@ -934,6 +934,24 @@ void test_saturn_aurora()
         check(sim.scene().active_event() == static_cast<int>(i), "Saturn event activates UV overlay");
     }
     check(count == 2, "Saturn has both polar UV tours");
+    const auto visible = std::find_if(sim.scene().events.begin(), sim.scene().events.end(),
+        [](const SceneEvent& e) { return e.name == "Saturn's visible aurora"; });
+    check(visible != sim.scene().events.end(), "Saturn has a visible aurora tour");
+    if (visible != sim.scene().events.end()) {
+        check(!visible->aurora_ultraviolet, "visible aurora tour selects visible emission");
+        sim.jump_to_event(static_cast<size_t>(visible - sim.scene().events.begin()));
+        sim.update(0.0);
+        sim.camera().update(3.0, sim.scene());
+        OutputView view;
+        sim.compute_view(1280, 720, 1.0, view);
+        const Body& body = sim.scene().bodies[static_cast<size_t>(visible->focus)];
+        const auto sun = sim.scene().sun_position();
+        const auto direction = glm::normalize(view.camera.position - body.world_position);
+        check(glm::dot(direction, glm::normalize(sun - body.world_position)) < -0.7,
+              "visible aurora tour views the nightside");
+        check(glm::dot(direction, glm::normalize(body.orientation[2])) < -0.3,
+              "visible aurora tour views the southern curtain");
+    }
     sim.set_frame(0);
     check(sim.scene().active_event() == -1, "leaving Saturn UV event clears automatic overlay");
     Scene bad;

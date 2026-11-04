@@ -39,6 +39,16 @@ CPU 每半小时取样，GPU 周期线性插值。半高全宽用 `6 − 2 sin(�
 
 导览日期仅设置几何关系。没有太阳风、地球 Kp、风暴、SKR 振荡、螺旋、卫星足点、季节演化或随机闪烁。来源于 2026-11-03 核对：只使用公开发表的数值和公式，代码按项目 GPL-3.0-or-later 分发；未再分发论文图像、全文或 UVIS 原始观测。期刊的 Free Access 标记不当作 CC 或 Public Domain 许可。
 
+## 土星可见光极光
+
+面板 `Planetary aurora` 选择 `Visible light`，或打开土星场景的 `Saturn's visible aurora` 事件，可看夜侧粉红、紫色极光。`Event setting` 在普通视图使用可见光，在紫外事件中使用 UV 叠加。
+
+依据 Dyudina, Ingersoll, Ewald & Wellington 2015, *Saturn's aurora observed by the Cassini camera at visible wavelengths*, [arXiv:1506.00664](https://arxiv.org/html/1506.00664v1)，[Icarus DOI](https://doi.org/10.1016/j.icarus.2015.05.022)，§1、§4 和图 8。2010-11-27 的观测显示距地平线几百公里为粉红色，1000 至 1500 km 为紫色，Hα 发射明显。可见光极光亮度约为日面的百万分之一至十万分之一。
+
+渲染用两个 Chapman 层近似：峰值/尺度高分别为 450/140 km、1100/180 km，积分范围约 200 至 2000 km。低、高层的 sRGB 色值取 (1, 0.35, 0.55)、(0.65, 0.22, 1)，转成线性 RGB 后各乘 0.35。这些参数是显示假设，未拟合滤光片测光，也未把 UV kR 换算成可见光辐亮度。论文沿视线测到的色差包含可能的大气散射影响，模型将其近似为局部发光颜色。
+
+横向复用 Carbary 统计卵及其相对亮度，固定于太阳地方时。表面太阳高度从 0° 到 −12° 平滑增强夜侧显示；此处理表达日光掩盖极光，未模拟昼夜发射率的变化。环透射采用与紫外模式相同的灰色近似。事件日期对应论文观测日，相机为示意视点；没有重建 Cassini 轨迹、螺旋亮弧、近共转结构或每小时增亮。仅引用公开结论，自行实现代码，未打包论文图像或观测数据。
+
 ## 木星紫外主卵
 
 `jupiter_oval.txt` 来自 Linus Head 发布的 [Zenodo 12067692](https://doi.org/10.5281/zenodo.12067692)，许可为 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)。引用：Head et al. 2024, “Effect of magnetospheric conditions on the morphology of Jupiter's ultraviolet main auroral emission as observed by Juno-UVS”, A&A 688, A205，[论文](https://doi.org/10.1051/0004-6361/202450253)。数据作者为 Linus Head；Astraxis 将原始经纬度轮廓转换成等方位角采样的角半径表。

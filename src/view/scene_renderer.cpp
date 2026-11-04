@@ -994,11 +994,21 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
         }
 
         SDL_GPUTexture* ring_texture = i < m_ring_textures.size() ? m_ring_textures[i] : nullptr;
-        if (body.saturn_aurora && ultraviolet) {
+        if (body.saturn_aurora) {
             const glm::dmat3 linear = body.orientation * glm::dmat3(
                 glm::dvec3(body.equatorial_radius_km, 0, 0),
                 glm::dvec3(0, body.equatorial_radius_b_km, 0), glm::dvec3(0, 0, body.polar_radius_km));
             AuroraDrawItem aurora = aurora_item(sim, output_view, body, linear, glm::inverse(linear), item.sun_direction);
+            aurora.ultraviolet = ultraviolet;
+            if (!ultraviolet) {
+                // Dyudina 2015 Fig. 8: illustrative local colors and Chapman
+                // layers for the observed pink lower / purple upper curtains.
+                aurora.bottom = static_cast<float>(1.0 + 200.0 / body.equatorial_radius_km);
+                aurora.top = static_cast<float>(1.0 + 2000.0 / body.polar_radius_km);
+                aurora.low_rgb = glm::vec3(srgb_to_linear(glm::dvec3(1.0, 0.35, 0.55)) * 0.35);
+                aurora.red_per_kr = glm::vec3(srgb_to_linear(glm::dvec3(0.65, 0.22, 1.0)) * 0.35);
+                aurora.layers = glm::vec4(450.0f, 140.0f, 1100.0f, 180.0f);
+            }
             aurora.ring_profile = ring_texture;
             if (ring_texture) aurora.ring_radii = glm::vec4(
                 static_cast<float>(body.rings.inner_km), static_cast<float>(body.rings.outer_km), 0.0f, 0.0f);
