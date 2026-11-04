@@ -602,3 +602,7 @@ If it is not possible or desirable to put the notice in a particular file, then 
 You may add additional accurate notices of copyright ownership.
 
 ```
+
+### Europa optical aurora measurements
+
+The Europa model uses factual line-brightness measurements from de Kleer et al. (2023), *The Optical Aurorae of Europa, Ganymede, and Callisto*, PSJ 4, 37, doi:10.3847/PSJ/acb53c, Table 2 ([arXiv](https://arxiv.org/abs/2302.08487)). The smooth spatial model is an original approximation informed by de Kleer & Brown (2018), [Europa’s Optical Aurora](https://arxiv.org/abs/1809.04617). No paper images or maps are redistributed. Parameters, color conversion and limitations are recorded in `assets/geomag/SOURCES.md`; no public-domain claim is made for the papers.

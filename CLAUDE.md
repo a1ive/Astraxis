@@ -326,6 +326,8 @@ CMake 目标：
 
 `[corona]` 启用白光 K 日冕，`display_gain` / `display_gamma` 是显示增强参数。`CoronaPass` 先在本输出 `SceneTargets` 的半分辨率单采样纹理里积分，再叠加到主 HDR pass；MSAA 切换要同步重建合成管线。事件的 `observer` + `observer_offset_km` 把相机放在指定天体旁的固定 ICRF 偏移，`fov_deg` 控制视场；这类镜头滚轮改视场，拖动解除锚定，切换普通焦点恢复 45°。`corona_enhanced` 用于 Parker 的增强视图。`[view].event` 按名称选择初始事件。散射、遮挡、日食本影位置及相机行为在 `appearance_tests.cpp` 检查。
 
+- **Europa 氧极光**：`[aurora].europa_visible` 启用 2021-05-20 光学氧线参考值，`europa_aurora.hpp` 用可见球壳体积积分将孔径盘平均 Rayleigh 换为柱亮度。不能直接把盘平均数值当作天顶柱。`AuroraPass` 模式 6 使用指数层、平滑尾随增强和逐点母行星遮日；模式 5 的土星分支必须有上界，避免误匹配 Europa。`footprints[0]` 在模式 6 存父天体中心/半径，`blue_kr` 存太阳角半径，不改变 GPU 布局。普通和 UV 视图均保留其可见光发射，曝光与物理谱线分离。来源和假设见 `assets/geomag/SOURCES.md`。
+
 ## 待办
 
 按容易程度排：
@@ -336,7 +338,8 @@ CMake 目标：
 4. DART 场景加 ESA 的 Hera（−91）：2026 年 10 月底到达 Didymos，Horizons 现在只有到 10-17 的跟踪数据和到 11-04 的预报（离 Didymos 约 30 km）。等 ESA 发布近距离阶段的重建轨道再烘焙，同时加两颗立方星 Milani、Juventas，以及 Hera 测出的撞击后 Dimorphos 的形状和撞击坑（Naidu 2024 推断长轴比约 1.3；形状模型发布后替换或在撞击时刻切换）。届时 Didymos 和 Dimorphos 的表要延长到 2027 年：解 547 的 SPK 覆盖到 2024 年底，2026 年起要用 ESA 的新解（Horizons 的 2026-07 以后已经换成 ESA 的文件）；DART 撞击也改变了系统的日心轨道（量级很小），新解里应该有
 5. Ganymede 极光后续：依据木星电流片位置使用 Marzok 2022 的分组图；先处理各组覆盖不一致的缺测区，并验证平均图与分组图的亮度衔接。当前版本采用固定的 HST 平均图
 6. 土星可见光极光后续：以 Cassini 滤光片测光约束颜色和高度剖面，加入有观测依据的近共转亮弧；当前为统计卵与粉红/紫色双层近似
-7. 远期：macOS（Metal，需要 SPIR-V → MSL 和 macOS CI）；J1141-6545 的自转轴进动（Venkatraman Krishnan 2019 表 1：α ≈ 89°，δ 各模型从 35° 到 155° 不等，倾向的模型 3 是 91° ± 60°；Manchester 2010 约 110°），等几何解定下来再做
+7. 伽利略卫星极光后续：Europa 加入有数据约束的电流片调制和食中大气变化；Io 需单独处理硫氧、钠及 SO₂ 食中变化；Callisto 仅在观测支持的空间分辨率下做平滑示意，不复用 Ganymede 双卵
+8. 远期：macOS（Metal，需要 SPIR-V → MSL 和 macOS CI）；J1141-6545 的自转轴进动（Venkatraman Krishnan 2019 表 1：α ≈ 89°，δ 各模型从 35° 到 155° 不等，倾向的模型 3 是 91° ± 60°；Manchester 2010 约 110°），等几何解定下来再做
 
 ## 不要做
 

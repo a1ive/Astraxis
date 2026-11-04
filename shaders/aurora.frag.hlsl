@@ -40,7 +40,7 @@ cbuffer Uniforms : register(b0, space3)
     float4 u_red;       // rgb = 1 kR of red, or Saturn's purple column; w = radians per pixel
     float4 u_blue;      // x = 427.8 nm of a column through the oval (kR)
     float4 u_layers;    // low peak (km), low scale height, high peak, high scale height
-    float4 u_misc;      // diffuse flux, mode (0 Earth, 1/2 Jupiter, 3 Saturn UV, 4 Ganymede, 5 Saturn visible), polar ratio, width
+    float4 u_misc;      // diffuse flux, mode (0 Earth, 1/2 Jupiter, 3 Saturn UV, 4 Ganymede, 5 Saturn visible, 6 Europa visible), polar ratio, width
     float4 u_oval[kOvalSamples]; // colatitudes (rad): x = diffuse, y = equatorward, z = poleward
     float4 u_south_center;
     float4 u_south_east;
@@ -151,6 +151,7 @@ float saturn_pattern(float3 n, float footprint_km)
 
 float aurora_pattern(float3 n, float footprint_km)
 {
+    if (u_misc.y > 5.5) return 1.0 + 0.5 * n.y; // assumed smooth trailing enhancement
     if (u_misc.y > 4.5) return saturn_pattern(n, footprint_km);
     if (u_misc.y > 3.5) {
         // Marzok 2022 Fig. 5: west longitude, south-to-north rows, cell centers.
@@ -277,11 +278,25 @@ float4 main(PSInput input) : SV_Target0
         float r = length(p);
         float3 n = p / r;
         // Fades in from sunset at the point below to the sun 12 deg below the horizon.
-        bool saturn_visible = u_misc.y > 4.5;
+        bool europa = u_misc.y > 5.5;
+        bool saturn_visible = u_misc.y > 4.5 && !europa;
         // Ellipsoid surface normal in physical body coordinates.
         float3 normal = saturn_visible ? normalize(n / float3(1.0, 1.0, u_misc.z)) : n;
-        float night = u_misc.y > 0.5 && !saturn_visible ? 1.0 :
+        float night = u_misc.y > 0.5 && !saturn_visible && !europa ? 1.0 :
                       1.0 - smoothstep(-0.2079, 0.0, dot(normal, u_sun.xyz));
+        if (europa) {
+            // Same spherical parent/soft penumbra approximation as body shading.
+            float3 oc = u_footprints[0].xyz - p;
+            float along = dot(oc, u_sun.xyz);
+            if (along > 0.0 && u_footprints[0].w > 0.0) {
+                float penumbra = max(along * u_blue.x, 1e-6);
+                float perpendicular = length(oc - along * u_sun.xyz);
+                float shadow = 1.0 - smoothstep(u_footprints[0].w - penumbra,
+                                               u_footprints[0].w + penumbra, perpendicular);
+                shadow *= saturate(pow(u_footprints[0].w / penumbra, 2.0));
+                night = max(night, shadow);
+            }
+        }
         if (night <= 0.0) {
             continue;
         }
@@ -294,7 +309,10 @@ float4 main(PSInput input) : SV_Target0
         if (u_misc.y > 0.5) h *= length(n * float3(1.0, 1.0, u_misc.z));
         float blue = u_blue.x * pattern;
         float3 emission;
-        if (saturn_visible) {
+        if (europa) {
+            emission = u_low.rgb * pattern * exp(-h / u_layers.x) /
+                       (u_layers.x * (1.0 - exp(-u_layers.y / u_layers.x)));
+        } else if (saturn_visible) {
             // Independent pink/purple columns; exposure and layer profiles
             // are display assumptions, not a UV-to-visible conversion.
             emission = pattern * (u_low.rgb * chapman(h, u_layers.x, u_layers.y) +

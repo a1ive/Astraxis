@@ -1,4 +1,5 @@
 #include "view/scene_renderer.hpp"
+#include "scene/europa_aurora.hpp"
 
 #include "core/color.hpp"
 #include "core/math.hpp"
@@ -959,6 +960,18 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
                 m_aurora_items.push_back(aurora_item(sim, output_view, body, linear, to_unit, item.sun_direction));
             }
         }
+        if (body.europa_aurora) {
+            const glm::dmat3 linear = body.orientation * glm::dmat3(body.equatorial_radius_km);
+            const glm::dmat3 inverse = glm::inverse(linear);
+            auto aurora = aurora_item(sim, output_view, body, linear, inverse, item.sun_direction);
+            aurora.blue_kr = item.sun_angular_radius;
+            if (body.parent >= 0) {
+                const auto& parent = scene.bodies[static_cast<size_t>(body.parent)];
+                aurora.footprints[0] = glm::vec4(glm::vec3(inverse * (parent.world_position - body.world_position)),
+                    static_cast<float>(parent.equatorial_radius_km / body.equatorial_radius_km));
+            }
+            m_aurora_items.push_back(aurora);
+        }
         if (body.ganymede_aurora && ultraviolet && i < m_aurora_textures.size() && m_aurora_textures[i]) {
             const glm::dmat3 linear = body.orientation * glm::dmat3(body.equatorial_radius_km);
             auto aurora = aurora_item(sim, output_view, body, linear, glm::inverse(linear), item.sun_direction);
@@ -1636,6 +1649,20 @@ AuroraDrawItem SceneRenderer::aurora_item(const Simulation& sim, const OutputVie
     a.to_unit = glm::mat3(to_unit);
     a.camera_unit = glm::vec3(to_unit * (view.position - body.world_position));
     a.km_per_unit = static_cast<float>(radius_km);
+    if (body.europa_aurora) {
+        a.europa = true;
+        a.bottom = 1.0f;
+        a.top = static_cast<float>(1.0 + 300.0 / radius_km);
+        a.layers = glm::vec4(50.0f, 300.0f, 0.0f, 0.0f);
+        a.sun = glm::vec3(glm::normalize(glm::transpose(body.orientation) * glm::dvec3(sun_direction)));
+        // May 20 2021 disk-average oxygen lines, converted to zenith columns.
+        // 636.4 nm uses the nearby 630 nm RGB chromaticity and photon energy ratio.
+        constexpr double exposure = 3e7; // display only
+        static const double disk_factor = europa_aurora_disk_factor(1560.8);
+        a.low_rgb = glm::vec3((glm::dvec3(4.4807e-9, 0.0, 2.9771e-10) * (0.573 + 0.190 * 630.0 / 636.4) +
+                              glm::dvec3(1.7361e-9, 6.3813e-9, 0.0) * 0.037) * (exposure / disk_factor));
+        return a;
+    }
     if (body.ganymede_aurora) {
         a.ultraviolet = true;
         a.bottom = 1.0f;

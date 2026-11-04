@@ -129,3 +129,16 @@ python -I tools/geomag/kp_bake.py <放 kpYYYY.wdc 的目录> assets/geomag/kp.bi
 - IGRF-14 的偶极项 g10、g11、h11（1900–2025 每 5 年，加 2025–30 的长期变化）：IAGA Working Group V-MOD，<https://www.ngdc.noaa.gov/IAGA/vmod/coeffs/igrf14coeffs.txt>
 - 极光卵边界：Starkov 1994 的系数，取自 Sigernes et al. 2011, Opt. Pura Apl. 44, 599, Table 1（开放获取，<https://folk.uib.no/st07350/papers/sigernes2011OPA599.pdf>）。表里 poleward 边界 A2 的 b0 印成“-4-44”，按 −4.44 用
 - 各谱线的颜色（每 kR 的线性 RGB）：`tools/geomag/aurora_colors.py` 用 CIE 1931 2° 配色函数（CVRL，<http://cvrl.ucl.ac.uk/database/data/cmfs/ciexyz31_1.csv>，不入库）算出，以 5772 K 黑体代表的阳光为白色
+
+## Europa 可见光氧极光
+
+来源：de Kleer et al. (2023), *The Optical Aurorae of Europa, Ganymede, and Callisto*, PSJ 4, 37，doi:10.3847/PSJ/acb53c，[论文](https://arxiv.org/abs/2302.08487)，表 1、2；空间分布参考 de Kleer & Brown (2018), [Europa’s Optical Aurora](https://arxiv.org/abs/1809.04617)。只转录以下测量事实并自行实现模型，不分发论文、图像或地图，也不把论文素材声明为公有领域。
+
+- 固定采用 2021-05-20 的盘平均氧谱线：630.0 nm 为 573±14 R，636.4 nm 为 190±7 R，557.7 nm 为 37±4 R。未把上限当作探测；未渲染近红外和 Hα。
+- 沿用 `aurora_colors.py` 的 630.0、557.7 nm 每 kR 线性 RGB，636.4 nm 暂用 630.0 nm 色度并按 630/636.4 修正单光子能量；这是近邻红线合并近似，非完整光谱色度拟合。
+- `europa_aurora.hpp` 将包含临边外发射的可见球壳总通量除以实体盘面积，再将盘平均亮度换为竖直柱亮度。发光率随高度指数下降，H=50 km，上界 300 km，均为假设。测量孔径、PSF 和斑块未拟合。
+- 本体方向 n 的横向权重为 `1 + 0.5*n.y`；东经 90°（西经 270°）的尾随半球最亮。3:1 对比是显示假设，球面平均为 1。归一化基准为朝木星半球；从其他方向看总亮度会变化，不强行维持盘平均值。
+- 显示增益 `3e7` 独立于 Rayleigh 数值。夜侧可见，日照侧淡出；逐样本检查母行星的球形遮挡并平滑近似半影，使被木星遮日的日照半球也能显示。没有模拟木星扁率阴影、反照光、真实眼睛暗适应和极光照亮地面。
+- 木星场景事件 18（从 0 计数）为 2021-05-20 13:40 TDB，测试确认整个发光层处于木星本影。观测表使用地球接收 UTC，而导览使用当地发射时刻的模拟 TDB；镜头不是望远镜视点，也不逐帧复现观测曝光。任意日期重复使用同组谱线强度，未实现电流片驱动或进出影后的大气变化。
+
+模板开关为 `[aurora].europa_visible = true`，与其他极光字段互斥。可见光和紫外叠加视图中均保留这层可见光；没有把它改画成紫外伪彩。

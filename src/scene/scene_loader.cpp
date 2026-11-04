@@ -461,7 +461,7 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
     };
     static const TemplateFields night_lights = {{"texture", text}, {"color", text}, {"gain", number}};
     static const TemplateFields aurora = {{"kp", text}, {"jovian_oval", text}, {"footprints", text},
-                                          {"saturn_oval", boolean}, {"ganymede_map", text}};
+                                          {"saturn_oval", boolean}, {"ganymede_map", text}, {"europa_visible", boolean}};
     static const TemplateFields rotor = {{"shape", text}, {"period_s", number}};
     static const TemplateFields ring_band = {
         {"name", text}, {"inner_km", number}, {"outer_km", number}, {"optical_depth", number},
@@ -1442,7 +1442,16 @@ void Loader::parse(const toml::table& root, Scene& out)
                 fail(ctx, "only ellipsoidal planets can have an aurora");
             }
             std::string error;
-            if (aurora->contains("ganymede_map")) {
+            if (aurora->contains("europa_visible")) {
+                if (aurora->size() != 1) fail(actx, "europa_visible cannot be combined with other aurora fields");
+                const auto enabled = (*aurora)["europa_visible"].value<bool>();
+                if (!enabled) fail(actx, "europa_visible must be a boolean");
+                body.europa_aurora = *enabled;
+                if (body.europa_aurora && (std::abs(body.equatorial_radius_km - 1560.8) > 1.0 ||
+                    std::abs(body.equatorial_radius_b_km - 1560.8) > 1.0 ||
+                    std::abs(body.polar_radius_km - 1560.8) > 1.0))
+                    fail(actx, "europa_visible requires Europa's spherical radius");
+            } else if (aurora->contains("ganymede_map")) {
                 if (aurora->contains("kp") || aurora->contains("jovian_oval") ||
                     aurora->contains("footprints") || aurora->contains("saturn_oval"))
                     fail(actx, "ganymede_map cannot be combined with other aurora models");

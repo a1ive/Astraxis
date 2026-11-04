@@ -12,3 +12,6 @@ prime_meridian_deg = [36.022, 101.3747235]
 color = "#dbccb3"
 texture = "textures/europa.jpg"
 texture_left_lon_deg = 0.0
+
+[aurora]
+europa_visible = true

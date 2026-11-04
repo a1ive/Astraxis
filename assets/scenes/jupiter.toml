@@ -662,3 +662,27 @@ caption = """\
     The average ultraviolet crescents lie farther from the equator here. \
     Hubble's map also records fainter emission toward and away from Jupiter. \
     This view shows the long-term average, with an assumed 70 km emitting layer."""
+
+[[frames]]
+name = "Europa equator"
+type = "inertial"
+origin = "Europa"
+up = "Europa"
+
+# de Kleer et al. 2023, Table 2. Emission strengths are a fixed reference.
+[[events]]
+name = "Europa's oxygen aurora in eclipse"
+time_tdb = "2021-05-20 13:40"
+focus = "Europa"
+frame = "Europa equator"
+from_body = "Jupiter"
+phase_deg = 12.0
+elevation_deg = 0.0
+distance_km = 6500.0
+warp = 1.0
+caption = """\
+    In Jupiter's shadow, Europa's thin oxygen atmosphere glows mostly red. \
+    The line strengths come from optical observations on May 20, 2021. \
+    This is an enhanced-exposure illustration: the smooth trailing-side \
+    enhancement and atmospheric height are assumed, not an observed map. \
+    The eclipse removes sunlight; plasma continues to excite the oxygen."""

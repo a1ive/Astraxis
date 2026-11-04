@@ -118,3 +118,5 @@ cmake --build --preset win-msvc-release --target astraxis_tests
 ctest --test-dir build/win-msvc -C Release --output-on-failure
 python -m unittest discover -s tools -p test_scene_templates.py
 ```
+
+Europa 模板的 `[aurora].europa_visible = true` 在引用它的场景中启用可见光氧极光，要求球形半径 1560.8 km，与其他极光字段互斥。木星遮日按当前父天体位置计算；没有父天体时只用当地昼夜可见度。数据和显示假设见 `../geomag/SOURCES.md`。

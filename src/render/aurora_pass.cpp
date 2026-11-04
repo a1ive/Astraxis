@@ -294,7 +294,7 @@ void AuroraPass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const 
         fu.red = glm::vec4(item.red_per_kr, item.pixel_angle);
         fu.blue = glm::vec4(item.blue_kr, 0.0f, 0.0f, 0.0f);
         fu.layers = item.layers;
-        fu.misc = glm::vec4(item.diffuse_flux, item.ganymede_map ? 4.0f : item.saturn ? (item.ultraviolet ? 3.0f : 5.0f) :
+        fu.misc = glm::vec4(item.diffuse_flux, item.europa ? 6.0f : item.ganymede_map ? 4.0f : item.saturn ? (item.ultraviolet ? 3.0f : 5.0f) :
                            (item.footprints_only ? 2.0f : (item.ultraviolet ? 1.0f : 0.0f)),
                            item.polar_ratio, item.width_km);
         for (int k = 0; k < kAuroraOvalSamples; ++k) {

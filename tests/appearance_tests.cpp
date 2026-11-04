@@ -5,6 +5,7 @@
 #include "core/math.hpp"
 #include "core/time.hpp"
 #include "scene/aurora.hpp"
+#include "scene/europa_aurora.hpp"
 #include "scene/comet.hpp"
 #include "scene/corona.hpp"
 #include "scene/scene_loader.hpp"
@@ -970,6 +971,62 @@ void test_saturn_aurora()
           !bad.bodies[0].saturn_aurora, "Saturn UV can be disabled explicitly");
 }
 
+void test_europa_aurora()
+{
+    auto scene = load_scene_or_die("jupiter.toml");
+    const int index = scene.find("Europa");
+    check(index >= 0 && scene.bodies[index].europa_aurora, "Europa visible aurora loads");
+    const auto solar = load_scene_or_die("solar_system.toml");
+    check(solar.bodies[solar.find("Europa")].europa_aurora, "Europa template shared across scenes");
+    // Independent line-of-sight integration, including the off-limb shell.
+    constexpr double R = 1560.8, top = R + 300.0;
+    double flux = 0.0;
+    constexpr int radial = 4000, depth = 400;
+    for (int i = 0; i < radial; ++i) {
+        const double b2 = top * top * (i + 0.5) / radial;
+        const double z1 = std::sqrt(top * top - b2);
+        const double z0 = b2 < R * R ? std::sqrt(R * R - b2) : -z1;
+        double column = 0.0;
+        for (int j = 0; j < depth; ++j) {
+            const double z = z0 + (z1 - z0) * (j + 0.5) / depth;
+            const double h = std::sqrt(b2 + z * z) - R;
+            column += std::exp(-h / 50.0) / (50.0 * (1.0 - std::exp(-6.0))) * (z1 - z0) / depth;
+        }
+        flux += column * top * top / (R * R * radial);
+    }
+    check(std::abs(flux - europa_aurora_disk_factor(R)) < 0.003,
+          "Europa aperture brightness agrees with independent ray integral", flux);
+    int count = 0;
+    for (const auto& event : scene.events) {
+        if (event.focus != index || event.name.find("oxygen aurora") == std::string::npos) continue;
+        ++count;
+        scene.update(event.t_tdb);
+        const auto& moon = scene.bodies[index];
+        const auto& parent = scene.bodies[moon.parent];
+        const auto light = glm::normalize(scene.sun_position() - moon.world_position);
+        const auto oc = parent.world_position - moon.world_position;
+        const double along = glm::dot(oc, light);
+        const double miss = glm::length(oc - along * light);
+        check(along > 0.0 && miss + R + 300.0 + along * 695700.0 / glm::length(scene.sun_position() - moon.world_position) < parent.polar_radius_km,
+              "Europa aurora tour lies inside Jupiter shadow", miss);
+        check(!event.aurora_ultraviolet, "Europa tour uses visible spectrum");
+        scene.update(event.t_tdb + 3.0 * 3600.0);
+        const auto day_light = glm::normalize(scene.sun_position() - moon.world_position);
+        const auto day_oc = parent.world_position - moon.world_position;
+        check(glm::length(glm::cross(day_oc, day_light)) > parent.equatorial_radius_km + R + 300.0,
+              "Europa leaves Jupiter shadow three hours after tour");
+    }
+    check(count == 1, "Europa has an eclipse tour");
+    Scene bad;
+    std::string error;
+    const std::string base = "name='x'\n[[bodies]]\nname='Europa'\nradii_km=[1560.8]\n[bodies.aurora]\n";
+    for (const char* conflict : {"kp='geomag/kp.bin'", "saturn_oval=true", "ganymede_map='x'", "jovian_oval='x'"})
+        check(!load_scene_string(base + "europa_visible=true\n" + conflict, "mixed_europa", bad, &error, ASTRAXIS_ASSET_DIR),
+              "Europa rejects conflicting aurora models");
+    check(!load_scene_string(base + "europa_visible='true'", "bad_europa", bad, &error, ASTRAXIS_ASSET_DIR),
+          "Europa validates boolean type");
+}
+
 void test_ganymede_aurora()
 {
     Scene scene = load_scene_or_die("jupiter.toml");
@@ -1171,6 +1228,7 @@ void run_appearance_tests()
     test_jovian_aurora();
     test_saturn_aurora();
     test_ganymede_aurora();
+    test_europa_aurora();
     test_jovian_footprints();
     test_refraction();
     test_corona();
