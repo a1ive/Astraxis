@@ -18,7 +18,7 @@ set(SDL_CAMERA OFF CACHE BOOL "" FORCE)
 
 FetchContent_Declare(SDL3
     GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-    GIT_TAG        release-3.4.16
+    GIT_TAG        release-3.4.20
     GIT_SHALLOW    TRUE
     SYSTEM
 )
@@ -39,7 +39,7 @@ FetchContent_Declare(glm
 
 FetchContent_Declare(imgui
     GIT_REPOSITORY https://github.com/ocornut/imgui.git
-    GIT_TAG        v1.92.9b
+    GIT_TAG        v1.93.0
     GIT_SHALLOW    TRUE
     SYSTEM
 )
@@ -57,7 +57,7 @@ FetchContent_Declare(tomlplusplus
 
 FetchContent_Declare(stb
     GIT_REPOSITORY https://github.com/nothings/stb.git
-    GIT_TAG        2c980bb59875b0d32144a71867fbdebb2f77cd20
+    GIT_TAG        d14d46f6b44456eb88beac58cba833a4135d4c89
     SYSTEM
 )
 

@@ -194,10 +194,6 @@ void App::build_ui()
         draw_light_curve_plot();
     }
     draw_captions();
-    if (m_show_demo) {
-        ImGui::ShowDemoWindow(&m_show_demo);
-    }
-
     ImGui::Render();
 }
 
@@ -330,24 +326,20 @@ void App::build_control_panel()
     ImGui::SameLine();
     ImGui::Checkbox("Captions", &m_show_captions);
     ImGui::SetItemTooltip("The events' placards, also on the tour (E dismisses one)");
-    if (!scene.belts.empty()) {
-        ImGui::SameLine();
-        ImGui::Checkbox("Belts", &m_view_options.belts);
-    }
-    if (std::any_of(scene.bodies.begin(), scene.bodies.end(),
-                    [](const Body& b) { return bool(b.jovian_aurora) || b.saturn_aurora || bool(b.ganymede_aurora); })) {
-        ImGui::Combo("Planetary aurora", &m_view_options.aurora_view,
-                     "Event setting\0Visible light\0UV aurora overlay\0");
-        ImGui::SetItemTooltip("UV false color over visible-light surfaces: average auroral emission.\n"
-                             "Ganymede uses an HST brightness map; Jupiter also has modeled moon footprints.\n"
-                             "Colors and exposure are illustrative.");
-    }
+
     // Second row, so the panel stays narrow.
     bool row_started = false;
+    if (!scene.belts.empty()) {
+        ImGui::Checkbox("Belts", &m_view_options.belts);
+        row_started = true;
+    }
     if (std::any_of(scene.bodies.begin(), scene.bodies.end(),
                     [](const Body& b) { return b.atmosphere.enabled; })) {
+        if (row_started) {
+            ImGui::SameLine();
+        }
         ImGui::Checkbox("Atmospheres", &m_view_options.atmospheres);
-        ImGui::SetItemTooltip("Off: the surface under the clouds (Venus: Magellan radar; Titan: Cassini ISS) (M)");
+        ImGui::SetItemTooltip("Off: the surface under the clouds (M)");
         row_started = true;
     }
     if (std::any_of(scene.bodies.begin(), scene.bodies.end(), [](const Body& b) { return !b.plumes.empty(); })) {
@@ -366,10 +358,15 @@ void App::build_control_panel()
         ImGui::SetItemTooltip("Comae (C2) and ion tails (C)");
         row_started = true;
     }
-    if (row_started) {
-        ImGui::SameLine();
+
+    if (std::any_of(scene.bodies.begin(), scene.bodies.end(),
+                    [](const Body& b) { return bool(b.jovian_aurora) || b.saturn_aurora || bool(b.ganymede_aurora); })) {
+        ImGui::Combo("Planetary aurora", &m_view_options.aurora_view,
+                     "Event setting\0Visible light\0UV aurora overlay\0");
+        ImGui::SetItemTooltip("UV false color over visible-light surfaces: average auroral emission.\n"
+                             "Colors and exposure are illustrative.");
     }
-    ImGui::Checkbox("ImGui demo", &m_show_demo);
+
     ImGui::SetNextItemWidth(160.0f * ImGui::GetStyle().FontScaleDpi);
     ImGui::SliderFloat("Stars", &m_view_options.star_brightness, 0.0f, 2.0f, "%.2f");
     ImGui::SetNextItemWidth(160.0f * ImGui::GetStyle().FontScaleDpi);

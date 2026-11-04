@@ -106,7 +106,6 @@ private:
     bool m_show_labels = true;
     bool m_show_captions = true; // event captions (E dismisses one)
     bool m_show_info = true;
-    bool m_show_demo = false;
     bool m_auto_tour = true;     // start the tour after kIdleSeconds without input
     double m_idle_time = 0.0;    // seconds since the last input
     double m_pointer_idle = 0.0; // seconds since the mouse last moved
