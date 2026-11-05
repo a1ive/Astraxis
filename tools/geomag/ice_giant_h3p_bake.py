@@ -45,11 +45,13 @@ def fits_images(raw):
     return images
 
 
-def write_map(path, values, value_range):
-    """South-to-north rows of west longitude cell centers, in the scene's body frame."""
+def write_map(path, values, value_range, dark=None):
+    """South-to-north rows of west longitude cell centers, in the scene's body frame;
+    a second layer after the first: what is left without sunlight."""
     height, width = values.shape
-    text = f"AXAURORAMAP1 {width} {height} {value_range:g}\n"
-    text += "".join(" ".join(f"{v:.3f}" for v in row) + "\n" for row in np.clip(values, 0.0, value_range))
+    text = f"AXAURORAMAP{1 if dark is None else 2} {width} {height} {value_range:g}\n"
+    for layer in [values] if dark is None else [values, dark]:
+        text += "".join(" ".join(f"{v:.3f}" for v in row) + "\n" for row in np.clip(layer, 0.0, value_range))
     Path(path).write_text(text, encoding="ascii", newline="\n")
 
 
@@ -153,11 +155,15 @@ def interp_over_nan(x):
     return np.interp(index, index[ok], x[ok])
 
 
-def uranus_unobserved_model(smooth, weights, lat, magnetic_lat):
+def uranus_unobserved_model(smooth, weights, observed_share, lat, magnetic_lat):
     """log emission = constant + a(|latitude|) + b(magnetic latitude), fitted to the
     observed cells: the extrapolation for where nothing was observed. Held out in
     sectors of the observed map, a(|latitude|) does most of the work and b adds little
-    on average; b carries the dip equator's dark band and the auroral shells."""
+    on average; b carries the dip equator's dark band and the auroral shells.
+
+    Also what particle precipitation alone leaves, without sunlight: on the auroral
+    shells (Melin 2025: L < 3 is non-auroral), what the observed map holds above the
+    non-auroral background, or where it was not observed, the shells' mean excess."""
     log_map = np.log(np.maximum(smooth, 1e-3))
     # Melin 2025: L < 3 is non-auroral.
     l3_deg = math.degrees(math.asin(math.sqrt(1.0 - 1.0 / 3.0)))
@@ -196,30 +202,16 @@ def uranus_unobserved_model(smooth, weights, lat, magnetic_lat):
     smoothed_b = np.convolve(np.r_[b[0], b, b[-1]], [0.25, 0.5, 0.25], "valid")
     shell_term = np.interp(magnetic_lat, mag_centers, smoothed_b)
     fill = constant + np.interp(np.abs(lat_cells), lat_centers, a) + shell_term
-    # What particle precipitation alone would leave: the auroral shells' excess over the
-    # non-auroral level, along the shell, at the level of the whole map.
     non_auroral = np.exp(shell_term[use & (np.abs(magnetic_lat) < l3_deg)]).mean()
-    excess = np.maximum(np.exp(shell_term) - non_auroral, 0.0) * smoothstep(l2_deg, l3_deg, np.abs(magnetic_lat))
-    dark = np.exp(constant) * excess
+    on_shells = smoothstep(l2_deg, l3_deg, np.abs(magnetic_lat))
+    shell_mean = np.exp(constant) * np.maximum(np.exp(shell_term) - non_auroral, 0.0)
+    background = np.exp(constant + np.interp(np.abs(lat_cells), lat_centers, a)) * non_auroral
+    observed_excess = np.maximum(smooth - background, 0.0)
+    dark = on_shells * (observed_share * observed_excess + (1.0 - observed_share) * shell_mean)
     print(f"unobserved model: a(|lat|) {np.exp(a.min()):.2f} .. {np.exp(a.max()):.2f}, b(magnetic lat) {np.exp(smoothed_b.min()):.2f} .. {np.exp(smoothed_b.max()):.2f}, "
-          f"non-auroral b {non_auroral:.3f}, aurora without sunlight up to {dark.max():.3f} uW m-2 sr-1")
+          f"non-auroral b {non_auroral:.3f}, aurora without sunlight: observed up to {(on_shells * observed_share * observed_excess).max():.3f}, "
+          f"shell mean up to {(on_shells * shell_mean).max():.3f} uW m-2 sr-1")
     return np.exp(fill), dark
-
-
-def uranus_noon_sunlight(lat):
-    """How much of the sunlit emission a latitude keeps at the best of its day, January
-    2023: 0 .. 1 by the solar zenith angle at local noon. Non-auroral H3+ comes from solar
-    photoionization and lives about 1 h (Melin 2025, after Moore 2019), far less than the
-    17.2 h rotation, so it follows the sunlight. Anchored at: the map's last trusted
-    latitude (8 N), the terminator (the column near it, Tiranti 2026, over the sunlit disk
-    median, Melin 2025), and the sun below the horizon of the altitude where the primary
-    photoelectron heating lies near the terminator (4000 km, Tiranti 2026)."""
-    subsolar_deg = 58.83  # the scene at Melin's observations, test_ice_giant_aurora
-    terminator_share = 6.6e14 / 2.27e15
-    radius_km, altitude_km = 25559.0, 4000.0
-    horizon_deg = math.degrees(math.acos(radius_km / (radius_km + altitude_km)))
-    zenith_deg = np.abs(subsolar_deg - lat)
-    return np.interp(zenith_deg, [subsolar_deg - 8.0, 90.0, 90.0 + horizon_deg], [1.0, terminator_share, 0.0])
 
 
 def uranus(zip_path, profile_dir, shells_path, equator_path, output):
@@ -269,25 +261,25 @@ def uranus(zip_path, profile_dir, shells_path, equator_path, output):
     magnetic_lat = uranus_magnetic_latitude(shells_path, equator_path, -lat_grid, west_grid)
     # The observed cells that the projection's edge does not reach: see trust above.
     observed = valid & (lat_grid >= 8.0)
-    fill, dark = uranus_unobserved_model(smooth, observed.astype(float), lat, magnetic_lat)
+    fill, dark = uranus_unobserved_model(smooth, observed.astype(float), blend, lat, magnetic_lat)
     observed_part = smoothstep(-35.0, -25.0, lat)[:, None]
     merged = observed_part * merged + (1.0 - observed_part) * fill
     merged, _ = normalized_smooth(merged, np.ones_like(merged), 1.5)
     # All of the above is as if sunlit: the limb's curve gives no latitude dependence and
-    # was scaled to the sunlit map, the fill mirrors the sunlit hemisphere. Now the night,
-    # south of where the map was trusted; the rows north of it stay as observed.
+    # was scaled to the sunlit map, the fill mirrors the sunlit hemisphere. The scene mixes
+    # it with the dark layer by the sun of the moment (AuroraPattern::BodyMapSeasons).
     dark, _ = normalized_smooth(dark, np.ones_like(dark), 1.5)
-    sunlit = uranus_noon_sunlight(lat)[:, None]
-    merged = sunlit * merged + (1.0 - sunlit) * dark
 
     # To the scene's frame (IAU new, Lamy 2025): east longitude = ULS west - 50.6;
     # rows of west longitude cell centers, as for the other maps.
     east = lon_uls - 50.6
     west_cells = (np.arange(width) + 0.5) * 360.0 / width
     baked = np.zeros_like(merged)
+    baked_dark = np.zeros_like(dark)
     for j in range(height):
         baked[j] = np.interp(-west_cells, east, merged[j], period=360.0)
-    write_map(output, baked, 1.0)
+        baked_dark[j] = np.interp(-west_cells, east, dark[j], period=360.0)
+    write_map(output, baked, 1.0, baked_dark)
 
     # Zero one step below and above: AuroraVertical::Table.
     table = np.r_[0.0, mean_profile, 0.0]
@@ -305,9 +297,10 @@ def neptune(directory, west_offset, output):
     # paper reports: a smooth background per view plus one localized enhancement.
     d = Path(directory)
     views = []
-    for name, c, h, cloud, coords, poly in (
-        ("1", 1, "figure2c_neptune_longitude1_h3p", "figure2a_neptune_longitude1_clouds", "figure4_coords_longitude1", "figure4_polygons_longitude1"),
-        ("2", 2, "figure2d_neptune_longitude2_h3p", "figure2b_neptune_longitude2_clouds", "figure4_coords_longitude2", "figure4_polygons_longitude2"),
+    # Melin 2025, Methods: the central meridians, deg W. The sun is within 2 deg of JWST.
+    for name, central_west, h, cloud, coords, poly in (
+        ("1", 131.0, "figure2c_neptune_longitude1_h3p", "figure2a_neptune_longitude1_clouds", "figure4_coords_longitude1", "figure4_polygons_longitude1"),
+        ("2", 303.2, "figure2d_neptune_longitude2_h3p", "figure2b_neptune_longitude2_clouds", "figure4_coords_longitude2", "figure4_polygons_longitude2"),
     ):
         h3p = fits_images((d / f"{h}.fits").read_bytes())[0][1] * 1e6
         clouds = fits_images((d / f"{cloud}.fits").read_bytes())[0][1]
@@ -320,14 +313,17 @@ def neptune(directory, west_offset, output):
         lat = corners[..., 1].mean(axis=1)
         value = h3p[xy[:, 0], xy[:, 1]]
         keep = clouds[xy[:, 0], xy[:, 1]] < 20.0
-        views.append((xy[keep].astype(float), np.mod(lon[keep], 360.0), lat[keep], value[keep]))
+        # From -1 at the dawn limb to +1 at the dusk limb: east of noon is afternoon.
+        hour_angle = np.radians(central_west - lon)
+        dusk = np.cos(np.radians(lat)) * np.sin(hour_angle)
+        views.append((xy[keep].astype(float), np.mod(lon[keep], 360.0), lat[keep], value[keep], dusk[keep]))
         print(f"view {name}: {keep.sum()} spaxels without clouds, median {np.median(value[keep]):.1f} uW m-2 sr-1 um-1")
 
     n = sum(len(v[3]) for v in views)
     def solve(lon0, lat0, sigma_lon, sigma_lat):
         # Linear in the two views' planes and the spot's amplitude.
         rows, values, offset = np.zeros((n, 7)), np.zeros(n), 0
-        for k, (xy, lon, lat, value) in enumerate(views):
+        for k, (xy, lon, lat, value, _) in enumerate(views):
             m = len(value)
             rows[offset:offset + m, 3 * k] = 1.0
             rows[offset:offset + m, 3 * k + 1] = (xy[:, 0] - 21.0) / 15.0
@@ -355,6 +351,23 @@ def neptune(directory, west_offset, output):
     ratio = 1.0 + coeffs[6] / background
     print(f"spot: {lon0:.0f} W, {lat0:.0f} deg, sigma {sigma_lon:.0f} x {sigma_lat:.0f} deg, amplitude {coeffs[6]:.1f} over background {background:.1f}: {ratio:.2f} x")
     print(f"residual rms {math.sqrt(chi / n):.1f} (off-disk noise ~5 uW m-2 sr-1 um-1 per smoothed spaxel)")
+
+    # The paper sees a rise from dawn to dusk and gives no number: a background per view,
+    # one gradient and the spot, now in the sun's frame instead of the views' planes.
+    rows, values, offset = np.zeros((n, 4)), np.zeros(n), 0
+    for k, (_, lon, lat, value, dusk) in enumerate(views):
+        m = len(value)
+        rows[offset:offset + m, k] = 1.0
+        rows[offset:offset + m, 2] = dusk
+        dlon = ((lon - lon0) + 180.0) % 360.0 - 180.0
+        rows[offset:offset + m, 3] = np.exp(-0.5 * ((dlon / sigma_lon) ** 2 + ((lat - lat0) / sigma_lat) ** 2))
+        values[offset:offset + m] = value
+        offset += m
+    gradient, *_ = np.linalg.lstsq(rows, values, rcond=None)
+    mean_background = 0.5 * (gradient[0] + gradient[1])
+    print(f"dawn to dusk: gradient / background = {gradient[2] / mean_background:.3f} (aurora_model.cpp), backgrounds {gradient[0]:.1f}, {gradient[1]:.1f}; "
+          f"spot over it {1.0 + gradient[3] / mean_background:.2f} x; correlations with dusk "
+          + ", ".join(f"{np.corrcoef(v[3], v[4])[0, 1]:.2f}" for v in views))
 
     # The map: relative to the background, in the scene's body frame.
     height, width = 72, 144

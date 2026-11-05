@@ -52,6 +52,7 @@ struct AuroraDrawItem {
     float blue_kr = 0.0f;      // AuroraProfile::blue_kr
     float diffuse_flux = 0.0f; // AuroraProfile::diffuse_flux
     float map_gain = 0.0f;     // AuroraProfile::map_gain
+    glm::vec4 map_sun{0.0f};   // AuroraProfile::map_sun
     float sigma_km = 0.0f;     // AuroraProfile::sigma_km
     float time = 0.0f;         // animation clock (s)
     float pixel_angle = 0.0f;  // radians per pixel, for filtering the pattern

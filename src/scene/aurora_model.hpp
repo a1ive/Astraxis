@@ -39,6 +39,11 @@ enum class AuroraPattern { // brightness across the surface
     Uniform = 5,
     EuropaTrailing = 6,    // assumed smooth trailing enhancement
     IoFlanks = 7,          // broad equatorial flanks
+    BodyMapSeasons = 8,    // AuroraMap's two layers mixed by the sun at the latitude's noon:
+                           // map_sun = zenith angles (rad) where the sunlit layer's share is
+                           // 1, the terminator's and 0, the terminator's share
+    BodyMapDusk = 9,       // an AuroraMap plus a gradient fixed to the sun: map_sun.x, in
+                           // map units, from -1 at the dawn limb to +1 at the dusk limb
 };
 enum class AuroraVertical {  // brightness with height; AuroraProfile::layers reads, for each:
     EarthChapman = 0,        // low peak, low scale, high peak, high scale (km); the high
@@ -71,6 +76,7 @@ struct AuroraProfile {
     double blue_kr = 0.0;       // EarthChapman: 427.8 nm of a column through the oval
     double diffuse_flux = 0.0;  // EarthOval: the diffuse aurora's flux relative to the oval's
     double map_gain = 0.0;      // BodyMap: low_rgb's fraction per unit of the map
+    glm::dvec4 map_sun{0.0};    // see AuroraPattern
     double sigma_km = 0.0;      // JovianOval, JovianFootprints: Gaussian width across the contour
     // At 24 k / kOvalSamples hours. EarthOval: colatitudes (rad) of the diffuse
     // aurora, the oval's equatorward and poleward edges. SaturnOval: SaturnAurora::profile.
@@ -87,6 +93,11 @@ AuroraProfile aurora_profile(AuroraModel model, bool ultraviolet, double kp);
 // Jupiter's second shell: its moons' footprints at the height they are mapped
 // to, a display gain per moon (Io, Europa, Ganymede).
 AuroraProfile jovian_footprint_profile();
+
+// The pattern of the map-based models at a point of the body, as map_pattern and
+// its callers in shaders/aurora.frag.hlsl: to_sun is a unit vector in the body's frame.
+double aurora_map_pattern(const AuroraProfile& profile, const AuroraMap& map, double east_longitude,
+                          double latitude, const glm::dvec3& to_sun);
 
 // How much of a body's reflected light its false-color view keeps. Uranus and
 // Neptune are dark at the 3-4 um of the H3+ lines (methane absorbs), and their

@@ -1106,8 +1106,8 @@ void test_aurora_profiles()
         {Model::Saturn, true, Pattern::SaturnOval, Vertical::ChapmanPair, Lighting::Always},
         {Model::Saturn, false, Pattern::SaturnOval, Vertical::ChapmanPair, Lighting::NightSide},
         {Model::Ganymede, true, Pattern::BodyMap, Vertical::UniformColumn, Lighting::Always},
-        {Model::Uranus, false, Pattern::BodyMap, Vertical::Table, Lighting::Always},
-        {Model::Neptune, false, Pattern::BodyMap, Vertical::ChapmanPair, Lighting::Always},
+        {Model::Uranus, false, Pattern::BodyMapSeasons, Vertical::Table, Lighting::Always},
+        {Model::Neptune, false, Pattern::BodyMapDusk, Vertical::ChapmanPair, Lighting::Always},
         {Model::Europa, false, Pattern::EuropaTrailing, Vertical::Exponential, Lighting::NightOrEclipsed},
         {Model::Io, false, Pattern::IoFlanks, Vertical::Exponential, Lighting::NightOrEclipsed},
         {Model::Callisto, false, Pattern::Uniform, Vertical::Exponential, Lighting::NightOrEclipsed},
@@ -1248,9 +1248,13 @@ void test_ice_giant_aurora()
 
     // The map, in ULS west longitude (IAU new east + 50.6) and IAU latitude.
     const AuroraMap& map = *u.aurora.map;
-    const auto uranus_at = [&](double uls_west_deg, double latitude_deg) {
-        return map.brightness((uls_west_deg - 50.6) * kDegToRad, latitude_deg * kDegToRad);
+    const AuroraProfile uranus_profile = aurora_profile(AuroraModel::Uranus, false, 0.0);
+    const auto uranus_with_sun = [&](double east_deg, double latitude_deg, const glm::dvec3& sun) {
+        return aurora_map_pattern(uranus_profile, map, east_deg * kDegToRad, latitude_deg * kDegToRad, sun);
     };
+    const glm::dvec3 sun_2023 = glm::normalize(to_sun_2023);
+    const auto uranus_2023 = [&](double east_deg, double latitude_deg) { return uranus_with_sun(east_deg, latitude_deg, sun_2023); };
+    const auto uranus_at = [&](double uls_west_deg, double latitude_deg) { return uranus_2023(uls_west_deg - 50.6, latitude_deg); };
     // Melin's southern aurora (ULS south is IAU north), and the dark spot just poleward of it.
     check(uranus_at(232.0, 37.5) > 1.3 * uranus_at(217.0, 62.5), "the southern aurora outshines the dark spot beside it",
           uranus_at(232.0, 37.5) / uranus_at(217.0, 62.5));
@@ -1285,9 +1289,9 @@ void test_ice_giant_aurora()
     };
     for (double lat = -87.5; lat <= -37.5; lat += 2.5) {
         double row_mean = 0.0;
-        for (int east = 0; east < 360; east += 5) row_mean += map.brightness(east * kDegToRad, lat * kDegToRad) / 72.0;
+        for (int east = 0; east < 360; east += 5) row_mean += uranus_2023(east, lat) / 72.0;
         for (int east = 0; east < 360; east += 5) {
-            const double value = map.brightness(east * kDegToRad, lat * kDegToRad);
+            const double value = uranus_2023(east, lat);
             brightest_south = std::max(brightest_south, value);
             if (lat <= -62.5) brightest_night = std::max(brightest_night, value);
             if (lat <= -85.0) brightest_pole = std::max(brightest_pole, value);
@@ -1303,7 +1307,7 @@ void test_ice_giant_aurora()
     // the far south keeps only what particles ionize, a shell-mean far below the bright spots.
     const auto zonal_mean = [&](double latitude_deg) {
         double mean = 0.0;
-        for (int east = 0; east < 360; east += 5) mean += map.brightness(east * kDegToRad, latitude_deg * kDegToRad) / 72.0;
+        for (int east = 0; east < 360; east += 5) mean += uranus_2023(east, latitude_deg) / 72.0;
         return mean;
     };
     check(zonal_mean(-15.0) > zonal_mean(-30.0) && zonal_mean(-30.0) > zonal_mean(-45.0) && zonal_mean(-45.0) > zonal_mean(-60.0),
@@ -1331,13 +1335,13 @@ void test_ice_giant_aurora()
         int outer_cells = 0, inner_cells = 0;
         for (double lat = -62.5; lat <= -42.5; lat += 2.5) {
             double row_mean = 0.0;
-            for (int east = 0; east < 360; east += 5) row_mean += map.brightness(east * kDegToRad, lat * kDegToRad) / 72.0;
+            for (int east = 0; east < 360; east += 5) row_mean += uranus_2023(east, lat) / 72.0;
             for (int east = 0; east < 360; east += 10) {
                 const glm::dvec3 p = glm::transpose(uls_to_body) * body_direction(east, lat);
                 const glm::dvec3 position(c * p.x - s * p.y, s * p.x + c * p.y, p.z);
                 if (glm::dot(q3.field_nt(position), position) <= 0.0) continue; // around ULS north only
                 const double shell = shell_of(position);
-                const double value = map.brightness(east * kDegToRad, lat * kDegToRad) / row_mean;
+                const double value = uranus_2023(east, lat) / row_mean;
                 if (shell >= 2.0 && shell < 6.0) {
                     outer += value;
                     ++outer_cells;
@@ -1362,16 +1366,52 @@ void test_ice_giant_aurora()
         double steepest = 0.0;
         for (int east = 0; east < 360; east += 5) {
             for (double lat = from_lat; lat < to_lat; lat += 2.5) {
-                steepest = std::max(steepest, std::abs(map.brightness(east * kDegToRad, lat * kDegToRad) -
-                                                       map.brightness(east * kDegToRad, (lat + 2.5) * kDegToRad)));
+                steepest = std::max(steepest, std::abs(uranus_2023(east, lat) -
+                                                       uranus_2023(east, lat + 2.5)));
             }
         }
         return steepest;
     };
     check(steepest_step(-45.0, -15.0) < steepest_step(10.0, 80.0), "no seam where the model takes over", steepest_step(-45.0, -15.0));
 
+    // The seasons: the same two layers by the sun of the moment, from the scene's own sun.
+    const auto sun_at = [&](double t) {
+        scene.update(t);
+        return glm::dvec3(glm::normalize(glm::transpose(scene.body_to_icrf(uranus_body, t)) * (scene.sun_position() - uranus_body.world_position)));
+    };
+    const auto zonal_with_sun = [&](double latitude_deg, const glm::dvec3& sun) {
+        double mean = 0.0;
+        for (int east = 0; east < 360; east += 5) mean += uranus_with_sun(east, latitude_deg, sun) / 72.0;
+        return mean;
+    };
+    check(std::abs(uranus_profile.map_sun.z / kDegToRad - 120.2) < 0.1, "no sun at 4000 km beyond 120.2 deg of zenith angle", uranus_profile.map_sun.z / kDegToRad);
+    // Voyager 2, 1986-01-24: the sun over ULS north, the IAU's south. The other way round.
+    const glm::dvec3 sun_1986 = sun_at(tdb_from_utc_jd(2446454.5));
+    const double subsolar_1986_deg = std::asin(sun_1986.z) / kDegToRad;
+    check(subsolar_1986_deg < -70.0, "the sun was over the IAU's south at Voyager 2", subsolar_1986_deg);
+    check(zonal_with_sun(-60.0, sun_1986) > 0.25, "the far south is lit in 1986", zonal_with_sun(-60.0, sun_1986));
+    check(zonal_with_sun(60.0, sun_1986) < 0.05, "the far north is in its polar night in 1986", zonal_with_sun(60.0, sun_1986));
+    // What was seen of the aurora stays in the night, and only that.
+    double aurora_night = 0.0;
+    for (double west = 215.0; west <= 250.0; west += 2.5) {
+        for (double lat = 25.0; lat <= 50.0; lat += 2.5) aurora_night = std::max(aurora_night, uranus_with_sun(west - 50.6, lat, sun_1986));
+    }
+    const double beside_aurora = uranus_with_sun(310.0 - 50.6, 60.0, sun_1986);
+    check(aurora_night > 0.08 && aurora_night < peak, "Melin's southern aurora stays in the polar night", aurora_night);
+    check(beside_aurora < 0.005, "with nothing around it", beside_aurora);
+    // The equinox of December 2007: both hemispheres lit alike, by the same rule.
+    const glm::dvec3 sun_2007 = sun_at(tdb_from_utc_jd(2454441.5));
+    check(std::abs(std::asin(sun_2007.z) / kDegToRad) < 2.0, "the sun on Uranus's equator in December 2007", std::asin(sun_2007.z) / kDegToRad);
+    for (const double lat : {30.0, 45.0}) {
+        const double ratio = zonal_with_sun(lat, sun_2007) / zonal_with_sun(-lat, sun_2007);
+        check(ratio > 0.75 && ratio < 1.35, "the hemispheres alike at the equinox", ratio);
+    }
+    check(zonal_with_sun(85.0, sun_2007) > 0.05 && zonal_with_sun(-85.0, sun_2007) > 0.05, "the poles grazed by the sun at the equinox");
+    std::printf("  info: Uranus's seasons: sub-solar %.1f deg at Voyager 2, aurora in the night %.3f; at the equinox 60 N %.3f, 60 S %.3f\n",
+                subsolar_1986_deg, aurora_night, zonal_with_sun(60.0, sun_2007), zonal_with_sun(-60.0, sun_2007));
+
     // The vertical profile holds a whole column; its emission peaks well below the temperature's.
-    const AuroraProfile profile = aurora_profile(AuroraModel::Uranus, false, 0.0);
+    const AuroraProfile& profile = uranus_profile;
     double column = 0.0;
     size_t top = 0;
     for (size_t k = 0; k + 1 < profile.table.size(); ++k) {
@@ -1425,6 +1465,33 @@ void test_ice_giant_aurora()
           "Neptune's patch is where Melin 2025 finds it", paper_west);
     check(brightest > 1.4 && brightest < 2.2, "about twice as bright as its surroundings", brightest);
     check(std::abs(spots.brightness(0.0, 40.0 * kDegToRad) - 1.0) < 0.01, "no patch in the north, where none was seen");
+
+    // The background rises from dawn to dusk (Melin 2025), fixed to the sun; the patch is not.
+    const AuroraProfile neptune_profile = aurora_profile(AuroraModel::Neptune, false, 0.0);
+    const double dusk_gradient = neptune_profile.map_sun.x;
+    check(dusk_gradient > 0.2 && dusk_gradient < 0.27, "Neptune's gradient as fitted to each view alone (0.21, 0.27)", dusk_gradient);
+    const auto neptune_with_sun = [&](double east_deg, double latitude_deg, double sun_east_deg) {
+        const glm::dvec3 sun(std::cos(sun_east_deg * kDegToRad), std::sin(sun_east_deg * kDegToRad), 0.0);
+        return aurora_map_pattern(neptune_profile, spots, east_deg * kDegToRad, latitude_deg * kDegToRad, sun);
+    };
+    check(std::abs(neptune_with_sun(30.0, 30.0, 30.0) - 1.0) < 0.01, "no gradient at noon");
+    check(std::abs(neptune_with_sun(120.0, 0.0, 30.0) - (1.0 + dusk_gradient)) < 0.01, "brightest at the dusk limb, east of noon");
+    check(std::abs(neptune_with_sun(-60.0, 0.0, 30.0) - (1.0 - dusk_gradient)) < 0.01, "dimmest at the dawn limb, west of noon");
+    check(std::abs(neptune_with_sun(120.0, 0.0, 120.0) - 1.0) < 0.01, "the gradient goes with the sun, not the planet");
+    // The patch adds the same amount wherever the sun is.
+    const double patch_east = -brightest_west, patch_lat = brightest_lat;
+    const double patch_excess = spots.brightness(patch_east * kDegToRad, patch_lat * kDegToRad) - 1.0;
+    check(std::abs(neptune_with_sun(patch_east, patch_lat, patch_east) - (1.0 + patch_excess)) < 0.01, "the patch at noon");
+    check(neptune_with_sun(patch_east, patch_lat, patch_east - 90.0) > 1.0 + patch_excess, "the patch on the dusk side");
+    // East of noon is afternoon only if the sun moves west over the body: from the scene.
+    const auto neptune_sun_east = [&](double t) {
+        scene.update(t);
+        const Body& neptune_body = scene.bodies[static_cast<size_t>(neptune)];
+        const glm::dvec3 sun = glm::transpose(scene.body_to_icrf(neptune_body, t)) * (scene.sun_position() - neptune_body.world_position);
+        return std::atan2(sun.y, sun.x) / kDegToRad;
+    };
+    const double sun_motion = angle_difference_deg(neptune_sun_east(neptune_event->t_tdb + 3600.0), neptune_sun_east(neptune_event->t_tdb));
+    check(sun_motion < -10.0, "the sun moves west over Neptune", sun_motion);
 }
 
 void test_europa_aurora()

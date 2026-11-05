@@ -1851,6 +1851,7 @@ void SceneRenderer::add_aurora_items(const Simulation& sim, const OutputView& ou
         a.blue_kr = static_cast<float>(p.blue_kr);
         a.diffuse_flux = static_cast<float>(p.diffuse_flux);
         a.map_gain = static_cast<float>(p.map_gain * (body.aurora.map ? body.aurora.map->range : 0.0));
+        a.map_sun = glm::vec4(p.map_sun);
         a.sigma_km = static_cast<float>(p.sigma_km);
         a.oval = p.oval;
         for (size_t k = 0; k < p.table.size(); ++k) {

@@ -22,6 +22,8 @@ static const float kNoiseCells = 32.0; // lattice cells across the noise tile
 #define PATTERN_UNIFORM 5
 #define PATTERN_EUROPA_TRAILING 6
 #define PATTERN_IO_FLANKS 7
+#define PATTERN_BODY_MAP_SEASONS 8
+#define PATTERN_BODY_MAP_DUSK 9
 #define VERTICAL_EARTH_CHAPMAN 0
 #define VERTICAL_CHAPMAN_PAIR 1
 #define VERTICAL_EXPONENTIAL 2
@@ -57,6 +59,7 @@ cbuffer Uniforms : register(b0, space3)
     float4 u_footprints[6]; // physical unit direction, illustrative display gain
     float4 u_table[4]; // AuroraProfile::table, four per vector
     float4 u_ring_radii; // inner/outer km (zero disables ring attenuation)
+    float4 u_map_sun; // AuroraProfile::map_sun
 };
 
 struct PSInput
@@ -170,16 +173,36 @@ float saturn_pattern(float3 n, float footprint_km)
     return band * (10.0 + (n.z < 0.0 ? 50.0 : 30.0) * oval.w) / 40.0;
 }
 
-// AuroraMap: west longitude, south-to-north rows, cell centers.
-float map_pattern(float3 n, float footprint_km)
+// AuroraMap: west longitude, south-to-north rows, cell centers. x = the map, y = what
+// is left of it without sunlight; n is the physical direction.
+float2 map_layers(float3 n, float footprint_km)
 {
-    n = normalize(n * float3(1.0, 1.0, u_shell.z));
     float2 uv = float2(-atan2(n.y, n.x) / (2.0 * kPi), asin(clamp(n.z, -1.0, 1.0)) / kPi + 0.5);
     float width, height;
     u_map.GetDimensions(width, height);
     float cell_km = u_pole.w * (kPi / height);
     float lod = max(0.0, log2(max(footprint_km / cell_km, 1.0)));
-    return u_map.SampleLevel(u_map_sampler, uv, lod).r * u_params.z;
+    return u_map.SampleLevel(u_map_sampler, uv, lod).rg * u_params.z;
+}
+
+// aurora_map_pattern in scene/aurora_model.cpp does the same.
+float map_pattern(float3 n, float footprint_km)
+{
+    n = normalize(n * float3(1.0, 1.0, u_shell.z));
+    float2 layers = map_layers(n, footprint_km);
+    if (u_mode.x == PATTERN_BODY_MAP_SEASONS) {
+        // The sun's zenith angle at this latitude's noon: u_sun is in the body's frame.
+        float zenith = abs(asin(clamp(n.z, -1.0, 1.0)) - asin(clamp(u_sun.z, -1.0, 1.0)));
+        float sunlit = zenith <= u_map_sun.y
+            ? lerp(1.0, u_map_sun.w, saturate((zenith - u_map_sun.x) / (u_map_sun.y - u_map_sun.x)))
+            : u_map_sun.w * saturate((u_map_sun.z - zenith) / (u_map_sun.z - u_map_sun.y));
+        return lerp(layers.y, layers.x, sunlit);
+    }
+    if (u_mode.x == PATTERN_BODY_MAP_DUSK) {
+        float across = length(u_sun.xy);
+        return max(layers.x + u_map_sun.x * dot(n.xy, float2(-u_sun.y, u_sun.x)) / max(across, 1e-6), 0.0);
+    }
+    return layers.x;
 }
 
 // Earth's aurora, relative to the oval's mean flux: the auroral oval between
@@ -252,7 +275,9 @@ float aurora_pattern(float3 n, float footprint_km)
     case PATTERN_JOVIAN_OVAL: return jovian_pattern(n, footprint_km);
     case PATTERN_JOVIAN_FOOTPRINTS: return footprints_pattern(n, footprint_km);
     case PATTERN_SATURN_OVAL: return saturn_pattern(n, footprint_km);
-    case PATTERN_BODY_MAP: return map_pattern(n, footprint_km);
+    case PATTERN_BODY_MAP:
+    case PATTERN_BODY_MAP_SEASONS:
+    case PATTERN_BODY_MAP_DUSK: return map_pattern(n, footprint_km);
     case PATTERN_EUROPA_TRAILING: return 1.0 + 0.5 * n.y;
     case PATTERN_IO_FLANKS: return 1.0 + 0.75 * (n.y * n.y - n.z * n.z);
     default: return 1.0; // PATTERN_UNIFORM

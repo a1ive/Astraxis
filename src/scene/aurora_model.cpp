@@ -1,9 +1,13 @@
 #include "scene/aurora_model.hpp"
 
 #include "core/color.hpp"
+#include "core/math.hpp"
 #include "scene/mars_aurora.hpp"
 #include "scene/satellite_aurora.hpp"
 #include "scene/saturn_aurora.hpp"
+
+#include <algorithm>
+#include <cmath>
 
 namespace astraxis {
 
@@ -37,6 +41,24 @@ glm::dvec3 ir_false_color(double exposure)
 constexpr double kUranusExposure = 0.28;
 // Neptune's map is relative to the disk's background; the background's exposure.
 constexpr double kNeptuneExposure = 0.095;
+// Melin et al. 2025 (Neptune) sees the H3+ rise from dawn to dusk across the disk, likely
+// the build-up of photoionization over the day; they give no number. Fitted to their
+// spaxels, relative to the background (tools/geomag/ice_giant_h3p_bake.py prints it).
+constexpr double kNeptuneDuskGradient = 0.228;
+
+// How much of Uranus's sunlit emission a latitude keeps, by the sun's zenith angle at its
+// noon. Non-auroral H3+ comes from solar photoionization and lives about 1 h (Melin et al.
+// 2025, after Moore et al. 2019), far less than the 17.2 h rotation, so it follows the sun.
+// Fully lit at the zenith angle of the map's last trusted latitude when it was observed
+// (8 N, sub-solar 58.83 N, the scene at Melin's dates, test_ice_giant_aurora).
+constexpr double kUranusFullSunZenithDeg = 58.83 - 8.0;
+// At the terminator, the column near it (Tiranti et al. 2026, 6.6e14 m-2) over the sunlit
+// disk's median (Melin et al. 2025, 2.27e15 m-2).
+constexpr double kUranusTerminatorShare = 6.6e14 / 2.27e15;
+// None once the sun is below the horizon of the altitude of the primary photoelectron
+// heating near the terminator (4000 km, Tiranti et al. 2026), above the 1 bar radius.
+constexpr double kUranusPhotoionizationKm = 4000.0;
+constexpr double kUranusEquatorialKm = 25559.0;
 // Tiranti et al. 2026: the mean of their 36 longitudes of H3+ total emission at
 // 475 .. 5025 km, every 350 km (tools/geomag/ice_giant_h3p_bake.py prints it).
 // One step below it, zero: nothing observed lower, 300 km is the homopause. One
@@ -145,7 +167,10 @@ AuroraProfile aurora_profile(AuroraModel model, bool ultraviolet, double kp)
         p.map_gain = 1.0 / 100.0;
         break;
     case AuroraModel::Uranus:
-        p.pattern = AuroraPattern::BodyMap;
+        p.pattern = AuroraPattern::BodyMapSeasons;
+        p.map_sun = glm::dvec4(kUranusFullSunZenithDeg * kDegToRad, kPi / 2.0,
+                               kPi / 2.0 + std::acos(kUranusEquatorialKm / (kUranusEquatorialKm + kUranusPhotoionizationKm)),
+                               kUranusTerminatorShare);
         p.vertical = AuroraVertical::Table;
         p.bottom_km = kUranusTableBottomKm;
         p.top_km = kUranusTableBottomKm + kUranusTableStepKm * (kAuroraTableSize - 1);
@@ -157,7 +182,8 @@ AuroraProfile aurora_profile(AuroraModel model, bool ultraviolet, double kp)
     case AuroraModel::Neptune:
         // No vertical profile is observed. Assumed: Uranus's shape, as a Chapman
         // layer; models put the ion above 1000 km (Melin et al. 2025).
-        p.pattern = AuroraPattern::BodyMap;
+        p.pattern = AuroraPattern::BodyMapDusk;
+        p.map_sun = glm::dvec4(kNeptuneDuskGradient, 0.0, 0.0, 0.0);
         p.bottom_km = 300.0;
         p.top_km = 5000.0;
         p.low_rgb = ir_false_color(kNeptuneExposure);
@@ -183,6 +209,29 @@ AuroraProfile aurora_profile(AuroraModel model, bool ultraviolet, double kp)
         break;
     }
     return p;
+}
+
+double aurora_map_pattern(const AuroraProfile& profile, const AuroraMap& map, double east_longitude,
+                          double latitude, const glm::dvec3& to_sun)
+{
+    const double value = map.brightness(east_longitude, latitude) * profile.map_gain;
+    switch (profile.pattern) {
+    case AuroraPattern::BodyMapSeasons: {
+        const glm::dvec4& s = profile.map_sun;
+        const double zenith = std::abs(latitude - std::asin(std::clamp(to_sun.z, -1.0, 1.0)));
+        const double sunlit = zenith <= s.y ? std::lerp(1.0, s.w, std::clamp((zenith - s.x) / (s.y - s.x), 0.0, 1.0))
+                                            : s.w * std::clamp((s.z - zenith) / (s.z - s.y), 0.0, 1.0);
+        return std::lerp(map.dark_brightness(east_longitude, latitude) * profile.map_gain, value, sunlit);
+    }
+    case AuroraPattern::BodyMapDusk: {
+        const double across = std::hypot(to_sun.x, to_sun.y);
+        if (across < 1e-9) return value;
+        const double dusk = std::cos(latitude) * (std::sin(east_longitude) * to_sun.x - std::cos(east_longitude) * to_sun.y) / across;
+        return std::max(value + profile.map_sun.x * dusk, 0.0);
+    }
+    default:
+        return value;
+    }
 }
 
 double aurora_surface_gain(AuroraModel model, bool infrared)
