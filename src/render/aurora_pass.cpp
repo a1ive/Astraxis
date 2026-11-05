@@ -35,20 +35,25 @@ struct FragmentUniforms {
     glm::mat4 to_unit;
     glm::vec4 camera; // w = 1 inside the shell
     glm::vec4 pole;   // w = km per unit
-    glm::vec4 noon;   // w = shell bottom
-    glm::vec4 sun;    // w = shell top
+    glm::vec4 noon;
+    glm::vec4 sun;    // w = angular radius
     glm::vec4 low;    // w = time
-    glm::vec4 red;    // w = pixel angle
-    glm::vec4 blue;   // x = kR
+    glm::vec4 high;
     glm::vec4 layers;
-    glm::vec4 misc;   // x = diffuse flux
+    glm::vec4 shell;  // bottom, top, polar ratio, pixel angle
+    glm::vec4 params; // blue kR, diffuse flux, map gain, sigma km
+    glm::ivec4 mode;  // pattern, vertical, lighting
+    glm::vec4 parent;
     glm::vec4 oval[kAuroraOvalSamples];
     glm::vec4 south_center;
     glm::vec4 south_east;
-    glm::vec4 jovian_oval[kJovianOvalSamples];
+    glm::vec4 jovian_oval[kJovianOvalPairs];
     glm::vec4 footprints[6];
     glm::vec4 ring_radii;
 };
+// SDL's Vulkan backend binds each uniform buffer with a 4 KiB range
+// (MAX_UBO_SECTION_SIZE); reads past it are undefined.
+static_assert(sizeof(FragmentUniforms) <= 4096);
 
 // Four independent tiling value noises, one per channel: random values on a
 // kNoiseCells x kNoiseCells lattice (wrapping), smoothstep-interpolated over
@@ -185,12 +190,12 @@ bool AuroraPass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
     sampler.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
     m_sampler = SDL_CreateGPUSampler(device, &sampler);
     sampler.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
+    sampler.max_lod = 1000.0f; // left at zero, sampling stops at level 0
     sampler.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
     sampler.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
     sampler.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
     m_ring_sampler = SDL_CreateGPUSampler(device, &sampler);
     sampler.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
-    sampler.max_lod = 16.0f;
     m_map_sampler = SDL_CreateGPUSampler(device, &sampler);
     return m_vertices && m_indices && m_noise && m_sampler && m_ring_sampler && m_map_sampler;
 }
@@ -270,7 +275,7 @@ void AuroraPass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const 
 
     const SDL_GPUGraphicsPipeline* bound = nullptr;
     for (const AuroraDrawItem& item : items) {
-        if (item.saturn != after_rings) continue;
+        if (item.after_rings != after_rings) continue;
         const bool inside = glm::length(item.camera_unit) < item.top * kInsideMargin;
         SDL_GPUGraphicsPipeline* pipeline = inside ? m_inside : m_outside;
         if (pipeline != bound) {
@@ -288,30 +293,30 @@ void AuroraPass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const 
         fu.to_unit = glm::mat4(item.to_unit);
         fu.camera = glm::vec4(item.camera_unit, inside ? 1.0f : 0.0f);
         fu.pole = glm::vec4(item.pole, item.km_per_unit);
-        fu.noon = glm::vec4(item.noon, item.bottom);
-        fu.sun = glm::vec4(item.sun, item.top);
+        fu.noon = glm::vec4(item.noon, 0.0f);
+        fu.sun = glm::vec4(item.sun, item.sun_angular_radius);
         fu.low = glm::vec4(item.low_rgb, item.time);
-        fu.red = glm::vec4(item.red_per_kr, item.pixel_angle);
-        fu.blue = glm::vec4(item.blue_kr, 0.0f, 0.0f, 0.0f);
+        fu.high = glm::vec4(item.high_rgb, 0.0f);
         fu.layers = item.layers;
-        fu.misc = glm::vec4(item.diffuse_flux, item.mars ? 9.0f : item.optical_moon ? static_cast<float>(item.optical_moon) : item.ganymede_map ? 4.0f : item.saturn ? (item.ultraviolet ? 3.0f : 5.0f) :
-                           (item.footprints_only ? 2.0f : (item.ultraviolet ? 1.0f : 0.0f)),
-                           item.polar_ratio, item.width_km);
+        fu.shell = glm::vec4(item.bottom, item.top, item.polar_ratio, item.pixel_angle);
+        fu.params = glm::vec4(item.blue_kr, item.diffuse_flux, item.map_gain, item.sigma_km);
+        fu.mode = glm::ivec4(item.pattern, item.vertical, item.lighting, 0);
+        fu.parent = item.parent;
         for (int k = 0; k < kAuroraOvalSamples; ++k) {
             fu.oval[k] = item.oval[static_cast<size_t>(k)];
         }
         fu.south_center = glm::vec4(item.south_center, 0.0f);
         fu.south_east = glm::vec4(item.south_east, 0.0f);
-        for (int k = 0; k < kJovianOvalSamples; ++k) {
+        for (int k = 0; k < kJovianOvalPairs; ++k) {
             fu.jovian_oval[k] = item.jovian_oval[static_cast<size_t>(k)];
         }
         for (size_t k = 0; k < item.footprints.size(); ++k) fu.footprints[k] = item.footprints[k];
-        fu.ring_radii = item.ring_radii;
+        fu.ring_radii = glm::vec4(item.ring_radii, 0.0f, 0.0f);
         SDL_PushGPUFragmentUniformData(cmd, 0, &fu, sizeof(fu));
         const SDL_GPUTextureSamplerBinding textures[] = {
             {.texture = m_noise, .sampler = m_sampler},
             {.texture = item.ring_profile ? item.ring_profile : m_noise, .sampler = m_ring_sampler},
-            {.texture = item.ganymede_map ? item.ganymede_map : m_noise, .sampler = m_map_sampler}};
+            {.texture = item.map ? item.map : m_noise, .sampler = m_map_sampler}};
         SDL_BindGPUFragmentSamplers(pass, 0, textures, 3);
         SDL_DrawGPUIndexedPrimitives(pass, m_index_count, 1, 0, 0, 0);
     }

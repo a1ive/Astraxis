@@ -589,7 +589,7 @@ void Scene::update(double t_tdb)
     // Evaluate once per scene update, including clock jumps and reverse time.
     // Every output consumes the same body-fixed footpoints.
     for (Body& body : bodies) {
-        if (!body.jovian_aurora) continue;
+        if (!body.aurora.jovian) continue;
         body.jovian_footprints = {};
         const glm::dmat3 to_body = glm::transpose(body_to_icrf(body, t_tdb));
         for (int moon = 0; moon < 3; ++moon) {
@@ -599,7 +599,7 @@ void Scene::update(double t_tdb)
             if (!source.visible || source.parent < 0 || &bodies[static_cast<size_t>(source.parent)] != &body) continue;
             const glm::dvec3 p = to_body * (source.icrf_position - body.icrf_position);
             for (int h = 0; h < 2; ++h) {
-                body.jovian_aurora->footprint(moon, h != 0, p, body.jovian_footprints[static_cast<size_t>(2*moon+h)]);
+                body.aurora.jovian->footprint(moon, h != 0, p, body.jovian_footprints[static_cast<size_t>(2*moon+h)]);
             }
         }
     }

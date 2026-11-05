@@ -5,8 +5,9 @@
 #include "core/math.hpp"
 #include "core/time.hpp"
 #include "scene/aurora.hpp"
-#include "scene/europa_aurora.hpp"
+#include "scene/aurora_model.hpp"
 #include "scene/satellite_aurora.hpp"
+#include "scene/saturn_aurora.hpp"
 #include "scene/mars_aurora.hpp"
 #include "scene/comet.hpp"
 #include "scene/corona.hpp"
@@ -413,23 +414,23 @@ void test_night_and_aurora()
 {
     const Scene scene = load_scene_or_die("solar_system.toml");
     const Body& earth = scene.bodies[static_cast<size_t>(scene.find("Earth"))];
-    check(earth.aurora != nullptr && earth.night_lights.gain > 0.0 && !earth.night_lights.texture.empty(),
+    check(earth.aurora.kp != nullptr && earth.night_lights.gain > 0.0 && !earth.night_lights.texture.empty(),
           "Earth has night lights and an aurora");
     for (const char* file : {"didymos.toml", "earth_moon.toml", "isee3.toml", "mercury.toml", "parker.toml",
                              "rosetta.toml", "space_telescopes.toml", "venus.toml"}) {
         const Scene other = load_scene_or_die(file);
         const Body& e = other.bodies[static_cast<size_t>(other.find("Earth"))];
-        check(e.aurora != nullptr && e.night_lights.texture == earth.night_lights.texture &&
+        check(e.aurora.kp != nullptr && e.night_lights.texture == earth.night_lights.texture &&
                   e.night_lights.color == earth.night_lights.color && e.night_lights.gain == earth.night_lights.gain,
               (std::string(file) + ": Earth's night lights and aurora as in solar_system.toml").c_str());
     }
     for (const char* name : {"Mars", "Venus", "Moon"}) {
         const Body& b = scene.bodies[static_cast<size_t>(scene.find(name))];
-        check(!b.aurora && b.night_lights.texture.empty(), name);
+        check(!b.aurora.kp && b.night_lights.texture.empty(), name);
     }
 
     // The Kp record: 1932 on, 3-hour UT intervals.
-    const KpRecord& kp = *earth.aurora;
+    const KpRecord& kp = *earth.aurora.kp;
     auto utc = [](int y, int mo, int d, int h) { return tdb_from_utc_jd(jd_from_calendar({y, mo, d, h, 0, 0})); };
     check(std::abs(kp.start_tdb() - utc(1932, 1, 1, 0)) < 1e-6, "Kp record starts 1932-01-01 00 UT");
     check(kp.end_tdb() > utc(2026, 9, 1, 0), "Kp record reaches 2026-09");
@@ -794,10 +795,10 @@ void test_jovian_aurora()
 {
     Scene scene = load_scene_or_die("jupiter.toml");
     const Body& jupiter = scene.bodies[static_cast<size_t>(scene.find("Jupiter"))];
-    check(bool(jupiter.jovian_aurora) && !jupiter.aurora && !jupiter.atmosphere.enabled,
+    check(bool(jupiter.aurora.jovian) && jupiter.aurora.model == AuroraModel::Jupiter && !jupiter.atmosphere.enabled,
           "Jupiter UV oval loads independently of Earth Kp and scattering atmosphere");
-    if (!jupiter.jovian_aurora) return;
-    const JovianAurora& oval = *jupiter.jovian_aurora;
+    if (!jupiter.aurora.jovian) return;
+    const JovianAurora& oval = *jupiter.aurora.jovian;
     // Original Zenodo 12067692 CSV rows 0, 2500, 5000, 7500 (zero based,
     // excluding the header). System III WEST longitude, planetocentric latitude.
     const glm::dvec2 original[2][4] = {
@@ -824,7 +825,7 @@ void test_jovian_aurora()
               "UV oval is continuous through zero azimuth");
     }
     Scene solar = load_scene_or_die("solar_system.toml");
-    const auto& other = solar.bodies[static_cast<size_t>(solar.find("Jupiter"))].jovian_aurora;
+    const auto& other = solar.bodies[static_cast<size_t>(solar.find("Jupiter"))].aurora.jovian;
     check(other && other->radii == oval.radii, "Jupiter reference ovals agree across scene templates");
 
     Simulation sim;
@@ -907,10 +908,10 @@ void test_saturn_aurora()
 
     Scene scene = load_scene_or_die("saturn.toml");
     const Body& saturn = scene.bodies[static_cast<size_t>(scene.find("Saturn"))];
-    check(saturn.saturn_aurora && !saturn.aurora && !saturn.jovian_aurora && !saturn.atmosphere.enabled,
+    check(saturn.aurora.model == AuroraModel::Saturn && !saturn.atmosphere.enabled,
           "Saturn UV loads independently of Kp, Jupiter and atmospheric scattering");
     Scene solar = load_scene_or_die("solar_system.toml");
-    check(solar.bodies[static_cast<size_t>(solar.find("Saturn"))].saturn_aurora,
+    check(solar.bodies[static_cast<size_t>(solar.find("Saturn"))].aurora.model == AuroraModel::Saturn,
           "solar-system Saturn inherits the same UV model");
     // Local-time geometry stays fixed relative to the Sun as System III turns.
     glm::dvec3 previous{};
@@ -976,14 +977,14 @@ void test_saturn_aurora()
                             "[bodies.aurora]\nsaturn_oval=true", "bad_radii", bad, &error, ASTRAXIS_ASSET_DIR),
           "Saturn UV cannot silently use another planet's radii");
     check(load_scene_string(base + "saturn_oval=false", "disabled_saturn", bad, &error, ASTRAXIS_ASSET_DIR) &&
-          !bad.bodies[0].saturn_aurora, "Saturn UV can be disabled explicitly");
+          bad.bodies[0].aurora.model == AuroraModel::None, "Saturn UV can be disabled explicitly");
 }
 
 void test_mars_aurora()
 {
     const auto scene = load_scene_or_die("mars.toml");
     const auto solar = load_scene_or_die("solar_system.toml");
-    check(scene.bodies[scene.find("Mars")].mars_aurora && solar.bodies[solar.find("Mars")].mars_aurora,
+    check(scene.bodies[scene.find("Mars")].aurora.model == AuroraModel::Mars && solar.bodies[solar.find("Mars")].aurora.model == AuroraModel::Mars,
           "Mars aurora template loads in both scenes");
     int events = 0;
     for (const auto& e : scene.events) {
@@ -1012,7 +1013,7 @@ void test_mars_aurora()
     for (const char* conflict : {"kp='x'", "europa_visible=true", "io_visible=true", "callisto_visible=true", "saturn_oval=true", "ganymede_map='x'", "jovian_oval='x'", "footprints='x'"})
         check(!load_scene_string(base + "mars_visible=true\n" + conflict, "bad", bad, &error, ASTRAXIS_ASSET_DIR), "Mars rejects mixed aurora models");
     check(!load_scene_string(base + "mars_visible='true'", "bad", bad, &error, ASTRAXIS_ASSET_DIR), "Mars flag requires boolean");
-    check(load_scene_string(base + "mars_visible=false", "off", bad, &error, ASTRAXIS_ASSET_DIR) && !bad.bodies[0].mars_aurora, "Mars can disable aurora");
+    check(load_scene_string(base + "mars_visible=false", "off", bad, &error, ASTRAXIS_ASSET_DIR) && bad.bodies[0].aurora.model == AuroraModel::None, "Mars can disable aurora");
     check(!load_scene_string("name='x'\n[[bodies]]\nname='x'\nradii_km=[6378]\n[bodies.aurora]\nmars_visible=true", "bad", bad, &error, ASTRAXIS_ASSET_DIR), "Mars validates radii");
 }
 
@@ -1024,11 +1025,10 @@ void test_io_callisto_aurora()
         const int index = scene.find(name);
         const auto& moon = scene.bodies[index];
         const bool io = std::string(name) == "Io";
-        check(io ? moon.io_aurora : moon.callisto_aurora, "visible moon aurora loads");
+        const AuroraModel expected = io ? AuroraModel::Io : AuroraModel::Callisto;
+        check(moon.aurora.model == expected, "visible moon aurora loads");
         const auto& other = solar.bodies[solar.find(name)];
-        check(io ? other.io_aurora : other.callisto_aurora, "visible moon aurora template shared across scenes");
-        check(!moon.europa_aurora && !moon.ganymede_aurora && !moon.jovian_aurora && !moon.saturn_aurora,
-              "moon has only its own aurora model");
+        check(other.aurora.model == expected, "visible moon aurora template shared across scenes");
         const auto& model = io ? io_visible_aurora() : callisto_visible_aurora();
         int count = 0;
         for (const auto& event : scene.events) {
@@ -1063,7 +1063,7 @@ void test_io_callisto_aurora()
                             (z1 - z0) / depth * top * top / (R * R * radial);
                 }
             }
-            check(std::abs(flux - europa_aurora_disk_factor(R, H, model.top_km)) < 0.004,
+            check(std::abs(flux - aurora_disk_factor(R, H, model.top_km)) < 0.004,
                   "moon column conversion matches independent aperture integral", flux);
         }
         Scene bad;
@@ -1087,13 +1087,90 @@ void test_io_callisto_aurora()
           "Io sodium and Callisto oxygen have distinct spectra");
 }
 
+void test_aurora_profiles()
+{
+    using Model = AuroraModel;
+    using Pattern = AuroraPattern;
+    using Vertical = AuroraVertical;
+    using Lighting = AuroraLighting;
+    const struct {
+        Model model;
+        bool ultraviolet;
+        Pattern pattern;
+        Vertical vertical;
+        Lighting lighting;
+    } shells[] = {
+        {Model::Earth, false, Pattern::EarthOval, Vertical::EarthChapman, Lighting::NightSide},
+        {Model::Jupiter, true, Pattern::JovianOval, Vertical::ChapmanPair, Lighting::Always},
+        {Model::Saturn, true, Pattern::SaturnOval, Vertical::ChapmanPair, Lighting::Always},
+        {Model::Saturn, false, Pattern::SaturnOval, Vertical::ChapmanPair, Lighting::NightSide},
+        {Model::Ganymede, true, Pattern::GanymedeMap, Vertical::UniformColumn, Lighting::Always},
+        {Model::Europa, false, Pattern::EuropaTrailing, Vertical::Exponential, Lighting::NightOrEclipsed},
+        {Model::Io, false, Pattern::IoFlanks, Vertical::Exponential, Lighting::NightOrEclipsed},
+        {Model::Callisto, false, Pattern::Uniform, Vertical::Exponential, Lighting::NightOrEclipsed},
+        {Model::Mars, false, Pattern::Uniform, Vertical::Gaussian, Lighting::NightSide},
+    };
+    for (const auto& s : shells) {
+        const AuroraProfile p = aurora_profile(s.model, s.ultraviolet, 3.0);
+        check(p.pattern == s.pattern && p.vertical == s.vertical && p.lighting == s.lighting,
+              "each aurora model has its shader choices");
+        check(p.top_km > p.bottom_km && p.bottom_km >= 0.0, "aurora shell has thickness");
+        check(glm::dot(p.low_rgb, glm::dvec3(1.0)) > 0.0, "aurora shell emits");
+        check(p.layers.x > 0.0 && (s.vertical == Vertical::UniformColumn || (p.layers.y > 0.0 && p.layers.z >= 0.0)),
+              "aurora layers have positive sizes");
+        if (s.vertical == Vertical::Exponential) {
+            check(p.layers.z > 0.0 && p.layers.y == p.top_km, "exponential layers have both scales and the shell's top");
+        }
+    }
+    const AuroraProfile spots = jovian_footprint_profile();
+    check(spots.pattern == Pattern::JovianFootprints && spots.sigma_km > 0.0 && spots.layers.x == 900.0 &&
+              spots.top_km > aurora_profile(Model::Jupiter, true, 3.0).top_km,
+          "Jupiter's footprints have a higher shell of their own");
+
+    // Which models each view shows.
+    for (const Model m : {Model::Earth, Model::Saturn, Model::Europa, Model::Io, Model::Callisto, Model::Mars}) {
+        check(aurora_shown(m, true, false) && aurora_shown(m, true, true) && !aurora_shown(m, false, false),
+              "visible aurora shows in both views");
+    }
+    for (const Model m : {Model::Jupiter, Model::Ganymede}) {
+        check(!aurora_shown(m, true, false) && aurora_shown(m, true, true), "UV data shows only in the UV view");
+    }
+    check(!aurora_shown(Model::None, true, true), "no model, no aurora");
+
+    // Saturn's two views are different shells; the oval is the same.
+    const AuroraProfile saturn_uv = aurora_profile(Model::Saturn, true, 3.0);
+    const AuroraProfile saturn_visible = aurora_profile(Model::Saturn, false, 3.0);
+    check(saturn_uv.high_rgb == glm::dvec3(0.0) && saturn_visible.high_rgb.b > saturn_visible.high_rgb.g &&
+              saturn_visible.low_rgb.r > saturn_visible.low_rgb.b,
+          "Saturn is false color in the UV view, pink and purple in the visible");
+    check(saturn_uv.oval[10] == saturn_visible.oval[10] && saturn_uv.oval[10].x > 0.0f, "Saturn's oval in both views");
+
+    // Earth's activity reaches the profile.
+    const AuroraProfile quiet = aurora_profile(Model::Earth, false, 1.0);
+    const AuroraProfile storm = aurora_profile(Model::Earth, false, 9.0);
+    check(storm.blue_kr > quiet.blue_kr && storm.oval[0].y > quiet.oval[0].y, "Kp sets Earth's column and oval");
+
+    // The moons' spectra: the column colors, with their exposure.
+    const glm::dvec3 europa = (kRedPerKr * (0.573 + 0.190 * 630.0 / 636.4) + kGreenPerKr * 0.037) * 3.0e7 /
+                              aurora_disk_factor(1560.8, 50.0, 300.0);
+    check(glm::length(aurora_profile(Model::Europa, false, 3.0).low_rgb - europa) < 1e-9 * glm::length(europa),
+          "Europa's column is its disk-average oxygen lines");
+    check(aurora_profile(Model::Europa, false, 3.0).high_rgb == glm::dvec3(0.0) &&
+              aurora_profile(Model::Callisto, false, 3.0).high_rgb == glm::dvec3(0.0) &&
+              aurora_profile(Model::Io, false, 3.0).high_rgb.g > 0.0,
+          "only Io has a sodium layer");
+    const glm::dvec3 mars = kGreenPerKr * (MarsAurora::limb_rayleigh / 1000.0 * MarsAurora::display_gain / MarsAurora::limb_integral());
+    check(aurora_profile(Model::Mars, false, 3.0).low_rgb == mars && mars.g > mars.r && mars.b == 0.0,
+          "Mars glows in the green line");
+}
+
 void test_europa_aurora()
 {
     auto scene = load_scene_or_die("jupiter.toml");
     const int index = scene.find("Europa");
-    check(index >= 0 && scene.bodies[index].europa_aurora, "Europa visible aurora loads");
+    check(index >= 0 && scene.bodies[index].aurora.model == AuroraModel::Europa, "Europa visible aurora loads");
     const auto solar = load_scene_or_die("solar_system.toml");
-    check(solar.bodies[solar.find("Europa")].europa_aurora, "Europa template shared across scenes");
+    check(solar.bodies[solar.find("Europa")].aurora.model == AuroraModel::Europa, "Europa template shared across scenes");
     // Independent line-of-sight integration, including the off-limb shell.
     constexpr double R = 1560.8, top = R + 300.0;
     double flux = 0.0;
@@ -1110,7 +1187,7 @@ void test_europa_aurora()
         }
         flux += column * top * top / (R * R * radial);
     }
-    check(std::abs(flux - europa_aurora_disk_factor(R)) < 0.003,
+    check(std::abs(flux - aurora_disk_factor(R, 50.0, 300.0)) < 0.003,
           "Europa aperture brightness agrees with independent ray integral", flux);
     int count = 0;
     for (const auto& event : scene.events) {
@@ -1147,12 +1224,12 @@ void test_ganymede_aurora()
 {
     Scene scene = load_scene_or_die("jupiter.toml");
     const auto& moon = scene.bodies[static_cast<size_t>(scene.find("Ganymede"))];
-    check(bool(moon.ganymede_aurora) && !moon.aurora && !moon.jovian_aurora && !moon.saturn_aurora,
+    check(bool(moon.aurora.ganymede) && moon.aurora.model == AuroraModel::Ganymede,
           "Ganymede loads its own UV map independently of Jupiter's footprint");
-    if (!moon.ganymede_aurora) return;
-    const auto& map = *moon.ganymede_aurora;
+    if (!moon.aurora.ganymede) return;
+    const auto& map = *moon.aurora.ganymede;
     Scene solar = load_scene_or_die("solar_system.toml");
-    const auto& other = solar.bodies[static_cast<size_t>(solar.find("Ganymede"))].ganymede_aurora;
+    const auto& other = solar.bodies[static_cast<size_t>(solar.find("Ganymede"))].aurora.ganymede;
     check(other && other->rayleigh == map.rayleigh, "Ganymede UV map is shared across scenes");
     // Independent published morphology: Marzok 2022 section 3.3, Fig. 8.
     // Leading (90 W) crescents lie closer to the equator than trailing (270 W).
@@ -1225,7 +1302,7 @@ void test_jovian_footprints()
 {
     Scene scene = load_scene_or_die("jupiter.toml");
     const int index = scene.find("Jupiter");
-    const auto& model = *scene.bodies[static_cast<size_t>(index)].jovian_aurora;
+    const auto& model = *scene.bodies[static_cast<size_t>(index)].aurora.jovian;
     // Independent scipy DOP853 integration with a terminal spheroid event;
     // tools/geomag/jupiter_footprint_check.py. Input longitude 0 E, latitude
     // 0.37 N, nominal radius; each hemisphere has its own eastward lead.
@@ -1343,6 +1420,7 @@ void run_appearance_tests()
     test_night_and_aurora();
     test_jovian_aurora();
     test_saturn_aurora();
+    test_aurora_profiles();
     test_ganymede_aurora();
     test_europa_aurora();
     test_io_callisto_aurora();

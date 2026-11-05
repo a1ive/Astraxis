@@ -1442,68 +1442,57 @@ void Loader::parse(const toml::table& root, Scene& out)
             if (body.kind != BodyKind::Planet || body.shape) {
                 fail(ctx, "only ellipsoidal planets can have an aurora");
             }
+            // One model per body; only Jupiter's oval takes a second field.
+            const size_t fields = aurora->contains("jovian_oval") && aurora->contains("footprints") ? 2 : 1;
+            if (aurora->size() != fields) fail(actx, "takes one aurora model");
+            const auto has_radii = [&](double equatorial_km, double polar_km) {
+                return std::abs(body.equatorial_radius_km - equatorial_km) <= 1.0 &&
+                       std::abs(body.equatorial_radius_b_km - equatorial_km) <= 1.0 &&
+                       std::abs(body.polar_radius_km - polar_km) <= 1.0;
+            };
+            // The models described by a flag, valid only on their own body.
+            struct AuroraFlag {
+                const char* key;
+                AuroraModel model;
+                double equatorial_km, polar_km;
+            };
+            static constexpr AuroraFlag kAuroraFlags[] = {
+                {"saturn_oval", AuroraModel::Saturn, 60268.0, 54364.0}, // one bar
+                {"europa_visible", AuroraModel::Europa, 1560.8, 1560.8},
+                {"io_visible", AuroraModel::Io, 1821.49, 1821.49},
+                {"callisto_visible", AuroraModel::Callisto, 2410.3, 2410.3},
+                {"mars_visible", AuroraModel::Mars, 3396.19, 3376.20},
+            };
+            const auto flag = std::find_if(std::begin(kAuroraFlags), std::end(kAuroraFlags),
+                                           [&](const AuroraFlag& f) { return aurora->contains(f.key); });
             std::string error;
-            if (aurora->contains("mars_visible")) {
-                if (aurora->size() != 1) fail(actx, "mars_visible cannot be combined with other aurora fields");
-                const auto enabled = (*aurora)["mars_visible"].value<bool>();
-                if (!enabled) fail(actx, "mars_visible must be a boolean");
-                if (*enabled && (std::abs(body.equatorial_radius_km - 3396.19) > 1.0 ||
-                    std::abs(body.equatorial_radius_b_km - 3396.19) > 1.0 ||
-                    std::abs(body.polar_radius_km - 3376.20) > 1.0))
-                    fail(actx, "mars_visible requires Mars radii");
-                body.mars_aurora = *enabled;
-            } else if (aurora->contains("europa_visible") || aurora->contains("io_visible") || aurora->contains("callisto_visible")) {
-                const char* key = aurora->contains("io_visible") ? "io_visible" :
-                                  aurora->contains("callisto_visible") ? "callisto_visible" : "europa_visible";
-                if (aurora->size() != 1) fail(actx, "visible moon aurora cannot be combined with other aurora fields");
-                const auto enabled = (*aurora)[key].value<bool>();
-                if (!enabled) fail(actx, "visible moon aurora must be a boolean");
-                const double radius = aurora->contains("io_visible") ? 1821.49 :
-                                      aurora->contains("callisto_visible") ? 2410.3 : 1560.8;
-                if (*enabled && (std::abs(body.equatorial_radius_km - radius) > 1.0 ||
-                    std::abs(body.equatorial_radius_b_km - radius) > 1.0 ||
-                    std::abs(body.polar_radius_km - radius) > 1.0))
-                    fail(actx, "visible moon aurora requires the corresponding spherical radius");
-                body.europa_aurora = *enabled && aurora->contains("europa_visible");
-                body.io_aurora = *enabled && aurora->contains("io_visible");
-                body.callisto_aurora = *enabled && aurora->contains("callisto_visible");
+            if (flag != std::end(kAuroraFlags)) {
+                const auto enabled = (*aurora)[flag->key].value<bool>();
+                if (!enabled) fail(actx, std::string(flag->key) + " must be a boolean");
+                if (*enabled && !has_radii(flag->equatorial_km, flag->polar_km))
+                    fail(actx, std::string(flag->key) + " requires the body's reference radii");
+                if (*enabled) body.aurora.model = flag->model;
             } else if (aurora->contains("ganymede_map")) {
-                if (aurora->contains("kp") || aurora->contains("jovian_oval") ||
-                    aurora->contains("footprints") || aurora->contains("saturn_oval"))
-                    fail(actx, "ganymede_map cannot be combined with other aurora models");
-                if (std::abs(body.equatorial_radius_km - 2631.2) > 1.0 ||
-                    std::abs(body.equatorial_radius_b_km - 2631.2) > 1.0 ||
-                    std::abs(body.polar_radius_km - 2631.2) > 1.0)
-                    fail(actx, "ganymede_map requires Ganymede's spherical radius");
+                if (!has_radii(2631.2, 2631.2)) fail(actx, "ganymede_map requires Ganymede's spherical radius");
                 auto map = std::make_shared<GanymedeAurora>();
                 if (!map->load(m_asset_root / get_string(*aurora, "ganymede_map", actx), &error)) fail(actx, error);
-                body.ganymede_aurora = map;
-            } else if (aurora->contains("saturn_oval")) {
-                if (aurora->contains("kp") || aurora->contains("jovian_oval") || aurora->contains("footprints"))
-                    fail(actx, "saturn_oval cannot be combined with kp, jovian_oval or footprints");
-                const auto enabled = (*aurora)["saturn_oval"].value<bool>();
-                if (!enabled) fail(actx, "saturn_oval must be a boolean");
-                body.saturn_aurora = *enabled;
-                if (body.saturn_aurora && (std::abs(body.equatorial_radius_km - 60268.0) > 1.0 ||
-                    std::abs(body.equatorial_radius_b_km - 60268.0) > 1.0 ||
-                    std::abs(body.polar_radius_km - 54364.0) > 1.0))
-                    fail(actx, "saturn_oval requires Saturn's one-bar radii");
+                body.aurora.model = AuroraModel::Ganymede;
+                body.aurora.ganymede = map;
             } else if (aurora->contains("jovian_oval")) {
-                if (aurora->contains("kp")) fail(actx, "jovian_oval and kp are mutually exclusive");
                 auto oval = std::make_shared<JovianAurora>();
                 if (!oval->load(m_asset_root / get_string(*aurora, "jovian_oval", actx), &error)) fail(actx, error);
                 if (aurora->contains("footprints")) {
-                    if (std::abs(body.equatorial_radius_km - 71492.0) > 1.0 ||
-                        std::abs(body.equatorial_radius_b_km - 71492.0) > 1.0 ||
-                        std::abs(body.polar_radius_km - 66854.0) > 1.0) fail(actx, "footprints require Jupiter's one-bar radii");
+                    if (!has_radii(71492.0, 66854.0)) fail(actx, "footprints require Jupiter's one-bar radii");
                     if (!oval->load_footprints(m_asset_root / get_string(*aurora, "footprints", actx), &error)) fail(actx, error);
                 }
-                body.jovian_aurora = oval;
+                body.aurora.model = AuroraModel::Jupiter;
+                body.aurora.jovian = oval;
             } else {
                 if (aurora->contains("footprints")) fail(actx, "footprints require jovian_oval");
                 auto kp = std::make_shared<KpRecord>();
                 if (!kp->load(m_asset_root / get_string(*aurora, "kp", actx), &error)) fail(actx, error);
-                body.aurora = kp;
+                body.aurora.model = AuroraModel::Earth;
+                body.aurora.kp = kp;
             }
         }
         if (const toml::array* plumes = (*t)["plumes"].as_array()) {

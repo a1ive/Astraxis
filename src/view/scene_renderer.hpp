@@ -82,11 +82,10 @@ private:
     // the infrared).
     void load_nebulae(const Scene& scene);
     void build_nebula_items(const Simulation& sim, const OutputView& view);
-    // Aurora around `body`, in its unit-sphere frame (linear: body axes
-    // times radii; to_unit: its inverse); sun_direction: toward the sun (world).
-    AuroraDrawItem aurora_item(const Simulation& sim, const OutputView& view, const Body& body,
-                               const glm::dmat3& linear, const glm::dmat3& to_unit,
-                               const glm::vec3& sun_direction) const;
+    // Adds the shells of the aurora around body `index`, in its unit-sphere
+    // frame. lit: the body's own draw item, for the sun's direction and size.
+    void add_aurora_items(const Simulation& sim, const OutputView& view, size_t index, const BodyDrawItem& lit,
+                          bool ultraviolet);
     // Star sprites and pulsar beams (fills m_beam_items).
     void draw_stars(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const Simulation& sim, const OutputView& view);
 

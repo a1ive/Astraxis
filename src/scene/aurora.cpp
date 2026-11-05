@@ -84,11 +84,8 @@ constexpr DipoleEpoch kIgrfSecular = {2030.0, 12.6, 10.0, -21.5};
 // (tools/geomag/aurora_colors.py).
 constexpr glm::dvec3 kVioletPerKr{2.1513e-12, 0.0, 9.0337e-12};
 constexpr glm::dvec3 kBluePerKr{1.3230e-10, 0.0, 6.0553e-10};
-constexpr glm::dvec3 kGreenPerKr{1.7361e-09, 6.3813e-09, 0.0};
 
 } // namespace
-
-const glm::dvec3 kRedPerKr{4.4807e-09, 0.0, 2.9771e-10};
 
 bool KpRecord::load(const std::filesystem::path& file, std::string* error)
 {

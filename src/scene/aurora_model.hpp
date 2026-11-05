@@ -1,0 +1,85 @@
+#pragma once
+
+#include "scene/aurora.hpp"
+#include "scene/ganymede_aurora.hpp"
+#include "scene/jovian_aurora.hpp"
+
+#include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
+
+#include <array>
+#include <memory>
+
+namespace astraxis {
+
+// A body's aurora: at most one model, chosen by its [aurora] table. Only the
+// models with data of their own use the pointers.
+enum class AuroraModel { None, Earth, Jupiter, Saturn, Ganymede, Europa, Io, Callisto, Mars };
+
+struct BodyAurora {
+    AuroraModel model = AuroraModel::None;
+    std::shared_ptr<const KpRecord> kp;             // Earth
+    std::shared_ptr<const JovianAurora> jovian;     // Jupiter
+    std::shared_ptr<const GanymedeAurora> ganymede; // Ganymede
+};
+
+// Whether a model draws under the current view: Jupiter's and Ganymede's data
+// are ultraviolet, the others also have visible light.
+bool aurora_shown(AuroraModel model, bool visible, bool ultraviolet);
+
+// What shaders/aurora.frag.hlsl does for a shell, as three independent choices
+// (the values are its PATTERN_, VERTICAL_ and LIGHTING_ constants).
+enum class AuroraPattern { // brightness across the surface
+    EarthOval = 0,         // oval, diffuse aurora and arcs at magnetic local time
+    JovianOval = 1,        // the statistical contour, per hemisphere
+    JovianFootprints = 2,  // spots at the moons' footprints
+    SaturnOval = 3,        // the statistical oval at solar local time
+    GanymedeMap = 4,       // a brightness map
+    Uniform = 5,
+    EuropaTrailing = 6,    // assumed smooth trailing enhancement
+    IoFlanks = 7,          // broad equatorial flanks
+};
+enum class AuroraVertical {  // brightness with height; AuroraProfile::layers reads, for each:
+    EarthChapman = 0,        // low peak, low scale, high peak, high scale (km); the high
+                             // layer's color is per kR, by the local red-to-blue ratio
+    ChapmanPair = 1,         // low peak, low scale, high peak, high scale (km)
+    Exponential = 2,         // low scale, layer top, high scale (km); the high layer
+                             // ignores the pattern (Io's sodium corona)
+    Gaussian = 3,            // peak, sigma, bottom, top (km), one layer
+    UniformColumn = 4,       // thickness (km), one layer
+};
+enum class AuroraLighting { // when it shows
+    Always = 0,
+    NightSide = 1,          // fades out as the sun rises at the point below
+    NightOrEclipsed = 2,    // also in the shadow of the body's parent
+};
+
+// A shell of emission, in linear RGB with its display exposure.
+struct AuroraProfile {
+    AuroraPattern pattern = AuroraPattern::Uniform;
+    AuroraVertical vertical = AuroraVertical::ChapmanPair;
+    AuroraLighting lighting = AuroraLighting::Always;
+    double bottom_km = 0.0; // above the equatorial radius
+    double top_km = 0.0;    // above the polar radius
+    glm::dvec3 low_rgb{0.0};
+    glm::dvec3 high_rgb{0.0};
+    glm::dvec4 layers{0.0}; // see AuroraVertical
+    double blue_kr = 0.0;       // EarthChapman: 427.8 nm of a column through the oval
+    double diffuse_flux = 0.0;  // EarthOval: the diffuse aurora's flux relative to the oval's
+    double map_gain = 0.0;      // GanymedeMap: brightness per unit of the map's texture
+    double sigma_km = 0.0;      // JovianOval, JovianFootprints: Gaussian width across the contour
+    // At 24 k / kOvalSamples hours. EarthOval: colatitudes (rad) of the diffuse
+    // aurora, the oval's equatorward and poleward edges. SaturnOval: SaturnAurora::profile.
+    std::array<glm::vec4, AuroraEmission::kOvalSamples> oval{};
+};
+
+// The model's shell. ultraviolet: Saturn's false-color view instead of its
+// visible one. kp: Earth's activity.
+AuroraProfile aurora_profile(AuroraModel model, bool ultraviolet, double kp);
+
+// Jupiter's second shell: its moons' footprints at the height they are mapped
+// to, a display gain per moon (Io, Europa, Ganymede).
+AuroraProfile jovian_footprint_profile();
+inline constexpr std::array<double, 3> kJovianFootprintGains{6.0, 2.0, 4.0};
+
+} // namespace astraxis

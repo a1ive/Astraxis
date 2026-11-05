@@ -1,7 +1,4 @@
 #include "view/scene_renderer.hpp"
-#include "scene/europa_aurora.hpp"
-#include "scene/satellite_aurora.hpp"
-#include "scene/mars_aurora.hpp"
 
 #include "core/color.hpp"
 #include "core/math.hpp"
@@ -11,6 +8,7 @@
 #include "render/texture.hpp"
 #include "scene/light_curve.hpp"
 #include "scene/pulsar.hpp"
+#include "scene/saturn_aurora.hpp"
 #include "scene/simulation.hpp"
 
 #include <SDL3/SDL.h>
@@ -114,14 +112,8 @@ constexpr float kEvenOrbitFade = 0.5f;
 // least this many points on screen.
 constexpr double kBeltFullRadiusPx = 250.0;
 constexpr float kAmbient = 0.012f;
-// The aurora is ~1e-8 of the sunlit ground (I/F; 1 kR of the green line is
-// 5e-9): boosted like a long exposure, with the night lights' gain (scene
-// files) chosen to match. Its shell (km above the equatorial radius) holds
-// both emission layers.
-constexpr double kAuroraExposure = 2.5e6;
-constexpr double kAuroraBottomKm = 80.0;
-constexpr double kAuroraTopKm = 450.0;
 static_assert(kAuroraOvalSamples == AuroraEmission::kOvalSamples);
+static_assert(kJovianOvalSamples == JovianAurora::kSamples);
 // Surface radiance of star spheres (linear HDR, times the blackbody color).
 constexpr float kStarSurface = 6.0f;
 // Wavelength at which relative star surfaces (SceneView::relative_star_surfaces) are compared.
@@ -266,13 +258,6 @@ constexpr double kNebulaThermalHiK = 1000.0;
 constexpr double kNebulaAdaptShare = 0.1;
 constexpr float kNebulaMinPx = 0.7f;
 constexpr float kNebulaCullRadiance = 1e-4f;
-
-// sRGB (IEC 61966-2-1) to linear, per channel.
-glm::dvec3 srgb_to_linear(const glm::dvec3& c)
-{
-    auto channel = [](double v) { return v <= 0.04045 ? v / 12.92 : std::pow((v + 0.055) / 1.055, 2.4); };
-    return {channel(c.r), channel(c.g), channel(c.b)};
-}
 
 // Henyey-Greenstein phase function (mean 1 over the sphere); `cos_angle` between
 // the incoming sunlight and the direction toward the camera (1 = forward).
@@ -588,8 +573,8 @@ void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, u
         if (!body.rings.profile.empty()) {
             m_ring_textures[i] = create_profile_texture(m_device->device(), body.rings.profile);
         }
-        if (body.ganymede_aurora) {
-            const auto pixels = body.ganymede_aurora->texture_rgba();
+        if (body.aurora.ganymede) {
+            const auto pixels = body.aurora.ganymede->texture_rgba();
             m_aurora_textures[i] = create_texture_rgba8(m_device->device(), pixels.data(),
                 GanymedeAurora::kWidth, GanymedeAurora::kHeight, false, true);
             if (!m_aurora_textures[i])
@@ -959,56 +944,11 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
                 (kStarSurface * static_cast<float>(atmosphere.refraction_gain));
             shell.inverse_sun_distance = static_cast<float>(base_km / glm::length(scene.sun_position() - body.world_position));
             m_atmosphere_items.push_back(shell);
-
-            // Earth's aurora goes with the atmospheres.
-            if (body.aurora && visible_aurora) {
-                m_aurora_items.push_back(aurora_item(sim, output_view, body, linear, to_unit, item.sun_direction));
-            }
         }
-        if (body.mars_aurora && visible_aurora) {
-            const glm::dmat3 linear = body.orientation * glm::dmat3(
-                body.equatorial_radius_km, 0, 0, 0, body.equatorial_radius_b_km, 0, 0, 0, body.polar_radius_km);
-            m_aurora_items.push_back(aurora_item(sim, output_view, body, linear, glm::inverse(linear), item.sun_direction));
-        }
-        if ((body.europa_aurora || body.io_aurora || body.callisto_aurora) && visible_aurora) {
-            const glm::dmat3 linear = body.orientation * glm::dmat3(body.equatorial_radius_km);
-            const glm::dmat3 inverse = glm::inverse(linear);
-            auto aurora = aurora_item(sim, output_view, body, linear, inverse, item.sun_direction);
-            aurora.blue_kr = item.sun_angular_radius;
-            if (body.parent >= 0) {
-                const auto& parent_body = scene.bodies[static_cast<size_t>(body.parent)];
-                aurora.footprints[0] = glm::vec4(glm::vec3(inverse * (parent_body.world_position - body.world_position)),
-                    static_cast<float>(parent_body.equatorial_radius_km / body.equatorial_radius_km));
-            }
-            m_aurora_items.push_back(aurora);
-        }
-        if (body.ganymede_aurora && ultraviolet && i < m_aurora_textures.size() && m_aurora_textures[i]) {
-            const glm::dmat3 linear = body.orientation * glm::dmat3(body.equatorial_radius_km);
-            auto aurora = aurora_item(sim, output_view, body, linear, glm::inverse(linear), item.sun_direction);
-            aurora.ganymede_map = m_aurora_textures[i];
-            m_aurora_items.push_back(aurora);
-        }
-        if (body.jovian_aurora && ultraviolet) {
-            const glm::dmat3 linear = body.orientation * glm::dmat3(
-                glm::dvec3(body.equatorial_radius_km, 0, 0),
-                glm::dvec3(0, body.equatorial_radius_b_km, 0), glm::dvec3(0, 0, body.polar_radius_km));
-            m_aurora_items.push_back(aurora_item(sim, output_view, body, linear, glm::inverse(linear), item.sun_direction));
-            AuroraDrawItem spots = m_aurora_items.back();
-            spots.footprints_only = true;
-            spots.bottom = static_cast<float>(1.0 + 150.0 / body.equatorial_radius_km);
-            spots.top = static_cast<float>(1.0 + 3500.0 / body.polar_radius_km);
-            spots.layers = glm::vec4(900.0f, 366.0f, 900.0f, 366.0f);
-            // Illustrative spot size and relative brightness, not photometry.
-            spots.width_km = 250.0f;
-            constexpr float gains[3] = {6.0f, 2.0f, 4.0f};
-            bool any = false;
-            for (size_t k = 0; k < body.jovian_footprints.size(); ++k) {
-                const auto& p = body.jovian_footprints[k];
-                const bool active = glm::dot(p, p) > 0.5;
-                spots.footprints[k] = glm::vec4(glm::vec3(p), active ? gains[k / 2] : 0.0f);
-                any = any || active;
-            }
-            if (any) m_aurora_items.push_back(spots);
+        // Earth's aurora goes with the atmospheres.
+        if (aurora_shown(body.aurora.model, visible_aurora, ultraviolet) &&
+            (body.aurora.model != AuroraModel::Earth || show_atmosphere)) {
+            add_aurora_items(sim, output_view, i, item, ultraviolet);
         }
         if (i < m_night_textures.size() && m_night_textures[i] && item.texture) {
             item.night_lights = m_night_textures[i];
@@ -1017,26 +957,6 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
         }
 
         SDL_GPUTexture* ring_texture = i < m_ring_textures.size() ? m_ring_textures[i] : nullptr;
-        if (body.saturn_aurora && visible_aurora) {
-            const glm::dmat3 linear = body.orientation * glm::dmat3(
-                glm::dvec3(body.equatorial_radius_km, 0, 0),
-                glm::dvec3(0, body.equatorial_radius_b_km, 0), glm::dvec3(0, 0, body.polar_radius_km));
-            AuroraDrawItem aurora = aurora_item(sim, output_view, body, linear, glm::inverse(linear), item.sun_direction);
-            aurora.ultraviolet = ultraviolet;
-            if (!ultraviolet) {
-                // Dyudina 2015 Fig. 8: illustrative local colors and Chapman
-                // layers for the observed pink lower / purple upper curtains.
-                aurora.bottom = static_cast<float>(1.0 + 200.0 / body.equatorial_radius_km);
-                aurora.top = static_cast<float>(1.0 + 2000.0 / body.polar_radius_km);
-                aurora.low_rgb = glm::vec3(srgb_to_linear(glm::dvec3(1.0, 0.35, 0.55)) * 0.35);
-                aurora.red_per_kr = glm::vec3(srgb_to_linear(glm::dvec3(0.65, 0.22, 1.0)) * 0.35);
-                aurora.layers = glm::vec4(450.0f, 140.0f, 1100.0f, 180.0f);
-            }
-            aurora.ring_profile = ring_texture;
-            if (ring_texture) aurora.ring_radii = glm::vec4(
-                static_cast<float>(body.rings.inner_km), static_cast<float>(body.rings.outer_km), 0.0f, 0.0f);
-            m_aurora_items.push_back(aurora);
-        }
         if (ring_texture) {
             // The rings shade the planet...
             item.ring_profile = ring_texture;
@@ -1647,132 +1567,115 @@ void SceneRenderer::draw_stars(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pas
     }
 }
 
-AuroraDrawItem SceneRenderer::aurora_item(const Simulation& sim, const OutputView& output_view, const Body& body,
-                                          const glm::dmat3& linear, const glm::dmat3& to_unit,
-                                          const glm::vec3& sun_direction) const
+void SceneRenderer::add_aurora_items(const Simulation& sim, const OutputView& output_view, size_t index,
+                                     const BodyDrawItem& lit, bool ultraviolet)
 {
+    const Scene& scene = sim.scene();
+    const Body& body = scene.bodies[index];
+    const AuroraModel model = body.aurora.model;
+    SDL_GPUTexture* map = index < m_aurora_textures.size() ? m_aurora_textures[index] : nullptr;
+    if (model == AuroraModel::Ganymede && !map) {
+        return;
+    }
     const CameraView& view = output_view.camera;
     const double radius_km = body.equatorial_radius_km;
+    const glm::dmat3 linear = body.orientation * glm::dmat3(glm::dvec3(radius_km, 0, 0),
+                                                            glm::dvec3(0, body.equatorial_radius_b_km, 0),
+                                                            glm::dvec3(0, 0, body.polar_radius_km));
+    const glm::dmat3 to_unit = glm::inverse(linear);
+    const auto set_profile = [&](AuroraDrawItem& a, const AuroraProfile& p) {
+        a.pattern = static_cast<int>(p.pattern);
+        a.vertical = static_cast<int>(p.vertical);
+        a.lighting = static_cast<int>(p.lighting);
+        a.bottom = static_cast<float>(1.0 + p.bottom_km / radius_km);
+        a.top = static_cast<float>(1.0 + p.top_km / body.polar_radius_km);
+        a.low_rgb = glm::vec3(p.low_rgb);
+        a.high_rgb = glm::vec3(p.high_rgb);
+        a.layers = glm::vec4(p.layers);
+        a.blue_kr = static_cast<float>(p.blue_kr);
+        a.diffuse_flux = static_cast<float>(p.diffuse_flux);
+        a.map_gain = static_cast<float>(p.map_gain);
+        a.sigma_km = static_cast<float>(p.sigma_km);
+        a.oval = p.oval;
+    };
+
     AuroraDrawItem a;
     a.model = glm::translate(glm::mat4(1.0f), to_render(body.world_position, view.position)) *
               glm::mat4(glm::mat3(linear));
     a.to_unit = glm::mat3(to_unit);
     a.camera_unit = glm::vec3(to_unit * (view.position - body.world_position));
     a.km_per_unit = static_cast<float>(radius_km);
-    if (body.mars_aurora) {
-        a.mars = true;
-        a.polar_ratio = static_cast<float>(body.polar_radius_km / radius_km);
-        a.bottom = static_cast<float>(1.0 + MarsAurora::bottom_km / radius_km);
-        a.top = static_cast<float>(1.0 + MarsAurora::top_km / body.polar_radius_km);
-        a.layers = glm::vec4(MarsAurora::peak_km, MarsAurora::sigma_km, MarsAurora::bottom_km, MarsAurora::top_km);
-        a.sun = glm::vec3(glm::normalize(glm::transpose(body.orientation) * glm::dvec3(sun_direction)));
-        a.low_rgb = glm::vec3(glm::dvec3(1.7361e-9, 6.3813e-9, 0.0) *
-            (MarsAurora::limb_rayleigh / 1000.0 * MarsAurora::display_gain / MarsAurora::limb_integral()));
-        return a;
+    a.polar_ratio = static_cast<float>(body.polar_radius_km / radius_km);
+    a.sun = glm::vec3(glm::normalize(glm::transpose(body.orientation) * glm::dvec3(lit.sun_direction)));
+    a.sun_angular_radius = lit.sun_angular_radius;
+    a.time = static_cast<float>(sim.aurora_time());
+    a.pixel_angle = 2.0f / (view.viewport.y * view.focal_y);
+    set_profile(a, aurora_profile(model, ultraviolet, sim.aurora_kp()));
+
+    switch (model) {
+    case AuroraModel::Earth: {
+        // The pattern ignores the flattening, working in the unit-sphere frame.
+        a.polar_ratio = 1.0f;
+        // Magnetic noon: the sun's direction across the dipole axis.
+        const glm::dvec3 pole = glm::normalize(to_unit * (body.orientation * geomagnetic_north_pole(scene.time())));
+        const glm::dvec3 sun = glm::normalize(to_unit * glm::dvec3(lit.sun_direction));
+        const glm::dvec3 noon = sun - glm::dot(sun, pole) * pole;
+        a.pole = glm::vec3(pole);
+        a.noon = glm::vec3(glm::length(noon) > 1e-9 ? glm::normalize(noon) : glm::normalize(glm::cross(pole, glm::dvec3(1, 0, 0))));
+        a.sun = glm::vec3(sun);
+        break;
     }
-    if (body.io_aurora || body.callisto_aurora) {
-        const auto& model = body.io_aurora ? io_visible_aurora() : callisto_visible_aurora();
-        a.optical_moon = body.io_aurora ? 7 : 8;
-        a.bottom = 1.0f;
-        a.top = static_cast<float>(1.0 + model.top_km / radius_km);
-        a.layers = glm::vec4(model.scale_km, model.top_km, model.sodium_scale_km, 0.0);
-        a.sun = glm::vec3(glm::normalize(glm::transpose(body.orientation) * glm::dvec3(sun_direction)));
-        a.low_rgb = glm::vec3(model.column_rgb * model.display_gain);
-        a.red_per_kr = glm::vec3(model.sodium_column_rgb * model.display_gain);
-        return a;
-    }
-    if (body.europa_aurora) {
-        a.optical_moon = 6;
-        a.bottom = 1.0f;
-        a.top = static_cast<float>(1.0 + 300.0 / radius_km);
-        a.layers = glm::vec4(50.0f, 300.0f, 0.0f, 0.0f);
-        a.sun = glm::vec3(glm::normalize(glm::transpose(body.orientation) * glm::dvec3(sun_direction)));
-        // May 20 2021 disk-average oxygen lines, converted to zenith columns.
-        // 636.4 nm uses the nearby 630 nm RGB chromaticity and photon energy ratio.
-        constexpr double exposure = 3e7; // display only
-        static const double disk_factor = europa_aurora_disk_factor(1560.8);
-        a.low_rgb = glm::vec3((glm::dvec3(4.4807e-9, 0.0, 2.9771e-10) * (0.573 + 0.190 * 630.0 / 636.4) +
-                              glm::dvec3(1.7361e-9, 6.3813e-9, 0.0) * 0.037) * (exposure / disk_factor));
-        return a;
-    }
-    if (body.ganymede_aurora) {
-        a.ultraviolet = true;
-        a.bottom = 1.0f;
-        a.top = static_cast<float>(1.0 + GanymedeAurora::kTopKm / radius_km);
-        // Display exposure per 100 R, independent of Jupiter's much brighter UV.
-        a.low_rgb = glm::vec3(srgb_to_linear(glm::dvec3(0.3, 0.55, 1.0)) * 0.2);
-        a.layers.x = static_cast<float>(GanymedeAurora::kTopKm);
-        a.diffuse_flux = static_cast<float>(GanymedeAurora::kTextureRange / 100.0);
-        a.pixel_angle = 2.0f / (view.viewport.y * view.focal_y);
-        return a;
-    }
-    if (body.saturn_aurora) {
-        a.ultraviolet = true;
-        a.saturn = true;
-        a.polar_ratio = static_cast<float>(body.polar_radius_km / radius_km);
-        a.bottom = static_cast<float>(1.0 + SaturnAurora::kBottomKm / radius_km);
-        a.top = static_cast<float>(1.0 + SaturnAurora::kTopKm / body.polar_radius_km);
-        a.sun = glm::vec3(glm::normalize(glm::transpose(body.orientation) * glm::dvec3(sun_direction)));
-        a.noon = glm::vec3(SaturnAurora::noon(glm::dvec3(a.sun)));
-        // A 40 kR column gets this arbitrary false color / exposure.
-        a.low_rgb = glm::vec3(srgb_to_linear(glm::dvec3(0.3, 0.55, 1.0)) * 2.0);
-        a.layers = glm::vec4(SaturnAurora::kPeakKm, SaturnAurora::kScaleKm,
-                            SaturnAurora::kPeakKm, SaturnAurora::kScaleKm);
-        a.pixel_angle = 2.0f / (view.viewport.y * view.focal_y);
-        for (size_t k = 0; k < a.oval.size(); ++k)
-            a.oval[k] = glm::vec4(SaturnAurora::profile(24.0 * k / a.oval.size()));
-        return a;
-    }
-    if (body.jovian_aurora) {
-        static_assert(JovianAurora::kSamples == kJovianOvalSamples);
-        a.ultraviolet = true;
-        a.polar_ratio = static_cast<float>(body.polar_radius_km / radius_km);
-        a.bottom = static_cast<float>(1.0 + 150.0 / radius_km);
-        a.top = static_cast<float>(1.0 + 1000.0 / body.polar_radius_km);
+    case AuroraModel::Jupiter: {
         const glm::dmat3 north = JovianAurora::frame(false);
         const glm::dmat3 south = JovianAurora::frame(true);
         a.pole = glm::vec3(north[2]);
         a.noon = glm::vec3(north[0]);
         a.south_center = glm::vec3(south[2]);
         a.south_east = glm::vec3(south[0]);
-        a.sun = glm::vec3(glm::normalize(glm::transpose(body.orientation) * glm::dvec3(sun_direction)));
-        // False color and display gain. The column brightness is illustrative.
-        a.low_rgb = glm::vec3(srgb_to_linear(glm::dvec3(0.3, 0.55, 1.0)) * 2.0);
-        // Head 2024 uses a 400 km projection altitude. Scale height is assumed.
-        a.layers = glm::vec4(400.0f, 80.0f, 400.0f, 80.0f);
-        a.time = static_cast<float>(sim.aurora_time());
-        a.pixel_angle = 2.0f / (view.viewport.y * view.focal_y);
+        const auto& radii = body.aurora.jovian->radii;
         for (size_t k = 0; k < a.jovian_oval.size(); ++k) {
-            a.jovian_oval[k] = glm::vec4(glm::vec2(body.jovian_aurora->radii[k]), 0.0f, 0.0f);
+            a.jovian_oval[k] = glm::vec4(glm::vec2(radii[2 * k]), glm::vec2(radii[2 * k + 1]));
         }
-        return a;
+        AuroraDrawItem spots = a;
+        set_profile(spots, jovian_footprint_profile());
+        bool any = false;
+        for (size_t k = 0; k < body.jovian_footprints.size(); ++k) {
+            const glm::dvec3& p = body.jovian_footprints[k];
+            const bool active = glm::dot(p, p) > 0.5;
+            spots.footprints[k] = glm::vec4(glm::vec3(p), active ? static_cast<float>(kJovianFootprintGains[k / 2]) : 0.0f);
+            any = any || active;
+        }
+        if (any) {
+            m_aurora_items.push_back(a);
+            a = spots;
+        }
+        break;
     }
-    const AuroraEmission emission = aurora_emission(sim.aurora_kp());
-    a.bottom = static_cast<float>(1.0 + kAuroraBottomKm / radius_km);
-    a.top = static_cast<float>(1.0 + kAuroraTopKm / radius_km);
-
-    // Magnetic noon: the sun's direction across the dipole axis.
-    const glm::dvec3 pole =
-        glm::normalize(to_unit * (body.orientation * geomagnetic_north_pole(sim.scene().time())));
-    const glm::dvec3 sun = glm::normalize(to_unit * glm::dvec3(sun_direction));
-    glm::dvec3 noon = sun - glm::dot(sun, pole) * pole;
-    noon = glm::length(noon) > 1e-9 ? glm::normalize(noon) : glm::normalize(glm::cross(pole, glm::dvec3(1, 0, 0)));
-    a.pole = glm::vec3(pole);
-    a.noon = glm::vec3(noon);
-    a.sun = glm::vec3(sun);
-
-    a.low_rgb = glm::vec3(emission.low_rgb * kAuroraExposure);
-    a.blue_kr = static_cast<float>(emission.blue_kr);
-    a.red_per_kr = glm::vec3(kRedPerKr * kAuroraExposure);
-    a.layers = glm::vec4(AuroraEmission::kLowLayerKm, AuroraEmission::kLowScaleKm, AuroraEmission::kHighLayerKm,
-                         AuroraEmission::kHighScaleKm);
-    a.diffuse_flux = static_cast<float>(AuroraEmission::kDiffuseFlux);
-    a.time = static_cast<float>(sim.aurora_time());
-    a.pixel_angle = 2.0f / (view.viewport.y * view.focal_y);
-    for (int k = 0; k < kAuroraOvalSamples; ++k) {
-        a.oval[static_cast<size_t>(k)] = glm::vec4(emission.oval[static_cast<size_t>(k)], 0.0f);
+    case AuroraModel::Saturn:
+        a.noon = glm::vec3(SaturnAurora::noon(glm::dvec3(a.sun)));
+        a.after_rings = true;
+        if (index < m_ring_textures.size() && m_ring_textures[index]) {
+            a.ring_profile = m_ring_textures[index];
+            a.ring_radii = glm::vec2(static_cast<float>(body.rings.inner_km), static_cast<float>(body.rings.outer_km));
+        }
+        break;
+    case AuroraModel::Ganymede:
+        a.map = map;
+        break;
+    case AuroraModel::Europa:
+    case AuroraModel::Io:
+    case AuroraModel::Callisto:
+        if (body.parent >= 0) {
+            const Body& parent = scene.bodies[static_cast<size_t>(body.parent)];
+            a.parent = glm::vec4(glm::vec3(to_unit * (parent.world_position - body.world_position)),
+                                 static_cast<float>(parent.equatorial_radius_km / radius_km));
+        }
+        break;
+    case AuroraModel::None:
+    case AuroraModel::Mars:
+        break;
     }
-    return a;
+    m_aurora_items.push_back(a);
 }
 
 void SceneRenderer::render(const Frame& frame, const Simulation& sim, const OutputView& output_view,

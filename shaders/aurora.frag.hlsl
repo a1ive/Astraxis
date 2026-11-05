@@ -1,22 +1,10 @@
-// Earth's aurora: light emitted in a shell above the planet, integrated along
-// the view ray in the planet's unit-sphere frame (lengths there in planet
-// radii, converted to km for the emission profiles).
+// Aurora: light emitted in a shell above a body, integrated along the view ray
+// in the body's unit-sphere frame (lengths there in equatorial radii, converted
+// to km for the emission profiles).
 //
-// Emission = horizontal pattern * vertical profile. Vertically, two Chapman
-// layers exp(-z - e^-z) / H (z = (h - h_peak) / H, unit integral in km): the
-// green, blue and violet lines low, the red line high. The red line follows
-// the local 427.8 nm brightness by the observed ratio (red_over_blue in
-// scene/aurora.cpp): faint aurora is redder. Horizontally, the
-// auroral oval between its poleward and equatorward boundaries (looked up at
-// the point's magnetic local time) and, dimmer, the diffuse aurora down to
-// its own boundary, in both hemispheres. Within the oval, illustrative
-// structure that keeps the mean: east-west arcs a few tens of km wide,
-// field-aligned rays along them and brighter and fainter stretches, which fade
-// to their mean where a pixel covers them. They are drawn from a tiling noise
-// texture laid on the plane across the dipole axis (the aurora stays within
-// 43 deg of the poles, so the projection has no seam). Night side only: the
-// aurora fades out as the sun rises at the point below (it is there by day,
-// but far fainter than the sunlit ground).
+// Emission = horizontal pattern * vertical profile, shown as the lighting
+// allows: three independent choices (u_mode), described with their parameters
+// in scene/aurora_model.hpp.
 
 #include "common.hlsli"
 
@@ -24,6 +12,24 @@ static const int kSteps = 48;
 static const int kOvalSamples = 48;
 static const float kPi = 3.14159265;
 static const float kNoiseCells = 32.0; // lattice cells across the noise tile
+
+// scene/aurora_model.hpp: AuroraPattern, AuroraVertical, AuroraLighting.
+#define PATTERN_EARTH_OVAL 0
+#define PATTERN_JOVIAN_OVAL 1
+#define PATTERN_JOVIAN_FOOTPRINTS 2
+#define PATTERN_SATURN_OVAL 3
+#define PATTERN_GANYMEDE_MAP 4
+#define PATTERN_UNIFORM 5
+#define PATTERN_EUROPA_TRAILING 6
+#define PATTERN_IO_FLANKS 7
+#define VERTICAL_EARTH_CHAPMAN 0
+#define VERTICAL_CHAPMAN_PAIR 1
+#define VERTICAL_EXPONENTIAL 2
+#define VERTICAL_GAUSSIAN 3
+#define VERTICAL_UNIFORM_COLUMN 4
+#define LIGHTING_ALWAYS 0
+#define LIGHTING_NIGHT_SIDE 1
+#define LIGHTING_NIGHT_OR_ECLIPSED 2
 
 FRAGMENT_TEXTURE(Texture2D, u_noise, u_noise_sampler, 0); // four independent value noises (rgba), tiling
 FRAGMENT_TEXTURE(Texture2D, u_ring, u_ring_sampler, 1);
@@ -33,18 +39,20 @@ cbuffer Uniforms : register(b0, space3)
 {
     float4x4 u_to_unit; // camera-relative world vector -> unit-sphere frame (3x3)
     float4 u_camera;    // xyz = camera in the unit-sphere frame, w = 1 to start the rays there
-    float4 u_pole;      // xyz = north geomagnetic pole (unit), w = km per unit
-    float4 u_noon;      // xyz = magnetic noon (unit, across the pole), w = shell bottom radius
-    float4 u_sun;       // xyz = toward the sun (unit), w = shell top radius
-    float4 u_low;       // rgb = column through the oval, low layer; w = animation time (s)
-    float4 u_red;       // rgb = 1 kR of red, or Saturn's purple column; w = radians per pixel
-    float4 u_blue;      // x = 427.8 nm of a column through the oval (kR)
-    float4 u_layers;    // low peak (km), low scale height, high peak, high scale height
-    float4 u_misc;      // diffuse flux, mode (0 Earth, 1/2 Jupiter, 3 Saturn UV, 4 Ganymede, 5 Saturn visible, 6 Europa, 7 Io, 8 Callisto visible, 9 Mars visible), polar ratio, width
-    float4 u_oval[kOvalSamples]; // colatitudes (rad): x = diffuse, y = equatorward, z = poleward
+    float4 u_pole;      // xyz = the pattern's north axis (AuroraDrawItem::pole), w = km per unit
+    float4 u_noon;      // xyz = its noon (AuroraDrawItem::noon)
+    float4 u_sun;       // xyz = toward the sun (unit), w = its angular radius
+    float4 u_low;       // rgb = low layer, w = animation time (s)
+    float4 u_high;      // rgb = high layer
+    float4 u_layers;    // see AuroraVertical
+    float4 u_shell;     // bottom radius, top radius, polar ratio, radians per pixel
+    float4 u_params;    // 427.8 nm of a column through the oval (kR), diffuse flux, map gain, sigma (km)
+    int4 u_mode;        // pattern, vertical, lighting
+    float4 u_parent;    // the body's parent: xyz = center (unit-sphere frame), w = radius
+    float4 u_oval[kOvalSamples]; // AuroraProfile::oval
     float4 u_south_center;
     float4 u_south_east;
-    float4 u_jovian_oval[256]; // x/y: north/south planetocentric angular radius
+    float4 u_jovian_oval[128]; // two samples each: xy, zw = north, south planetocentric angular radius
     float4 u_footprints[6]; // physical unit direction, illustrative display gain
     float4 u_ring_radii; // inner/outer km (zero disables ring attenuation)
 };
@@ -80,26 +88,20 @@ float chapman(float h, float peak, float scale)
     return exp(-z - exp(-z)) / scale;
 }
 
+// Sample i of 256 of the contours: north, south.
+float2 jovian_oval(int i)
+{
+    float4 pair = u_jovian_oval[i / 2];
+    return (i & 1) != 0 ? pair.zw : pair.xy;
+}
+
 // Head 2024 reference contours in System III. The two hemispheres have
 // separate centers and shapes. The latitude is planetocentric, so undo
 // the unit-sphere frame's polar stretching before locating the contour.
 float jovian_pattern(float3 n, float footprint_km)
 {
-    n = normalize(n * float3(1.0, 1.0, u_misc.z));
+    n = normalize(n * float3(1.0, 1.0, u_shell.z));
     if (abs(n.z) < 0.65) return 0.0;
-    if (u_misc.y > 1.5) {
-        float variance = u_misc.w * u_misc.w + footprint_km * footprint_km / 12.0;
-        float spots = 0.0;
-        for (int k = 0; k < 6; ++k) {
-            float4 spot = u_footprints[k];
-            if (spot.w <= 0.0 || dot(n, spot.xyz) < 0.5) continue;
-            float3 d = cross(n, spot.xyz) * u_pole.w;
-            // Two-dimensional filtering preserves unresolved spot flux.
-            spots += spot.w * exp(-0.5 * dot(d, d) / variance) *
-                     (u_misc.w * u_misc.w / variance);
-        }
-        return spots;
-    }
     bool south = n.z < 0.0;
     float3 center = south ? u_south_center.xyz : u_pole.xyz;
     float3 east = south ? u_south_east.xyz : u_noon.xyz;
@@ -109,15 +111,15 @@ float jovian_pattern(float3 n, float footprint_km)
     float angle = atan2(q.y, q.x);
     float x = frac(angle / (2.0 * kPi) + 1.0) * 256.0;
     int i = (int)floor(x);
-    float2 a = u_jovian_oval[i].xy;
-    float2 b = u_jovian_oval[(i + 1) % 256].xy;
+    float2 a = jovian_oval(i);
+    float2 b = jovian_oval((i + 1) % 256);
     float radius = south ? lerp(a.y, b.y, frac(x)) : lerp(a.x, b.x, frac(x));
     float slope = (south ? b.y - a.y : b.x - a.x) * (256.0 / (2.0 * kPi));
     float distance = (rho - radius) * u_pole.w /
         sqrt(1.0 + pow(slope / max(sin(radius), 0.01), 2.0));
     // Gaussian pixel filtering keeps a subpixel oval's integrated brightness.
-    float sigma = sqrt(u_misc.w * u_misc.w + footprint_km * footprint_km / 12.0);
-    float band = exp(-0.5 * pow(distance / sigma, 2.0)) * u_misc.w / sigma;
+    float sigma = sqrt(u_params.w * u_params.w + footprint_km * footprint_km / 12.0);
+    float band = exp(-0.5 * pow(distance / sigma, 2.0)) * u_params.w / sigma;
     if (band < 0.0001) return 0.0;
     // Smooth illustrative modulation. Mean dusk/dawn contrast is 2 (Head
     // 2024); the texture detail is not a reconstruction of an observation.
@@ -128,11 +130,28 @@ float jovian_pattern(float3 n, float footprint_km)
     return band * (1.0 + local / 3.0) * detail;
 }
 
-// Brightness of the aurora at unit direction n (relative to the oval's mean
-// flux), seen with a pixel footprint of footprint_km.
+// Spots at the moons' footprints.
+float footprints_pattern(float3 n, float footprint_km)
+{
+    n = normalize(n * float3(1.0, 1.0, u_shell.z));
+    if (abs(n.z) < 0.65) return 0.0;
+    float variance = u_params.w * u_params.w + footprint_km * footprint_km / 12.0;
+    float spots = 0.0;
+    for (int k = 0; k < 6; ++k) {
+        float4 spot = u_footprints[k];
+        if (spot.w <= 0.0 || dot(n, spot.xyz) < 0.5) continue;
+        float3 d = cross(n, spot.xyz) * u_pole.w;
+        // Two-dimensional filtering preserves unresolved spot flux.
+        spots += spot.w * exp(-0.5 * dot(d, d) / variance) *
+                 (u_params.w * u_params.w / variance);
+    }
+    return spots;
+}
+
+// Carbary 2012's statistical oval, in solar local time.
 float saturn_pattern(float3 n, float footprint_km)
 {
-    n = normalize(n * float3(1.0, 1.0, u_misc.z));
+    n = normalize(n * float3(1.0, 1.0, u_shell.z));
     float colat = acos(min(abs(n.z), 1.0));
     if (colat > 0.65) return 0.0;
     float3 dusk = cross(float3(0.0, 0.0, 1.0), u_noon.xyz);
@@ -149,21 +168,26 @@ float saturn_pattern(float3 n, float footprint_km)
     return band * (10.0 + (n.z < 0.0 ? 50.0 : 30.0) * oval.w) / 40.0;
 }
 
-float aurora_pattern(float3 n, float footprint_km)
+// Marzok 2022 Fig. 5: west longitude, south-to-north rows, cell centers.
+float ganymede_pattern(float3 n, float footprint_km)
 {
-    if (u_misc.y > 7.5) return 1.0; // Callisto: unresolved oxygen glow
-    if (u_misc.y > 6.5) return 1.0 + 0.75 * (n.y * n.y - n.z * n.z); // Io: broad equatorial flanks
-    if (u_misc.y > 5.5) return 1.0 + 0.5 * n.y; // assumed smooth trailing enhancement
-    if (u_misc.y > 4.5) return saturn_pattern(n, footprint_km);
-    if (u_misc.y > 3.5) {
-        // Marzok 2022 Fig. 5: west longitude, south-to-north rows, cell centers.
-        float2 uv = float2(-atan2(n.y, n.x) / (2.0 * kPi), asin(clamp(n.z, -1.0, 1.0)) / kPi + 0.5);
-        float cell_km = u_pole.w * (kPi / 40.0);
-        float lod = max(0.0, log2(max(footprint_km / cell_km, 1.0)));
-        return u_ganymede.SampleLevel(u_ganymede_sampler, uv, lod).r * u_misc.x;
-    }
-    if (u_misc.y > 2.5) return saturn_pattern(n, footprint_km);
-    if (u_misc.y > 0.5) return jovian_pattern(n, footprint_km);
+    float2 uv = float2(-atan2(n.y, n.x) / (2.0 * kPi), asin(clamp(n.z, -1.0, 1.0)) / kPi + 0.5);
+    float cell_km = u_pole.w * (kPi / 40.0);
+    float lod = max(0.0, log2(max(footprint_km / cell_km, 1.0)));
+    return u_ganymede.SampleLevel(u_ganymede_sampler, uv, lod).r * u_params.z;
+}
+
+// Earth's aurora, relative to the oval's mean flux: the auroral oval between
+// its poleward and equatorward boundaries (looked up at the point's magnetic
+// local time) and, dimmer, the diffuse aurora down to its own boundary, in both
+// hemispheres. Within the oval, illustrative structure that keeps the mean:
+// east-west arcs a few tens of km wide, field-aligned rays along them and
+// brighter and fainter stretches, which fade to their mean where a pixel covers
+// them. They are drawn from a tiling noise texture laid on the plane across the
+// dipole axis (the aurora stays within 43 deg of the poles, so the projection
+// has no seam).
+float earth_pattern(float3 n, float footprint_km)
+{
     float3 pole = u_pole.xyz;
     float m = dot(n, pole);
     float colat = acos(min(abs(m), 1.0));
@@ -211,7 +235,85 @@ float aurora_pattern(float3 n, float footprint_km)
         rays = lerp(1.0, 0.2 + 1.6 * noise(p + float2(t * 8.0, 0.0), 6.0).r, ray_detail);
     }
     float patches = 0.4 + 1.2 * medium.b;
-    return stretch * (band * arcs * rays + u_misc.x * diffuse * patches);
+    return stretch * (band * arcs * rays + u_params.y * diffuse * patches);
+}
+
+// Brightness across the surface at unit direction n, seen with a pixel
+// footprint of footprint_km.
+float aurora_pattern(float3 n, float footprint_km)
+{
+    switch (u_mode.x) {
+    case PATTERN_EARTH_OVAL: return earth_pattern(n, footprint_km);
+    case PATTERN_JOVIAN_OVAL: return jovian_pattern(n, footprint_km);
+    case PATTERN_JOVIAN_FOOTPRINTS: return footprints_pattern(n, footprint_km);
+    case PATTERN_SATURN_OVAL: return saturn_pattern(n, footprint_km);
+    case PATTERN_GANYMEDE_MAP: return ganymede_pattern(n, footprint_km);
+    case PATTERN_EUROPA_TRAILING: return 1.0 + 0.5 * n.y;
+    case PATTERN_IO_FLANKS: return 1.0 + 0.75 * (n.y * n.y - n.z * n.z);
+    default: return 1.0; // PATTERN_UNIFORM
+    }
+}
+
+float exponential_layer(float h, float scale, float top)
+{
+    return exp(-h / scale) / (scale * (1.0 - exp(-top / scale)));
+}
+
+// Emission per km at height h (km) where the pattern is `pattern`.
+float3 layer_emission(float h, float pattern)
+{
+    switch (u_mode.y) {
+    case VERTICAL_EARTH_CHAPMAN: {
+        // Two Chapman layers: the green, blue and violet lines low, the red
+        // line high. The red line follows the local 427.8 nm brightness by the
+        // observed ratio (red_over_blue in scene/aurora.cpp): faint aurora is redder.
+        float blue = u_params.x * pattern;
+        return u_low.rgb * (pattern * chapman(h, u_layers.x, u_layers.y)) +
+               u_high.rgb * (blue * red_over_blue(blue) * chapman(h, u_layers.z, u_layers.w));
+    }
+    case VERTICAL_CHAPMAN_PAIR:
+        // Independent columns; for Saturn's visible colors the exposure and
+        // profiles are display assumptions, not a UV-to-visible conversion.
+        return pattern * (u_low.rgb * chapman(h, u_layers.x, u_layers.y) +
+                          u_high.rgb * chapman(h, u_layers.z, u_layers.w));
+    case VERTICAL_EXPONENTIAL:
+        // The high layer is a separate, smooth corona (Io's sodium, a fixed
+        // eclipse-average spectrum).
+        return u_low.rgb * (pattern * exponential_layer(h, u_layers.x, u_layers.y)) +
+               u_high.rgb * exponential_layer(h, u_layers.z, u_layers.y);
+    case VERTICAL_GAUSSIAN: {
+        float z = (h - u_layers.x) / u_layers.y;
+        return u_low.rgb * (pattern * exp(-0.5 * z * z) * step(u_layers.z, h) * step(h, u_layers.w));
+    }
+    default: // VERTICAL_UNIFORM_COLUMN: Ganymede's published zenith correction uses a uniform column.
+        return u_low.rgb * (pattern / u_layers.x);
+    }
+}
+
+// How much of the emission shows at the point p, above the unit direction n.
+float lighting(float3 n, float3 p)
+{
+    if (u_mode.z == LIGHTING_ALWAYS) {
+        return 1.0;
+    }
+    // Fades in from sunset at the point below to the sun 12 deg below the horizon
+    // (it is there by day, but far fainter than the sunlit ground). The normal is
+    // the ellipsoid's, in physical body coordinates.
+    float3 normal = normalize(n / float3(1.0, 1.0, u_shell.z));
+    float night = 1.0 - smoothstep(-0.2079, 0.0, dot(normal, u_sun.xyz));
+    if (u_mode.z == LIGHTING_NIGHT_OR_ECLIPSED) {
+        // Same spherical parent/soft penumbra approximation as body shading.
+        float3 oc = u_parent.xyz - p;
+        float along = dot(oc, u_sun.xyz);
+        if (along > 0.0 && u_parent.w > 0.0) {
+            float penumbra = max(along * u_sun.w, 1e-6);
+            float miss = length(oc - along * u_sun.xyz);
+            float shadow = 1.0 - smoothstep(u_parent.w - penumbra, u_parent.w + penumbra, miss);
+            shadow *= saturate(pow(u_parent.w / penumbra, 2.0));
+            night = max(night, shadow);
+        }
+    }
+    return night;
 }
 
 float4 main(PSInput input) : SV_Target0
@@ -231,13 +333,13 @@ float4 main(PSInput input) : SV_Target0
         float u = (radius - u_ring_radii.x) / (u_ring_radii.y - u_ring_radii.x);
         float2 profile = u_ring.SampleGrad(u_ring_sampler, float2(u, 0.5),
                                           float2(ddx_fine(u), 0.0), float2(ddy_fine(u), 0.0)).rg;
-        float mu = abs(normalize(dir * float3(1.0, 1.0, u_misc.z)).z);
+        float mu = abs(normalize(dir * float3(1.0, 1.0, u_shell.z)).z);
         if (abs(dir.z) > 1e-7 && u >= 0.0 && u <= 1.0 && dot(crossing - u_camera.xyz, dir) > 0.0)
             transmission = exp(-profile.r / max(mu, max(profile.g, 1e-4)));
     }
 
-    float top = u_sun.w;
-    float bottom = u_noon.w;
+    float bottom = u_shell.x;
+    float top = u_shell.y;
     float b = dot(o, dir);
     float3 perpendicular = cross(o, dir);
     float p2 = dot(perpendicular, perpendicular);
@@ -268,8 +370,7 @@ float4 main(PSInput input) : SV_Target0
     }
 
     float km = u_pole.w;
-    float ray_km = km;
-    if (u_misc.y > 0.5) ray_km *= length(dir * float3(1.0, 1.0, u_misc.z));
+    float ray_km = km * length(dir * float3(1.0, 1.0, u_shell.z));
     float ds = length_total / kSteps;
     float jitter = gradient_noise(input.position.xy);
     float3 sum = 0.0;
@@ -279,64 +380,19 @@ float4 main(PSInput input) : SV_Target0
         float3 p = o + t * dir;
         float r = length(p);
         float3 n = p / r;
-        // Fades in from sunset at the point below to the sun 12 deg below the horizon.
-        bool mars_visible = u_misc.y > 8.5;
-        bool optical_moon = u_misc.y > 5.5 && u_misc.y < 8.5;
-        bool saturn_visible = u_misc.y > 4.5 && u_misc.y < 5.5;
-        // Ellipsoid surface normal in physical body coordinates.
-        float3 normal = (saturn_visible || mars_visible) ? normalize(n / float3(1.0, 1.0, u_misc.z)) : n;
-        float night = u_misc.y > 0.5 && !saturn_visible && !optical_moon && !mars_visible ? 1.0 :
-                      1.0 - smoothstep(-0.2079, 0.0, dot(normal, u_sun.xyz));
-        if (optical_moon) {
-            // Same spherical parent/soft penumbra approximation as body shading.
-            float3 oc = u_footprints[0].xyz - p;
-            float along = dot(oc, u_sun.xyz);
-            if (along > 0.0 && u_footprints[0].w > 0.0) {
-                float penumbra = max(along * u_blue.x, 1e-6);
-                float perpendicular = length(oc - along * u_sun.xyz);
-                float shadow = 1.0 - smoothstep(u_footprints[0].w - penumbra,
-                                               u_footprints[0].w + penumbra, perpendicular);
-                shadow *= saturate(pow(u_footprints[0].w / penumbra, 2.0));
-                night = max(night, shadow);
-            }
-        }
-        if (night <= 0.0) {
+        float shown = lighting(n, p);
+        if (shown <= 0.0) {
             continue;
         }
         float distance_km = length(p - u_camera.xyz) * km;
-        float pattern = aurora_pattern(n, distance_km * u_red.w);
+        float pattern = aurora_pattern(n, distance_km * u_shell.w);
         if (pattern <= 0.0) {
             continue;
         }
-        float h = (r - 1.0) * km;
-        if (u_misc.y > 0.5) h *= length(n * float3(1.0, 1.0, u_misc.z));
-        float blue = u_blue.x * pattern;
-        float3 emission;
-        if (mars_visible) {
-            float z = (h - u_layers.x) / u_layers.y;
-            emission = u_low.rgb * exp(-0.5 * z * z) * step(u_layers.z, h) * step(h, u_layers.w);
-        } else if (optical_moon) {
-            emission = u_low.rgb * pattern * exp(-h / u_layers.x) /
-                       (u_layers.x * (1.0 - exp(-u_layers.y / u_layers.x)));
-            if (u_misc.y > 6.5 && u_misc.y < 7.5) {
-                // A separate, smooth sodium corona; fixed eclipse-average spectrum.
-                emission += u_red.rgb * exp(-h / u_layers.z) /
-                            (u_layers.z * (1.0 - exp(-u_layers.y / u_layers.z)));
-            }
-        } else if (saturn_visible) {
-            // Independent pink/purple columns; exposure and layer profiles
-            // are display assumptions, not a UV-to-visible conversion.
-            emission = pattern * (u_low.rgb * chapman(h, u_layers.x, u_layers.y) +
-                                  u_red.rgb * chapman(h, u_layers.z, u_layers.w));
-        } else if (u_misc.y > 3.5) {
-            // The published zenith correction uses a uniform 70 km column.
-            emission = u_low.rgb * (pattern / u_layers.x);
-        } else {
-            emission = u_low.rgb * (pattern * chapman(h, u_layers.x, u_layers.y)) +
-                       u_red.rgb * (blue * red_over_blue(blue) * chapman(h, u_layers.z, u_layers.w));
-        }
+        float h = (r - 1.0) * km * length(n * float3(1.0, 1.0, u_shell.z));
+        float3 emission = layer_emission(h, pattern);
         float ring_visibility = t > ring_t ? transmission : 1.0;
-        sum += emission * (night * ring_visibility * ds * ray_km);
+        sum += emission * (shown * ring_visibility * ds * ray_km);
     }
     return float4(sum, 1.0);
 }

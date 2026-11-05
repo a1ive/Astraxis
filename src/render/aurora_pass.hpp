@@ -6,6 +6,7 @@
 #include <SDL3/SDL_gpu.h>
 #include <glm/mat3x3.hpp>
 #include <glm/mat4x4.hpp>
+#include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 
@@ -16,6 +17,7 @@ namespace astraxis {
 
 inline constexpr int kAuroraOvalSamples = 48; // AuroraEmission::kOvalSamples
 inline constexpr int kJovianOvalSamples = 256; // JovianAurora::kSamples
+inline constexpr int kJovianOvalPairs = kJovianOvalSamples / 2;
 
 struct AuroraDrawItem {
     // Camera-relative translation * body-fixed axes * radii: the planet's
@@ -23,49 +25,47 @@ struct AuroraDrawItem {
     glm::mat4 model{1.0f};
     glm::mat3 to_unit{1.0f};
     glm::vec3 camera_unit{0.0f};
-    float km_per_unit = 1.0f;  // the planet's equatorial radius
+    float km_per_unit = 1.0f;  // the body's equatorial radius
     float bottom = 1.0f;       // shell radii (unit-sphere frame)
     float top = 1.0f;
-    // Unit-sphere frame: the north geomagnetic pole, magnetic noon (the sun's
-    // direction across the dipole axis) and the sun.
+    float polar_ratio = 1.0f;  // polar over equatorial radius
+    // What the shader does: AuroraPattern, AuroraVertical, AuroraLighting.
+    int pattern = 0;
+    int vertical = 0;
+    int lighting = 0;
+    // Earth: the north geomagnetic pole and magnetic noon (the sun's direction
+    // across the dipole axis). Saturn: the spin axis and solar noon. Jupiter:
+    // the north oval's center and east, with south_center, south_east.
     glm::vec3 pole{0.0f, 0.0f, 1.0f};
     glm::vec3 noon{1.0f, 0.0f, 0.0f};
-    glm::vec3 sun{1.0f, 0.0f, 0.0f};
-    // A vertical column through the oval: the linear RGB of its low layer
-    // (green, blue), exposure included, and its 427.8 nm brightness (kR); the
-    // red line's linear RGB per kR, exposure included. Saturn visible uses
-    // low_rgb / red_per_kr as independent pink / purple column colors.
-    glm::vec3 low_rgb{0.0f};
-    float blue_kr = 0.0f;
-    glm::vec3 red_per_kr{0.0f};
-    // Emission layers (km): low peak, low scale height, high peak, high scale height.
-    glm::vec4 layers{115.0f, 10.0f, 221.0f, 40.0f};
-    float diffuse_flux = 0.0f; // the diffuse aurora's flux relative to the oval's
-    float time = 0.0f;         // animation clock (s)
-    float pixel_angle = 0.0f;  // radians per pixel, for the detail of the arcs
-    // Boundaries around the oval (AuroraEmission::oval): colatitudes (rad) of
-    // the diffuse aurora, the oval's equatorward and poleward edges.
-    std::array<glm::vec4, kAuroraOvalSamples> oval{};
-    bool ultraviolet = false;
-    bool saturn = false;
-    bool mars = false;
-    int optical_moon = 0; // 0 none, 6 Europa, 7 Io, 8 Callisto; footprints[0]: parent center/radius in unit frame; blue_kr: solar angular radius
-    SDL_GPUTexture* ganymede_map = nullptr;
-    // Saturn is composited after the rings; each ray sample behind their
-    // equatorial plane uses the same radial optical-depth profile.
-    SDL_GPUTexture* ring_profile = nullptr;
-    glm::vec4 ring_radii{0.0f}; // inner/outer km, unused, unused
-    bool footprints_only = false;
-    std::array<glm::vec4, 6> footprints{}; // physical unit direction, display gain
-    float polar_ratio = 1.0f;
-    float width_km = 200.0f; // illustrative Gaussian sigma across the UV contour
-    // In UV mode pole/noon are the northern center/east basis. These are the south's.
     glm::vec3 south_center{0.0f};
     glm::vec3 south_east{0.0f};
-    std::array<glm::vec4, kJovianOvalSamples> jovian_oval{};
+    glm::vec3 sun{1.0f, 0.0f, 0.0f};
+    float sun_angular_radius = 0.0f;
+    glm::vec4 parent{0.0f}; // xyz = center (unit-sphere frame), w = radius; casts the shadow of NightOrEclipsed
+    // The two layers' linear RGB, exposure included, and their parameters
+    // (AuroraProfile::low_rgb, high_rgb, layers).
+    glm::vec3 low_rgb{0.0f};
+    glm::vec3 high_rgb{0.0f};
+    glm::vec4 layers{0.0f};
+    float blue_kr = 0.0f;      // AuroraProfile::blue_kr
+    float diffuse_flux = 0.0f; // AuroraProfile::diffuse_flux
+    float map_gain = 0.0f;     // AuroraProfile::map_gain
+    float sigma_km = 0.0f;     // AuroraProfile::sigma_km
+    float time = 0.0f;         // animation clock (s)
+    float pixel_angle = 0.0f;  // radians per pixel, for filtering the pattern
+    std::array<glm::vec4, kAuroraOvalSamples> oval{}; // AuroraProfile::oval
+    std::array<glm::vec4, kJovianOvalPairs> jovian_oval{}; // two samples each: xy, zw = north, south
+    std::array<glm::vec4, 6> footprints{}; // physical unit direction, display gain
+    SDL_GPUTexture* map = nullptr; // GanymedeMap's brightness
+    // Saturn is composited after the rings; each ray sample behind their
+    // equatorial plane uses the same radial optical-depth profile.
+    bool after_rings = false;
+    SDL_GPUTexture* ring_profile = nullptr;
+    glm::vec2 ring_radii{0.0f}; // inner, outer (km)
 };
 
-// Emitting shells: Earth/Saturn visible aurora and planetary UV reference ovals.
+// Emitting shells above planets and moons (scene/aurora_model.hpp).
 class AuroraPass {
 public:
     bool init(SDL_GPUDevice* device, const SceneTargetFormat& format);

@@ -67,4 +67,10 @@ double blackbody_band_share(double kelvin, double lo_nm, double hi_nm)
     return std::max(0.0, kNorm * sum * h / 3.0);
 }
 
+glm::dvec3 srgb_to_linear(const glm::dvec3& c)
+{
+    auto channel = [](double v) { return v <= 0.04045 ? v / 12.92 : std::pow((v + 0.055) / 1.055, 2.4); };
+    return {channel(c.r), channel(c.g), channel(c.b)};
+}
+
 } // namespace astraxis

@@ -18,4 +18,7 @@ glm::dvec3 blackbody_linear_srgb(double kelvin);
 // (c2 = hc / k, CODATA 2018).
 double blackbody_band_share(double kelvin, double lo_nm, double hi_nm);
 
+// Linear sRGB of a color written in sRGB (IEC 61966-2-1).
+glm::dvec3 srgb_to_linear(const glm::dvec3& c);
+
 } // namespace astraxis

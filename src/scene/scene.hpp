@@ -2,10 +2,7 @@
 
 #include "core/time.hpp"
 #include "ephem/motion.hpp"
-#include "scene/aurora.hpp"
-#include "scene/jovian_aurora.hpp"
-#include "scene/saturn_aurora.hpp"
-#include "scene/ganymede_aurora.hpp"
+#include "scene/aurora_model.hpp"
 #include "scene/corona.hpp"
 #include "scene/nebula.hpp"
 #include "scene/refraction.hpp"
@@ -373,15 +370,7 @@ struct Body {
         glm::vec3 color{1.0f};
         double gain = 0.0;
     } night_lights;
-    // Earth's aurora (scene/aurora.hpp), driven by this Kp record; null: none.
-    std::shared_ptr<const KpRecord> aurora;
-    std::shared_ptr<const JovianAurora> jovian_aurora;
-    bool saturn_aurora = false;
-    bool europa_aurora = false;
-    bool io_aurora = false;
-    bool callisto_aurora = false;
-    bool mars_aurora = false;
-    std::shared_ptr<const GanymedeAurora> ganymede_aurora;
+    BodyAurora aurora; // scene/aurora_model.hpp
     // Io N/S, Europa N/S, Ganymede N/S; zero means absent/outside the table.
     std::array<glm::dvec3, 6> jovian_footprints{};
     std::vector<Plume> plumes;

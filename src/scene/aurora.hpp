@@ -133,8 +133,9 @@ struct AuroraEmission {
     double blue_kr = 0.0;    // 427.8 nm of a column through the oval
     glm::dvec3 low_rgb{0.0}; // the column's low layer
 };
-// Linear RGB (I/F) of 1 kR of the red line (630.0 nm).
-extern const glm::dvec3 kRedPerKr;
+// Linear RGB (I/F) of 1 kR of the green (557.7 nm) and red (630.0 nm) lines.
+inline constexpr glm::dvec3 kGreenPerKr{1.7361e-09, 6.3813e-09, 0.0};
+inline constexpr glm::dvec3 kRedPerKr{4.4807e-09, 0.0, 2.9771e-10};
 AuroraEmission aurora_emission(double kp);
 
 } // namespace astraxis

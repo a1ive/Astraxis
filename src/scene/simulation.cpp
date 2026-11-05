@@ -213,10 +213,10 @@ void Simulation::update(double real_dt)
     // The aurora: Kp over a window that grows with the warp, and its animation clock.
     bool has_aurora = false;
     for (const Body& body : m_scene.bodies) {
-        has_aurora = has_aurora || bool(body.aurora) || bool(body.jovian_aurora);
-        if (body.aurora) {
+        has_aurora = has_aurora || bool(body.aurora.kp) || bool(body.aurora.jovian);
+        if (body.aurora.kp) {
             const double window = std::max(3.0 * 3600.0, std::abs(m_clock.warp) * kAuroraKpWindowSeconds);
-            m_aurora_kp = body.aurora->mean(m_clock.t_tdb - 0.5 * window, m_clock.t_tdb + 0.5 * window);
+            m_aurora_kp = body.aurora.kp->mean(m_clock.t_tdb - 0.5 * window, m_clock.t_tdb + 0.5 * window);
             break;
         }
     }
