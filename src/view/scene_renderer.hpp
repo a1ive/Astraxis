@@ -8,6 +8,7 @@
 #include "render/body_pass.hpp"
 #include "render/comet_pass.hpp"
 #include "render/corona_pass.hpp"
+#include "render/disk_pass.hpp"
 #include "render/dust_pass.hpp"
 #include "render/orbit_line_pass.hpp"
 #include "render/nebula_pass.hpp"
@@ -107,6 +108,7 @@ private:
     NebulaPass m_nebula;
     SunPass m_sun;
     CoronaPass m_corona;
+    DiskPass m_disk;
     BeamPass m_beams;
     BlackHolePass m_black_hole;
     PostProcess m_post;

@@ -1,5 +1,6 @@
 #include "scene/scene_loader.hpp"
 
+#include "core/color.hpp"
 #include "core/math.hpp"
 #include "core/time.hpp"
 #include "ephem/coast.hpp"
@@ -380,6 +381,7 @@ private:
     std::shared_ptr<const SpinTable> load_spin_table(const std::string& file, const std::string& ctx) const;
     int body_ref(const Scene& scene, const toml::table& t, std::string_view key, const std::string& ctx,
                  bool allow_sun) const;
+    void parse_disk(const toml::table& t, Scene& out) const;
     glm::dvec3 parse_up(const Scene& scene, const std::string& up, const std::string& ctx, double t_tdb) const;
 
     std::filesystem::path m_asset_root;
@@ -927,6 +929,9 @@ std::unique_ptr<MotionSource> Loader::parse_motion(const toml::table& t, const s
 glm::dvec3 Loader::parse_up(const Scene& scene, const std::string& up, const std::string& ctx, double t_tdb) const
 {
     const std::string kOrbitNormal = "orbit_normal:";
+    if (up.rfind('-', 0) == 0) {
+        return -parse_up(scene, up.substr(1), ctx, t_tdb); // the other way up
+    }
     if (up == "north") {
         return {0.0, 0.0, 1.0};
     }
@@ -943,7 +948,8 @@ glm::dvec3 Loader::parse_up(const Scene& scene, const std::string& up, const std
     }
     const int b = scene.find(up);
     if (b < 0) {
-        fail(ctx, "up must be \"north\", \"ecliptic\", \"orbit_normal:<body>\" or a body name");
+        fail(ctx, "up must be \"north\", \"ecliptic\", \"orbit_normal:<body>\" or a body name, or \"-\" and one of "
+                  "those");
     }
     return scene.bodies[static_cast<size_t>(b)].pole;
 }
@@ -1892,6 +1898,10 @@ void Loader::parse(const toml::table& root, Scene& out)
             e.disk_shifts = (*t)["disk_shifts"].value<bool>().value_or(true);
             e.dust_visible = (*t)["dust_visible"].value<bool>().value_or(false);
             e.nebula_infrared = (*t)["nebula_infrared"].value<bool>().value_or(false);
+            e.disk_millimeter = (*t)["disk_millimeter"].value<bool>().value_or(false);
+            if (e.nebula_infrared && e.disk_millimeter) {
+                fail(ctx, "nebula_infrared and disk_millimeter are different views");
+            }
             e.aurora_visible = (*t)["aurora_visible"].value<bool>().value_or(false);
             e.aurora_ultraviolet = (*t)["aurora_ultraviolet"].value<bool>().value_or(false);
             e.aurora_infrared = (*t)["aurora_infrared"].value<bool>().value_or(false);
@@ -2309,15 +2319,9 @@ void Loader::parse(const toml::table& root, Scene& out)
             n.center = body_ref(out, *nb, "center", ctx, false);
             n.t_ejection_tdb = parse_time(*nb, "ejection_time", ctx);
             n.t_reference_tdb = parse_time(*nb, "reference_time", ctx);
-            const double unit_km = get_double(*nb, "unit_au", ctx) * kAuKm;
-            const double polar_scale = get_double_or(*nb, "polar_scale", 1.0);
-            double center[3];
-            get_array(*nb, "model_center", ctx, center, 3, 3);
-            double sky[2];
-            get_array(*nb, "sky_ra_dec_deg", ctx, sky, 2, 2);
-            const glm::dmat3 to_icrf =
-                nebula_model_to_icrf(sky[0], sky[1], get_double(*nb, "axis_pa_deg", ctx),
-                                     get_double(*nb, "axis_tilt_deg", ctx), get_double(*nb, "roll_deg", ctx));
+            n.infrared_only = (*nb)["infrared_only"].value<bool>().value_or(false);
+            // Either a 3D model, or the dust of one collision ([nebulae.stream]).
+            const toml::table* stream = (*nb)["stream"].as_table();
             const std::string light = get_string_or(*nb, "light", "scattered");
             if (light != "scattered" && light != "emission") {
                 fail(ctx, "light must be \"scattered\" or \"emission\"");
@@ -2329,11 +2333,10 @@ void Loader::parse(const toml::table& root, Scene& out)
             n.display_reference_km = get_double(*nb, "display_reference_au", ctx) * kAuKm;
             n.display_gamma = get_double_or(*nb, "display_gamma", n.display_gamma);
             const double grains = get_double(*nb, "grains", ctx);
-            if (n.t_reference_tdb <= n.t_ejection_tdb || unit_km <= 0.0 || polar_scale <= 0.0 ||
-                n.wall_sigma_km <= 0.0 || std::abs(n.asymmetry_g) >= 1.0 || n.display_reference_km <= 0.0 ||
-                n.display_gamma <= 0.0 || n.display_gamma > 1.0) {
-                fail(ctx, "needs reference_time after ejection_time, positive unit_au, polar_scale, wall_sigma_au "
-                          "and display_reference_au, |asymmetry_g| < 1 and 0 < display_gamma <= 1");
+            if (n.t_reference_tdb <= n.t_ejection_tdb || n.wall_sigma_km <= 0.0 || std::abs(n.asymmetry_g) >= 1.0 ||
+                n.display_reference_km <= 0.0 || n.display_gamma <= 0.0 || n.display_gamma > 1.0) {
+                fail(ctx, "needs reference_time after ejection_time, positive wall_sigma_au and "
+                          "display_reference_au, |asymmetry_g| < 1 and 0 < display_gamma <= 1");
             }
             if (grains < 1.0 || grains > 2.0e6 || grains != std::floor(grains)) {
                 fail(ctx, "grains must be whole, 1 .. 2 million");
@@ -2366,20 +2369,180 @@ void Loader::parse(const toml::table& root, Scene& out)
                     fail(ctx, "temperature_index must be 0 .. 1");
                 }
             }
-            ShapeModel shape;
-            std::string error;
-            if (!load_shape_model(m_asset_root / get_string(*nb, "shape", ctx), shape, &error)) {
-                fail(ctx, error);
+            if (n.infrared_only && n.infrared.empty()) {
+                fail(ctx, "infrared_only needs infrared layers");
             }
-            build_nebula_grains(shape, glm::dvec3(center[0], center[1], center[2]), unit_km, polar_scale, to_icrf,
-                                static_cast<int>(grains), n);
+            if (stream) {
+                const std::string stream_ctx = ctx + " stream";
+                DustStream s;
+                s.gm_km3_s2 = get_double(*stream, "gm_km3_s2", stream_ctx);
+                s.radius_km = get_double(*stream, "radius_au", stream_ctx) * kAuKm;
+                s.argument_deg = get_double(*stream, "argument_deg", stream_ctx);
+                VisualOrbit plane;
+                plane.i_deg = get_double(*stream, "i_deg", stream_ctx);
+                plane.node_deg = get_double(*stream, "node_deg", stream_ctx);
+                double sky[2];
+                get_array(*stream, "sky_ra_dec_deg", stream_ctx, sky, 2, 2);
+                plane.ra_deg = sky[0];
+                plane.dec_deg = sky[1];
+                s.orbit_to_icrf = visual_orbit_frame(plane);
+                s.beta_lo = get_double(*stream, "beta_lo", stream_ctx);
+                s.beta_hi = get_double(*stream, "beta_hi", stream_ctx);
+                s.age_s = n.t_reference_tdb - n.t_ejection_tdb;
+                s.kick_share = get_double_or(*stream, "kick_share", 0.0);
+                s.weight_index = get_double_or(*stream, "weight_index", 0.0);
+                const double patch_km = get_double(*stream, "patch_sigma_au", stream_ctx) * kAuKm;
+                if (s.gm_km3_s2 <= 0.0 || s.radius_km <= 0.0 || s.beta_hi <= s.beta_lo || s.kick_share < 0.0 ||
+                    patch_km <= 0.0) {
+                    fail(stream_ctx, "needs positive gm_km3_s2, radius_au and patch_sigma_au, beta_hi > beta_lo and "
+                                     "kick_share >= 0");
+                }
+                build_dust_stream(s, static_cast<int>(grains), patch_km, n);
+            } else {
+                const double unit_km = get_double(*nb, "unit_au", ctx) * kAuKm;
+                const double polar_scale = get_double_or(*nb, "polar_scale", 1.0);
+                if (unit_km <= 0.0 || polar_scale <= 0.0) {
+                    fail(ctx, "needs positive unit_au and polar_scale");
+                }
+                double center[3];
+                get_array(*nb, "model_center", ctx, center, 3, 3);
+                double sky[2];
+                get_array(*nb, "sky_ra_dec_deg", ctx, sky, 2, 2);
+                const glm::dmat3 to_icrf =
+                    nebula_model_to_icrf(sky[0], sky[1], get_double(*nb, "axis_pa_deg", ctx),
+                                         get_double(*nb, "axis_tilt_deg", ctx), get_double(*nb, "roll_deg", ctx));
+                ShapeModel shape;
+                std::string error;
+                if (!load_shape_model(m_asset_root / get_string(*nb, "shape", ctx), shape, &error)) {
+                    fail(ctx, error);
+                }
+                build_nebula_grains(shape, glm::dvec3(center[0], center[1], center[2]), unit_km, polar_scale, to_icrf,
+                                    static_cast<int>(grains), n);
+            }
             out.nebulae.push_back(std::move(n));
         }
         if (out.nebulae.size() > 4) {
             fail("nebulae", "at most 4");
         }
     }
+
+    // [disk]: dust seen through, in a few components (see Disk).
+    if (const toml::table* table = root["disk"].as_table()) {
+        parse_disk(*table, out);
+    }
     out.set_active_frame(out.view.frame);
+}
+
+void Loader::parse_disk(const toml::table& t, Scene& out) const
+{
+    const std::string ctx = "disk";
+    Disk& disk = out.disk;
+    disk.center = body_ref(out, t, "center", ctx, false);
+    disk.inner_au = get_double(t, "inner_au", ctx);
+    disk.outer_au = get_double(t, "outer_au", ctx);
+    disk.extent_au = get_double(t, "extent_au", ctx);
+    disk.display_reference_au = get_double(t, "display_reference_au", ctx);
+    disk.display_gamma = get_double_or(t, "display_gamma", disk.display_gamma);
+    disk.display_adapt_au = get_double_or(t, "display_adapt_au", disk.display_adapt_au);
+    if (!(disk.inner_au > 0.0) || disk.outer_au <= disk.inner_au || disk.extent_au <= 0.0 ||
+        disk.display_reference_au <= disk.inner_au || disk.display_reference_au >= disk.outer_au ||
+        disk.display_gamma <= 0.0 || disk.display_gamma > 1.0 || disk.display_adapt_au <= 0.0) {
+        fail(ctx, "needs 0 < inner_au < display_reference_au < outer_au, positive extent_au and "
+                  "display_adapt_au, and 0 < display_gamma <= 1");
+    }
+    get_array(t, "phase_g", ctx, disk.phase_g.data(), 3, 3);
+    get_array(t, "phase_w", ctx, disk.phase_w.data(), 3, 3);
+    double sky[2];
+    get_array(t, "sky_ra_dec_deg", ctx, sky, 2, 2);
+
+    const toml::array* list = t["components"].as_array();
+    if (!list || list->empty() || list->size() > kDiskMaxComponents) {
+        fail(ctx, "needs 1 to " + std::to_string(kDiskMaxComponents) + " components ([[disk.components]])");
+    }
+    for (const auto& entry : *list) {
+        const toml::table* ct = entry.as_table();
+        if (!ct) {
+            fail(ctx, "components must be tables");
+        }
+        DiskComponent c;
+        c.name = get_string(*ct, "name", ctx);
+        const std::string cctx = "disk component '" + c.name + "'";
+        // The plane as a visual orbit's: the same node and inclination convention.
+        VisualOrbit plane;
+        plane.i_deg = get_double(*ct, "i_deg", cctx);
+        plane.node_deg = get_double(*ct, "node_deg", cctx);
+        plane.ra_deg = sky[0];
+        plane.dec_deg = sky[1];
+        c.to_icrf = visual_orbit_frame(plane);
+        c.sigma_au = get_double(*ct, "sigma_au", cctx);
+        c.sigma2_au = get_double_or(*ct, "sigma2_au", c.sigma_au);
+        c.share2 = get_double_or(*ct, "share2", 0.0);
+        c.flare_radius_au = get_double(*ct, "flare_radius_au", cctx);
+        c.gain[static_cast<size_t>(DiskView::Scattered)] = get_double_or(*ct, "scattered", 0.0);
+        c.gain[static_cast<size_t>(DiskView::Infrared)] = get_double_or(*ct, "infrared", 0.0);
+        c.gain[static_cast<size_t>(DiskView::Millimeter)] = get_double_or(*ct, "millimeter", 0.0);
+        const glm::vec3 color = parse_color(*ct, "color", cctx, glm::vec3(1.0f));
+        c.color = srgb_to_linear(glm::dvec3(color));
+        c.color /= std::max({c.color.x, c.color.y, c.color.z, 1e-6});
+        c.temperature_k = get_double(*ct, "temperature_k", cctx);
+        c.temperature_radius_au = get_double(*ct, "temperature_radius_au", cctx);
+        c.temperature_index = get_double(*ct, "temperature_index", cctx);
+        if (c.sigma_au <= 0.0 || c.sigma2_au <= 0.0 || c.share2 < 0.0 || c.share2 > 1.0 || c.flare_radius_au <= 0.0 ||
+            c.temperature_k <= 0.0 || c.temperature_radius_au <= 0.0 || c.temperature_index < 0.0 ||
+            c.gain[0] < 0.0 || c.gain[1] < 0.0 || c.gain[2] < 0.0 || std::max({c.gain[0], c.gain[1], c.gain[2]}) <= 0.0) {
+            fail(cctx, "needs positive sizes and temperature, share2 in 0..1, non-negative view gains and at "
+                       "least one of them");
+        }
+        // The column: a Gaussian ring, or a table interpolated in ln r and ln column.
+        if (ct->contains("ring_center_au")) {
+            const double center = get_double(*ct, "ring_center_au", cctx);
+            const double sigma = get_double(*ct, "ring_sigma_au", cctx);
+            if (sigma <= 0.0) {
+                fail(cctx, "ring_sigma_au must be positive");
+            }
+            for (int i = 0; i < kDiskRadialCount; ++i) {
+                const double x = (disk_radial_au(disk, i) - center) / sigma;
+                c.column[static_cast<size_t>(i)] = std::exp(-0.5 * x * x);
+            }
+        } else {
+            const toml::array* radii = (*ct)["radial_au"].as_array();
+            const toml::array* column = (*ct)["column"].as_array();
+            if (!radii || !column || radii->size() < 2 || radii->size() != column->size()) {
+                fail(cctx, "needs ring_center_au and ring_sigma_au, or radial_au and column of the same length");
+            }
+            std::vector<double> ln_r;
+            std::vector<double> ln_c;
+            for (size_t k = 0; k < radii->size(); ++k) {
+                const auto r = (*radii)[k].value<double>();
+                const auto v = (*column)[k].value<double>();
+                if (!r || !v || *r <= 0.0 || *v <= 0.0 || (k > 0 && std::log(*r) <= ln_r.back())) {
+                    fail(cctx, "radial_au must increase and column be positive");
+                }
+                ln_r.push_back(std::log(*r));
+                ln_c.push_back(std::log(*v));
+            }
+            for (int i = 0; i < kDiskRadialCount; ++i) {
+                const double x = std::log(disk_radial_au(disk, i));
+                if (x <= ln_r.front() || x >= ln_r.back()) {
+                    continue; // nothing outside the table
+                }
+                const size_t k = static_cast<size_t>(std::upper_bound(ln_r.begin(), ln_r.end(), x) - ln_r.begin());
+                const double f = (x - ln_r[k - 1]) / (ln_r[k] - ln_r[k - 1]);
+                c.column[static_cast<size_t>(i)] = std::exp(ln_c[k - 1] + f * (ln_c[k] - ln_c[k - 1]));
+            }
+        }
+        disk.components.push_back(std::move(c));
+    }
+    disk_set_references(disk);
+    for (int v = 0; v < kDiskViewCount; ++v) {
+        bool seen = false;
+        for (const DiskComponent& c : disk.components) {
+            seen = seen || c.gain[static_cast<size_t>(v)] > 0.0;
+        }
+        if (seen && disk.reference[static_cast<size_t>(v)] <= 0.0) {
+            fail(ctx, "a view shows nothing at display_reference_au");
+        }
+    }
 }
 
 // A star filling its Roche lobe: the mass ratio from the two stars' masses

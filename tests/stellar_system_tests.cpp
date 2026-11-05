@@ -8,6 +8,7 @@
 #include "ephem/ephemeris.hpp"
 #include "ephem/kepler.hpp"
 #include "scene/light_curve.hpp"
+#include "scene/scene_loader.hpp"
 #include "scene/star_catalog.hpp"
 
 #include <glm/glm.hpp>
@@ -1934,6 +1935,257 @@ void test_observed_light_and_exposure()
     }
 }
 
+void test_beta_pictoris_scene()
+{
+    Scene scene = load_scene_or_die("beta_pictoris.toml");
+    const int star = scene.find("Beta Pic");
+    const int b = scene.find("Beta Pic b");
+    const int c = scene.find("Beta Pic c");
+    check(star >= 0 && b >= 0 && c >= 0, "Beta Pictoris: bodies");
+    check(scene.disk.enabled() && scene.disk.components.size() == 3, "Beta Pictoris: the disk's three components");
+    const double ra = 86.82118;
+    const double dec = -51.06651;
+    const glm::dvec3 away = unit_toward(ra, dec); // from Earth to the system
+    const glm::dvec3 north = glm::normalize(glm::dvec3(0, 0, 1) - away * away.z);
+    const glm::dvec3 east = glm::normalize(glm::cross(glm::dvec3(0, 0, 1), away));
+    const double au = kAuKm;
+    const double parallax = 51.44; // mas [LA21]
+    const auto relative = [&](int body, double t) {
+        scene.update(t);
+        return scene.bodies[static_cast<size_t>(body)].icrf_position - scene.bodies[static_cast<size_t>(star)].icrf_position;
+    };
+
+    // The planets against GRAVITY [LA21 Table 1]: MJD, RA and Dec offsets (mas).
+    struct Astrometry {
+        int body;
+        double mjd, ra_mas, dec_mas;
+    };
+    const Astrometry positions[] = {
+        {b, 58383.378, 68.47, 126.38},   {b, 58796.170, 145.51, 248.59}, {b, 59221.238, 211.59, 352.62},
+        {b, 59453.395, 240.63, 397.89},  {c, 58889.140, -67.36, -112.59}, {c, 59220.163, -52.00, -80.86},
+    };
+    double worst = 0.0;
+    for (const Astrometry& p : positions) {
+        const glm::dvec3 r = relative(p.body, tdb_from_jd_tdb(p.mjd + 2400000.5));
+        const double ra_mas = glm::dot(r, east) / au * parallax;
+        const double dec_mas = glm::dot(r, north) / au * parallax;
+        worst = std::max(worst, std::hypot(ra_mas - p.ra_mas, dec_mas - p.dec_mas));
+    }
+    std::printf("  info: Beta Pic planets against GRAVITY, worst %.2f mas\n", worst);
+    check(worst < 3.0, "Beta Pic b and c stand where GRAVITY saw them (mas)", worst);
+
+    // The periods from the fit's a and masses.
+    const auto period_days = [&](int body) {
+        const glm::dvec3 r0 = scene.bodies[static_cast<size_t>(body)].motion->eval(0.0).position;
+        double t = 0.0;
+        double angle = 0.0;
+        const double step = (body == b ? 20.0 : 2.0) * kSecondsPerDay;
+        glm::dvec3 previous = r0;
+        const glm::dvec3 normal = glm::cross(r0, scene.bodies[static_cast<size_t>(body)].motion->eval(0.0).velocity);
+        while (angle < kTwoPi) {
+            t += step;
+            const glm::dvec3 now = scene.bodies[static_cast<size_t>(body)].motion->eval(t).position;
+            angle += std::atan2(glm::dot(glm::cross(previous, now), glm::normalize(normal)), glm::dot(previous, now));
+            previous = now;
+        }
+        return t / kSecondsPerDay;
+    };
+    check(std::abs(period_days(b) / 365.25 - 23.52) < 0.1, "Beta Pic b's period (yr)", period_days(b) / 365.25);
+    check(std::abs(period_days(c) - 1208.5) < 5.0, "Beta Pic c's period [LA21: 1221 +- 15 d]", period_days(c));
+
+    // The Hill sphere transit [KE21]: closest on 2017 Sep 13, 0.11 au, in front.
+    const double center = tdb_from_utc_jd(jd_from_calendar({2017, 9, 13, 0, 0, 0}));
+    double closest = 1e30;
+    double closest_t = center;
+    for (double t = center - 100.0 * kSecondsPerDay; t < center + 100.0 * kSecondsPerDay; t += 0.25 * kSecondsPerDay) {
+        const glm::dvec3 r = relative(b, t);
+        const double sky = glm::length(r - away * glm::dot(r, away));
+        if (sky < closest) {
+            closest = sky;
+            closest_t = t;
+        }
+    }
+    const double days_off = (closest_t - center) / kSecondsPerDay;
+    std::printf("  info: Beta Pic b closest to the star on the sky %.3f au, %.1f days from 2017-09-13\n", closest / au, days_off);
+    check(std::abs(days_off) < 30.0, "Beta Pic b's closest approach near 2017-09-13 (days)", days_off);
+    check(closest / au < 0.3, "Beta Pic b passes within 0.3 au of the star on the sky", closest / au);
+    check(glm::dot(relative(b, closest_t), away) < 0.0, "Beta Pic b is in front of the star in 2017");
+
+    // The disk, from Earth. Offsets on the sky along the main disk (toward NE)
+    // and across it (toward NW).
+    const Disk& disk = scene.disk;
+    const double pa = 29.3 * kDegToRad;
+    const glm::dvec3 major = std::cos(pa) * north + std::sin(pa) * east;
+    const glm::dvec3 across = std::sin(pa) * north - std::cos(pa) * east;
+    const auto on_sky = [&](const Disk& d, DiskView view, double along_au, double across_au) {
+        const glm::dvec3 origin = major * along_au + across * across_au - away * 5000.0;
+        return disk_radiance(d, view, origin, away);
+    };
+    Disk main_only = disk;
+    main_only.components.resize(1);
+    Disk second_only = disk;
+    second_only.components = {disk.components[1]};
+    Disk belt_only = disk;
+    belt_only.components = {disk.components[2]};
+
+    const auto spine = [&](const Disk& d, DiskView view, double along_au, double* offset = nullptr) {
+        double best = 0.0;
+        for (double y = -30.0; y <= 30.0; y += 1.0) {
+            const double v = on_sky(d, view, along_au, y);
+            if (v > best) {
+                best = v;
+                if (offset) *offset = y;
+            }
+        }
+        return best;
+    };
+    // [GO06] Table 3 (deconvolved F606W, the mean of NE and SW; region 4 before
+    // deconvolution, as its note advises).
+    const auto index = [&](double lo, double hi) {
+        double sx = 0.0, sy = 0.0, sxx = 0.0, sxy = 0.0;
+        const int n = 10;
+        for (int i = 0; i < n; ++i) {
+            const double p = lo * std::pow(hi / lo, i / (n - 1.0));
+            const double v = 0.5 * (spine(disk, DiskView::Scattered, p) + spine(disk, DiskView::Scattered, -p));
+            const double x = std::log(p);
+            const double y = std::log(v);
+            sx += x;
+            sy += y;
+            sxx += x * x;
+            sxy += x * y;
+        }
+        return -(n * sxy - sx * sy) / (n * sxx - sx * sx);
+    };
+    const double indices[4] = {index(39, 67), index(71, 108), index(127, 193), index(193, 258)};
+    std::printf("  info: Beta Pic disk's spine, power-law indices %.2f %.2f %.2f %.2f (Golimowski 1.27 1.89 4.47 3.82)\n",
+                indices[0], indices[1], indices[2], indices[3]);
+    check(std::abs(indices[0] - 1.265) < 0.2, "disk's spine at 39-67 au [GO06 Table 3]", indices[0]);
+    check(std::abs(indices[1] - 1.885) < 0.25, "disk's spine at 71-108 au [GO06 Table 3]", indices[1]);
+    check(std::abs(indices[2] - 4.47) < 0.25, "disk's spine at 127-193 au [GO06 Table 3]", indices[2]);
+    check(std::abs(indices[3] - 3.815) < 0.35, "disk's spine at 193-258 au [GO06 Table 3]", indices[3]);
+
+    // The widths [GO06 Sect. 3.1.2]: at half and a tenth of the maximum at 100 au.
+    const double top = spine(disk, DiskView::Scattered, 100.0);
+    const auto full_width = [&](double level) {
+        double lo = 1e30, hi = -1e30;
+        for (double y = -60.0; y <= 60.0; y += 0.25) {
+            if (on_sky(disk, DiskView::Scattered, 100.0, y) >= level * top) {
+                lo = std::min(lo, y);
+                hi = std::max(hi, y);
+            }
+        }
+        return hi - lo;
+    };
+    const double fwhm = full_width(0.5);
+    const double fw01 = full_width(0.1);
+    std::printf("  info: Beta Pic disk at 100 au: FWHM %.1f au, full width at a tenth %.1f au\n", fwhm, fw01);
+    check(fwhm > 10.0 && fwhm < 16.0, "the disk's FWHM at 100 au [GO06: 11-13 au]", fwhm);
+    check(fw01 > 40.0 && fw01 < 65.0, "the disk's width at a tenth of the maximum [GO06: 50-60 au]", fw01);
+
+    // The secondary disk's spine leaves the main one by ~5 deg, on opposite
+    // sides [GO06 Table 2, RE24 Table 2]: to the SE in the NE wing, as the
+    // position angle grows, and to the NW in the SW wing.
+    double ne_at_100 = 0.0, sw_at_100 = 0.0;
+    spine(second_only, DiskView::Scattered, 100.0, &ne_at_100);
+    spine(second_only, DiskView::Scattered, -100.0, &sw_at_100);
+    const double ne_tilt = std::atan2(-ne_at_100, 100.0) * kRadToDeg;
+    const double sw_tilt = std::atan2(sw_at_100, 100.0) * kRadToDeg;
+    std::printf("  info: Beta Pic secondary disk's spine: %.1f deg in the NE wing, %.1f deg in the SW wing\n", ne_tilt, sw_tilt);
+    check(ne_tilt > 3.5 && ne_tilt < 8.0, "the secondary disk's NE wing [GO06: 5.9 deg]", ne_tilt);
+    check(sw_tilt > 2.5 && sw_tilt < 7.0, "the secondary disk's SW wing [GO06: 4.7 deg]", sw_tilt);
+    // It is fainter than the main disk at 100 au, by 1.5 mag [GO06 Sect. 3.2.2].
+    const double level = -2.5 * std::log10(spine(second_only, DiskView::Scattered, 100.0) /
+                                           spine(main_only, DiskView::Scattered, 100.0));
+    check(std::abs(level - 1.5) < 0.4, "the secondary disk at 100 au [GO06: 1.5 mag fainter]", level);
+
+    // The main disk's near side is to the NW [AP15]: forward scattering puts the
+    // inner disk on that side of the line through the star.
+    double inner_offset = 0.0;
+    spine(main_only, DiskView::Scattered, 40.0, &inner_offset);
+    check(inner_offset > 0.0, "the main disk's inner spine lies to the NW [AP15] (au)", inner_offset);
+
+    // The belt's vertical profile [MA19]: narrow on a wide base, and only in the
+    // millimeter view.
+    check(belt_only.components[0].gain[static_cast<size_t>(DiskView::Scattered)] == 0.0,
+          "the planetesimal belt shows only in millimeter light");
+    const auto column_at = [&](double y) { return on_sky(belt_only, DiskView::Millimeter, 80.0, y); };
+    const double peak_mm = column_at(0.0);
+    double half_mm = 0.0;
+    for (double y = 0.0; y < 60.0; y += 0.05) {
+        if (column_at(y) < 0.5 * peak_mm) {
+            half_mm = y;
+            break;
+        }
+    }
+    std::printf("  info: Beta Pic belt at 80 au: half width at half maximum %.1f au, 10 au out it is %.2f of the peak\n",
+                half_mm, column_at(10.0) / peak_mm);
+    check(half_mm > 0.5 && half_mm < 12.0, "the belt's thin core at 80 au (au)", half_mm);
+    check(column_at(10.0) / peak_mm > 0.1, "the belt's hot population makes a wide base [MA19]", column_at(10.0) / peak_mm);
+
+    // The integral is the same whichever way the ray's steps fall: compare with a
+    // fine sum along the same ray.
+    const glm::dvec3 slanted = glm::normalize(away + 0.4 * across);
+    const glm::dvec3 start = major * 120.0 - slanted * 5000.0;
+    double fine = 0.0;
+    const double ds = 0.05;
+    const DiskComponent& main_component = disk.components[0];
+    const glm::dmat3 to_plane = glm::transpose(main_component.to_icrf);
+    for (double s = 2500.0; s < 7500.0; s += ds) {
+        const glm::dvec3 q = to_plane * (start + (s + 0.5 * ds) * slanted);
+        const double r = std::hypot(q.x, q.y);
+        const double light = disk_table_light(disk, main_component, DiskView::Scattered, r);
+        if (light > 0.0) {
+            const double d2 = glm::dot(q, q);
+            fine += light * disk_vertical(main_component, r, q.z) * ds *
+                    disk_phase(disk, -glm::dot(q, to_plane * slanted) / std::sqrt(d2)) / d2;
+        }
+    }
+    const double stepped = disk_radiance(main_only, DiskView::Scattered, start, slanted);
+    check(std::abs(stepped / fine - 1.0) < 0.03, "the disk's steps integrate a slanted ray to within 3%", stepped / fine);
+
+    // The cat's tail [RE24]: a stream from the far side of the disk, running out
+    // to the SW and rising to the NW of the main disk.
+    check(scene.nebulae.size() == 1 && scene.nebulae[0].infrared_only, "the cat's tail only in the infrared");
+    const Nebula& tail = scene.nebulae[0];
+    check(tail.grains.size() == 3000, "the cat's tail has its grains", static_cast<double>(tail.grains.size()));
+    // Grains are in order of beta: the base of the tail first, its tip last.
+    const auto mean_position = [&](size_t first, size_t count) {
+        glm::dvec3 sum(0.0);
+        for (size_t k = first; k < first + count; ++k) {
+            sum += glm::dvec3(tail.grains[k].position) / au;
+        }
+        return sum / static_cast<double>(count);
+    };
+    const size_t tenth = tail.grains.size() / 10;
+    const glm::dvec3 tail_base = mean_position(0, tenth);
+    const glm::dvec3 tip = mean_position(tail.grains.size() - tenth, tenth);
+    const double base_along = glm::dot(tail_base, major);
+    const double tip_along = glm::dot(tip, major);
+    const double rise = glm::dot(tip - tail_base, across);
+    const double angle = std::atan2(rise, base_along - tip_along) * kRadToDeg;
+    std::printf("  info: cat's tail: from %.0f to %.0f au along the disk, rising %.0f au at %.0f deg, its tip %.0f au behind the star\n",
+                base_along, tip_along, rise, angle, glm::dot(tip, away));
+    check(base_along < -95.0 && base_along > -135.0, "the tail leaves the disk near 115 au [RE24 Sect. 3.2]", base_along);
+    check(tip_along < -140.0 && tip_along > -190.0, "the tail's base ends by 190 au [RE24 Table 2]", tip_along);
+    check(std::abs(angle - 45.0) < 12.0, "the tail's base rises at 45 deg [RE24 Table 2]", angle);
+    check(glm::dot(tip, away) > 0.0, "the tail runs behind the star [RE24]", glm::dot(tip, away));
+
+    // Events show what they say: the views and the bodies they center on.
+    int millimeter = 0, infrared = 0;
+    for (const SceneEvent& e : scene.events) {
+        millimeter += e.disk_millimeter ? 1 : 0;
+        infrared += e.nebula_infrared ? 1 : 0;
+    }
+    check(millimeter == 1 && infrared == 1, "Beta Pictoris: an event in each of the other views");
+    check(disk.reference[0] > 0.0 && disk.reference[1] > 0.0 && disk.reference[2] > 0.0,
+          "the disk has a reference brightness in each view");
+    std::string error;
+    Scene bad;
+    const std::string base = "name = \"x\"\n[view]\nfocus = \"S\"\n[[bodies]]\nname = \"S\"\nkind = \"star\"\nradii_km = [1000.0]\n"
+                             "temperature_k = 5000.0\nluminosity_solar = 1.0\n[bodies.orbit]\ntype = \"fixed\"\nra_dec_distance_pc = [0.0, 0.0, 0.0]\n";
+    check(!load_scene_string(base + "[disk]\ncenter = \"S\"\n", "bad_disk", bad, &error), "rejects a disk with no sizes");
+}
+
 void test_eta_carinae_scene()
 {
     Scene scene = load_scene_or_die("eta_carinae.toml");
@@ -2290,6 +2542,7 @@ void test_eta_carinae_scene()
 void run_stellar_system_tests()
 {
     test_alpha_centauri_scene();
+    test_beta_pictoris_scene();
     test_trappist1_scene();
     test_kepler223_scene();
     test_kepler47_scene();

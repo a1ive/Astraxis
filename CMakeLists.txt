@@ -61,6 +61,8 @@ add_library(astraxis_sim STATIC
     src/scene/refraction.hpp
     src/scene/corona.cpp
     src/scene/corona.hpp
+    src/scene/disk.cpp
+    src/scene/disk.hpp
     src/scene/aurora.cpp
     src/scene/aurora_model.cpp
     src/scene/jovian_aurora.cpp
@@ -121,6 +123,8 @@ astraxis_add_shaders(astraxis_shaders
     shaders/atmosphere.frag.hlsl
     shaders/corona.frag.hlsl
     shaders/corona_composite.frag.hlsl
+    shaders/disk.frag.hlsl
+    shaders/disk_composite.frag.hlsl
     shaders/aurora.frag.hlsl
     shaders/beam.vert.hlsl
     shaders/beam.frag.hlsl
@@ -183,6 +187,9 @@ add_executable(astraxis
     src/render/corona_pass.cpp
     src/render/corona_pass.hpp
     src/render/corona_uniforms.hpp
+    src/render/disk_pass.cpp
+    src/render/disk_pass.hpp
+    src/render/disk_uniforms.hpp
     src/render/aurora_pass.cpp
     src/render/aurora_pass.hpp
     src/render/beam_pass.cpp

@@ -92,6 +92,9 @@ struct Nebula {
     double display_gamma = 0.5;
     std::vector<NebulaLayer> infrared;
     double temperature_index = 0.4;
+    // Only ever seen in the thermal infrared (dust too thin to see in scattered
+    // light: beta Pictoris' cat's tail).
+    bool infrared_only = false;
     std::vector<NebulaGrain> grains;
 
     bool enabled() const { return center >= 0 && !grains.empty(); }

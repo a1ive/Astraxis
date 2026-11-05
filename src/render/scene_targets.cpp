@@ -75,6 +75,8 @@ void SceneTargets::release()
     nebula = {};
     SDL_ReleaseGPUTexture(m_device, corona.color);
     corona = {};
+    SDL_ReleaseGPUTexture(m_device, disk.color);
+    disk = {};
     m_device = nullptr;
 }
 

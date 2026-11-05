@@ -1,0 +1,426 @@
+# Beta Pictoris: a young A star 19.44 pc away, with the first debris disk ever
+# imaged (Smith & Terrile 1984) seen almost edge-on and two giant planets inside
+# it, b at ~10 au and c at 2.7 au.
+#
+# The planets are nested two-body orbits (Jacobi coordinates, as fitted in
+# [LA21]); their pull on each other is ignored. The disk is a model
+# (scene/disk.hpp): axisymmetric, optically thin, fitted to published profiles.
+# The "cat's tail" is a burst of dust integrated under gravity and radiation
+# pressure when the scene loads.
+#
+# [LA21] Lacour et al. 2021, A&A 654, L2 (arXiv:2109.10671). Table 2, the fit
+#        "RV + b and c astrometry": b a = 9.93 au, e = 0.103, i = 89.00, omega =
+#        199.3, Omega = 31.79, tau = 0.719; c a = 2.68 au, e = 0.32, i = 88.95,
+#        omega = 66.0, Omega = 31.06, tau = 0.724; tau in periods after MJD 59000;
+#        parallax 51.44 mas; M_star = 1.75 M_sun, M_b = 11.90, M_c = 8.89 M_Jup.
+#        Sect. 3: b's orbit around star + c, c's around the star. Table 1: GRAVITY
+#        positions (tests). The fit's omega is the planet's.
+# [ZW19] Zwintz et al. 2019, A&A 627, A28 (arXiv:1905.12545), Table 5: R = 1.538
+#        R_sun from the angular diameter and parallax, L = 8.62 L_sun, T = 8090 K
+#        (their fit). It rotates at 27% of breakup; drawn as a sphere.
+# [KE21] Kenworthy et al. 2021, A&A 648, A15 (arXiv:2102.05672): R_b = 1.46 R_Jup
+#        (Chilcote et al. 2017, its Table 1); Sect. 2, the Hill sphere transit:
+#        ingress 2017 Apr 11, closest (0.11 au, 9% of the Hill sphere) Sep 13,
+#        egress 2018 Feb 16, 311 days; the result: no event like that of November
+#        1981, which was not b's circumplanetary disk; under 1.8e22 g of dust.
+# [MA19] Matra et al. 2019, AJ 157, 135 (arXiv:1902.04081), Table 1, Model 2:
+#        1.33 mm belt rc = 107.5 au, sigma = 36.7, h = 0.014, h2 = 0.110, a = 0.20
+#        (Eq. 2: the narrow Gaussian's share of the mass; the table's note calls it
+#        a ratio of peaks instead, which would double the wide part's column),
+#        i = 88.6, PA = 29.7; Sect. 5.1: RMS inclinations 1.1 and 8.9 deg.
+#        Also the PA 29.3 of the main disk in scattered light (Lagrange et al. 2012).
+# [GO06] Golimowski et al. 2006, AJ 131, 3109 (arXiv:astro-ph/0602292). Table 3,
+#        the spine's power laws (see the fit below). Table 2, the secondary disk's
+#        spine +5.9 and -4.7 deg from the main disk's, Table 4 its power law; Sect.
+#        3.2.2, 1.5 mag arcsec^-2 fainter at 100 au. Sect. 3.1.2: FWHM 11-13 au and
+#        full width at a tenth of the maximum 50-60 au within 120 au, growing about
+#        linearly beyond. Sect. 3.3: colors 0.1 (B-V) and 0.2 mag (B-I) redder than
+#        the star. Extent (with [ZI19], citing Larwood & Kalas 2001): 1450-1835 au.
+# [AP15] Apai et al. 2015, ApJ 800, 136 (arXiv:1501.03181): the slope continues to
+#        0.5 arcsec; forward scattering in a not quite edge-on disk bows the spine,
+#        the inner disk lying NW of the line through the wings (near side NW).
+# [RE24] Rebollido et al. 2024, AJ 167, 69 (arXiv:2401.05271). JWST, MIRI 2022 Dec
+#        13. Table 2: the secondary disk 5-6 deg from the main one, the cat's tail
+#        45 deg (120-190 au) and 21 deg (190-230 au); Sect. 3.2: it runs from 125 to
+#        265 au, not seen with NIRCam, HST or ALMA. Sect. 5.2, the model used here:
+#        a parent at 85 au on the far side within ~5 deg of the secondary disk's
+#        minor axis, 0.5 < beta < 10, dN/ds ~ s^-3.8, 150 years old; a plane 6 deg
+#        from edge-on and 2.5 deg in PA from the main disk, near and far sides
+#        swapped so that it orbits like the CO gas; dust near 100 K. Their ISM drag,
+#        which makes the crook near the tip, is left out.
+# [DE14] Dent et al. 2014, Science 343, 1490 (arXiv:1404.1380): dust at 85 K.
+# [HS15] Hedman & Stark 2015, ApJ 811, 67 (arXiv:1508.00261), Table 7: three
+#        Henyey-Greenstein functions fitted to Saturn's G ring.
+# [ZI19] Zieba et al. 2019, A&A 625, L13 (arXiv:1903.11071).
+# [HYG]  assets/stars/hyg.csv (HIP 27321): RA, Dec, 19.44 pc (51.44 mas).
+#
+# [CAP]  Event captions: from the sources above, and Las Campanas for Smith &
+#        Terrile's telescope.
+#
+# Derived: GM = mass * GM_sun (1.32712440041279419e11, JPL DE440), or mass * GM_Jup
+# (126686531.9, JUP365). P_b = 23.52 yr, P_c = 3.309 yr by Kepler's third law;
+# t_peri = MJD 59000 + tau * P. Assumed: R_c = 1.2 R_Jup; the planets' colors.
+#
+# The disk's scattered light: tools/betapic/fit_disk.py finds the columns whose
+# line-of-sight integrals show [GO06]'s power laws through [HS15]'s phase function
+# (tests measure them again with scene/disk.cpp). The tilt of b's orbit (i < 90)
+# puts its near side NW, as [AP15] finds for the disk, so the main disk has the same
+# sense; the secondary disk's is the other way [RE24]. Its spine [GO06], [RE24], not
+# [RE24]'s model's 2.5 deg: their synthetic disk is eccentric, this one a circle.
+# Vertical shapes fitted by eye to [GO06]'s two widths; the secondary disk's sigma
+# is assumed the same as the main disk's narrow part. Inside ~40 au nothing
+# constrains the column except the spine's slope. Its asymmetries (SW brighter at
+# 50-100 au, the bow of the SW wing, the clumps) are left out.
+# The infrared and millimeter lights are false color: temperatures T = 85 K at 85 au
+# [DE14], 100 K at 100 au [RE24], r^-1/2; how bright the secondary disk is in the
+# infrared relative to the main one is set by eye to [RE24] Fig. 1.
+#
+# Checks (tests/stellar_system_tests.cpp): the planets against [LA21]'s GRAVITY
+# positions, the periods, the Hill sphere transit [KE21], the spine's slopes and
+# widths [GO06], the tilt of the secondary disk [GO06], which side is near [AP15],
+# the millimeter belt's vertical widths [MA19], and the cat's tail [RE24].
+
+name = "Beta Pictoris"
+
+[sky]
+viewer_ra_dec_distance_pc = [86.82118, -51.06651, 19.44]   # [HYG]
+hide_hip = [27321]
+
+[view]
+focus = "Beta Pic"
+distance_km = 9.0e10           # 600 au: the disk across the screen
+start = "now"
+warp = 15778800.0              # half a year per second: b's orbit in 47 s
+up = "orbit_normal:Beta Pic b"
+pitch_deg = 8.0
+
+[disk]
+center = "Beta Pic"
+sky_ra_dec_deg = [86.82118, -51.06651]
+inner_au = 5.0
+outer_au = 2000.0              # [GO06], [ZI19]
+extent_au = 300.0
+phase_g = [0.995, 0.665, 0.035] # [HS15]
+phase_w = [0.643, 0.176, 0.181]
+display_reference_au = 115.0   # where [GO06]'s spine bends
+display_gamma = 0.65           # by eye: the line stays thin, its outer wings still show
+display_adapt_au = 700.0       # the dust dims as the camera goes inside it, by eye
+
+[[disk.components]]
+name = "Main disk"
+node_deg = 29.3                # [MA19]
+i_deg = 88.6                   # [MA19]
+sigma_au = 3.2                 # with the wide part: FWHM 13 au, [GO06]
+sigma2_au = 16.0
+share2 = 0.42
+flare_radius_au = 120.0        # [GO06]
+color = "#f6f2f4"              # the star's, as much redder as [GO06]
+scattered = 1.0
+infrared = 1.0
+temperature_k = 85.0           # [DE14]
+temperature_radius_au = 85.0
+temperature_index = 0.5
+# tools/betapic/fit_disk.py
+radial_au = [5, 5.83, 6.798, 7.927, 9.244, 10.78, 12.57, 14.66, 17.09, 19.93, 23.24, 27.09, 31.59, 36.84, 42.96, 50.09, 58.41, 68.11, 79.42, 92.61, 108, 125.9, 146.8, 171.2, 199.6, 232.8, 271.4, 316.5, 369.1, 430.4, 501.8, 585.2, 682.3, 795.6, 927.8, 1082, 1261, 1471, 1715, 2000]
+column = [1e-30, 0.01585, 0.06325, 0.129, 0.1854, 0.1908, 0.1832, 0.1759, 0.1689, 0.1627, 0.2399, 0.2994, 0.3332, 0.3418, 0.3292, 0.3119, 0.3004, 0.4654, 0.4719, 0.6002, 0.7038, 0.9059, 0.576, 0.3723, 0.2353, 0.1738, 0.1307, 0.1002, 0.07803, 0.06087, 0.04636, 0.0351, 0.02663, 0.02028, 0.0156, 0.01195, 0.009271, 0.01031, 0.004516, 1e-30]
+
+[[disk.components]]
+name = "Secondary disk"
+node_deg = 34.6                # 5.3 deg from the main disk [GO06], [RE24]
+i_deg = 96.0                   # 6 deg from edge-on, the other way [RE24]
+sigma_au = 3.2
+flare_radius_au = 120.0
+color = "#f6f2f4"
+scattered = 0.2457             # tools/betapic/fit_disk.py: 1.5 mag fainter at 100 au [GO06]
+infrared = 0.8
+temperature_k = 100.0          # [RE24]
+temperature_radius_au = 100.0
+temperature_index = 0.5
+# tools/betapic/fit_disk.py
+radial_au = [5, 6.108, 7.462, 9.117, 11.14, 13.61, 16.62, 20.31, 24.81, 30.31, 37.03, 45.24, 55.26, 67.52, 82.48, 100.8, 123.1, 150.4, 183.7, 224.5, 274.2, 335, 409.3, 500]
+column = [1e-30, 0.05734, 0.2121, 0.3772, 0.3916, 0.3714, 0.3522, 0.3273, 0.2679, 0.2851, 0.3939, 0.6462, 1.064, 1.552, 2.139, 1.365, 0.8521, 0.5393, 0.3445, 0.2214, 0.1417, 0.09282, 0.03978, 1e-30]
+
+# The large grains: their parent bodies' belt, in two inclination populations.
+[[disk.components]]
+name = "Planetesimal belt"
+node_deg = 29.7                # [MA19]
+i_deg = 88.6
+ring_center_au = 107.5         # [MA19]
+ring_sigma_au = 36.7
+# h r and h2 r at 107.5 au; the flare radius below that makes them grow as r.
+sigma_au = 1.505
+sigma2_au = 11.83
+share2 = 0.8                   # 1 - a [MA19] Eq. 2
+flare_radius_au = 107.5
+millimeter = 1.0
+temperature_k = 85.0           # [DE14]
+temperature_radius_au = 85.0
+temperature_index = 0.5
+
+# The cat's tail, in the mid-infrared only [RE24]. It expands from the star here
+# rather than from its parent, which matters only far from the JWST epoch.
+[[nebulae]]
+name = "Cat's tail"
+center = "Beta Pic"
+ejection_time = "1873-01-01"   # 150 years before 2023 [RE24]
+reference_time = "2023-01-01"
+infrared_only = true
+light = "emission"
+wall_sigma_au = 3.0            # the tail's measured half width, 3 MIRI pixels [RE24]
+color = "#ffffff"
+display_reference_au = 150.0
+display_gamma = 0.5
+grains = 3000
+temperature_index = 0.33       # small grains
+[[nebulae.infrared]]
+radius_share = 1.0
+wall_sigma_au = 3.0
+column = 0.0015                # set by eye: about as bright as the disk beside it, [RE24] Fig. 1
+temperature_k = 100.0          # [RE24]
+[nebulae.stream]
+gm_km3_s2 = 2.32246770e11      # the star [LA21]
+sky_ra_dec_deg = [86.82118, -51.06651]
+radius_au = 85.0               # [RE24]
+argument_deg = 85.0            # the far side, 5 deg to the NE of the minor axis [RE24]
+node_deg = 31.8                # the main disk's PA + 2.5 deg [RE24]
+i_deg = 96.0                   # 6 deg from edge-on, near and far sides swapped [RE24]
+beta_lo = 0.5
+beta_hi = 10.0
+kick_share = 0.015             # assumed: makes the stream as wide as it looks
+# The grains pile up toward the tip, where high beta changes the place little; this
+# makes the tail fade toward it instead, as [RE24] Sect. 5.2 measures.
+weight_index = 1.0
+patch_sigma_au = 3.0
+
+# Jacobi coordinates [LA21]: b around the star and c's center of mass, c around
+# the star. The system's center of mass does not move.
+[[bodies]]
+name = "Beta Pic system"
+kind = "barycenter"
+
+[[bodies]]
+name = "Beta Pic A+c"
+parent = "Beta Pic system"
+kind = "barycenter"
+trail = "none"
+[bodies.orbit]
+scale = -0.00641845192         # -M_b / M
+type = "visual_orbit"
+gm_km3_s2 = 2.3488058307e11    # M_star + M_b + M_c
+a_au = 9.93
+e = 0.103
+i_deg = 89.00
+node_deg = 31.79
+arg_peri_deg = 199.3
+t_peri_jd_tdb = 2465177.583    # MJD 59000 + 0.719 P
+sky_ra_dec_deg = [86.82118, -51.06651]
+
+[[bodies]]
+name = "Beta Pic b"
+parent = "Beta Pic system"
+radii_km = [104378.0]          # 1.46 R_Jup [KE21]
+body_gm_km3_s2 = 1507569730.0  # 11.90 M_Jup [LA21]
+color = "#d9a57e"              # artistic (a 1,700 K giant, glowing)
+orbit_color = "#ffc28a"
+[bodies.orbit]
+scale = 0.993581548            # (M_star + M_c) / M
+type = "visual_orbit"
+gm_km3_s2 = 2.3488058307e11
+a_au = 9.93
+e = 0.103
+i_deg = 89.00
+node_deg = 31.79
+arg_peri_deg = 199.3
+t_peri_jd_tdb = 2465177.583
+sky_ra_dec_deg = [86.82118, -51.06651]
+
+[[bodies]]
+name = "Beta Pic"
+parent = "Beta Pic A+c"
+kind = "star"
+radii_km = [1069987.0]         # 1.538 R_sun [ZW19]
+body_gm_km3_s2 = 2.32246770e11 # 1.75 M_sun [LA21]
+temperature_k = 8090.0         # [ZW19]
+luminosity_solar = 8.62        # [ZW19]
+trail = "none"
+[bodies.orbit]
+scale = -0.00482593618         # -M_c / (M_star + M_c)
+type = "visual_orbit"
+gm_km3_s2 = 2.3337301334e11    # M_star + M_c
+a_au = 2.68
+e = 0.32
+i_deg = 88.95
+node_deg = 31.06
+arg_peri_deg = 66.0
+t_peri_jd_tdb = 2459875.423    # MJD 59000 + 0.724 P
+sky_ra_dec_deg = [86.82118, -51.06651]
+
+[[bodies]]
+name = "Beta Pic c"
+parent = "Beta Pic A+c"
+radii_km = [85790.0]           # 1.2 R_Jup, assumed
+body_gm_km3_s2 = 1126243270.0  # 8.89 M_Jup [LA21]
+color = "#c9a58a"              # artistic
+orbit_color = "#ffd9a8"
+[bodies.orbit]
+scale = 0.995174064            # M_star / (M_star + M_c)
+type = "visual_orbit"
+gm_km3_s2 = 2.3337301334e11
+a_au = 2.68
+e = 0.32
+i_deg = 88.95
+node_deg = 31.06
+arg_peri_deg = 66.0
+t_peri_jd_tdb = 2459875.423
+sky_ra_dec_deg = [86.82118, -51.06651]
+
+[[bodies]]
+name = "Sun"
+template = "bodies/sun.toml"
+parent = "Beta Pic system"
+trail = "none"
+[bodies.orbit]                 # opposite direction of the system as seen from the Sun
+type = "fixed"
+ra_dec_distance_pc = [266.82118, 51.06651, 19.44]
+
+# The disk lying across the screen, as in [GO06]'s and [RE24]'s images: NE to the
+# left, NW up (the orbit's normal points to the SE on the sky).
+[[frames]]
+name = "Beta Pic, disk level"
+type = "inertial"
+origin = "Beta Pic"
+up = "-orbit_normal:Beta Pic b"
+
+[[events]]
+name = "The first disk ever seen"
+time = "1984-04-15"
+focus = "Beta Pic"
+frame = "Beta Pic, disk level"
+from_earth = true
+distance_km = 1.0e11           # 670 au
+warp = 15778800.0
+# [RE24], [GO06], [ZI19]
+caption = """\
+    In 1984 a coronagraph at Las Campanas blocked this star's light and showed a \
+    thin line of dust on either side of it: the first disk ever imaged around \
+    another star. We see it almost exactly edge-on, reaching nearly 2,000 au. The \
+    dust is the debris of colliding bodies, and the star is only about 20 million \
+    years old. Here the dust is brightened by many orders of magnitude."""
+
+[[events]]
+name = "A second disk"
+time = "2003-10-01"
+focus = "Beta Pic"
+frame = "Beta Pic, disk level"
+observer = "Beta Pic system"
+observer_offset_km = [-31278480611.1, -563191924924.9, 698211527688.5]   # 6000 au toward Earth: lines of sight almost parallel, as from Earth
+fov_deg = 1.6                  # 145 au to each side
+warp = 7889400.0
+# [GO06], [RE24]
+caption = """\
+    Hubble's images show that the inner disk is really two: a second, fainter disk \
+    tilted about 5 degrees from the main one, its wings leaving the main disk on \
+    opposite sides. It is a quarter of the main disk's brightness at 100 au. Two \
+    planes of dust so close together have not settled into one; something keeps \
+    them apart, perhaps the planets, perhaps recent collisions."""
+
+[[events]]
+name = "Seen from above"
+time = "2008-01-01"
+focus = "Beta Pic"
+frame = "Beta Pic, disk level"
+from_orbit_normal = "Beta Pic b"
+distance_km = 8.0e10           # 530 au
+warp = 15778800.0
+# [GO06], [HS15]
+caption = """\
+    No telescope has this view: it is a model made to look right from Earth. Light \
+    from a line of sight along the edge-on disk sums dust at many distances, so \
+    the disk's face can be worked out only by assuming it is the same all the way \
+    round. The real one has clumps and a brighter side that are left out here. \
+    Dust grains scatter most of their light forward, away from the star."""
+
+[[events]]
+name = "A planet in the disk"
+time = "2009-11-01"
+focus = "Beta Pic"
+frame = "Beta Pic, disk level"
+from_orbit_normal = "Beta Pic b"
+distance_km = 7.0e9            # 47 au
+warp = 15778800.0
+# [RE24], [LA21]
+caption = """\
+    The Very Large Telescope found a planet in the inner disk: Beta Pictoris b, \
+    about 12 times the mass of Jupiter, 10 au from the star and taking 23.5 years \
+    per orbit. It glows at 1,700 K with the heat of its formation. A warp in the \
+    inner disk had already led astronomers to expect a companion here. This view \
+    is at the scale of the planets' orbits; the dust is dimmed to show them."""
+
+[[events]]
+name = "Passing in front"
+time = "2017-09-13"
+focus = "Beta Pic b"
+frame = "Beta Pic, disk level"
+from_earth = true
+distance_km = 4.5e8            # 3 au
+warp = 172800.0                # two days per second
+hide_orbits = true             # edge-on, they would only cross the view
+# [KE21]
+caption = """\
+    In 1981 this star dimmed by up to 4 percent for several days. Was that a ring \
+    system or a disk around the planet? Between April 2017 and February 2018 the \
+    region the planet's gravity holds passed in front of the star, with the planet \
+    itself only 0.11 au from it on the sky. Telescopes built for the occasion \
+    watched throughout and saw nothing like 1981: no more dust than one large asteroid."""
+
+[[events]]
+name = "The belt behind the dust"
+time = "2018-06-01"
+focus = "Beta Pic"
+frame = "Beta Pic, disk level"
+observer = "Beta Pic system"
+observer_offset_km = [-31278480611.1, -563191924924.9, 698211527688.5]   # 6000 au toward Earth: lines of sight almost parallel, as from Earth
+fov_deg = 2.2                  # 200 au to each side
+warp = 7889400.0
+disk_millimeter = true
+# [MA19]
+caption = """\
+    At millimeter wavelengths ALMA sees large grains that stay near the bodies they \
+    came from, shown here in false color. They make a belt at 105 au, and its \
+    thickness needs two populations, as in the Kuiper belt: a cold one with \
+    inclinations around 1 degree and a hot one around 9. Nothing yet known in the \
+    system stirs the belt enough to explain the hot one."""
+
+[[events]]
+name = "A second planet"
+time = "2020-02-10"            # [LA21]'s first detection of c
+focus = "Beta Pic"
+frame = "Beta Pic, disk level"
+from_orbit_normal = "Beta Pic b"
+distance_km = 2.0e9            # 13 au
+warp = 2629800.0               # a month per second
+# [RE24], [LA21]
+caption = """\
+    Radial velocities first revealed a second planet, c, whose light GRAVITY then \
+    picked out at the Very Large Telescope Interferometer. It is about 9 Jupiter \
+    masses and only 2.7 au out, on an elongated orbit of 3.3 years. Its pull shows \
+    in the motion of b as well: fitted with b's positions alone, the orbit still \
+    calls for a second planet."""
+
+[[events]]
+name = "A cat's tail"
+time = "2022-12-13"            # [RE24]'s MIRI images
+focus = "Beta Pic"
+frame = "Beta Pic, disk level"
+observer = "Beta Pic system"
+observer_offset_km = [-31278480611.1, -563191924924.9, 698211527688.5]   # 6000 au toward Earth: lines of sight almost parallel, as from Earth
+fov_deg = 3.0                  # 280 au to each side
+warp = 7889400.0
+nebula_infrared = true
+# [RE24]
+caption = """\
+    JWST's mid-infrared images in false color show the secondary disk and, on one \
+    side, a feature no one had seen: a curved tail rising away from the disk. It \
+    may be dust from a collision about 150 years ago, on the far side of the disk, \
+    swept out by the star's light; the smallest grains have gone furthest. The bend \
+    at its tip, perhaps from interstellar gas, is left out of this model."""
