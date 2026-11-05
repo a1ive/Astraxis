@@ -52,6 +52,7 @@ struct BodyDrawItem {
     SDL_GPUTexture* night_lights = nullptr;
     glm::vec3 night_lights_color{1.0f};
     float night_lights_gain = 0.0f;
+    float surface_gain = 1.0f; // scale of the reflected light (a view in another band)
 };
 
 struct SunLight {

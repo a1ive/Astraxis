@@ -18,7 +18,7 @@ static const float kNoiseCells = 32.0; // lattice cells across the noise tile
 #define PATTERN_JOVIAN_OVAL 1
 #define PATTERN_JOVIAN_FOOTPRINTS 2
 #define PATTERN_SATURN_OVAL 3
-#define PATTERN_GANYMEDE_MAP 4
+#define PATTERN_BODY_MAP 4
 #define PATTERN_UNIFORM 5
 #define PATTERN_EUROPA_TRAILING 6
 #define PATTERN_IO_FLANKS 7
@@ -27,13 +27,14 @@ static const float kNoiseCells = 32.0; // lattice cells across the noise tile
 #define VERTICAL_EXPONENTIAL 2
 #define VERTICAL_GAUSSIAN 3
 #define VERTICAL_UNIFORM_COLUMN 4
+#define VERTICAL_TABLE 5
 #define LIGHTING_ALWAYS 0
 #define LIGHTING_NIGHT_SIDE 1
 #define LIGHTING_NIGHT_OR_ECLIPSED 2
 
 FRAGMENT_TEXTURE(Texture2D, u_noise, u_noise_sampler, 0); // four independent value noises (rgba), tiling
 FRAGMENT_TEXTURE(Texture2D, u_ring, u_ring_sampler, 1);
-FRAGMENT_TEXTURE(Texture2D, u_ganymede, u_ganymede_sampler, 2);
+FRAGMENT_TEXTURE(Texture2D, u_map, u_map_sampler, 2);
 
 cbuffer Uniforms : register(b0, space3)
 {
@@ -54,6 +55,7 @@ cbuffer Uniforms : register(b0, space3)
     float4 u_south_east;
     float4 u_jovian_oval[128]; // two samples each: xy, zw = north, south planetocentric angular radius
     float4 u_footprints[6]; // physical unit direction, illustrative display gain
+    float4 u_table[4]; // AuroraProfile::table, four per vector
     float4 u_ring_radii; // inner/outer km (zero disables ring attenuation)
 };
 
@@ -168,13 +170,16 @@ float saturn_pattern(float3 n, float footprint_km)
     return band * (10.0 + (n.z < 0.0 ? 50.0 : 30.0) * oval.w) / 40.0;
 }
 
-// Marzok 2022 Fig. 5: west longitude, south-to-north rows, cell centers.
-float ganymede_pattern(float3 n, float footprint_km)
+// AuroraMap: west longitude, south-to-north rows, cell centers.
+float map_pattern(float3 n, float footprint_km)
 {
+    n = normalize(n * float3(1.0, 1.0, u_shell.z));
     float2 uv = float2(-atan2(n.y, n.x) / (2.0 * kPi), asin(clamp(n.z, -1.0, 1.0)) / kPi + 0.5);
-    float cell_km = u_pole.w * (kPi / 40.0);
+    float width, height;
+    u_map.GetDimensions(width, height);
+    float cell_km = u_pole.w * (kPi / height);
     float lod = max(0.0, log2(max(footprint_km / cell_km, 1.0)));
-    return u_ganymede.SampleLevel(u_ganymede_sampler, uv, lod).r * u_params.z;
+    return u_map.SampleLevel(u_map_sampler, uv, lod).r * u_params.z;
 }
 
 // Earth's aurora, relative to the oval's mean flux: the auroral oval between
@@ -247,11 +252,22 @@ float aurora_pattern(float3 n, float footprint_km)
     case PATTERN_JOVIAN_OVAL: return jovian_pattern(n, footprint_km);
     case PATTERN_JOVIAN_FOOTPRINTS: return footprints_pattern(n, footprint_km);
     case PATTERN_SATURN_OVAL: return saturn_pattern(n, footprint_km);
-    case PATTERN_GANYMEDE_MAP: return ganymede_pattern(n, footprint_km);
+    case PATTERN_BODY_MAP: return map_pattern(n, footprint_km);
     case PATTERN_EUROPA_TRAILING: return 1.0 + 0.5 * n.y;
     case PATTERN_IO_FLANKS: return 1.0 + 0.75 * (n.y * n.y - n.z * n.z);
     default: return 1.0; // PATTERN_UNIFORM
     }
+}
+
+// AuroraProfile::table at height h (km).
+float table_layer(float h)
+{
+    float x = (h - u_layers.x) / u_layers.y;
+    if (x <= 0.0 || x >= 15.0) return 0.0;
+    int k = (int)floor(x);
+    float a = u_table[k / 4][k % 4];
+    float b = u_table[(k + 1) / 4][(k + 1) % 4];
+    return lerp(a, b, frac(x));
 }
 
 float exponential_layer(float h, float scale, float top)
@@ -285,6 +301,8 @@ float3 layer_emission(float h, float pattern)
         float z = (h - u_layers.x) / u_layers.y;
         return u_low.rgb * (pattern * exp(-0.5 * z * z) * step(u_layers.z, h) * step(h, u_layers.w));
     }
+    case VERTICAL_TABLE:
+        return u_low.rgb * (pattern * table_layer(h));
     default: // VERTICAL_UNIFORM_COLUMN: Ganymede's published zenith correction uses a uniform column.
         return u_low.rgb * (pattern / u_layers.x);
     }

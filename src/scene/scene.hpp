@@ -558,6 +558,7 @@ struct SceneEvent {
     bool nebula_infrared = false;
     bool aurora_visible = false; // visible aurora while the event is active
     bool aurora_ultraviolet = false; // UV false-color overlay on the visible planet
+    bool aurora_infrared = false; // IR false-color overlay on the visible planet
     int flyby = -1;             // >= 0: the body whose pass of the focus the event shows (-1: looked for)
     std::string caption;        // a museum-style note on why the view is worth seeing; may be empty
 

@@ -179,6 +179,37 @@ Callisto 来源为 de Kleer et al. (2023), doi:10.3847/PSJ/acb53c，[论文](htt
 CVRL 下载不可用时，本次从 Colour 的 `DATA_CMFS_STANDARD_OBSERVER["CIE 1931 2 Degree Standard Observer"]` 提取 1 nm 网格，写成 `wavelength,x,y,z` CSV 后输入原脚本。固定来源：[cmfs.py](https://github.com/colour-science/colour/blob/9072a98d04e048fe0ea2b1e3aa8429d6e95d37b6/colour/colorimetry/datasets/cmfs.py)，该文件 SHA-256 为 `a53076b9e6be4843443067986c925898d40a3c32c4eef9cb32ff08ca42e6493d`。Colour 为 BSD-3-Clause，声明见 `tools/geomag/Colour-LICENSE.txt`。不分发完整配色表、论文或图像，只保留计算后的常数和测量事实；不将论文素材声明为公有领域。
 
 
+## 天王星与海王星的红外 H₃⁺
+
+`uranus_h3p.txt`、`neptune_h3p.txt` 由 `tools/geomag/ice_giant_h3p_bake.py` 从下面的公开数据烘焙。太阳系场景的两个事件用 `aurora_infrared = true` 开启，也可以在 `Planetary aurora` 选 `UV/IR false color`。都是伪彩色，固定在本体上，不是实时模型。
+
+天王星，CC BY 4.0：
+
+- Melin et al. 2025, GRL 52, e2025GL118301（JWST GTO 1248，2023-01-08/09），[Zenodo 16085710](https://doi.org/10.5281/zenodo.16085710) 的 `uranus_superim_fits_2.5.fits.zip`：第 5 片是 H₃⁺ 总发射（W m⁻² sr⁻¹），2.5° 网格，已做视线修正，投影时去掉了黄昏亮区。列是 ULS 西经，行由南向北（IAU 意义，受照、被观测的极是 IAU 北、ULS 南）：图上约 60°、217°W 的暗斑和紧邻的亮区对应论文的“南极光和它极向旁边的暗斑”。约 5°N 以南的格子掉向边缘，噪声也大。
+- Tiranti et al. 2026, GRL 53, e2025GL119304（JWST GO 5073，2025-01-19），[Zenodo 17036023](https://doi.org/10.5281/zenodo.17036023) 的 `results_lon_*.fits`：36 个经度、350 km 一格的 H₃⁺ 总发射（只在 ±25° 纬度的临边）。5025 km 以上论文说不可靠。文件里的数值和 Melin 的柱亮度差约 70 倍（见 CLAUDE.md），只用形状。
+- Lamy et al. 2025, Nature Astronomy 9（doi:10.1038/s41550-025-02492-z）：自转周期 17.247864 ± 0.000010 h，`W = 203.81 − 500.9315936164617 d`（Zenodo 16085710 的 `uranus_lamy_IAU_new_lon.tpc`），写在场景里替换 IAU 的 −501.1600928。Melin 表 1 的 12 个中央经线在 1° 以内对上。
+
+处理：先按距离平滑（σ ≈ 3°，约等于 1400 km 的空间分辨率，经度方向按 cos 纬度放宽，否则极区的投影台阶抹不掉）；2–18°N 过渡到 Tiranti 的临边经度曲线，按 15–35°N 的中位数定标（两者的经度曲线相关系数 0.73，低谷都在 195°W 附近）；35–25°S 淡到零，再往南没有观测，不发光。转到场景的本体系（`IAUnew 东经 = ULS 西经 − 50.6`）。高度表是 36 个经度的平均，上下各加一格零，归一成每 km 的柱份额。475 km 以下没有观测，线性降到 125 km 为零（均质层顶在 240–296 km）；顶部的零只是不让壳层有硬边。
+
+海王星，论文和图的数值 CC BY 4.0（Melin et al. 2025, Nature Astronomy 9, 666），代码和 `figure_data` 在 [neptune-h3p](https://github.com/henrikmelin/neptune-h3p)（GPL-3.0，提交 `7c1c2b8`）：
+
+- JWST GTO 1249，2023-06-22，两个视角（中央经线 131.0°W、303.2°W，时刻 06:20:54、14:01:13 UT）。`figure2c/d` 是每个像素的 H₃⁺ 辐射亮度，`figure2a/b` 里 3 μm 超过 20 μW m⁻² sr⁻¹ μm⁻¹ 的是云，`figure4_*` 是完全在盘内的像素的四角经纬度（跨 0° 经线的减过 3600°）。
+- 单个像素信噪比约 3，不直接用。拟合每个视角一个平面的底光（晨昏渐变）加一个高斯亮区，得到中心 255°W、50°S，σ 12°（纬度）、34°（经度），峰值是底光的 1.64 倍；论文的范围是 60–30°S、200–280°W，约 2 倍，柱密度 1.7 倍。两个视角约束不住经向宽度（放开会到 60°），所以上限取论文的 80°。
+- 图上只有底光和亮区：晨昏渐变随太阳固定，不放进本体图。经度差 −25.08° 是观测时刻（减光行时）场景的中央经线和 303.2°W 之差，`test_ice_giant_aurora` 打印；重烘时作为工具的第 2 个参数。
+
+高度剖面没有观测，1500 km、标高 700 km 的 Chapman 层是假设（论文说模型预期在 1000 km 以上）。曝光、琥珀色和把行星反射光压到 3% 都只是显示选择。
+
+下载和烘焙（放在 `build/`，不入库）：
+
+```
+mkdir -p build/h3p/lon build/h3p/nep
+curl -L -o build/h3p/uranus_fits.zip https://zenodo.org/api/records/16085710/files/uranus_superim_fits_2.5.fits.zip/content
+for l in $(seq 5 10 355); do curl -L -o build/h3p/lon/results_lon_$l.fits https://zenodo.org/api/records/17036023/files/results_lon_$l.fits/content; done
+for f in figure2a_neptune_longitude1_clouds figure2b_neptune_longitude2_clouds figure2c_neptune_longitude1_h3p figure2d_neptune_longitude2_h3p figure4_coords_longitude1 figure4_coords_longitude2 figure4_polygons_longitude1 figure4_polygons_longitude2; do curl -L -o build/h3p/nep/$f.fits https://raw.githubusercontent.com/henrikmelin/neptune-h3p/7c1c2b80ee04e411d35a7ceaa7cd56bef5e5cb85/figure_data/$f.fits; done
+python -E -P tools/geomag/ice_giant_h3p_bake.py uranus build/h3p/uranus_fits.zip build/h3p/lon assets/geomag/uranus_h3p.txt
+python -E -P tools/geomag/ice_giant_h3p_bake.py neptune build/h3p/nep -25.08 assets/geomag/neptune_h3p.txt
+```
+
 ## Mars visible diffuse aurora
 
 Enable with `[aurora] mars_visible = true` in the Mars body template. The Mars

@@ -1104,7 +1104,9 @@ void test_aurora_profiles()
         {Model::Jupiter, true, Pattern::JovianOval, Vertical::ChapmanPair, Lighting::Always},
         {Model::Saturn, true, Pattern::SaturnOval, Vertical::ChapmanPair, Lighting::Always},
         {Model::Saturn, false, Pattern::SaturnOval, Vertical::ChapmanPair, Lighting::NightSide},
-        {Model::Ganymede, true, Pattern::GanymedeMap, Vertical::UniformColumn, Lighting::Always},
+        {Model::Ganymede, true, Pattern::BodyMap, Vertical::UniformColumn, Lighting::Always},
+        {Model::Uranus, false, Pattern::BodyMap, Vertical::Table, Lighting::Always},
+        {Model::Neptune, false, Pattern::BodyMap, Vertical::ChapmanPair, Lighting::Always},
         {Model::Europa, false, Pattern::EuropaTrailing, Vertical::Exponential, Lighting::NightOrEclipsed},
         {Model::Io, false, Pattern::IoFlanks, Vertical::Exponential, Lighting::NightOrEclipsed},
         {Model::Callisto, false, Pattern::Uniform, Vertical::Exponential, Lighting::NightOrEclipsed},
@@ -1129,13 +1131,19 @@ void test_aurora_profiles()
 
     // Which models each view shows.
     for (const Model m : {Model::Earth, Model::Saturn, Model::Europa, Model::Io, Model::Callisto, Model::Mars}) {
-        check(aurora_shown(m, true, false) && aurora_shown(m, true, true) && !aurora_shown(m, false, false),
+        check(aurora_shown(m, true, false, false) && aurora_shown(m, true, true, false) && aurora_shown(m, true, false, true) && !aurora_shown(m, false, false, false),
               "visible aurora shows in both views");
     }
     for (const Model m : {Model::Jupiter, Model::Ganymede}) {
-        check(!aurora_shown(m, true, false) && aurora_shown(m, true, true), "UV data shows only in the UV view");
+        check(!aurora_shown(m, true, false, true) && aurora_shown(m, true, true, false), "UV data shows only in the UV view");
     }
-    check(!aurora_shown(Model::None, true, true), "no model, no aurora");
+    for (const Model m : {Model::Uranus, Model::Neptune}) {
+        check(!aurora_shown(m, true, true, false) && aurora_shown(m, true, false, true), "IR data shows only in the IR view");
+    }
+    check(!aurora_shown(Model::None, true, true, true), "no model, no aurora");
+    check(aurora_surface_gain(Model::Uranus, true) < 0.1 && aurora_surface_gain(Model::Neptune, true) < 0.1 &&
+              aurora_surface_gain(Model::Uranus, false) == 1.0 && aurora_surface_gain(Model::Earth, true) == 1.0,
+          "only the infrared view darkens only the ice giants");
 
     // Saturn's two views are different shells; the oval is the same.
     const AuroraProfile saturn_uv = aurora_profile(Model::Saturn, true, 3.0);
@@ -1162,6 +1170,149 @@ void test_aurora_profiles()
     const glm::dvec3 mars = kGreenPerKr * (MarsAurora::limb_rayleigh / 1000.0 * MarsAurora::display_gain / MarsAurora::limb_integral());
     check(aurora_profile(Model::Mars, false, 3.0).low_rgb == mars && mars.g > mars.r && mars.b == 0.0,
           "Mars glows in the green line");
+}
+
+// The ice giants' H3+ in the infrared: Melin et al. 2025 (Uranus's map and its Table 1),
+// Tiranti et al. 2026 (its vertical profile), Melin et al. 2025 (Neptune).
+struct SubPoint {
+    double east_deg, latitude_deg, light_s;
+};
+
+// Where a line of sight from the Earth at t_tdb meets the body, with the light time.
+SubPoint sub_earth_point(Scene& scene, int index, double t_tdb)
+{
+    const int earth_index = scene.find("Earth");
+    scene.update(t_tdb);
+    const glm::dvec3 earth = scene.bodies[static_cast<size_t>(earth_index)].icrf_position;
+    double light = 0.0;
+    for (int i = 0; i < 3; ++i) {
+        scene.update(t_tdb - light);
+        light = glm::length(scene.bodies[static_cast<size_t>(index)].icrf_position - earth) / 299792.458;
+    }
+    scene.update(t_tdb - light);
+    const Body& body = scene.bodies[static_cast<size_t>(index)];
+    const glm::dvec3 n = glm::normalize(glm::transpose(scene.body_to_icrf(body, t_tdb - light)) * (earth - body.icrf_position));
+    return {std::atan2(n.y, n.x) / kDegToRad, std::asin(n.z) / kDegToRad, light};
+}
+
+double angle_difference_deg(double a, double b)
+{
+    return std::remainder(a - b, 360.0);
+}
+
+void test_ice_giant_aurora()
+{
+    Scene scene = load_scene_or_die("solar_system.toml");
+    const int uranus = scene.find("Uranus");
+    const int neptune = scene.find("Neptune");
+    const Body& u = scene.bodies[static_cast<size_t>(uranus)];
+    const Body& n = scene.bodies[static_cast<size_t>(neptune)];
+    check(u.aurora.model == AuroraModel::Uranus && u.aurora.map && n.aurora.model == AuroraModel::Neptune && n.aurora.map,
+          "the ice giants have H3+ maps");
+    if (!u.aurora.map || !n.aurora.map) return;
+
+    // Melin 2025 Table 1: the sub-JWST longitude (IAU new, east), from the Earth here
+    // (JWST is 0.03 deg away). This fixes the rotation's rate, phase and direction.
+    constexpr double kJan8 = 2459952.5;
+    const struct { double day, hours, east; } table1[] = {
+        {0, 15 + 33 / 60.0 + 21 / 3600.0, 194.3}, {0, 15 + 44 / 60.0 + 16 / 3600.0, 198.0},
+        {0, 15 + 55 / 60.0 + 11 / 3600.0, 201.8}, {0, 16 + 6 / 60.0 + 6 / 3600.0, 205.6},
+        {0, 21 + 2 / 60.0 + 10 / 3600.0, 308.6}, {0, 21 + 13 / 60.0 + 5 / 3600.0, 312.4},
+        {0, 21 + 24 / 60.0, 316.2}, {0, 21 + 35 / 60.0, 320.0},
+        {1, 2 + 47 / 60.0 + 59 / 3600.0, 68.9}, {1, 2 + 58 / 60.0 + 54 / 3600.0, 72.7},
+        {1, 3 + 9 / 60.0 + 49 / 3600.0, 76.5}, {1, 3 + 20 / 60.0 + 44 / 3600.0, 80.3},
+    };
+    double worst = 0.0;
+    SubPoint first{};
+    for (const auto& row : table1) {
+        const SubPoint p = sub_earth_point(scene, uranus, tdb_from_utc_jd(kJan8 + row.day + row.hours / 24.0));
+        worst = std::max(worst, std::abs(angle_difference_deg(p.east_deg, row.east)));
+        if (row.east == 194.3) first = p;
+    }
+    check(worst < 1.0, "Uranus's sub-observer longitude follows Melin 2025 Table 1", worst);
+    check(std::abs(first.latitude_deg - 55.1) < 1.5, "sub-observer latitude: the IAU north pole faces us", first.latitude_deg);
+    // Tiranti 2026 section 4: the sub-solar latitude on 2025-01-19 is in the same sense.
+    const double tiranti_t = tdb_from_utc_jd(2460694.5);
+    scene.update(tiranti_t);
+    const Body& uranus_body = scene.bodies[static_cast<size_t>(uranus)];
+    const glm::dvec3 to_sun = glm::transpose(scene.body_to_icrf(uranus_body, tiranti_t)) * (scene.sun_position() - uranus_body.world_position);
+    const double subsolar_deg = std::asin(glm::normalize(to_sun).z) / kDegToRad;
+    check(std::abs(subsolar_deg - 67.7) < 1.5, "the sub-solar latitude is Tiranti's", subsolar_deg);
+
+    // The map, in ULS west longitude (IAU new east + 50.6) and IAU latitude.
+    const AuroraMap& map = *u.aurora.map;
+    const auto uranus_at = [&](double uls_west_deg, double latitude_deg) {
+        return map.brightness((uls_west_deg - 50.6) * kDegToRad, latitude_deg * kDegToRad);
+    };
+    // Melin's southern aurora (ULS south is IAU north), and the dark spot just poleward of it.
+    check(uranus_at(232.0, 37.5) > 1.3 * uranus_at(217.0, 62.5), "the southern aurora outshines the dark spot beside it",
+          uranus_at(232.0, 37.5) / uranus_at(217.0, 62.5));
+    // Tiranti's limb: bright near 85 W, an emission dip near 195 W.
+    check(uranus_at(85.0, -15.0) > 1.2 * uranus_at(195.0, -15.0), "the limb's emission dip", uranus_at(85.0, -15.0) / uranus_at(195.0, -15.0));
+    double south = 0.0;
+    double peak = 0.0;
+    for (int lon = 0; lon < 360; lon += 5) {
+        south = std::max(south, uranus_at(lon, -40.0));
+        for (int lat = -30; lat <= 85; lat += 5) peak = std::max(peak, uranus_at(lon, lat));
+    }
+    check(south == 0.0, "no emission invented where nothing was observed");
+    check(peak > 0.4 && peak < 1.0, "Uranus's total emission is of order 0.3 uW m-2 sr-1", peak);
+
+    // The vertical profile holds a whole column; its emission peaks well below the temperature's.
+    const AuroraProfile profile = aurora_profile(AuroraModel::Uranus, false, 0.0);
+    double column = 0.0;
+    size_t top = 0;
+    for (size_t k = 0; k + 1 < profile.table.size(); ++k) {
+        column += 0.5 * (profile.table[k] + profile.table[k + 1]) * profile.layers.y;
+        if (profile.table[k] > profile.table[top]) top = k;
+    }
+    check(std::abs(column - 1.0) < 0.05, "the table is a share of the column per km", column);
+    const double top_km = profile.layers.x + profile.layers.y * static_cast<double>(top);
+    check(top_km > 1000.0 && top_km < 2000.0, "emission peaks near the density peak", top_km);
+    check(profile.top_km > 5000.0 && profile.bottom_km < 475.0, "the shell holds the observed altitudes");
+
+    // The event is at the observation: the longitude Melin's first dither saw.
+    const auto find_event = [&](const char* text) {
+        return std::find_if(scene.events.begin(), scene.events.end(),
+                            [&](const SceneEvent& e) { return e.name.find(text) != std::string::npos; });
+    };
+    const auto uranus_event = find_event("Uranus's infrared");
+    const auto neptune_event = find_event("Neptune's first infrared");
+    check(uranus_event != scene.events.end() && neptune_event != scene.events.end(), "the ice giants' events");
+    if (uranus_event == scene.events.end() || neptune_event == scene.events.end()) return;
+    for (const auto& e : {*uranus_event, *neptune_event}) {
+        check(e.aurora_infrared && !e.aurora_ultraviolet && !e.aurora_visible, "the ice giants' events are infrared");
+    }
+    const double uranus_observed = tdb_from_utc_jd(kJan8 + (15 + 33 / 60.0 + 21 / 3600.0) / 24.0);
+    check(std::abs(uranus_event->t_tdb - (uranus_observed - first.light_s)) < 300.0, "Uranus's event less the light time",
+          uranus_event->t_tdb - (uranus_observed - first.light_s));
+
+    // Neptune: Melin 2025 gives the IAU longitude at the middle of the second view,
+    // whose phase is otherwise unknown; the map is aligned to the scene's rotation there.
+    constexpr double kNeptuneView2Jd = 2460117.5 + (14 + 1 / 60.0 + 13 / 3600.0) / 24.0;
+    constexpr double kNeptuneView2West = 303.2;
+    const SubPoint view2 = sub_earth_point(scene, neptune, tdb_from_utc_jd(kNeptuneView2Jd));
+    const double scene_minus_paper = std::remainder(-view2.east_deg - kNeptuneView2West, 360.0);
+    std::printf("info: Neptune's scene west longitude minus Melin's %.2f deg\n", scene_minus_paper);
+    check(std::abs(neptune_event->t_tdb - (tdb_from_utc_jd(kNeptuneView2Jd) - view2.light_s)) < 300.0, "Neptune's event less the light time",
+          neptune_event->t_tdb - (tdb_from_utc_jd(kNeptuneView2Jd) - view2.light_s));
+    const AuroraMap& spots = *n.aurora.map;
+    double brightest = 0.0, brightest_west = 0.0, brightest_lat = 0.0;
+    for (int j = 0; j < spots.height; ++j) {
+        for (int i = 0; i < spots.width; ++i) {
+            const double v = spots.values[static_cast<size_t>(j * spots.width + i)];
+            if (v > brightest) {
+                brightest = v;
+                brightest_west = (i + 0.5) * 360.0 / spots.width;
+                brightest_lat = -90.0 + (j + 0.5) * 180.0 / spots.height;
+            }
+        }
+    }
+    const double paper_west = std::fmod(brightest_west - scene_minus_paper + 720.0, 360.0);
+    check(paper_west > 200.0 && paper_west < 280.0 && brightest_lat > -60.0 && brightest_lat < -30.0,
+          "Neptune's patch is where Melin 2025 finds it", paper_west);
+    check(brightest > 1.4 && brightest < 2.2, "about twice as bright as its surroundings", brightest);
+    check(std::abs(spots.brightness(0.0, 40.0 * kDegToRad) - 1.0) < 0.01, "no patch in the north, where none was seen");
 }
 
 void test_europa_aurora()
@@ -1224,13 +1375,13 @@ void test_ganymede_aurora()
 {
     Scene scene = load_scene_or_die("jupiter.toml");
     const auto& moon = scene.bodies[static_cast<size_t>(scene.find("Ganymede"))];
-    check(bool(moon.aurora.ganymede) && moon.aurora.model == AuroraModel::Ganymede,
+    check(bool(moon.aurora.map) && moon.aurora.model == AuroraModel::Ganymede,
           "Ganymede loads its own UV map independently of Jupiter's footprint");
-    if (!moon.aurora.ganymede) return;
-    const auto& map = *moon.aurora.ganymede;
+    if (!moon.aurora.map) return;
+    const auto& map = *moon.aurora.map;
     Scene solar = load_scene_or_die("solar_system.toml");
-    const auto& other = solar.bodies[static_cast<size_t>(solar.find("Ganymede"))].aurora.ganymede;
-    check(other && other->rayleigh == map.rayleigh, "Ganymede UV map is shared across scenes");
+    const auto& other = solar.bodies[static_cast<size_t>(solar.find("Ganymede"))].aurora.map;
+    check(other && other->values == map.values, "Ganymede UV map is shared across scenes");
     // Independent published morphology: Marzok 2022 section 3.3, Fig. 8.
     // Leading (90 W) crescents lie closer to the equator than trailing (270 W).
     for (int sign : {-1, 1}) {
@@ -1252,12 +1403,12 @@ void test_ganymede_aurora()
               "Ganymede east-to-west lookup wraps longitude");
     }
     const auto pixels = map.texture_rgba();
-    for (int y = 0; y < GanymedeAurora::kHeight; ++y) {
-        for (int x = 0; x < GanymedeAurora::kWidth; ++x) {
-            const size_t k = static_cast<size_t>(y * GanymedeAurora::kWidth + x);
+    for (int y = 0; y < map.height; ++y) {
+        for (int x = 0; x < map.width; ++x) {
+            const size_t k = static_cast<size_t>(y * map.width + x);
             const double b = map.brightness(-(2.25 + 4.5 * x) * kDegToRad, (-87.75 + 4.5 * y) * kDegToRad);
-            check(std::abs(b - map.rayleigh[k]) < 1e-10, "UV cell centers preserve west longitude and latitude");
-            check(std::abs(pixels[4 * k] * GanymedeAurora::kTextureRange / 255.0 - b) < 0.4,
+            check(std::abs(b - map.values[k]) < 1e-10, "UV cell centers preserve west longitude and latitude");
+            check(std::abs(pixels[4 * k] * map.range / 255.0 - b) < 0.4,
                   "GPU UV texture quantization is below 0.4 Rayleigh");
         }
     }
@@ -1421,6 +1572,7 @@ void run_appearance_tests()
     test_jovian_aurora();
     test_saturn_aurora();
     test_aurora_profiles();
+    test_ice_giant_aurora();
     test_ganymede_aurora();
     test_europa_aurora();
     test_io_callisto_aurora();

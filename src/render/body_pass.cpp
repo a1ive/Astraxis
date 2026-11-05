@@ -41,6 +41,7 @@ struct FragmentUniforms {
     glm::vec4 atmo_rayleigh;
     glm::vec4 atmo_haze;
     glm::vec4 night;
+    glm::vec4 surface; // x = scale of the reflected light
 };
 
 struct BodyVertex {
@@ -303,6 +304,7 @@ void BodyPass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const Ca
         if (item.night_lights) {
             fu.night = glm::vec4(item.night_lights_color, item.night_lights_gain);
         }
+        fu.surface = glm::vec4(item.surface_gain, 0.0f, 0.0f, 0.0f);
         SDL_PushGPUFragmentUniformData(cmd, 0, &fu, sizeof(fu));
 
         SDL_GPUTextureSamplerBinding tex[3] = {

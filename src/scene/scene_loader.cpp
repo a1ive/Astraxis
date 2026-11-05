@@ -461,7 +461,8 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
     };
     static const TemplateFields night_lights = {{"texture", text}, {"color", text}, {"gain", number}};
     static const TemplateFields aurora = {{"kp", text}, {"jovian_oval", text}, {"footprints", text},
-                                          {"saturn_oval", boolean}, {"ganymede_map", text}, {"europa_visible", boolean},
+                                          {"saturn_oval", boolean}, {"ganymede_map", text}, {"uranus_map", text},
+                                          {"neptune_map", text}, {"europa_visible", boolean},
                                           {"io_visible", boolean}, {"callisto_visible", boolean}, {"mars_visible", boolean}};
     static const TemplateFields rotor = {{"shape", text}, {"period_s", number}};
     static const TemplateFields ring_band = {
@@ -1465,6 +1466,14 @@ void Loader::parse(const toml::table& root, Scene& out)
             };
             const auto flag = std::find_if(std::begin(kAuroraFlags), std::end(kAuroraFlags),
                                            [&](const AuroraFlag& f) { return aurora->contains(f.key); });
+            // And those with a map of their own.
+            static constexpr AuroraFlag kAuroraMaps[] = {
+                {"ganymede_map", AuroraModel::Ganymede, 2631.2, 2631.2},
+                {"uranus_map", AuroraModel::Uranus, 25559.0, 24973.0},
+                {"neptune_map", AuroraModel::Neptune, 24764.0, 24341.0},
+            };
+            const auto map_model = std::find_if(std::begin(kAuroraMaps), std::end(kAuroraMaps),
+                                                [&](const AuroraFlag& f) { return aurora->contains(f.key); });
             std::string error;
             if (flag != std::end(kAuroraFlags)) {
                 const auto enabled = (*aurora)[flag->key].value<bool>();
@@ -1472,12 +1481,13 @@ void Loader::parse(const toml::table& root, Scene& out)
                 if (*enabled && !has_radii(flag->equatorial_km, flag->polar_km))
                     fail(actx, std::string(flag->key) + " requires the body's reference radii");
                 if (*enabled) body.aurora.model = flag->model;
-            } else if (aurora->contains("ganymede_map")) {
-                if (!has_radii(2631.2, 2631.2)) fail(actx, "ganymede_map requires Ganymede's spherical radius");
-                auto map = std::make_shared<GanymedeAurora>();
-                if (!map->load(m_asset_root / get_string(*aurora, "ganymede_map", actx), &error)) fail(actx, error);
-                body.aurora.model = AuroraModel::Ganymede;
-                body.aurora.ganymede = map;
+            } else if (map_model != std::end(kAuroraMaps)) {
+                if (!has_radii(map_model->equatorial_km, map_model->polar_km))
+                    fail(actx, std::string(map_model->key) + " requires the body's reference radii");
+                auto map = std::make_shared<AuroraMap>();
+                if (!map->load(m_asset_root / get_string(*aurora, map_model->key, actx), &error)) fail(actx, error);
+                body.aurora.model = map_model->model;
+                body.aurora.map = map;
             } else if (aurora->contains("jovian_oval")) {
                 auto oval = std::make_shared<JovianAurora>();
                 if (!oval->load(m_asset_root / get_string(*aurora, "jovian_oval", actx), &error)) fail(actx, error);
@@ -1809,6 +1819,7 @@ void Loader::parse(const toml::table& root, Scene& out)
             e.nebula_infrared = (*t)["nebula_infrared"].value<bool>().value_or(false);
             e.aurora_visible = (*t)["aurora_visible"].value<bool>().value_or(false);
             e.aurora_ultraviolet = (*t)["aurora_ultraviolet"].value<bool>().value_or(false);
+            e.aurora_infrared = (*t)["aurora_infrared"].value<bool>().value_or(false);
             e.caption = get_string_or(*t, "caption", "");
             if (const toml::node* trails = t->get("trails")) {
                 const toml::array* list = trails->as_array();

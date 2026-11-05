@@ -9,6 +9,8 @@ namespace astraxis {
 
 namespace {
 
+constexpr double kGanymedeTopKm = 70.0; // Marzok 2022 section 2.3, uniform column
+
 // The aurora is ~1e-8 of the sunlit ground (I/F; 1 kR of the green line is
 // 5e-9): boosted like a long exposure, with the night lights' gain (scene
 // files) chosen to match. Its shell (km above the equatorial radius) holds
@@ -22,6 +24,28 @@ glm::dvec3 uv_false_color(double exposure)
 {
     return srgb_to_linear(glm::dvec3(0.3, 0.55, 1.0)) * exposure;
 }
+
+// The infrared one: warm, to stand apart from the UV blue and from the ice
+// giants' own color.
+glm::dvec3 ir_false_color(double exposure)
+{
+    return srgb_to_linear(glm::dvec3(1.0, 0.6, 0.15)) * exposure;
+}
+
+// Melin et al. 2025's maps are of H3+ total emission, uW m-2 sr-1 (Uranus); the
+// display exposure of 1 uW m-2 sr-1.
+constexpr double kUranusExposure = 0.28;
+// Neptune's map is relative to the disk's background; the background's exposure.
+constexpr double kNeptuneExposure = 0.095;
+// Tiranti et al. 2026: the mean of their 36 longitudes of H3+ total emission at
+// 475 .. 5025 km, every 350 km (tools/geomag/ice_giant_h3p_bake.py prints it).
+// One step below it, zero: nothing observed lower, 300 km is the homopause. One
+// step above it, zero: the tail is unreliable higher up.
+constexpr double kUranusTableBottomKm = 125.0;
+constexpr double kUranusTableStepKm = 350.0;
+constexpr std::array<float, kAuroraTableSize> kUranusTable{
+    0.0f, 2.9405e-04f, 3.2810e-04f, 3.7366e-04f, 3.7617e-04f, 3.5086e-04f, 3.0463e-04f, 2.4104e-04f,
+    1.6730e-04f, 1.1350e-04f, 8.6082e-05f, 7.1455e-05f, 5.9887e-05f, 4.9504e-05f, 4.0907e-05f, 0.0f};
 
 AuroraProfile moon_profile(const SatelliteVisibleAurora& model, AuroraPattern pattern)
 {
@@ -38,7 +62,7 @@ AuroraProfile moon_profile(const SatelliteVisibleAurora& model, AuroraPattern pa
 
 } // namespace
 
-bool aurora_shown(AuroraModel model, bool visible, bool ultraviolet)
+bool aurora_shown(AuroraModel model, bool visible, bool ultraviolet, bool infrared)
 {
     switch (model) {
     case AuroraModel::None:
@@ -46,6 +70,9 @@ bool aurora_shown(AuroraModel model, bool visible, bool ultraviolet)
     case AuroraModel::Jupiter:
     case AuroraModel::Ganymede:
         return ultraviolet;
+    case AuroraModel::Uranus:
+    case AuroraModel::Neptune:
+        return infrared;
     default:
         return visible;
     }
@@ -109,13 +136,33 @@ AuroraProfile aurora_profile(AuroraModel model, bool ultraviolet, double kp)
         }
         break;
     case AuroraModel::Ganymede:
-        p.pattern = AuroraPattern::GanymedeMap;
+        p.pattern = AuroraPattern::BodyMap;
         p.vertical = AuroraVertical::UniformColumn;
-        p.top_km = GanymedeAurora::kTopKm;
+        p.top_km = kGanymedeTopKm;
         // Display exposure per 100 R, independent of Jupiter's much brighter UV.
         p.low_rgb = uv_false_color(0.2);
-        p.layers.x = GanymedeAurora::kTopKm;
-        p.map_gain = GanymedeAurora::kTextureRange / 100.0;
+        p.layers.x = kGanymedeTopKm;
+        p.map_gain = 1.0 / 100.0;
+        break;
+    case AuroraModel::Uranus:
+        p.pattern = AuroraPattern::BodyMap;
+        p.vertical = AuroraVertical::Table;
+        p.bottom_km = kUranusTableBottomKm;
+        p.top_km = kUranusTableBottomKm + kUranusTableStepKm * (kAuroraTableSize - 1);
+        p.low_rgb = ir_false_color(kUranusExposure);
+        p.layers = glm::dvec4(kUranusTableBottomKm, kUranusTableStepKm, 0.0, 0.0);
+        p.map_gain = 1.0;
+        p.table = kUranusTable;
+        break;
+    case AuroraModel::Neptune:
+        // No vertical profile is observed. Assumed: Uranus's shape, as a Chapman
+        // layer; models put the ion above 1000 km (Melin et al. 2025).
+        p.pattern = AuroraPattern::BodyMap;
+        p.bottom_km = 300.0;
+        p.top_km = 5000.0;
+        p.low_rgb = ir_false_color(kNeptuneExposure);
+        p.layers = glm::dvec4(1500.0, 700.0, 1500.0, 700.0);
+        p.map_gain = 1.0;
         break;
     case AuroraModel::Europa:
         p = moon_profile(europa_visible_aurora(), AuroraPattern::EuropaTrailing);
@@ -136,6 +183,11 @@ AuroraProfile aurora_profile(AuroraModel model, bool ultraviolet, double kp)
         break;
     }
     return p;
+}
+
+double aurora_surface_gain(AuroraModel model, bool infrared)
+{
+    return infrared && (model == AuroraModel::Uranus || model == AuroraModel::Neptune) ? 0.03 : 1.0;
 }
 
 AuroraProfile jovian_footprint_profile()

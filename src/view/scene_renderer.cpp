@@ -114,6 +114,7 @@ constexpr double kBeltFullRadiusPx = 250.0;
 constexpr float kAmbient = 0.012f;
 static_assert(kAuroraOvalSamples == AuroraEmission::kOvalSamples);
 static_assert(kJovianOvalSamples == JovianAurora::kSamples);
+static_assert(kAuroraTableVectors * 4 == kAuroraTableSize);
 // Surface radiance of star spheres (linear HDR, times the blackbody color).
 constexpr float kStarSurface = 6.0f;
 // Wavelength at which relative star surfaces (SceneView::relative_star_surfaces) are compared.
@@ -573,10 +574,10 @@ void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, u
         if (!body.rings.profile.empty()) {
             m_ring_textures[i] = create_profile_texture(m_device->device(), body.rings.profile);
         }
-        if (body.aurora.ganymede) {
-            const auto pixels = body.aurora.ganymede->texture_rgba();
+        if (body.aurora.map) {
+            const auto pixels = body.aurora.map->texture_rgba();
             m_aurora_textures[i] = create_texture_rgba8(m_device->device(), pixels.data(),
-                GanymedeAurora::kWidth, GanymedeAurora::kHeight, false, true);
+                body.aurora.map->width, body.aurora.map->height, false, true);
             if (!m_aurora_textures[i])
                 SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Aurora texture for %s unavailable", body.name.c_str());
         }
@@ -788,7 +789,9 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
     const SceneEvent* event_settings = event >= 0 ? &scene.events[static_cast<size_t>(event)] : nullptr;
     const bool ultraviolet = options.aurora_view == 2 ||
         (options.aurora_view == 0 && event_settings && event_settings->aurora_ultraviolet);
-    const bool visible_aurora = options.aurora_view == 1 || ultraviolet ||
+    const bool infrared = options.aurora_view == 2 ||
+        (options.aurora_view == 0 && event_settings && event_settings->aurora_infrared);
+    const bool visible_aurora = options.aurora_view == 1 || ultraviolet || infrared ||
         (options.aurora_view == 0 && event_settings && event_settings->aurora_visible);
     m_atmosphere_optics.resize(scene.bodies.size());
     m_plume_items.clear();
@@ -851,6 +854,7 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
         item.inv_scale = 1.0f / scale;
         item.color = body.color;
         item.style = static_cast<int>(body.style);
+        item.surface_gain = static_cast<float>(aurora_surface_gain(body.aurora.model, infrared));
         if (body.kind == BodyKind::Star) {
             item.style = kStyleStar;
             item.color = glm::vec3(blackbody_linear_srgb(body.temperature_k)) * kStarSurface;
@@ -912,7 +916,7 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
             item.light2_color = glm::vec3(tint * (stars[1].relative_flux / luminance));
         }
 
-        if (show_atmosphere) {
+        if (show_atmosphere && item.surface_gain == 1.0f) {
             // In units of the base radius (the shell's unit sphere).
             const double base_km = radii_km.x;
             AtmosphereOptics& optics = m_atmosphere_optics[i];
@@ -946,7 +950,7 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
             m_atmosphere_items.push_back(shell);
         }
         // Earth's aurora goes with the atmospheres.
-        if (aurora_shown(body.aurora.model, visible_aurora, ultraviolet) &&
+        if (aurora_shown(body.aurora.model, visible_aurora, ultraviolet, infrared) &&
             (body.aurora.model != AuroraModel::Earth || show_atmosphere)) {
             add_aurora_items(sim, output_view, i, item, ultraviolet);
         }
@@ -1574,7 +1578,7 @@ void SceneRenderer::add_aurora_items(const Simulation& sim, const OutputView& ou
     const Body& body = scene.bodies[index];
     const AuroraModel model = body.aurora.model;
     SDL_GPUTexture* map = index < m_aurora_textures.size() ? m_aurora_textures[index] : nullptr;
-    if (model == AuroraModel::Ganymede && !map) {
+    if (body.aurora.map && !map) {
         return;
     }
     const CameraView& view = output_view.camera;
@@ -1594,9 +1598,12 @@ void SceneRenderer::add_aurora_items(const Simulation& sim, const OutputView& ou
         a.layers = glm::vec4(p.layers);
         a.blue_kr = static_cast<float>(p.blue_kr);
         a.diffuse_flux = static_cast<float>(p.diffuse_flux);
-        a.map_gain = static_cast<float>(p.map_gain);
+        a.map_gain = static_cast<float>(p.map_gain * (body.aurora.map ? body.aurora.map->range : 0.0));
         a.sigma_km = static_cast<float>(p.sigma_km);
         a.oval = p.oval;
+        for (size_t k = 0; k < p.table.size(); ++k) {
+            a.table[k / 4][static_cast<int>(k % 4)] = p.table[k];
+        }
     };
 
     AuroraDrawItem a;
@@ -1660,6 +1667,8 @@ void SceneRenderer::add_aurora_items(const Simulation& sim, const OutputView& ou
         }
         break;
     case AuroraModel::Ganymede:
+    case AuroraModel::Uranus:
+    case AuroraModel::Neptune:
         a.map = map;
         break;
     case AuroraModel::Europa:

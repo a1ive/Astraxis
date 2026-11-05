@@ -18,6 +18,7 @@ namespace astraxis {
 inline constexpr int kAuroraOvalSamples = 48; // AuroraEmission::kOvalSamples
 inline constexpr int kJovianOvalSamples = 256; // JovianAurora::kSamples
 inline constexpr int kJovianOvalPairs = kJovianOvalSamples / 2;
+inline constexpr int kAuroraTableVectors = 4; // AuroraProfile::table
 
 struct AuroraDrawItem {
     // Camera-relative translation * body-fixed axes * radii: the planet's
@@ -57,7 +58,8 @@ struct AuroraDrawItem {
     std::array<glm::vec4, kAuroraOvalSamples> oval{}; // AuroraProfile::oval
     std::array<glm::vec4, kJovianOvalPairs> jovian_oval{}; // two samples each: xy, zw = north, south
     std::array<glm::vec4, 6> footprints{}; // physical unit direction, display gain
-    SDL_GPUTexture* map = nullptr; // GanymedeMap's brightness
+    std::array<glm::vec4, kAuroraTableVectors> table{}; // AuroraProfile::table, four per vector
+    SDL_GPUTexture* map = nullptr; // BodyMap's brightness
     // Saturn is composited after the rings; each ray sample behind their
     // equatorial plane uses the same radial optical-depth profile.
     bool after_rings = false;

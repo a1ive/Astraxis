@@ -36,6 +36,7 @@ cbuffer Uniforms : register(b0, space3)
     float4 u_atmo_rayleigh;            // atmosphere: rgb = vertical optical depth, w = scale height (radii; 0 = none)
     float4 u_atmo_haze;                // rgb = vertical attenuation optical depth, w = scale height
     float4 u_night;                    // night lights: rgb = color (sRGB), w = I/F of a white pixel (0 = none)
+    float4 u_surface;                  // x = scale of the reflected light
 };
 
 struct PSInput
@@ -297,7 +298,7 @@ float4 main(PSInput input) : SV_Target0
                atmosphere_transmission(dot(n, u_light2.xyz));
     }
 
-    float3 color = albedo * (lit * limb + u_params.y);
+    float3 color = albedo * (lit * limb + u_params.y) * u_surface.x;
     if (u_night.w > 0.0) {
         // Lights come on between sunset and the sun 6 deg below the horizon,
         // and reach the viewer through the atmosphere.

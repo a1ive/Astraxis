@@ -24,7 +24,7 @@ def bake(source: Path, output: Path) -> None:
     assert all(math.isfinite(v) and -100 < v < 200 for row in rows for v in row)
     # Keep west longitude and south-to-north rows. Negative background residuals
     # cannot emit light; zero-valued missing cells remain dark.
-    text = "AXGANYMEDE1 80 40\n"
+    text = "AXAURORAMAP1 80 40 200\n"
     text += "".join(" ".join(f"{max(v, 0):.2f}" for v in row) + "\n" for row in rows)
     output.write_text(text, encoding="ascii", newline="\n")
 

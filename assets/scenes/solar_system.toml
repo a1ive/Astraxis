@@ -4,6 +4,11 @@
 # 3I/ATLAS, and the Pioneer, Voyager and New Horizons probes, 1972 onward.
 #
 # Sources
+# [LAM25]  Lamy et al. 2025, Nature Astronomy 9, doi:10.1038/s41550-025-02492-z: Uranus's rotation
+#        period 17.247864 +/- 0.000010 h (W rate from the kernels in Zenodo 16085710).
+# [MEL25]  Melin et al. 2025, GRL 52, e2025GL118301: Uranus's H3+ map from JWST, January 2023.
+# [TIR26]  Tiranti et al. 2026, GRL 53, e2025GL119304: its vertical profiles from JWST, January 2025.
+# [MEL25N] Melin et al. 2025, Nature Astronomy 9, 666: Neptune's H3+ from JWST, June 2023.
 # [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py (tools/bake/ephem.toml):
 #        - planets: heliocentric system barycenters, 1972..2100; Voyager trajectories before
 #          1981-01-01 (V1) / 1989-08-29 (V2) are patched-conic reconstructions of "rough
@@ -776,7 +781,7 @@ radii_km = [25559.0, 24973.0]
 gm_km3_s2 = 5794556.4                      # system [GM]
 body_gm_km3_s2 = 5793951.3                 # [SPHY] (URA111)
 pole_ra_dec_deg = [257.311, -15.175]
-prime_meridian_deg = [203.81, -501.1600928]
+prime_meridian_deg = [203.81, -500.9315936164617]  # [LAM25], valid since 1986; IAU's rate is -501.1600928
 nut_prec_angles = [[115.75, 54991.87], [141.69, 41887.66], [135.03, 29927.35], [61.77, 25733.59],
                    [249.32, 24471.46], [43.86, 22278.41], [77.66, 20289.42], [157.36, 16652.76],
                    [101.81, 12872.63], [138.64, 8061.81], [102.23, -2024.22], [316.41, 2863.96],
@@ -786,6 +791,9 @@ texture = "textures/uranus.jpg"            # Hubble OPAL zonal profile, assets/t
 texture_left_lon_deg = 0.0
 color = "#a9d8e0"
 orbit_color = "#9fcbd4"
+[bodies.aurora]                            # [MEL25], assets/geomag/SOURCES.md
+uranus_map = "geomag/uranus_h3p.txt"
+
 [bodies.orbit]                             # [HZN] Uranus barycenter
 type = "ephemeris"
 file = "ephem/uranus.eph"
@@ -1082,6 +1090,9 @@ texture = "textures/neptune.jpg"           # Hubble OPAL zonal profile, assets/t
 texture_left_lon_deg = 0.0
 color = "#5b7fd6"
 orbit_color = "#7b98e0"
+[bodies.aurora]                            # [MEL25N], assets/geomag/SOURCES.md
+neptune_map = "geomag/neptune_h3p.txt"
+
 [bodies.orbit]                             # [HZN] Neptune barycenter
 type = "ephemeris"
 file = "ephem/neptune.eph"
@@ -2131,3 +2142,35 @@ caption = """\
     from the Sun at 68 km/s, just inside the orbit of Mars. Telescopes on the Earth \
     cannot follow it here. Four weeks before, it had passed Mars, where Tianwen-1 \
     photographed it from 0.2 au, and from 40 degrees out of the plane of its path."""
+
+# The ice giants' H3+ ionospheres, in the infrared: seen from the Earth, as JWST saw them.
+# The clocks are the observation times less the light time (tests/appearance_tests.cpp).
+[[events]]
+name = "Uranus's infrared ionosphere (false color, 2023)"
+aurora_infrared = true
+time_tdb = "2023-01-08 12:51"
+focus = "Uranus"
+from_body = "Earth"
+distance_km = 150000.0
+warp = 900.0
+# [MEL25], [TIR26], [LAM25]
+caption = """\
+    The whole sunlit disk glows in the infrared lines of the ion H3+, shown here in \
+    false color. Uranus's magnetic field is tilted 59 degrees, so its aurorae lie at low \
+    and middle latitudes, not the poles. Webb found both, up to twice as radiant as their \
+    surroundings but hardly warmer, and a dark chevron across the pole."""
+
+[[events]]
+name = "Neptune's first infrared aurora (false color, 2023)"
+aurora_infrared = true
+time_tdb = "2023-06-22 09:55"
+focus = "Neptune"
+from_body = "Earth"
+distance_km = 150000.0
+warp = 900.0
+# [MEL25N]
+caption = """\
+    Ground-based telescopes searched for H3+ at Neptune for thirty years; Webb found it \
+    in 2023. One broad patch in the south, here in false color, shines about twice as \
+    bright as its surroundings; nothing like it was reported elsewhere on the disk. The \
+    upper atmosphere is half as hot as Voyager 2 measured in 1989."""

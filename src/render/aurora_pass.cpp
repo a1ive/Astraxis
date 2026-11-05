@@ -49,6 +49,7 @@ struct FragmentUniforms {
     glm::vec4 south_east;
     glm::vec4 jovian_oval[kJovianOvalPairs];
     glm::vec4 footprints[6];
+    glm::vec4 table[kAuroraTableVectors];
     glm::vec4 ring_radii;
 };
 // SDL's Vulkan backend binds each uniform buffer with a 4 KiB range
@@ -311,6 +312,7 @@ void AuroraPass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const 
             fu.jovian_oval[k] = item.jovian_oval[static_cast<size_t>(k)];
         }
         for (size_t k = 0; k < item.footprints.size(); ++k) fu.footprints[k] = item.footprints[k];
+        for (size_t k = 0; k < item.table.size(); ++k) fu.table[k] = item.table[k];
         fu.ring_radii = glm::vec4(item.ring_radii, 0.0f, 0.0f);
         SDL_PushGPUFragmentUniformData(cmd, 0, &fu, sizeof(fu));
         const SDL_GPUTextureSamplerBinding textures[] = {

@@ -65,7 +65,7 @@ add_library(astraxis_sim STATIC
     src/scene/aurora_model.cpp
     src/scene/jovian_aurora.cpp
     src/scene/saturn_aurora.cpp
-    src/scene/ganymede_aurora.cpp
+    src/scene/aurora_map.cpp
     src/scene/aurora.hpp
     src/scene/camera.cpp
     src/scene/camera.hpp

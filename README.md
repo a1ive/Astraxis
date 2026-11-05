@@ -13,7 +13,7 @@ Astraxis is an astronomy background app with planets, spacecraft and stars anima
 
 | Scene | Highlights |
 |---|---|
-| Solar System (default) | Planets, moons (including Proteus with its Voyager-based shape), dwarf planets, asteroids and interstellar objects |
+| Solar System (default) | Planets, moons (including Proteus with its Voyager-based shape), dwarf planets, asteroids and interstellar objects; Webb's infrared views of the H3+ glow of Uranus and Neptune in false color |
 | Jupiter | Rings and moons, Galileo and Juno orbits, Cassini flyby; northern and southern UV aurora overlays with modeled Io, Europa and Ganymede footprints |
 | Space Telescopes | Hubble in low Earth orbit, Chandra on a high elliptical orbit, TESS in step with the Moon, WMAP, Herschel, Planck, Gaia, JWST, Euclid and Roman around L2, Spitzer and Kepler drifting behind Earth |
 | Earth-Moon | Artemis missions, CAPSTONE and other lunar spacecraft; the Earth's city lights and aurora (from the Kp record since 1932) |
@@ -47,7 +47,7 @@ Astraxis is an astronomy background app with planets, spacecraft and stars anima
 
 Add scenes with TOML files in [assets/scenes](assets/scenes/). Shared body properties use [Body Templates](assets/bodies/README.md). Scene and template files cite the orbital data and physical constants. Data licenses are listed in `assets/*/SOURCES.md`; modeling assumptions are documented in [limitations.md](limitations.md).
 
-The Jupiter and Saturn scenes each have two polar aurora events. The **Planetary aurora** control selects the event setting, visible light, or a UV false-color overlay on visible-light surfaces. Jupiter uses statistical Juno-UVS contours and modeled satellite footprints. Saturn uses Cassini UVIS statistical ovals, with a brighter, narrower dawn sector and attenuation through its rings. The Jupiter scene also has leading and trailing Ganymede aurora views, using the 1998-2017 HST oxygen-emission map. Colors and exposure are illustrative; the event dates do not identify recorded auroral images. Io and Callisto have visible aurora eclipse tours: Io uses measured oxygen, sodium and sulfur lines, while Callisto uses only the detected red oxygen doublet. Their assumed emitting layers have separate display gains. Europa also has a visible oxygen-aurora eclipse tour, using measured optical line strengths with an assumed smooth atmosphere and enhanced exposure. See [sources and model limits](assets/geomag/SOURCES.md).
+The Jupiter and Saturn scenes each have two polar aurora events. The **Planetary aurora** control selects the event setting, visible light, or a UV and infrared false-color overlay on visible-light surfaces. Jupiter uses statistical Juno-UVS contours and modeled satellite footprints. Saturn uses Cassini UVIS statistical ovals, with a brighter, narrower dawn sector and attenuation through its rings. The Jupiter scene also has leading and trailing Ganymede aurora views, using the 1998-2017 HST oxygen-emission map. Colors and exposure are illustrative; the event dates do not identify recorded auroral images. Io and Callisto have visible aurora eclipse tours: Io uses measured oxygen, sodium and sulfur lines, while Callisto uses only the detected red oxygen doublet. Their assumed emitting layers have separate display gains. Europa also has a visible oxygen-aurora eclipse tour, using measured optical line strengths with an assumed smooth atmosphere and enhanced exposure. See [sources and model limits](assets/geomag/SOURCES.md).
 
 ## Preview
 
