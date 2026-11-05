@@ -37,8 +37,15 @@ cbuffer Uniforms : register(b0, space3)
     float4 u_atmo_rayleigh;            // atmosphere: rgb = vertical optical depth, w = scale height (radii; 0 = none)
     float4 u_atmo_haze;                // rgb = vertical attenuation optical depth, w = scale height
     float4 u_night;                    // night lights: rgb = color (sRGB), w = I/F of a white pixel (0 = none)
-    float4 u_surface;                  // x = scale of the reflected light, y = 1 to show the field map
+    float4 u_surface;                  // x = scale of the reflected light, y = 1 to show the field map,
+                                       // z = 1 if the map is of the strength instead of Br
 };
+
+// A strength map's false color: viridis, dark where the field is weak (sRGB).
+static const float3 kFieldWeak = float3(0.267, 0.005, 0.329);
+static const float3 kFieldMiddle = float3(0.128, 0.567, 0.551);
+static const float3 kFieldStrong = float3(0.993, 0.906, 0.144);
+static const float kFieldStrengthOpacity = 0.8;
 
 // The field map's false color, a map and not light, so it shows at night too: red
 // where the field leaves the planet, blue where it enters.
@@ -323,7 +330,14 @@ float4 main(PSInput input) : SV_Target0
         // look like a flat field of color wherever the field is more than a trace: its 1.5th
         // power (strength^0.75) keeps the weak fields faint. The surface is dimmed everywhere
         // alike: dimming with the strength would draw bright lines where the field changes sign.
-        color = lerp(color * kFieldDim, tint * shade, pow(saturate(abs(value)), 1.5));
+        float mix_amount = pow(saturate(abs(value)), 1.5);
+        if (u_surface.z > 0.5) {
+            // Mixed in sRGB, as the ramp is uniform there.
+            float t = saturate(0.5 * (value + 1.0));
+            tint = srgb_to_linear(t < 0.5 ? lerp(kFieldWeak, kFieldMiddle, 2.0 * t) : lerp(kFieldMiddle, kFieldStrong, 2.0 * t - 1.0));
+            mix_amount = kFieldStrengthOpacity;
+        }
+        color = lerp(color * kFieldDim, tint * shade, mix_amount);
     }
     return float4(color, 1.0);
 }

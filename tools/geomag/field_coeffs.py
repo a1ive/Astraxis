@@ -2,8 +2,9 @@
 
     python -I tools/geomag/field_coeffs.py <dir with the downloads> assets/geomag
 
-The directory holds ah5.dat, gsfco8.dat, jrm33.dat, cassini11.dat from
-libinternalfield and igrf14coeffs.txt from IAGA; see assets/geomag/SOURCES.md.
+The directory holds ah5.dat, gsfco8.dat, jrm33.dat, cassini11.dat, anderson2012.dat,
+weber2022dip.dat from libinternalfield and igrf14coeffs.txt from IAGA; see
+assets/geomag/SOURCES.md.
 Only the standard library is used.
 """
 
@@ -24,6 +25,11 @@ MODELS = (
     ("cassini11", "field_saturn_cassini11.txt", 11,
      f"Saturn Cassini 11, Dougherty et al. 2018, Science 362, eaat5434, via {LIB}. "
      "Radius 60,268 km; axisymmetric by construction."),
+    ("anderson2012", "field_mercury_anderson2012.txt", 4,
+     f"Mercury, Anderson et al. 2012, JGR Planets 117, E00L12, via {LIB}. Radius 2,440 km; axisymmetric."),
+    ("weber2022dip", "field_ganymede_weber2022.txt", 1,
+     f"Ganymede dipole, Weber et al. 2022, GRL 49, e2022GL098633, via {LIB}. Radius 2,631 km; "
+     "longitude 0 faces Jupiter, positive toward the trailing side."),
 )
 
 

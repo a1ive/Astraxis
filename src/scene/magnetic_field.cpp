@@ -18,7 +18,6 @@ namespace {
 
 constexpr double kStepOfRadius = 0.04; // RK4 step along the line, as a fraction of r
 constexpr int kMaxSteps = 4000;
-constexpr double kFadeStart = 0.5; // of max_radius: lines fade from here to the end
 
 using Point = glm::dvec3;
 
@@ -251,9 +250,11 @@ std::vector<glm::dvec4> trace_field_line(const MagneticField& field, const glm::
     const std::vector<Point> kept = simplify(points, s.tolerance);
     std::vector<glm::dvec4> out;
     out.reserve(kept.size());
+    // Lines fade over the outer half of the way from the surface to max_radius, also where
+    // that is short (Mercury, Ganymede).
+    const double fade_start = 0.5 * (s.surface_equatorial + s.max_radius);
     for (const Point& p : kept) {
-        const double fade = std::clamp((glm::length(p) - kFadeStart * s.max_radius) / ((1.0 - kFadeStart) * s.max_radius),
-                                       0.0, 1.0);
+        const double fade = std::clamp((glm::length(p) - fade_start) / (s.max_radius - fade_start), 0.0, 1.0);
         out.emplace_back(p, fade);
     }
     return out;
@@ -299,9 +300,14 @@ bool FieldMap::load(const std::filesystem::path& file, std::string* error)
     row.imbue(std::locale::classic());
     std::string magic;
     int w = 0, h = 0;
-    double scale = 0.0;
-    if (!(row >> magic >> w >> h >> scale) || magic != "AXFIELDMAP1" || w <= 0 || h <= 0 || w > 8192 || h > 4096 ||
-        !(scale > 0.0)) {
+    double low = 0.0, scale = 0.0;
+    row >> magic >> w >> h;
+    const bool strength = magic == "AXFIELDMAG1";
+    if (strength) {
+        row >> low;
+    }
+    if (!(row >> scale) || (magic != "AXFIELDMAP1" && !strength) || w <= 0 || h <= 0 || w > 8192 || h > 4096 ||
+        !(scale > low) || low < 0.0) {
         return failed("bad header");
     }
     std::vector<signed char> values(static_cast<size_t>(w) * static_cast<size_t>(h));
@@ -311,12 +317,14 @@ bool FieldMap::load(const std::filesystem::path& file, std::string* error)
     }
     width = w;
     height = h;
+    magnitude = strength;
     scale_nt = scale;
+    min_nt = low;
     cells = std::move(values);
     return true;
 }
 
-double FieldMap::radial_nt(double east_longitude, double parametric_latitude) const
+double FieldMap::value_nt(double east_longitude, double parametric_latitude) const
 {
     if (cells.empty()) {
         return 0.0;
@@ -325,6 +333,9 @@ double FieldMap::radial_nt(double east_longitude, double parametric_latitude) co
     const int column = static_cast<int>(std::floor((u - std::floor(u)) * width)) % width;
     const int line = std::clamp(static_cast<int>((0.5 - parametric_latitude / kPi) * height), 0, height - 1);
     const double value = cells[static_cast<size_t>(line) * static_cast<size_t>(width) + static_cast<size_t>(column)] / 127.0;
+    if (magnitude) {
+        return min_nt + 0.5 * (value + 1.0) * (scale_nt - min_nt);
+    }
     return (value < 0.0 ? -1.0 : 1.0) * value * value * scale_nt;
 }
 

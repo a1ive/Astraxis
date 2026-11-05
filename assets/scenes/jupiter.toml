@@ -7,6 +7,10 @@
 #        Astronomy 3, 730, and Connerney et al. 2022, JGR Planets 127, e2021JE007055 (JRM33): it
 #        drifts eastward by a few cm/s, carried by zonal winds at depth; the dynamo's top near
 #        0.81 radii. The maps are JRM33 to degree 13; assets/geomag/SOURCES.md.
+# [GMAG] Weber et al. 2022, GRL 49, e2022GL098633: Ganymede's dipole from Galileo and Juno.
+#        Kivelson et al. 2002, Icarus 157, 507: the only moon with such a field. Duling et al.
+#        2022, GRL 49, e2022GL101688, and Greathouse et al. 2022: the aurora coincides with the
+#        boundary of closed and open field lines.
 # [ELEM] JPL SSD, Planetary Satellite Mean Elements (https://ssd.jpl.nasa.gov/sats/elem/),
 #        ephemeris JUP365, Laplace-plane frame, epoch 2000-01-01.5 TDB.
 # [SPHY] JPL SSD, Planetary Satellite Physical Parameters (https://ssd.jpl.nasa.gov/sats/phys_par/).
@@ -699,6 +703,25 @@ caption = """\
     The average ultraviolet crescents lie farther from the equator here. \
     Hubble's map also records fainter emission toward and away from Jupiter. \
     This view shows the long-term average, with an assumed 70 km emitting layer."""
+
+[[events]]
+name = "Ganymede's own magnetic field (UV overlay)"
+magnetic_lines = true
+focus_orbits_only = true
+aurora_ultraviolet = true
+time_tdb = "2021-06-07 18:00"
+focus = "Ganymede"
+frame = "Ganymede equator"
+from_body = "Sun"
+phase_deg = 40.0
+distance_km = 16000.0
+warp = 30.0
+# [GMAG]
+caption = """\
+    The only moon known to make its own field holds a small magnetosphere inside Jupiter's, \
+    out to about two radii. These lines are its dipole alone, from Galileo and Juno. The \
+    aurora, in false color, marks where closed lines give way to ones that lead to Jupiter, \
+    an edge that Jupiter's plasma pushes off the simple shape drawn here."""
 
 [[frames]]
 name = "Europa equator"

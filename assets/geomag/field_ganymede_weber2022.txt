@@ -1,0 +1,7 @@
+# Ganymede dipole, Weber et al. 2022, GRL 49, e2022GL098633, via libinternalfield, commit 9a6b6e5 (MIT, Copyright (c) 2022 Dr Matt James). Radius 2,631 km; longitude 0 faces Jupiter, positive toward the trailing side.
+# Schmidt quasi-normalized internal Gauss coefficients in nT, model frame right-handed
+# (longitude positive east of the model's prime meridian). Written by
+# tools/geomag/field_coeffs.py; see SOURCES.md.
+g 1 0 -716.4
+g 1 1 56.0
+h 1 1 27.0

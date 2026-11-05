@@ -62,3 +62,5 @@ coefficients = "geomag/field_earth_igrf14.txt"
 reference_radius_km = 6371.2
 l_shells = [1.5, 2.5, 4.0]
 max_radius = 8.0
+[magnetic_map]                             # The strength of IGRF-14 at 2025.0; geomag/SOURCES.md
+surface = "geomag/earth_b.fieldmap"

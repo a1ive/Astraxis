@@ -107,9 +107,9 @@ file = "ephem/moon_geo.eph"
 
 Ganymede 模板的 `[aurora].ganymede_map` 读取 HST 平均柱亮度图，要求木卫三的球形半径，与其他极光字段互斥。它随本体旋转，通过紫外叠加开关显示；数据和 70 km 壳层的说明见 [极光来源](../geomag/SOURCES.md#ganymede-自身的紫外极光)。
 
-`[magnetic_field]` 是行星内部磁场的磁力线（地球、木星、土星在模板里，天王星、海王星内联在太阳系场景）：`coefficients` 和 `reference_radius_km` 必填；`l_shells`、`lines_per_shell`、`max_radius` 决定画哪些线，`color` 是颜色；模型坐标系和本体系不同时用 `flip_pole` 加 `longitude_offset_deg`，或用 `prime_meridian_deg` 给模型自己的 W（两种写法互斥）。默认不显示，由事件的 `magnetic_lines = true` 或手动开关（`B`）打开，见 [地磁与极光来源](../geomag/SOURCES.md#行星内部磁场磁力线)。
+`[magnetic_field]` 是内部磁场的磁力线（水星、地球、木星、土星、Ganymede 在模板里，天王星、海王星内联在太阳系场景）：`coefficients` 和 `reference_radius_km` 必填；`l_shells`、`lines_per_shell`、`max_radius` 决定画哪些线，`color` 是颜色；模型坐标系和本体系不同时用 `flip_pole` 加 `longitude_offset_deg`，或用 `prime_meridian_deg` 给模型自己的 W（两种写法互斥）。默认不显示，由事件的 `magnetic_lines = true` 或手动开关（`B`）打开，见 [地磁与极光来源](../geomag/SOURCES.md#行星内部磁场磁力线)。
 
-`[magnetic_map]` 是固定在本体上的径向磁场伪彩色图（火星、木星）：`surface` 必填，`deep` 是更深处的第二张图（木星）。投影和 `texture` 相同。默认不显示，由事件的 `magnetic_map = "surface"` 或 `"deep"`、手动开关（`G`）打开，见 [径向磁场图](../geomag/SOURCES.md#径向磁场图)。
+`[magnetic_map]` 是固定在本体上的磁场伪彩色图（火星、月球、木星是径向场，地球是总强度，由文件决定）：`surface` 必填，`deep` 是更深处的第二张图（木星）。投影和 `texture` 相同，列从 180°W 开始，所以贴图的 `texture_left_lon_deg` 要是 −180。默认不显示，由事件的 `magnetic_map = "surface"` 或 `"deep"`、手动开关（`G`）打开，见 [径向磁场图](../geomag/SOURCES.md#径向磁场图)。
 
 ## 加载接口与离线工具
 

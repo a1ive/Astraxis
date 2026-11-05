@@ -80,19 +80,22 @@ struct BodyMagneticField {
     double pm_rate_deg_per_day = 0.0;
 };
 
-// A map of the radial field fixed to a body, in its texture's projection: rows
-// from north to south by the mesh's parametric latitude, columns from 180 W
-// eastward. Baked by tools/geomag/field_map_bake.py, with the square root of the
-// strength: value = sign(Br) sqrt(|Br| / scale) in -1 .. 1.
+// A map of the field fixed to a body, in its texture's projection: rows from north
+// to south by the mesh's parametric latitude, columns from 180 W eastward. Baked by
+// tools/geomag/field_map_bake.py. A radial map holds the square root of the strength,
+// value = sign(Br) sqrt(|Br| / scale); a strength map (`magnitude`) is linear,
+// value = 2 (|B| - min) / (max - min) - 1. Either way in -1 .. 1.
 struct FieldMap {
     int width = 0;
     int height = 0;
-    double scale_nt = 0.0;
+    bool magnitude = false;
+    double scale_nt = 0.0; // radial: the largest |Br|; strength: the largest |B|
+    double min_nt = 0.0;   // strength: the smallest |B|
     std::vector<signed char> cells; // 127 * value
 
     bool load(const std::filesystem::path& file, std::string* error = nullptr);
-    // At a cell (nearest), by east longitude and parametric latitude in radians.
-    double radial_nt(double east_longitude, double parametric_latitude) const;
+    // Br or |B| at a cell (nearest), by east longitude and parametric latitude in radians.
+    double value_nt(double east_longitude, double parametric_latitude) const;
     // Red channel: 0 .. 255 for value -1 .. 1, so that it interpolates through zero.
     std::vector<unsigned char> texture_rgba() const;
 };

@@ -982,6 +982,8 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
         if (map_view != FieldMapView::None && i < m_field_map_textures.size()) {
             SDL_GPUTexture* deep = map_view == FieldMapView::Deep ? m_deep_field_map_textures[i] : nullptr;
             item.field_map = deep ? deep : m_field_map_textures[i];
+            const FieldMap* shown = deep ? body.magnetic_map.deep.get() : body.magnetic_map.surface.get();
+            item.field_map_strength = shown && shown->magnitude;
         }
 
         SDL_GPUTexture* ring_texture = i < m_ring_textures.size() ? m_ring_textures[i] : nullptr;
@@ -1552,10 +1554,12 @@ void SceneRenderer::build_magnetic_lines(const Simulation& sim, const OutputView
     const CameraView& view = output_view.camera;
     const glm::dvec3& cam = view.position;
     const double t = sim.clock().t_tdb;
+    // An event is about its focus; Jupiter's lines would hang behind Ganymede's.
+    const int only = options.magnetic_view == 0 ? scene.events[static_cast<size_t>(event)].focus : -1;
     for (size_t i = 0; i < scene.bodies.size(); ++i) {
         const Body& body = scene.bodies[i];
         const BodyMagneticField& field = body.magnetic_field;
-        if (!field.model || !body.visible) {
+        if (!field.model || !body.visible || (only >= 0 && static_cast<int>(i) != only)) {
             continue;
         }
         const double distance = glm::length(body.world_position - cam);

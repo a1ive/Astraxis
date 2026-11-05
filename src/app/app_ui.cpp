@@ -382,8 +382,9 @@ void App::build_control_panel()
     if (std::any_of(scene.bodies.begin(), scene.bodies.end(),
                     [](const Body& b) { return b.magnetic_map.surface != nullptr; })) {
         ImGui::Combo("Field map", &m_view_options.magnetic_map_view, "Event setting\0Surface\0Deep\0Never\0");
-        ImGui::SetItemTooltip("False color map of the radial magnetic field (G): red out of the planet, blue into it.\n"
-                             "Mars 150 km up; Jupiter at the cloud tops, or deep at the top of its dynamo.\n"
+        ImGui::SetItemTooltip("False color map of the magnetic field (G). Radial field, red out of the planet, blue into it:\n"
+                             "Mars 150 km up, the Moon at its surface, Jupiter at the cloud tops or deep at the top\n"
+                             "of its dynamo. Strength, dark where weak: the Earth.\n"
                              "Event setting: off unless the event enables it.");
     }
 
