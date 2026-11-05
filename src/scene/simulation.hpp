@@ -122,6 +122,8 @@ public:
     // The aurora's animation clock (seconds, wrapped): simulated time, but no
     // faster than kAuroraMaxWarp, so that its arcs drift rather than flicker.
     double aurora_time() const { return m_aurora_time; }
+    // What a moon's aurora depends on right now; the defaults for any other body.
+    MoonAuroraState moon_aurora(int body) const;
     // Real seconds since the scene was loaded, paused or not (the title card).
     double scene_age() const { return m_scene_age; }
     // The event last jumped to (-1: none since the scene was loaded) and the

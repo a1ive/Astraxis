@@ -615,6 +615,15 @@ void Scene::update(double t_tdb)
             extent = std::max(extent, glm::length(pos) + body.equatorial_radius_km);
         }
     }
+    for (Body& body : bodies) {
+        const AuroraModel model = body.aurora.model;
+        if (body.parent < 0 || !(model == AuroraModel::Ganymede || model == AuroraModel::Europa || model == AuroraModel::Io ||
+                                 model == AuroraModel::Callisto)) {
+            continue;
+        }
+        const Body& parent = bodies[static_cast<size_t>(body.parent)];
+        body.in_parent_axes = glm::transpose(body_to_icrf(parent, t_tdb)) * (body.icrf_position - parent.icrf_position);
+    }
     // Evaluate once per scene update, including clock jumps and reverse time.
     // Every output consumes the same body-fixed footpoints.
     for (Body& body : bodies) {

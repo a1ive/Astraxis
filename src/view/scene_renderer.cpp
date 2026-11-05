@@ -1870,7 +1870,7 @@ void SceneRenderer::add_aurora_items(const Simulation& sim, const OutputView& ou
     a.sun_angular_radius = lit.sun_angular_radius;
     a.time = static_cast<float>(sim.aurora_time());
     a.pixel_angle = 2.0f / (view.viewport.y * view.focal_y);
-    set_profile(a, aurora_profile(model, ultraviolet, sim.aurora_kp()));
+    set_profile(a, aurora_profile(model, ultraviolet, sim.aurora_kp(), sim.moon_aurora(static_cast<int>(index))));
 
     switch (model) {
     case AuroraModel::Earth: {

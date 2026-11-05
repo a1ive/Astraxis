@@ -6,6 +6,7 @@
 #include "core/time.hpp"
 #include "scene/aurora.hpp"
 #include "scene/aurora_model.hpp"
+#include "scene/jovian_plasma_sheet.hpp"
 #include "scene/satellite_aurora.hpp"
 #include "scene/saturn_aurora.hpp"
 #include "scene/mars_aurora.hpp"
@@ -18,10 +19,13 @@
 #include <glm/glm.hpp>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <string>
+#include <tuple>
+#include <utility>
 #include <vector>
 
 using namespace astraxis;
@@ -1105,7 +1109,7 @@ void test_aurora_profiles()
         {Model::Jupiter, true, Pattern::JovianOval, Vertical::ChapmanPair, Lighting::Always},
         {Model::Saturn, true, Pattern::SaturnOval, Vertical::ChapmanPair, Lighting::Always},
         {Model::Saturn, false, Pattern::SaturnOval, Vertical::ChapmanPair, Lighting::NightSide},
-        {Model::Ganymede, true, Pattern::BodyMap, Vertical::UniformColumn, Lighting::Always},
+        {Model::Ganymede, true, Pattern::BodyMapShares, Vertical::UniformColumn, Lighting::Always},
         {Model::Uranus, false, Pattern::BodyMapSeasons, Vertical::Table, Lighting::Always},
         {Model::Neptune, false, Pattern::BodyMapDusk, Vertical::ChapmanPair, Lighting::Always},
         {Model::Europa, false, Pattern::EuropaTrailing, Vertical::Exponential, Lighting::NightOrEclipsed},
@@ -1587,8 +1591,10 @@ void test_ganymede_aurora()
             const size_t k = static_cast<size_t>(y * map.width + x);
             const double b = map.brightness(-(2.25 + 4.5 * x) * kDegToRad, (-87.75 + 4.5 * y) * kDegToRad);
             check(std::abs(b - map.values[k]) < 1e-10, "UV cell centers preserve west longitude and latitude");
-            check(std::abs(pixels[4 * k] * map.range / 255.0 - b) < 0.4,
-                  "GPU UV texture quantization is below 0.4 Rayleigh");
+            check(std::abs(pixels[4 * k] * map.range / 255.0 - b) < 0.52,
+                  "GPU UV texture quantization is about half a Rayleigh");
+            check(std::abs(pixels[4 * k + 3] * map.range / 255.0 - map.more_layers[2][k]) < 0.52,
+                  "the fourth layer is in the alpha channel");
         }
     }
     Simulation sim;
@@ -1614,6 +1620,119 @@ void test_ganymede_aurora()
         check(sim.scene().active_event() == static_cast<int>(i), "Ganymede event activates UV overlay");
     }
     check(count == 2, "Ganymede has leading and trailing UV tours");
+
+    // Marzok et al. 2022 Table 1: the current sheet's dipole, System III west longitude and
+    // magnetic latitude of a few exposures, across its whole range.
+    for (const auto& [west, latitude] : {std::pair{229.7, 8.32}, {291.8, -0.16}, {331.0, -6.13}, {26.49, -9.45},
+                                         {197.2, 9.48}, {145.2, 5.36}, {263.8, 4.31}, {345.6, -7.77}}) {
+        const double east = -west * kDegToRad;
+        check(std::abs(jovian_magnetic_latitude_deg(glm::dvec3(std::cos(east), std::sin(east), 0.0)) - latitude) < 0.08,
+              "the dipole gives Marzok's magnetic latitudes", latitude);
+    }
+    // The layers: the file holds Figure 5 and the three groups of Figure 6.
+    check(map.more_layers.size() == 3, "Ganymede's map has the current-sheet groups");
+    const auto layer_value = [&](size_t layer, double west, double latitude) {
+        return map.layer_brightness(layer, -west * kDegToRad, latitude * kDegToRad);
+    };
+    // The time Ganymede spends in each group: the groups average back to the long-term map,
+    // and a cell that was not observed stays dark in all of them.
+    std::array<double, 3> time_shares{};
+    constexpr int kLongitudes = 3600;
+    for (int k = 0; k < kLongitudes; ++k) {
+        const double east = kTwoPi * (k + 0.5) / kLongitudes;
+        const auto shares = ganymede_sheet_shares(jovian_magnetic_latitude_deg(glm::dvec3(std::cos(east), std::sin(east), 0.0)));
+        for (size_t g = 0; g < 3; ++g) time_shares[g] += shares[g] / kLongitudes;
+    }
+    std::printf("  info: Ganymede's time above, inside and below the sheet: %.3f %.3f %.3f (HST's exposures 0.304 0.413 0.283)\n",
+                time_shares[0], time_shares[1], time_shares[2]);
+    check(std::abs(time_shares[0] - 14.0 / 46.0) < 0.03 && std::abs(time_shares[1] - 19.0 / 46.0) < 0.03,
+          "Ganymede's time in each group is about HST's share of exposures");
+    double worst_mean = 0.0;
+    bool dark_stays_dark = true;
+    for (size_t k = 0; k < map.values.size(); ++k) {
+        double mean = 0.0;
+        for (size_t g = 0; g < 3; ++g) {
+            mean += time_shares[g] * map.more_layers[g][k];
+            dark_stays_dark = dark_stays_dark && (map.values[k] > 0.0 || map.more_layers[g][k] == 0.0);
+        }
+        worst_mean = std::max(worst_mean, std::abs(mean - map.values[k]));
+    }
+    check(worst_mean < 2.0, "the groups' time average is the long-term map to 2 R", worst_mean);
+    check(dark_stays_dark, "cells without data stay dark in every group");
+    // Marzok section 3.3: inside the sheet the downstream (leading) aurora brightens by
+    // 1.3 +- 0.31 and the upstream (trailing) one dims by 0.78 +- 0.19, in the ovals' bands.
+    const auto band_mean = [&](size_t layer, double west_low, double west_high) {
+        double sum = 0.0;
+        int count = 0;
+        for (double west = west_low; west <= west_high; west += 4.5) {
+            for (const auto& [mean, amplitude, phase] : {std::tuple{32.3, -16.9, 1.5}, {-29.4, 11.6, 8.8}}) {
+                const double center = mean + amplitude * std::sin((west + phase) * kDegToRad);
+                for (int step = -3; step <= 3; ++step) {
+                    const double b = layer_value(layer, west, center + step * 4.5);
+                    if (b > 0.0) {
+                        sum += b;
+                        ++count;
+                    }
+                }
+            }
+        }
+        return sum / count;
+    };
+    const auto inside_over_outside = [&](double west_low, double west_high) {
+        const double above = band_mean(1, west_low, west_high), below = band_mean(3, west_low, west_high);
+        return band_mean(2, west_low, west_high) / ((14.0 * above + 13.0 * below) / 27.0);
+    };
+    const double downstream = inside_over_outside(40.0, 150.0), upstream = inside_over_outside(240.0, 340.0);
+    std::printf("  info: Ganymede inside/outside the sheet: downstream %.2f, upstream %.2f\n", downstream, upstream);
+    check(std::abs(downstream - 1.3) < 0.31 && downstream > 1.1, "the leading aurora brightens inside the sheet", downstream);
+    check(std::abs(upstream - 0.78) < 0.19 && upstream < 0.95, "the trailing aurora dims inside the sheet", upstream);
+    // Between 180 and 210 W nearly only the exposures above the sheet looked, so the others
+    // are the long-term map (which is that group) there, without a seam around the gap.
+    double gap_ratio = 0.0;
+    for (double latitude = -40.0; latitude <= 40.0; latitude += 4.5) {
+        const double main_value = layer_value(0, 195.0, latitude);
+        if (main_value > 5.0) gap_ratio = std::max(gap_ratio, std::abs(layer_value(2, 195.0, latitude) / main_value - 1.0));
+    }
+    check(gap_ratio < 0.45, "a group's gap falls back on the long-term map", gap_ratio);
+    double step = 0.0;
+    for (size_t g = 1; g <= 3; ++g) {
+        for (double latitude = -60.0; latitude <= 60.0; latitude += 4.5) {
+            for (double west = 2.25; west < 360.0; west += 4.5) {
+                const double a = layer_value(0, west, latitude), b = layer_value(0, west + 4.5, latitude);
+                if (a < 20.0 || b < 20.0) continue;
+                const double ratio = layer_value(g, west, latitude) / a, next = layer_value(g, west + 4.5, latitude) / b;
+                step = std::max(step, std::abs(next / ratio - 1.0));
+            }
+        }
+    }
+    check(step < 0.35, "a group's ratio to the long-term map changes smoothly from cell to cell", step);
+
+    // The view: which layer a moment shows, and the mean at a high warp.
+    sim.stop_tour();
+    const int moon_index = sim.scene().find("Ganymede");
+    sim.clock().warp = 30.0;
+    double t = sim.clock().t_tdb;
+    bool saw[3] = {false, false, false};
+    for (int k = 0; k < 40; ++k) {
+        sim.clock().t_tdb = t + k * 1800.0;
+        sim.update(0.0);
+        const MoonAuroraState state = sim.moon_aurora(moon_index);
+        const double latitude = jovian_magnetic_latitude_deg(sim.scene().bodies[static_cast<size_t>(moon_index)].in_parent_axes);
+        check(std::abs(state.map_shares.x + state.map_shares.y + state.map_shares.z + state.map_shares.w - 1.0) < 1e-12,
+              "the shares sum to one");
+        if (latitude > 7.0) { saw[0] = true; check(state.map_shares.y == 1.0, "above the sheet: that map"); }
+        if (std::abs(latitude) < 5.0) { saw[1] = true; check(state.map_shares.z == 1.0, "inside the sheet: that map"); }
+        if (latitude < -7.0) { saw[2] = true; check(state.map_shares.w == 1.0, "below the sheet: that map"); }
+    }
+    check(saw[0] && saw[1] && saw[2], "Ganymede goes through all three groups");
+    sim.clock().warp = 86400.0;
+    sim.update(0.0);
+    check(sim.moon_aurora(moon_index).map_shares == glm::dvec4(1.0, 0.0, 0.0, 0.0),
+          "at a day per second the long-term map is drawn, not flicker");
+    const AuroraProfile shares_profile = aurora_profile(AuroraModel::Ganymede, true, 0.0, MoonAuroraState{glm::dvec4(0.0, 0.0, 1.0, 0.0)});
+    check(std::abs(aurora_map_pattern(shares_profile, map, -90.0 * kDegToRad, 20.0 * kDegToRad, glm::dvec3(1.0, 0.0, 0.0)) -
+                   layer_value(2, 90.0, 20.0) * shares_profile.map_gain) < 1e-12,
+          "the pattern reads the layers by their shares");
     Scene bad;
     const std::string base = "name='x'\n[[bodies]]\nname='Ganymede'\nradii_km=[2631.2]\n[bodies.aurora]\n";
     const std::string field = "ganymede_map='geomag/ganymede_aurora.txt'\n";

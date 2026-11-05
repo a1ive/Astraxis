@@ -711,8 +711,10 @@ type = "inertial"
 origin = "Ganymede"
 up = "Ganymede"
 
-# [MARZOK] Marzok et al. 2022, doi:10.1029/2022JE007256, Fig. 5.
-# Dates choose the lighting; the emission is the 1998-2017 HST average.
+# [MARZOK] Marzok et al. 2022, doi:10.1029/2022JE007256, Figs. 5 and 6: the 1998-2017 HST
+# maps with Ganymede above, inside and below Jupiter's current sheet (6 deg of magnetic
+# latitude). At 02:00 it is above; at 12 minutes per second it is inside by 05:00, below by
+# 07:00. Only the leading event runs this fast, to show the change.
 [[events]]
 name = "Ganymede's leading aurora (UV overlay)"
 time_tdb = "2021-06-11 02:00"
@@ -722,13 +724,14 @@ from_body = "Jupiter"
 phase_deg = -90.0
 elevation_deg = 10.0
 distance_km = 11000.0
-warp = 30.0
+warp = 720.0
 aurora_ultraviolet = true
 caption = """\
     Ganymede has aurora of its own. On its leading hemisphere, two broad \
-    crescents reach low latitudes. Blue shows oxygen emission at 135.6 nm \
-    over the visible-light ice, using Hubble's 1998-2017 average brightness \
-    map. Color and exposure are illustrative; the map stays fixed in time."""
+    crescents reach low latitudes. Jupiter's tilted field carries its current \
+    sheet past the moon every five hours: inside it, Hubble saw these crescents \
+    brighten by about a fifth and move toward the equator. Blue shows oxygen \
+    emission at 135.6 nm; color and exposure are illustrative."""
 
 [[events]]
 name = "Ganymede's trailing aurora (UV overlay)"
@@ -743,9 +746,9 @@ warp = 30.0
 aurora_ultraviolet = true
 caption = """\
     Jupiter's corotating plasma overtakes Ganymede on this trailing side. \
-    The average ultraviolet crescents lie farther from the equator here. \
-    Hubble's map also records fainter emission toward and away from Jupiter. \
-    This view shows the long-term average, with an assumed 70 km emitting layer."""
+    The ultraviolet crescents lie farther from the equator here, and dim a little \
+    when the moon is inside Jupiter's current sheet. Hubble's map also records fainter \
+    emission toward and away from Jupiter. The emitting layer is assumed to be 70 km thick."""
 
 [[events]]
 name = "Ganymede's own magnetic field (UV overlay)"

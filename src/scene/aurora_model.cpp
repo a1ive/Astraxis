@@ -100,7 +100,7 @@ bool aurora_shown(AuroraModel model, bool visible, bool ultraviolet, bool infrar
     }
 }
 
-AuroraProfile aurora_profile(AuroraModel model, bool ultraviolet, double kp)
+AuroraProfile aurora_profile(AuroraModel model, bool ultraviolet, double kp, const MoonAuroraState& moon)
 {
     AuroraProfile p;
     switch (model) {
@@ -158,7 +158,8 @@ AuroraProfile aurora_profile(AuroraModel model, bool ultraviolet, double kp)
         }
         break;
     case AuroraModel::Ganymede:
-        p.pattern = AuroraPattern::BodyMap;
+        p.pattern = AuroraPattern::BodyMapShares;
+        p.map_sun = moon.map_shares;
         p.vertical = AuroraVertical::UniformColumn;
         p.top_km = kGanymedeTopKm;
         // Display exposure per 100 R, independent of Jupiter's much brighter UV.
@@ -222,6 +223,13 @@ double aurora_map_pattern(const AuroraProfile& profile, const AuroraMap& map, do
         const double sunlit = zenith <= s.y ? std::lerp(1.0, s.w, std::clamp((zenith - s.x) / (s.y - s.x), 0.0, 1.0))
                                             : s.w * std::clamp((s.z - zenith) / (s.z - s.y), 0.0, 1.0);
         return std::lerp(map.dark_brightness(east_longitude, latitude) * profile.map_gain, value, sunlit);
+    }
+    case AuroraPattern::BodyMapShares: {
+        double sum = 0.0;
+        for (int layer = 0; layer < 4; ++layer) {
+            sum += profile.map_sun[layer] * map.layer_brightness(static_cast<size_t>(layer), east_longitude, latitude);
+        }
+        return sum * profile.map_gain;
     }
     case AuroraPattern::BodyMapDusk: {
         const double across = std::hypot(to_sun.x, to_sun.y);

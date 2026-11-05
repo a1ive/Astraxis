@@ -4,23 +4,34 @@
 
 ## Ganymede 自身的紫外极光
 
-木星场景末尾的两个 Ganymede 导览分别朝向前导与拖尾半球，也可在面板的 `Planetary aurora` 中选择 `UV aurora overlay`。太阳系场景通过木卫三模板使用同一份数据。
+木星场景末尾的两个 Ganymede 导览分别朝向前导与拖尾半球（前导那个按 12 分钟/秒走，能看到电流片扫过），也可在面板的 `Planetary aurora` 中选择 `UV aurora overlay`。太阳系场景通过木卫三模板使用同一份数据。
 
-`ganymede_aurora.txt` 来自 Marzok、Schlegel、Saur、Roth、Grodent、Strobel 和 Retherford 的 [Zenodo 6564687 数据集](https://doi.org/10.5281/zenodo.6564687)，原文件为 `Fig5_BrightnessMap.txt`，许可 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)。引用：Marzok et al. 2022, *Mapping the Brightness of Ganymede's Ultraviolet Aurora Using Hubble Space Telescope Observations*, JGR Planets 127, e2022JE007256，[论文](https://doi.org/10.1029/2022JE007256)。再分发依据是 Zenodo 数据许可；论文正文另采用 CC BY-NC，未随程序分发。
+`ganymede_aurora.txt` 来自 Marzok、Schlegel、Saur、Roth、Grodent、Strobel 和 Retherford 的 [Zenodo 6564687 数据集](https://doi.org/10.5281/zenodo.6564687)，原文件为 `Fig5_BrightnessMap.txt` 和 `Fig6_{Above,Inside,Below}CurrentSheet.txt`，许可 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)。引用：Marzok et al. 2022, *Mapping the Brightness of Ganymede's Ultraviolet Aurora Using Hubble Space Telescope Observations*, JGR Planets 127, e2022JE007256，[论文](https://doi.org/10.1029/2022JE007256)。再分发依据是 Zenodo 数据许可；论文正文另采用 CC BY-NC，未随程序分发。
 
-该图合并了 1998 至 2017 年的 46 次 HST/STIS 观测，记录 OI 135.6 nm 的垂直柱亮度（Rayleigh）。数组为 80×40，像元中心西经 2.25° 至 357.75°、纬度 −87.75° 至 87.75°，两轴步长均为 4.5°。烘焙保留网格和正亮度，将负背景残差截为零；原图中零值区域仍为零。运行时把东经取负后采样，纬度从南向北，经度环绕、纬度夹紧。上传线性 UNORM 纹理的范围为 0 至 200 R，最大量化误差小于 0.4 R，远景使用 mipmap。
+该图合并了 1998 至 2017 年的 46 次 HST/STIS 观测，记录 OI 135.6 nm 的垂直柱亮度（Rayleigh）。数组为 80×40，像元中心西经 2.25° 至 357.75°、纬度 −87.75° 至 87.75°，两轴步长均为 4.5°。烘焙保留网格和正亮度，将负背景残差截为零；原图中零值区域仍为零。运行时把东经取负后采样，纬度从南向北，经度环绕、纬度夹紧。文件有四层（`AXAURORAMAP4`，平均图、电流片上方、内部、下方），上传线性 UNORM 纹理的四个通道，范围为 0 至 260 R，量化误差约 0.5 R，远景使用 mipmap。
 
-发光分布采用论文 §2.3 校正视线柱长时使用的均匀 70 km 壳层，垂直积分还原图中的柱亮度。地图固定于木卫三本体；蓝色及每 100 R 的显示增益是示意。数据的低信噪比像元也参与双线性插值，部分暗区来自缺测，不能解释为没有极光。当前没有按木星电流片位置切换分组图，也没有模拟摇摆、风暴或细小斑块。
+**分组图**：论文第 3.2 节按木卫三在木星磁层里的磁纬分组，±6° 以内算电流片内部（19 次曝光），以上、以下各 14、13 次。磁纬是 VIP4 的偶极（倾斜 9.5°，朝东经 159.2°），论文表 1 的磁纬只由 System III 经度决定，这个偶极对得上（`test_ganymede_aurora`，8 行在 0.08° 内）。各组不能直接画：
 
-重新生成（Python 标准库）：
+- 覆盖不一致：表 1 的 46 次曝光里只有 6 次朝向亚木、反木一侧，180–210°W 几乎只有上方组看过（内部组在 180–225°W 只覆盖 11% 的格子），上方、内部、下方组的非零格分别缺 9.5%、10.8%、20% 的平均图格子；
+- 噪声：每组只有约三分之一的光子，单格的差别大多不显著。论文也说下方组 0° 附近的孤立亮格几乎不显著。
+
+所以每组 = 平均图 × 比值：比值是组和平均图在“这一组看过的格子”上按 σ = 8° 平滑后的比（`(Σ K G + 5 R·ΣK) / (Σ K M + 5 R·ΣK)`，负残差留在求和里，否则暗区会被抬高），没有数据处趋于 1；再逐格缩放，让三组按木卫三在各组停留的时间（0.282、0.437、0.282，由偶极和 ±6° 算出；HST 的曝光份额是 0.304、0.413、0.283）加权平均后严格回到平均图。这样缺测区没有接缝，组之间切换时也不会有噪声闪烁，代价是单格的结构全部来自平均图，比 σ 小的组间差别被抹平。比值范围 0.48–1.96。
+
+**核对亮度衔接**：按论文式 (8) 的卵带（表 2 的拟合纬度上下各三格）算内部/外部的亮度比，未经处理的组图是下游（前导，40–150°W）1.21、上游（拖尾，240–340°W）0.85，烘焙后是 1.20、0.86，论文是 1.3 ± 0.31、0.78 ± 0.19。卵向赤道的移动（论文下游 −5.4° ± 3.2°）在北半球保留了约 3°（原图约 4°）。
+
+运行时 `Simulation::moon_aurora` 按此刻的磁纬选层，在 5–7° 之间平滑过渡（`ganymede_sheet_shares`，真实的边界不是硬的，论文的 ±6° 只是分组）；倍速快到每秒超过 0.25 个电流片周期（约 5.25 小时）开始退回平均图，1 个周期以上完全是平均图（`plasma_sheet_steadiness`），免得闪烁。
+
+发光分布采用论文 §2.3 校正视线柱长时使用的均匀 70 km 壳层，垂直积分还原图中的柱亮度。地图固定于木卫三本体；蓝色及每 100 R 的显示增益是示意。数据的低信噪比像元也参与双线性插值，部分暗区来自缺测，不能解释为没有极光。没有模拟摇摆、风暴或细小斑块。
+
+重新生成（需要 numpy）：
 
 ```powershell
 New-Item -ItemType Directory -Force build/ganymede_aurora | Out-Null
-curl.exe -L --fail https://zenodo.org/api/records/6564687/files/Fig5_BrightnessMap.txt/content -o build/ganymede_aurora/Fig5_BrightnessMap.txt
-python tools/geomag/ganymede_aurora_bake.py build/ganymede_aurora/Fig5_BrightnessMap.txt assets/geomag/ganymede_aurora.txt
+foreach ($f in "Fig5_BrightnessMap", "Fig6_AboveCurrentSheet", "Fig6_InsideCurrentSheet", "Fig6_BelowCurrentSheet") { curl.exe -L --fail "https://zenodo.org/api/records/6564687/files/$f.txt/content" -o "build/ganymede_aurora/$f.txt" }
+python -E -P tools/geomag/ganymede_aurora_bake.py build/ganymede_aurora assets/geomag/ganymede_aurora.txt
 ```
 
-原文件 SHA-256：`f0dd34cdb5fd0f43353631eb26c488866c78e4081cf829879bd419028646a5d5`。工具检查此哈希及坐标网格，数据修订需要重新核对。`appearance_tests.cpp` 检查经纬度、接缝、量化、跨场景一致性和导览朝向，并用论文报告的前导低纬、拖尾高纬形态独立检查地图方向。
+工具检查四个原文件的 SHA-256（写在工具开头）及坐标网格，数据修订需要重新核对。`appearance_tests.cpp` 检查经纬度、接缝、量化、跨场景一致性和导览朝向，用论文报告的前导低纬、拖尾高纬形态独立检查地图方向，并检查上面的磁纬、时间加权平均、内外亮度比和缺测区的回退。
 
 ## 土星紫外主卵
 

@@ -35,7 +35,8 @@ enum class AuroraPattern { // brightness across the surface
     JovianOval = 1,        // the statistical contour, per hemisphere
     JovianFootprints = 2,  // spots at the moons' footprints
     SaturnOval = 3,        // the statistical oval at solar local time
-    BodyMap = 4,           // a brightness map fixed to the body (AuroraMap)
+    BodyMapShares = 4,     // a brightness map fixed to the body (AuroraMap), its four layers
+                           // in the shares map_sun
     Uniform = 5,
     EuropaTrailing = 6,    // assumed smooth trailing enhancement
     IoFlanks = 7,          // broad equatorial flanks
@@ -63,6 +64,14 @@ enum class AuroraLighting { // when it shows
 
 inline constexpr int kAuroraTableSize = 16;
 
+// What a moon's aurora depends on right now (Simulation::moon_aurora). The defaults
+// reproduce the reference observation.
+struct MoonAuroraState {
+    // Ganymede: the shares of the long-term map, and of it above, inside and below Jupiter's
+    // current sheet (AuroraMap's layers).
+    glm::dvec4 map_shares{1.0, 0.0, 0.0, 0.0};
+};
+
 // A shell of emission, in linear RGB with its display exposure.
 struct AuroraProfile {
     AuroraPattern pattern = AuroraPattern::Uniform;
@@ -87,8 +96,8 @@ struct AuroraProfile {
 };
 
 // The model's shell. ultraviolet: Saturn's false-color view instead of its
-// visible one. kp: Earth's activity.
-AuroraProfile aurora_profile(AuroraModel model, bool ultraviolet, double kp);
+// visible one. kp: Earth's activity. moon: the moons' state.
+AuroraProfile aurora_profile(AuroraModel model, bool ultraviolet, double kp, const MoonAuroraState& moon = {});
 
 // Jupiter's second shell: its moons' footprints at the height they are mapped
 // to, a display gain per moon (Io, Europa, Ganymede).

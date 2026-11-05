@@ -105,7 +105,7 @@ file = "ephem/moon_geo.eph"
 
 天王星、海王星（内联在太阳系场景）用 `[aurora].uranus_map`、`neptune_map` 读取 JWST 的 H₃⁺ 图，要求各自的半径，与其他极光字段互斥，只在红外视图显示，见 [极光来源](../geomag/SOURCES.md#天王星与海王星的红外-h₃)。
 
-Ganymede 模板的 `[aurora].ganymede_map` 读取 HST 平均柱亮度图，要求木卫三的球形半径，与其他极光字段互斥。它随本体旋转，通过紫外叠加开关显示；数据和 70 km 壳层的说明见 [极光来源](../geomag/SOURCES.md#ganymede-自身的紫外极光)。
+Ganymede 模板的 `[aurora].ganymede_map` 读取 HST 的柱亮度图（平均图和电流片上方、内部、下方三组），要求木卫三的球形半径，与其他极光字段互斥。它随本体旋转，按木卫三此刻在木星磁层里的磁纬选组，通过紫外叠加开关显示；数据和 70 km 壳层的说明见 [极光来源](../geomag/SOURCES.md#ganymede-自身的紫外极光)。
 
 `[magnetic_field]` 是内部磁场的磁力线（水星、地球、木星、土星、Ganymede 在模板里，天王星、海王星内联在太阳系场景）：`coefficients` 和 `reference_radius_km` 必填；`l_shells`、`lines_per_shell`、`max_radius` 决定画哪些线，`color` 是颜色；模型坐标系和本体系不同时用 `flip_pole` 加 `longitude_offset_deg`，或用 `prime_meridian_deg` 给模型自己的 W（两种写法互斥）。默认不显示，由事件的 `magnetic_lines = true` 或手动开关（`B`）打开，见 [地磁与极光来源](../geomag/SOURCES.md#行星内部磁场磁力线)。
 

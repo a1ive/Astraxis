@@ -18,7 +18,7 @@ static const float kNoiseCells = 32.0; // lattice cells across the noise tile
 #define PATTERN_JOVIAN_OVAL 1
 #define PATTERN_JOVIAN_FOOTPRINTS 2
 #define PATTERN_SATURN_OVAL 3
-#define PATTERN_BODY_MAP 4
+#define PATTERN_BODY_MAP_SHARES 4
 #define PATTERN_UNIFORM 5
 #define PATTERN_EUROPA_TRAILING 6
 #define PATTERN_IO_FLANKS 7
@@ -173,23 +173,27 @@ float saturn_pattern(float3 n, float footprint_km)
     return band * (10.0 + (n.z < 0.0 ? 50.0 : 30.0) * oval.w) / 40.0;
 }
 
-// AuroraMap: west longitude, south-to-north rows, cell centers. x = the map, y = what
-// is left of it without sunlight; n is the physical direction.
-float2 map_layers(float3 n, float footprint_km)
+// AuroraMap: west longitude, south-to-north rows, cell centers, one layer per channel
+// (seasons: r = the map, g = what is left of it without sunlight; shares: the long-term
+// map, then above, inside and below the current sheet); n is the physical direction.
+float4 map_layers(float3 n, float footprint_km)
 {
     float2 uv = float2(-atan2(n.y, n.x) / (2.0 * kPi), asin(clamp(n.z, -1.0, 1.0)) / kPi + 0.5);
     float width, height;
     u_map.GetDimensions(width, height);
     float cell_km = u_pole.w * (kPi / height);
     float lod = max(0.0, log2(max(footprint_km / cell_km, 1.0)));
-    return u_map.SampleLevel(u_map_sampler, uv, lod).rg * u_params.z;
+    return u_map.SampleLevel(u_map_sampler, uv, lod) * u_params.z;
 }
 
 // aurora_map_pattern in scene/aurora_model.cpp does the same.
 float map_pattern(float3 n, float footprint_km)
 {
     n = normalize(n * float3(1.0, 1.0, u_shell.z));
-    float2 layers = map_layers(n, footprint_km);
+    float4 layers = map_layers(n, footprint_km);
+    if (u_mode.x == PATTERN_BODY_MAP_SHARES) {
+        return dot(layers, u_map_sun);
+    }
     if (u_mode.x == PATTERN_BODY_MAP_SEASONS) {
         // The sun's zenith angle at this latitude's noon: u_sun is in the body's frame.
         float zenith = abs(asin(clamp(n.z, -1.0, 1.0)) - asin(clamp(u_sun.z, -1.0, 1.0)));
@@ -275,7 +279,7 @@ float aurora_pattern(float3 n, float footprint_km)
     case PATTERN_JOVIAN_OVAL: return jovian_pattern(n, footprint_km);
     case PATTERN_JOVIAN_FOOTPRINTS: return footprints_pattern(n, footprint_km);
     case PATTERN_SATURN_OVAL: return saturn_pattern(n, footprint_km);
-    case PATTERN_BODY_MAP:
+    case PATTERN_BODY_MAP_SHARES:
     case PATTERN_BODY_MAP_SEASONS:
     case PATTERN_BODY_MAP_DUSK: return map_pattern(n, footprint_km);
     case PATTERN_EUROPA_TRAILING: return 1.0 + 0.5 * n.y;

@@ -2,6 +2,7 @@
 
 #include "core/math.hpp"
 #include "core/time.hpp"
+#include "scene/jovian_plasma_sheet.hpp"
 #include "scene/scene_loader.hpp"
 
 #include <algorithm>
@@ -287,6 +288,22 @@ double Simulation::fade() const
 double Simulation::sky_visibility() const
 {
     return smoothstep(m_sky);
+}
+
+MoonAuroraState Simulation::moon_aurora(int body) const
+{
+    MoonAuroraState state;
+    if (body < 0 || static_cast<size_t>(body) >= m_scene.bodies.size()) {
+        return state;
+    }
+    const Body& moon = m_scene.bodies[static_cast<size_t>(body)];
+    const bool placed = glm::dot(moon.in_parent_axes, moon.in_parent_axes) > 0.0;
+    if (moon.aurora.model == AuroraModel::Ganymede && placed) {
+        const double steady = plasma_sheet_steadiness(m_clock.warp);
+        const auto shares = ganymede_sheet_shares(jovian_magnetic_latitude_deg(moon.in_parent_axes));
+        state.map_shares = glm::dvec4(1.0 - steady, steady * shares[0], steady * shares[1], steady * shares[2]);
+    }
+    return state;
 }
 
 double Simulation::pinwheel_visibility() const

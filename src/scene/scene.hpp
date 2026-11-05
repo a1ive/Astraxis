@@ -379,6 +379,9 @@ struct Body {
     std::array<glm::dvec3, 6> jovian_footprints{};
     // Io, Europa, Ganymede in the body's axes (km); zero means absent.
     std::array<glm::dvec3, 3> jovian_moons{};
+    // A moon with an aurora of its own, in its parent's axes (km): System III for Jupiter's
+    // moons (scene/jovian_plasma_sheet.hpp). Zero without a parent.
+    glm::dvec3 in_parent_axes{0.0};
     std::vector<Plume> plumes;
 
     // Comets: a gas coma (C2, Haser model), an ion tail and dust (a coma and a
