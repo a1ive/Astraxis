@@ -1,7 +1,7 @@
 """Bake the JWST H3+ maps of Uranus and Neptune into body-fixed brightness maps.
 
 Usage (numpy; run with python -E -P):
-    ice_giant_h3p_bake.py uranus <uranus_superim_fits_2.5.fits.zip> <results_lon_*.fits dir> <output.txt>
+    ice_giant_h3p_bake.py uranus <uranus_superim_fits_2.5.fits.zip> <results_lon_*.fits dir> <L_shells.txt> <dip_equator.txt> <output.txt>
     ice_giant_h3p_bake.py neptune <figure_data dir> <west longitude offset, deg> <output.txt>
 
 Both print what the scene needs besides the map. Sources, licenses and the
@@ -81,7 +81,148 @@ def normalized_smooth(values, weights, sigma_cells):
     return np.divide(total, weight, out=np.zeros_like(total), where=weight > 1e-6), weight
 
 
-def uranus(zip_path, profile_dir, output):
+def read_table(path):
+    rows = [line.split() for line in Path(path).read_text(encoding="ascii").splitlines() if line.strip() and not line.startswith("#")]
+    return np.array(rows, dtype=float)
+
+
+def unit_vectors(latitude_deg, west_deg):
+    lat, lon = np.radians(latitude_deg), np.radians(west_deg)
+    return np.stack([np.cos(lat) * np.cos(lon), np.cos(lat) * np.sin(lon), np.sin(lat)], axis=-1)
+
+
+def uranus_magnetic_latitude(shells_path, equator_path, uls_latitude_deg, uls_west_deg):
+    """Signed invariant latitude asin(sqrt(1 - 1/L)) in deg at the given points, from the
+    contours of Melin 2025's tables for Q3: + around ULS north, 0 on the dip equator. A
+    thin-plate spline on the sphere through the contours' points. Q3, not the scene's AH5:
+    Melin finds the dark chevron lines up with the dip equator of Q3 and UH5, more poorly
+    with AH5's, and the map agrees (darker by 3.9%, 2.9%, 0.9% on the equator than 10-15
+    deg off it)."""
+    q3 = 1.0
+    shells = read_table(shells_path)
+    shells = shells[shells[:, 0] == q3]
+    equator = read_table(equator_path)
+    equator = equator[equator[:, 0] == q3]
+
+    # The file's labels are in the wrong order: their notebook contours Rmax at the
+    # ascending levels [3, 5, 10, 20] and names them ['20', '10', '5', '3']. Tracing Q3
+    # from the contours gives Rmax ~ 20, 10, 5, 2.9 for the labels 3, 5, 10, 20.
+    true_l = {3.0: 20.0, 5.0: 10.0, 10.0: 5.0, 20.0: 3.0}
+    spans = [np.ptp(shells[(shells[:, 1] == label) & (shells[:, 2] == 2.0), 4]) for label in sorted(true_l)]
+    assert spans == sorted(spans), "the label order changed: 'L = 3' should be the innermost contour"
+
+    points, values = [unit_vectors(equator[:, 3], equator[:, 2])], [np.zeros(len(equator))]
+    for label, l_shell in true_l.items():
+        for pole, sign in ((1.0, 1.0), (2.0, -1.0)):
+            contour = shells[(shells[:, 1] == label) & (shells[:, 2] == pole)]
+            points.append(unit_vectors(contour[:, 4], contour[:, 3]))
+            values.append(np.full(len(contour), sign * math.sqrt(1.0 - 1.0 / l_shell)))
+    points, values = np.concatenate(points), np.concatenate(values)
+
+    # Nodes at least 4 deg apart along each contour: 1 deg steps only make the system
+    # ill-conditioned. Greedy, so that the result does not depend on a random draw.
+    nodes = []
+    limit = math.cos(math.radians(4.0))
+    for p, v in zip(points, values):
+        if not any(v == w and p @ q > limit for q, w in nodes):
+            nodes.append((p, v))
+    node_points = np.array([n[0] for n in nodes])
+    node_values = np.array([n[1] for n in nodes])
+
+    def kernel(a, b):
+        d2 = np.maximum(2.0 - 2.0 * a @ b.T, 1e-12)
+        return 0.5 * d2 * np.log(d2)
+
+    n = len(nodes)
+    system = np.zeros((n + 4, n + 4))
+    system[:n, :n] = kernel(node_points, node_points) + 1e-5 * np.eye(n)
+    system[:n, n] = 1.0
+    system[:n, n + 1:] = node_points
+    system[n:, :n] = system[:n, n:].T
+    weights = np.linalg.solve(system, np.r_[node_values, np.zeros(4)])
+    query = unit_vectors(uls_latitude_deg, uls_west_deg)
+    shape = query.shape[:-1]
+    query = query.reshape(-1, 3)
+    coordinate = kernel(query, node_points) @ weights[:n] + weights[n] + query @ weights[n + 1:]
+    return np.degrees(np.arcsin(np.clip(coordinate.reshape(shape), -1.0, 1.0)))
+
+
+def interp_over_nan(x):
+    index = np.arange(len(x))
+    ok = np.isfinite(x)
+    return np.interp(index, index[ok], x[ok])
+
+
+def uranus_unobserved_model(smooth, weights, lat, magnetic_lat):
+    """log emission = constant + a(|latitude|) + b(magnetic latitude), fitted to the
+    observed cells: the extrapolation for where nothing was observed. Held out in
+    sectors of the observed map, a(|latitude|) does most of the work and b adds little
+    on average; b carries the dip equator's dark band and the auroral shells."""
+    log_map = np.log(np.maximum(smooth, 1e-3))
+    # Melin 2025: L < 3 is non-auroral.
+    l3_deg = math.degrees(math.asin(math.sqrt(1.0 - 1.0 / 3.0)))
+    l2_deg = math.degrees(math.asin(math.sqrt(1.0 - 1.0 / 2.0)))
+    # 7.5 deg of latitude: the dark caps' width; 5 deg of magnetic latitude: the band's.
+    lat_edges = np.arange(0.0, 90.1, 7.5)
+    mag_edges = np.arange(-90.0, 90.1, 5.0)
+    lat_centers = 0.5 * (lat_edges[:-1] + lat_edges[1:])
+    mag_centers = 0.5 * (mag_edges[:-1] + mag_edges[1:])
+    lat_cells = np.broadcast_to(lat[:, None], smooth.shape)
+    lat_index = np.minimum(np.digitize(np.abs(lat_cells), lat_edges) - 1, len(lat_centers) - 1)
+    mag_index = np.minimum(np.digitize(magnetic_lat, mag_edges) - 1, len(mag_centers) - 1)
+
+    # Only cells inside the map's trusted latitudes count toward the profiles.
+    use = weights > 0.5
+    constant = log_map[use].mean()
+    a, b = np.zeros(len(lat_centers)), np.zeros(len(mag_centers))
+    min_cells = 5
+    for _ in range(8):
+        for k in range(len(a)):
+            cells = use & (lat_index == k)
+            a[k] = (log_map[cells] - constant - b[mag_index[cells]]).mean() if cells.sum() >= min_cells else np.nan
+        a = interp_over_nan(a)
+        for k in range(len(b)):
+            cells = use & (mag_index == k)
+            b[k] = (log_map[cells] - constant - a[lat_index[cells]]).mean() if cells.sum() >= min_cells else np.nan
+        # The inner shells of the ULS north pole lie entirely in the unobserved part: the
+        # same shells around the other pole, for lack of anything better. Not the same
+        # field lines: Melin finds the two aurorae not conjugate, and the map's brightness
+        # does not correlate between the feet of a line.
+        missing = ~np.isfinite(b)
+        b[missing] = b[::-1][missing]
+        b = interp_over_nan(b)
+
+    # Only the shape of the band: a fitted bin's noise is not a magnetic structure.
+    smoothed_b = np.convolve(np.r_[b[0], b, b[-1]], [0.25, 0.5, 0.25], "valid")
+    shell_term = np.interp(magnetic_lat, mag_centers, smoothed_b)
+    fill = constant + np.interp(np.abs(lat_cells), lat_centers, a) + shell_term
+    # What particle precipitation alone would leave: the auroral shells' excess over the
+    # non-auroral level, along the shell, at the level of the whole map.
+    non_auroral = np.exp(shell_term[use & (np.abs(magnetic_lat) < l3_deg)]).mean()
+    excess = np.maximum(np.exp(shell_term) - non_auroral, 0.0) * smoothstep(l2_deg, l3_deg, np.abs(magnetic_lat))
+    dark = np.exp(constant) * excess
+    print(f"unobserved model: a(|lat|) {np.exp(a.min()):.2f} .. {np.exp(a.max()):.2f}, b(magnetic lat) {np.exp(smoothed_b.min()):.2f} .. {np.exp(smoothed_b.max()):.2f}, "
+          f"non-auroral b {non_auroral:.3f}, aurora without sunlight up to {dark.max():.3f} uW m-2 sr-1")
+    return np.exp(fill), dark
+
+
+def uranus_noon_sunlight(lat):
+    """How much of the sunlit emission a latitude keeps at the best of its day, January
+    2023: 0 .. 1 by the solar zenith angle at local noon. Non-auroral H3+ comes from solar
+    photoionization and lives about 1 h (Melin 2025, after Moore 2019), far less than the
+    17.2 h rotation, so it follows the sunlight. Anchored at: the map's last trusted
+    latitude (8 N), the terminator (the column near it, Tiranti 2026, over the sunlit disk
+    median, Melin 2025), and the sun below the horizon of the altitude where the primary
+    photoelectron heating lies near the terminator (4000 km, Tiranti 2026)."""
+    subsolar_deg = 58.83  # the scene at Melin's observations, test_ice_giant_aurora
+    terminator_share = 6.6e14 / 2.27e15
+    radius_km, altitude_km = 25559.0, 4000.0
+    horizon_deg = math.degrees(math.acos(radius_km / (radius_km + altitude_km)))
+    zenith_deg = np.abs(subsolar_deg - lat)
+    return np.interp(zenith_deg, [subsolar_deg - 8.0, 90.0, 90.0 + horizon_deg], [1.0, terminator_share, 0.0])
+
+
+def uranus(zip_path, profile_dir, shells_path, equator_path, output):
     # Melin 2025 Figure 3a: total emission (slice 5, W m-2 sr-1) on 2.5 deg cells,
     # columns of ULS west longitude; the rows run south to north in the IAU sense
     # (the sunlit, observed pole is ULS south, IAU north).
@@ -117,14 +258,27 @@ def uranus(zip_path, profile_dir, output):
     smooth, _ = normalized_smooth(emission, valid.astype(float) * trust[:, None], 1.3)
 
     # Toward 25 S, the limb's longitude curve, scaled to the map where both are
-    # observed; south of it, no data and no emission.
+    # observed; south of it, nothing was observed: a model of the magnetic shells.
     band = (lat >= 15.0) & (lat <= 35.0)
     scale = np.median(smooth[band]) / np.median(limb)
     pearson = np.corrcoef(smooth[band].mean(axis=0), limb)[0, 1]
     blend = smoothstep(2.0, 18.0, lat)[:, None]
     merged = blend * smooth + (1.0 - blend) * scale * limb[None, :]
+    # ULS latitude is minus the rows' IAU latitude.
+    west_grid, lat_grid = np.meshgrid(lon_uls, lat)
+    magnetic_lat = uranus_magnetic_latitude(shells_path, equator_path, -lat_grid, west_grid)
+    # The observed cells that the projection's edge does not reach: see trust above.
+    observed = valid & (lat_grid >= 8.0)
+    fill, dark = uranus_unobserved_model(smooth, observed.astype(float), lat, magnetic_lat)
+    observed_part = smoothstep(-35.0, -25.0, lat)[:, None]
+    merged = observed_part * merged + (1.0 - observed_part) * fill
     merged, _ = normalized_smooth(merged, np.ones_like(merged), 1.5)
-    merged *= smoothstep(-35.0, -25.0, lat)[:, None]
+    # All of the above is as if sunlit: the limb's curve gives no latitude dependence and
+    # was scaled to the sunlit map, the fill mirrors the sunlit hemisphere. Now the night,
+    # south of where the map was trusted; the rows north of it stay as observed.
+    dark, _ = normalized_smooth(dark, np.ones_like(dark), 1.5)
+    sunlit = uranus_noon_sunlight(lat)[:, None]
+    merged = sunlit * merged + (1.0 - sunlit) * dark
 
     # To the scene's frame (IAU new, Lamy 2025): east longitude = ULS west - 50.6;
     # rows of west longitude cell centers, as for the other maps.
@@ -213,7 +367,7 @@ def neptune(directory, west_offset, output):
 
 if __name__ == "__main__":
     if sys.argv[1] == "uranus":
-        uranus(sys.argv[2], sys.argv[3], sys.argv[4])
+        uranus(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6])
     elif sys.argv[1] == "neptune":
         neptune(sys.argv[2], float(sys.argv[3]), sys.argv[4])
     else:

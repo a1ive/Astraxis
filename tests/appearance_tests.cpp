@@ -1239,6 +1239,12 @@ void test_ice_giant_aurora()
     const glm::dvec3 to_sun = glm::transpose(scene.body_to_icrf(uranus_body, tiranti_t)) * (scene.sun_position() - uranus_body.world_position);
     const double subsolar_deg = std::asin(glm::normalize(to_sun).z) / kDegToRad;
     check(std::abs(subsolar_deg - 67.7) < 1.5, "the sub-solar latitude is Tiranti's", subsolar_deg);
+    // The polar night in the map (tools/geomag/ice_giant_h3p_bake.py) is for Melin's dates.
+    const double melin_t = tdb_from_utc_jd(kJan8 + 0.875);
+    scene.update(melin_t);
+    const glm::dvec3 to_sun_2023 = glm::transpose(scene.body_to_icrf(uranus_body, melin_t)) * (scene.sun_position() - uranus_body.world_position);
+    const double subsolar_2023_deg = std::asin(glm::normalize(to_sun_2023).z) / kDegToRad;
+    check(std::abs(subsolar_2023_deg - 58.83) < 0.05, "the map's polar night has the sub-solar latitude of Melin's dates", subsolar_2023_deg);
 
     // The map, in ULS west longitude (IAU new east + 50.6) and IAU latitude.
     const AuroraMap& map = *u.aurora.map;
@@ -1250,14 +1256,119 @@ void test_ice_giant_aurora()
           uranus_at(232.0, 37.5) / uranus_at(217.0, 62.5));
     // Tiranti's limb: bright near 85 W, an emission dip near 195 W.
     check(uranus_at(85.0, -15.0) > 1.2 * uranus_at(195.0, -15.0), "the limb's emission dip", uranus_at(85.0, -15.0) / uranus_at(195.0, -15.0));
-    double south = 0.0;
     double peak = 0.0;
     for (int lon = 0; lon < 360; lon += 5) {
-        south = std::max(south, uranus_at(lon, -40.0));
-        for (int lat = -30; lat <= 85; lat += 5) peak = std::max(peak, uranus_at(lon, lat));
+        for (int lat = 10; lat <= 85; lat += 5) peak = std::max(peak, uranus_at(lon, lat));
     }
-    check(south == 0.0, "no emission invented where nothing was observed");
     check(peak > 0.4 && peak < 1.0, "Uranus's total emission is of order 0.3 uW m-2 sr-1", peak);
+
+    // South of 25 S nothing was observed: a model from the observed profiles in latitude
+    // and in the magnetic shells of Melin's Q3 tables. Check where its structure lies with
+    // Q3's own coefficients, which the tables do not go through (Connerney et al. 1987,
+    // the file gsfcq3.dat of libinternalfield, see assets/geomag/SOURCES.md; ULS, like AH5).
+    double brightest_south = 0.0, brightest_night = 0.0, brightest_pole = 0.0;
+    double brightest_row_share = 0.0;
+    glm::dvec3 brightest_direction(0.0);
+    MagneticField q3;
+    q3.set_coefficient(false, 1, 0, 11893.0);
+    q3.set_coefficient(false, 1, 1, 11579.0);
+    q3.set_coefficient(true, 1, 1, -15684.0);
+    q3.set_coefficient(false, 2, 0, -6030.0);
+    q3.set_coefficient(false, 2, 1, -12587.0);
+    q3.set_coefficient(true, 2, 1, 6116.0);
+    q3.set_coefficient(false, 2, 2, 196.0);
+    q3.set_coefficient(true, 2, 2, 4759.0);
+    const glm::dmat3 uls_to_body = magnetic_model_to_body(u, 0.0);
+    const auto body_direction = [](double east_deg, double latitude_deg) {
+        const double east = east_deg * kDegToRad, lat = latitude_deg * kDegToRad;
+        return glm::dvec3(std::cos(lat) * std::cos(east), std::cos(lat) * std::sin(east), std::sin(lat));
+    };
+    for (double lat = -87.5; lat <= -37.5; lat += 2.5) {
+        double row_mean = 0.0;
+        for (int east = 0; east < 360; east += 5) row_mean += map.brightness(east * kDegToRad, lat * kDegToRad) / 72.0;
+        for (int east = 0; east < 360; east += 5) {
+            const double value = map.brightness(east * kDegToRad, lat * kDegToRad);
+            brightest_south = std::max(brightest_south, value);
+            if (lat <= -62.5) brightest_night = std::max(brightest_night, value);
+            if (lat <= -85.0) brightest_pole = std::max(brightest_pole, value);
+            // North of this the limb's longitude curve still shows through the smoothing.
+            if (lat > -65.0 && lat <= -42.5 && value / row_mean > brightest_row_share) {
+                brightest_row_share = value / row_mean;
+                brightest_direction = body_direction(east, lat);
+            }
+        }
+    }
+    check(brightest_south < peak, "the unobserved south is no brighter than what was observed", brightest_south / peak);
+    // The polar night. Non-auroral H3+ comes from the sun and lives about 1 h (Melin 2025):
+    // the far south keeps only what particles ionize, a shell-mean far below the bright spots.
+    const auto zonal_mean = [&](double latitude_deg) {
+        double mean = 0.0;
+        for (int east = 0; east < 360; east += 5) mean += map.brightness(east * kDegToRad, latitude_deg * kDegToRad) / 72.0;
+        return mean;
+    };
+    check(zonal_mean(-15.0) > zonal_mean(-30.0) && zonal_mean(-30.0) > zonal_mean(-45.0) && zonal_mean(-45.0) > zonal_mean(-60.0),
+          "the south darkens away from the sun");
+    // At the terminator at noon, against the same distance from the equator in the north.
+    constexpr double kNoonTerminatorLatitude = 90.0 - 58.83;
+    const double terminator_share = zonal_mean(-kNoonTerminatorLatitude) / zonal_mean(kNoonTerminatorLatitude);
+    check(terminator_share > 0.2 && terminator_share < 0.45, "about Tiranti's column near the terminator over Melin's sunlit one (0.29)", terminator_share);
+    check(brightest_pole < 0.005, "nothing at the pole of the polar night", brightest_pole);
+    check(brightest_night > 0.01 && brightest_night < 0.15, "the aurora alone, weak", brightest_night);
+    // Melin 2025 calls L < 3 non-auroral: the map's excess should lie on Q3's shells around
+    // L = 3 and up, and not on them if the field is turned the other way.
+    FieldLineSettings shell_settings;
+    shell_settings.max_radius = 30.0;
+    const auto shell_of = [&](const glm::dvec3& position) {
+        double shell = 0.0;
+        for (const glm::dvec4& point : trace_field_line(q3, position * 1.001, shell_settings)) {
+            shell = std::max(shell, glm::length(glm::dvec3(point)));
+        }
+        return shell;
+    };
+    const auto shell_contrast = [&](double turn_deg) {
+        const double c = std::cos(turn_deg * kDegToRad), s = std::sin(turn_deg * kDegToRad);
+        double outer = 0.0, inner = 0.0;
+        int outer_cells = 0, inner_cells = 0;
+        for (double lat = -62.5; lat <= -42.5; lat += 2.5) {
+            double row_mean = 0.0;
+            for (int east = 0; east < 360; east += 5) row_mean += map.brightness(east * kDegToRad, lat * kDegToRad) / 72.0;
+            for (int east = 0; east < 360; east += 10) {
+                const glm::dvec3 p = glm::transpose(uls_to_body) * body_direction(east, lat);
+                const glm::dvec3 position(c * p.x - s * p.y, s * p.x + c * p.y, p.z);
+                if (glm::dot(q3.field_nt(position), position) <= 0.0) continue; // around ULS north only
+                const double shell = shell_of(position);
+                const double value = map.brightness(east * kDegToRad, lat * kDegToRad) / row_mean;
+                if (shell >= 2.0 && shell < 6.0) {
+                    outer += value;
+                    ++outer_cells;
+                } else if (shell >= 1.1 && shell < 1.6) {
+                    inner += value;
+                    ++inner_cells;
+                }
+            }
+        }
+        return outer_cells > 10 && inner_cells > 10 ? (outer / outer_cells) / (inner / inner_cells) : 0.0;
+    };
+    const double contrast = shell_contrast(0.0);
+    const double turned_contrast = shell_contrast(180.0);
+    const double brightest_shell = shell_of(glm::transpose(uls_to_body) * brightest_direction);
+    std::printf("  info: Uranus's modeled south: up to %.3f, in the night %.3f, noon terminator share %.2f; L 2-6 over L 1.1-1.6 %.3f (field turned 180 deg: %.3f); brightest for its row %.2f, on L = %.1f\n",
+                brightest_south, brightest_night, terminator_share, contrast, turned_contrast, brightest_row_share, brightest_shell);
+    check(contrast > 1.05, "the modeled south is brighter on Q3's auroral shells", contrast);
+    check(turned_contrast < 1.0, "and not with the field turned away", turned_contrast);
+    check(brightest_shell > 2.0 && brightest_shell < 6.0, "the brightest of the modeled south is on those shells", brightest_shell);
+    // Nothing of a seam where the model takes over: no steeper than the observed map itself.
+    const auto steepest_step = [&](double from_lat, double to_lat) {
+        double steepest = 0.0;
+        for (int east = 0; east < 360; east += 5) {
+            for (double lat = from_lat; lat < to_lat; lat += 2.5) {
+                steepest = std::max(steepest, std::abs(map.brightness(east * kDegToRad, lat * kDegToRad) -
+                                                       map.brightness(east * kDegToRad, (lat + 2.5) * kDegToRad)));
+            }
+        }
+        return steepest;
+    };
+    check(steepest_step(-45.0, -15.0) < steepest_step(10.0, 80.0), "no seam where the model takes over", steepest_step(-45.0, -15.0));
 
     // The vertical profile holds a whole column; its emission peaks well below the temperature's.
     const AuroraProfile profile = aurora_profile(AuroraModel::Uranus, false, 0.0);

@@ -227,8 +227,21 @@ CVRL 下载不可用时，本次从 Colour 的 `DATA_CMFS_STANDARD_OBSERVER["CIE
 - Melin et al. 2025, GRL 52, e2025GL118301（JWST GTO 1248，2023-01-08/09），[Zenodo 16085710](https://doi.org/10.5281/zenodo.16085710) 的 `uranus_superim_fits_2.5.fits.zip`：第 5 片是 H₃⁺ 总发射（W m⁻² sr⁻¹），2.5° 网格，已做视线修正，投影时去掉了黄昏亮区。列是 ULS 西经，行由南向北（IAU 意义，受照、被观测的极是 IAU 北、ULS 南）：图上约 60°、217°W 的暗斑和紧邻的亮区对应论文的“南极光和它极向旁边的暗斑”。约 5°N 以南的格子掉向边缘，噪声也大。
 - Tiranti et al. 2026, GRL 53, e2025GL119304（JWST GO 5073，2025-01-19），[Zenodo 17036023](https://doi.org/10.5281/zenodo.17036023) 的 `results_lon_*.fits`：36 个经度、350 km 一格的 H₃⁺ 总发射（只在 ±25° 纬度的临边）。5025 km 以上论文说不可靠。文件里的数值和 Melin 的柱亮度差约 70 倍（见 CLAUDE.md），只用形状。
 - Lamy et al. 2025, Nature Astronomy 9（doi:10.1038/s41550-025-02492-z）：自转周期 17.247864 ± 0.000010 h，`W = 203.81 − 500.9315936164617 d`（Zenodo 16085710 的 `uranus_lamy_IAU_new_lon.tpc`），写在场景里替换 IAU 的 −501.1600928。Melin 表 1 的 12 个中央经线在 1° 以内对上。
+- Zenodo 16085710 的 `JupiterMag_Uranus_L_shells.txt`、`JupiterMag_Uranus_dip_equator.txt`：三个磁场模型（Q3、AH5、UH5，文件里写作 gsfcq3、ah5、umoh）的 L 壳等值线（3、5、10、20，南北各一圈）和偶极赤道。这里取 Q3，不是场景磁力线用的 AH5：论文第 4 节说暗 V 形的下半段和 Q3、UH5 的偶极赤道对得上，和 AH5 对得较差；图上也如此，偶极赤道上比旁边 10–15° 暗 3.9%（Q3）、2.9%（UH5）、0.9%（AH5）。表用的是 2 阶的 Q3（[libinternalfield](https://github.com/mattkjames7/libinternalfield) 提交 `9a6b6e5` 的 `gsfcq3.dat`，8 个系数写在 `test_ice_giant_aurora` 里；到 3 阶的 `gsfcq3full.dat` 对不上）。**文件里 L 的标签是反的**：`uranus_magnetic_field.ipynb` 按升序的等值线 `[3, 5, 10, 20]` 配了 `['20', '10', '5', '3']`，所以标 3 的是紧贴磁极的最内圈。用 Q3 系数从这些点追踪磁力线，标 3、5、10、20 的 Rmax 中值约 20、10、5、2.9（ULS 北），论文也说南极光“就在 L = 20 以内”。工具里按真实的 L 用，并断言这个顺序。
 
-处理：先按距离平滑（σ ≈ 3°，约等于 1400 km 的空间分辨率，经度方向按 cos 纬度放宽，否则极区的投影台阶抹不掉）；2–18°N 过渡到 Tiranti 的临边经度曲线，按 15–35°N 的中位数定标（两者的经度曲线相关系数 0.73，低谷都在 195°W 附近）；35–25°S 淡到零，再往南没有观测，不发光。转到场景的本体系（`IAUnew 东经 = ULS 西经 − 50.6`）。高度表是 36 个经度的平均，上下各加一格零，归一成每 km 的柱份额。475 km 以下没有观测，线性降到 125 km 为零（均质层顶在 240–296 km）；顶部的零只是不让壳层有硬边。
+处理：先按距离平滑（σ ≈ 3°，约等于 1400 km 的空间分辨率，经度方向按 cos 纬度放宽，否则极区的投影台阶抹不掉）；2–18°N 过渡到 Tiranti 的临边经度曲线，按 15–35°N 的中位数定标（两者的经度曲线相关系数 0.73，低谷都在 195°W 附近）；35–25°S 过渡到下面的模型；8°N 以南再按太阳压暗（见下面的“极夜”，8°N 以北的行仍是观测值）。转到场景的本体系（`IAUnew 东经 = ULS 西经 − 50.6`）。高度表是 36 个经度的平均，上下各加一格零，归一成每 km 的柱份额。475 km 以下没有观测，线性降到 125 km 为零（均质层顶在 240–296 km）；顶部的零只是不让壳层有硬边。
+
+25°S 以南没有观测，图上是模型，不是数据：
+
+- **磁坐标**：等值线和偶极赤道的点（相距至少 4°，共 397 个）取 ±√(1 − 1/L)，赤道取 0，ULS 北为正，用球面上的薄板样条插值成全球的光滑坐标，再取反正弦当不变纬度。对照逐格追踪 Q3：25°S 以北均方根差 0.02–0.06，以南 0.2，分歧集中在第二个偶极赤道回路外的一道新月形（越过它 L 会突变，四条等值线描述不了），对亮度的影响最多几个百分点。Q3 只来自一次飞掠，那里本来就约束很弱，所以没有为此另写追踪器。
+- **亮度**：对 8°N 以北的观测格子拟合 `ln E = 常数 + a(|纬度|) + b(不变纬度)`（纬度 7.5° 一档，不变纬度 5° 一档，交替取平均，b 再做一次 [¼, ½, ¼] 平滑），得 a 为 0.76–1.23、b 为 0.92–1.17。a 按纬度的绝对值，也就是假设南半球和观测到的北半球对称；论文说观测到的极区偏暗，温度从 25°（ULS 南）往极区每度降 0.40 K，另一个极没有数据。ULS 北磁极的内层壳没有被观测到，b 取另一个磁极相同的壳。
+- **依据**：在观测图上留出几个扇区（8–25°N、25–40°N、四个经度段）做预测（这次的 b 按 √(1 − 1/L) 分 20 档，形式相同），只用常数的对数均方根误差 0.14–0.34，加 a 降到 0.10–0.19（270–360°W 那一段没有改善），再加 Q3 的 b 总体不变：北极光一侧变好（0.132 → 0.115），270–360°W 变差（0.154 → 0.188）。所以受照时亮度的大尺度分布主要由纬度决定，b 只带来弱的结构：L = 2–6 的壳比 L = 1.1–1.6 亮约 9%，偶极赤道的暗带只有 2–3%。
+- **对照论文**：b 是沿 L 壳的平均，不是真实的形态。论文（和 HST）看到的极光是有限范围的斑点，不是完整的卵或环；南极光比周围亮 64–94%，北极光平均高 0.12 µW m⁻² sr⁻¹，这些局部亮区按壳平均后被冲淡了。论文把 L < 3 算作非极光区，南半球最亮的格子也落在追踪得到的 L ≈ 3.7 上。
+- **没有用共轭点映射**：论文第 3、4 节明确说南北极光在三个模型下都不共轭（也提醒两者不是同时观测的）。图上也如此：两端都有观测的磁力线（用 AH5 追踪），亮度残差的相关系数在足点相距 5–30° 时是 0.70（只是相邻的格子本来就相似），30–60° 时 0.15，60° 以上 −0.36；待补的格子里，另一端有观测的也只占 12%。
+- **极夜**：上面得到的是“受照时”的图 V。论文说非极光的 H₃⁺ 来自太阳光电离，寿命约 1 小时（Moore 2019），比 17.2 小时的自转短得多，所以它跟着阳光走；而 Tiranti 的曲线按 Melin 的受照亮度定标，也没有纬度信息。于是 `E = S·V + (1 − S)·D`：
+  - S 只看纬度，取一天里最亮的时候，也就是正午的太阳天顶角 χ = |58.83° − 纬度|（58.83°N 是 Melin 观测时场景的日下点，`test_ice_giant_aurora` 检查；论文的 55.1° 是 JWST 的视线纬度）。按 χ 线性插值三个点：观测可信的最南处 8°N（χ = 50.8°）S = 1；晨昏线（χ = 90°，纬度 31.2°S）S = 0.29，是 Tiranti 2026 接近晨昏线的柱密度 6.6×10¹⁴ m⁻² 比 Melin 2025 受照圆面的中值 2.27×10¹⁵ m⁻²；4000 km 高度也照不到太阳处（χ = 120.2°，纬度 61.4°S）S = 0，4000 km 是 Tiranti 引的 JWST 时代晨昏线附近光电子加热的主要高度。
+  - D 是只有粒子电离时剩下的：L ≥ 3 的壳上，b 超过非极光水平（L < 3 的平均，1.004）的部分乘全图水平，L = 2–3 之间淡入，最高约 0.057 µW m⁻² sr⁻¹，比受照时低一个量级。这是沿壳的平均，不是亮斑。
+  - 所以 61°S 以南除了壳上的极光就是黑的，偶极赤道的暗带也只留在还有阳光的纬度。场景里正午晨昏线处的亮度是北半球同纬度的 0.31，L = 2–6 比 L = 1.1–1.6 亮 3.2 倍（磁场转 180° 后 0.44）。
 
 海王星，论文和图的数值 CC BY 4.0（Melin et al. 2025, Nature Astronomy 9, 666），代码和 `figure_data` 在 [neptune-h3p](https://github.com/henrikmelin/neptune-h3p)（GPL-3.0，提交 `7c1c2b8`）：
 
@@ -243,9 +256,11 @@ CVRL 下载不可用时，本次从 Colour 的 `DATA_CMFS_STANDARD_OBSERVER["CIE
 ```
 mkdir -p build/h3p/lon build/h3p/nep
 curl -L -o build/h3p/uranus_fits.zip https://zenodo.org/api/records/16085710/files/uranus_superim_fits_2.5.fits.zip/content
+curl -L -o build/h3p/L_shells.txt https://zenodo.org/api/records/16085710/files/JupiterMag_Uranus_L_shells.txt/content
+curl -L -o build/h3p/dip_equator.txt https://zenodo.org/api/records/16085710/files/JupiterMag_Uranus_dip_equator.txt/content
 for l in $(seq 5 10 355); do curl -L -o build/h3p/lon/results_lon_$l.fits https://zenodo.org/api/records/17036023/files/results_lon_$l.fits/content; done
 for f in figure2a_neptune_longitude1_clouds figure2b_neptune_longitude2_clouds figure2c_neptune_longitude1_h3p figure2d_neptune_longitude2_h3p figure4_coords_longitude1 figure4_coords_longitude2 figure4_polygons_longitude1 figure4_polygons_longitude2; do curl -L -o build/h3p/nep/$f.fits https://raw.githubusercontent.com/henrikmelin/neptune-h3p/7c1c2b80ee04e411d35a7ceaa7cd56bef5e5cb85/figure_data/$f.fits; done
-python -E -P tools/geomag/ice_giant_h3p_bake.py uranus build/h3p/uranus_fits.zip build/h3p/lon assets/geomag/uranus_h3p.txt
+python -E -P tools/geomag/ice_giant_h3p_bake.py uranus build/h3p/uranus_fits.zip build/h3p/lon build/h3p/L_shells.txt build/h3p/dip_equator.txt assets/geomag/uranus_h3p.txt
 python -E -P tools/geomag/ice_giant_h3p_bake.py neptune build/h3p/nep -25.08 assets/geomag/neptune_h3p.txt
 ```
 
