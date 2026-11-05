@@ -29,6 +29,14 @@ texture_left_lon_deg = -180.0
 jovian_oval = "geomag/jupiter_oval.txt"
 footprints = "geomag/jupiter_footprints.txt"
 
+# JRM33 to degree 13, without the magnetodisc that stretches the lines beyond 10 or
+# 20 radii, so they end at 10; the outer shell is Io's orbit. geomag/SOURCES.md.
+[magnetic_field]
+coefficients = "geomag/field_jupiter_jrm33.txt"
+reference_radius_km = 71492.0
+l_shells = [2.0, 3.5, 5.9]
+max_radius = 10.0
+
 # Faint dusty rings, single scattering (see shaders/ring.frag.hlsl). Radii, normal
 # optical depths and thicknesses [PDSR]. The real rings are about a millionth as
 # bright as Jupiter's disk, so `gain` is artistic; their relative brightness, the

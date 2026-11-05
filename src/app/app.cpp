@@ -302,6 +302,9 @@ void App::handle_key(const SDL_Event& event)
     case SDLK_P:
         m_view_options.plumes = !m_view_options.plumes;
         break;
+    case SDLK_B:
+        m_view_options.magnetic_view = m_view_options.magnetic_view == 1 ? 0 : 1;
+        break;
     case SDLK_C:
         m_view_options.comets = !m_view_options.comets;
         break;

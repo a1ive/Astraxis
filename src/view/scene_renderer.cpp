@@ -102,6 +102,7 @@ CoronaUniforms corona_uniforms(const Scene& scene, const CameraView& view)
 
 constexpr int kTrailPoints = 2048;
 constexpr float kOrbitOpacity = 0.55f;
+constexpr double kMagneticLineOpacity = 0.38;
 // An orbit the clock runs through in under kEvenOrbitFastS of real time would
 // flicker as its fading tail chases the body around: it is drawn evenly (at
 // kEvenOrbitFade), blending back to the fading tail by kEvenOrbitSlowS.
@@ -1415,11 +1416,20 @@ void SceneRenderer::build_orbit_lines(const Simulation& sim, const OutputView& o
         return;
     }
     const glm::dvec3& cam = view.position;
+    const int active = scene.active_event();
+    const SceneEvent* quiet = active >= 0 && scene.events[static_cast<size_t>(active)].focus_orbits_only
+                                  ? &scene.events[static_cast<size_t>(active)]
+                                  : nullptr;
 
     for (size_t i = 0; i < scene.bodies.size(); ++i) {
         // An orbit fades with its body; a travelled path (e.g. a spacecraft's
         // tour) stays while its host system is shown.
         const int host = scene.satellite_host(static_cast<int>(i));
+        if (quiet && (scene.bodies[i].parent != quiet->focus || scene.bodies[i].kind == BodyKind::Spacecraft) &&
+            std::none_of(quiet->trails.begin(), quiet->trails.end(),
+                         [&](const SceneEvent::Trail& t) { return t.body == static_cast<int>(i); })) {
+            continue;
+        }
         const TrailMode mode = scene.trail_mode(static_cast<int>(i));
         const float fade = mode == TrailMode::History
                                ? (host >= 0 ? fades[static_cast<size_t>(host)] : 1.0f)
@@ -1500,6 +1510,46 @@ void SceneRenderer::build_orbit_lines(const Simulation& sim, const OutputView& o
                 m_line_points.emplace_back(to_render(transform.to_display(center + dir * gap), cam), age);
                 m_orbits.add_line(m_line_points, glm::vec4(color, kOrbitOpacity * fades[i]));
             }
+        }
+    }
+}
+
+void SceneRenderer::build_magnetic_lines(const Simulation& sim, const OutputView& output_view,
+                                         const ViewOptions& options)
+{
+    const Scene& scene = sim.scene();
+    const int event = scene.active_event();
+    const bool event_shows = event >= 0 && scene.events[static_cast<size_t>(event)].magnetic_lines;
+    if (options.magnetic_view == 2 || (options.magnetic_view == 0 && !event_shows)) {
+        return;
+    }
+    const CameraView& view = output_view.camera;
+    const glm::dvec3& cam = view.position;
+    const double t = sim.clock().t_tdb;
+    for (size_t i = 0; i < scene.bodies.size(); ++i) {
+        const Body& body = scene.bodies[i];
+        const BodyMagneticField& field = body.magnetic_field;
+        if (!field.model || !body.visible) {
+            continue;
+        }
+        const double distance = glm::length(body.world_position - cam);
+        const double pixels_per_radius =
+            0.5 * view.viewport.y * view.focal_y * field.reference_radius_km / std::max(distance, 1.0);
+        const double opacity = kMagneticLineOpacity * output_view.body_fades[i] *
+            field_line_visibility(magnetic_rotation_deg_per_day(body), sim.clock().warp) *
+            field_line_size_fade(pixels_per_radius);
+        if (opacity <= 0.0) {
+            continue;
+        }
+        // The model's axes in the display frame, scaled from radii to km.
+        const glm::dmat3 axes = body.orientation * magnetic_model_to_body(body, t) * field.reference_radius_km;
+        for (const std::vector<glm::dvec4>& line : field.lines) {
+            m_line_points.clear();
+            for (const glm::dvec4& p : line) {
+                m_line_points.emplace_back(to_render(body.world_position + axes * glm::dvec3(p), cam),
+                                           static_cast<float>(p.w));
+            }
+            m_orbits.add_line(m_line_points, glm::vec4(field.color, static_cast<float>(opacity)), 0.0f);
         }
     }
 }
@@ -1696,6 +1746,7 @@ void SceneRenderer::render(const Frame& frame, const Simulation& sim, const Outp
 
     build_body_items(sim, output_view, options);
     build_orbit_lines(sim, output_view, options);
+    build_magnetic_lines(sim, output_view, options); // in the same pass, after the orbits
     build_comet_items(sim, output_view, options);
 
     // Uploads (copy passes) must precede the render passes.

@@ -210,6 +210,38 @@ python -E -P tools/geomag/ice_giant_h3p_bake.py uranus build/h3p/uranus_fits.zip
 python -E -P tools/geomag/ice_giant_h3p_bake.py neptune build/h3p/nep -25.08 assets/geomag/neptune_h3p.txt
 ```
 
+## 行星内部磁场（磁力线）
+
+`field_*.txt` 是施密特准归一化的内部场高斯系数（nT），每行 `g|h n m 值`。天王星、海王星、木星、土星的系数取自 [libinternalfield](https://github.com/mattkjames7/libinternalfield)（MIT，Copyright (c) 2022 Dr Matt James，提交 `9a6b6e5`），地球取自 IAGA 的 IGRF-14。程序只读这些数，不链接那个库。
+
+| 文件 | 模型 | 参考半径 | 坐标 |
+|---|---|---|---|
+| `field_uranus_ah5.txt` | AH5，[Herbert 2009](https://doi.org/10.1029/2009JA014394)，4 阶 | 25,600 km | ULS（北是 IAU 的南） |
+| `field_neptune_o8.txt` | O8，[Connerney et al. 1991](https://doi.org/10.1029/91JA01165)，取约束较好的 3 阶 | 24,765 km | NLS |
+| `field_jupiter_jrm33.txt` | JRM33，[Connerney et al. 2022](https://doi.org/10.1029/2021JE007055)，取约束较好的 13 阶（文件到 30 阶） | 71,492 km | System III |
+| `field_saturn_cassini11.txt` | Cassini 11，[Dougherty et al. 2018](https://doi.org/10.1126/science.aat5434)，11 阶，轴对称 | 60,268 km | 自转轴 |
+| `field_earth_igrf14.txt` | IGRF-14 的 2025.0，13 阶 | 6,371.2 km | 地心 |
+
+这些模型的经度按东经（右手）写：Connerney 系的模型西经 λ 对应 φ = −λ。依据是系数本身：O8 的 atan2(h11, g11) = −72°，论文写磁极倾向西经 72°。
+
+核对：
+- 从 libinternalfield 转来的数没有逐项对照论文的表（AH5 的原文没有拿到）。它们的总体性质对照过：O8 的偶极 0.142 G、倾角 46.9°，偏心 (0.05, 0.48, 0.00) R 对上 [A&A 2024 的 OTD-O8 表](https://www.aanda.org/articles/aa/full_html/2024/06/aa46699-23/T1.html)；Cassini 11 严格轴对称；IGRF-14 和 `scene/aurora.cpp` 的地磁极一致。
+- AH5 和 Cassini 11 的参考半径没有从原文核实。天王星 25,600 与 25,559 km 只差 0.16%，画面上看不出来。
+
+放到场景的本体系（`[bodies.magnetic_field]`）：
+- **天王星**：`flip_pole` 把 ULS 的北翻到 IAU 的南，`longitude_offset_deg = -50.6` 用 Melin 2025 的 `IAU new 东经 = ULS 西经 − 50.6`。AH5 的南磁极落在 235.7°W、纬度 30.2°（IAU），Melin 的南极光在 232°W、37.5°，相距约 8°。
+- **海王星**：`prime_meridian_deg = [253.18, 536.3128492]` 是 IAU 2009 以前的 W，周期 16.11 h，和 NLS 同一个系统；场景的 541.14°/天不是磁场的自转率。[PDS 的 Voyager 2 轨迹说明](https://pds.nasa.gov/data/vg2-n-pra-4-summ-browse-48sec-v1.0/vg_1001/catalog/pos/dataset.cat)规定 1989-08-25 03:56:00 飞船在西经 167.7°，按场景的轨迹和这个 W 算出 168.8°。现在的相位未知。
+- **木星、土星、地球**：模型的坐标系就是场景的本体系。木星只用内部场时，Io 的足点和 `jupiter_footprints.txt` 相差不到 3°。
+
+重新生成（只用标准库）：
+
+```bash
+mkdir -p build/field
+for f in uranus/ah5 neptune/gsfco8 jupiter/jrm33 saturn/cassini11; do curl -L -o build/field/$(basename $f).dat https://raw.githubusercontent.com/mattkjames7/libinternalfield/9a6b6e562b57a95146b7d608ee9cdf229b674a63/data/coeffs/$f.dat; done
+curl -L -o build/field/igrf14coeffs.txt https://www.ngdc.noaa.gov/IAGA/vmod/coeffs/igrf14coeffs.txt
+python -I tools/geomag/field_coeffs.py build/field assets/geomag
+```
+
 ## Mars visible diffuse aurora
 
 Enable with `[aurora] mars_visible = true` in the Mars body template. The Mars

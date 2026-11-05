@@ -1,0 +1,15 @@
+# Saturn Cassini 11, Dougherty et al. 2018, Science 362, eaat5434, via libinternalfield, commit 9a6b6e5 (MIT, Copyright (c) 2022 Dr Matt James). Radius 60,268 km; axisymmetric by construction.
+# Schmidt quasi-normalized internal Gauss coefficients in nT, model frame right-handed
+# (longitude positive east of the model's prime meridian). Written by
+# tools/geomag/field_coeffs.py; see SOURCES.md.
+g 1 0 21140.2
+g 2 0 1581.1
+g 3 0 2260.1
+g 4 0 91.1
+g 5 0 12.6
+g 6 0 17.2
+g 7 0 -59.6
+g 8 0 -10.5
+g 9 0 -12.9
+g 10 0 15.0
+g 11 0 18.2

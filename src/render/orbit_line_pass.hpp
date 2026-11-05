@@ -21,8 +21,10 @@ public:
     bool set_format(const SceneTargetFormat& format);
 
     void begin();
-    // `points`: xyz = camera-relative position, w = fade (0 head .. 1 tail).
-    void add_line(const std::vector<glm::vec4>& points, const glm::vec4& color);
+    // `points`: xyz = camera-relative position, w = fade (0 head .. 1 tail, where
+    // the opacity is tail_opacity of the head's).
+    static constexpr float kTailOpacity = 0.12f;
+    void add_line(const std::vector<glm::vec4>& points, const glm::vec4& color, float tail_opacity = kTailOpacity);
     void upload(SDL_GPUCommandBuffer* cmd);
     void draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const CameraView& view, float width_px) const;
 
@@ -33,6 +35,7 @@ private:
         uint32_t first = 0;
         uint32_t count = 0;
         glm::vec4 color{1.0f};
+        float tail_opacity = kTailOpacity;
     };
 
     SDL_GPUDevice* m_device = nullptr;

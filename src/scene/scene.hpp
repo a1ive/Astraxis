@@ -3,6 +3,7 @@
 #include "core/time.hpp"
 #include "ephem/motion.hpp"
 #include "scene/aurora_model.hpp"
+#include "scene/magnetic_field.hpp"
 #include "scene/corona.hpp"
 #include "scene/nebula.hpp"
 #include "scene/refraction.hpp"
@@ -371,6 +372,7 @@ struct Body {
         double gain = 0.0;
     } night_lights;
     BodyAurora aurora; // scene/aurora_model.hpp
+    BodyMagneticField magnetic_field; // scene/magnetic_field.hpp
     // Io N/S, Europa N/S, Ganymede N/S; zero means absent/outside the table.
     std::array<glm::dvec3, 6> jovian_footprints{};
     std::vector<Plume> plumes;
@@ -436,6 +438,11 @@ struct Body {
 // model: IAU pole and prime meridian (periodic terms with `nut_prec_angles`,
 // those of its nut_prec_source; empty: none), free precession or a spin table.
 glm::dmat3 body_rotation(const Body& body, const std::vector<glm::dvec3>& nut_prec_angles, double t_tdb);
+
+// The frame of a body's magnetic field model in its body-fixed axes (columns),
+// and how fast the field turns (deg/day, the model's own rate if it has one).
+glm::dmat3 magnetic_model_to_body(const Body& body, double t_tdb);
+double magnetic_rotation_deg_per_day(const Body& body);
 
 // Rate of the prime meridian (deg/day, negative if retrograde) at t_tdb: the
 // spin table's, else the IAU model's secular rate (without periodic terms).
@@ -559,7 +566,11 @@ struct SceneEvent {
     bool aurora_visible = false; // visible aurora while the event is active
     bool aurora_ultraviolet = false; // UV false-color overlay on the visible planet
     bool aurora_infrared = false; // IR false-color overlay on the visible planet
-    int flyby = -1;             // >= 0: the body whose pass of the focus the event shows (-1: looked for)
+    bool magnetic_lines = false; // the field lines of bodies with a magnetic_field
+    // Only the orbits of the focus' natural satellites and of the bodies in `trails`
+    // are drawn, so that a close view is not crossed by those of distant bodies.
+    bool focus_orbits_only = false;
+    int flyby = -1;            // >= 0: the body whose pass of the focus the event shows (-1: looked for)
     std::string caption;        // a museum-style note on why the view is worth seeing; may be empty
 
     // Trail settings that replace a body's own while the event is active

@@ -72,6 +72,7 @@ private:
 
     void build_body_items(const Simulation& sim, const OutputView& view, const ViewOptions& options);
     void build_orbit_lines(const Simulation& sim, const OutputView& view, const ViewOptions& options);
+    void build_magnetic_lines(const Simulation& sim, const OutputView& view, const ViewOptions& options);
     void build_belt_items(const Simulation& sim, const OutputView& view, const ViewOptions& options);
     void build_comet_items(const Simulation& sim, const OutputView& view, const ViewOptions& options);
     // A colliding-wind binary's dust spiral: its grains (once per scene) and this frame's look.

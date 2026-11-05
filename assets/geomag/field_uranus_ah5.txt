@@ -1,0 +1,28 @@
+# Uranus AH5, Herbert 2009, JGR 114, A11206, via libinternalfield, commit 9a6b6e5 (MIT, Copyright (c) 2022 Dr Matt James). Radius 25,600 km; ULS.
+# Schmidt quasi-normalized internal Gauss coefficients in nT, model frame right-handed
+# (longitude positive east of the model's prime meridian). Written by
+# tools/geomag/field_coeffs.py; see SOURCES.md.
+g 1 0 11278
+g 1 1 10928
+h 1 1 -16049
+g 2 0 -9648
+g 2 1 -12284
+g 2 2 1453
+h 2 1 6405
+h 2 2 4220
+g 3 0 -1265
+g 3 1 2778
+g 3 2 -4535
+g 3 3 -6297
+h 3 1 -1548
+h 3 2 -2165
+h 3 3 -3036
+g 4 0 3388
+g 4 1 -29
+g 4 2 955
+g 4 3 5588
+g 4 4 8136
+h 4 1 -2036
+h 4 2 -3437
+h 4 3 -1154
+h 4 4 -2920

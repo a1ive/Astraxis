@@ -464,6 +464,12 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
                                           {"saturn_oval", boolean}, {"ganymede_map", text}, {"uranus_map", text},
                                           {"neptune_map", text}, {"europa_visible", boolean},
                                           {"io_visible", boolean}, {"callisto_visible", boolean}, {"mars_visible", boolean}};
+    static const TemplateField integer{{Type::integer}, nullptr};
+    static const TemplateFields magnetic_field = {
+        {"coefficients", text}, {"reference_radius_km", number}, {"flip_pole", boolean},
+        {"longitude_offset_deg", number}, {"prime_meridian_deg", list}, {"l_shells", list},
+        {"lines_per_shell", integer}, {"max_radius", number}, {"color", text},
+    };
     static const TemplateFields rotor = {{"shape", text}, {"period_s", number}};
     static const TemplateFields ring_band = {
         {"name", text}, {"inner_km", number}, {"outer_km", number}, {"optical_depth", number},
@@ -491,6 +497,7 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
         {"texture_left_lon_deg", number}, {"texture_lon_direction", text},
         {"free_precession", {{Type::table}, &free_precession}}, {"atmosphere", {{Type::table}, &atmosphere}},
         {"night_lights", {{Type::table}, &night_lights}}, {"aurora", {{Type::table}, &aurora}},
+        {"magnetic_field", {{Type::table}, &magnetic_field}},
         {"rotor", {{Type::table}, &rotor}}, {"rings", {{Type::table}, &rings}},
         {"plumes", {{Type::array}, &plume}},
     };
@@ -1505,6 +1512,55 @@ void Loader::parse(const toml::table& root, Scene& out)
                 body.aurora.kp = kp;
             }
         }
+        if (const toml::table* field = (*t)["magnetic_field"].as_table()) {
+            const std::string mctx = ctx + " magnetic_field";
+            if (body.kind != BodyKind::Planet || body.shape) {
+                fail(ctx, "only ellipsoidal planets can have a magnetic field");
+            }
+            auto model = std::make_shared<MagneticField>();
+            std::string error;
+            if (!model->load(m_asset_root / get_string(*field, "coefficients", mctx), &error)) {
+                fail(mctx, error);
+            }
+            BodyMagneticField& m = body.magnetic_field;
+            m.reference_radius_km = get_double(*field, "reference_radius_km", mctx);
+            if (!(m.reference_radius_km > 0.0)) {
+                fail(mctx, "reference_radius_km must be positive");
+            }
+            m.color = parse_color(*field, "color", mctx, glm::vec3(0.72f, 0.78f, 1.0f));
+            m.flip_pole = (*field)["flip_pole"].value<bool>().value_or(false);
+            m.longitude_offset_deg = get_double_or(*field, "longitude_offset_deg", 0.0);
+            if (field->contains("prime_meridian_deg")) {
+                if (field->contains("longitude_offset_deg")) {
+                    fail(mctx, "takes longitude_offset_deg or prime_meridian_deg, not both");
+                }
+                double meridian[2];
+                get_array(*field, "prime_meridian_deg", mctx, meridian, 2, 2);
+                m.own_prime_meridian = true;
+                m.pm_w0_deg = meridian[0];
+                m.pm_rate_deg_per_day = meridian[1];
+            }
+            FieldLineSettings settings;
+            settings.max_radius = get_double_or(*field, "max_radius", settings.max_radius);
+            if (const toml::array* shells = (*field)["l_shells"].as_array()) {
+                settings.l_shells.clear();
+                for (const toml::node& shell : *shells) {
+                    const auto value = shell.value<double>();
+                    if (!value || !(*value > 1.0)) {
+                        fail(mctx, "l_shells must be numbers above 1");
+                    }
+                    settings.l_shells.push_back(*value);
+                }
+            }
+            settings.lines_per_shell = (*field)["lines_per_shell"].value<int>().value_or(settings.lines_per_shell);
+            if (settings.lines_per_shell < 1 || !(settings.max_radius > 1.0)) {
+                fail(mctx, "needs at least one line per shell and max_radius above 1");
+            }
+            settings.surface_equatorial = body.equatorial_radius_km / m.reference_radius_km;
+            settings.surface_polar = body.polar_radius_km / m.reference_radius_km;
+            m.lines = trace_field_lines(*model, settings);
+            m.model = model;
+        }
         if (const toml::array* plumes = (*t)["plumes"].as_array()) {
             if (body.kind != BodyKind::Planet || body.shape) {
                 fail(ctx, "only ellipsoidal planets and moons can have plumes");
@@ -1820,6 +1876,8 @@ void Loader::parse(const toml::table& root, Scene& out)
             e.aurora_visible = (*t)["aurora_visible"].value<bool>().value_or(false);
             e.aurora_ultraviolet = (*t)["aurora_ultraviolet"].value<bool>().value_or(false);
             e.aurora_infrared = (*t)["aurora_infrared"].value<bool>().value_or(false);
+            e.magnetic_lines = (*t)["magnetic_lines"].value<bool>().value_or(false);
+            e.focus_orbits_only = (*t)["focus_orbits_only"].value<bool>().value_or(false);
             e.caption = get_string_or(*t, "caption", "");
             if (const toml::node* trails = t->get("trails")) {
                 const toml::array* list = trails->as_array();
