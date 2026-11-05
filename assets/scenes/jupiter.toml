@@ -2,6 +2,11 @@
 # Galileo (1995-2003) and Juno (2016-), and Cassini's flyby (2000-2001).
 #
 # Sources
+# [GBS]  Moore et al. 2018, Nature 561, 76: the field's two hemispheres differ, with an intense
+#        equatorial patch of inward field, the Great Blue Spot. Moore et al. 2019, Nature
+#        Astronomy 3, 730, and Connerney et al. 2022, JGR Planets 127, e2021JE007055 (JRM33): it
+#        drifts eastward by a few cm/s, carried by zonal winds at depth; the dynamo's top near
+#        0.81 radii. The maps are JRM33 to degree 13; assets/geomag/SOURCES.md.
 # [ELEM] JPL SSD, Planetary Satellite Mean Elements (https://ssd.jpl.nasa.gov/sats/elem/),
 #        ephemeris JUP365, Laplace-plane frame, epoch 2000-01-01.5 TDB.
 # [SPHY] JPL SSD, Planetary Satellite Physical Parameters (https://ssd.jpl.nasa.gov/sats/phys_par/).
@@ -542,6 +547,38 @@ caption = """\
     its strongest radiation belts. Over the years the low point drifts north. Juno \
     found that the cloud bands reach some 3,000 km deep, and eight cyclones \
     circling one at the north pole."""
+
+[[events]]
+name = "Jupiter's Great Blue Spot (false color)"
+magnetic_map = "surface"
+hide_orbits = true                         # the moons' would run across the equator's spot
+time_tdb = "2018-09-05 00:28"
+focus = "Jupiter"
+from_body = "Sun"
+distance_km = 3.0e5
+warp = 300.0
+# [GBS]
+caption = """\
+    Juno mapped a field no spacecraft had seen: invisible, here in false color at the cloud \
+    tops, red leaving the planet and blue entering it. Near the equator, where a simple \
+    magnet would have almost nothing, one patch of about 13 gauss goes in, some 25 times \
+    Earth's surface field. It is called the Great Blue Spot, and it is drifting slowly east."""
+
+[[events]]
+name = "Jupiter's field, deep down (false color)"
+magnetic_map = "deep"
+hide_orbits = true
+time_tdb = "2018-09-05 10:22"
+focus = "Jupiter"
+from_body = "Sun"
+distance_km = 3.0e5
+warp = 300.0
+# [GBS]
+caption = """\
+    The same field traced down to 81% of Jupiter's radius, near the top of the dynamo, and \
+    drawn on the planet's face. The northern half breaks up into bands and patches while \
+    the south stays simple, a split no one expected. The Great Blue Spot tightens to about \
+    80 gauss. This is a model continued downward: no spacecraft has been there."""
 
 [[events]]
 name = "Juno at Ganymede (2021-06-07, 1,035 km)"

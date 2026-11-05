@@ -37,6 +37,11 @@ reference_radius_km = 71492.0
 l_shells = [2.0, 3.5, 5.9]
 max_radius = 10.0
 
+# The radial field of JRM33 at the 1-bar surface and at 0.81 radii. geomag/SOURCES.md.
+[magnetic_map]
+surface = "geomag/jupiter_br.fieldmap"
+deep = "geomag/jupiter_br_deep.fieldmap"
+
 # Faint dusty rings, single scattering (see shaders/ring.frag.hlsl). Radii, normal
 # optical depths and thicknesses [PDSR]. The real rings are about a millionth as
 # bright as Jupiter's disk, so `gain` is artistic; their relative brightness, the

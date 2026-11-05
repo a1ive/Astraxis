@@ -53,6 +53,7 @@ void test_settings()
     window.view.orbits = false;
     window.view.aurora_view = 2;
     window.view.magnetic_view = 1;
+    window.view.magnetic_map_view = 3;
     window.display = 2;
     window.display_name = "Test Monitor";
     check(save_settings(path, SettingsSection::Window, window), "config saves");
@@ -62,6 +63,7 @@ void test_settings()
     load_settings(path, SettingsSection::Wallpaper, wallpaper_again);
     check(again.view.aurora_view == 2, "UV overlay selection survives saving");
     check(again.view.magnetic_view == 1, "field line selection survives saving");
+    check(again.view.magnetic_map_view == 3, "field map selection survives saving");
     wallpaper_again.view.aurora_view = 1;
     check(save_settings(path, SettingsSection::Wallpaper, wallpaper_again, nullptr, ViewScope::Overrides),
           "mode-specific UV selection saves");

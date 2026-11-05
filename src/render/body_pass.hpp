@@ -53,6 +53,8 @@ struct BodyDrawItem {
     glm::vec3 night_lights_color{1.0f};
     float night_lights_gain = 0.0f;
     float surface_gain = 1.0f; // scale of the reflected light (a view in another band)
+    // False color map of the radial magnetic field, in the texture's projection (linear; null: none).
+    SDL_GPUTexture* field_map = nullptr;
 };
 
 struct SunLight {

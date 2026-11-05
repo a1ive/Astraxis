@@ -39,6 +39,8 @@ nut_prec_pm = [0.0, 0.0, 0.584542]
 color = "#c1673e"
 texture = "textures/mars.jpg"              # assets/textures/SOURCES.md
 texture_left_lon_deg = -180.0
+[magnetic_map]                             # Morschhauser 2014, 150 km up; geomag/SOURCES.md
+surface = "geomag/mars_br.fieldmap"
 [atmosphere]                               # [ATM]
 height_km = 100.0
 haze_depth = 0.5

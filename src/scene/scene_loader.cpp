@@ -470,6 +470,7 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
         {"longitude_offset_deg", number}, {"prime_meridian_deg", list}, {"l_shells", list},
         {"lines_per_shell", integer}, {"max_radius", number}, {"color", text},
     };
+    static const TemplateFields magnetic_map = {{"surface", text}, {"deep", text}};
     static const TemplateFields rotor = {{"shape", text}, {"period_s", number}};
     static const TemplateFields ring_band = {
         {"name", text}, {"inner_km", number}, {"outer_km", number}, {"optical_depth", number},
@@ -497,7 +498,7 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
         {"texture_left_lon_deg", number}, {"texture_lon_direction", text},
         {"free_precession", {{Type::table}, &free_precession}}, {"atmosphere", {{Type::table}, &atmosphere}},
         {"night_lights", {{Type::table}, &night_lights}}, {"aurora", {{Type::table}, &aurora}},
-        {"magnetic_field", {{Type::table}, &magnetic_field}},
+        {"magnetic_field", {{Type::table}, &magnetic_field}}, {"magnetic_map", {{Type::table}, &magnetic_map}},
         {"rotor", {{Type::table}, &rotor}}, {"rings", {{Type::table}, &rings}},
         {"plumes", {{Type::array}, &plume}},
     };
@@ -1561,6 +1562,24 @@ void Loader::parse(const toml::table& root, Scene& out)
             m.lines = trace_field_lines(*model, settings);
             m.model = model;
         }
+        if (const toml::table* maps = (*t)["magnetic_map"].as_table()) {
+            const std::string mctx = ctx + " magnetic_map";
+            if (body.kind != BodyKind::Planet || body.shape) {
+                fail(ctx, "only ellipsoidal planets can have a magnetic map");
+            }
+            const auto load_map = [&](const char* key) {
+                auto map = std::make_shared<FieldMap>();
+                std::string error;
+                if (!map->load(m_asset_root / get_string(*maps, key, mctx), &error)) {
+                    fail(mctx, error);
+                }
+                return map;
+            };
+            body.magnetic_map.surface = load_map("surface");
+            if (maps->contains("deep")) {
+                body.magnetic_map.deep = load_map("deep");
+            }
+        }
         if (const toml::array* plumes = (*t)["plumes"].as_array()) {
             if (body.kind != BodyKind::Planet || body.shape) {
                 fail(ctx, "only ellipsoidal planets and moons can have plumes");
@@ -1878,6 +1897,13 @@ void Loader::parse(const toml::table& root, Scene& out)
             e.aurora_infrared = (*t)["aurora_infrared"].value<bool>().value_or(false);
             e.magnetic_lines = (*t)["magnetic_lines"].value<bool>().value_or(false);
             e.focus_orbits_only = (*t)["focus_orbits_only"].value<bool>().value_or(false);
+            e.hide_orbits = (*t)["hide_orbits"].value<bool>().value_or(false);
+            if (const auto view = (*t)["magnetic_map"].value<std::string>()) {
+                if (*view != "surface" && *view != "deep") {
+                    fail(ctx, "magnetic_map must be \"surface\" or \"deep\"");
+                }
+                e.magnetic_map = *view == "deep" ? FieldMapView::Deep : FieldMapView::Surface;
+            }
             e.caption = get_string_or(*t, "caption", "");
             if (const toml::node* trails = t->get("trails")) {
                 const toml::array* list = trails->as_array();

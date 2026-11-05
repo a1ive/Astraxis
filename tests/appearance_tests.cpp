@@ -1693,6 +1693,159 @@ void test_magnetic_field()
     check(!loads(good + "l_shells = [0.5]\n"), "and shells outside the planet");
 }
 
+void test_magnetic_maps()
+{
+    Scene mars_scene = load_scene_or_die("mars.toml");
+    Scene jupiter_scene = load_scene_or_die("jupiter.toml");
+    const Body& mars = mars_scene.bodies[static_cast<size_t>(mars_scene.find("Mars"))];
+    const Body& jupiter = jupiter_scene.bodies[static_cast<size_t>(jupiter_scene.find("Jupiter"))];
+    check(mars.magnetic_map.surface && !mars.magnetic_map.deep, "Mars has a map of its crustal field");
+    check(jupiter.magnetic_map.surface && jupiter.magnetic_map.deep, "Jupiter has two");
+    if (!mars.magnetic_map.surface || !jupiter.magnetic_map.surface || !jupiter.magnetic_map.deep) return;
+
+    const auto cell_latitude = [](const FieldMap& m, int row) { return (0.5 - (row + 0.5) / m.height) * kPi; };
+    const auto cell_longitude = [](const FieldMap& m, int column) { return ((column + 0.5) / m.width - 0.5) * kTwoPi; };
+
+    // Mars: the field is where Acuna 1999 found it, and not in the great basins.
+    const FieldMap& crust = *mars.magnetic_map.surface;
+    double peak = 0.0, peak_latitude = 0.0, peak_east = 0.0, north = 0.0, south = 0.0;
+    for (int row = 0; row < crust.height; ++row) {
+        const double latitude = cell_latitude(crust, row);
+        for (int column = 0; column < crust.width; ++column) {
+            const double east = cell_longitude(crust, column);
+            const double br = crust.radial_nt(east, latitude);
+            if (std::abs(br) > peak) {
+                peak = std::abs(br);
+                peak_latitude = latitude;
+                peak_east = east;
+            }
+            (latitude > 0.0 ? north : south) += br * br * std::cos(latitude);
+        }
+    }
+    check(peak > 1000.0 && peak < 1500.0, "Mars's strongest radial field 150 km up is near 1,200 nT (Langlais 2019)", peak);
+    check(std::abs(peak_latitude / kDegToRad + 45.0) < 15.0 && std::abs(angle_difference_deg(peak_east / kDegToRad, 180.0)) < 30.0,
+          "in Terra Cimmeria and Terra Sirenum", peak_east / kDegToRad);
+    check(south > 5.0 * north, "the southern highlands hold most of it", south / north);
+    const auto basin = [&](double latitude_deg, double east_deg, double radius_deg) {
+        double strongest = 0.0;
+        for (int a = 0; a < 16; ++a) {
+            for (double r = 0.0; r <= radius_deg; r += radius_deg / 4.0) {
+                const double b = a * kTwoPi / 16.0;
+                const double latitude = latitude_deg + r * std::sin(b);
+                const double east = east_deg + r * std::cos(b) / std::cos(latitude * kDegToRad);
+                strongest = std::max(strongest, std::abs(crust.radial_nt(east * kDegToRad, latitude * kDegToRad)));
+            }
+        }
+        return strongest;
+    };
+    check(basin(-42.4, 70.5, 12.0) < 0.1 * peak, "Hellas shows almost none", basin(-42.4, 70.5, 12.0) / peak);
+    check(basin(-49.7, 316.0, 8.0) < 0.1 * peak, "nor Argyre", basin(-49.7, 316.0, 8.0) / peak);
+
+    // Jupiter: both maps are JRM33 where the body's mesh puts each cell.
+    const MagneticField& jrm33 = *jupiter.magnetic_field.model;
+    const auto check_map = [&](const FieldMap& map, bool deep, const char* what) {
+        double worst = 0.0;
+        for (int row = 3; row < map.height; row += 17) {
+            const double beta = cell_latitude(map, row);
+            const glm::dvec2 meridian(71492.0 * std::cos(beta), 66854.0 * std::sin(beta));
+            const double r = (deep ? 0.81 * 71492.0 : glm::length(meridian)) / 71492.0;
+            const double cos_latitude = meridian.x / glm::length(meridian);
+            const double sin_latitude = meridian.y / glm::length(meridian);
+            for (int column = 2; column < map.width; column += 23) {
+                const double east = cell_longitude(map, column);
+                const glm::dvec3 direction(cos_latitude * std::cos(east), cos_latitude * std::sin(east), sin_latitude);
+                const double expected = glm::dot(jrm33.field_nt(r * direction), direction);
+                const double value = map.radial_nt(east, beta);
+                // A byte's step of the square root, in nT, near this value.
+                const double step = 2.0 * std::sqrt(std::abs(value) * map.scale_nt) / 127.0 + map.scale_nt / (127.0 * 127.0);
+                worst = std::max(worst, std::abs(value - expected) / step);
+            }
+        }
+        check(worst <= 1.0, what, worst);
+    };
+    check_map(*jupiter.magnetic_map.surface, false, "the cloud-top map is JRM33 on the flattened surface");
+    check_map(*jupiter.magnetic_map.deep, true, "the deep map is JRM33 at 0.81 radii");
+
+    // The Great Blue Spot: near the equator, near 90 W (Moore 2018), and it stands out deep down.
+    const auto spot = [&](const FieldMap& map, double& strength, double& latitude, double& west) {
+        strength = 0.0;
+        double sum = 0.0;
+        for (int row = 0; row < map.height; ++row) {
+            const double beta = cell_latitude(map, row);
+            for (int column = 0; column < map.width; ++column) {
+                const double east = cell_longitude(map, column);
+                const double br = map.radial_nt(east, beta);
+                sum += br * br * std::cos(beta);
+                if (std::abs(beta) < 15.0 * kDegToRad && br < strength) {
+                    strength = br;
+                    latitude = beta / kDegToRad;
+                    west = -east / kDegToRad;
+                }
+            }
+        }
+        return std::sqrt(sum / (map.width * map.height * 2.0 / kPi));
+    };
+    double strength = 0.0, latitude = 0.0, west = 0.0;
+    const double top_rms = spot(*jupiter.magnetic_map.surface, strength, latitude, west);
+    check(std::abs(strength + 1.28e6) < 0.05e6, "the Great Blue Spot is about 13 gauss at the cloud tops", strength);
+    check(std::abs(latitude) < 12.0 && std::abs(angle_difference_deg(west, 90.0)) < 10.0, "near the equator, near 90 W", west);
+    const double top_contrast = -strength / top_rms;
+    const double deep_rms = spot(*jupiter.magnetic_map.deep, strength, latitude, west);
+    check(std::abs(strength + 7.9e6) < 0.2e6, "and about 80 gauss at 0.81 radii", strength);
+    check(std::abs(angle_difference_deg(west, 84.0)) < 5.0, "in the same place", west);
+    check(-strength / deep_rms > 2.0 * top_contrast, "where it stands out far more", -strength / deep_rms / top_contrast);
+
+    // The events open with the feature about to come round into the sunlight, 40 deg away.
+    const auto sub_solar_east = [](Scene& scene, const Body& body, double t) {
+        scene.update(t);
+        const glm::dvec3 to_sun = glm::transpose(body.orientation) * (scene.sun_position() - body.world_position);
+        return std::atan2(to_sun.y, to_sun.x) / kDegToRad;
+    };
+    const struct { Scene* scene; const Body* body; double feature_east; FieldMapView view; int count; } expected[] = {
+        {&mars_scene, &mars, 175.0, FieldMapView::Surface, 1},
+        {&jupiter_scene, &jupiter, 275.5, FieldMapView::Surface, 1},
+        {&jupiter_scene, &jupiter, 276.5, FieldMapView::Deep, 1},
+    };
+    for (const auto& e : expected) {
+        int found = 0;
+        for (const SceneEvent& event : e.scene->events) {
+            if (event.magnetic_map != e.view) continue;
+            ++found;
+            check(event.focus == e.scene->find(e.body->name.c_str()) && (event.focus_orbits_only || event.hide_orbits),
+                  "the event looks at the planet, without distant orbits across it");
+            const double offset = angle_difference_deg(sub_solar_east(*e.scene, *e.body, event.t_tdb), e.feature_east + 40.0);
+            std::printf("  info: %s: sub-solar longitude %+.1f deg from where it should open\n", event.name.c_str(), offset);
+            check(std::abs(offset) < 5.0, "and opens with the feature coming round", offset);
+        }
+        check(found == e.count, "the scene has its map event", static_cast<double>(found));
+    }
+
+    // The texture holds a value's sign about the middle, for interpolation.
+    FieldMap small;
+    small.width = 3;
+    small.height = 1;
+    small.scale_nt = 100.0;
+    small.cells = {-127, 0, 127};
+    const std::vector<unsigned char> pixels = small.texture_rgba();
+    check(pixels[0] == 0 && pixels[4] == 128 && pixels[8] == 255, "the texture holds -1 .. 1 as 0 .. 255");
+    check(small.radial_nt(-kPi + 0.1, 0.0) == -100.0 && small.radial_nt(kPi - 0.1, 0.0) == 100.0, "and the map's sign and scale");
+
+    // A wrong description is refused.
+    const auto loads = [](const std::string& extra) {
+        const std::string text = "name = 'x'\n[[bodies]]\nname = 'Planet'\nradii_km = [3396.0]\n[bodies.magnetic_map]\n" + extra;
+        Scene out;
+        std::string error;
+        return load_scene_string(text, "test", out, &error, ASTRAXIS_ASSET_DIR);
+    };
+    check(loads("surface = 'geomag/mars_br.fieldmap'\n"), "a map loads");
+    check(!loads("deep = 'geomag/mars_br.fieldmap'\n"), "a body needs a surface map");
+    check(!loads("surface = 'geomag/jupiter_oval.txt'\n"), "and a file of the right kind");
+    const std::string event_head = "name = 'x'\n[[bodies]]\nname = 'Planet'\nradii_km = [1.0]\n[[events]]\nname = 'e'\ntime_tdb = '2000-01-01 12:00'\nfocus = 'Planet'\n";
+    Scene bad;
+    std::string error;
+    check(!load_scene_string(event_head + "magnetic_map = 'nowhere'\n", "bad", bad, &error), "an event's map is surface or deep");
+}
+
 void test_jovian_footprints()
 {
     Scene scene = load_scene_or_die("jupiter.toml");
@@ -1818,6 +1971,7 @@ void run_appearance_tests()
     test_aurora_profiles();
     test_ice_giant_aurora();
     test_magnetic_field();
+    test_magnetic_maps();
     test_ganymede_aurora();
     test_europa_aurora();
     test_io_callisto_aurora();

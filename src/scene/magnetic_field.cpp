@@ -9,6 +9,7 @@
 #include <array>
 #include <cmath>
 #include <fstream>
+#include <locale>
 #include <sstream>
 
 namespace astraxis {
@@ -278,6 +279,65 @@ std::vector<std::vector<glm::dvec4>> trace_field_lines(const MagneticField& fiel
         }
     }
     return lines;
+}
+
+bool FieldMap::load(const std::filesystem::path& file, std::string* error)
+{
+    const auto failed = [&](const std::string& what) {
+        if (error) {
+            *error = file.string() + ": " + what;
+        }
+        return false;
+    };
+    std::ifstream in(file, std::ios::binary);
+    if (!in) {
+        return failed("cannot open");
+    }
+    std::string header;
+    std::getline(in, header);
+    std::istringstream row(header);
+    row.imbue(std::locale::classic());
+    std::string magic;
+    int w = 0, h = 0;
+    double scale = 0.0;
+    if (!(row >> magic >> w >> h >> scale) || magic != "AXFIELDMAP1" || w <= 0 || h <= 0 || w > 8192 || h > 4096 ||
+        !(scale > 0.0)) {
+        return failed("bad header");
+    }
+    std::vector<signed char> values(static_cast<size_t>(w) * static_cast<size_t>(h));
+    in.read(reinterpret_cast<char*>(values.data()), static_cast<std::streamsize>(values.size()));
+    if (in.gcount() != static_cast<std::streamsize>(values.size()) || in.peek() != std::char_traits<char>::eof()) {
+        return failed("wrong size");
+    }
+    width = w;
+    height = h;
+    scale_nt = scale;
+    cells = std::move(values);
+    return true;
+}
+
+double FieldMap::radial_nt(double east_longitude, double parametric_latitude) const
+{
+    if (cells.empty()) {
+        return 0.0;
+    }
+    const double u = east_longitude / kTwoPi + 0.5;
+    const int column = static_cast<int>(std::floor((u - std::floor(u)) * width)) % width;
+    const int line = std::clamp(static_cast<int>((0.5 - parametric_latitude / kPi) * height), 0, height - 1);
+    const double value = cells[static_cast<size_t>(line) * static_cast<size_t>(width) + static_cast<size_t>(column)] / 127.0;
+    return (value < 0.0 ? -1.0 : 1.0) * value * value * scale_nt;
+}
+
+std::vector<unsigned char> FieldMap::texture_rgba() const
+{
+    std::vector<unsigned char> pixels(cells.size() * 4);
+    for (size_t i = 0; i < cells.size(); ++i) {
+        const int value = cells[i];
+        pixels[4 * i] = static_cast<unsigned char>(std::lround((value + 127) * 255.0 / 254.0));
+        pixels[4 * i + 1] = pixels[4 * i + 2] = 0;
+        pixels[4 * i + 3] = 255;
+    }
+    return pixels;
 }
 
 double field_line_visibility(double rotation_deg_per_day, double warp)

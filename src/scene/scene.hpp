@@ -373,6 +373,7 @@ struct Body {
     } night_lights;
     BodyAurora aurora; // scene/aurora_model.hpp
     BodyMagneticField magnetic_field; // scene/magnetic_field.hpp
+    BodyMagneticMap magnetic_map;
     // Io N/S, Europa N/S, Ganymede N/S; zero means absent/outside the table.
     std::array<glm::dvec3, 6> jovian_footprints{};
     std::vector<Plume> plumes;
@@ -567,9 +568,11 @@ struct SceneEvent {
     bool aurora_ultraviolet = false; // UV false-color overlay on the visible planet
     bool aurora_infrared = false; // IR false-color overlay on the visible planet
     bool magnetic_lines = false; // the field lines of bodies with a magnetic_field
+    FieldMapView magnetic_map = FieldMapView::None; // "surface" or "deep" in the file
     // Only the orbits of the focus' natural satellites and of the bodies in `trails`
     // are drawn, so that a close view is not crossed by those of distant bodies.
     bool focus_orbits_only = false;
+    bool hide_orbits = false; // none at all, where they would cross what the event shows
     int flyby = -1;            // >= 0: the body whose pass of the focus the event shows (-1: looked for)
     std::string caption;        // a museum-style note on why the view is worth seeing; may be empty
 

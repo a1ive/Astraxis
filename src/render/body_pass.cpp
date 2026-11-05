@@ -139,7 +139,7 @@ bool BodyPass::create_pipelines(const SceneTargetFormat& format)
     SDL_GPUShader* fs = create_shader(device, {.dxil = kBodyFragDxil,
                                                .spirv = kBodyFragSpirv,
                                                .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
-                                               .num_samplers = 3,
+                                               .num_samplers = 4,
                                                .num_uniform_buffers = 1});
     if (!vs || !fs) {
         SDL_ReleaseGPUShader(device, vs);
@@ -304,15 +304,16 @@ void BodyPass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const Ca
         if (item.night_lights) {
             fu.night = glm::vec4(item.night_lights_color, item.night_lights_gain);
         }
-        fu.surface = glm::vec4(item.surface_gain, 0.0f, 0.0f, 0.0f);
+        fu.surface = glm::vec4(item.surface_gain, item.field_map ? 1.0f : 0.0f, 0.0f, 0.0f);
         SDL_PushGPUFragmentUniformData(cmd, 0, &fu, sizeof(fu));
 
-        SDL_GPUTextureSamplerBinding tex[3] = {
+        SDL_GPUTextureSamplerBinding tex[4] = {
             {.texture = item.texture ? item.texture : m_white, .sampler = m_sampler},
             {.texture = item.ring_profile ? item.ring_profile : m_no_rings, .sampler = m_profile_sampler},
             {.texture = item.night_lights ? item.night_lights : m_white, .sampler = m_sampler},
+            {.texture = item.field_map ? item.field_map : m_white, .sampler = m_sampler},
         };
-        SDL_BindGPUFragmentSamplers(pass, 0, tex, 3);
+        SDL_BindGPUFragmentSamplers(pass, 0, tex, 4);
 
         SDL_DrawGPUIndexedPrimitives(pass, mesh->index_count, 1, 0, 0, 0);
     }

@@ -379,6 +379,14 @@ void App::build_control_panel()
                              "so they fade out a few radii away. Event setting: off unless the event enables them.");
     }
 
+    if (std::any_of(scene.bodies.begin(), scene.bodies.end(),
+                    [](const Body& b) { return b.magnetic_map.surface != nullptr; })) {
+        ImGui::Combo("Field map", &m_view_options.magnetic_map_view, "Event setting\0Surface\0Deep\0Never\0");
+        ImGui::SetItemTooltip("False color map of the radial magnetic field (G): red out of the planet, blue into it.\n"
+                             "Mars 150 km up; Jupiter at the cloud tops, or deep at the top of its dynamo.\n"
+                             "Event setting: off unless the event enables it.");
+    }
+
     ImGui::SetNextItemWidth(160.0f * ImGui::GetStyle().FontScaleDpi);
     ImGui::SliderFloat("Stars", &m_view_options.star_brightness, 0.0f, 2.0f, "%.2f");
     ImGui::SetNextItemWidth(160.0f * ImGui::GetStyle().FontScaleDpi);
@@ -423,7 +431,7 @@ void App::build_control_panel()
     ImGui::TextDisabled("Drag: rotate   Wheel: zoom");
     ImGui::TextDisabled("Double-click label: focus");
     ImGui::TextDisabled("Space pause  R reverse  [ ] warp  N now");
-    ImGui::TextDisabled("1-9 focus  A tour  O/L/I/M/P/C/B  H hide");
+    ImGui::TextDisabled("1-9 focus  A tour  O/L/I/M/P/C/B/G  H hide");
     ImGui::TextDisabled("E event caption");
     ImGui::TextDisabled("F11 fullscreen  Esc quit");
 

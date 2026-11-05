@@ -80,6 +80,33 @@ struct BodyMagneticField {
     double pm_rate_deg_per_day = 0.0;
 };
 
+// A map of the radial field fixed to a body, in its texture's projection: rows
+// from north to south by the mesh's parametric latitude, columns from 180 W
+// eastward. Baked by tools/geomag/field_map_bake.py, with the square root of the
+// strength: value = sign(Br) sqrt(|Br| / scale) in -1 .. 1.
+struct FieldMap {
+    int width = 0;
+    int height = 0;
+    double scale_nt = 0.0;
+    std::vector<signed char> cells; // 127 * value
+
+    bool load(const std::filesystem::path& file, std::string* error = nullptr);
+    // At a cell (nearest), by east longitude and parametric latitude in radians.
+    double radial_nt(double east_longitude, double parametric_latitude) const;
+    // Red channel: 0 .. 255 for value -1 .. 1, so that it interpolates through zero.
+    std::vector<unsigned char> texture_rgba() const;
+};
+
+// Which map a view shows.
+enum class FieldMapView { None, Surface, Deep };
+
+// Maps of a body's field ([bodies.magnetic_map] in a scene file): at its surface
+// and optionally deeper down, where the dynamo is. Null: none.
+struct BodyMagneticMap {
+    std::shared_ptr<const FieldMap> surface;
+    std::shared_ptr<const FieldMap> deep;
+};
+
 // Lines on screen turn with their planet; too fast to follow, they fade: all
 // shown up to 0.25 turns per real second, gone at 1.
 double field_line_visibility(double rotation_deg_per_day, double warp);

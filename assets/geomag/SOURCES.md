@@ -222,6 +222,8 @@ python -E -P tools/geomag/ice_giant_h3p_bake.py neptune build/h3p/nep -25.08 ass
 | `field_saturn_cassini11.txt` | Cassini 11，[Dougherty et al. 2018](https://doi.org/10.1126/science.aat5434)，11 阶，轴对称 | 60,268 km | 自转轴 |
 | `field_earth_igrf14.txt` | IGRF-14 的 2025.0，13 阶 | 6,371.2 km | 地心 |
 
+**许可**：libinternalfield 的 MIT 只覆盖它自己的代码和整理，不覆盖模型本身。这里入库的是论文发表的高斯系数（几十到不足两百个数），和场景里其他论文表格的数值一样按事实引用，注明出处。原文的条款：[JRM33](https://doi.org/10.1029/2021JE007055) 是 CC BY-NC 4.0，AH5、O8、Cassini 11 是期刊的订阅条款。需要完全开放的木星模型时，可以换 Sharan et al. 2022（16 阶，[Zenodo 6564162](https://doi.org/10.5281/zenodo.6564162)，CC BY 4.0）。IGRF 是公开模型。
+
 这些模型的经度按东经（右手）写：Connerney 系的模型西经 λ 对应 φ = −λ。依据是系数本身：O8 的 atan2(h11, g11) = −72°，论文写磁极倾向西经 72°。
 
 核对：
@@ -240,6 +242,34 @@ mkdir -p build/field
 for f in uranus/ah5 neptune/gsfco8 jupiter/jrm33 saturn/cassini11; do curl -L -o build/field/$(basename $f).dat https://raw.githubusercontent.com/mattkjames7/libinternalfield/9a6b6e562b57a95146b7d608ee9cdf229b674a63/data/coeffs/$f.dat; done
 curl -L -o build/field/igrf14coeffs.txt https://www.ngdc.noaa.gov/IAGA/vmod/coeffs/igrf14coeffs.txt
 python -I tools/geomag/field_coeffs.py build/field assets/geomag
+```
+
+## 径向磁场图
+
+`*.fieldmap` 是固定在本体上的径向磁场 Br，由 `tools/geomag/field_map_bake.py` 烘焙（需要 numpy）。文件头 `AXFIELDMAP1 宽 高 上限_nT` 之后是 宽×高 个有符号字节，值为 127·sign(Br)·√(|Br|/上限)。投影和天体贴图相同：行由北向南按网格的参数纬度，列从 180°W 向东，所以每格在椭球面上的真实位置求值。
+
+| 文件 | 模型 | 位置 | 范围 |
+|---|---|---|---|
+| `mars_br.fieldmap` | [Morschhauser et al. 2014](https://doi.org/10.1002/2013JE004555)，110 阶，参考半径 3393.5 km | 椭球面上方 150 km | −709 .. 1278 nT |
+| `jupiter_br.fieldmap` | JRM33，13 阶 | 1 bar 椭球面 | −13.9 .. 21.7 G |
+| `jupiter_br_deep.fieldmap` | JRM33，13 阶 | 0.81 RJ 的球面，方向和云顶图相同（两张图在网格上对齐） | −79.4 .. 81.3 G |
+
+**火星模型的许可**：系数取自 Mark Wieczorek 在 Zenodo 的 [Morschhauser2014.txt.gz](https://doi.org/10.5281/zenodo.3876495)（CC BY 4.0，与论文附表 ts01 相同）。没有用分辨率更高的 Langlais 2019 和 Gao 2021：两篇论文都是 CC BY-NC（-ND），和项目的 GPL 不相容。Zenodo 上也有 Langlais 模型的 CC BY 版本，但它的许可和论文的 NC-ND 对不上，所以不用。
+
+取 150 km 而不是地表：这里接近观测的高度（Mars Global Surveyor 的低轨和大气制动段），往下延拓到地表时小尺度放大，整张图布满高频细纹。
+
+核对：
+- 木星两张图和 `field_jupiter_jrm33.txt` 逐格一致（`test_magnetic_maps`，到一个字节的量化）。
+- Great Blue Spot 在云顶约 −12.8 G、6.5°S、84.5°W；[Moore et al. 2018 的会议摘要](https://meetingorganizer.copernicus.org/EPSC2018/EPSC2018-556.pdf)写它在赤道附近、System III 约 90°。在扁椭球面上它不是全球最小值（南极附近 −13.9 G），在 1 RJ 的球面上才是。
+- 火星的峰值在 48°S、175°E，属于 [Acuña et al. 1999](https://doi.org/10.1126/science.284.5415.790) 说的 Terra Cimmeria 和 Terra Sirenum；Hellas、Argyre 内的场不到峰值的 10%。
+
+重新生成（先按上一节取得 `field_jupiter_jrm33.txt`）：
+
+```bash
+mkdir -p build/field_map
+curl -L -o build/field_map/Morschhauser2014.txt.gz https://zenodo.org/api/records/3876495/files/Morschhauser2014.txt.gz/content
+gunzip -k build/field_map/Morschhauser2014.txt.gz
+python -E -P tools/geomag/field_map_bake.py build/field_map/Morschhauser2014.txt assets/geomag
 ```
 
 ## Mars visible diffuse aurora

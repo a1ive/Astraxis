@@ -45,6 +45,7 @@ void visit_view_keys(S& s, F&& f)
     f("atmospheres", s.view.atmospheres);
     f("aurora_view", s.view.aurora_view, 0, 2);
     f("magnetic_view", s.view.magnetic_view, 0, 2);
+    f("magnetic_map_view", s.view.magnetic_map_view, 0, 3);
     f("plumes", s.view.plumes);
     f("comets", s.view.comets);
     // Ranges as on the control panel's sliders.

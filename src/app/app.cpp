@@ -305,6 +305,10 @@ void App::handle_key(const SDL_Event& event)
     case SDLK_B:
         m_view_options.magnetic_view = m_view_options.magnetic_view == 1 ? 0 : 1;
         break;
+    case SDLK_G:
+        // Event setting, surface, deep, and back.
+        m_view_options.magnetic_map_view = m_view_options.magnetic_map_view >= 2 ? 0 : m_view_options.magnetic_map_view + 1;
+        break;
     case SDLK_C:
         m_view_options.comets = !m_view_options.comets;
         break;

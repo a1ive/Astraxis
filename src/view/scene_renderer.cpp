@@ -553,6 +553,8 @@ void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, u
     m_body_textures.assign(scene.bodies.size(), nullptr);
     m_ring_textures.assign(scene.bodies.size(), nullptr);
     m_night_textures.assign(scene.bodies.size(), nullptr);
+    m_field_map_textures.assign(scene.bodies.size(), nullptr);
+    m_deep_field_map_textures.assign(scene.bodies.size(), nullptr);
     m_aurora_textures.assign(scene.bodies.size(), nullptr);
     m_comets.clear_meshes();
     m_comet_meshes.assign(scene.bodies.size(), -1);
@@ -582,6 +584,16 @@ void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, u
             if (!m_aurora_textures[i])
                 SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Aurora texture for %s unavailable", body.name.c_str());
         }
+        const auto field_map_texture = [&](const FieldMap* map) -> SDL_GPUTexture* {
+            if (!map) {
+                return nullptr;
+            }
+            const auto pixels = map->texture_rgba();
+            return create_texture_rgba8(m_device->device(), pixels.data(), static_cast<uint32_t>(map->width),
+                                        static_cast<uint32_t>(map->height), false, true);
+        };
+        m_field_map_textures[i] = field_map_texture(body.magnetic_map.surface.get());
+        m_deep_field_map_textures[i] = field_map_texture(body.magnetic_map.deep.get());
         if (body.texture.empty()) {
             continue;
         }
@@ -768,7 +780,8 @@ void SceneRenderer::trace_black_hole(SDL_GPUCommandBuffer* cmd, uint32_t width, 
 
 void SceneRenderer::release_body_textures()
 {
-    for (auto* textures : {&m_body_textures, &m_ring_textures, &m_night_textures, &m_aurora_textures}) {
+    for (auto* textures : {&m_body_textures, &m_ring_textures, &m_night_textures, &m_aurora_textures,
+                           &m_field_map_textures, &m_deep_field_map_textures}) {
         for (SDL_GPUTexture* texture : *textures) {
             if (texture) {
                 SDL_ReleaseGPUTexture(m_device->device(), texture);
@@ -959,6 +972,16 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
             item.night_lights = m_night_textures[i];
             item.night_lights_color = body.night_lights.color;
             item.night_lights_gain = static_cast<float>(body.night_lights.gain);
+        }
+        // The deep map where the view asks for it and the body has one, else the surface's.
+        const FieldMapView map_view = options.magnetic_map_view == 3   ? FieldMapView::None
+                                      : options.magnetic_map_view == 2 ? FieldMapView::Deep
+                                      : options.magnetic_map_view == 1 ? FieldMapView::Surface
+                                      : event_settings                 ? event_settings->magnetic_map
+                                                                       : FieldMapView::None;
+        if (map_view != FieldMapView::None && i < m_field_map_textures.size()) {
+            SDL_GPUTexture* deep = map_view == FieldMapView::Deep ? m_deep_field_map_textures[i] : nullptr;
+            item.field_map = deep ? deep : m_field_map_textures[i];
         }
 
         SDL_GPUTexture* ring_texture = i < m_ring_textures.size() ? m_ring_textures[i] : nullptr;
@@ -1417,6 +1440,9 @@ void SceneRenderer::build_orbit_lines(const Simulation& sim, const OutputView& o
     }
     const glm::dvec3& cam = view.position;
     const int active = scene.active_event();
+    if (active >= 0 && scene.events[static_cast<size_t>(active)].hide_orbits) {
+        return;
+    }
     const SceneEvent* quiet = active >= 0 && scene.events[static_cast<size_t>(active)].focus_orbits_only
                                   ? &scene.events[static_cast<size_t>(active)]
                                   : nullptr;
