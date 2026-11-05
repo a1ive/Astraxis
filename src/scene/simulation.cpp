@@ -3,6 +3,7 @@
 #include "core/math.hpp"
 #include "core/time.hpp"
 #include "scene/jovian_plasma_sheet.hpp"
+#include "scene/satellite_aurora.hpp"
 #include "scene/scene_loader.hpp"
 
 #include <algorithm>
@@ -93,6 +94,33 @@ double lead_warp(double warp)
     return std::max(warp, std::min(warp * kLeadWarpRatio, kMaxLeadWarp));
 }
 
+// Above this warp (2 h/s, Io's eclipse takes about a second) its aurora keeps the level it
+// has between eclipses: the search below would run nearly every frame, for a flicker.
+constexpr double kIoEclipseMaxWarp = 7200.0;
+constexpr double kIoEclipseSearchStep = 300.0; // s: much less than the 2 hours of an eclipse
+
+// Whether a moon's center is in the shadow of its parent, a sphere of the equatorial radius
+// (as the shader's lighting), without the penumbra.
+bool in_parent_umbra(const Scene& scene, int moon, double t)
+{
+    const Body& body = scene.bodies[static_cast<size_t>(moon)];
+    const glm::dvec3 center = scene.icrf_state_at(moon, t).position;
+    const glm::dvec3 to_sun = glm::normalize(scene.sun_icrf_state_at(t).position - center);
+    const glm::dvec3 to_parent = scene.icrf_state_at(body.parent, t).position - center;
+    return glm::dot(to_parent, to_sun) > 0.0 &&
+           glm::length(glm::cross(to_parent, to_sun)) < scene.bodies[static_cast<size_t>(body.parent)].equatorial_radius_km;
+}
+
+// The time between low and high (in step's seconds apart) where the umbra test turns to `to`.
+double refine_umbra_crossing(const Scene& scene, int moon, double low, double high, bool to)
+{
+    for (int k = 0; k < 24; ++k) {
+        const double middle = 0.5 * (low + high);
+        (in_parent_umbra(scene, moon, middle) == to ? high : low) = middle;
+    }
+    return high;
+}
+
 } // namespace
 
 CaptionTimes caption_times(const std::string& caption)
@@ -124,6 +152,13 @@ bool Simulation::load_scene(const std::filesystem::path& file, std::string* erro
     }
     m_scene = std::move(scene);
     m_rotor_turns.assign(m_scene.bodies.size(), 0.0);
+    m_io = -1;
+    m_io_eclipse_valid = false;
+    for (size_t k = 0; k < m_scene.bodies.size(); ++k) {
+        if (m_scene.bodies[k].aurora.model == AuroraModel::Io && m_scene.bodies[k].parent >= 0) {
+            m_io = static_cast<int>(k);
+        }
+    }
     m_scene_age = 0.0;
     m_last_event = -1;
     m_events_shown.assign(m_scene.events.size(), false);
@@ -225,6 +260,7 @@ void Simulation::update(double real_dt)
         const double rate = std::min(std::abs(m_clock.warp), kAuroraMaxWarp);
         m_aurora_time = std::fmod(m_aurora_time + real_dt * rate * (m_clock.reverse ? -1.0 : 1.0), 1.0e5);
     }
+    update_io_eclipse();
 
     if (m_director.active()) {
         const int next = next_tour_event();
@@ -290,6 +326,56 @@ double Simulation::sky_visibility() const
     return smoothstep(m_sky);
 }
 
+void Simulation::update_io_eclipse()
+{
+    if (m_io < 0 || std::abs(m_clock.warp) > kIoEclipseMaxWarp) {
+        m_io_eclipse_valid = false;
+        return;
+    }
+    const double t = m_clock.t_tdb;
+    if (m_io_eclipse_valid && t >= m_io_eclipse.ingress && t < m_io_next_ingress) {
+        return;
+    }
+    m_io_eclipse_valid = false;
+    // Back to the last ingress, then forward through the egress to the next ingress. A
+    // period is under two days; the search gives up on a moon that is not eclipsed.
+    constexpr int kSteps = static_cast<int>(2.0 * 86400.0 / kIoEclipseSearchStep);
+    double ingress = t;
+    bool inside = in_parent_umbra(m_scene, m_io, t);
+    bool found = false;
+    for (int k = 0; k < kSteps && !found; ++k) {
+        const bool earlier = in_parent_umbra(m_scene, m_io, ingress - kIoEclipseSearchStep);
+        if (inside && !earlier) {
+            ingress = refine_umbra_crossing(m_scene, m_io, ingress - kIoEclipseSearchStep, ingress, true);
+            found = true;
+        } else {
+            ingress -= kIoEclipseSearchStep;
+            inside = earlier;
+        }
+    }
+    if (!found) {
+        return;
+    }
+    // The first step that is out of the shadow, then the first that is back in it.
+    double time = ingress + kIoEclipseSearchStep;
+    while (in_parent_umbra(m_scene, m_io, time)) {
+        time += kIoEclipseSearchStep;
+    }
+    const double egress = refine_umbra_crossing(m_scene, m_io, time - kIoEclipseSearchStep, time, false);
+    for (int k = 0; k < kSteps && !in_parent_umbra(m_scene, m_io, time); ++k) {
+        time += kIoEclipseSearchStep;
+    }
+    m_io_next_ingress = refine_umbra_crossing(m_scene, m_io, time - kIoEclipseSearchStep, time, true);
+    m_io_eclipse = {ingress, egress};
+    m_io_eclipse_valid = t < m_io_next_ingress;
+}
+
+bool Simulation::io_eclipse(MoonEclipse& eclipse) const
+{
+    eclipse = m_io_eclipse;
+    return m_io_eclipse_valid;
+}
+
 MoonAuroraState Simulation::moon_aurora(int body) const
 {
     MoonAuroraState state;
@@ -302,6 +388,19 @@ MoonAuroraState Simulation::moon_aurora(int body) const
         const double steady = plasma_sheet_steadiness(m_clock.warp);
         const auto shares = ganymede_sheet_shares(jovian_magnetic_latitude_deg(moon.in_parent_axes));
         state.map_shares = glm::dvec4(1.0 - steady, steady * shares[0], steady * shares[1], steady * shares[2]);
+    }
+    if ((moon.aurora.model == AuroraModel::Europa || moon.aurora.model == AuroraModel::Callisto) && placed) {
+        const bool europa = moon.aurora.model == AuroraModel::Europa;
+        const double scale = europa ? kEuropaPlasmaScaleRj : kCallistoPlasmaScaleRj;
+        const double now = plasma_sheet_density(centrifugal_equator_height_rj(moon.in_parent_axes), scale);
+        const double mean = plasma_sheet_mean_density(glm::length(moon.in_parent_axes), scale);
+        state.plasma = std::lerp(mean, now, plasma_sheet_steadiness(m_clock.warp)) / (europa ? europa_reference_density() : 1.0);
+    }
+    if (moon.aurora.model == AuroraModel::Io) {
+        // Between eclipses, and when they go by too fast to follow, as before an eclipse.
+        const double t = m_clock.t_tdb;
+        state.sodium = (m_io_eclipse_valid ? io_sodium_level(m_io_eclipse, t) : 1.0) / kIoSodiumReferenceLevel;
+        state.so2 = (m_io_eclipse_valid ? io_so2_level(m_io_eclipse, t) : 1.0) / io_so2_reference_level();
     }
     return state;
 }

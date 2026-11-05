@@ -283,7 +283,7 @@ float aurora_pattern(float3 n, float footprint_km)
     case PATTERN_BODY_MAP_SEASONS:
     case PATTERN_BODY_MAP_DUSK: return map_pattern(n, footprint_km);
     case PATTERN_EUROPA_TRAILING: return 1.0 + 0.5 * n.y;
-    case PATTERN_IO_FLANKS: return 1.0 + 0.75 * (n.y * n.y - n.z * n.z);
+    case PATTERN_IO_FLANKS: return 1.0 + 0.75 * (n.x * n.x - n.z * n.z);
     default: return 1.0; // PATTERN_UNIFORM
     }
 }

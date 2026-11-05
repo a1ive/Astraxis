@@ -124,6 +124,9 @@ public:
     double aurora_time() const { return m_aurora_time; }
     // What a moon's aurora depends on right now; the defaults for any other body.
     MoonAuroraState moon_aurora(int body) const;
+    // The eclipse of Io the clock is in or has last left (false: no Io, or the warp is too
+    // high to follow eclipses): from its ingress up to the next one.
+    bool io_eclipse(MoonEclipse& eclipse) const;
     // Real seconds since the scene was loaded, paused or not (the title card).
     double scene_age() const { return m_scene_age; }
     // The event last jumped to (-1: none since the scene was loaded) and the
@@ -140,6 +143,8 @@ private:
         Hold,     // at the event's warp, with its caption
     };
 
+    // Finds the eclipse of Io around the clock, when it has moved out of the last one.
+    void update_io_eclipse();
     // Applies (or, when the shot ends, undoes) a time warp asked for by the tour.
     void apply_tour_warp();
     // The warp the user chose (the tour's own warp put aside).
@@ -195,6 +200,10 @@ private:
     std::vector<double> m_rotor_turns; // per body
     double m_aurora_kp = 0.0;
     double m_aurora_time = 0.0;
+    int m_io = -1;                // the body with Io's aurora
+    bool m_io_eclipse_valid = false;
+    MoonEclipse m_io_eclipse;
+    double m_io_next_ingress = 0.0;
     double m_scene_age = 0.0;
     int m_last_event = -1;
     double m_event_age = 0.0;

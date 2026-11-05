@@ -69,7 +69,7 @@ constexpr std::array<float, kAuroraTableSize> kUranusTable{
     0.0f, 2.9405e-04f, 3.2810e-04f, 3.7366e-04f, 3.7617e-04f, 3.5086e-04f, 3.0463e-04f, 2.4104e-04f,
     1.6730e-04f, 1.1350e-04f, 8.6082e-05f, 7.1455e-05f, 5.9887e-05f, 4.9504e-05f, 4.0907e-05f, 0.0f};
 
-AuroraProfile moon_profile(const SatelliteVisibleAurora& model, AuroraPattern pattern)
+AuroraProfile moon_profile(const SatelliteVisibleAurora& model, AuroraPattern pattern, const MoonAuroraState& moon)
 {
     AuroraProfile p;
     p.pattern = pattern;
@@ -77,8 +77,8 @@ AuroraProfile moon_profile(const SatelliteVisibleAurora& model, AuroraPattern pa
     p.lighting = AuroraLighting::NightOrEclipsed;
     p.top_km = model.top_km;
     p.layers = glm::dvec4(model.scale_km, model.top_km, model.sodium_scale_km, 0.0);
-    p.low_rgb = model.column_rgb * model.display_gain;
-    p.high_rgb = model.sodium_column_rgb * model.display_gain;
+    p.low_rgb = (model.column_rgb * moon.plasma + model.so2_column_rgb * moon.so2) * model.display_gain;
+    p.high_rgb = model.sodium_column_rgb * moon.sodium * model.display_gain;
     return p;
 }
 
@@ -192,13 +192,13 @@ AuroraProfile aurora_profile(AuroraModel model, bool ultraviolet, double kp, con
         p.map_gain = 1.0;
         break;
     case AuroraModel::Europa:
-        p = moon_profile(europa_visible_aurora(), AuroraPattern::EuropaTrailing);
+        p = moon_profile(europa_visible_aurora(), AuroraPattern::EuropaTrailing, moon);
         break;
     case AuroraModel::Io:
-        p = moon_profile(io_visible_aurora(), AuroraPattern::IoFlanks);
+        p = moon_profile(io_visible_aurora(), AuroraPattern::IoFlanks, moon);
         break;
     case AuroraModel::Callisto:
-        p = moon_profile(callisto_visible_aurora(), AuroraPattern::Uniform); // unresolved glow
+        p = moon_profile(callisto_visible_aurora(), AuroraPattern::Uniform, moon); // unresolved glow
         break;
     case AuroraModel::Mars:
         p.vertical = AuroraVertical::Gaussian;

@@ -39,7 +39,7 @@ enum class AuroraPattern { // brightness across the surface
                            // in the shares map_sun
     Uniform = 5,
     EuropaTrailing = 6,    // assumed smooth trailing enhancement
-    IoFlanks = 7,          // broad equatorial flanks
+    IoFlanks = 7,          // broad glows on the plasma flow's flanks: sub- and anti-Jovian
     BodyMapSeasons = 8,    // AuroraMap's two layers mixed by the sun at the latitude's noon:
                            // map_sun = zenith angles (rad) where the sunlit layer's share is
                            // 1, the terminator's and 0, the terminator's share
@@ -64,12 +64,24 @@ enum class AuroraLighting { // when it shows
 
 inline constexpr int kAuroraTableSize = 16;
 
+// The moment a moon's center enters its parent's umbra and leaves it (s, TDB).
+struct MoonEclipse {
+    double ingress = 0.0;
+    double egress = 0.0;
+};
+
 // What a moon's aurora depends on right now (Simulation::moon_aurora). The defaults
 // reproduce the reference observation.
 struct MoonAuroraState {
     // Ganymede: the shares of the long-term map, and of it above, inside and below Jupiter's
     // current sheet (AuroraMap's layers).
     glm::dvec4 map_shares{1.0, 0.0, 0.0, 0.0};
+    // Europa, Callisto: the electrons of the plasma sheet around the moon, relative to their
+    // reference (scene/satellite_aurora.hpp).
+    double plasma = 1.0;
+    // Io: its sodium and SO2 through an eclipse, relative to their reference observations.
+    double sodium = 1.0;
+    double so2 = 1.0;
 };
 
 // A shell of emission, in linear RGB with its display exposure.

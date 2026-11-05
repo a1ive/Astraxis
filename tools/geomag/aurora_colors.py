@@ -34,6 +34,9 @@ SIGMA = 5.670374419e-8
 LINES = {'violet': 391.4, 'blue': 427.8, 'green': 557.7, 'red': 630.0, 'red_companion': 636.4,
          'sodium_1': 589.0, 'sodium_2': 589.6, 'sulfur_ii_1': 406.9,
          'sulfur_ii_2': 407.6, 'sulfur_i': 458.9}
+# Bands: a kR spread evenly in photons over the band (nm). Io's SO2 quasi-continuum, as far
+# as Cassini's BL1 filter tells (Milby et al. 2025, Table 3).
+BANDS = {'so2_bl1': (390, 500)}
 
 XYZ_TO_SRGB = [  # IEC 61966-2-1
     (3.2406, -1.5372, -0.4986),
@@ -86,15 +89,23 @@ def main():
     sun_rgb = [v / sun_y for v in sun_rgb]
     print(f'// E_sun = {e_sun:.0f} lx, white surface {white:.0f} cd/m2, sunlight linear sRGB {sun_rgb}')
 
-    for name, nm in LINES.items():
+    def line_xyz(nm):
         radiance = 1e13 / (4 * math.pi) * H * C / (nm * 1e-9)  # W m^-2 sr^-1 per kR
-        xyz = [KM * b * radiance / white for b in cmf_at(cmf, nm)]
+        return [KM * b * radiance / white for b in cmf_at(cmf, nm)]
+
+    def report(name, xyz):
         rgb = [v / s for v, s in zip(to_srgb(xyz), sun_rgb)]
         y = sum(l * v for l, v in zip(LUMA, rgb))
         lift = max(0.0, -min(rgb))
         rgb = [v + lift for v in rgb]
         rgb = [v * y / sum(l * u for l, u in zip(LUMA, rgb)) for v in rgb]
-        print(f'{name:6} {nm} nm: {{{rgb[0]:.4e}, {rgb[1]:.4e}, {rgb[2]:.4e}}} per kR (luminance {y:.4e})')
+        print(f'{name}: {{{rgb[0]:.4e}, {rgb[1]:.4e}, {rgb[2]:.4e}}} per kR (luminance {y:.4e})')
+
+    for name, nm in LINES.items():
+        report(f'{name:6} {nm} nm', line_xyz(nm))
+    for name, (low, high) in BANDS.items():
+        samples = [line_xyz(nm) for nm in range(low, high + 1)]
+        report(f'{name} {low}-{high} nm', [sum(s[k] for s in samples) / len(samples) for k in range(3)])
 
 
 if __name__ == '__main__':

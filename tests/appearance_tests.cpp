@@ -23,6 +23,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <iterator>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -1084,12 +1085,189 @@ void test_io_callisto_aurora()
         check(!load_scene_string("name='x'\n[[bodies]]\nname='x'\nradii_km=[6378]\n[bodies.aurora]\n" +
                                 key + "=true", "wrong_moon", bad, &error, ASTRAXIS_ASSET_DIR), "moon radius is validated");
     }
-    check(kCallistoOxygenLines.size() == 2 && kCallistoOxygenLines[0].rayleigh == 6.1 &&
-          kCallistoOxygenLines[1].rayleigh == 3.3, "Callisto uses detected red lines, not upper limits");
+    check(kCallistoOxygenLines.size() == 2 && kCallistoOxygenLines[0].rayleigh == 19.0 &&
+              std::abs(kCallistoOxygenLines[1].rayleigh / kCallistoOxygenLines[0].rayleigh - 1.0 / 3.09) < 1e-12,
+          "Callisto uses detected red lines, not upper limits");
     check(kIoSodiumLines[0].rayleigh + kIoSodiumLines[1].rayleigh == 17170.0,
           "Io sodium brightness retains the measured eclipse average");
     check(io_visible_aurora().sodium_column_rgb.g > 0.0 && callisto_visible_aurora().column_rgb.g == 0.0,
           "Io sodium and Callisto oxygen have distinct spectra");
+}
+
+// The plasma sheet: Milby 2026's tables, by the longitudes he lists and in the scene.
+void test_plasma_sheet()
+{
+    // Table 1 of Milby et al. 2025 and table 3.1 of the thesis: distance from Jupiter (RJ),
+    // System III east longitude, height above the centrifugal equator.
+    const struct { double r, east, height; } rows[] = {
+        {5.913, 88.9, 0.232}, {5.913, 69.2, 0.003}, {5.877, 359.6, -0.633}, {5.917, 168.6, 0.671}, // Io
+        {9.403, 69.1, 0.003}, {9.403, 33.3, -0.683}, {9.439, 312.4, -1.048}, {9.328, 165.4, 1.146}, // Europa
+    };
+    for (const auto& row : rows) {
+        const double east = row.east * kDegToRad;
+        const double height = centrifugal_equator_height_rj(row.r * 71492.0 * glm::dvec3(std::cos(east), std::sin(east), 0.0));
+        check(std::abs(height - row.height) < 0.025, "the centrifugal equator's height matches Milby's tables", height - row.height);
+    }
+
+    Scene jupiter = load_scene_or_die("jupiter.toml");
+    Scene solar = load_scene_or_die("solar_system.toml");
+    // Times here are seen from Earth, as the observations were: light left the moon earlier.
+    const auto at_moon = [&](const char* name, const char* utc) {
+        double t = 0.0;
+        check(parse_utc(utc, &t), "the observation's date parses");
+        const int planet = solar.find("Jupiter"), earth = solar.find("Earth");
+        const double light = glm::length(solar.icrf_state_at(planet, t).position - solar.icrf_state_at(earth, t).position) / kSpeedOfLightKmS;
+        jupiter.update(t - light);
+        return centrifugal_equator_height_rj(jupiter.bodies[static_cast<size_t>(jupiter.find(name))].in_parent_axes);
+    };
+    // Thesis tables 3.1 and 5.2. The tables give the first spectrum's start; the second
+    // Europa row is the last one's, 5 min of its time are within the tolerance.
+    const double europa_start = at_moon("Europa", "2021-05-20 13:40:00");
+    std::printf("  info: Europa on 2021-05-20 at 13:40 UT: %.3f RJ from the sheet (Milby: 0.003 at his first spectrum)\n", europa_start);
+    check(std::abs(europa_start) < 0.15, "Europa is at the sheet when the 2021-05-20 eclipse starts", europa_start);
+    const struct { const char* utc; double height; } callisto[] = {
+        {"2021-07-04 14:36:22", 2.52}, {"2021-07-04 15:07:33", 1.25}, {"2025-11-29 09:40:14", 4.23}, {"2025-11-29 11:23:55", 0.62}};
+    for (const auto& row : callisto) {
+        const double height = at_moon("Callisto", row.utc);
+        std::printf("  info: Callisto at %s: %.2f RJ from the sheet (Milby: %.2f)\n", row.utc, height, row.height);
+        // 2021 agrees to 0.03 RJ. 2025 is off by 0.3 RJ, eight minutes of Jupiter's turning;
+        // the reason is not known (a slip of the clock, or of the scene's Callisto).
+        check(std::abs(std::abs(height) - row.height) < 0.4, "Callisto's distance from the sheet matches Milby's table 5.2", height);
+    }
+
+    // Callisto's fit against his exposures (table 5.2, 2025-11-29): the mean of the fit over
+    // the same times is close to the mean of the ones with a detection and non-detections.
+    constexpr std::pair<double, double> kCallistoExposures[] = {
+        {4.23, 9.0}, {4.07, 9.0}, {3.89, -3.0}, {3.66, -3.0}, {3.43, 9.0}, {3.18, -6.0}, {2.91, 7.0},
+        {2.63, 12.0}, {2.31, 13.0}, {2.00, -6.0}, {1.64, 11.0}, {1.31, 25.0}, {0.97, 19.0}, {0.62, 26.0}};
+    double observed = 0.0, model = 0.0;
+    for (const auto& [height, brightness] : kCallistoExposures) {
+        observed += brightness / std::size(kCallistoExposures);
+        model += kCallistoOxygenLines[0].rayleigh * plasma_sheet_density(height, kCallistoPlasmaScaleRj) / std::size(kCallistoExposures);
+    }
+    std::printf("  info: Callisto's 630.0 nm over 2025-11-29: observed %.1f R (Milby's co-added 8.4), the fit %.1f R\n", observed, model);
+    check(std::abs(observed - 8.4) < 1.0, "the exposures average to his co-added brightness", observed);
+    check(model > observed && model < 2.0 * observed, "the fit is near them: it runs through the detections", model);
+
+    // Europa: the reference is that of the eclipse; away from the sheet it is about half.
+    const double reference = europa_reference_density();
+    check(reference > 0.93 && reference < 0.97, "Europa's reference eclipse was near the sheet", reference);
+    jupiter.update(0.0);
+    Simulation sim;
+    std::string error;
+    check(sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/jupiter.toml", &error), "the sheet's simulation loads");
+    sim.stop_tour();
+    const int europa_index = sim.scene().find("Europa"), callisto_index = sim.scene().find("Callisto");
+    sim.clock().warp = 60.0;
+    double t0 = 0.0;
+    check(parse_utc("2021-05-20 13:00:00", &t0), "the date parses");
+    double brightest = 0.0, faintest = 1e9, callisto_brightest = 0.0, callisto_faintest = 1e9, mean = 0.0;
+    constexpr int kSamples = 200;
+    for (int k = 0; k < kSamples; ++k) {
+        sim.clock().t_tdb = t0 + k * 600.0;
+        sim.update(0.0);
+        const double e = sim.moon_aurora(europa_index).plasma, c = sim.moon_aurora(callisto_index).plasma;
+        brightest = std::max(brightest, e);
+        faintest = std::min(faintest, e);
+        callisto_brightest = std::max(callisto_brightest, c);
+        callisto_faintest = std::min(callisto_faintest, c);
+        mean += e / kSamples;
+    }
+    std::printf("  info: Europa's plasma factor %.2f .. %.2f, mean %.2f; Callisto's %.2f .. %.2f\n", faintest, brightest, mean, callisto_faintest, callisto_brightest);
+    // At his 1.7 RJ the thesis' Figure 3.5 goes down about to 0.6 away from the equator.
+    check(brightest > 1.0 && faintest / brightest > 0.5 && faintest / brightest < 0.7, "Europa dims by about 40% away from the sheet", faintest / brightest);
+    check(callisto_faintest / callisto_brightest < 0.35, "Callisto, much farther out, swings more", callisto_faintest / callisto_brightest);
+    sim.clock().warp = 86400.0;
+    sim.update(0.0);
+    check(std::abs(sim.moon_aurora(europa_index).plasma - mean) < 0.02, "at a day per second Europa takes its long-term mean", sim.moon_aurora(europa_index).plasma);
+    MoonAuroraState half_plasma;
+    half_plasma.plasma = 0.5;
+    check(aurora_profile(AuroraModel::Europa, false, 3.0, half_plasma).low_rgb == aurora_profile(AuroraModel::Europa, false, 3.0).low_rgb * 0.5,
+          "the plasma scales Europa's column");
+}
+
+// Io through an eclipse: Schmidt et al. 2023, de Pater et al. 2020, Milby et al. 2025.
+void test_io_eclipse_levels()
+{
+    const MoonEclipse eclipse{0.0, 8000.0};
+    check(std::abs(io_sodium_level(eclipse, 0.0) - 1.0) < 1e-12, "sodium starts from its level before the eclipse");
+    double first = 0.0;
+    for (int k = 0; k < 600; ++k) first += io_sodium_level(eclipse, k + 0.5) / 600.0;
+    check(std::abs(io_sodium_level(eclipse, 7000.0) / first - 0.27) < 0.005, "sodium's steady level is 27% of its first 10 minutes (Schmidt)", io_sodium_level(eclipse, 7000.0) / first);
+    const double steady = io_sodium_level(eclipse, 7000.0);
+    check(std::abs((io_sodium_level(eclipse, 600.0) - steady) / (1.0 - steady) - std::exp(-1.0)) < 1e-4, "it falls with an e-folding time of 10 minutes");
+    check(io_sodium_level(eclipse, 1800.0) < steady * 1.25, "it is about steady within 30 minutes");
+    check(std::abs(io_sodium_level(eclipse, 8000.0 + 7200.0) - (1.0 - (1.0 - steady) / std::exp(1.0))) < 1e-3, "it recovers with an e-folding time of 2 hours");
+    check(std::abs(io_so2_level(eclipse, 7000.0) - 0.4) < 1e-3, "SO2 falls to 2.5 times less than in sunlight (de Pater)");
+    check(std::abs(io_so2_level(eclipse, 8000.0 + 300.0) - 0.7) < 1e-3 && io_so2_level(eclipse, 8000.0 + 600.0) == 1.0, "and returns linearly within 10 minutes");
+
+    Simulation sim;
+    std::string error;
+    check(sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/jupiter.toml", &error), "Io's simulation loads");
+    sim.stop_tour();
+    sim.clock().warp = 60.0;
+    const int io = sim.scene().find("Io");
+    // The exposures of 2023-08-09 (Milby et al. 2025, Table 7: KOA file names give the start
+    // in seconds of the day, five minutes each). Light left Io earlier.
+    Scene solar = load_scene_or_die("solar_system.toml");
+    double day = 0.0;
+    check(parse_utc("2023-08-09 00:00:00", &day), "the date parses");
+    const double light = glm::length(solar.icrf_state_at(solar.find("Jupiter"), day).position - solar.icrf_state_at(solar.find("Earth"), day).position) / kSpeedOfLightKmS;
+    double mean_level = 0.0;
+    MoonEclipse found;
+    constexpr double kStarts[] = {49839.52, 50269.45, 50708.50, 51108.91, 51548.20, 51977.44, 52379.83};
+    for (const double start : kStarts) {
+        sim.clock().t_tdb = day + start + 150.0 - light;
+        sim.update(0.0);
+        check(sim.io_eclipse(found) && found.ingress <= sim.clock().t_tdb && sim.clock().t_tdb < found.egress,
+              "each exposure of 2023-08-09 is in the eclipse");
+        mean_level += io_sodium_level(found, sim.clock().t_tdb) / std::size(kStarts);
+    }
+    std::printf("  info: Io's ingress at %.0f s of the day, light time %.0f s, exposures %.1f .. %.1f min after it, mean sodium level %.4f\n",
+                found.ingress - day, light, (day + kStarts[0] + 150.0 - light - found.ingress) / 60.0,
+                (day + kStarts[6] + 150.0 - light - found.ingress) / 60.0, mean_level);
+    check(std::abs(mean_level / kIoSodiumReferenceLevel - 1.0) < 0.01, "the sodium's reference level is the mean over Milby's exposures", mean_level);
+
+    // A whole cycle, by the search and against the umbra as the scene says.
+    const double eclipse_length = found.egress - found.ingress;
+    check(eclipse_length > 1.9 * 3600.0 && eclipse_length < 2.4 * 3600.0, "Io's eclipse lasts about 2.2 hours", eclipse_length / 3600.0);
+    sim.clock().t_tdb = found.ingress + 60.0;
+    sim.update(0.0);
+    const MoonAuroraState early = sim.moon_aurora(io);
+    sim.clock().t_tdb = found.ingress + 3600.0;
+    sim.update(0.0);
+    const MoonAuroraState late = sim.moon_aurora(io);
+    sim.clock().t_tdb = found.egress + 8.0 * 3600.0;
+    sim.update(0.0);
+    const MoonAuroraState after = sim.moon_aurora(io);
+    check(early.sodium > 2.5 * late.sodium && after.sodium > early.sodium, "Io's sodium fades in the shadow and recovers after it");
+    check(std::abs(late.sodium - 1.0) < 0.25, "the eclipse's reference is about its steady level", late.sodium);
+    check(early.so2 > 1.5 * late.so2 && after.so2 > early.so2, "Io's SO2 too");
+    check(late.plasma == 1.0, "Io's oxygen does not respond: Schmidt, Milby");
+    // Backward in time, and at a warp too fast to follow: the level between eclipses.
+    sim.clock().t_tdb = found.ingress - 3600.0;
+    sim.update(0.0);
+    check(std::abs(sim.moon_aurora(io).sodium * kIoSodiumReferenceLevel - 1.0) < 0.01, "before the ingress, the level between eclipses");
+    sim.clock().t_tdb = found.ingress + 3600.0;
+    sim.clock().warp = 86400.0;
+    sim.update(0.0);
+    check(std::abs(sim.moon_aurora(io).sodium * kIoSodiumReferenceLevel - 1.0) < 1e-9, "too fast to follow, also");
+    MoonAuroraState io_state;
+    io_state.sodium = 0.5;
+    io_state.so2 = 0.25;
+    const AuroraProfile io_shell = aurora_profile(AuroraModel::Io, false, 3.0, io_state);
+    const auto& io_model = io_visible_aurora();
+    check(io_shell.high_rgb == io_model.sodium_column_rgb * 0.5 * io_model.display_gain, "sodium scales the corona");
+    check(glm::length(io_shell.low_rgb - (io_model.column_rgb + io_model.so2_column_rgb * 0.25) * io_model.display_gain) < 1e-9 * glm::length(io_shell.low_rgb),
+          "SO2 scales its part of the low layer");
+    check(io_model.so2_column_rgb.b > 10.0 * io_model.so2_column_rgb.g && io_model.so2_column_rgb.r == 0.0, "SO2's band is blue");
+
+    // The glows are sub- and anti-Jovian: the body's x axis points at Jupiter.
+    const Scene& scene = sim.scene();
+    const Body& moon = scene.bodies[static_cast<size_t>(io)];
+    const glm::dvec3 to_jupiter = glm::normalize(glm::transpose(moon.orientation) *
+                                                 (scene.bodies[static_cast<size_t>(moon.parent)].world_position - moon.world_position));
+    check(to_jupiter.x > 0.98, "Io's body x axis points at Jupiter", to_jupiter.x);
 }
 
 void test_aurora_profiles()
@@ -1623,8 +1801,9 @@ void test_ganymede_aurora()
 
     // Marzok et al. 2022 Table 1: the current sheet's dipole, System III west longitude and
     // magnetic latitude of a few exposures, across its whole range.
-    for (const auto& [west, latitude] : {std::pair{229.7, 8.32}, {291.8, -0.16}, {331.0, -6.13}, {26.49, -9.45},
-                                         {197.2, 9.48}, {145.2, 5.36}, {263.8, 4.31}, {345.6, -7.77}}) {
+    constexpr std::pair<double, double> kMarzokRows[] = {{229.7, 8.32}, {291.8, -0.16}, {331.0, -6.13}, {26.49, -9.45},
+                                                         {197.2, 9.48}, {145.2, 5.36}, {263.8, 4.31}, {345.6, -7.77}};
+    for (const auto& [west, latitude] : kMarzokRows) {
         const double east = -west * kDegToRad;
         check(std::abs(jovian_magnetic_latitude_deg(glm::dvec3(std::cos(east), std::sin(east), 0.0)) - latitude) < 0.08,
               "the dipole gives Marzok's magnetic latitudes", latitude);
@@ -1661,11 +1840,12 @@ void test_ganymede_aurora()
     check(dark_stays_dark, "cells without data stay dark in every group");
     // Marzok section 3.3: inside the sheet the downstream (leading) aurora brightens by
     // 1.3 +- 0.31 and the upstream (trailing) one dims by 0.78 +- 0.19, in the ovals' bands.
+    const std::tuple<double, double, double> kOvals[] = {{32.3, -16.9, 1.5}, {-29.4, 11.6, 8.8}};
     const auto band_mean = [&](size_t layer, double west_low, double west_high) {
         double sum = 0.0;
         int count = 0;
         for (double west = west_low; west <= west_high; west += 4.5) {
-            for (const auto& [mean, amplitude, phase] : {std::tuple{32.3, -16.9, 1.5}, {-29.4, 11.6, 8.8}}) {
+            for (const auto& [mean, amplitude, phase] : kOvals) {
                 const double center = mean + amplitude * std::sin((west + phase) * kDegToRad);
                 for (int step = -3; step <= 3; ++step) {
                     const double b = layer_value(layer, west, center + step * 4.5);
@@ -1729,7 +1909,9 @@ void test_ganymede_aurora()
     sim.update(0.0);
     check(sim.moon_aurora(moon_index).map_shares == glm::dvec4(1.0, 0.0, 0.0, 0.0),
           "at a day per second the long-term map is drawn, not flicker");
-    const AuroraProfile shares_profile = aurora_profile(AuroraModel::Ganymede, true, 0.0, MoonAuroraState{glm::dvec4(0.0, 0.0, 1.0, 0.0)});
+    MoonAuroraState inside_sheet;
+    inside_sheet.map_shares = glm::dvec4(0.0, 0.0, 1.0, 0.0);
+    const AuroraProfile shares_profile = aurora_profile(AuroraModel::Ganymede, true, 0.0, inside_sheet);
     check(std::abs(aurora_map_pattern(shares_profile, map, -90.0 * kDegToRad, 20.0 * kDegToRad, glm::dvec3(1.0, 0.0, 0.0)) -
                    layer_value(2, 90.0, 20.0) * shares_profile.map_gain) < 1e-12,
           "the pattern reads the layers by their shares");
@@ -2650,6 +2832,8 @@ void run_appearance_tests()
     test_ganymede_aurora();
     test_europa_aurora();
     test_io_callisto_aurora();
+    test_plasma_sheet();
+    test_io_eclipse_levels();
     test_mars_aurora();
     test_jovian_footprints();
     test_refraction();
