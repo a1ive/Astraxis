@@ -23,6 +23,98 @@ constexpr double kVerticalStep = 0.5;
 constexpr double kRadialStep = 0.3;
 constexpr int kMaxSteps = 48;
 
+// The steps in a thick disk, as disk_march_thick in the shader. Where there is dust
+// to speak of (the optical depth through a Gaussian's width over kThickDustDepth) a
+// step takes a fraction of the height over which the density changes, of the optical
+// depth and of the distance to the star, since the light of the disk's surface comes
+// from a thin layer and a coarser step shows as moire across it. Elsewhere the ray
+// jumps to kThickEnvelope sigmas from the midplane, so the budget lasts.
+constexpr double kThickDustDepth = 1e-3;
+constexpr double kThickEnvelope = 5.0;
+constexpr double kThickDepthStep = 0.15;
+constexpr double kThickHeightStep = 0.25;
+constexpr double kThickRadialStep = 0.06;
+constexpr double kThickEmptyHeightStep = 0.5;
+constexpr double kThickEmptyRadialStep = 0.2;
+constexpr int kThickMaxSteps = 96;
+constexpr double kThickMinTransmission = 0.005;
+
+const DiskComponent* thick_component(const Disk& disk)
+{
+    for (const DiskComponent& c : disk.components) {
+        if (c.tau_per_column > 0.0) {
+            return &c;
+        }
+    }
+    return nullptr;
+}
+
+// Light scattered toward the ray's origin (phase function / d^2 units), and
+// through `transmission` what it lets through.
+double march_thick(const Disk& disk, const glm::dvec3& origin, const glm::dvec3& direction, double t0, double t1,
+                   double& transmission)
+{
+    transmission = 1.0;
+    const DiskComponent* c = thick_component(disk);
+    if (!c) {
+        return 0.0;
+    }
+    const glm::dmat3 to_plane = glm::transpose(c->to_icrf);
+    const glm::dvec3 o = to_plane * origin;
+    const glm::dvec3 d = to_plane * direction;
+    double light = 0.0;
+    double t = t0;
+    for (int i = 0; i < kThickMaxSteps && t < t1 && transmission > kThickMinTransmission; ++i) {
+        const glm::dvec3 p = o + t * d;
+        const double r = std::hypot(p.x, p.y);
+        // High over the axis the disk's height at r says nothing of the path
+        // ahead, and would make the steps vanish.
+        const double sigma = c->sigma_au * disk_flare(*c, std::max(r, 0.5 * std::abs(p.z)));
+        const double height = std::max(std::abs(p.z), sigma);
+        const double climb = std::max(std::abs(d.z), 1e-3);
+        const double extinction = disk_extinction(disk, r, p.z);
+        const double to_star = std::max(glm::length(p), 1.0);
+        double dt = 0.0;
+        if (extinction * sigma * 2.5 > kThickDustDepth) {
+            // sigma^2 / |z|: where the density changes by a factor e on the disk's surface.
+            dt = std::min({kThickHeightStep * sigma * std::min(1.0, sigma / height) / climb, kThickDepthStep / extinction,
+                           kThickRadialStep * to_star});
+        } else {
+            dt = std::min(std::max(kThickEmptyHeightStep * sigma, std::abs(p.z) - kThickEnvelope * sigma) / climb,
+                          kThickEmptyRadialStep * to_star);
+        }
+        dt = std::min(dt, t1 - t);
+        const glm::dvec3 q = o + (t + 0.5 * dt) * d;
+        const double rq = std::hypot(q.x, q.y);
+        const double depth = disk_extinction(disk, rq, q.z) * dt;
+        if (depth > 0.0) {
+            const double distance = glm::length(q);
+            const double through = std::exp(-depth);
+            light += transmission * (1.0 - through) * disk_phase(disk, -glm::dot(q, d) / distance) *
+                     std::exp(-disk_star_depth(disk, rq, q.z)) / (distance * distance);
+            transmission *= through;
+        }
+        t += dt;
+    }
+    return light;
+}
+
+// Where a ray is inside the disk's sphere.
+bool clip_ray(const Disk& disk, const glm::dvec3& origin, const glm::dvec3& direction, double t_max, double& t0,
+              double& t1)
+{
+    const double along = -glm::dot(origin, direction);
+    const glm::dvec3 closest = origin + along * direction;
+    const double extent2 = disk.outer_au * disk.outer_au - glm::dot(closest, closest);
+    if (extent2 <= 0.0) {
+        return false;
+    }
+    const double extent = std::sqrt(extent2);
+    t0 = std::max(0.0, along - extent);
+    t1 = std::min(t_max, along + extent);
+    return t1 > t0;
+}
+
 double march(const Disk& disk, const DiskComponent& c, DiskView view, const glm::dvec3& origin,
              const glm::dvec3& direction, double t0, double t1)
 {
@@ -76,7 +168,7 @@ double disk_column(const Disk& disk, const DiskComponent& component, double r_au
 double disk_flare(const DiskComponent& component, double r_au)
 {
     const double x = r_au / component.flare_radius_au;
-    return std::sqrt(std::sqrt(1.0 + x * x * x * x));
+    return std::pow(1.0 + x * x * x * x, 0.25 * component.flare_index);
 }
 
 double disk_vertical(const DiskComponent& component, double r_au, double z_au)
@@ -123,18 +215,14 @@ double disk_thermal_light(const DiskComponent& component, DiskView view, double 
 double disk_radiance(const Disk& disk, DiskView view, const glm::dvec3& origin, const glm::dvec3& direction,
                      double t_max)
 {
-    // Only where the ray is inside the disk's sphere.
-    const double along = -glm::dot(origin, direction);
-    const glm::dvec3 closest = origin + along * direction;
-    const double extent2 = disk.outer_au * disk.outer_au - glm::dot(closest, closest);
-    if (extent2 <= 0.0) {
+    double t0 = 0.0;
+    double t1 = 0.0;
+    if (!clip_ray(disk, origin, direction, t_max, t0, t1)) {
         return 0.0;
     }
-    const double extent = std::sqrt(extent2);
-    const double t0 = std::max(0.0, along - extent);
-    const double t1 = std::min(t_max, along + extent);
-    if (t1 <= t0) {
-        return 0.0;
+    if (disk.thick && view == DiskView::Scattered) {
+        double transmission = 1.0;
+        return march_thick(disk, origin, direction, t0, t1, transmission);
     }
     double sum = 0.0;
     for (const DiskComponent& c : disk.components) {
@@ -143,6 +231,76 @@ double disk_radiance(const Disk& disk, DiskView view, const glm::dvec3& origin, 
         }
     }
     return sum;
+}
+
+double disk_extinction(const Disk& disk, double r_au, double z_au)
+{
+    double out = 0.0;
+    for (const DiskComponent& c : disk.components) {
+        if (c.tau_per_column > 0.0) {
+            out += c.tau_per_column * disk_column(disk, c, r_au) * disk_vertical(c, r_au, z_au);
+        }
+    }
+    return out;
+}
+
+void disk_build_star_depth(Disk& disk)
+{
+    disk.star_depth.assign(static_cast<size_t>(kDiskDepthWidth) * kDiskDepthHeight, 0.0f);
+    const double ln_inner = std::log(disk.inner_au);
+    const double ln_step = std::log(disk.outer_au / disk.inner_au) / (kDiskDepthWidth - 1);
+    for (int row = 0; row < kDiskDepthHeight; ++row) {
+        const double v = static_cast<double>(row) / (kDiskDepthHeight - 1);
+        const double elevation = v * v * 0.5 * kPi;
+        const double slope = std::tan(std::min(elevation, 1.55));
+        const double per_r = std::sqrt(1.0 + slope * slope); // path per unit of r
+        double depth = 0.0;
+        for (int column = 0; column < kDiskDepthWidth; ++column) {
+            disk.star_depth[static_cast<size_t>(row) * kDiskDepthWidth + static_cast<size_t>(column)] =
+                static_cast<float>(std::log1p(depth));
+            // To the next entry, in a few sub-steps to catch sharp edges.
+            const double r0 = std::exp(ln_inner + column * ln_step);
+            const double r1 = std::exp(ln_inner + (column + 1) * ln_step);
+            constexpr int kSubSteps = 8;
+            for (int s = 0; s < kSubSteps; ++s) {
+                const double r = r0 + (r1 - r0) * (s + 0.5) / kSubSteps;
+                depth += disk_extinction(disk, r, r * slope) * (r1 - r0) / kSubSteps * per_r;
+            }
+        }
+    }
+}
+
+double disk_star_depth(const Disk& disk, double r_au, double z_au)
+{
+    if (disk.star_depth.empty()) {
+        return 0.0;
+    }
+    const double r = std::max(r_au, 1e-6);
+    const double u = std::clamp(std::log(r / disk.inner_au) / std::log(disk.outer_au / disk.inner_au), 0.0, 1.0) *
+                     (kDiskDepthWidth - 1);
+    const double v = std::sqrt(std::atan2(std::abs(z_au), r) / (0.5 * kPi)) * (kDiskDepthHeight - 1);
+    const int iu = std::min(static_cast<int>(u), kDiskDepthWidth - 2);
+    const int iv = std::min(static_cast<int>(v), kDiskDepthHeight - 2);
+    const double fu = u - iu;
+    const double fv = v - iv;
+    const auto at = [&](int row, int column) {
+        return static_cast<double>(disk.star_depth[static_cast<size_t>(row) * kDiskDepthWidth + static_cast<size_t>(column)]);
+    };
+    const double low = at(iv, iu) * (1.0 - fu) + at(iv, iu + 1) * fu;
+    const double high = at(iv + 1, iu) * (1.0 - fu) + at(iv + 1, iu + 1) * fu;
+    return std::expm1(low * (1.0 - fv) + high * fv);
+}
+
+double disk_optical_depth(const Disk& disk, const glm::dvec3& origin, const glm::dvec3& direction, double t_max)
+{
+    double t0 = 0.0;
+    double t1 = 0.0;
+    if (!disk.thick || !clip_ray(disk, origin, direction, t_max, t0, t1)) {
+        return 0.0;
+    }
+    double transmission = 1.0;
+    march_thick(disk, origin, direction, t0, t1, transmission);
+    return -std::log(transmission);
 }
 
 void disk_set_references(Disk& disk)
@@ -158,8 +316,11 @@ void disk_set_references(Disk& disk)
             if (c.gain[static_cast<size_t>(v)] <= 0.0) {
                 continue;
             }
-            const glm::dvec3 origin = c.to_icrf * glm::dvec3(disk.display_reference_au, -2.0 * disk.outer_au, 0.0);
-            disk.reference[static_cast<size_t>(v)] = disk_radiance(disk, view, origin, c.to_icrf[1]);
+            // Straight through a thick disk (along its midplane nothing gets out).
+            const glm::dvec3 start = disk.thick ? glm::dvec3(disk.display_reference_au, 0.0, 2.0 * disk.outer_au)
+                                                : glm::dvec3(disk.display_reference_au, -2.0 * disk.outer_au, 0.0);
+            const glm::dvec3 along = disk.thick ? -c.to_icrf[2] : c.to_icrf[1];
+            disk.reference[static_cast<size_t>(v)] = disk_radiance(disk, view, c.to_icrf * start, along);
             break;
         }
     }

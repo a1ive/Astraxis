@@ -1,6 +1,7 @@
 #include "render/disk_pass.hpp"
 
 #include "render/shader.hpp"
+#include "render/texture.hpp"
 #include <shaders/disk.frag.h>
 #include <shaders/disk_composite.frag.h>
 #include <shaders/fullscreen.vert.h>
@@ -17,7 +18,9 @@ bool DiskPass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
     sampler.min_filter = sampler.mag_filter = SDL_GPU_FILTER_LINEAR;
     sampler.address_mode_u = sampler.address_mode_v = sampler.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
     m_linear = SDL_CreateGPUSampler(device, &sampler);
-    return m_linear && create_pipelines(format);
+    const float nothing = 0.0f;
+    m_no_depth = create_float_texture(device, &nothing, 1, 1);
+    return m_linear && m_no_depth && create_pipelines(format);
 }
 
 bool DiskPass::set_format(const SceneTargetFormat& format)
@@ -34,11 +37,11 @@ bool DiskPass::create_pipelines(const SceneTargetFormat& format)
                                                  .stage = SDL_GPU_SHADERSTAGE_VERTEX});
     SDL_GPUShader* trace = create_shader(m_device, {.dxil = kDiskFragDxil, .spirv = kDiskFragSpirv,
                                                     .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
-                                                    .num_uniform_buffers = 1});
+                                                    .num_samplers = 1, .num_uniform_buffers = 1});
     SDL_GPUShader* composite = create_shader(m_device, {.dxil = kDiskCompositeFragDxil,
                                                         .spirv = kDiskCompositeFragSpirv,
                                                         .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
-                                                        .num_samplers = 1, .num_uniform_buffers = 1});
+                                                        .num_samplers = 2, .num_uniform_buffers = 1});
     if (vs && trace && composite) {
         SDL_GPUColorTargetDescription color = {};
         color.format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
@@ -54,7 +57,7 @@ bool DiskPass::create_pipelines(const SceneTargetFormat& format)
         color.format = format.color;
         color.blend_state.enable_blend = true;
         color.blend_state.src_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
-        color.blend_state.dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
+        color.blend_state.dst_color_blendfactor = SDL_GPU_BLENDFACTOR_SRC_ALPHA; // light + transmission * scene
         color.blend_state.color_blend_op = SDL_GPU_BLENDOP_ADD;
         color.blend_state.src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ZERO;
         color.blend_state.dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
@@ -81,10 +84,19 @@ void DiskPass::shutdown()
         SDL_ReleaseGPUGraphicsPipeline(m_device, m_trace);
         SDL_ReleaseGPUGraphicsPipeline(m_device, m_composite);
         SDL_ReleaseGPUSampler(m_device, m_linear);
+        SDL_ReleaseGPUTexture(m_device, m_star_depth);
+        SDL_ReleaseGPUTexture(m_device, m_no_depth);
     }
     m_trace = m_composite = nullptr;
     m_linear = nullptr;
+    m_star_depth = m_no_depth = nullptr;
     m_device = nullptr;
+}
+
+void DiskPass::set_star_depth(const std::vector<float>& depth)
+{
+    SDL_ReleaseGPUTexture(m_device, m_star_depth);
+    m_star_depth = depth.empty() ? nullptr : create_float_texture(m_device, depth.data(), kDiskDepthWidth, kDiskDepthHeight);
 }
 
 void DiskPass::render(SDL_GPUCommandBuffer* cmd, DiskTargets& targets, const DiskUniforms& uniforms, uint32_t width,
@@ -127,6 +139,8 @@ void DiskPass::render(SDL_GPUCommandBuffer* cmd, DiskTargets& targets, const Dis
     }
     SDL_BindGPUGraphicsPipeline(pass, m_trace);
     SDL_PushGPUFragmentUniformData(cmd, 0, &targets.uniforms, sizeof(DiskUniforms));
+    const SDL_GPUTextureSamplerBinding depth = {.texture = m_star_depth ? m_star_depth : m_no_depth, .sampler = m_linear};
+    SDL_BindGPUFragmentSamplers(pass, 0, &depth, 1);
     SDL_DrawGPUPrimitives(pass, 3, 1, 0, 0);
     SDL_EndGPURenderPass(pass);
     targets.drawn = true;
@@ -139,8 +153,11 @@ void DiskPass::composite(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, Dis
     }
     SDL_BindGPUGraphicsPipeline(pass, m_composite);
     SDL_PushGPUFragmentUniformData(cmd, 0, &targets.uniforms, sizeof(DiskUniforms));
-    const SDL_GPUTextureSamplerBinding binding = {.texture = targets.color, .sampler = m_linear};
-    SDL_BindGPUFragmentSamplers(pass, 0, &binding, 1);
+    const SDL_GPUTextureSamplerBinding bindings[2] = {
+        {.texture = targets.color, .sampler = m_linear},
+        {.texture = m_star_depth ? m_star_depth : m_no_depth, .sampler = m_linear},
+    };
+    SDL_BindGPUFragmentSamplers(pass, 0, bindings, 2);
     SDL_DrawGPUPrimitives(pass, 3, 1, 0, 0);
     targets.drawn = false;
 }

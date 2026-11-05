@@ -1,6 +1,6 @@
 # 模型星空
 
-离太阳 0.14–10 kpc 的场景（北极星、δ Cephei、Kepler-223/47/64、TIC 168789840、WR 140、WR 104、η Carinae、PSR B1913+16、PSR J1141-6545、PSR B1620-26 所在的 M4）和银心（Sgr A*）用的天空是一个银河模型从该处看到的样子，不是真实的天空。北极星（137 pc）和 δ Cephei（274 pc）比模型设计的 0.5 kpc 近：那里真实天空里的亮星有很多是太阳附近的星，模型里换成了统计抽样的星。离太阳 30 pc 以内的场景（α Cen、TRAPPIST-1、Algol）用真实星表重投影（见 `assets/stars/SOURCES.md`）。
+离太阳 0.14–10 kpc 的场景（北极星、PDS 70、δ Cephei、Kepler-223/47/64、TIC 168789840、WR 140、WR 104、η Carinae、PSR B1913+16、PSR J1141-6545、PSR B1620-26 所在的 M4）和银心（Sgr A*）用的天空是一个银河模型从该处看到的样子，不是真实的天空。北极星（137 pc）和 δ Cephei（274 pc）比模型设计的 0.5 kpc 近：那里真实天空里的亮星有很多是太阳附近的星，模型里换成了统计抽样的星。离太阳 30 pc 以内的场景（α Cen、TRAPPIST-1、Algol）用真实星表重投影（见 `assets/stars/SOURCES.md`）。
 
 每个场景两个文件，都由 `tools/sky/make_galaxy_sky.py render assets/scenes/<场景>.toml` 生成：
 

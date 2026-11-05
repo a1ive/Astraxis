@@ -7,6 +7,7 @@
 #include <stb_image.h>
 
 #include <SDL3/SDL_log.h>
+#include <glm/gtc/packing.hpp>
 #include <glm/packing.hpp>
 
 #include <algorithm>
@@ -114,6 +115,51 @@ SDL_GPUTexture* create_texture_rgba8(SDL_GPUDevice* device, const uint8_t* rgba,
                                      bool srgb, bool mipmaps)
 {
     return create_and_upload(device, rgba, width, height, mipmaps, srgb);
+}
+
+SDL_GPUTexture* create_float_texture(SDL_GPUDevice* device, const float* values, uint32_t width, uint32_t height)
+{
+    SDL_GPUTextureCreateInfo info = {};
+    info.type = SDL_GPU_TEXTURETYPE_2D;
+    info.format = SDL_GPU_TEXTUREFORMAT_R16_FLOAT;
+    info.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
+    info.width = width;
+    info.height = height;
+    info.layer_count_or_depth = 1;
+    info.num_levels = 1;
+    info.sample_count = SDL_GPU_SAMPLECOUNT_1;
+    SDL_GPUTexture* texture = SDL_CreateGPUTexture(device, &info);
+    if (!texture) {
+        SDL_LogError(SDL_LOG_CATEGORY_GPU, "SDL_CreateGPUTexture failed: %s", SDL_GetError());
+        return nullptr;
+    }
+    const SDL_GPUTransferBufferCreateInfo transfer_info = {.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
+                                                           .size = width * height * 2, .props = 0};
+    SDL_GPUTransferBuffer* transfer = SDL_CreateGPUTransferBuffer(device, &transfer_info);
+    if (!transfer) {
+        SDL_ReleaseGPUTexture(device, texture);
+        return nullptr;
+    }
+    auto* texels = static_cast<uint16_t*>(SDL_MapGPUTransferBuffer(device, transfer, false));
+    for (uint32_t i = 0; i < width * height; ++i) {
+        texels[i] = glm::packHalf1x16(values[i]);
+    }
+    SDL_UnmapGPUTransferBuffer(device, transfer);
+
+    SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(device);
+    SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(cmd);
+    SDL_GPUTextureTransferInfo src = {};
+    src.transfer_buffer = transfer;
+    SDL_GPUTextureRegion dst = {};
+    dst.texture = texture;
+    dst.w = width;
+    dst.h = height;
+    dst.d = 1;
+    SDL_UploadToGPUTexture(copy, &src, &dst, false);
+    SDL_EndGPUCopyPass(copy);
+    SDL_SubmitGPUCommandBuffer(cmd);
+    SDL_ReleaseGPUTransferBuffer(device, transfer);
+    return texture;
 }
 
 SDL_GPUTexture* create_profile_texture(SDL_GPUDevice* device, const std::vector<glm::vec2>& samples)

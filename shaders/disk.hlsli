@@ -1,26 +1,29 @@
 #ifndef ASTRAXIS_DISK_HLSLI
 #define ASTRAXIS_DISK_HLSLI
 
-// An optically thin disk's light along each ray: see scene/disk.hpp and
-// DiskUniforms. Lengths in au, ICRF axes, relative to the star.
+// A disk's light along each ray: see scene/disk.hpp and DiskUniforms. Lengths in
+// au, ICRF axes, relative to the star. The including shader declares the table of
+// optical depth from the star, u_star_depth with u_depth_sampler.
 
 cbuffer Uniforms : register(b0, space3)
 {
     float4x4 u_ray_to_icrf;
-    float4 u_camera;    // w: view (0 scattered, 1 infrared, 2 millimeter)
+    float4 u_camera;    // w: view (0 scattered, 1 infrared, 2 millimeter, 3 scattered in a thick disk)
     float4 u_params;    // radiance at the reference, gamma, reference, components
     float4 u_range;     // ln inner, ln outer, outer, occluders
-    float4 u_phase_g;
+    float4 u_phase_g;   // w: a source's least size (radians)
     float4 u_phase_w;
-    float4 u_tint;
+    float4 u_tint;      // w: sources
     float4 u_axis_x[4]; // w: sigma
     float4 u_axis_y[4]; // w: second sigma
     float4 u_axis_z[4]; // w: second Gaussian's share
     float4 u_color[4];  // w: flare radius
-    float4 u_temperature[4]; // K, radius, index, unused
+    float4 u_temperature[4]; // K, radius, index, flare index
     float4 u_occluders[8];   // relative to the camera; w: radius
+    float4 u_sources[4];     // relative to the camera; w: sigma
+    float4 u_source_light[4];
     float4 u_thermal[16];    // false color, even in ln T; w: ln of the infrared emission
-    float4 u_table[128];     // each component's column, per radius
+    float4 u_table[128];     // each component's column per radius, or its vertical optical depth
 };
 
 static const float kThermalLnLo = 3.4011974;  // ln 30 K (kDiskThermalLoK)
@@ -51,7 +54,7 @@ float disk_table(int c, float r)
 float disk_flare(int c, float r)
 {
     float x = r / u_color[c].w;
-    return sqrt(sqrt(1.0 + x * x * x * x));
+    return pow(1.0 + x * x * x * x, 0.25 * u_temperature[c].w);
 }
 
 float disk_vertical(int c, float r, float z)
@@ -133,28 +136,103 @@ float4 disk_march(int c, float3 origin, float3 ray, float t0, float t1)
     return sum;
 }
 
-float3 disk_integrate(float3 ray)
+// The extinction of a thick disk's components, per au.
+float disk_extinction(float r, float z)
+{
+    float out_ = 0.0;
+    for (int c = 0; c < (int)u_params.w; ++c) {
+        out_ += disk_table(c, r) * disk_vertical(c, r, z);
+    }
+    return out_;
+}
+
+// Optical depth from the star (disk_star_depth in scene/disk.cpp).
+float disk_star_tau(float r, float z)
+{
+    float u = saturate((log(max(r, 1e-6)) - u_range.x) / (u_range.y - u_range.x));
+    float v = sqrt(atan2(abs(z), max(r, 1e-6)) / 1.5707963);
+    float2 uv = (float2(u, v) * float2(255.0, 127.0) + 0.5) / float2(256.0, 128.0);
+    return exp(u_star_depth.SampleLevel(u_depth_sampler, uv, 0).r) - 1.0;
+}
+
+// The steps of march_thick() in scene/disk.cpp: the light, and what gets through in w.
+float2 disk_march_thick(float3 origin, float3 ray, float t0, float t1)
+{
+    float3 o = float3(dot(origin, u_axis_x[0].xyz), dot(origin, u_axis_y[0].xyz), dot(origin, u_axis_z[0].xyz));
+    float3 d = float3(dot(ray, u_axis_x[0].xyz), dot(ray, u_axis_y[0].xyz), dot(ray, u_axis_z[0].xyz));
+    float light = 0.0;
+    float through = 1.0;
+    float t = t0;
+    for (int i = 0; i < 96 && t < t1 && through > 0.005; ++i) {
+        float3 p = o + t * d;
+        float r = length(p.xy);
+        float sigma = u_axis_x[0].w * disk_flare(0, max(r, 0.5 * abs(p.z)));
+        float height = max(abs(p.z), sigma);
+        float climb = max(abs(d.z), 1e-3);
+        float extinction = disk_extinction(r, p.z);
+        float to_star = max(length(p), 1.0);
+        float dt;
+        if (extinction * sigma * 2.5 > 1e-3) {
+            dt = min(min(0.25 * sigma * min(1.0, sigma / height) / climb, 0.15 / extinction), 0.06 * to_star);
+        } else {
+            dt = min(max(0.5 * sigma, abs(p.z) - 5.0 * sigma) / climb, 0.2 * to_star);
+        }
+        dt = min(dt, t1 - t);
+        float3 q = o + (t + 0.5 * dt) * d;
+        float rq = length(q.xy);
+        float depth = disk_extinction(rq, q.z) * dt;
+        if (depth > 0.0) {
+            float distance = length(q);
+            float pass_ = exp(-depth);
+            light += through * (1.0 - pass_) * disk_phase(-dot(q, d) / distance) * exp(-disk_star_tau(rq, q.z)) /
+                     (distance * distance);
+            through *= pass_;
+        }
+        t += dt;
+    }
+    return float2(light, through);
+}
+
+// The disk's light, and in w what it lets through.
+float4 disk_integrate(float3 ray)
 {
     float3 origin = u_camera.xyz;
     float along = -dot(origin, ray);
     float3 closest = origin + along * ray;
     float extent2 = u_range.z * u_range.z - dot(closest, closest);
-    if (extent2 <= 0) return 0;
+    float3 rgb = 0;
+    float through = 1.0;
+    // The small things shining in the disk.
+    for (int s = 0; s < (int)u_tint.w; ++s) {
+        float along_source = dot(u_sources[s].xyz, ray);
+        if (along_source > 0.0) {
+            float3 side = cross(u_sources[s].xyz, ray);
+            float size = max(u_sources[s].w, u_phase_g.w * along_source);
+            rgb += u_source_light[s].rgb * exp(-0.5 * dot(side, side) / (size * size));
+        }
+    }
+    if (extent2 <= 0) return float4(rgb, through);
     float extent = sqrt(extent2);
     float t0 = max(0.0, along - extent);
     float t1 = along + extent;
     for (int j = 0; j < (int)u_range.w; ++j) {
         t1 = min(t1, disk_sphere_front(u_occluders[j].xyz, u_occluders[j].w, ray));
     }
-    if (t1 <= t0) return 0;
+    if (t1 <= t0) return float4(rgb, through);
 
     float4 sum = 0;
-    for (int c = 0; c < (int)u_params.w; ++c) {
-        sum += disk_march(c, origin, ray, t0, t1);
+    if ((int)u_camera.w == 3) {
+        float2 thick = disk_march_thick(origin, ray, t0, t1);
+        sum = float4(u_color[0].rgb * thick.x, thick.x);
+        through = thick.y;
+    } else {
+        for (int c = 0; c < (int)u_params.w; ++c) {
+            sum += disk_march(c, origin, ray, t0, t1);
+        }
     }
-    if (sum.w <= 0) return 0;
     // Each component's color, with the range of brightness compressed.
-    return sum.rgb / sum.w * u_params.x * pow(sum.w / u_params.z, u_params.y);
+    if (sum.w > 0) rgb += sum.rgb / sum.w * u_params.x * pow(sum.w / u_params.z, u_params.y);
+    return float4(rgb, through);
 }
 
 // Integrate again near opaque silhouettes instead of filtering light across them.

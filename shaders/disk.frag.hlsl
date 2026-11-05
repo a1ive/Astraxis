@@ -1,3 +1,7 @@
+#include "common.hlsli"
+
+FRAGMENT_TEXTURE(Texture2D, u_star_depth, u_depth_sampler, 0);
+
 #include "disk.hlsli"
 
 struct PSInput {
@@ -7,5 +11,5 @@ struct PSInput {
 
 float4 main(PSInput input) : SV_Target0
 {
-    return float4(disk_integrate(disk_ray(input.uv)), 0.0);
+    return disk_integrate(disk_ray(input.uv));
 }

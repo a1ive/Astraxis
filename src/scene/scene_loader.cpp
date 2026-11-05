@@ -2444,6 +2444,7 @@ void Loader::parse_disk(const toml::table& t, Scene& out) const
     disk.display_reference_au = get_double(t, "display_reference_au", ctx);
     disk.display_gamma = get_double_or(t, "display_gamma", disk.display_gamma);
     disk.display_adapt_au = get_double_or(t, "display_adapt_au", disk.display_adapt_au);
+    disk.thick = t["thick"].value<bool>().value_or(false);
     if (!(disk.inner_au > 0.0) || disk.outer_au <= disk.inner_au || disk.extent_au <= 0.0 ||
         disk.display_reference_au <= disk.inner_au || disk.display_reference_au >= disk.outer_au ||
         disk.display_gamma <= 0.0 || disk.display_gamma > 1.0 || disk.display_adapt_au <= 0.0) {
@@ -2478,6 +2479,11 @@ void Loader::parse_disk(const toml::table& t, Scene& out) const
         c.sigma2_au = get_double_or(*ct, "sigma2_au", c.sigma_au);
         c.share2 = get_double_or(*ct, "share2", 0.0);
         c.flare_radius_au = get_double(*ct, "flare_radius_au", cctx);
+        c.flare_index = get_double_or(*ct, "flare_index", c.flare_index);
+        c.tau_per_column = get_double_or(*ct, "tau_per_column", 0.0);
+        if (c.flare_index < 0.0 || c.tau_per_column < 0.0 || (c.tau_per_column > 0.0 && !disk.thick)) {
+            fail(cctx, "flare_index and tau_per_column must not be negative, and tau_per_column needs a thick disk");
+        }
         c.gain[static_cast<size_t>(DiskView::Scattered)] = get_double_or(*ct, "scattered", 0.0);
         c.gain[static_cast<size_t>(DiskView::Infrared)] = get_double_or(*ct, "infrared", 0.0);
         c.gain[static_cast<size_t>(DiskView::Millimeter)] = get_double_or(*ct, "millimeter", 0.0);
@@ -2497,11 +2503,13 @@ void Loader::parse_disk(const toml::table& t, Scene& out) const
         if (ct->contains("ring_center_au")) {
             const double center = get_double(*ct, "ring_center_au", cctx);
             const double sigma = get_double(*ct, "ring_sigma_au", cctx);
-            if (sigma <= 0.0) {
-                fail(cctx, "ring_sigma_au must be positive");
+            const double sigma_out = get_double_or(*ct, "ring_sigma_out_au", sigma); // beyond the peak, if different
+            if (sigma <= 0.0 || sigma_out <= 0.0) {
+                fail(cctx, "ring_sigma_au and ring_sigma_out_au must be positive");
             }
             for (int i = 0; i < kDiskRadialCount; ++i) {
-                const double x = (disk_radial_au(disk, i) - center) / sigma;
+                const double radius = disk_radial_au(disk, i);
+                const double x = (radius - center) / (radius < center ? sigma : sigma_out);
                 c.column[static_cast<size_t>(i)] = std::exp(-0.5 * x * x);
             }
         } else {
@@ -2532,6 +2540,46 @@ void Loader::parse_disk(const toml::table& t, Scene& out) const
             }
         }
         disk.components.push_back(std::move(c));
+    }
+    if (disk.thick) {
+        const DiskComponent* first = nullptr;
+        for (const DiskComponent& c : disk.components) {
+            if (c.tau_per_column > 0.0) {
+                if (first && (glm::length(first->to_icrf[2] - c.to_icrf[2]) > 1e-9 || first->sigma_au != c.sigma_au)) {
+                    fail(ctx, "a thick disk's components with opacity must share a plane and a height");
+                }
+                first = first ? first : &c;
+            }
+        }
+        if (!first) {
+            fail(ctx, "a thick disk needs a component with tau_per_column");
+        }
+        disk_build_star_depth(disk);
+    }
+    if (const toml::node* node = t.get("sources")) {
+        const toml::array* sources = node->as_array();
+        if (!sources || sources->size() > 4) {
+            fail(ctx, "sources must be at most 4 tables ([[disk.sources]])");
+        }
+        for (const auto& entry : *sources) {
+            const toml::table* st = entry.as_table();
+            if (!st) {
+                fail(ctx, "sources must be tables");
+            }
+            DiskSource s;
+            s.body = body_ref(out, *st, "body", ctx, false);
+            s.sigma_au.fill(get_double(*st, "sigma_au", ctx));
+            s.sigma_au[static_cast<size_t>(DiskView::Millimeter)] = get_double_or(*st, "millimeter_sigma_au", s.sigma_au[0]);
+            s.gain[static_cast<size_t>(DiskView::Scattered)] = get_double_or(*st, "scattered", 0.0);
+            s.gain[static_cast<size_t>(DiskView::Infrared)] = get_double_or(*st, "infrared", 0.0);
+            s.gain[static_cast<size_t>(DiskView::Millimeter)] = get_double_or(*st, "millimeter", 0.0);
+            s.color = srgb_to_linear(glm::dvec3(parse_color(*st, "color", ctx, glm::vec3(1.0f))));
+            if (s.sigma_au[0] <= 0.0 || s.sigma_au[static_cast<size_t>(DiskView::Millimeter)] <= 0.0 || s.gain[0] < 0.0 ||
+                s.gain[1] < 0.0 || s.gain[2] < 0.0) {
+                fail(ctx, "a source needs positive sizes and gains that are not negative");
+            }
+            disk.sources.push_back(s);
+        }
     }
     disk_set_references(disk);
     for (int v = 0; v < kDiskViewCount; ++v) {

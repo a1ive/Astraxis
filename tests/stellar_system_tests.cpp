@@ -2186,6 +2186,234 @@ void test_beta_pictoris_scene()
     check(!load_scene_string(base + "[disk]\ncenter = \"S\"\n", "bad_disk", bad, &error), "rejects a disk with no sizes");
 }
 
+void test_pds70_scene()
+{
+    Scene scene = load_scene_or_die("pds70.toml");
+    check_model_sky(scene, "PDS 70");
+    const int star = scene.find("PDS 70");
+    const int b = scene.find("PDS 70 b");
+    const int c = scene.find("PDS 70 c");
+    const int d = scene.find("PDS 70 d (candidate)");
+    check(star >= 0 && b >= 0 && c >= 0 && d >= 0, "PDS 70: bodies");
+    const double ra = 212.0423106;
+    const double dec = -41.3979370;
+    const glm::dvec3 away = unit_toward(ra, dec);
+    const glm::dvec3 north = glm::normalize(glm::dvec3(0, 0, 1) - away * away.z);
+    const glm::dvec3 east = glm::normalize(glm::cross(glm::dvec3(0, 0, 1), away));
+    const double au = kAuKm;
+    const double parallax = 8.8975; // mas [TR25]
+    const auto relative = [&](int body, double t) {
+        scene.update(t);
+        return scene.bodies[static_cast<size_t>(body)].icrf_position - scene.bodies[static_cast<size_t>(star)].icrf_position;
+    };
+
+    // The planets against GRAVITY [TR25 Tables 2 and A.1]: MJD, RA and Dec offsets (mas).
+    struct Astrometry {
+        int body;
+        double mjd, ra_mas, dec_mas;
+    };
+    const Astrometry positions[] = {
+        {b, 58680.0, 102.626, -139.879}, {b, 58889.0, 104.545, -135.081}, {b, 59631.28, 111.14, -115.78},
+        {c, 59222.34, -212.88, 19.32},   {c, 59363.10, -212.58, 16.27},   {c, 59631.28, -211.75, 10.04},
+    };
+    double worst = 0.0;
+    for (const Astrometry& p : positions) {
+        const glm::dvec3 r = relative(p.body, tdb_from_jd_tdb(p.mjd + 2400000.5));
+        worst = std::max(worst, std::hypot(glm::dot(r, east) / au * parallax - p.ra_mas,
+                                           glm::dot(r, north) / au * parallax - p.dec_mas));
+    }
+    std::printf("  info: PDS 70 planets against GRAVITY, worst %.2f mas\n", worst);
+    check(worst < 6.0, "PDS 70 b and c stand where GRAVITY saw them (mas)", worst);
+
+    // The candidate against [HA25] Table 2: date, separation (mas), position angle.
+    struct Candidate {
+        int year, month, day;
+        double separation, angle;
+    };
+    const Candidate candidate[] = {{2018, 2, 25, 117.9, 317.7}, {2022, 2, 28, 109.3, 299.4}, {2023, 3, 8, 103.4, 293.0}};
+    for (const Candidate& k : candidate) {
+        const glm::dvec3 r = relative(d, tdb_from_utc_jd(jd_from_calendar({k.year, k.month, k.day, 0, 0, 0})));
+        const double e = glm::dot(r, east) / au * parallax;
+        const double n = glm::dot(r, north) / au * parallax;
+        const double angle = std::fmod(std::atan2(e, n) * kRadToDeg + 360.0, 360.0);
+        check(std::abs(std::hypot(e, n) - k.separation) < 15.0, "PDS 70 d's separation [HA25] (mas)", std::hypot(e, n));
+        check(std::abs(angle - k.angle) < 8.0, "PDS 70 d's position angle [HA25] (deg)", angle);
+    }
+
+    // c takes about twice as long as b [TR25 Table 5: consistent with 2:1].
+    const auto period_of = [&](int body) {
+        const State state = scene.bodies[static_cast<size_t>(body)].motion->eval(0.0);
+        const double r = glm::length(state.position);
+        const double v2 = glm::dot(state.velocity, state.velocity);
+        const double gm = body == b ? 1.26519604e11 : 1.27153037e11;
+        const double a = 1.0 / (2.0 / r - v2 / gm);
+        return kTwoPi * std::sqrt(a * a * a / gm);
+    };
+    const double ratio = period_of(c) / period_of(b);
+    std::printf("  info: PDS 70 c / b period ratio %.2f\n", ratio);
+    check(std::abs(ratio - 2.0) < 0.2, "PDS 70 c and b near 2:1 [TR25]", ratio);
+
+    // The disk.
+    const Disk& disk = scene.disk;
+    check(disk.enabled() && disk.thick, "PDS 70: a thick disk");
+    const DiskComponent& dust = disk.components[0];
+    const glm::dvec3 normal = dust.to_icrf[2];
+    const glm::dvec3 x = dust.to_icrf[0];
+    const glm::dvec3 y = dust.to_icrf[1];
+
+    // The height [PR23 Table 1]: H = 10.61 au at 100 au, flaring 1.14.
+    check(std::abs(dust.sigma_au * disk_flare(dust, 100.0) - 10.61) < 0.05, "the disk's height at 100 au [PR23] (au)",
+          dust.sigma_au * disk_flare(dust, 100.0));
+    check(std::abs(dust.sigma_au * disk_flare(dust, 50.0) - 10.61 * std::pow(0.5, 1.14)) < 0.05,
+          "the disk's height at 50 au [PR23] (au)", dust.sigma_au * disk_flare(dust, 50.0));
+    // The vertical shape integrates to 1, so the table is the vertical optical depth.
+    double column = 0.0;
+    for (double z = -60.0; z < 60.0; z += 0.05) {
+        column += disk_extinction(disk, 78.0, z + 0.025) * 0.05;
+    }
+    check(std::abs(column / (dust.tau_per_column * disk_column(disk, dust, 78.0)) - 1.0) < 0.01,
+          "a thick disk's extinction integrates to its vertical optical depth", column);
+    std::printf("  info: PDS 70 vertical optical depth at 78 au %.0f, in the gap (30 au) %.3f, inner disk (8 au) %.1f\n", column,
+                dust.tau_per_column * disk_column(disk, dust, 30.0), dust.tau_per_column * disk_column(disk, dust, 8.0));
+
+    // The table of optical depth against a direct sum along the same line.
+    double worst_depth = 0.0;
+    for (const double elevation : {0.05, 0.15, 0.25, 0.4}) {
+        for (const double r : {30.0, 50.0, 60.0, 90.0, 150.0}) {
+            double direct = 0.0;
+            const double slope = std::tan(elevation);
+            const double step = 0.002;
+            for (double u = std::log(disk.inner_au); u < std::log(r); u += step) {
+                const double r0 = std::exp(u);
+                const double dr = r0 * (std::exp(step) - 1.0);
+                const double rm = r0 + 0.5 * dr;
+                direct += disk_extinction(disk, rm, rm * slope) * dr * std::sqrt(1.0 + slope * slope);
+            }
+            const double table = disk_star_depth(disk, r, r * slope);
+            if (direct > 0.05) {
+                worst_depth = std::max(worst_depth, std::abs(std::log((1.0 + table) / (1.0 + direct))));
+            }
+        }
+    }
+    std::printf("  info: PDS 70 table of optical depth from the star against direct sums, worst ln(1 + tau) off by %.3f\n", worst_depth);
+    check(worst_depth < 0.15, "the table of optical depth from the star", worst_depth);
+    check(disk_star_depth(disk, 100.0, 0.0) > 50.0, "no starlight along the disk's midplane at 100 au", disk_star_depth(disk, 100.0, 0.0));
+    check(disk_star_depth(disk, 100.0, 60.0) < 1.0, "starlight reaches high above the disk", disk_star_depth(disk, 100.0, 60.0));
+
+    // The disk seen straight on: the ring in scattered light peaks at the observed
+    // 54 au [MU18, DO25] with an opacity from the grains alone, and the ALMA ring
+    // peaks further out [KE19].
+    const auto straight_on = [&](DiskView view, double r) {
+        return disk_radiance(disk, view, x * r + normal * 600.0, -normal);
+    };
+    double peak_radius = 0.0, peak = 0.0, mm_radius = 0.0, mm_peak = 0.0;
+    for (double r = 25.0; r < 140.0; r += 1.0) {
+        const double v = straight_on(DiskView::Scattered, r);
+        if (v > peak) {
+            peak = v;
+            peak_radius = r;
+        }
+        const double m = straight_on(DiskView::Millimeter, r);
+        if (m > mm_peak) {
+            mm_peak = m;
+            mm_radius = r;
+        }
+    }
+    const double in_gap = straight_on(DiskView::Scattered, 30.0);
+    std::printf("  info: PDS 70 scattered ring at %.0f au (Mueller ~54), ALMA ring at %.0f au (Keppler 73.7), gap %.3f of the peak\n",
+                peak_radius, mm_radius, in_gap / peak);
+    check(std::abs(peak_radius - 54.0) < 8.0, "the ring in scattered light [MU18: ~54 au]", peak_radius);
+    check(std::abs(mm_radius - 73.7) < 1.5, "the ring at 0.9 mm [KE19: 73.7 au]", mm_radius);
+    check(in_gap < 0.1 * peak, "the gap is dark in scattered light", in_gap / peak);
+
+    // The near side, West [MU18], is the brighter: its grains scatter forward.
+    const glm::dvec3 west = -east;
+    const auto from_earth = [&](const glm::dvec3& sky_offset) {
+        return disk_radiance(disk, DiskView::Scattered, sky_offset - away * 800.0, away);
+    };
+    double near_side = 0.0, far_side = 0.0;
+    for (double p = 15.0; p < 60.0; p += 1.0) {
+        near_side = std::max(near_side, from_earth(west * p));
+        far_side = std::max(far_side, from_earth(-west * p));
+    }
+    std::printf("  info: PDS 70 from Earth: west side %.2f times the east\n", near_side / far_side);
+    check(near_side > 1.2 * far_side, "the disk's west side is the brighter [MU18]", near_side / far_side);
+
+    // Rays that cross the disk's axis high up still reach the disk: all the way
+    // round the ring, the far side's brightness changes smoothly.
+    double round_lo = 1e30, round_hi = 0.0;
+    const glm::dvec3 toward = -glm::normalize(away - normal * glm::dot(away, normal));
+    const glm::dvec3 across_axis = glm::cross(normal, toward);
+    for (double azimuth = -0.25; azimuth <= 0.25; azimuth += 0.01) {
+        const glm::dvec3 target = (std::cos(azimuth) * -toward + std::sin(azimuth) * across_axis) * 80.0;
+        const double v = disk_radiance(disk, DiskView::Scattered, target - away * 800.0, away);
+        round_lo = std::min(round_lo, v);
+        round_hi = std::max(round_hi, v);
+    }
+    std::printf("  info: PDS 70 far side of the ring, across the axis: %.3f of its brightest\n", round_lo / round_hi);
+    check(round_lo > 0.3 * round_hi, "rays across the disk's axis reach the far side", round_lo / round_hi);
+
+    // The inner disk's share of the millimeter flux [BE21 Table 2, Sect. 3].
+    double ring_flux = 0.0, inner_flux = 0.0;
+    for (double r = 1.0; r < 200.0; r += 0.25) {
+        ring_flux += disk_column(disk, disk.components[1], r) * r;
+        inner_flux += disk.components[2].gain[static_cast<size_t>(DiskView::Millimeter)] * disk_column(disk, disk.components[2], r) * r;
+    }
+    check(std::abs(inner_flux / ring_flux - 0.846 / 176.0) < 0.0015, "the inner disk's share of the flux [BE21]", inner_flux / ring_flux);
+
+    // Along the midplane the star is hidden, straight above it is not. A thin disk
+    // has no opacity at all.
+    const double hidden = disk_optical_depth(disk, x * 400.0, -x, 399.0);
+    const double seen = disk_optical_depth(disk, normal * 400.0, -normal, 399.0);
+    std::printf("  info: PDS 70 optical depth to the star: along the disk %.1f, from above %.3f\n", hidden, seen);
+    check(hidden > 4.0, "the disk hides the star when seen edge-on", hidden);
+    check(seen < 0.5, "the star shows through from above", seen);
+    check(disk.sources.size() == 2, "PDS 70: b and c shine in the gap");
+
+    // The steps across the disk's surface, against a fine sum along the same ray.
+    const glm::dvec3 slant = glm::normalize(-normal + 0.7 * x);
+    const glm::dvec3 origin = x * 40.0 + y * 12.0 - slant * 300.0;
+    double fine = 0.0, through = 1.0;
+    const glm::dmat3 to_plane = glm::transpose(dust.to_icrf);
+    for (double s = 0.0; s < 600.0; s += 0.02) {
+        const glm::dvec3 q = to_plane * (origin + (s + 0.01) * slant);
+        const double rq = std::hypot(q.x, q.y);
+        const double depth = disk_extinction(disk, rq, q.z) * 0.02;
+        if (depth > 0.0) {
+            const double distance = glm::length(q);
+            fine += through * (1.0 - std::exp(-depth)) * disk_phase(disk, -glm::dot(q, to_plane * slant) / distance) *
+                    std::exp(-disk_star_depth(disk, rq, q.z)) / (distance * distance);
+            through *= std::exp(-depth);
+        }
+    }
+    const double stepped = disk_radiance(disk, DiskView::Scattered, origin, slant);
+    std::printf("  info: PDS 70 steps against a fine sum: %.3f\n", stepped / fine);
+    check(std::abs(stepped / fine - 1.0) < 0.1, "the thick disk's steps integrate a slanted ray to within 10%", stepped / fine);
+
+    // Only d's own event shows it.
+check(scene.bodies[static_cast<size_t>(d)].event >= 0, "PDS 70 d only in its own event");
+
+    Scene bad;
+    std::string error;
+    const std::string base = "name = \"x\"\n[view]\nfocus = \"S\"\n[[bodies]]\nname = \"S\"\nkind = \"star\"\nradii_km = [1000.0]\n"
+                             "temperature_k = 5000.0\nluminosity_solar = 1.0\n"
+                             "[disk]\ncenter = \"S\"\nsky_ra_dec_deg = [0.0, 0.0]\ninner_au = 1.0\nouter_au = 100.0\nextent_au = 50.0\n"
+                             "phase_g = [0.5, 0.0, 0.0]\nphase_w = [1.0, 0.0, 0.0]\ndisplay_reference_au = 50.0\n"
+                             "[[disk.components]]\nname = \"C\"\nnode_deg = 0.0\ni_deg = 45.0\nsigma_au = 1.0\nflare_radius_au = 50.0\nscattered = 1.0\n"
+                             "tau_per_column = 1.0\nring_center_au = 50.0\nring_sigma_au = 5.0\ntemperature_k = 50.0\n"
+                             "temperature_radius_au = 50.0\ntemperature_index = 0.5\n";
+    check(!load_scene_string(base, "bad_disk", bad, &error), "rejects tau_per_column without a thick disk");
+    const bool loaded = load_scene_string(base.substr(0, base.find("[disk]\n") + 7) + "thick = true\n" +
+                                              base.substr(base.find("[disk]\n") + 7),
+                                          "thick_disk", bad, &error);
+    if (!loaded) {
+        std::printf("  info: %s\n", error.c_str());
+    }
+    check(loaded, "loads a thick disk");
+    check(bad.disk.thick && bad.disk.star_depth.size() == static_cast<size_t>(kDiskDepthWidth) * kDiskDepthHeight,
+          "a thick disk has its table of optical depth");
+}
+
 void test_eta_carinae_scene()
 {
     Scene scene = load_scene_or_die("eta_carinae.toml");
@@ -2543,6 +2771,7 @@ void run_stellar_system_tests()
 {
     test_alpha_centauri_scene();
     test_beta_pictoris_scene();
+    test_pds70_scene();
     test_trappist1_scene();
     test_kepler223_scene();
     test_kepler47_scene();
