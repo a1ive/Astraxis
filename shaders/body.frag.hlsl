@@ -21,6 +21,7 @@ static const float kPi = 3.14159265;
 FRAGMENT_TEXTURE(Texture2D, u_albedo, u_sampler, 0); // sRGB texture: samples are linear
 FRAGMENT_TEXTURE(Texture2D, u_ring_profile, u_ring_sampler, 1); // r = ring normal optical depth
 FRAGMENT_TEXTURE(Texture2D, u_night_lights, u_night_sampler, 2); // sRGB gray map of emitted light
+FRAGMENT_TEXTURE(Texture2D, u_field_map, u_field_sampler, 3); // r: radial magnetic field, 0.5 = none, compressed
 
 cbuffer Uniforms : register(b0, space3)
 {
@@ -36,8 +37,22 @@ cbuffer Uniforms : register(b0, space3)
     float4 u_atmo_rayleigh;            // atmosphere: rgb = vertical optical depth, w = scale height (radii; 0 = none)
     float4 u_atmo_haze;                // rgb = vertical attenuation optical depth, w = scale height
     float4 u_night;                    // night lights: rgb = color (sRGB), w = I/F of a white pixel (0 = none)
-    float4 u_surface;                  // x = scale of the reflected light
+    float4 u_surface;                  // x = scale of the reflected light, y = 1 to show the field map,
+                                       // z = 1 if the map is of the strength instead of Br
 };
+
+// A strength map's false color: viridis, dark where the field is weak (sRGB).
+static const float3 kFieldWeak = float3(0.267, 0.005, 0.329);
+static const float3 kFieldMiddle = float3(0.128, 0.567, 0.551);
+static const float3 kFieldStrong = float3(0.993, 0.906, 0.144);
+static const float kFieldStrengthOpacity = 0.8;
+
+// The field map's false color, a map and not light, so it shows at night too: red
+// where the field leaves the planet, blue where it enters.
+static const float3 kFieldOut = float3(0.92, 0.26, 0.18);  // sRGB
+static const float3 kFieldIn = float3(0.20, 0.47, 0.96);   // sRGB
+static const float kFieldNight = 0.35;                     // brightness without sunlight
+static const float kFieldDim = 0.6;                        // the surface under the map
 
 struct PSInput
 {
@@ -306,6 +321,23 @@ float4 main(PSInput input) : SV_Target0
         float lights = u_night_lights.Sample(u_night_sampler, uv).r;
         color += srgb_to_linear(u_night.rgb) * (u_night.w * lights * dusk) *
                  atmosphere_transmission(saturate(dot(n, V)));
+    }
+    if (u_surface.y > 0.5) {
+        float value = 2.0 * u_field_map.Sample(u_field_sampler, uv).r - 1.0;
+        float3 tint = srgb_to_linear(value > 0.0 ? kFieldOut : kFieldIn);
+        float shade = lerp(kFieldNight, 1.0, saturate(dot(lit, float3(0.2126, 0.7152, 0.0722))));
+        // The map holds the square root of the strength. Mixed in linear light, that root would
+        // look like a flat field of color wherever the field is more than a trace: its 1.5th
+        // power (strength^0.75) keeps the weak fields faint. The surface is dimmed everywhere
+        // alike: dimming with the strength would draw bright lines where the field changes sign.
+        float mix_amount = pow(saturate(abs(value)), 1.5);
+        if (u_surface.z > 0.5) {
+            // Mixed in sRGB, as the ramp is uniform there.
+            float t = saturate(0.5 * (value + 1.0));
+            tint = srgb_to_linear(t < 0.5 ? lerp(kFieldWeak, kFieldMiddle, 2.0 * t) : lerp(kFieldMiddle, kFieldStrong, 2.0 * t - 1.0));
+            mix_amount = kFieldStrengthOpacity;
+        }
+        color = lerp(color * kFieldDim, tint * shade, mix_amount);
     }
     return float4(color, 1.0);
 }

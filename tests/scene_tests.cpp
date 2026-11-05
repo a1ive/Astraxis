@@ -936,9 +936,11 @@ void test_event_from_sun()
     const Scene& scene = sim.scene();
     size_t index = scene.events.size();
     for (size_t i = 0; i < scene.events.size() && index == scene.events.size(); ++i) {
-        index = scene.events[i].from_sun ? i : index;
+        index = scene.events[i].from_sun && scene.events[i].phase_deg != 0.0 && std::isnan(scene.events[i].elevation_deg)
+                    ? i
+                    : index;
     }
-    check(scene.find("Sun") < 0 && index < scene.events.size(), "mars.toml has an event seen from the sun");
+    check(scene.find("Sun") < 0 && index < scene.events.size(), "mars.toml has an event seen from the sun, turned by a phase");
     if (index == scene.events.size()) {
         return;
     }

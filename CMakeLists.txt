@@ -75,6 +75,8 @@ add_library(astraxis_sim STATIC
     src/scene/comet.hpp
     src/scene/label_layout.cpp
     src/scene/label_layout.hpp
+    src/scene/magnetic_field.cpp
+    src/scene/magnetic_field.hpp
     src/scene/pulsar.cpp
     src/scene/pulsar.hpp
     src/scene/light_curve.cpp

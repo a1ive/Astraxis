@@ -1,0 +1,19 @@
+# Neptune O8, Connerney et al. 1991, JGR 96, 19023, via libinternalfield, commit 9a6b6e5 (MIT, Copyright (c) 2022 Dr Matt James). Radius 24,765 km; NLS.
+# Schmidt quasi-normalized internal Gauss coefficients in nT, model frame right-handed
+# (longitude positive east of the model's prime meridian). Written by
+# tools/geomag/field_coeffs.py; see SOURCES.md.
+g 1 0 9732
+g 1 1 3220
+h 1 1 -9889
+g 2 0 7448
+g 2 1 664
+g 2 2 4499
+h 2 1 11230
+h 2 2 -70
+g 3 0 -6592
+g 3 1 4098
+g 3 2 -3581
+g 3 3 484
+h 3 1 -3669
+h 3 2 1791
+h 3 3 -770

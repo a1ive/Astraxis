@@ -10,3 +10,11 @@ prime_meridian_deg = [329.5988, 6.1385108]
 color = "#9c958e"
 texture = "textures/mercury.jpg"           # assets/textures/SOURCES.md
 texture_left_lon_deg = -180.0
+
+# Anderson et al. 2012, axisymmetric. The dayside magnetopause is near 1.45 radii (Winslow
+# et al. 2013), so only the lines inside it are drawn. geomag/SOURCES.md.
+[magnetic_field]
+coefficients = "geomag/field_mercury_anderson2012.txt"
+reference_radius_km = 2440.0
+l_shells = [1.1, 1.25, 1.4]
+max_radius = 1.7

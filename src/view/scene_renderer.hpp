@@ -72,6 +72,7 @@ private:
 
     void build_body_items(const Simulation& sim, const OutputView& view, const ViewOptions& options);
     void build_orbit_lines(const Simulation& sim, const OutputView& view, const ViewOptions& options);
+    void build_magnetic_lines(const Simulation& sim, const OutputView& view, const ViewOptions& options);
     void build_belt_items(const Simulation& sim, const OutputView& view, const ViewOptions& options);
     void build_comet_items(const Simulation& sim, const OutputView& view, const ViewOptions& options);
     // A colliding-wind binary's dust spiral: its grains (once per scene) and this frame's look.
@@ -124,6 +125,8 @@ private:
     std::vector<SDL_GPUTexture*> m_body_textures; // per body, may be null
     std::vector<SDL_GPUTexture*> m_ring_textures; // per body: ring profile, may be null
     std::vector<SDL_GPUTexture*> m_night_textures; // per body: night lights, may be null
+    std::vector<SDL_GPUTexture*> m_field_map_textures;      // per body: radial field at the surface, may be null
+    std::vector<SDL_GPUTexture*> m_deep_field_map_textures; // per body: the same deeper down, may be null
     std::vector<SDL_GPUTexture*> m_aurora_textures; // per body: Ganymede UV map
     std::vector<int> m_comet_meshes;              // per body: nucleus occlusion BVH
     std::vector<int> m_body_meshes;               // per body: BodyPass mesh index (-1: ellipsoid)

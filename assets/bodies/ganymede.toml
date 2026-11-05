@@ -18,3 +18,11 @@ texture_left_lon_deg = 0.0
 # geomag/SOURCES.md. Blue UV overlay, with illustrative exposure.
 [aurora]
 ganymede_map = "geomag/ganymede_aurora.txt"
+
+# The dipole of Weber et al. 2022, without Jupiter's field, which takes over near 2 radii.
+# geomag/SOURCES.md.
+[magnetic_field]
+coefficients = "geomag/field_ganymede_weber2022.txt"
+reference_radius_km = 2631.2
+l_shells = [1.3, 1.6, 1.9]
+max_radius = 2.5

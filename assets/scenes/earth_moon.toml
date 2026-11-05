@@ -794,3 +794,45 @@ caption = """\
     The auroral oval, which follows Kp here, swells toward the equator on the night \
     side. Its place and brightness come from the index; the arcs within it are \
     illustrative."""
+
+# [SAA]   NASA, "NASA Researchers Track Slowly Splitting 'Dent' in Earth's Magnetic Field" (2020):
+#         the weak region, energetic particles reach lower, satellites shut down systems in it.
+#         The numbers are the strength of IGRF-14 at 2025.0, geomag/earth_b.fieldmap.
+[[events]]
+name = "The South Atlantic Anomaly (false color)"
+magnetic_map = "surface"
+hide_orbits = true
+time_tdb = "2025-01-01 14:22"
+focus = "Earth"
+from_body = "Sun"
+elevation_deg = -20.0
+distance_km = 3.2e4
+warp = 300.0
+# [SAA]
+caption = """\
+    The strength of Earth's magnetic field at the surface, in false color: dark where it \
+    is weak. Over South America and the South Atlantic it falls to about 22,000 nT, a third \
+    of its strength south of Australia. Energetic particles reach lower here, and many \
+    satellites shut down sensitive systems as they cross it."""
+
+# [LUNAR] The map is Tsunakawa et al. 2015, JGR Planets 120, 1160, as expanded by Wieczorek 2018,
+#         to degree 256; geomag/SOURCES.md. The crater Gerasimovich is at 22.9 S, 122.6 W, by one
+#         of the strongest anomalies. Reiner Gamma's swirl is co-located with its anomaly; solar
+#         wind standoff is the leading explanation of the bright marking (Deca et al. 2018,
+#         "Reiner Gamma albedo features reproduced by modeling solar wind standoff",
+#         Communications Physics).
+[[events]]
+name = "The Moon's magnetized patches (false color)"
+magnetic_map = "surface"
+hide_orbits = true
+time_tdb = "2024-05-30 13:12"
+focus = "Moon"
+from_body = "Sun"
+distance_km = 7000.0
+warp = 1800.0
+# [LUNAR]
+caption = """\
+    The Moon has no global field today, but patches of its crust are magnetized. Here is \
+    the field 30 km up, in false color: red leaving the Moon, blue entering it. The strongest, \
+    near the crater Gerasimovich at lower left, reach about 25 nT. The one at upper right \
+    lies under the bright swirl Reiner Gamma, which it may shield from the solar wind."""

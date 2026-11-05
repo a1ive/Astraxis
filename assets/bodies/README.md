@@ -75,7 +75,7 @@ file = "ephem/moon_geo.eph"
 | IAU 自转 | `pole_ra_dec_deg`、`prime_meridian_deg`、`pole_rate_deg_per_century`、`nut_prec_angles`、`nut_prec_ra`、`nut_prec_dec`、`nut_prec_pm` |
 | 其他独立自转模型 | `spin_table`、`free_precession` |
 | 表面与形状 | `color`、`style`、`shape`、`texture`、`texture_left_lon_deg`、`texture_lon_direction` |
-| 外观子表 | `atmosphere`、`night_lights`、`aurora`、`rotor`、`rings`（含 `[[rings.bands]]`）、`[[plumes]]` |
+| 外观子表 | `atmosphere`、`night_lights`、`aurora`、`magnetic_field`、`magnetic_map`、`rotor`、`rings`（含 `[[rings.bands]]`）、`[[plumes]]` |
 
 `atmosphere.refractivity` 是大气底部的 `n-1`，默认 0；设为 0 可关闭折射像。地球模板采用 550 nm 标准干空气的值，随 Rayleigh 气体的指数密度变化。`atmosphere.refraction_gain` 默认 1，独立调整折射像的显示亮度，日食场景采用 64。加载时计算弯折和透射率表；不支持 `n(r)r` 非单调的波导大气。公式与适用范围见 [日冕与折射来源](../corona/SOURCES.md#地球边缘的大气折射像)。
 
@@ -106,6 +106,10 @@ file = "ephem/moon_geo.eph"
 天王星、海王星（内联在太阳系场景）用 `[aurora].uranus_map`、`neptune_map` 读取 JWST 的 H₃⁺ 图，要求各自的半径，与其他极光字段互斥，只在红外视图显示，见 [极光来源](../geomag/SOURCES.md#天王星与海王星的红外-h₃)。
 
 Ganymede 模板的 `[aurora].ganymede_map` 读取 HST 平均柱亮度图，要求木卫三的球形半径，与其他极光字段互斥。它随本体旋转，通过紫外叠加开关显示；数据和 70 km 壳层的说明见 [极光来源](../geomag/SOURCES.md#ganymede-自身的紫外极光)。
+
+`[magnetic_field]` 是内部磁场的磁力线（水星、地球、木星、土星、Ganymede 在模板里，天王星、海王星内联在太阳系场景）：`coefficients` 和 `reference_radius_km` 必填；`l_shells`、`lines_per_shell`、`max_radius` 决定画哪些线，`color` 是颜色；模型坐标系和本体系不同时用 `flip_pole` 加 `longitude_offset_deg`，或用 `prime_meridian_deg` 给模型自己的 W（两种写法互斥）。默认不显示，由事件的 `magnetic_lines = true` 或手动开关（`B`）打开，见 [地磁与极光来源](../geomag/SOURCES.md#行星内部磁场磁力线)。
+
+`[magnetic_map]` 是固定在本体上的磁场伪彩色图（火星、月球、木星是径向场，地球是总强度，由文件决定）：`surface` 必填，`deep` 是更深处的第二张图（木星）。投影和 `texture` 相同，列从 180°W 开始，所以贴图的 `texture_left_lon_deg` 要是 −180。默认不显示，由事件的 `magnetic_map = "surface"` 或 `"deep"`、手动开关（`G`）打开，见 [径向磁场图](../geomag/SOURCES.md#径向磁场图)。
 
 ## 加载接口与离线工具
 

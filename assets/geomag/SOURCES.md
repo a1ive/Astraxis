@@ -210,6 +210,84 @@ python -E -P tools/geomag/ice_giant_h3p_bake.py uranus build/h3p/uranus_fits.zip
 python -E -P tools/geomag/ice_giant_h3p_bake.py neptune build/h3p/nep -25.08 assets/geomag/neptune_h3p.txt
 ```
 
+## 行星内部磁场（磁力线）
+
+`field_*.txt` 是施密特准归一化的内部场高斯系数（nT），每行 `g|h n m 值`。天王星、海王星、木星、土星的系数取自 [libinternalfield](https://github.com/mattkjames7/libinternalfield)（MIT，Copyright (c) 2022 Dr Matt James，提交 `9a6b6e5`），地球取自 IAGA 的 IGRF-14。程序只读这些数，不链接那个库。
+
+| 文件 | 模型 | 参考半径 | 坐标 |
+|---|---|---|---|
+| `field_uranus_ah5.txt` | AH5，[Herbert 2009](https://doi.org/10.1029/2009JA014394)，4 阶 | 25,600 km | ULS（北是 IAU 的南） |
+| `field_neptune_o8.txt` | O8，[Connerney et al. 1991](https://doi.org/10.1029/91JA01165)，取约束较好的 3 阶 | 24,765 km | NLS |
+| `field_jupiter_jrm33.txt` | JRM33，[Connerney et al. 2022](https://doi.org/10.1029/2021JE007055)，取约束较好的 13 阶（文件到 30 阶） | 71,492 km | System III |
+| `field_saturn_cassini11.txt` | Cassini 11，[Dougherty et al. 2018](https://doi.org/10.1126/science.aat5434)，11 阶，轴对称 | 60,268 km | 自转轴 |
+| `field_mercury_anderson2012.txt` | [Anderson et al. 2012](https://doi.org/10.1029/2012JE004159)，4 阶，轴对称 | 2,440 km | 自转轴 |
+| `field_ganymede_weber2022.txt` | [Weber et al. 2022](https://doi.org/10.1029/2022GL098633) 的偶极（Galileo 和 Juno），加四极项只略有改善，所以不用 | 2,631 km | 经度 0 朝木星，东向是后随面 |
+| `field_earth_igrf14.txt` | IGRF-14 的 2025.0，13 阶 | 6,371.2 km | 地心 |
+
+**许可**：libinternalfield 的 MIT 只覆盖它自己的代码和整理，不覆盖模型本身。这里入库的是论文发表的高斯系数（几十到不足两百个数），和场景里其他论文表格的数值一样按事实引用，注明出处。原文的条款：[JRM33](https://doi.org/10.1029/2021JE007055) 是 CC BY-NC 4.0，AH5、O8、Cassini 11、Anderson 2012、Weber 2022 是期刊的订阅条款。需要完全开放的木星模型时，可以换 Sharan et al. 2022（16 阶，[Zenodo 6564162](https://doi.org/10.5281/zenodo.6564162)，CC BY 4.0）。IGRF 是公开模型。
+
+这些模型的经度按东经（右手）写：Connerney 系的模型西经 λ 对应 φ = −λ。依据是系数本身：O8 的 atan2(h11, g11) = −72°，论文写磁极倾向西经 72°。
+
+核对：
+- 从 libinternalfield 转来的数没有逐项对照论文的表（AH5 的原文没有拿到）。它们的总体性质对照过：O8 的偶极 0.142 G、倾角 46.9°，偏心 (0.05, 0.48, 0.00) R 对上 [A&A 2024 的 OTD-O8 表](https://www.aanda.org/articles/aa/full_html/2024/06/aa46699-23/T1.html)；Cassini 11 严格轴对称；IGRF-14 和 `scene/aurora.cpp` 的地磁极一致。
+- AH5 和 Cassini 11 的参考半径没有从原文核实。天王星 25,600 与 25,559 km 只差 0.16%，画面上看不出来。
+
+放到场景的本体系（`[bodies.magnetic_field]`）：
+- **天王星**：`flip_pole` 把 ULS 的北翻到 IAU 的南，`longitude_offset_deg = -50.6` 用 Melin 2025 的 `IAU new 东经 = ULS 西经 − 50.6`。AH5 的南磁极落在 235.7°W、纬度 30.2°（IAU），Melin 的南极光在 232°W、37.5°，相距约 8°。
+- **海王星**：`prime_meridian_deg = [253.18, 536.3128492]` 是 IAU 2009 以前的 W，周期 16.11 h，和 NLS 同一个系统；场景的 541.14°/天不是磁场的自转率。[PDS 的 Voyager 2 轨迹说明](https://pds.nasa.gov/data/vg2-n-pra-4-summ-browse-48sec-v1.0/vg_1001/catalog/pos/dataset.cat)规定 1989-08-25 03:56:00 飞船在西经 167.7°，按场景的轨迹和这个 W 算出 168.8°。现在的相位未知。
+- **木星、土星、地球、水星**：模型的坐标系就是场景的本体系。木星只用内部场时，Io 的足点和 `jupiter_footprints.txt` 相差不到 3°。水星的模型算出偏心 479 km，[Anderson et al. 2011](https://doi.org/10.1126/science.1211001) 是 484 km。
+- **Ganymede**：模型的坐标系也是本体系，这是推断出来的，不是论文明写的。[Kivelson et al. 2002](https://doi.org/10.1006/icar.2002.6834) 说南半球的磁极从朝木星的子午面向后随面转 24°，Weber 的系数给出 25.7°，只有 x 朝木星、y 朝后随面时才对得上（如果按 GPhiO 的 x 沿等离子体流方向读系数，磁极就差了约 65°）。场景的 x 轴朝木星、y 轴朝后随面，`test_magnetic_field` 检查。纯偶极的外层线落在纬度 48°，Marzok 的极光在后随面是 42–56°，在前导面只有 16–25°：极光在开闭磁力线的边界上（[Duling et al. 2022](https://doi.org/10.1029/2022GL101688)），而这条边界被木星的等离子体推得不对称，纯偶极表现不出来。
+
+水星的线画到 L = 1.4，都在 [Winslow et al. 2013](https://doi.org/10.1002/jgra.50237) 的平均日下点磁层顶（1.45 个半径，太阳风动压变化时 1.35–1.55）以内。
+
+重新生成（只用标准库）：
+
+```bash
+mkdir -p build/field
+for f in uranus/ah5 neptune/gsfco8 jupiter/jrm33 saturn/cassini11 mercury/anderson2012 ganymede/weber2022dip; do curl -L -o build/field/$(basename $f).dat https://raw.githubusercontent.com/mattkjames7/libinternalfield/9a6b6e562b57a95146b7d608ee9cdf229b674a63/data/coeffs/$f.dat; done
+curl -L -o build/field/igrf14coeffs.txt https://www.ngdc.noaa.gov/IAGA/vmod/coeffs/igrf14coeffs.txt
+python -I tools/geomag/field_coeffs.py build/field assets/geomag
+```
+
+## 径向磁场图
+
+`*.fieldmap` 是固定在本体上的磁场图，由 `tools/geomag/field_map_bake.py` 烘焙（需要 numpy）。径向图的文件头 `AXFIELDMAP1 宽 高 上限_nT` 之后是 宽×高 个有符号字节，值为 127·sign(Br)·√(|Br|/上限)；强度图的文件头 `AXFIELDMAG1 宽 高 下限_nT 上限_nT` 之后是 127·(2t − 1)，t = (|B| − 下限)/(上限 − 下限)。投影和天体贴图相同：行由北向南按网格的参数纬度，列从 180°W 向东，所以每格在椭球面上的真实位置求值。
+
+| 文件 | 模型 | 位置 | 范围 |
+|---|---|---|---|
+| `mars_br.fieldmap` | [Morschhauser et al. 2014](https://doi.org/10.1002/2013JE004555)，110 阶，参考半径 3393.5 km | 椭球面上方 150 km | −709 .. 1278 nT |
+| `jupiter_br.fieldmap` | JRM33，13 阶 | 1 bar 椭球面 | −13.9 .. 21.7 G |
+| `jupiter_br_deep.fieldmap` | JRM33，13 阶 | 0.81 RJ 的球面，方向和云顶图相同（两张图在网格上对齐） | −79.4 .. 81.3 G |
+| `moon_br.fieldmap` | [Tsunakawa et al. 2015](https://doi.org/10.1002/2014JE004785) 的球谐展开，Wieczorek 的 T2015_449 取到 240 阶，参考半径 1737.4 km | 月面上方 30 km | −25 .. 14 nT |
+| `earth_b.fieldmap` | IGRF-14 的 2025.0，13 阶，总强度 |B| | 椭球面 | 22,073 .. 66,953 nT |
+
+**月球**：系数取自 Wieczorek 在 Zenodo 的 [T2015_449.sh.gz](https://doi.org/10.5281/zenodo.3873648)（CC BY 4.0，单位是特斯拉）。取 30 km 而不是月面：直接画月面时，强异常周围有大致沿南北向的条纹（硬截断的振铃加上看来是轨道条带的噪声，在 120–240 阶之间做余弦衰减也去不掉），向上延拓到接近观测的高度后条纹消失。地表的峰值约 −279 nT，30 km 处只有 −25 nT，差得很多，展签按 30 km 写。
+
+**地球**：画总强度而不是 Br。Br 基本只是偶极的南北两半，南大西洋异常看不出来。最弱处在 26.5°S、59.5°W。
+
+**待做的地壳图**：[Thébault 的地球岩石圈模型](https://doi.org/10.5281/zenodo.5546528)（CC BY 4.0，约 40 km 分辨率）比主磁场弱得多，要单独一张图。
+
+**火星模型的许可**：系数取自 Mark Wieczorek 在 Zenodo 的 [Morschhauser2014.txt.gz](https://doi.org/10.5281/zenodo.3876495)（CC BY 4.0，与论文附表 ts01 相同）。没有用分辨率更高的 Langlais 2019 和 Gao 2021：两篇论文都是 CC BY-NC（-ND），和项目的 GPL 不相容。Zenodo 上也有 Langlais 模型的 CC BY 版本，但它的许可和论文的 NC-ND 对不上，所以不用。
+
+取 150 km 而不是地表：这里接近观测的高度（Mars Global Surveyor 的低轨和大气制动段），往下延拓到地表时小尺度放大，整张图布满高频细纹。
+
+核对：
+- 木星两张图和 `field_jupiter_jrm33.txt` 逐格一致（`test_magnetic_maps`，到一个字节的量化）。
+- Great Blue Spot 在云顶约 −12.8 G、6.5°S、84.5°W；[Moore et al. 2018 的会议摘要](https://meetingorganizer.copernicus.org/EPSC2018/EPSC2018-556.pdf)写它在赤道附近、System III 约 90°。在扁椭球面上它不是全球最小值（南极附近 −13.9 G），在 1 RJ 的球面上才是。
+- 火星的峰值在 48°S、175°E，属于 [Acuña et al. 1999](https://doi.org/10.1126/science.284.5415.790) 说的 Terra Cimmeria 和 Terra Sirenum；Hellas、Argyre 内的场不到峰值的 10%。
+- 月球的峰值在 20.2°S、236.8°E，紧邻 Gerasimovich 环形山（22.9°S、122.6°W）；Reiner Gamma（7.5°N、59°W）处有明显的异常，Mare Crisium 处很弱；远月面的场比近月面强。
+- 地球图和 `field_earth_igrf14.txt` 逐格一致（到一个字节的量化）。
+
+重新生成（先按上一节取得 `field_jupiter_jrm33.txt`、`field_earth_igrf14.txt`）：
+
+```bash
+mkdir -p build/field_map
+curl -L -o build/field_map/Morschhauser2014.txt.gz https://zenodo.org/api/records/3876495/files/Morschhauser2014.txt.gz/content
+gunzip -k build/field_map/Morschhauser2014.txt.gz
+curl -L -o build/field_map/T2015_449.sh.gz https://zenodo.org/api/records/3873648/files/T2015_449.sh.gz/content
+python -E -P tools/geomag/field_map_bake.py build/field_map/Morschhauser2014.txt build/field_map/T2015_449.sh.gz assets/geomag
+```
+
 ## Mars visible diffuse aurora
 
 Enable with `[aurora] mars_visible = true` in the Mars body template. The Mars

@@ -124,6 +124,10 @@
 #          shield; few dust hits. "NASA's Cassini Spacecraft Ends Its Historic Exploration of
 #          Saturn": contact lost at 4:55 a.m. PDT on 2017-09-15, a month short of 20 years
 #          after launch.
+#        [MAG] Dougherty et al. 2018, Science 362, eaat5434 and Cao et al. 2020, Icarus 344,
+#          113541: Grand Finale magnetometer; dipole tilt below 0.007 deg, magnetic equator
+#          2,820 km north of the planet's. Cowling 1933, MNRAS 94, 39: no dynamo can sustain
+#          an exactly axisymmetric field.
 #        [PHO] NASA/JPL PIA18411, "Arrival and Departure at Phoebe": on 2004-06-11 Cassini
 #          passed Phoebe, "the largest of Saturn's outer or 'irregular' moons", 2,068 km up,
 #          "the sole close flyby of one of the outer moons of Saturn in the entire Cassini
@@ -852,6 +856,23 @@ caption = """\
     Cassini makes a planned plunge into Saturn to protect Enceladus and Titan from \
     a future impact that could contaminate them with life from the Earth. Its \
     signal ended at 11:55 UTC, a month short of twenty years after launch."""
+
+[[events]]
+name = "Saturn's aligned magnetic field (2017)"
+magnetic_lines = true
+focus_orbits_only = true
+time_tdb = "2017-09-15 12:00"
+focus = "Saturn"
+from_body = "Sun"
+phase_deg = 60.0
+distance_km = 1.3e6
+warp = 600.0
+# [MAG]
+caption = """\
+    Cassini's last orbits measured the field from inside the rings. Its dipole lies within \
+    0.007 degrees of Saturn's spin axis, so these lines look the same however the planet \
+    turns, and it sits 2,820 km north of the center. A dynamo cannot sustain a perfectly \
+    symmetric field, so this remains a puzzle. Drawn from a model, without the solar wind."""
 
 # Small-moon views: dates select the viewing geometry, not spacecraft encounters.
 [[events]]

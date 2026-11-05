@@ -10,6 +10,10 @@
 # closing in on Mercury.
 #
 # Sources
+# [MMAG] Anderson et al. 2011, Science 333, 1859, and 2012, JGR Planets 117, E00L12: a dipole
+#        offset 484 km north along the spin axis, tilted less than 2.5 deg. Winslow et al. 2013,
+#        JGR Space Physics 118, 2213: mean subsolar magnetopause at 1.45 radii. The ratio of
+#        the fields at the poles is computed from the model; assets/geomag/SOURCES.md.
 # [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py (tools/bake/ephem.toml):
 #        - MESSENGER (-236): JHU/APL trajectory delivered 2015-04-02; heliocentric from
 #          launch to 2011-03-12, then relative to Mercury until the impact.
@@ -359,6 +363,25 @@ caption = """\
     which the Sun never reaches, and shallow surface features called \"hollows\". \
     It also showed that the planet's magnetic field is offset well to the north of \
     its center. It sent some 275,000 images in all."""
+
+[[events]]
+name = "Mercury's off-center magnetic field (2013)"
+magnetic_lines = true
+focus_orbits_only = true
+trails = [{ body = "MESSENGER", trail_history_days = 0.5 }]
+time_tdb = "2013-01-01 12:00"
+focus = "Mercury"
+frame = "Mercury-centered"
+from_body = "Sun"
+phase_deg = 60.0
+distance_km = 1.2e4
+warp = 1800.0
+# [MMAG]
+caption = """\
+    MESSENGER found the field's center 484 km north of the planet's, so at the north pole \
+    it is more than three times as strong as at the south. On the day side the solar wind \
+    holds it back to about 1.45 radii, leaving little room: only the lines inside are \
+    drawn here, from a model of what the planet itself makes."""
 
 # Impact: the mean surface is reached at ~2015-04-30 19:27:55 TDB.
 [[events]]

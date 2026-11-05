@@ -12,8 +12,6 @@ namespace astraxis {
 
 namespace {
 
-constexpr float kTailOpacity = 0.12f;
-
 static_assert(sizeof(glm::vec4) == 16, "Orbit point stride must match the shader's raw buffer loads");
 
 struct VertexUniforms {
@@ -112,12 +110,12 @@ void OrbitLinePass::begin()
     m_lines.clear();
 }
 
-void OrbitLinePass::add_line(const std::vector<glm::vec4>& points, const glm::vec4& color)
+void OrbitLinePass::add_line(const std::vector<glm::vec4>& points, const glm::vec4& color, float tail_opacity)
 {
     if (points.size() < 2) {
         return;
     }
-    m_lines.push_back({static_cast<uint32_t>(m_points.size()), static_cast<uint32_t>(points.size()), color});
+    m_lines.push_back({static_cast<uint32_t>(m_points.size()), static_cast<uint32_t>(points.size()), color, tail_opacity});
     m_points.insert(m_points.end(), points.begin(), points.end());
 }
 
@@ -146,7 +144,7 @@ void OrbitLinePass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, con
 
         FragmentUniforms fu;
         fu.color = line.color;
-        fu.params = glm::vec4(width_px, kTailOpacity, 0.0f, 0.0f);
+        fu.params = glm::vec4(width_px, line.tail_opacity, 0.0f, 0.0f);
         SDL_PushGPUFragmentUniformData(cmd, 0, &fu, sizeof(fu));
 
         SDL_DrawGPUPrimitives(pass, (line.count - 1) * 6, 1, 0, 0);

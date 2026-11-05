@@ -516,6 +516,26 @@ glm::dmat3 body_rotation(const Body& body, const std::vector<glm::dvec3>& angles
     return iau_pole_frame(ra, dec) * rotation_z(wrap_two_pi(w_deg * kDegToRad));
 }
 
+glm::dmat3 magnetic_model_to_body(const Body& body, double t_tdb)
+{
+    const BodyMagneticField& field = body.magnetic_field;
+    double turn_deg = field.longitude_offset_deg;
+    if (field.own_prime_meridian) {
+        // The periodic terms of W are in the body's rotation already, and the
+        // model's prime meridian has the same ones.
+        const double days = t_tdb / kSecondsPerDay;
+        turn_deg = field.pm_w0_deg - body.pm_w0_deg + (field.pm_rate_deg_per_day - body.pm_rate_deg_per_day) * days;
+    }
+    const glm::dmat3 turn = rotation_z(wrap_two_pi(turn_deg * kDegToRad));
+    return field.flip_pole ? turn * rotation_x(kPi) : turn;
+}
+
+double magnetic_rotation_deg_per_day(const Body& body)
+{
+    const BodyMagneticField& field = body.magnetic_field;
+    return field.own_prime_meridian ? field.pm_rate_deg_per_day : body.pm_rate_deg_per_day;
+}
+
 double Scene::frame_turn_rate(double t_tdb) const
 {
     if (!frame_is_rotating()) {

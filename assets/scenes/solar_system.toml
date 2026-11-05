@@ -9,6 +9,16 @@
 # [MEL25]  Melin et al. 2025, GRL 52, e2025GL118301: Uranus's H3+ map from JWST, January 2023.
 # [TIR26]  Tiranti et al. 2026, GRL 53, e2025GL119304: its vertical profiles from JWST, January 2025.
 # [MEL25N] Melin et al. 2025, Nature Astronomy 9, 666: Neptune's H3+ from JWST, June 2023.
+# [HER09]  Herbert 2009, JGR 114, A11206: Uranus's field model AH5, in the Uranian longitude
+#        system (ULS, its north is the IAU's south); assets/geomag/SOURCES.md.
+# [CON91]  Connerney, Acuna & Ness 1991, JGR 96, 19023: Neptune's field model O8, in the Neptune
+#        longitude system (NLS, west longitude, about 16.11 h): dipole tilted 47 deg, quadrupole
+#        as large as the dipole at the surface.
+# [NLS]  W = 253.18 + 536.3128492 d: IAU's Neptune before the 2009 report, with the same -0.48
+#        sin N as [PCK]; it puts Voyager 2 at the NLS longitude of the PDS catalog (167.7 deg
+#        at 1989-08-25 03:56 UTC, tests/appearance_tests.cpp). The phase today is unknown.
+# [JAS24]  Jasinski et al. 2024, Nature Astronomy, doi:10.1038/s41550-024-02389-3: Voyager 2 saw
+#        Uranus's magnetosphere in a compressed state.
 # [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py (tools/bake/ephem.toml):
 #        - planets: heliocentric system barycenters, 1972..2100; Voyager trajectories before
 #          1981-01-01 (V1) / 1989-08-29 (V2) are patched-conic reconstructions of "rough
@@ -793,6 +803,11 @@ color = "#a9d8e0"
 orbit_color = "#9fcbd4"
 [bodies.aurora]                            # [MEL25], assets/geomag/SOURCES.md
 uranus_map = "geomag/uranus_h3p.txt"
+[bodies.magnetic_field]                    # [HER09], assets/geomag/SOURCES.md
+coefficients = "geomag/field_uranus_ah5.txt"
+reference_radius_km = 25600.0
+flip_pole = true                           # ULS north = IAU south
+longitude_offset_deg = -50.6               # IAU new east = ULS west - 50.6 [MEL25]
 
 [bodies.orbit]                             # [HZN] Uranus barycenter
 type = "ephemeris"
@@ -1092,6 +1107,10 @@ color = "#5b7fd6"
 orbit_color = "#7b98e0"
 [bodies.aurora]                            # [MEL25N], assets/geomag/SOURCES.md
 neptune_map = "geomag/neptune_h3p.txt"
+[bodies.magnetic_field]                    # [CON91], assets/geomag/SOURCES.md
+coefficients = "geomag/field_neptune_o8.txt"
+reference_radius_km = 24765.0
+prime_meridian_deg = [253.18, 536.3128492] # [NLS]
 
 [bodies.orbit]                             # [HZN] Neptune barycenter
 type = "ephemeris"
@@ -1906,6 +1925,25 @@ caption = """\
     here."""
 
 [[events]]
+name = "Uranus's lopsided magnetic field (1986-01-24)"
+magnetic_lines = true
+focus_orbits_only = true
+trails = [{ body = "Voyager 2", trail_history_days = 10.0 }]
+time_tdb = "1986-01-24 18:00"
+focus = "Uranus"
+frame = "Uranus-centered"
+from_body = "Sun"
+phase_deg = 40.0
+distance_km = 6.0e5
+warp = 1800.0
+# [HER09], [JAS24], [LAM25]
+caption = """\
+    Voyager 2 found a field tilted 59 degrees from the spin axis, with its center a third \
+    of a radius off the planet's. Each 17.2-hour turn swings the lines from side to side. \
+    Drawn from a model of what the planet itself makes, without the solar wind that shapes \
+    them farther out. Voyager arrived while a gust had squeezed the whole magnetosphere."""
+
+[[events]]
 name = "Voyager 2 at Neptune (CA 1989-08-25 04:03, 33,661 km)"
 time_tdb = "1989-08-24 16:03"
 focus = "Neptune"
@@ -1919,6 +1957,25 @@ caption = """\
     km above Neptune's north pole. Voyager 2 also passed Triton, and found dark plumes \
     rising some 8 km and drifting downwind, drawn here as Hili and Mahilani. Neptune's \
     gravity then sent it diving south of the planets' plane."""
+
+[[events]]
+name = "Neptune's off-center magnetic field (1989-08-25)"
+magnetic_lines = true
+focus_orbits_only = true
+trails = [{ body = "Voyager 2", trail_history_days = 10.0 }]
+time_tdb = "1989-08-25 04:05"
+focus = "Neptune"
+frame = "Neptune-centered"
+from_body = "Sun"
+phase_deg = 35.0
+distance_km = 6.0e5
+warp = 1800.0
+# [CON91], [NLS]
+caption = """\
+    Like Uranus, and unlike the planets before it: the field is tilted 47 degrees and \
+    centered about half a radius from the middle of the planet, and near the surface its \
+    four-lobed part is as strong as the dipole. One pass by Voyager 2 is all we have, so \
+    where the lines lie today is unknown. Drawn from a model, without the solar wind."""
 
 [[events]]
 name = "New Horizons launch (2006-01-19)"

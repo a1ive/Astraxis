@@ -31,6 +31,12 @@ style = "saturn"
 [aurora]
 saturn_oval = true
 
+# Cassini 11, axisymmetric: the lines do not change as Saturn turns. geomag/SOURCES.md.
+[magnetic_field]
+coefficients = "geomag/field_saturn_cassini11.txt"
+reference_radius_km = 60268.0
+l_shells = [2.5, 4.0, 6.0]
+
 [rings]                                    # [RSS]
 profile = "rings/saturn_rss.ring"
 color = "#d6c3a0"

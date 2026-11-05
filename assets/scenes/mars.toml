@@ -6,6 +6,12 @@
 # comet 3I/ATLAS, which Tianwen-1 photographed as it passed Mars in October 2025.
 #
 # Sources
+# [CRUST] Acuna et al. 1999, Science 284, 790, and Connerney et al. 1999, Science 284, 794: Mars
+#        Global Surveyor found the crust magnetized, most strongly in Terra Cimmeria and Terra
+#        Sirenum, in bands of alternating sign; almost none in Hellas and Argyre, read as the
+#        dynamo having stopped about 4 billion years ago. Global field below 0.5 nT at the
+#        surface: Connerney et al. 2001, GRL 28, 4015. The map is Morschhauser et al. 2014, JGR
+#        Planets 119, 1162, 150 km up; assets/geomag/SOURCES.md.
 # [HZN]  JPL Horizons state vectors relative to Mars' center, baked by
 #        tools/bake/horizons_bake.py (tools/bake/ephem.toml, Kepler-relative AXEPH2):
 #        - Mars Express (-41): ESA trajectory, 2003-12-20 .. 2029-01-01, reconstructed from
@@ -765,6 +771,23 @@ caption = """\
 [[events.trails]]
 body = "TGO"
 trail_history_days = 15.0
+
+[[events]]
+name = "Mars's magnetized crust (false color)"
+magnetic_map = "surface"
+focus_orbits_only = true
+time_tdb = "2019-04-30 16:15"
+focus = "Mars"
+from_body = "Sun"
+elevation_deg = -30.0
+distance_km = 1.5e4
+warp = 1200.0
+# [CRUST]
+caption = """\
+    Mars has no global magnetic field today, but its oldest crust is still magnetized. \
+    Here is the field 150 km up, in false color: red leaving the planet, blue entering it, \
+    strongest in bands across Terra Cimmeria and Terra Sirenum. The great impact basins \
+    Hellas and Argyre show almost none, a sign the dynamo stopped before they formed."""
 
 [[events]]
 name = "Hope arrives (2021-02-09)"

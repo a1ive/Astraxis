@@ -102,6 +102,7 @@ CoronaUniforms corona_uniforms(const Scene& scene, const CameraView& view)
 
 constexpr int kTrailPoints = 2048;
 constexpr float kOrbitOpacity = 0.55f;
+constexpr double kMagneticLineOpacity = 0.38;
 // An orbit the clock runs through in under kEvenOrbitFastS of real time would
 // flicker as its fading tail chases the body around: it is drawn evenly (at
 // kEvenOrbitFade), blending back to the fading tail by kEvenOrbitSlowS.
@@ -552,6 +553,8 @@ void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, u
     m_body_textures.assign(scene.bodies.size(), nullptr);
     m_ring_textures.assign(scene.bodies.size(), nullptr);
     m_night_textures.assign(scene.bodies.size(), nullptr);
+    m_field_map_textures.assign(scene.bodies.size(), nullptr);
+    m_deep_field_map_textures.assign(scene.bodies.size(), nullptr);
     m_aurora_textures.assign(scene.bodies.size(), nullptr);
     m_comets.clear_meshes();
     m_comet_meshes.assign(scene.bodies.size(), -1);
@@ -581,6 +584,16 @@ void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, u
             if (!m_aurora_textures[i])
                 SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Aurora texture for %s unavailable", body.name.c_str());
         }
+        const auto field_map_texture = [&](const FieldMap* map) -> SDL_GPUTexture* {
+            if (!map) {
+                return nullptr;
+            }
+            const auto pixels = map->texture_rgba();
+            return create_texture_rgba8(m_device->device(), pixels.data(), static_cast<uint32_t>(map->width),
+                                        static_cast<uint32_t>(map->height), false, true);
+        };
+        m_field_map_textures[i] = field_map_texture(body.magnetic_map.surface.get());
+        m_deep_field_map_textures[i] = field_map_texture(body.magnetic_map.deep.get());
         if (body.texture.empty()) {
             continue;
         }
@@ -767,7 +780,8 @@ void SceneRenderer::trace_black_hole(SDL_GPUCommandBuffer* cmd, uint32_t width, 
 
 void SceneRenderer::release_body_textures()
 {
-    for (auto* textures : {&m_body_textures, &m_ring_textures, &m_night_textures, &m_aurora_textures}) {
+    for (auto* textures : {&m_body_textures, &m_ring_textures, &m_night_textures, &m_aurora_textures,
+                           &m_field_map_textures, &m_deep_field_map_textures}) {
         for (SDL_GPUTexture* texture : *textures) {
             if (texture) {
                 SDL_ReleaseGPUTexture(m_device->device(), texture);
@@ -958,6 +972,18 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
             item.night_lights = m_night_textures[i];
             item.night_lights_color = body.night_lights.color;
             item.night_lights_gain = static_cast<float>(body.night_lights.gain);
+        }
+        // The deep map where the view asks for it and the body has one, else the surface's.
+        const FieldMapView map_view = options.magnetic_map_view == 3   ? FieldMapView::None
+                                      : options.magnetic_map_view == 2 ? FieldMapView::Deep
+                                      : options.magnetic_map_view == 1 ? FieldMapView::Surface
+                                      : event_settings                 ? event_settings->magnetic_map
+                                                                       : FieldMapView::None;
+        if (map_view != FieldMapView::None && i < m_field_map_textures.size()) {
+            SDL_GPUTexture* deep = map_view == FieldMapView::Deep ? m_deep_field_map_textures[i] : nullptr;
+            item.field_map = deep ? deep : m_field_map_textures[i];
+            const FieldMap* shown = deep ? body.magnetic_map.deep.get() : body.magnetic_map.surface.get();
+            item.field_map_strength = shown && shown->magnitude;
         }
 
         SDL_GPUTexture* ring_texture = i < m_ring_textures.size() ? m_ring_textures[i] : nullptr;
@@ -1415,11 +1441,23 @@ void SceneRenderer::build_orbit_lines(const Simulation& sim, const OutputView& o
         return;
     }
     const glm::dvec3& cam = view.position;
+    const int active = scene.active_event();
+    if (active >= 0 && scene.events[static_cast<size_t>(active)].hide_orbits) {
+        return;
+    }
+    const SceneEvent* quiet = active >= 0 && scene.events[static_cast<size_t>(active)].focus_orbits_only
+                                  ? &scene.events[static_cast<size_t>(active)]
+                                  : nullptr;
 
     for (size_t i = 0; i < scene.bodies.size(); ++i) {
         // An orbit fades with its body; a travelled path (e.g. a spacecraft's
         // tour) stays while its host system is shown.
         const int host = scene.satellite_host(static_cast<int>(i));
+        if (quiet && (scene.bodies[i].parent != quiet->focus || scene.bodies[i].kind == BodyKind::Spacecraft) &&
+            std::none_of(quiet->trails.begin(), quiet->trails.end(),
+                         [&](const SceneEvent::Trail& t) { return t.body == static_cast<int>(i); })) {
+            continue;
+        }
         const TrailMode mode = scene.trail_mode(static_cast<int>(i));
         const float fade = mode == TrailMode::History
                                ? (host >= 0 ? fades[static_cast<size_t>(host)] : 1.0f)
@@ -1500,6 +1538,48 @@ void SceneRenderer::build_orbit_lines(const Simulation& sim, const OutputView& o
                 m_line_points.emplace_back(to_render(transform.to_display(center + dir * gap), cam), age);
                 m_orbits.add_line(m_line_points, glm::vec4(color, kOrbitOpacity * fades[i]));
             }
+        }
+    }
+}
+
+void SceneRenderer::build_magnetic_lines(const Simulation& sim, const OutputView& output_view,
+                                         const ViewOptions& options)
+{
+    const Scene& scene = sim.scene();
+    const int event = scene.active_event();
+    const bool event_shows = event >= 0 && scene.events[static_cast<size_t>(event)].magnetic_lines;
+    if (options.magnetic_view == 2 || (options.magnetic_view == 0 && !event_shows)) {
+        return;
+    }
+    const CameraView& view = output_view.camera;
+    const glm::dvec3& cam = view.position;
+    const double t = sim.clock().t_tdb;
+    // An event is about its focus; Jupiter's lines would hang behind Ganymede's.
+    const int only = options.magnetic_view == 0 ? scene.events[static_cast<size_t>(event)].focus : -1;
+    for (size_t i = 0; i < scene.bodies.size(); ++i) {
+        const Body& body = scene.bodies[i];
+        const BodyMagneticField& field = body.magnetic_field;
+        if (!field.model || !body.visible || (only >= 0 && static_cast<int>(i) != only)) {
+            continue;
+        }
+        const double distance = glm::length(body.world_position - cam);
+        const double pixels_per_radius =
+            0.5 * view.viewport.y * view.focal_y * field.reference_radius_km / std::max(distance, 1.0);
+        const double opacity = kMagneticLineOpacity * output_view.body_fades[i] *
+            field_line_visibility(magnetic_rotation_deg_per_day(body), sim.clock().warp) *
+            field_line_size_fade(pixels_per_radius);
+        if (opacity <= 0.0) {
+            continue;
+        }
+        // The model's axes in the display frame, scaled from radii to km.
+        const glm::dmat3 axes = body.orientation * magnetic_model_to_body(body, t) * field.reference_radius_km;
+        for (const std::vector<glm::dvec4>& line : field.lines) {
+            m_line_points.clear();
+            for (const glm::dvec4& p : line) {
+                m_line_points.emplace_back(to_render(body.world_position + axes * glm::dvec3(p), cam),
+                                           static_cast<float>(p.w));
+            }
+            m_orbits.add_line(m_line_points, glm::vec4(field.color, static_cast<float>(opacity)), 0.0f);
         }
     }
 }
@@ -1696,6 +1776,7 @@ void SceneRenderer::render(const Frame& frame, const Simulation& sim, const Outp
 
     build_body_items(sim, output_view, options);
     build_orbit_lines(sim, output_view, options);
+    build_magnetic_lines(sim, output_view, options); // in the same pass, after the orbits
     build_comet_items(sim, output_view, options);
 
     // Uploads (copy passes) must precede the render passes.
