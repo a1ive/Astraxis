@@ -849,7 +849,7 @@ void test_jovian_aurora()
         check(std::abs(latitude - event.elevation_deg) < 0.01, "UV event looks at the intended pole", latitude);
         check(sim.last_event() == static_cast<int>(i), "UV event activates its overlay");
     }
-    check(uv_events == 2, "both hemispheres have UV close-up events");
+    check(uv_events == 4, "both hemispheres have UV close-up events, and the moons' lines have two more", static_cast<double>(uv_events));
     sim.set_frame(0);
     check(sim.scene().active_event() == -1, "leaving the UV event clears its automatic display selection");
     sim.clock().paused = false;
@@ -1772,6 +1772,106 @@ void test_magnetic_field()
     check(!loads(good + "l_shells = [0.5]\n"), "and shells outside the planet");
 }
 
+void test_flux_tubes()
+{
+    Scene scene = load_scene_or_die("jupiter.toml");
+    const int index = scene.find("Jupiter");
+    const Body& jupiter = scene.bodies[static_cast<size_t>(index)];
+    check(jupiter.aurora.jovian != nullptr, "Jupiter has the moons' lines");
+    if (!jupiter.aurora.jovian) return;
+    const JovianAurora& model = *jupiter.aurora.jovian;
+
+    // The table: from the nominal place of the moon, the time spent rising from 0 to 1, and
+    // ending at the footprint table's foot of the same field.
+    const double nominal[] = {421800.0, 671100.0, 1070400.0};
+    for (int moon = 0; moon < 3; ++moon) {
+        const auto& tube = model.flux_tubes[static_cast<size_t>(moon)];
+        check(tube.size() == 2u * JovianAurora::kTubeLongitudes * JovianAurora::kTubePoints, "a line for each longitude and hemisphere", static_cast<double>(tube.size()));
+        double worst_foot = 0.0, worst_start = 0.0;
+        bool rising = true;
+        for (int longitude = 0; longitude < JovianAurora::kTubeLongitudes; ++longitude) {
+            const double east = longitude * kTwoPi / JovianAurora::kTubeLongitudes;
+            const glm::dvec3 seed(nominal[moon] * std::cos(east), nominal[moon] * std::sin(east), 0.0);
+            for (int south = 0; south < 2; ++south) {
+                const glm::vec4* points = &tube[(static_cast<size_t>(longitude) * 2 + static_cast<size_t>(south)) * JovianAurora::kTubePoints];
+                worst_start = std::max(worst_start, glm::length(glm::dvec3(points[0]) - glm::dvec3(nominal[moon] / 71492.0, 0.0, 0.0)) * 71492.0);
+                rising = rising && points[0].w == 0.0f && points[JovianAurora::kTubePoints - 1].w == 1.0f;
+                for (int k = 1; k < JovianAurora::kTubePoints; ++k) {
+                    rising = rising && points[k].w >= points[k - 1].w;
+                }
+                const glm::dvec3 foot_turned(points[JovianAurora::kTubePoints - 1]);
+                const glm::dvec3 foot(std::cos(east) * foot_turned.x - std::sin(east) * foot_turned.y,
+                                      std::sin(east) * foot_turned.x + std::cos(east) * foot_turned.y, foot_turned.z);
+                glm::dvec3 direction;
+                check(model.instant_footprint(moon, south != 0, seed, direction), "the nominal moon is in the footprints' table");
+                worst_foot = std::max(worst_foot, glm::length(glm::normalize(foot) - direction) * 72000.0);
+            }
+        }
+        std::printf("  info: %s: lines' feet within %.1f km of the footprint table\n", JovianAurora::kMoons[static_cast<size_t>(moon)], worst_foot);
+        check(worst_start < 1.0, "the lines start at the moon's nominal place", worst_start);
+        check(rising, "the wave's time rises from nothing to all of it");
+        check(worst_foot < 5.0, "and they end where the footprint table says", worst_foot);
+    }
+
+    // The lines of the real moons, over a few turns of Jupiter.
+    const SceneEvent* wide = nullptr;
+    for (const SceneEvent& event : scene.events) {
+        if (event.flux_tubes && !wide) wide = &event;
+    }
+    check(wide != nullptr, "an event shows them");
+    if (!wide) return;
+    double smallest_gap[3] = {1e30, 1e30, 1e30}, largest_gap[3] = {0.0, 0.0, 0.0}, largest_jump[3] = {0.0, 0.0, 0.0};
+    bool ends_right = true, leads_east = true;
+    std::vector<glm::dvec3> line, wing;
+    for (int step = 0; step < 300; ++step) {
+        scene.update(wide->t_tdb + step * 1800.0);
+        for (int moon = 0; moon < 3; ++moon) {
+            const glm::dvec3& p = jupiter.jovian_moons[static_cast<size_t>(moon)];
+            for (int south = 0; south < 2; ++south) {
+                glm::dvec3 instant, spot;
+                const bool have = model.flux_tube(moon, south != 0, p, false, line) &&
+                                  model.flux_tube(moon, south != 0, p, true, wing) &&
+                                  model.instant_footprint(moon, south != 0, p, instant) &&
+                                  model.footprint(moon, south != 0, p, spot);
+                check(have, "the moons stay inside the tables");
+                if (!have) return;
+                ends_right = ends_right && line.front() == p && wing.front() == p &&
+                             glm::length(glm::normalize(line.back()) - instant) < 1e-9 &&
+                             glm::length(glm::normalize(wing.back()) - spot) < 1e-9 &&
+                             glm::length(spot - jupiter.jovian_footprints[static_cast<size_t>(2 * moon + south)]) < 1e-9;
+                const double gap = glm::length(line.back() - wing.back());
+                smallest_gap[moon] = std::min(smallest_gap[moon], gap);
+                largest_gap[moon] = std::max(largest_gap[moon], gap);
+                const double lead = JovianAurora::lead_angle(moon, south != 0, -std::atan2(p.y, p.x));
+                // Halfway down the wave is east of the line, by no more than the whole lead and a bit.
+                const glm::dvec3& a = line[line.size() / 2];
+                const glm::dvec3& b = wing[wing.size() / 2];
+                const double ahead = std::remainder(std::atan2(b.y, b.x) - std::atan2(a.y, a.x), kTwoPi);
+                leads_east = leads_east && ahead > 0.0 && ahead < lead * 1.3 + 2.0 * kDegToRad;
+                for (const std::vector<glm::dvec3>* path : {&line, &wing}) {
+                    for (size_t k = 1; k < path->size(); ++k) {
+                        largest_jump[moon] = std::max(largest_jump[moon], glm::length((*path)[k] - (*path)[k - 1]));
+                    }
+                }
+            }
+        }
+    }
+    check(ends_right, "both lines start at the moon, the field line ends at the instant footprint and the wave at the spot");
+    check(leads_east, "the wave runs east of the field line, as far as the lead angle");
+    for (int moon = 0; moon < 3; ++moon) {
+        std::printf("  info: %s: the spot is %.0f .. %.0f km from the end of the field line, longest step %.0f km\n",
+                    JovianAurora::kMoons[static_cast<size_t>(moon)], smallest_gap[moon], largest_gap[moon], largest_jump[moon]);
+        check(smallest_gap[moon] > 300.0, "the spot is well clear of the line's end, larger than the spot", smallest_gap[moon]);
+        check(largest_jump[moon] < 3.0e5, "and the lines are smooth", largest_jump[moon]);
+    }
+    check(largest_gap[2] > largest_gap[0], "Ganymede's gap is the largest", largest_gap[2] / largest_gap[0]);
+
+    // Outside the table, nothing: a trace is not extrapolated.
+    const glm::dvec3 too_far(1.5 * nominal[0], 0.0, 0.0);
+    check(!model.flux_tube(0, false, too_far, false, line), "no line outside the table's domain");
+    check(!model.flux_tube(3, false, too_far, false, line), "nor for another moon");
+}
+
 void test_magnetic_maps()
 {
     Scene mars_scene = load_scene_or_die("mars.toml");
@@ -1826,10 +1926,9 @@ void test_magnetic_maps()
         double worst = 0.0;
         for (int row = 3; row < map.height; row += 17) {
             const double beta = cell_latitude(map, row);
-            const glm::dvec2 meridian(71492.0 * std::cos(beta), 66854.0 * std::sin(beta));
-            const double r = (deep ? 0.81 * 71492.0 : glm::length(meridian)) / 71492.0;
-            const double cos_latitude = meridian.x / glm::length(meridian);
-            const double sin_latitude = meridian.y / glm::length(meridian);
+            const double cos_latitude = std::cos(beta);
+            const double sin_latitude = std::sin(beta);
+            const double r = deep ? 0.81 : 1.0 / std::hypot(cos_latitude, sin_latitude * 71492.0 / 66854.0);
             for (int column = 2; column < map.width; column += 23) {
                 const double east = cell_longitude(map, column);
                 const glm::dvec3 direction(cos_latitude * std::cos(east), cos_latitude * std::sin(east), sin_latitude);
@@ -1927,8 +2026,7 @@ void test_magnetic_maps()
     int weakest_cells = 0;
     for (int row = 0; row < strength_map.height; ++row) {
         const double beta = cell_latitude(strength_map, row);
-        const glm::dvec2 meridian(6378.1366 * std::cos(beta), 6356.7519 * std::sin(beta));
-        const double r = glm::length(meridian) / 6371.2;
+        const double r = 1.0 / std::hypot(std::cos(beta) / 6378.1366, std::sin(beta) / 6356.7519) / 6371.2;
         for (int column = 0; column < strength_map.width; ++column) {
             const double east = cell_longitude(strength_map, column);
             const double value = strength_map.value_nt(east, beta);
@@ -1945,8 +2043,8 @@ void test_magnetic_maps()
                 ++weakest_cells;
             }
             if (row % 11 == 0 && column % 13 == 0) {
-                const glm::dvec3 direction(meridian.x * std::cos(east), meridian.x * std::sin(east), meridian.y);
-                const double expected_nt = glm::length(igrf.field_nt(r * glm::normalize(direction)));
+                const glm::dvec3 direction(std::cos(beta) * std::cos(east), std::cos(beta) * std::sin(east), std::sin(beta));
+                const double expected_nt = glm::length(igrf.field_nt(r * direction));
                 worst_strength = std::max(worst_strength, std::abs(value - expected_nt));
             }
         }
@@ -1959,6 +2057,113 @@ void test_magnetic_maps()
           "weakest over the South Atlantic, about 22,000 nT", weakest);
     check(strength_map.scale_nt > 2.9 * weakest, "a third of the strongest field", strength_map.scale_nt / weakest);
 
+    // The Earth's crust: its own map, at most a tenth of the main field and usually far less.
+    check(earth.magnetic_map.crust != nullptr, "the Earth has a map of its crust");
+    check(!moon.magnetic_map.crust && !jupiter.magnetic_map.crust, "and nothing else does");
+    if (!earth.magnetic_map.crust) return;
+    const FieldMap& crust_map = *earth.magnetic_map.crust;
+    check(!crust_map.magnitude && crust_map.width == 2048 && crust_map.height == 1024, "the crust's is of the radial field, about 20 km a cell");
+    check(crust_map.scale_nt == 600.0, "saturating at 600 nT", crust_map.scale_nt);
+    const auto crust_at = [&](double latitude_deg, double east_deg) {
+        return crust_map.value_nt(east_deg * kDegToRad, latitude_deg * kDegToRad);
+    };
+    const auto crust_rms_near = [&](double latitude_deg, double east_deg, double radius_deg, double* most_in = nullptr) {
+        double sum = 0.0;
+        int count = 0;
+        for (double a = -radius_deg; a <= radius_deg; a += 0.25) {
+            for (double b = -radius_deg; b <= radius_deg; b += 0.25) {
+                const double value = crust_at(latitude_deg + b, east_deg + a);
+                if (most_in) *most_in = std::max(*most_in, -value);
+                sum += value * value;
+                ++count;
+            }
+        }
+        return std::sqrt(sum / count);
+    };
+    // Kursk at 51 N, 37 E; Bangui around 6 N, 18 E. The South Pacific, far from the continents
+    // and the ridges, has little.
+    double kursk_in = 0.0;
+    check(crust_rms_near(51.0, 37.0, 2.0, &kursk_in) > 300.0, "the Kursk anomaly stands out", crust_rms_near(51.0, 37.0, 2.0));
+    check(kursk_in >= 599.0, "and goes in, past the top of the scale", kursk_in);
+    const double bangui = crust_rms_near(6.0, 18.0, 6.0);
+    const double pacific = crust_rms_near(-30.0, -160.0, 6.0);
+    check(bangui > 2.0 * pacific, "the Bangui anomaly is far stronger than the open Pacific", bangui / pacific);
+    double crust_square = 0.0, crust_area = 0.0;
+    for (int row = 0; row < crust_map.height; row += 7) {
+        const double beta = cell_latitude(crust_map, row);
+        for (int column = 0; column < crust_map.width; column += 7) {
+            const double value = crust_map.value_nt(cell_longitude(crust_map, column), beta);
+            crust_square += value * value * std::cos(beta);
+            crust_area += std::cos(beta);
+        }
+    }
+    const double crust_rms = std::sqrt(crust_square / crust_area);
+    check(crust_rms > 50.0 && crust_rms < 200.0, "about a hundred nT over the whole sphere, below a third of a percent of the main field", crust_rms);
+
+    // Uranus and Neptune: the models where the mesh puts each cell, also as Neptune's model turns
+    // against the body, and the strongest field on the side the off-center dipole is nearest.
+    Scene giants = load_scene_or_die("solar_system.toml");
+    const Body& uranus = giants.bodies[static_cast<size_t>(giants.find("Uranus"))];
+    const Body& neptune = giants.bodies[static_cast<size_t>(giants.find("Neptune"))];
+    check(uranus.magnetic_map.surface && neptune.magnetic_map.surface, "Uranus and Neptune have maps");
+    if (!uranus.magnetic_map.surface || !neptune.magnetic_map.surface) return;
+    const auto check_giant = [&](const Body& body, double t, double reference_km, const char* what) {
+        const FieldMap& map = *body.magnetic_map.surface;
+        const MagneticField& model = *body.magnetic_field.model;
+        const glm::dmat3 model_to_body = magnetic_model_to_body(body, t);
+        const double turn = magnetic_map_turn_deg(body, t) * kDegToRad;
+        double worst = 0.0;
+        for (int row = 3; row < map.height; row += 7) {
+            const double latitude = cell_latitude(map, row);
+            const double r = 1.0 / std::hypot(std::cos(latitude) / body.equatorial_radius_km, std::sin(latitude) / body.polar_radius_km);
+            for (int column = 2; column < map.width; column += 11) {
+                const double east = cell_longitude(map, column) + turn;
+                const glm::dvec3 in_body(std::cos(latitude) * std::cos(east), std::cos(latitude) * std::sin(east), std::sin(latitude));
+                const glm::dvec3 in_model = glm::transpose(model_to_body) * in_body;
+                const double expected = glm::dot(model.field_nt(r / reference_km * in_model), in_model);
+                const double value = map.value_nt(east - turn, latitude);
+                const double step = 2.0 * std::sqrt(std::abs(value) * map.scale_nt) / 127.0 + map.scale_nt / (127.0 * 127.0);
+                worst = std::max(worst, std::abs(value - expected) / step);
+            }
+        }
+        check(worst <= 1.0, what, worst);
+    };
+    check_giant(uranus, 0.0, 25600.0, "the map of Uranus is AH5 in the body's axes, wherever its pole points");
+    check_giant(neptune, 0.0, 24765.0, "the map of Neptune is O8");
+    check_giant(neptune, -3.3e8, 24765.0, "also in 1989, when the model had turned against the body");
+    const auto check_lopsided = [&](const Body& body, double t, double most_nt, const char* what) {
+        const FieldMap& map = *body.magnetic_map.surface;
+        const MagneticField& model = *body.magnetic_field.model;
+        double peak_value = 0.0, peak_latitude = 0.0, peak_east = 0.0, other_side = 0.0;
+        for (int row = 0; row < map.height; ++row) {
+            for (int column = 0; column < map.width; ++column) {
+                const double value = map.value_nt(cell_longitude(map, column), cell_latitude(map, row));
+                if (std::abs(value) > std::abs(peak_value)) {
+                    peak_value = value;
+                    peak_latitude = cell_latitude(map, row);
+                    peak_east = cell_longitude(map, column);
+                }
+            }
+        }
+        for (int row = 0; row < map.height; ++row) {
+            for (int column = 0; column < map.width; ++column) {
+                const double value = map.value_nt(cell_longitude(map, column), cell_latitude(map, row));
+                if (value * peak_value < 0.0) other_side = std::max(other_side, std::abs(value));
+            }
+        }
+        const double east = peak_east + magnetic_map_turn_deg(body, t) * kDegToRad;
+        const glm::dvec3 peak_direction(std::cos(peak_latitude) * std::cos(east), std::cos(peak_latitude) * std::sin(east), std::sin(peak_latitude));
+        const glm::dvec3 offset = glm::normalize(magnetic_model_to_body(body, t) * model.dipole_offset());
+        const double from_offset = std::acos(glm::dot(peak_direction, offset)) / kDegToRad;
+        std::printf("  info: %s: strongest %.0f nT, opposite sign at most %.0f, %.0f deg from the dipole's offset\n", what, peak_value, other_side, from_offset);
+        check(std::abs(std::abs(peak_value) - most_nt) < 3000.0, what, peak_value);
+        check(from_offset < 50.0, "on the side the dipole's center is displaced to", from_offset);
+        check(std::abs(peak_value) > 3.0 * model.dipole_nt(), "more than the 2 g of a centered dipole's pole", std::abs(peak_value) / model.dipole_nt());
+        check(std::abs(peak_value) > 1.4 * other_side, "and well above the other sign's", std::abs(peak_value) / other_side);
+    };
+    check_lopsided(uranus, 0.0, 149000.0, "Uranus's strongest radial field at the surface");
+    check_lopsided(neptune, -3.3e8, 89000.0, "Neptune's");
+
     // The events open with the feature coming round into the sunlight, or for the Moon, which
     // turns slowly, with its two patches on either side of the sub-solar point.
     const auto sub_solar_east = [](Scene& scene, const Body& body, double t) {
@@ -1966,12 +2171,16 @@ void test_magnetic_maps()
         const glm::dvec3 to_sun = glm::transpose(body.orientation) * (scene.sun_position() - body.world_position);
         return std::atan2(to_sun.y, to_sun.x) / kDegToRad;
     };
+    // Uranus turns the other way in longitude: the Sun comes to a feature from its west.
     const struct { Scene* scene; const Body* body; double opening_east; FieldMapView view; } expected[] = {
         {&mars_scene, &mars, 215.0, FieldMapView::Surface},
         {&jupiter_scene, &jupiter, 315.5, FieldMapView::Surface},
         {&jupiter_scene, &jupiter, 316.5, FieldMapView::Deep},
         {&earth_scene, &moon, 270.0, FieldMapView::Surface},
         {&earth_scene, &earth, 325.5, FieldMapView::Surface},
+        {&earth_scene, &earth, 50.0, FieldMapView::Crust},
+        {&giants, &uranus, 155.5, FieldMapView::Surface},
+        {&giants, &neptune, 117.5, FieldMapView::Surface},
     };
     for (const auto& e : expected) {
         int found = 0;
@@ -1979,7 +2188,9 @@ void test_magnetic_maps()
             if (event.magnetic_map != e.view || event.focus != e.scene->find(e.body->name.c_str())) continue;
             ++found;
             check(event.focus_orbits_only || event.hide_orbits, "the event looks at the body, without distant orbits across it");
-            const double offset = angle_difference_deg(sub_solar_east(*e.scene, *e.body, event.t_tdb), e.opening_east);
+            // Neptune's map is given in its model's longitudes.
+            const double opening_east = e.opening_east + magnetic_map_turn_deg(*e.body, event.t_tdb);
+            const double offset = angle_difference_deg(sub_solar_east(*e.scene, *e.body, event.t_tdb), opening_east);
             std::printf("  info: %s: sub-solar longitude %+.1f deg from where it should open\n", event.name.c_str(), offset);
             check(std::abs(offset) < 5.0, "and opens with the feature coming round", offset);
         }
@@ -2137,6 +2348,7 @@ void run_appearance_tests()
     test_aurora_profiles();
     test_ice_giant_aurora();
     test_magnetic_field();
+    test_flux_tubes();
     test_magnetic_maps();
     test_ganymede_aurora();
     test_europa_aurora();

@@ -8,6 +8,7 @@
 #include <cmath>
 #include <fstream>
 #include <locale>
+#include <sstream>
 
 namespace astraxis {
 
@@ -121,6 +122,19 @@ double JovianAurora::lead_angle(int moon, bool south, double west_longitude)
 
 bool JovianAurora::footprint(int moon, bool south, const glm::dvec3& p, glm::dvec3& direction) const
 {
+    // The co-rotating plasma overtakes the moon: the emitting tube leads
+    // eastward, i.e. toward smaller System III WEST longitude.
+    const double east = std::atan2(p.y, p.x);
+    return footprint_at(moon, south, p, east + lead_angle(moon, south, -east), direction);
+}
+
+bool JovianAurora::instant_footprint(int moon, bool south, const glm::dvec3& p, glm::dvec3& direction) const
+{
+    return footprint_at(moon, south, p, std::atan2(p.y, p.x), direction);
+}
+
+bool JovianAurora::footprint_at(int moon, bool south, const glm::dvec3& p, double east, glm::dvec3& direction) const
+{
     direction = glm::dvec3(0.0);
     if (moon < 0 || moon >= 3) return false;
     const auto& path = footpaths[static_cast<size_t>(moon)];
@@ -128,10 +142,7 @@ bool JovianAurora::footprint(int moon, bool south, const glm::dvec3& p, glm::dve
     if (path.points.empty() || !std::isfinite(r) || r < path.min_radius || r > path.max_radius) return false;
     const double lat = std::atan2(p.z, std::hypot(p.x, p.y));
     if (lat < path.min_latitude || lat > path.max_latitude) return false;
-    const double east = std::atan2(p.y, p.x);
-    // The co-rotating plasma overtakes the moon: the emitting tube leads
-    // eastward, i.e. toward smaller System III WEST longitude.
-    const double turns = (east + lead_angle(moon, south, -east)) / kTwoPi;
+    const double turns = east / kTwoPi;
     const double x = (turns - std::floor(turns)) * kLongitudes;
     const double y = 2.0 * (lat - path.min_latitude) / (path.max_latitude - path.min_latitude);
     const double z = 2.0 * (r - path.min_radius) / (path.max_radius - path.min_radius);
@@ -149,6 +160,113 @@ bool JovianAurora::footprint(int moon, bool south, const glm::dvec3& p, glm::dve
         }
     }
     direction = glm::normalize(direction);
+    return true;
+}
+
+bool JovianAurora::load_flux_tubes(const std::filesystem::path& file, std::string* error)
+{
+    const auto failed = [&](const char* what) {
+        if (error) *error = "invalid Jovian flux tube table: " + file.string() + ": " + what;
+        return false;
+    };
+    std::ifstream input(file, std::ios::binary);
+    if (!input) return failed("cannot open");
+    std::string header;
+    std::getline(input, header);
+    std::istringstream row(header);
+    row.imbue(std::locale::classic());
+    std::string magic;
+    int longitudes = 0, points = 0;
+    if (!(row >> magic >> longitudes >> points) || magic != "AXFLUXTUBE1" || longitudes != kTubeLongitudes ||
+        points != kTubePoints) {
+        return failed("bad header");
+    }
+    std::array<std::vector<glm::vec4>, 3> tubes;
+    const size_t count = static_cast<size_t>(kTubeLongitudes) * 2 * kTubePoints;
+    for (auto& tube : tubes) {
+        tube.resize(count);
+        const auto bytes = static_cast<std::streamsize>(count * sizeof(glm::vec4));
+        input.read(reinterpret_cast<char*>(tube.data()), bytes);
+        if (input.gcount() != bytes) return failed("too short");
+        for (size_t i = 0; i < count; ++i) {
+            const glm::vec4& p = tube[i];
+            if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z) || !(p.w >= 0.0f && p.w <= 1.0f)) {
+                return failed("bad point");
+            }
+        }
+    }
+    if (input.peek() != std::char_traits<char>::eof()) return failed("too long");
+    flux_tubes = std::move(tubes);
+    return true;
+}
+
+glm::dvec4 JovianAurora::tube_point(int moon, bool south, double east, int point) const
+{
+    const double turns = east / kTwoPi;
+    const double x = (turns - std::floor(turns)) * kTubeLongitudes;
+    const int i = static_cast<int>(std::floor(x)) % kTubeLongitudes;
+    const int next = (i + 1) % kTubeLongitudes;
+    const auto& tube = flux_tubes[static_cast<size_t>(moon)];
+    const auto at = [&](int longitude) {
+        const size_t index = (static_cast<size_t>(longitude) * 2 + (south ? 1 : 0)) * kTubePoints + static_cast<size_t>(point);
+        return glm::dvec4(tube[index]);
+    };
+    // Interpolated in the line's own frame, so that the corner between two lines is not cut.
+    const glm::dvec4 p = at(i) + (x - std::floor(x)) * (at(next) - at(i));
+    const double c = std::cos(east), s = std::sin(east);
+    return {c * p.x - s * p.y, s * p.x + c * p.y, p.z, p.w};
+}
+
+bool JovianAurora::flux_tube(int moon, bool south, const glm::dvec3& p, bool alfven_wing,
+                             std::vector<glm::dvec3>& line) const
+{
+    line.clear();
+    if (moon < 0 || moon >= 3 || flux_tubes[static_cast<size_t>(moon)].empty()) return false;
+    const double east = std::atan2(p.y, p.x);
+    const double lead = alfven_wing ? lead_angle(moon, south, -east) : 0.0;
+    glm::dvec3 foot_direction;
+    if (!footprint_at(moon, south, p, east + lead, foot_direction)) return false;
+    // On the same spheroid as the table.
+    constexpr double kShellA = 71492.0 + 900.0, kShellB = 66854.0 + 900.0, kRadiusKm = 71492.0;
+    const glm::dvec3 foot = foot_direction / std::sqrt((foot_direction.x * foot_direction.x + foot_direction.y * foot_direction.y) / (kShellA * kShellA) +
+                                                       foot_direction.z * foot_direction.z / (kShellB * kShellB));
+
+    // The table's lines start at the moon's nominal place: move them to the moon and to the
+    // foot, the moon's offset fading as the line comes in, as a dipole's field line would.
+    const glm::dvec3 start = glm::dvec3(tube_point(moon, south, east, 0)) * kRadiusKm;
+    const glm::dvec3 end = glm::dvec3(tube_point(moon, south, east + lead, kTubePoints - 1)) * kRadiusKm;
+    const double start_radius = glm::length(start);
+    const double end_radius = glm::length(glm::dvec3(tube_point(moon, south, east, kTubePoints - 1))) * kRadiusKm;
+    const glm::dvec3 moon_offset = p - start;
+    const glm::dvec3 foot_offset = foot - end;
+    std::array<glm::dvec3, kTubePoints> knots;
+    for (int k = 0; k < kTubePoints; ++k) {
+        const glm::dvec4 nominal = tube_point(moon, south, east, k);
+        // A part of the wave k along its way left when the moon was on a line lead * w to the east.
+        const glm::dvec3 here = glm::dvec3(alfven_wing ? tube_point(moon, south, east + lead * nominal.w, k) : nominal) * kRadiusKm;
+        const double near = std::clamp((glm::length(glm::dvec3(nominal)) * kRadiusKm - end_radius) / (start_radius - end_radius), 0.0, 1.0);
+        const double far = 1.0 - near;
+        const double far2 = far * far;
+        const double far4 = far2 * far2;
+        knots[static_cast<size_t>(k)] = here + near * moon_offset + far4 * far4 * foot_offset;
+    }
+    knots.front() = p;
+    knots.back() = foot;
+    // Far out the table's points are 2 radii apart: a Catmull-Rom curve through them, not corners.
+    constexpr int kSubdivisions = 3;
+    line.reserve((kTubePoints - 1) * kSubdivisions + 1);
+    for (size_t k = 0; k + 1 < knots.size(); ++k) {
+        const glm::dvec3& a = knots[k];
+        const glm::dvec3& b = knots[k + 1];
+        const glm::dvec3 before = k > 0 ? knots[k - 1] : 2.0 * a - b;
+        const glm::dvec3 after = k + 2 < knots.size() ? knots[k + 2] : 2.0 * b - a;
+        for (int i = 0; i < kSubdivisions; ++i) {
+            const double t = static_cast<double>(i) / kSubdivisions;
+            line.push_back(a + 0.5 * t * ((b - before) + t * ((2.0 * before - 5.0 * a + 4.0 * b - after) +
+                                                              t * (3.0 * (a - b) + after - before))));
+        }
+    }
+    line.push_back(foot);
     return true;
 }
 

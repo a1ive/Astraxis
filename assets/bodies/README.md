@@ -101,7 +101,7 @@ file = "ephem/moon_geo.eph"
 
 属性移入模板时，将它的来源与简化说明一起放入模板。贴图、形状和数据文件的许可证与处理步骤仍在各资源目录的 `SOURCES.md` 中。场景保留轨道、事件与覆盖值的依据。
 
-木星模板的 `[aurora]` 用 `jovian_oval` 指定统计主卵、`footprints` 指定卫星磁场映射表。后者需要木星的 1 bar 半径，只计算场景中名为 Io、Europa、Ganymede 的直属卫星，缺少某颗时跳过它。两项数据用于紫外叠加视图，与地球的 `kp` 模型互斥；格式、领先角和显示假设见 [地磁与极光来源](../geomag/SOURCES.md)。
+木星模板的 `[aurora]` 用 `jovian_oval` 指定统计主卵、`footprints` 指定卫星磁场映射表。后者需要木星的 1 bar 半径，只计算场景中名为 Io、Europa、Ganymede 的直属卫星，缺少某颗时跳过它。两项数据用于紫外叠加视图，与地球的 `kp` 模型互斥；格式、领先角和显示假设见 [地磁与极光来源](../geomag/SOURCES.md)。`flux_tubes` 是从这三颗卫星到足点的线（同一磁场，需要 `footprints`），由事件的 `flux_tubes = true` 或手动开关（`B`）打开。
 
 天王星、海王星（内联在太阳系场景）用 `[aurora].uranus_map`、`neptune_map` 读取 JWST 的 H₃⁺ 图，要求各自的半径，与其他极光字段互斥，只在红外视图显示，见 [极光来源](../geomag/SOURCES.md#天王星与海王星的红外-h₃)。
 
@@ -109,7 +109,7 @@ Ganymede 模板的 `[aurora].ganymede_map` 读取 HST 平均柱亮度图，要�
 
 `[magnetic_field]` 是内部磁场的磁力线（水星、地球、木星、土星、Ganymede 在模板里，天王星、海王星内联在太阳系场景）：`coefficients` 和 `reference_radius_km` 必填；`l_shells`、`lines_per_shell`、`max_radius` 决定画哪些线，`color` 是颜色；模型坐标系和本体系不同时用 `flip_pole` 加 `longitude_offset_deg`，或用 `prime_meridian_deg` 给模型自己的 W（两种写法互斥）。默认不显示，由事件的 `magnetic_lines = true` 或手动开关（`B`）打开，见 [地磁与极光来源](../geomag/SOURCES.md#行星内部磁场磁力线)。
 
-`[magnetic_map]` 是固定在本体上的磁场伪彩色图（火星、月球、木星是径向场，地球是总强度，由文件决定）：`surface` 必填，`deep` 是更深处的第二张图（木星）。投影和 `texture` 相同，列从 180°W 开始，所以贴图的 `texture_left_lon_deg` 要是 −180。默认不显示，由事件的 `magnetic_map = "surface"` 或 `"deep"`、手动开关（`G`）打开，见 [径向磁场图](../geomag/SOURCES.md#径向磁场图)。
+`[magnetic_map]` 是固定在本体上的磁场伪彩色图（火星、月球、木星、天王星、海王星是径向场，地球的 `surface` 是总强度，由文件决定）：`surface` 必填，`deep` 是更深处的第二张图（木星），`crust` 是只有地壳的图（地球）。行按行星中心纬度，列从 180°W 开始，和贴图的 `texture_left_lon_deg` 无关；`[magnetic_field]` 用 `prime_meridian_deg` 时图在模型的经度里，渲染时跟着转（海王星）。默认不显示，由事件的 `magnetic_map = "surface"`、`"deep"` 或 `"crust"`、手动开关（`G`）打开，见 [径向磁场图](../geomag/SOURCES.md#径向磁场图)。
 
 ## 加载接口与离线工具
 

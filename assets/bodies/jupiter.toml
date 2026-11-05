@@ -28,6 +28,7 @@ texture_left_lon_deg = -180.0
 [aurora]
 jovian_oval = "geomag/jupiter_oval.txt"
 footprints = "geomag/jupiter_footprints.txt"
+flux_tubes = "geomag/jupiter_flux_tubes.bin"
 
 # JRM33 to degree 13, without the magnetodisc that stretches the lines beyond 10 or
 # 20 radii, so they end at 10; the outer shell is Io's orbit. geomag/SOURCES.md.

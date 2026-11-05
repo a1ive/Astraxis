@@ -81,33 +81,35 @@ struct BodyMagneticField {
 };
 
 // A map of the field fixed to a body, in its texture's projection: rows from north
-// to south by the mesh's parametric latitude, columns from 180 W eastward. Baked by
+// to south by planetocentric latitude, columns from 180 W eastward. Baked by
 // tools/geomag/field_map_bake.py. A radial map holds the square root of the strength,
-// value = sign(Br) sqrt(|Br| / scale); a strength map (`magnitude`) is linear,
-// value = 2 (|B| - min) / (max - min) - 1. Either way in -1 .. 1.
+// value = sign(Br) sqrt(|Br| / scale), saturating at scale; a strength map (`magnitude`)
+// is linear, value = 2 (|B| - min) / (max - min) - 1. Either way in -1 .. 1.
 struct FieldMap {
     int width = 0;
     int height = 0;
     bool magnitude = false;
-    double scale_nt = 0.0; // radial: the largest |Br|; strength: the largest |B|
+    double scale_nt = 0.0; // radial: where it saturates, usually the largest |Br|; strength: the largest |B|
     double min_nt = 0.0;   // strength: the smallest |B|
     std::vector<signed char> cells; // 127 * value
 
     bool load(const std::filesystem::path& file, std::string* error = nullptr);
-    // Br or |B| at a cell (nearest), by east longitude and parametric latitude in radians.
-    double value_nt(double east_longitude, double parametric_latitude) const;
+    // Br or |B| at a cell (nearest), by east longitude and planetocentric latitude in radians.
+    double value_nt(double east_longitude, double latitude) const;
     // Red channel: 0 .. 255 for value -1 .. 1, so that it interpolates through zero.
     std::vector<unsigned char> texture_rgba() const;
 };
 
 // Which map a view shows.
-enum class FieldMapView { None, Surface, Deep };
+enum class FieldMapView { None, Surface, Deep, Crust };
 
-// Maps of a body's field ([bodies.magnetic_map] in a scene file): at its surface
-// and optionally deeper down, where the dynamo is. Null: none.
+// Maps of a body's field ([bodies.magnetic_map] in a scene file): at its surface,
+// optionally deeper down, where the dynamo is, and of its crust alone, far weaker than
+// the rest. Null: none.
 struct BodyMagneticMap {
     std::shared_ptr<const FieldMap> surface;
     std::shared_ptr<const FieldMap> deep;
+    std::shared_ptr<const FieldMap> crust;
 };
 
 // Lines on screen turn with their planet; too fast to follow, they fade: all

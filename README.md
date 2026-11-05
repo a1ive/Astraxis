@@ -159,7 +159,7 @@ The auto tour switches views and visits events in time order, slowing down for f
 | `P` | Toggle the volcanic and cryovolcanic plumes (Io, Enceladus, Triton) |
 | `M` | Toggle atmospheres |
 | `B` | Toggle magnetic field lines |
-| `G` | Cycle the magnetic field map (event setting, surface, deep) |
+| `G` | Cycle the magnetic field map (event setting, surface, deep, crust) |
 | `C` | Toggle comet comae and tails |
 | `H` / `F1` | Toggle UI |
 | `F11` | Toggle full screen |

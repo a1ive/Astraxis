@@ -64,3 +64,4 @@ l_shells = [1.5, 2.5, 4.0]
 max_radius = 8.0
 [magnetic_map]                             # The strength of IGRF-14 at 2025.0; geomag/SOURCES.md
 surface = "geomag/earth_b.fieldmap"
+crust = "geomag/earth_crust_br.fieldmap"   # Thebault 2021, degrees 16-1050

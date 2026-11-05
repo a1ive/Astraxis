@@ -129,6 +129,8 @@ private:
     std::vector<SDL_GPUTexture*> m_night_textures; // per body: night lights, may be null
     std::vector<SDL_GPUTexture*> m_field_map_textures;      // per body: radial field at the surface, may be null
     std::vector<SDL_GPUTexture*> m_deep_field_map_textures; // per body: the same deeper down, may be null
+    std::vector<SDL_GPUTexture*> m_crust_field_map_textures; // per body: of the crust alone, may be null
+    std::vector<glm::dvec3> m_tube_line; // scratch for the lines to the moons' footprints
     std::vector<SDL_GPUTexture*> m_aurora_textures; // per body: Ganymede UV map
     std::vector<int> m_comet_meshes;              // per body: nucleus occlusion BVH
     std::vector<int> m_body_meshes;               // per body: BodyPass mesh index (-1: ellipsoid)

@@ -103,6 +103,11 @@ CoronaUniforms corona_uniforms(const Scene& scene, const CameraView& view)
 constexpr int kTrailPoints = 2048;
 constexpr float kOrbitOpacity = 0.55f;
 constexpr double kMagneticLineOpacity = 0.38;
+// The lines to the moons' footprints: the field line through the moon now, and, brighter, the
+// wave on its way down, which ends at the spot.
+constexpr double kFieldLineToMoonOpacity = 0.3;
+constexpr double kAlfvenWingOpacity = 0.9;
+constexpr glm::vec3 kAlfvenWingColor(1.0f, 0.72f, 0.38f);
 // An orbit the clock runs through in under kEvenOrbitFastS of real time would
 // flicker as its fading tail chases the body around: it is drawn evenly (at
 // kEvenOrbitFade), blending back to the fading tail by kEvenOrbitSlowS.
@@ -669,6 +674,7 @@ void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, u
     m_night_textures.assign(scene.bodies.size(), nullptr);
     m_field_map_textures.assign(scene.bodies.size(), nullptr);
     m_deep_field_map_textures.assign(scene.bodies.size(), nullptr);
+    m_crust_field_map_textures.assign(scene.bodies.size(), nullptr);
     m_aurora_textures.assign(scene.bodies.size(), nullptr);
     m_comets.clear_meshes();
     m_comet_meshes.assign(scene.bodies.size(), -1);
@@ -708,6 +714,7 @@ void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, u
         };
         m_field_map_textures[i] = field_map_texture(body.magnetic_map.surface.get());
         m_deep_field_map_textures[i] = field_map_texture(body.magnetic_map.deep.get());
+        m_crust_field_map_textures[i] = field_map_texture(body.magnetic_map.crust.get());
         if (body.texture.empty()) {
             continue;
         }
@@ -895,7 +902,7 @@ void SceneRenderer::trace_black_hole(SDL_GPUCommandBuffer* cmd, uint32_t width, 
 void SceneRenderer::release_body_textures()
 {
     for (auto* textures : {&m_body_textures, &m_ring_textures, &m_night_textures, &m_aurora_textures,
-                           &m_field_map_textures, &m_deep_field_map_textures}) {
+                           &m_field_map_textures, &m_deep_field_map_textures, &m_crust_field_map_textures}) {
         for (SDL_GPUTexture* texture : *textures) {
             if (texture) {
                 SDL_ReleaseGPUTexture(m_device->device(), texture);
@@ -1087,17 +1094,25 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
             item.night_lights_color = body.night_lights.color;
             item.night_lights_gain = static_cast<float>(body.night_lights.gain);
         }
-        // The deep map where the view asks for it and the body has one, else the surface's.
+        // The deep or crustal map where the view asks for it and the body has one, else the surface's.
         const FieldMapView map_view = options.magnetic_map_view == 3   ? FieldMapView::None
+                                      : options.magnetic_map_view == 4 ? FieldMapView::Crust
                                       : options.magnetic_map_view == 2 ? FieldMapView::Deep
                                       : options.magnetic_map_view == 1 ? FieldMapView::Surface
                                       : event_settings                 ? event_settings->magnetic_map
                                                                        : FieldMapView::None;
         if (map_view != FieldMapView::None && i < m_field_map_textures.size()) {
-            SDL_GPUTexture* deep = map_view == FieldMapView::Deep ? m_deep_field_map_textures[i] : nullptr;
-            item.field_map = deep ? deep : m_field_map_textures[i];
-            const FieldMap* shown = deep ? body.magnetic_map.deep.get() : body.magnetic_map.surface.get();
+            SDL_GPUTexture* other = map_view == FieldMapView::Deep    ? m_deep_field_map_textures[i]
+                                    : map_view == FieldMapView::Crust ? m_crust_field_map_textures[i]
+                                                                      : nullptr;
+            item.field_map = other ? other : m_field_map_textures[i];
+            const FieldMap* shown = !other                            ? body.magnetic_map.surface.get()
+                                    : map_view == FieldMapView::Deep ? body.magnetic_map.deep.get()
+                                                                      : body.magnetic_map.crust.get();
             item.field_map_strength = shown && shown->magnitude;
+            // The map's column 0 is 180 W of its own zero, which may turn against the body's.
+            const double u = (item.texture_left_lon_deg + 180.0 - magnetic_map_turn_deg(body, sim.clock().t_tdb)) / 360.0;
+            item.field_map_u = static_cast<float>(u - std::floor(u));
         }
 
         SDL_GPUTexture* ring_texture = i < m_ring_textures.size() ? m_ring_textures[i] : nullptr;
@@ -1661,15 +1676,17 @@ void SceneRenderer::build_magnetic_lines(const Simulation& sim, const OutputView
 {
     const Scene& scene = sim.scene();
     const int event = scene.active_event();
-    const bool event_shows = event >= 0 && scene.events[static_cast<size_t>(event)].magnetic_lines;
-    if (options.magnetic_view == 2 || (options.magnetic_view == 0 && !event_shows)) {
+    const SceneEvent* active = event >= 0 ? &scene.events[static_cast<size_t>(event)] : nullptr;
+    const bool show_lines = options.magnetic_view == 1 || (options.magnetic_view == 0 && active && active->magnetic_lines);
+    const bool show_tubes = options.magnetic_view == 1 || (options.magnetic_view == 0 && active && active->flux_tubes);
+    if (!show_lines && !show_tubes) {
         return;
     }
     const CameraView& view = output_view.camera;
     const glm::dvec3& cam = view.position;
     const double t = sim.clock().t_tdb;
     // An event is about its focus; Jupiter's lines would hang behind Ganymede's.
-    const int only = options.magnetic_view == 0 ? scene.events[static_cast<size_t>(event)].focus : -1;
+    const int only = options.magnetic_view == 0 ? active->focus : -1;
     for (size_t i = 0; i < scene.bodies.size(); ++i) {
         const Body& body = scene.bodies[i];
         const BodyMagneticField& field = body.magnetic_field;
@@ -1687,13 +1704,40 @@ void SceneRenderer::build_magnetic_lines(const Simulation& sim, const OutputView
         }
         // The model's axes in the display frame, scaled from radii to km.
         const glm::dmat3 axes = body.orientation * magnetic_model_to_body(body, t) * field.reference_radius_km;
-        for (const std::vector<glm::dvec4>& line : field.lines) {
-            m_line_points.clear();
-            for (const glm::dvec4& p : line) {
-                m_line_points.emplace_back(to_render(body.world_position + axes * glm::dvec3(p), cam),
-                                           static_cast<float>(p.w));
+        if (show_lines) {
+            for (const std::vector<glm::dvec4>& line : field.lines) {
+                m_line_points.clear();
+                for (const glm::dvec4& p : line) {
+                    m_line_points.emplace_back(to_render(body.world_position + axes * glm::dvec3(p), cam),
+                                               static_cast<float>(p.w));
+                }
+                m_orbits.add_line(m_line_points, glm::vec4(field.color, static_cast<float>(opacity)), 0.0f);
             }
-            m_orbits.add_line(m_line_points, glm::vec4(field.color, static_cast<float>(opacity)), 0.0f);
+        }
+        if (!show_tubes || !body.aurora.jovian) {
+            continue;
+        }
+        const double fade = opacity / kMagneticLineOpacity;
+        for (int moon = 0; moon < 3; ++moon) {
+            const glm::dvec3& p = body.jovian_moons[static_cast<size_t>(moon)];
+            if (p == glm::dvec3(0.0)) {
+                continue;
+            }
+            for (int wing = 0; wing < 2; ++wing) {
+                for (int south = 0; south < 2; ++south) {
+                    if (!body.aurora.jovian->flux_tube(moon, south != 0, p, wing != 0, m_tube_line)) {
+                        continue;
+                    }
+                    m_line_points.clear();
+                    for (const glm::dvec3& q : m_tube_line) {
+                        m_line_points.emplace_back(to_render(body.world_position + body.orientation * q, cam), 0.0f);
+                    }
+                    const glm::vec4 color = wing != 0
+                        ? glm::vec4(kAlfvenWingColor, static_cast<float>(kAlfvenWingOpacity * fade))
+                        : glm::vec4(field.color, static_cast<float>(kFieldLineToMoonOpacity * fade));
+                    m_orbits.add_line(m_line_points, color, 1.0f);
+                }
+            }
         }
     }
 }

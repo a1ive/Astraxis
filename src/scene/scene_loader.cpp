@@ -462,7 +462,7 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
         {"refractivity", number}, {"refraction_gain", number},
     };
     static const TemplateFields night_lights = {{"texture", text}, {"color", text}, {"gain", number}};
-    static const TemplateFields aurora = {{"kp", text}, {"jovian_oval", text}, {"footprints", text},
+    static const TemplateFields aurora = {{"kp", text}, {"jovian_oval", text}, {"footprints", text}, {"flux_tubes", text},
                                           {"saturn_oval", boolean}, {"ganymede_map", text}, {"uranus_map", text},
                                           {"neptune_map", text}, {"europa_visible", boolean},
                                           {"io_visible", boolean}, {"callisto_visible", boolean}, {"mars_visible", boolean}};
@@ -472,7 +472,7 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
         {"longitude_offset_deg", number}, {"prime_meridian_deg", list}, {"l_shells", list},
         {"lines_per_shell", integer}, {"max_radius", number}, {"color", text},
     };
-    static const TemplateFields magnetic_map = {{"surface", text}, {"deep", text}};
+    static const TemplateFields magnetic_map = {{"surface", text}, {"deep", text}, {"crust", text}};
     static const TemplateFields rotor = {{"shape", text}, {"period_s", number}};
     static const TemplateFields ring_band = {
         {"name", text}, {"inner_km", number}, {"outer_km", number}, {"optical_depth", number},
@@ -1457,8 +1457,10 @@ void Loader::parse(const toml::table& root, Scene& out)
             if (body.kind != BodyKind::Planet || body.shape) {
                 fail(ctx, "only ellipsoidal planets can have an aurora");
             }
-            // One model per body; only Jupiter's oval takes a second field.
-            const size_t fields = aurora->contains("jovian_oval") && aurora->contains("footprints") ? 2 : 1;
+            // One model per body; only Jupiter's oval takes more fields.
+            const size_t fields = aurora->contains("jovian_oval")
+                ? 1 + (aurora->contains("footprints") ? 1u : 0u) + (aurora->contains("flux_tubes") ? 1u : 0u)
+                : 1;
             if (aurora->size() != fields) fail(actx, "takes one aurora model");
             const auto has_radii = [&](double equatorial_km, double polar_km) {
                 return std::abs(body.equatorial_radius_km - equatorial_km) <= 1.0 &&
@@ -1509,10 +1511,15 @@ void Loader::parse(const toml::table& root, Scene& out)
                     if (!has_radii(71492.0, 66854.0)) fail(actx, "footprints require Jupiter's one-bar radii");
                     if (!oval->load_footprints(m_asset_root / get_string(*aurora, "footprints", actx), &error)) fail(actx, error);
                 }
+                if (aurora->contains("flux_tubes")) {
+                    if (!aurora->contains("footprints")) fail(actx, "flux_tubes require footprints");
+                    if (!oval->load_flux_tubes(m_asset_root / get_string(*aurora, "flux_tubes", actx), &error)) fail(actx, error);
+                }
                 body.aurora.model = AuroraModel::Jupiter;
                 body.aurora.jovian = oval;
             } else {
                 if (aurora->contains("footprints")) fail(actx, "footprints require jovian_oval");
+                if (aurora->contains("flux_tubes")) fail(actx, "flux_tubes require jovian_oval");
                 auto kp = std::make_shared<KpRecord>();
                 if (!kp->load(m_asset_root / get_string(*aurora, "kp", actx), &error)) fail(actx, error);
                 body.aurora.model = AuroraModel::Earth;
@@ -1584,6 +1591,9 @@ void Loader::parse(const toml::table& root, Scene& out)
             body.magnetic_map.surface = load_map("surface");
             if (maps->contains("deep")) {
                 body.magnetic_map.deep = load_map("deep");
+            }
+            if (maps->contains("crust")) {
+                body.magnetic_map.crust = load_map("crust");
             }
         }
         if (const toml::array* plumes = (*t)["plumes"].as_array()) {
@@ -1906,13 +1916,16 @@ void Loader::parse(const toml::table& root, Scene& out)
             e.aurora_ultraviolet = (*t)["aurora_ultraviolet"].value<bool>().value_or(false);
             e.aurora_infrared = (*t)["aurora_infrared"].value<bool>().value_or(false);
             e.magnetic_lines = (*t)["magnetic_lines"].value<bool>().value_or(false);
+            e.flux_tubes = (*t)["flux_tubes"].value<bool>().value_or(false);
             e.focus_orbits_only = (*t)["focus_orbits_only"].value<bool>().value_or(false);
             e.hide_orbits = (*t)["hide_orbits"].value<bool>().value_or(false);
             if (const auto view = (*t)["magnetic_map"].value<std::string>()) {
-                if (*view != "surface" && *view != "deep") {
-                    fail(ctx, "magnetic_map must be \"surface\" or \"deep\"");
+                if (*view != "surface" && *view != "deep" && *view != "crust") {
+                    fail(ctx, "magnetic_map must be \"surface\", \"deep\" or \"crust\"");
                 }
-                e.magnetic_map = *view == "deep" ? FieldMapView::Deep : FieldMapView::Surface;
+                e.magnetic_map = *view == "deep"    ? FieldMapView::Deep
+                                 : *view == "crust" ? FieldMapView::Crust
+                                                    : FieldMapView::Surface;
             }
             e.caption = get_string_or(*t, "caption", "");
             if (const toml::node* trails = t->get("trails")) {

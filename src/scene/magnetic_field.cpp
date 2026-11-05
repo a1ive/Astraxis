@@ -324,14 +324,14 @@ bool FieldMap::load(const std::filesystem::path& file, std::string* error)
     return true;
 }
 
-double FieldMap::value_nt(double east_longitude, double parametric_latitude) const
+double FieldMap::value_nt(double east_longitude, double latitude) const
 {
     if (cells.empty()) {
         return 0.0;
     }
     const double u = east_longitude / kTwoPi + 0.5;
     const int column = static_cast<int>(std::floor((u - std::floor(u)) * width)) % width;
-    const int line = std::clamp(static_cast<int>((0.5 - parametric_latitude / kPi) * height), 0, height - 1);
+    const int line = std::clamp(static_cast<int>((0.5 - latitude / kPi) * height), 0, height - 1);
     const double value = cells[static_cast<size_t>(line) * static_cast<size_t>(width) + static_cast<size_t>(column)] / 127.0;
     if (magnitude) {
         return min_nt + 0.5 * (value + 1.0) * (scale_nt - min_nt);

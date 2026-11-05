@@ -108,6 +108,45 @@ build/jovian_footprints/venv/Scripts/python tools/geomag/jupiter_footprint_check
 
 以上检验衡量数值误差，没有重新拟合 Juno 的观测点。磁场、电流片和领先角都是平均模型，原论文与观测的偏差是数百公里量级，不能把查表的公里级精度当成逐时预测精度。渲染以 900 km 为 Chapman 峰值，标高 366 km 是 Hue 引用的 Io 参考值，复用于另外两颗卫星；σ=250 km 的圆形斑点、6/2/4 的相对显示系数和蓝色均为示意。光柱沿径向，保留 150–3500 km，省略尾迹、反射翼和多重亮斑。
 
+## 卫星到足点的线
+
+`jupiter_flux_tubes.bin` 由 `tools/geomag/jupiter_flux_tube_bake.py` 离线烘焙，磁场、工具和参数都和上一节的足点表相同（JRM33 13 阶 + CON2020，JupiterMag 1.5.1），用同一个 venv。每颗卫星 72 个东经（每 5°）、名义半径、赤道面上起一条线，南北各到 900 km 的椭球，重采样成 40 个点（`∫ds/r` 均匀，线之间逐点对应，近行星处更密）。文件头 `AXFLUXTUBE1 72 40`，之后是小端 float32 的 x、y、z（单位 71,492 km）、w，按卫星、经度、半球（北、南）、点排列。每条线绕 z 转了负的起点经度，所以相邻的线插值时不抄近路。线的脚和足点表逐条一致（`test_flux_tubes`，不到 0.1 km）。
+
+**瞬时磁力线和亮斑的差别**：磁场随木星转，比卫星快，卫星扰动的是不断扫过它的磁通管，扰动再以阿尔文波沿磁通管传下去，要走几分钟到半小时（Hue 2023 表 2：Io 3.9–15.4、Europa 4.1–19.5、Ganymede 9.3–35.1 分钟）。到达电离层时，这条磁通管已经扫到卫星前面（东边）了，所以亮斑落在“卫星此刻所在的磁力线”的脚前面，赤道上相差的就是领先角。场景画两种线：
+
+- **淡色**：此刻穿过卫星的磁力线，`flux_tube(..., false)`，落在 `instant_footprint`，那里没有亮斑。
+- **橙色**：波此刻的位置，`flux_tube(..., true)`。走了时间份额 w 的那部分波，是卫星在这条线东边 δ·w 处（δ 是 Hue 的领先角）时发出的，所以第 k 个点取“经度 + δ·w_k 那条线上的第 k 个点”。它横穿磁力线，终点正好是 `footprint()` 的亮斑。
+
+**w 的来源**：时间 ∝ ∫√ρ / B ds，B 取自追踪，ρ 是沿线的高斯 ρ0·exp(−d²/H²)，d 从线上离自转轴最远的点（离心赤道）量起。Hue 2023 说领先角主要取决于波穿过等离子体片高密度区的时间，没有给出密度模型，所以 H 用他们的领先角反推：对每个 H 算出南北两半的 ∫√ρ/B ds 随经度的变化，乘一个系数拟合 Hue 表 1，取均方根最小的 H；系数由 Hue 的领先角和行时的关系（t = P_syn δ / 360，P_syn 为 12.89、11.22、10.53 h，7.2° 对上表 2 的 15.4 分钟）换算成 ρ0。
+
+| 卫星 | H（RJ） | 对 Hue 的均方根差 | 相关系数 | Hue 的范围 | 模型的范围 | ρ0（amu/cm³） |
+|---|---:|---:|---:|---|---|---:|
+| Io | 1.5 | 0.24° | 0.99 | 1.8–7.2° | 1.9–6.9° | 4.06×10⁴ |
+| Europa | 4.7 | 1.13° | 0.90 | 2.2–10.4° | 3.3–10.5° | 758 |
+| Ganymede | 8.0（扫描上限） | 2.95° | 0.91 | 5.3–20.0° | 4.6–24.1° | 42 |
+
+Io 的结果比预期好：只有两个自由参数，就同时得到南北两半领先角随经度的变化，ρ0 相当于平均 20 amu 的离子 2,000 个每立方厘米，H 和 Hue 引用的“约 1 RJ”同量级。Europa 在 H ≥ 3 RJ 后几乎不再变化，Ganymede 随 H 单调变好、没有内部最优，这两个 H 只说明这个简单模型约束不住，不是等离子体片的测量。
+
+这只决定橙线的弯法，端点不受影响：起点是卫星，终点是 Hue 的领先角和足点表给的亮斑。
+
+**运行时**：表只有名义半径和赤道面上的线。实际卫星的线从表里按经度插值后拉到卫星（偏移量乘 (r − r_foot)/(r_0 − r_foot)，偶极的线上偏移正比于 r），再拉到足点表给的脚（1 − 上面的比值，再取 8 次方），最后用 Catmull-Rom 曲线每段细分 3 份（外侧的点相距约 2 RJ）。工具用未参与烘焙的 60 个位置（随机的经度，半径和纬度在各卫星轨道的范围内：Io ±0.6%、±0.1°，Europa ±1.2%、±0.6°，Ganymede ±0.3%、±0.3°，取自根数加一点余量）和 2 倍细步长的直接追踪对照，最大差距（点到折线）：
+
+| 卫星 | 拉过之后 | 不拉（只按经度插值） |
+|---|---:|---:|
+| Io | 2,045 km | 2,760 km |
+| Europa | 9,546 km | 10,913 km |
+| Ganymede | 18,286 km | 11,469 km |
+
+不拉时差距主要在卫星一端，而且线穿不过卫星；拉过之后差距在线的中段。电流片两翼的磁场几乎是径向的（Ganymede 处），纬度差一点，整条线的 L 就差很多，这是非线性的，线性地拉消不掉：曾把测试范围放到足点表的 ±3%、±2° 时差到 8 万 km。卫星走不到那里，真要到那里（如另一个星历）时线会明显偏，但足点仍然准。
+
+重新生成（在上一节的 venv 里，约 10 秒）：
+
+```powershell
+build/jovian_footprints/venv/Scripts/python tools/geomag/jupiter_flux_tube_bake.py
+```
+
+生成文件的 SHA-256：`e13b7d7f64b092262ad115157386e0a5dddbe07794caef06f89d204f121bc62b`。
+
 ## 地球 Kp
 
 | 文件 | 来源 | 许可 |
@@ -251,21 +290,26 @@ python -I tools/geomag/field_coeffs.py build/field assets/geomag
 
 ## 径向磁场图
 
-`*.fieldmap` 是固定在本体上的磁场图，由 `tools/geomag/field_map_bake.py` 烘焙（需要 numpy）。径向图的文件头 `AXFIELDMAP1 宽 高 上限_nT` 之后是 宽×高 个有符号字节，值为 127·sign(Br)·√(|Br|/上限)；强度图的文件头 `AXFIELDMAG1 宽 高 下限_nT 上限_nT` 之后是 127·(2t − 1)，t = (|B| − 下限)/(上限 − 下限)。投影和天体贴图相同：行由北向南按网格的参数纬度，列从 180°W 向东，所以每格在椭球面上的真实位置求值。
+`*.fieldmap` 是固定在本体上的磁场图，由 `tools/geomag/field_map_bake.py` 烘焙（需要 numpy）。径向图的文件头 `AXFIELDMAP1 宽 高 上限_nT` 之后是 宽×高 个有符号字节，值为 127·sign(Br)·√(min(|Br|/上限, 1))；强度图的文件头 `AXFIELDMAG1 宽 高 下限_nT 上限_nT` 之后是 127·(2t − 1)，t = (|B| − 下限)/(上限 − 下限)。行由北向南按行星中心纬度（`body.vert.hlsl` 就是这样采样的），列从 180°W 向东，在椭球面上该方向的真实位置求值。
 
 | 文件 | 模型 | 位置 | 范围 |
 |---|---|---|---|
-| `mars_br.fieldmap` | [Morschhauser et al. 2014](https://doi.org/10.1002/2013JE004555)，110 阶，参考半径 3393.5 km | 椭球面上方 150 km | −709 .. 1278 nT |
+| `mars_br.fieldmap` | [Morschhauser et al. 2014](https://doi.org/10.1002/2013JE004555)，110 阶，参考半径 3393.5 km | 椭球面上方 150 km | −710 .. 1268 nT |
 | `jupiter_br.fieldmap` | JRM33，13 阶 | 1 bar 椭球面 | −13.9 .. 21.7 G |
-| `jupiter_br_deep.fieldmap` | JRM33，13 阶 | 0.81 RJ 的球面，方向和云顶图相同（两张图在网格上对齐） | −79.4 .. 81.3 G |
+| `jupiter_br_deep.fieldmap` | JRM33，13 阶 | 0.81 RJ 的球面，方向和云顶图相同（两张图在网格上对齐） | −79.3 .. 81.2 G |
 | `moon_br.fieldmap` | [Tsunakawa et al. 2015](https://doi.org/10.1002/2014JE004785) 的球谐展开，Wieczorek 的 T2015_449 取到 240 阶，参考半径 1737.4 km | 月面上方 30 km | −25 .. 14 nT |
 | `earth_b.fieldmap` | IGRF-14 的 2025.0，13 阶，总强度 |B| | 椭球面 | 22,073 .. 66,953 nT |
+| `earth_crust_br.fieldmap` | [Thébault et al. 2021](https://doi.org/10.5281/zenodo.5546528)，16–1050 阶，2048×1024 | 椭球面 | −6,830 .. 1,855 nT，600 nT 饱和 |
+| `uranus_br.fieldmap` | AH5，4 阶，在场景的本体系里 | 1 bar 椭球面 | −14.9 .. 6.9 G |
+| `neptune_br.fieldmap` | O8，3 阶，在 NLS 里 | 1 bar 椭球面 | −8.9 .. 5.9 G（单位见下） |
 
 **月球**：系数取自 Wieczorek 在 Zenodo 的 [T2015_449.sh.gz](https://doi.org/10.5281/zenodo.3873648)（CC BY 4.0，单位是特斯拉）。取 30 km 而不是月面：直接画月面时，强异常周围有大致沿南北向的条纹（硬截断的振铃加上看来是轨道条带的噪声，在 120–240 阶之间做余弦衰减也去不掉），向上延拓到接近观测的高度后条纹消失。地表的峰值约 −279 nT，30 km 处只有 −25 nT，差得很多，展签按 30 km 写。
 
 **地球**：画总强度而不是 Br。Br 基本只是偶极的南北两半，南大西洋异常看不出来。最弱处在 26.5°S、59.5°W。
 
-**待做的地壳图**：[Thébault 的地球岩石圈模型](https://doi.org/10.5281/zenodo.5546528)（CC BY 4.0，约 40 km 分辨率）比主磁场弱得多，要单独一张图。
+**地壳**：系数取自 Zenodo 5546528 的 `Spherical_HarmonicModel_GRL.zip`（Thébault, Hulot, Langlais & Vigneron 2021, *A Spherical Harmonic Model of Earth's Lithospheric Magnetic Field up to Degree 1050*, GRL 48, e2021GL095147，[doi:10.1029/2021GL095147](https://doi.org/10.1029/2021GL095147)；数据和论文都是 CC BY 4.0），由 CHAMP、Swarm 的磁场和几十年的近地标量异常合成。文件的 MD5 `2cf0d201b662ef5404aab58fd14df828`（Zenodo 给的），解压后的文本 SHA-256 `a9e0b40f01eefeaf54843539100e8299802748f1d96a02d72eaf90474481f8ad`，文本里夹着没有 `#` 的注释行，工具只取四列都是数的行（552,690 行）。按 Schmidt 准归一化的 Br 在 WGS84 椭球上求值，参考半径取 6371.2 km（记录里没写，是地磁模型的惯例）。面积的 50%、90%、99%、99.9% 分别在 45、147、327、589 nT 以下，峰值 −6,830 nT 在 50.5°N、37.0°E，正是 Kursk 磁异常。一个字节按平方根编码，再按峰值归一的话几乎全图都看不见，所以 600 nT 处饱和（`scale_nt = 600`，`value_nt` 在强异常处读到的是 600，不是真值）。地表直接画没有月球那样的条纹问题，海上的条带是海底扩张留下的。
+
+**天王星、海王星**：内部场的系数和 `[magnetic_field]` 相同，所以图和线一定一致（`test_magnetic_maps` 逐格对照）。4 阶和 3 阶的模型本来就平滑，360×180 足够。天王星按 `flip_pole`、`longitude_offset_deg = -50.6` 直接烘在本体系里（模型的纬度是本体的相反数，东经是 −50.6° 减本体的东经；Br 是标量，翻转不变号）。海王星烘在 NLS 里：NLS 和场景的 IAU 自转率每天差 4.8°，不能烘死在本体上，渲染时按 `magnetic_map_turn_deg` 转动采样的 u。两张图的单位是 nT，表里写成高斯只是方便看（1 G = 10⁵ nT）。最强处都在偏心偶极靠近的一侧：天王星 −1.49 G、32.5°N、185.5°E（偏离偶极偏心方向 46°），对面的另一种符号最多 0.68 G；海王星 −0.89 G、34.5°S、NLS 东经 87.5°（偏离 32°），对面 0.59 G。各自的偶极单独只能给出 0.46、0.28 G。
 
 **火星模型的许可**：系数取自 Mark Wieczorek 在 Zenodo 的 [Morschhauser2014.txt.gz](https://doi.org/10.5281/zenodo.3876495)（CC BY 4.0，与论文附表 ts01 相同）。没有用分辨率更高的 Langlais 2019 和 Gao 2021：两篇论文都是 CC BY-NC（-ND），和项目的 GPL 不相容。Zenodo 上也有 Langlais 模型的 CC BY 版本，但它的许可和论文的 NC-ND 对不上，所以不用。
 
@@ -274,18 +318,21 @@ python -I tools/geomag/field_coeffs.py build/field assets/geomag
 核对：
 - 木星两张图和 `field_jupiter_jrm33.txt` 逐格一致（`test_magnetic_maps`，到一个字节的量化）。
 - Great Blue Spot 在云顶约 −12.8 G、6.5°S、84.5°W；[Moore et al. 2018 的会议摘要](https://meetingorganizer.copernicus.org/EPSC2018/EPSC2018-556.pdf)写它在赤道附近、System III 约 90°。在扁椭球面上它不是全球最小值（南极附近 −13.9 G），在 1 RJ 的球面上才是。
-- 火星的峰值在 48°S、175°E，属于 [Acuña et al. 1999](https://doi.org/10.1126/science.284.5415.790) 说的 Terra Cimmeria 和 Terra Sirenum；Hellas、Argyre 内的场不到峰值的 10%。
+- 火星的峰值在 48.2°S、174.8°E，属于 [Acuña et al. 1999](https://doi.org/10.1126/science.284.5415.790) 说的 Terra Cimmeria 和 Terra Sirenum；Hellas、Argyre 内的场不到峰值的 10%。
 - 月球的峰值在 20.2°S、236.8°E，紧邻 Gerasimovich 环形山（22.9°S、122.6°W）；Reiner Gamma（7.5°N、59°W）处有明显的异常，Mare Crisium 处很弱；远月面的场比近月面强。
 - 地球图和 `field_earth_igrf14.txt` 逐格一致（到一个字节的量化）。
+- 地壳图的 Kursk（51°N、37°E）周围 ±2° 的均方根 393 nT，Bangui（6°N、18°E）周围 ±6° 是 162 nT，南太平洋（30°S、160°W）是 49 nT。
 
-重新生成（先按上一节取得 `field_jupiter_jrm33.txt`、`field_earth_igrf14.txt`）：
+重新生成（先按上一节取得 `field_*.txt`）：
 
 ```bash
 mkdir -p build/field_map
 curl -L -o build/field_map/Morschhauser2014.txt.gz https://zenodo.org/api/records/3876495/files/Morschhauser2014.txt.gz/content
 gunzip -k build/field_map/Morschhauser2014.txt.gz
 curl -L -o build/field_map/T2015_449.sh.gz https://zenodo.org/api/records/3873648/files/T2015_449.sh.gz/content
-python -E -P tools/geomag/field_map_bake.py build/field_map/Morschhauser2014.txt build/field_map/T2015_449.sh.gz assets/geomag
+curl -L -o build/field_map/crust.zip https://zenodo.org/api/records/5546528/files/Spherical_HarmonicModel_GRL.zip/content
+unzip -o build/field_map/crust.zip -d build/field_map
+python -E -P tools/geomag/field_map_bake.py build/field_map/Morschhauser2014.txt build/field_map/T2015_449.sh.gz build/field_map/Spherical_HarmonicModel_GRL.txt assets/geomag
 ```
 
 ## Mars visible diffuse aurora

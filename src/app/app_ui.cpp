@@ -376,15 +376,18 @@ void App::build_control_panel()
         ImGui::Combo("Field lines", &m_view_options.magnetic_view, "Event setting\0Always\0Never\0");
         ImGui::SetItemTooltip("Magnetic field lines from each planet's internal field model (B).\n"
                              "Only what the planet itself makes: no solar wind, magnetopause or magnetodisc,\n"
-                             "so they fade out a few radii away. Event setting: off unless the event enables them.");
+                             "so they fade out a few radii away. Event setting: off unless the event enables them.\n"
+                             "Jupiter's moons also get the line through them now (faint) and the Alfven wave\n"
+                             "on its way to the auroral spot (orange), with the magnetodisc.");
     }
 
     if (std::any_of(scene.bodies.begin(), scene.bodies.end(),
                     [](const Body& b) { return b.magnetic_map.surface != nullptr; })) {
-        ImGui::Combo("Field map", &m_view_options.magnetic_map_view, "Event setting\0Surface\0Deep\0Never\0");
+        ImGui::Combo("Field map", &m_view_options.magnetic_map_view, "Event setting\0Surface\0Deep\0Never\0Crust\0");
         ImGui::SetItemTooltip("False color map of the magnetic field (G). Radial field, red out of the planet, blue into it:\n"
-                             "Mars 150 km up, the Moon at its surface, Jupiter at the cloud tops or deep at the top\n"
-                             "of its dynamo. Strength, dark where weak: the Earth.\n"
+                             "Mars 150 km up, the Moon 30 km up, Jupiter at the cloud tops or deep at the top of\n"
+                             "its dynamo, Uranus and Neptune at the surface, the Earth's crust alone.\n"
+                             "Strength, dark where weak: the Earth's whole field.\n"
                              "Event setting: off unless the event enables it.");
     }
 

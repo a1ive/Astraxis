@@ -37,7 +37,7 @@ cbuffer Uniforms : register(b0, space3)
     float4 u_atmo_rayleigh;            // atmosphere: rgb = vertical optical depth, w = scale height (radii; 0 = none)
     float4 u_atmo_haze;                // rgb = vertical attenuation optical depth, w = scale height
     float4 u_night;                    // night lights: rgb = color (sRGB), w = I/F of a white pixel (0 = none)
-    float4 u_surface;                  // x = scale of the reflected light, y = 1 to show the field map,
+    float4 u_surface;                  // x = scale of the reflected light, y = 1 to show the field map, w = its u offset,
                                        // z = 1 if the map is of the strength instead of Br
 };
 
@@ -323,7 +323,8 @@ float4 main(PSInput input) : SV_Target0
                  atmosphere_transmission(saturate(dot(n, V)));
     }
     if (u_surface.y > 0.5) {
-        float value = 2.0 * u_field_map.Sample(u_field_sampler, uv).r - 1.0;
+        // From the vertex's u, before any mirroring of a west-positive texture.
+        float value = 2.0 * u_field_map.Sample(u_field_sampler, float2(input.uv.x + u_surface.w, input.uv.y)).r - 1.0;
         float3 tint = srgb_to_linear(value > 0.0 ? kFieldOut : kFieldIn);
         float shade = lerp(kFieldNight, 1.0, saturate(dot(lit, float3(0.2126, 0.7152, 0.0722))));
         // The map holds the square root of the strength. Mixed in linear light, that root would

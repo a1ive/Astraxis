@@ -662,6 +662,49 @@ caption = """\
     magnetic mapping from the north. Blue represents ultraviolet emission; \
     this view models the geometry, not the aurora observed on this date."""
 
+# [LEAD] Hue et al. 2023, doi:10.1029/2023JA031363, tables 1 and 2: lead angles 1.8-7.2,
+#        2.2-10.4 and 5.3-20.0 deg, and travel times 3.9-15.4, 4.1-19.5 and 9.3-35.1 minutes,
+#        for Io, Europa and Ganymede. geomag/SOURCES.md.
+[[events]]
+name = "The moons' lines to Jupiter (UV overlay)"
+flux_tubes = true
+focus_orbits_only = true
+aurora_ultraviolet = true
+time_tdb = "2023-01-23 03:00"
+focus = "Jupiter"
+frame = "Jupiter equator"
+from_body = "Sun"
+phase_deg = 50.0
+elevation_deg = 18.0
+distance_km = 3.2e6
+warp = 120.0
+# [LEAD]
+caption = """\
+    Each of these moons sits in Jupiter's magnetic field, drawn pale through each one, \
+    stretched by the sheet of plasma around the planet. As the field sweeps past, a moon \
+    disturbs it, and the disturbance runs down to Jupiter's aurora at each end. That takes \
+    minutes, while the field keeps turning past the moon, so the waves, in orange, are \
+    carried ahead of the line that runs through it."""
+
+[[events]]
+name = "Where the moons' waves land (UV overlay)"
+flux_tubes = true
+hide_orbits = true
+aurora_ultraviolet = true
+time_tdb = "2023-01-22 09:00"
+focus = "Jupiter"
+frame = "Jupiter equator"
+from_body = "Sun"
+elevation_deg = 62.0
+distance_km = 2.3e5
+warp = 60.0
+# [LEAD]
+caption = """\
+    The pale lines land where each moon's field line ends at this moment. The auroral spots \
+    sit ahead of them, where the orange waves arrive: 2 to 7 degrees of longitude ahead for \
+    Io, up to 20 for Ganymede. The gap depends on how much dense plasma the wave has to \
+    cross, so it opens and closes as Jupiter turns the plasma sheet past the moon."""
+
 [[frames]]
 name = "Ganymede equator"
 type = "inertial"

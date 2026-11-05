@@ -530,6 +530,15 @@ glm::dmat3 magnetic_model_to_body(const Body& body, double t_tdb)
     return field.flip_pole ? turn * rotation_x(kPi) : turn;
 }
 
+double magnetic_map_turn_deg(const Body& body, double t_tdb)
+{
+    const BodyMagneticField& field = body.magnetic_field;
+    if (!field.own_prime_meridian) {
+        return 0.0;
+    }
+    return field.pm_w0_deg - body.pm_w0_deg + (field.pm_rate_deg_per_day - body.pm_rate_deg_per_day) * t_tdb / kSecondsPerDay;
+}
+
 double magnetic_rotation_deg_per_day(const Body& body)
 {
     const BodyMagneticField& field = body.magnetic_field;
@@ -611,6 +620,7 @@ void Scene::update(double t_tdb)
     for (Body& body : bodies) {
         if (!body.aurora.jovian) continue;
         body.jovian_footprints = {};
+        body.jovian_moons = {};
         const glm::dmat3 to_body = glm::transpose(body_to_icrf(body, t_tdb));
         for (int moon = 0; moon < 3; ++moon) {
             const int index = find(JovianAurora::kMoons[static_cast<size_t>(moon)]);
@@ -618,6 +628,7 @@ void Scene::update(double t_tdb)
             const Body& source = bodies[static_cast<size_t>(index)];
             if (!source.visible || source.parent < 0 || &bodies[static_cast<size_t>(source.parent)] != &body) continue;
             const glm::dvec3 p = to_body * (source.icrf_position - body.icrf_position);
+            body.jovian_moons[static_cast<size_t>(moon)] = p;
             for (int h = 0; h < 2; ++h) {
                 body.aurora.jovian->footprint(moon, h != 0, p, body.jovian_footprints[static_cast<size_t>(2*moon+h)]);
             }

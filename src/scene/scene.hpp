@@ -377,6 +377,8 @@ struct Body {
     BodyMagneticMap magnetic_map;
     // Io N/S, Europa N/S, Ganymede N/S; zero means absent/outside the table.
     std::array<glm::dvec3, 6> jovian_footprints{};
+    // Io, Europa, Ganymede in the body's axes (km); zero means absent.
+    std::array<glm::dvec3, 3> jovian_moons{};
     std::vector<Plume> plumes;
 
     // Comets: a gas coma (C2, Haser model), an ion tail and dust (a coma and a
@@ -445,6 +447,9 @@ glm::dmat3 body_rotation(const Body& body, const std::vector<glm::dvec3>& nut_pr
 // and how fast the field turns (deg/day, the model's own rate if it has one).
 glm::dmat3 magnetic_model_to_body(const Body& body, double t_tdb);
 double magnetic_rotation_deg_per_day(const Body& body);
+// East longitude (deg) of a field map's zero in the body's axes: nonzero where the map is
+// in a model frame that turns against the body (Neptune's NLS).
+double magnetic_map_turn_deg(const Body& body, double t_tdb);
 
 // Rate of the prime meridian (deg/day, negative if retrograde) at t_tdb: the
 // spin table's, else the IAU model's secular rate (without periodic terms).
@@ -572,7 +577,8 @@ struct SceneEvent {
     bool aurora_ultraviolet = false; // UV false-color overlay on the visible planet
     bool aurora_infrared = false; // IR false-color overlay on the visible planet
     bool magnetic_lines = false; // the field lines of bodies with a magnetic_field
-    FieldMapView magnetic_map = FieldMapView::None; // "surface" or "deep" in the file
+    bool flux_tubes = false; // the lines from Jupiter's moons to their footprints
+    FieldMapView magnetic_map = FieldMapView::None; // "surface", "deep" or "crust" in the file
     // Only the orbits of the focus' natural satellites and of the bodies in `trails`
     // are drawn, so that a close view is not crossed by those of distant bodies.
     bool focus_orbits_only = false;

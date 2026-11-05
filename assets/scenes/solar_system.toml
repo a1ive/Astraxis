@@ -808,6 +808,8 @@ coefficients = "geomag/field_uranus_ah5.txt"
 reference_radius_km = 25600.0
 flip_pole = true                           # ULS north = IAU south
 longitude_offset_deg = -50.6               # IAU new east = ULS west - 50.6 [MEL25]
+[bodies.magnetic_map]                      # AH5 on the surface, in these axes; geomag/SOURCES.md
+surface = "geomag/uranus_br.fieldmap"
 
 [bodies.orbit]                             # [HZN] Uranus barycenter
 type = "ephemeris"
@@ -1111,6 +1113,8 @@ neptune_map = "geomag/neptune_h3p.txt"
 coefficients = "geomag/field_neptune_o8.txt"
 reference_radius_km = 24765.0
 prime_meridian_deg = [253.18, 536.3128492] # [NLS]
+[bodies.magnetic_map]                      # O8 on the surface, in NLS (it turns against these axes)
+surface = "geomag/neptune_br.fieldmap"
 
 [bodies.orbit]                             # [HZN] Neptune barycenter
 type = "ephemeris"
@@ -1763,6 +1767,19 @@ name = "Neptune-centered"
 type = "inertial"
 origin = "Neptune"
 
+# With the north pole up, for the maps of the field.
+[[frames]]
+name = "Uranus equator"
+type = "inertial"
+origin = "Uranus"
+up = "Uranus"
+
+[[frames]]
+name = "Neptune equator"
+type = "inertial"
+origin = "Neptune"
+up = "Neptune"
+
 # Around the Pluto-Charon barycenter rather than Pluto itself: Pluto circles it
 # (2,100 km, 6.4 days), which would put a wiggle on New Horizons' straight path.
 [[frames]]
@@ -1943,6 +1960,27 @@ caption = """\
     Drawn from a model of what the planet itself makes, without the solar wind that shapes \
     them farther out. Voyager arrived while a gust had squeezed the whole magnetosphere."""
 
+# The strongest field is on the side the off-center dipole sits nearest, in the hemisphere
+# that faces the Sun in the 2020s. The numbers are geomag/uranus_br.fieldmap, the AH5 model
+# [HER09] at the surface; its dipole alone would give 0.46 gauss at most.
+[[events]]
+name = "Uranus's lopsided field at its surface (false color)"
+magnetic_map = "surface"
+hide_orbits = true
+time_tdb = "2025-01-19 02:32"
+focus = "Uranus"
+frame = "Uranus equator"
+from_body = "Sun"
+elevation_deg = 12.0
+distance_km = 1.3e5
+warp = 400.0
+# [HER09], [LAM25]
+caption = """\
+    The field at the cloud tops, in false color, red leaving the planet and blue entering \
+    it. A centered magnet would give two even halves. Here the blue north reaches about 1.5 \
+    gauss, three times what the dipole alone would give, because the field's center sits a \
+    third of a radius off toward it. The red side stays under half that. All from one pass."""
+
 [[events]]
 name = "Voyager 2 at Neptune (CA 1989-08-25 04:03, 33,661 km)"
 time_tdb = "1989-08-24 16:03"
@@ -1976,6 +2014,26 @@ caption = """\
     centered about half a radius from the middle of the planet, and near the surface its \
     four-lobed part is as strong as the dipole. One pass by Voyager 2 is all we have, so \
     where the lines lie today is unknown. Drawn from a model, without the solar wind."""
+
+# On the day of the flyby, while the longitudes are known. geomag/neptune_br.fieldmap, the O8
+# model [CON91] at the surface; its dipole alone would give 0.28 gauss at most.
+[[events]]
+name = "Neptune's patchy field at its surface (false color)"
+magnetic_map = "surface"
+hide_orbits = true
+time_tdb = "1989-08-25 11:06"
+focus = "Neptune"
+frame = "Neptune equator"
+from_body = "Sun"
+elevation_deg = -12.0
+distance_km = 1.3e5
+warp = 400.0
+# [CON91], [NLS]
+caption = """\
+    The field near the surface, as Voyager 2 left it to be worked out from one pass: red \
+    leaving the planet, blue entering it. Instead of two even halves there are patches of \
+    both colors at the same latitudes. The strongest, about 0.9 gauss, is three times what \
+    the dipole alone would give, on the side its off-center field lies nearest."""
 
 [[events]]
 name = "New Horizons launch (2006-01-19)"

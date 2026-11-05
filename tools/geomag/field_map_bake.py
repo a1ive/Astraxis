@@ -1,12 +1,13 @@
 """Bake the field maps of [bodies.magnetic_map]; see assets/geomag/SOURCES.md.
 
-    python -E -P tools/geomag/field_map_bake.py <Morschhauser2014.txt> <T2015_449.sh.gz> assets/geomag
+    python -E -P tools/geomag/field_map_bake.py <Morschhauser2014.txt> <T2015_449.sh.gz> \
+        <Spherical_HarmonicModel_GRL.txt> assets/geomag
 
 Needs numpy. The output maps the body's ellipsoid like its texture: rows from north
-to south by parametric latitude (the body mesh's), columns from 180 W eastward. Radial
-maps: a header line "AXFIELDMAP1 width height scale_nT", then width * height signed
-bytes, 127 * sign(Br) * sqrt(|Br| / scale): the square root keeps the weak fields of
-a map whose peak is a hundred times its typical value. Strength maps: "AXFIELDMAG1
+to south by planetocentric latitude (body.vert.hlsl's v), columns from 180 W eastward.
+Radial maps: a header line "AXFIELDMAP1 width height scale_nT", then width * height
+signed bytes, 127 * sign(Br) * sqrt(|Br| / scale): the square root keeps the weak fields
+of a map whose peak is a hundred times its typical value. Strength maps: "AXFIELDMAG1
 width height min_nT max_nT", then bytes 127 * (2 t - 1), t = (|B| - min) / (max - min).
 """
 
@@ -15,6 +16,11 @@ import sys
 from pathlib import Path
 
 import numpy as np
+
+# Where the map of the Earth's crust saturates: 99.9% of the area is below this. Its strongest
+# anomaly (Kursk, -6,830 nT) is rare and far stronger than the rest; scaled to it, everything
+# else would be too faint to see.
+CRUST_CEILING_NT = 600.0
 
 
 def load_gauss(path):
@@ -52,10 +58,34 @@ def load_pyshtools(path, nmax):
     return g, h
 
 
+def load_lithosphere(path):
+    """g, h in nT from Thebault 2021's file: "n m g h" rows, with comments among them."""
+    rows = []
+    for line in Path(path).read_text(encoding="latin-1").splitlines():
+        parts = line.split()
+        if len(parts) != 4 or line.lstrip().startswith("#"):
+            continue
+        rows.append([float(x) for x in parts])
+    rows = np.array(rows)
+    degree = int(rows[:, 0].max())
+    g = np.zeros((degree + 1, degree + 1))
+    h = np.zeros((degree + 1, degree + 1))
+    n, m = rows[:, 0].astype(int), rows[:, 1].astype(int)
+    g[n, m] = rows[:, 2]
+    h[n, m] = rows[:, 3]
+    print(f"{path}: {len(rows)} rows, degrees {n.min()} .. {degree}")
+    return g, h
+
+
+def cell_longitudes(width):
+    """East longitudes (radians) of the middles of the cells, from -180 eastward."""
+    return (np.arange(width) + 0.5) / width * 2.0 * np.pi - np.pi
+
+
 def total_field(g, h, cos_theta, sin_theta, radius, width):
     """|B| (nT), as radial_field: from the three components, for a low degree."""
     degree = g.shape[0] - 1
-    longitude = (np.arange(width) + 0.5) / width * 2.0 * np.pi - np.pi
+    longitude = cell_longitudes(width)
     b_r = np.zeros((len(cos_theta), width))
     b_t = np.zeros_like(b_r)
     b_p = np.zeros_like(b_r)
@@ -83,9 +113,9 @@ def total_field(g, h, cos_theta, sin_theta, radius, width):
     return np.sqrt(b_r ** 2 + b_t ** 2 + b_p ** 2)
 
 
-def radial_field(g, h, cos_theta, sin_theta, radius, width):
+def radial_field(g, h, cos_theta, sin_theta, radius, width, longitude=None):
     """Br (nT) on rows of constant colatitude and radius (in model radii), width longitudes
-    from -180 eastward, each at the middle of its cell."""
+    from -180 eastward, each at the middle of its cell, or at the model's longitudes given."""
     degree = g.shape[0] - 1
     rows = len(cos_theta)
     even = np.zeros((rows, degree + 1))  # cos(m phi) terms
@@ -105,7 +135,8 @@ def radial_field(g, h, cos_theta, sin_theta, radius, width):
             even[:, m] += factor * g[n, m] * current[m]
             odd[:, m] += factor * h[n, m] * current[m]
         before, last = last, current
-    longitude = (np.arange(width) + 0.5) / width * 2.0 * np.pi - np.pi
+    if longitude is None:
+        longitude = cell_longitudes(width)
     out = np.zeros((rows, width))
     for m in range(degree + 1):
         out += np.outer(even[:, m], np.cos(m * longitude)) + np.outer(odd[:, m], np.sin(m * longitude))
@@ -113,20 +144,21 @@ def radial_field(g, h, cos_theta, sin_theta, radius, width):
 
 
 def ellipsoid_rows(height, equatorial_km, polar_km, altitude_km, reference_km):
-    """Colatitude and radius (in model radii) of the mesh's rows, altitude_km above them."""
-    beta = np.pi / 2 - (np.arange(height) + 0.5) / height * np.pi
-    x = equatorial_km * np.cos(beta)
-    z = polar_km * np.sin(beta)
-    r = np.hypot(x, z)
-    return z / r, x / r, (r + altitude_km) / reference_km
+    """Colatitude and radius (in model radii) of the map's rows, altitude_km above the
+    ellipsoid: the rows are of planetocentric latitude, as the body's shader samples them."""
+    latitude = np.pi / 2 - (np.arange(height) + 0.5) / height * np.pi
+    sin_lat, cos_lat = np.sin(latitude), np.cos(latitude)
+    r = 1.0 / np.hypot(cos_lat / equatorial_km, sin_lat / polar_km)
+    return sin_lat, cos_lat, (r + altitude_km) / reference_km
 
 
-def write_map(path, br):
-    scale = float(np.abs(br).max())
-    encoded = np.rint(127.0 * np.sign(br) * np.sqrt(np.abs(br) / scale)).astype(np.int8)
+def write_map(path, br, ceiling=None):
+    """ceiling (nT): saturate there, for a map whose rare peaks would hide everything else."""
+    scale = float(ceiling) if ceiling else float(np.abs(br).max())
+    encoded = np.rint(127.0 * np.sign(br) * np.sqrt(np.minimum(np.abs(br) / scale, 1.0))).astype(np.int8)
     height, width = br.shape
     path.write_bytes(f"AXFIELDMAP1 {width} {height} {scale:.3f}\n".encode("ascii") + encoded.tobytes())
-    print(f"{path}: {width} x {height}, Br {br.min():.0f} .. {br.max():.0f} nT, rms {np.sqrt(np.mean(br ** 2)):.0f}")
+    print(f"{path}: {width} x {height}, Br {br.min():.0f} .. {br.max():.0f} nT, scale {scale:.0f}, rms {np.sqrt(np.mean(br ** 2)):.0f}")
 
 
 def write_magnitude_map(path, b):
@@ -135,8 +167,15 @@ def write_magnitude_map(path, b):
     height, width = b.shape
     path.write_bytes(f"AXFIELDMAG1 {width} {height} {low:.3f} {high:.3f}\n".encode("ascii") + encoded.tobytes())
     i, j = np.unravel_index(np.argmin(b), b.shape)
-    print(f"{path}: {width} x {height}, |B| {low:.0f} .. {high:.0f} nT, weakest at parametric latitude "
+    print(f"{path}: {width} x {height}, |B| {low:.0f} .. {high:.0f} nT, weakest at latitude "
           f"{90.0 - (i + 0.5) * 180.0 / height:+.1f}, east longitude {(-180.0 + (j + 0.5) * 360.0 / width) % 360:.1f}")
+
+
+def report_peak(br, what):
+    height, width = br.shape
+    i, j = np.unravel_index(np.argmax(np.abs(br)), br.shape)
+    print(f"  {what}: strongest {br[i, j]:.0f} nT at latitude {90.0 - (i + 0.5) * 180.0 / height:+.1f}, "
+          f"east longitude {(-180.0 + (j + 0.5) * 360.0 / width) % 360:.1f}")
 
 
 def report_extreme(br, band_deg, what):
@@ -147,21 +186,31 @@ def report_extreme(br, band_deg, what):
     sub = br[rows]
     i, j = np.unravel_index(np.argmin(sub), sub.shape)
     print(f"  {what}: minimum within {band_deg} deg of the equator {sub.min():.0f} nT, "
-          f"parametric latitude {latitude[rows][i]:+.1f}, east longitude {longitude[j] % 360:.1f}")
+          f"latitude {latitude[rows][i]:+.1f}, east longitude {longitude[j] % 360:.1f}")
+
+
+def report_area_fractions(br, what):
+    """How strong the field is over how much of the sphere's area."""
+    height = br.shape[0]
+    area = np.cos(np.radians(90.0 - (np.arange(height) + 0.5) * 180.0 / height))[:, None] * np.ones_like(br)
+    order = np.argsort(np.abs(br), axis=None)
+    weight = np.cumsum(area.ravel()[order]) / area.sum()
+    for fraction in (0.5, 0.9, 0.99, 0.999, 0.9999):
+        value = np.abs(br).ravel()[order][np.searchsorted(weight, fraction)]
+        print(f"  {what}: {fraction:.2%} of the area below {value:.0f} nT")
 
 
 def main():
-    if len(sys.argv) != 4:
+    if len(sys.argv) != 5:
         sys.exit(__doc__)
-    mars_model, moon_model, out = sys.argv[1], sys.argv[2], Path(sys.argv[3])
+    mars_model, moon_model, crust_model, out = sys.argv[1], sys.argv[2], sys.argv[3], Path(sys.argv[4])
 
     # Mars 150 km up: where the model is measured, and where it does not ring.
     g, h = load_gauss(mars_model)
     cos_t, sin_t, radius = ellipsoid_rows(360, 3396.19, 3376.20, 150.0, 3393.5)
     mars = radial_field(g, h, cos_t, sin_t, radius, 720)
     write_map(out / "mars_br.fieldmap", mars)
-    i, j = np.unravel_index(np.argmax(np.abs(mars)), mars.shape)
-    print(f"  peak at parametric latitude {89.75 - 0.5 * i:+.1f}, east longitude {(-179.75 + 0.5 * j) % 360:.1f}")
+    report_peak(mars, "Mars")
 
     # Jupiter at the 1-bar surface, and at the top of the dynamo: same directions from the
     # center, so that the two maps line up on the mesh.
@@ -182,13 +231,37 @@ def main():
     cos_t, sin_t, radius = ellipsoid_rows(512, 1737.4, 1737.4, 30.0, 1737.4)
     moon = radial_field(g, h, cos_t, sin_t, radius, 1024)
     write_map(out / "moon_br.fieldmap", moon)
-    i, j = np.unravel_index(np.argmax(np.abs(moon)), moon.shape)
-    print(f"  peak at latitude {90.0 - (i + 0.5) * 180.0 / 512:+.1f}, east longitude {(-180.0 + (j + 0.5) * 360.0 / 1024) % 360:.1f}")
+    report_peak(moon, "Moon")
 
     # The Earth: the strength, not Br, which only shows the dipole's two halves.
     g, h = load_gauss(out / "field_earth_igrf14.txt")
     cos_t, sin_t, radius = ellipsoid_rows(180, 6378.1366, 6356.7519, 0.0, 6371.2)
     write_magnitude_map(out / "earth_b.fieldmap", total_field(g, h, cos_t, sin_t, radius, 360))
+
+    # Uranus in the body's own frame: magnetic_model_to_body is Rz(turn) Rx(180), so the model's
+    # latitude is minus the body's and its east longitude is turn minus the body's.
+    g, h = load_gauss(out / "field_uranus_ah5.txt")
+    cos_t, sin_t, radius = ellipsoid_rows(180, 25559.0, 24973.0, 0.0, 25600.0)
+    uranus = radial_field(g, h, -cos_t, sin_t, radius, 360, np.radians(-50.6) - cell_longitudes(360))
+    write_map(out / "uranus_br.fieldmap", uranus)
+    report_peak(uranus, "Uranus")
+
+    # Neptune in the model's frame (NLS): it turns slowly against the body's IAU longitudes,
+    # and the renderer turns the map to match.
+    g, h = load_gauss(out / "field_neptune_o8.txt")
+    cos_t, sin_t, radius = ellipsoid_rows(180, 24764.0, 24341.0, 0.0, 24765.0)
+    neptune = radial_field(g, h, cos_t, sin_t, radius, 360)
+    write_map(out / "neptune_br.fieldmap", neptune)
+    report_peak(neptune, "Neptune")
+
+    # The Earth's crust, without the main field: degrees 16 to 1050.
+    g, h = load_lithosphere(crust_model)
+    cos_t, sin_t, radius = ellipsoid_rows(1024, 6378.1366, 6356.7519, 0.0, 6371.2)
+    with np.errstate(under="ignore"):
+        crust = radial_field(g, h, cos_t, sin_t, radius, 2048)
+    report_peak(crust, "crust")
+    report_area_fractions(crust, "crust")
+    write_map(out / "earth_crust_br.fieldmap", crust, CRUST_CEILING_NT)
 
 
 if __name__ == "__main__":

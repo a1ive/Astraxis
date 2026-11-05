@@ -57,6 +57,7 @@ struct BodyDrawItem {
     // of the radial field, or of its strength.
     SDL_GPUTexture* field_map = nullptr;
     bool field_map_strength = false;
+    float field_map_u = 0.0f; // added to the map u of longitude 0 (turns)
 };
 
 struct SunLight {
