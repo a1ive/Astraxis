@@ -5,6 +5,7 @@
 #include "scene/aurora_model.hpp"
 #include "scene/magnetic_field.hpp"
 #include "scene/corona.hpp"
+#include "scene/disk.hpp"
 #include "scene/nebula.hpp"
 #include "scene/refraction.hpp"
 #include "scene/pinwheel.hpp"
@@ -564,6 +565,9 @@ struct SceneEvent {
     // Nebulae in the false-color thermal infrared while the event is active
     // (only those with infrared layers show); otherwise in visible light.
     bool nebula_infrared = false;
+    // A disk in its millimeter light (false color) while the event is active;
+    // nebula_infrared shows it in the thermal infrared, otherwise in scattered light.
+    bool disk_millimeter = false;
     bool aurora_visible = false; // visible aurora while the event is active
     bool aurora_ultraviolet = false; // UV false-color overlay on the visible planet
     bool aurora_infrared = false; // IR false-color overlay on the visible planet
@@ -709,6 +713,7 @@ public:
     // Expanding shells lit by their star (eta Carinae's Homunculus and Little
     // Homunculus); none in most scenes.
     std::vector<Nebula> nebulae;
+    Disk disk;
     Corona corona;
 
     // Heliocentric motion of the scene origin, used for the sun position when

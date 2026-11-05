@@ -261,6 +261,118 @@ constexpr double kNebulaAdaptShare = 0.1;
 constexpr float kNebulaMinPx = 0.7f;
 constexpr float kNebulaCullRadiance = 1e-4f;
 
+// A disk's ray at the display reference shows this bright (see Disk).
+constexpr float kDiskRadiance = 0.12f;
+// The millimeter view's false color (sRGB): the orange ALMA images are often shown in.
+const glm::dvec3 kDiskMillimeterColor(1.0, 0.62, 0.30);
+
+DiskUniforms disk_uniforms(const Scene& scene, const CameraView& view)
+{
+    DiskUniforms u;
+    const Disk& disk = scene.disk;
+    if (!disk.enabled()) {
+        return u;
+    }
+    const int event = scene.active_event();
+    DiskView which = DiskView::Scattered;
+    if (event >= 0) {
+        const SceneEvent& e = scene.events[static_cast<size_t>(event)];
+        which = e.nebula_infrared ? DiskView::Infrared : e.disk_millimeter ? DiskView::Millimeter : DiskView::Scattered;
+    }
+    const double reference = disk.reference[static_cast<size_t>(which)];
+    if (reference <= 0.0) {
+        return u;
+    }
+    const bool thick = disk.thick && which == DiskView::Scattered;
+    const Body& star = scene.bodies[static_cast<size_t>(disk.center)];
+    const glm::dmat3 to_icrf = scene.current_transform().axes;
+    u.ray_to_icrf = glm::mat4(glm::mat3(to_icrf)) * glm::inverse(view.view_proj);
+    u.camera = glm::vec4(glm::vec3(to_icrf * (view.position - star.world_position) / kAuKm),
+                         static_cast<float>(thick ? kDiskViewThick : static_cast<int>(which)));
+    constexpr float kDiskSourceMinPx = 1.4f;
+    u.phase_g = glm::vec4(static_cast<float>(disk.phase_g[0]), static_cast<float>(disk.phase_g[1]),
+                          static_cast<float>(disk.phase_g[2]), 2.0f * kDiskSourceMinPx / (view.viewport.y * view.focal_y));
+    u.phase_w = glm::vec4(static_cast<float>(disk.phase_w[0]), static_cast<float>(disk.phase_w[1]),
+                          static_cast<float>(disk.phase_w[2]), 0.0f);
+    u.tint = glm::vec4(glm::vec3(srgb_to_linear(kDiskMillimeterColor)), 1.0f);
+
+    // The components that show in this view, packed.
+    int count = 0;
+    for (const DiskComponent& c : disk.components) {
+        if (thick ? c.tau_per_column <= 0.0 : c.gain[static_cast<size_t>(which)] <= 0.0) {
+            continue;
+        }
+        const size_t k = static_cast<size_t>(count++);
+        u.axis_x[k] = glm::vec4(glm::vec3(c.to_icrf[0]), static_cast<float>(c.sigma_au));
+        u.axis_y[k] = glm::vec4(glm::vec3(c.to_icrf[1]), static_cast<float>(c.sigma2_au));
+        u.axis_z[k] = glm::vec4(glm::vec3(c.to_icrf[2]), static_cast<float>(c.share2));
+        u.color[k] = glm::vec4(glm::vec3(c.color), static_cast<float>(c.flare_radius_au));
+        u.temperature[k] = glm::vec4(static_cast<float>(c.temperature_k), static_cast<float>(c.temperature_radius_au),
+                                     static_cast<float>(c.temperature_index), static_cast<float>(c.flare_index));
+        for (int i = 0; i < kDiskRadialCount; ++i) {
+            u.table[static_cast<size_t>(i)][static_cast<int>(k)] =
+                static_cast<float>(thick ? c.tau_per_column * c.column[static_cast<size_t>(i)]
+                                         : c.gain[static_cast<size_t>(which)] * c.column[static_cast<size_t>(i)] / reference);
+        }
+    }
+    for (int i = 0; i < kDiskThermalCount; ++i) {
+        const double t = kDiskThermalLoK * std::pow(kDiskThermalHiK / kDiskThermalLoK, static_cast<double>(i) / (kDiskThermalCount - 1));
+        u.thermal[static_cast<size_t>(i)] = glm::vec4(glm::vec3(blackbody_linear_srgb(kNebulaInfraredShift * t)),
+                                                      static_cast<float>(std::log(nebula_infrared_emission(t))));
+    }
+    // The table is relative to the reference, so the ray's sum is too.
+    const double camera_au = glm::length(glm::dvec3(u.camera));
+    const double adapt = std::min(1.0, camera_au / disk.display_adapt_au);
+    // A thin disk's table is relative to the reference already.
+    u.params = glm::vec4(kDiskRadiance * static_cast<float>(adapt), static_cast<float>(disk.display_gamma),
+                         thick ? static_cast<float>(reference) : 1.0f, static_cast<float>(count));
+    u.range = glm::vec4(static_cast<float>(std::log(disk.inner_au)), static_cast<float>(std::log(disk.outer_au)),
+                        static_cast<float>(disk.outer_au), 0.0f);
+
+    // What stops a ray: the bodies large enough on screen, the largest first.
+    std::vector<const Body*> occluders;
+    for (const Body& b : scene.bodies) {
+        const double d = glm::length(b.world_position - view.position);
+        const bool solid = b.kind == BodyKind::Star || b.kind == BodyKind::Planet;
+        // A star too small to see is its sprite, drawn after the disk: cutting the
+        // disk's light behind it would leave a dark dot.
+        const double least_px = b.kind == BodyKind::Star ? 4.0 : 0.2;
+        if (!solid || !b.visible || d <= b.equatorial_radius_km ||
+            b.equatorial_radius_km / d * view.focal_y * view.viewport.y < least_px) {
+            continue;
+        }
+        occluders.push_back(&b);
+    }
+    std::sort(occluders.begin(), occluders.end(), [&](const Body* a, const Body* b) {
+        return a->equatorial_radius_km / glm::length(a->world_position - view.position) >
+               b->equatorial_radius_km / glm::length(b->world_position - view.position);
+    });
+    const size_t blockers = std::min(occluders.size(), static_cast<size_t>(kDiskOccluders));
+    for (size_t i = 0; i < blockers; ++i) {
+        const Body& b = *occluders[i];
+        u.occluders[i] = glm::vec4(glm::vec3(to_icrf * (b.world_position - view.position) / kAuKm),
+                                   static_cast<float>(b.equatorial_radius_km / kAuKm));
+    }
+    u.range.w = static_cast<float>(blockers);
+
+    // What shines in the disk in this view.
+    int sources = 0;
+    for (const DiskSource& s : disk.sources) {
+        const double gain = s.gain[static_cast<size_t>(which)];
+        const Body& b = scene.bodies[static_cast<size_t>(s.body)];
+        if (gain <= 0.0 || !b.visible || sources >= kDiskSources) {
+            continue;
+        }
+        const glm::dvec3 color = which == DiskView::Scattered ? s.color : glm::dvec3(u.tint);
+        const size_t k = static_cast<size_t>(sources++);
+        u.sources[k] = glm::vec4(glm::vec3(to_icrf * (b.world_position - view.position) / kAuKm),
+                                 static_cast<float>(s.sigma_au[static_cast<size_t>(which)]));
+        u.source_light[k] = glm::vec4(glm::vec3(color * (static_cast<double>(u.params.x) * std::pow(gain, disk.display_gamma))), 0.0f);
+    }
+    u.tint.w = static_cast<float>(sources);
+    return u;
+}
+
 // Henyey-Greenstein phase function (mean 1 over the sphere); `cos_angle` between
 // the incoming sunlight and the direction toward the camera (1 = forward).
 double dust_phase(double cos_angle)
@@ -471,7 +583,7 @@ bool SceneRenderer::init(const GpuDevice& gpu, SDL_GPUTextureFormat output_forma
            m_plumes.init(device, format) && m_comets.init(device, format) && m_dust.init(device, format) &&
            m_orbits.init(device, format) && m_belts.init(device, format) && m_pinwheel.init(device, format) &&
            m_nebula.init(device, format) &&
-           m_corona.init(device, format) && m_sun.init(device, format) && m_beams.init(device, format) && m_black_hole.init(device, format) &&
+           m_corona.init(device, format) && m_disk.init(device, format) && m_sun.init(device, format) && m_beams.init(device, format) && m_black_hole.init(device, format) &&
            m_post.init(device, format.color, output_format);
 }
 
@@ -481,7 +593,7 @@ bool SceneRenderer::refresh_pipelines()
     return m_starfield.set_format(format) && m_bodies.set_format(format) && m_rings.set_format(format) &&
            m_atmospheres.set_format(format) && m_auroras.set_format(format) && m_plumes.set_format(format) &&
            m_comets.set_format(format) && m_dust.set_format(format) && m_orbits.set_format(format) &&
-           m_belts.set_format(format) && m_pinwheel.set_format(format) && m_nebula.set_format(format) && m_corona.set_format(format) && m_sun.set_format(format) &&
+           m_belts.set_format(format) && m_pinwheel.set_format(format) && m_nebula.set_format(format) && m_corona.set_format(format) && m_disk.set_format(format) && m_sun.set_format(format) &&
            m_beams.set_format(format) && m_black_hole.set_format(format);
 }
 
@@ -505,6 +617,7 @@ void SceneRenderer::shutdown()
     m_beams.shutdown();
     m_sun.shutdown();
     m_corona.shutdown();
+    m_disk.shutdown();
     m_orbits.shutdown();
     m_belts.shutdown();
     m_pinwheel.shutdown();
@@ -550,6 +663,7 @@ void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, u
     }
     load_pinwheel(scene);
     load_nebulae(scene);
+    m_disk.set_star_depth(scene.disk.star_depth);
     m_body_textures.assign(scene.bodies.size(), nullptr);
     m_ring_textures.assign(scene.bodies.size(), nullptr);
     m_night_textures.assign(scene.bodies.size(), nullptr);
@@ -1226,7 +1340,7 @@ void SceneRenderer::build_nebula_items(const Simulation& sim, const OutputView& 
     for (size_t k = 0; k < scene.nebulae.size(); ++k) {
         const Nebula& n = scene.nebulae[k];
         const double scale = nebula_scale(n, t);
-        if (!n.enabled() || scale <= 0.0 || (infrared && n.infrared.empty())) {
+        if (!n.enabled() || scale <= 0.0 || (infrared && n.infrared.empty()) || (!infrared && n.infrared_only)) {
             continue;
         }
         NebulaDrawItem item;
@@ -1617,6 +1731,20 @@ void SceneRenderer::draw_stars(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pas
         s.display_gain = static_cast<float>(observed_star_display_gain(
             observed, static_cast<int>(&body - scene.bodies.data()), sim.clock().t_tdb));
         s.draw_disk = s.angular_radius * viewport_half < 3.0f; // otherwise the sphere shows it
+        // A thick disk in scattered light dims the star behind it.
+        if (scene.disk.thick && scene.disk.enabled()) {
+            const int event = scene.active_event();
+            const bool scattered = event < 0 || (!scene.events[static_cast<size_t>(event)].nebula_infrared &&
+                                                 !scene.events[static_cast<size_t>(event)].disk_millimeter);
+            if (scattered) {
+                const glm::dmat3 to_icrf = scene.current_transform().axes;
+                const glm::dvec3 from =
+                    to_icrf * (view.position - scene.bodies[static_cast<size_t>(scene.disk.center)].world_position) / kAuKm;
+                const double dimming = std::exp(-disk_optical_depth(scene.disk, from, to_icrf * (to_star / distance), distance / kAuKm));
+                s.display_gain *= static_cast<float>(dimming);
+                s.glow_gain *= static_cast<float>(dimming);
+            }
+        }
         glm::dvec3 beams[2];
         if (pulsar_beams(scene, body, sim.clock().t_tdb, sim.animation_time(), beams)) {
             const glm::dvec3 to_camera = -to_star / distance;
@@ -1796,6 +1924,7 @@ void SceneRenderer::render(const Frame& frame, const Simulation& sim, const Outp
     }
 
     m_corona.render(frame.cmd, targets.corona, corona_uniforms(sim.scene(), view), frame.width, frame.height);
+    m_disk.render(frame.cmd, targets.disk, disk_uniforms(sim.scene(), view), frame.width, frame.height);
 
     SDL_GPURenderPass* pass = targets.begin_scene_pass(frame.cmd, {0.0f, 0.0f, 0.0f, 1.0f});
     const float sky = static_cast<float>(sim.sky_visibility());
@@ -1816,6 +1945,7 @@ void SceneRenderer::render(const Frame& frame, const Simulation& sim, const Outp
     m_belts.draw(frame.cmd, pass, view, m_belt_items);
     m_pinwheel.composite(pass, targets.pinwheel);
     m_nebula.composite(pass, targets.nebula);
+    m_disk.composite(frame.cmd, pass, targets.disk);
     m_black_hole.composite(frame.cmd, pass, targets.black_hole);
     draw_stars(frame.cmd, pass, sim, output_view);
     m_beams.draw(frame.cmd, pass, view, m_beam_items);

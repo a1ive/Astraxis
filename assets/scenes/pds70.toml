@@ -1,0 +1,373 @@
+# PDS 70: a young K7 star 112 pc away in Upper Centaurus-Lupus, with a dust ring and
+# in the gap inside it the only directly imaged planets known to be still growing,
+# b at ~21 au and c at ~34 au, near a 2:1 resonance. c has a circumplanetary disk.
+#
+# The planets are two-body orbits around the star (no pull on each other, or on
+# it). The disk (scene/disk.hpp) is axisymmetric: optically thick in scattered
+# light, with single scattering only; optically thin at millimeter wavelengths.
+#
+# [TR25] Trevascus et al. 2025, A&A 698 (arXiv:2504.11210). Table 3 (posterior
+#        medians), fits to b and c: "Stable" a_b = 20.8 au, e = 0.18, i = 130.3,
+#        omega = 193, Omega = 179, tau = 0.360; "Stable (incl. N-body)" a_c = 33.9 au,
+#        e = 0.042, i = 129.8, omega = 77, Omega = 158.0, tau = 0.521, M_star = 0.952
+#        M_sun, M_b = 1.4, M_c = 6.4 M_Jup; tau in periods after MJD 58849. Table 4,
+#        fit with d, "Stable (incl. N-body)": a_d = 10.7, e = 0.25, i = 151, omega =
+#        29, Omega = 144, tau = 0.55, M_d = 0.4 M_Jup. Table 2: GRAVITY positions
+#        (tests). Sect. 3.1.1: parallax 8.8975 mas (Gaia DR3); i > 90 is clockwise.
+# [KE19] Keppler et al. 2019, A&A 625, A118 (arXiv:1902.07639): the 870 um ring,
+#        Sect. 3.1.1: i = 51.7, PA = 156.7, peak 73.7 au, widths 14.8 and 13.4 au
+#        inward and outward, a possible second peak near 60 au. "Likely almost
+#        optically thick".
+# [BE21] Benisty et al. 2021, ApJL 916, L2 (arXiv:2108.07123): Table 2, inner disk
+#        0.846 mJy with sigma 59.3 mas; emission near c (r 324.9 mas, 111.5 uJy) and
+#        near b (178.5 mas, 83.1 uJy, low surface brightness and extended); Sect. 3,
+#        176 mJy in all, the source at c less than 1.2 au in radius.
+# [PR23] Portilla-Revelo et al. 2023, A&A 677, A76 (arXiv:2306.16850). Table 1: H =
+#        10.61 au at 100 au, flaring 1.14; grains 0.001-3000 um, q = 3.9, 19.2%
+#        amorphous carbon, 60.8% silicate, 20% vacuum by volume; L = 0.35 L_sun.
+#        Fig. A.2: the total column of dust, read off the plot; the 1e-5 g cm^-2 in
+#        the gap and beyond 110 au are limits from ALMA's sensitivity.
+# [MU18] Mueller et al. 2018, A&A 617, L2 (arXiv:1806.11567). Table A.1: T = 3972 K,
+#        R = 1.26 R_sun. App. B: the ring in scattered light about 54 au in radius,
+#        the West (near) side brighter. Radius of b 1.4-3.7 R_Jup.
+# [HA19] Haffert et al. 2019, Nature Astronomy 3, 749 (arXiv:1906.01486): MUSE on
+#        2018 June 20, H-alpha from b and c, ~2e-8 M_Jup per year each.
+# [HA25] Hammond et al. 2025, MNRAS (arXiv:2504.11127), Table 2: positions of the
+#        candidate d (tests); Sect. 1, Mesa et al. 2019 first saw it at 13 au.
+# [DO25] arXiv:2507.09402: the infrared ring at 54 au, ALMA Band 9 at 67 au, the
+#        longer wavelengths at 76 au.
+# [HS15] Hedman & Stark 2015, ApJ 811, 67 (arXiv:1508.00261), Table 7: three
+#        Henyey-Greenstein functions fitted to Saturn's G ring.
+# [WIKI] Wikipedia, PDS 70: ICRS position 14 08 10.15455, -41 23 52.5733 (SIMBAD).
+#
+# [CAP]  Event captions: from the sources above.
+#
+# Derived: GM = mass * GM_sun (1.32712440041279419e11, JPL DE440) plus mass * GM_Jup
+# (126686531.9, JUP365). t_peri = MJD 58849 + tau * P; P_b = 96.8 yr, P_c = 201.7 yr,
+# P_d = 35.6 yr. Distance 1000 / 8.8975 mas = 112.39 pc.
+# [TR25]'s medians are not one orbit: b's from "Stable" and c's from "Stable (incl.
+# N-body)" stand nearest GRAVITY's positions (tests). Assumed: R_b = 2.5 R_Jup (within
+# [MU18]'s range), R_c = 2 R_Jup, R_d = 1 R_Jup; the planets' colors. d's fit calls it
+# inclined to the others; [TR25] find that adding it makes most of their fits
+# unstable, so it is shown only in its own event.
+#
+# The opacity: tau_per_column is the extinction of [PR23]'s grains, not fitted to any
+# image: Q_ext = 2 above 0.1 um and no extinction below it, with bulk densities of 1.8
+# (carbon) and 3.5 g cm^-3 (silicate), assumed, give 3100 cm^2 per gram of dust. With
+# it the ring in scattered light comes out at the observed 54 au, inside the ALMA ring
+# (tests), where starlight first meets the dust's rising edge. The grains that scatter
+# light are taken to fill the gas's height. Inside ~16 au [PR23] do not resolve the disk.
+# The millimeter light: [KE19]'s ring as brightness, with no temperature, and an inner
+# disk with [BE21]'s flux relative to the whole, 0.846 / 176 (0.28 of the ring's peak
+# brightness for these widths). Heights are assumed.
+#
+# Checks (tests/stellar_system_tests.cpp): the planets against GRAVITY, d against
+# [HA25], the period ratio [TR25], the height [PR23], where the rings peak [MU18]
+# [KE19], which side is brighter [MU18], the inner disk's share of the flux [BE21],
+# the dark gap, and the table of optical depth.
+# The sky is a model of the Milky Way as seen from here (tools/sky/make_galaxy_sky.py,
+# assets/sky/SOURCES.md): its stars and dust clouds are statistical, not real ones.
+
+name = "PDS 70"
+
+[sky]
+viewer_ra_dec_distance_pc = [212.0423106, -41.3979370, 112.39]   # [WIKI], [TR25]
+milky_way = "sky/pds70.jpg"
+stars = "sky/pds70_stars.csv"
+
+[view]
+focus = "PDS 70"
+distance_km = 4.0e10           # 270 au: the ring across the screen
+start = "now"
+warp = 31557600.0              # a year per second: b's orbit in 97 s
+up = "orbit_normal:PDS 70 c"
+pitch_deg = 30.0
+
+[disk]
+center = "PDS 70"
+sky_ra_dec_deg = [212.0423106, -41.3979370]
+thick = true
+inner_au = 0.2                 # [PR23]'s reaches 0.04 au
+outer_au = 300.0
+extent_au = 110.0
+phase_g = [0.995, 0.665, 0.035] # [HS15]; PDS 70's own is not measured
+phase_w = [0.643, 0.176, 0.181]
+display_reference_au = 73.7    # [KE19]'s ring
+display_gamma = 0.6
+display_adapt_au = 150.0
+
+# The dust as a whole, in scattered light.
+[[disk.components]]
+name = "Dust"
+node_deg = 156.7               # [KE19]
+i_deg = 128.3                  # 51.7 from face-on, turning clockwise [TR25]
+sigma_au = 0.004034            # with the flaring below, H = 10.61 au at 100 au [PR23]
+flare_radius_au = 0.1
+flare_index = 1.14             # [PR23]
+tau_per_column = 3100.0        # cm^2 per g of dust; see above
+scattered = 1.0
+color = "#ffdcb4"              # a 3,972 K star's light, by eye
+temperature_k = 20.0           # not shown in this scene's views
+temperature_radius_au = 100.0
+temperature_index = 0.0
+# g cm^-2, read off [PR23] Fig. A.2; beyond 130 au it is assumed to fall away.
+radial_au = [0.2, 1, 2, 5, 8, 10, 12, 13, 14, 15, 16, 17, 41, 42, 43, 44, 46, 48, 50, 52, 56, 60, 65, 70, 75, 78, 82, 85, 88, 92, 96, 100, 103, 105, 107, 109, 110, 130, 180, 300]
+column = [5e-3, 3.5e-3, 2.8e-3, 1.7e-3, 1.35e-3, 1.1e-3, 9e-4, 6e-4, 3e-4, 1e-4, 3e-5, 1e-5, 1e-5, 2e-5, 6e-5, 1.5e-4, 5e-4, 1.6e-3, 3.5e-3, 6e-3, 9e-3, 1e-2, 1.3e-2, 1.8e-2, 2.5e-2, 2.9e-2, 2.5e-2, 1.8e-2, 1.1e-2, 6.5e-3, 4.5e-3, 3.5e-3, 2e-3, 1.2e-3, 5e-4, 1.5e-4, 1e-5, 1e-5, 3e-6, 1e-7]
+
+# At millimeter wavelengths: brightness, as fitted to the images.
+[[disk.components]]
+name = "Ring"
+node_deg = 156.7               # [KE19]
+i_deg = 128.3
+ring_center_au = 73.7          # [KE19]
+ring_sigma_au = 14.8
+ring_sigma_out_au = 13.4
+sigma_au = 1.0                 # assumed: large grains settled
+flare_radius_au = 100.0
+millimeter = 1.0
+temperature_k = 20.0           # none: the ring is fitted as brightness
+temperature_radius_au = 100.0
+temperature_index = 0.0
+
+[[disk.components]]
+name = "Inner disk"
+node_deg = 156.7
+i_deg = 128.3
+ring_center_au = 0.0
+ring_sigma_au = 6.665          # 59.3 mas [BE21]
+sigma_au = 0.3                 # assumed
+flare_radius_au = 100.0
+millimeter = 0.28              # 0.846 of 176 mJy [BE21], for these widths
+temperature_k = 20.0
+temperature_radius_au = 100.0
+temperature_index = 0.0
+
+# What shines in the gap. Scattered light: the planets' H-alpha [HA19], brightened by
+# eye. Millimeter: [BE21]'s fluxes relative to the ring's peak brightness, 16430 au^2
+# of it being the ring's whole flux.
+[[disk.sources]]
+body = "PDS 70 c"
+sigma_au = 0.3                 # a marker in H-alpha
+millimeter_sigma_au = 0.6      # half of [BE21]'s upper limit on the radius
+scattered = 2.5
+millimeter = 4.6               # 111.5 uJy
+color = "#ff3b45"
+
+[[disk.sources]]
+body = "PDS 70 b"
+sigma_au = 0.3                 # a marker in H-alpha
+millimeter_sigma_au = 3.0      # assumed: [BE21] find it extended
+scattered = 2.5
+millimeter = 0.137             # 83.1 uJy
+color = "#ff3b45"
+
+# The observer's offsets hang on this point, which stays with the star.
+[[bodies]]
+name = "PDS 70 system"
+kind = "barycenter"
+
+[[bodies]]
+name = "PDS 70"
+parent = "PDS 70 system"
+kind = "star"
+radii_km = [876582.0]          # 1.26 R_sun [MU18]
+body_gm_km3_s2 = 1.26342243e11 # 0.952 M_sun [TR25]
+temperature_k = 3972.0         # [MU18]
+luminosity_solar = 0.35        # [PR23]
+trail = "none"
+[bodies.orbit]
+type = "fixed"
+ra_dec_distance_pc = [0.0, 0.0, 0.0]
+
+[[bodies]]
+name = "PDS 70 b"
+parent = "PDS 70"
+radii_km = [178730.0]          # 2.5 R_Jup, assumed
+body_gm_km3_s2 = 177361145.0   # 1.4 M_Jup [TR25]
+color = "#c98f6a"              # artistic
+orbit_color = "#ff9c7a"
+[bodies.orbit]
+type = "visual_orbit"
+gm_km3_s2 = 1.26519604e11      # M_star + M_b
+a_au = 20.8
+e = 0.18
+i_deg = 130.3
+node_deg = 179.0
+arg_peri_deg = 193.0
+t_peri_jd_tdb = 2471582.242    # MJD 58849 + 0.360 P
+sky_ra_dec_deg = [212.0423106, -41.3979370]
+
+[[bodies]]
+name = "PDS 70 c"
+parent = "PDS 70"
+radii_km = [142984.0]          # 2 R_Jup, assumed
+body_gm_km3_s2 = 810793804.0   # 6.4 M_Jup [TR25]
+color = "#c9a58a"              # artistic
+orbit_color = "#ffc08a"
+[bodies.orbit]
+type = "visual_orbit"
+gm_km3_s2 = 1.27153037e11      # M_star + M_c
+a_au = 33.9
+e = 0.042
+i_deg = 129.8
+node_deg = 158.0
+arg_peri_deg = 77.0
+t_peri_jd_tdb = 2497222.711    # MJD 58849 + 0.521 P
+sky_ra_dec_deg = [212.0423106, -41.3979370]
+
+[[bodies]]
+name = "PDS 70 d (candidate)"
+parent = "PDS 70"
+radii_km = [71492.0]           # 1 R_Jup, assumed
+body_gm_km3_s2 = 50674613.0    # 0.4 M_Jup [TR25]
+color = "#b8a898"              # artistic
+orbit_color = "#c8c8d8"
+[bodies.orbit]
+type = "visual_orbit"
+gm_km3_s2 = 1.28119000e11      # 0.965 M_sun + M_d, that fit's star [TR25]
+a_au = 10.7
+e = 0.25
+i_deg = 151.0
+node_deg = 144.0
+arg_peri_deg = 29.0
+t_peri_jd_tdb = 2466005.4      # MJD 58849 + 0.55 P
+sky_ra_dec_deg = [212.0423106, -41.3979370]
+
+[[bodies]]
+name = "Sun"
+template = "bodies/sun.toml"
+parent = "PDS 70 system"
+trail = "none"
+[bodies.orbit]                 # opposite direction of the system as seen from the Sun
+type = "fixed"
+ra_dec_distance_pc = [32.0423106, 41.3979370, 112.39]
+
+# As astronomers show the sky: north up (east to the left when seen from Earth).
+[[frames]]
+name = "PDS 70, north up"
+type = "inertial"
+origin = "PDS 70"
+up = "north"
+
+[[frames]]
+name = "PDS 70, disk level"
+type = "inertial"
+origin = "PDS 70"
+up = "orbit_normal:PDS 70 c"
+
+[[events]]
+name = "A ring with a gap inside"
+time = "2012-03-01"
+focus = "PDS 70"
+frame = "PDS 70, north up"
+observer = "PDS 70 system"
+observer_offset_km = [190245628196.6, 119074096698.8, 197853612854.0]   # 2000 au toward Earth: lines of sight almost parallel
+fov_deg = 8.0                  # 140 au above and below the star
+warp = 31557600.0
+# [MU18], [PR23], [DO25]
+caption = """\
+    PDS 70 is a young star with a disk of gas and dust, tilted about 52 degrees to \
+    us. Images in near-infrared light show a bright ring 54 au from the star. Its \
+    near side, to the west, is the brighter, because grains scatter light forward. \
+    Inside it the dust is almost gone: from 16 to 41 au, at least 2,500 times less, as \
+    if something had swept it away. Here this model's dust is greatly brightened."""
+
+[[events]]
+name = "A planet in the gap"
+time = "2018-02-25"
+focus = "PDS 70"
+frame = "PDS 70, north up"
+observer = "PDS 70 system"
+observer_offset_km = [190245628196.6, 119074096698.8, 197853612854.0]   # 2000 au toward Earth: lines of sight almost parallel
+fov_deg = 3.4                  # 60 au above and below the star
+warp = 7889400.0
+# [MU18], [TR25]
+caption = """\
+    In 2018 the SPHERE instrument on the Very Large Telescope showed what cleared the \
+    gap: a planet, PDS 70 b, the first seen inside the gap of a young disk. It moves \
+    just as an orbit about 21 au from the star should, taking about 97 years. Its \
+    spectrum fits a young, cloudy giant of 1,000 to 1,600 K, seen by its own heat."""
+
+[[events]]
+name = "Two planets, still growing"
+time = "2018-06-20"            # [HA19]'s observation
+focus = "PDS 70"
+frame = "PDS 70, disk level"
+from_orbit_normal = "PDS 70 c"
+distance_km = 1.3e10           # 87 au
+warp = 7889400.0
+# [HA19]
+caption = """\
+    A spectrograph on the Very Large Telescope found both planets glowing red in \
+    hydrogen-alpha light, shown here as red points, which is the mark of gas falling \
+    onto them at high speed. It also found a second planet, c, at 34 au. Each is taking \
+    in about 2e-8 Jupiter masses a year. At that rate they would need 50-100 million \
+    years to reach Jupiter's mass; the disk will not last that long."""
+
+[[events]]
+name = "A moon-forming disk"
+time = "2019-07-15"            # [BE21]'s long-baseline data
+focus = "PDS 70"
+frame = "PDS 70, north up"
+observer = "PDS 70 system"
+observer_offset_km = [190245628196.6, 119074096698.8, 197853612854.0]   # 2000 au toward Earth: lines of sight almost parallel
+fov_deg = 5.0                  # 87 au above and below the star
+warp = 7889400.0
+disk_millimeter = true
+# [BE21], [KE19], [DO25]
+caption = """\
+    In false color, ALMA's view at 0.9 mm: the largest grains, gathered into a ring \
+    near 74 au, outside the ring seen in scattered light. A faint inner disk lies \
+    within 18 au. And at planet c is a compact source no wider than 2.4 au, a disk \
+    around the planet itself, about as wide as a third of the region the planet's \
+    gravity holds, and the clearest view yet of a place where moons could form."""
+
+[[events]]
+name = "Near a resonance"
+time = "2021-01-08"            # [TR25]'s first GRAVITY epoch of c
+focus = "PDS 70"
+frame = "PDS 70, disk level"
+from_orbit_normal = "PDS 70 c"
+distance_km = 1.0e10           # 67 au
+warp = 157788000.0             # five years per second
+# [TR25]
+caption = """\
+    Astrometry from GRAVITY pins down the orbits. c takes about twice as long as b, \
+    consistent with a 2:1 resonance the two may have locked into as they migrated. \
+    Most orbits that fit the data fall apart within 2 million years, and those that \
+    survive put upper limits on the masses: under 4.9 Jupiter masses for b and 13.6 \
+    for c."""
+
+[[events]]
+name = "A third planet?"
+time = "2023-03-08"            # [HA25]'s last epoch
+focus = "PDS 70"
+frame = "PDS 70, disk level"
+from_orbit_normal = "PDS 70 c"
+distance_km = 5.5e9            # 37 au
+warp = 31557600.0
+show = ["PDS 70 d (candidate)"]
+# [HA25], [TR25]
+caption = """\
+    Near the edge of the inner disk JWST and earlier images show a compact source \
+    moving as an orbit would. It may be a third planet, shown here on one possible \
+    orbit, perhaps in resonance with the others, or a clump in the inner disk. Its \
+    light does not settle the matter, and adding it to the fits makes most of the \
+    system's possible orbits unstable."""
+
+[[events]]
+name = "Edge-on, as no one sees it"
+time = "2024-06-01"
+focus = "PDS 70"
+frame = "PDS 70, disk level"
+from_body = "Sun"
+phase_deg = 90.0
+elevation_deg = 3.0
+distance_km = 4.5e10           # 300 au
+warp = 31557600.0
+# [PR23]
+caption = """\
+    From the side, this model of the disk is a dark lane between two glowing surfaces. \
+    The star's light reaches only the top layers: the dust is opaque along the plane, \
+    and it hides the star itself. Grains settle and grow in the dark midplane, where \
+    planets form. Nobody has this view of PDS 70; it is what the fitted densities imply."""
