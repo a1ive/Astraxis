@@ -2661,6 +2661,159 @@ void test_didymos_scene()
 
 } // namespace
 
+void test_shoemaker_levy_9()
+{
+    Scene scene = load_scene_or_die("jupiter.toml");
+    const int jupiter = scene.find("Jupiter");
+    const int parent = scene.find("SL9 parent comet");
+    check(jupiter == 0 && parent > 0, "jupiter.toml has SL9's parent");
+    if (jupiter != 0 || parent <= 0) {
+        return;
+    }
+    auto at = [&](int body, double jd) {
+        return scene.icrf_state_at(body, tdb_from_jd_tdb(jd)).position - scene.icrf_state_at(jupiter, tdb_from_jd_tdb(jd)).position;
+    };
+    auto frag = [&](const char* name) { return scene.find((std::string("SL9 ") + name).c_str()); };
+    auto end_of = [&](int body, double from, double to) {
+        for (int i = 0; i < 80; ++i) {
+            const double mid = 0.5 * (from + to);
+            (scene.bodies[static_cast<size_t>(body)].motion->valid_at(mid) ? from : to) = mid;
+        }
+        return from;
+    };
+
+    // Perijove and breakup [SEK]: 1992 July 7.860364 TDB and 2.5 h later. [CY96] Fig. 2: 93,000-95,000 km.
+    const double perijove_jd = 2448811.360364;
+    double nearest = 1e30;
+    double nearest_jd = 0.0;
+    for (double jd = perijove_jd - 0.1; jd < perijove_jd + 0.1; jd += 1.0 / 1440.0) {
+        const double r = glm::length(at(parent, jd));
+        if (r < nearest) {
+            nearest = r;
+            nearest_jd = jd;
+        }
+    }
+    check(nearest > 93000.0 && nearest < 95000.0, "SL9's perijove distance, Chodas & Yeomans Fig. 2", nearest);
+    check(std::abs(nearest_jd - perijove_jd) * 1440.0 < 45.0, "SL9's perijove time, Sekanina",
+          (nearest_jd - perijove_jd) * 1440.0);
+    const double breakup = tdb_from_jd_tdb(perijove_jd) + 2.5 * 3600.0;
+    const MotionSource& parent_motion = *scene.bodies[static_cast<size_t>(parent)].motion;
+    check(parent_motion.valid_at(breakup - 60.0) && !parent_motion.valid_at(breakup + 60.0),
+          "the parent comet ends at the breakup");
+
+    // All on the parent at the breakup, even though the orbits, run back, are 94,000 km apart.
+    double spread = 0.0;
+    const glm::dvec3 parent_end =
+        scene.icrf_state_at(parent, end_of(parent, breakup - 60.0, breakup + 60.0)).position;
+    for (const char* name : {"A", "G", "K", "W", "B", "V"}) {
+        const int f = frag(name);
+        check(!scene.bodies[static_cast<size_t>(f)].motion->valid_at(breakup - 60.0), "no fragment before the breakup");
+        spread = std::max(spread, glm::length(scene.icrf_state_at(f, breakup + 1.0).position - parent_end));
+    }
+    check(spread < 100.0, "the fragments leave from the parent comet", spread);
+
+    // Later splits [SEK] Sec. 4.3: Q2 from Q1, 1993 Apr 12; P2 from Q, 1992 Dec 29. HST saw Q1 and Q2
+    // 0.3 arcsec apart on 1993 Jul 1, 5.5 au from the Earth [WEA] Table 1: 1200 km.
+    const int q1 = frag("Q1");
+    const int q2 = frag("Q2");
+    const int p2 = frag("P2");
+    const MotionSource& q2_motion = *scene.bodies[static_cast<size_t>(q2)].motion;
+    check(!q2_motion.valid_at(tdb_from_jd_tdb(2449089.4)) && q2_motion.valid_at(tdb_from_jd_tdb(2449089.6)),
+          "Q2 appears on 1993 Apr 12");
+    check(glm::length(at(q2, 2449089.51) - at(q1, 2449089.51)) < 20.0, "Q2 starts on Q1");
+    const double q_apart = glm::length(at(q2, 2449169.5) - at(q1, 2449169.5));
+    check(q_apart > 800.0 && q_apart < 1500.0, "Q1 and Q2 on 1993 Jul 1", q_apart);
+    check(glm::length(at(p2, 2448985.51) - at(q1, 2448985.51)) < 20.0, "P2 starts on Q1, 1992 Dec 29");
+
+    // The train: 47 arcsec on 1993 Mar 26 at about 4.4 au [IAUC], 150,000 km; 1.15e6 km in projection
+    // on 1994 May 17 [WEA], and its length along the line of sight only adds to that.
+    const int a = frag("A");
+    const int w = frag("W");
+    const double train_1993 = glm::length(at(a, 2449072.5) - at(w, 2449072.5));
+    check(train_1993 > 130000.0 && train_1993 < 170000.0, "train at discovery, IAUC 5725", train_1993);
+    const double train_1994 = glm::length(at(a, 2449489.5) - at(w, 2449489.5));
+    check(train_1994 > 1.15e6 && train_1994 < 1.25e6, "train on 1994 May 17, Weaver Fig. 1", train_1994);
+
+    // Apojove near 1993 Jul 13, 0.33 au [CY96].
+    const double apojove = glm::length(at(frag("G"), 2449181.5)) / kAuKm;
+    check(std::abs(apojove - 0.33) < 0.005, "apojove, Chodas & Yeomans", apojove);
+
+    // The impacts, Chodas & Yeomans Table 5: at the Earth (43 minutes of light, about).
+    struct Impact {
+        const char* name;
+        int day;
+        int h, m, s;
+        double lat, west;
+    };
+    const Impact impacts[] = {
+        {"A", 16, 20, 10, 40, -43.35, 184}, {"B", 17, 2, 50, 0, -43.22, 67},    {"C", 17, 7, 10, 50, -43.47, 222},
+        {"D", 17, 11, 52, 30, -43.53, 33},  {"E", 17, 15, 11, 40, -43.54, 153}, {"F", 18, 0, 35, 45, -43.68, 135},
+        {"G", 18, 7, 33, 33, -43.66, 26},   {"H", 18, 19, 31, 59, -43.79, 99},  {"K", 19, 10, 24, 17, -43.86, 278},
+        {"L", 19, 22, 16, 49, -43.96, 348}, {"N", 20, 10, 29, 20, -44.31, 71},  {"P2", 20, 15, 21, 11, -44.69, 249},
+        {"P1", 20, 16, 32, 35, -45.02, 293}, {"Q2", 20, 19, 44, 0, -44.32, 46}, {"Q1", 20, 20, 13, 53, -44.00, 63},
+        {"R", 21, 5, 34, 57, -44.10, 42},   {"S", 21, 15, 16, 30, -44.22, 33},  {"T", 21, 18, 9, 56, -45.01, 141},
+        {"U", 21, 22, 0, 2, -44.48, 278},   {"V", 22, 4, 23, 20, -44.47, 149},  {"W", 22, 8, 6, 16, -44.13, 283},
+    };
+    const Body& planet = scene.bodies[static_cast<size_t>(jupiter)];
+    double worst_time = 0.0;
+    double worst_lat = 0.0;
+    double worst_lon = 0.0;
+    for (const Impact& i : impacts) {
+        const int f = frag(i.name);
+        check(f > 0, "SL9 has the fragment", static_cast<double>(f));
+        const double jd = 2449534.5 + (i.day - 1) + (i.h * 3600.0 + i.m * 60.0 + i.s + 61.2 - 43.0 * 60.0) / 86400.0;
+        const double expected = tdb_from_jd_tdb(jd);
+        const double end = end_of(f, expected - 1200.0, expected + 1200.0);
+        worst_time = std::max(worst_time, std::abs(end - expected));
+        const glm::dvec3 r = scene.icrf_state_at(f, end).position - scene.icrf_state_at(jupiter, end).position;
+        const glm::dvec3 fixed = glm::transpose(scene.body_to_icrf(planet, end)) * r;
+        const double lat = glm::degrees(std::asin(fixed.z / glm::length(fixed)));
+        const double west = glm::degrees(-std::atan2(fixed.y, fixed.x));
+        worst_lat = std::max(worst_lat, std::abs(lat - i.lat));
+        worst_lon = std::max(worst_lon, std::abs(std::remainder(west - i.west, 360.0)));
+    }
+    // The differences are systematic: Horizons' integration is not quite the paper's, which fit the times.
+    check(worst_time < 90.0, "SL9's impact times, Table 5", worst_time);
+    check(worst_lat < 0.3, "SL9's impact latitudes, Table 5", worst_lat);
+    check(worst_lon < 1.5, "SL9's impact longitudes, Table 5 (to the degree)", worst_lon);
+
+    // G's speed and angle in a frame turning with Jupiter, Table 6: 61.36 km/s, 43.24 deg from vertical.
+    const int g = frag("G");
+    const double g_end = end_of(g, tdb_from_jd_tdb(2449551.5), tdb_from_jd_tdb(2449552.5));
+    const State g_state = scene.icrf_state_at(g, g_end - 1.0);
+    const glm::dvec3 g_r = g_state.position - scene.icrf_state_at(jupiter, g_end - 1.0).position;
+    const glm::dvec3 pole = scene.body_to_icrf(planet, g_end) * glm::dvec3(0.0, 0.0, 1.0);
+    const glm::dvec3 g_v = g_state.velocity - glm::radians(870.536 / 86400.0) * glm::cross(pole, g_r);
+    check(std::abs(glm::length(g_v) - 61.36) < 0.5, "G's impact speed, Table 6", glm::length(g_v));
+    // Vertical is the normal of the oblate level, 3.2 deg from the radius at this latitude.
+    const glm::dvec3 g_fixed = glm::transpose(scene.body_to_icrf(planet, g_end)) * g_r;
+    const double flattening = planet.equatorial_radius_km / planet.polar_radius_km;
+    const glm::dvec3 vertical =
+        scene.body_to_icrf(planet, g_end) *
+        glm::normalize(glm::dvec3(g_fixed.x, g_fixed.y, g_fixed.z * flattening * flattening));
+    const double incidence = glm::degrees(std::acos(-glm::dot(glm::normalize(g_v), vertical)));
+    check(std::abs(incidence - 43.24) < 2.0, "G's incidence angle, Table 6", incidence);
+
+    // Gone after the impact, drawn only as dust, sized from Weaver's Table 2.
+    scene.update(g_end + 60.0);
+    check(!scene.bodies[static_cast<size_t>(g)].visible, "G is gone after its impact");
+    scene.update(g_end - 60.0);
+    check(scene.bodies[static_cast<size_t>(g)].visible, "G is there just before");
+    const Body& g_body = scene.bodies[static_cast<size_t>(g)];
+    check(g_body.comet.enabled && g_body.comet.dust_only, "the fragments are comets of dust alone");
+    check(std::abs(g_body.equatorial_radius_km - 0.5 * 1.4 * 2.9) < 0.01, "G's size, Weaver Table 2", g_body.equatorial_radius_km);
+
+    // The moons are on a Horizons table then, not the drifting mean elements.
+    const glm::dvec3 io_hzn(5.142908063192183e4, 3.760951208508275e5, 1.79833093e5);
+    check(glm::length(at(scene.find("Io"), 2449551.5) - io_hzn) < 20.0, "Io in 1994 against Horizons",
+          glm::length(at(scene.find("Io"), 2449551.5) - io_hzn));
+
+    // A coma's size doesn't come from the parent's GM.
+    const Scene mars = load_scene_or_die("mars.toml");
+    check(mars.bodies[static_cast<size_t>(mars.find("Siding Spring"))].comet.enabled && !mars.bodies[static_cast<size_t>(mars.find("Siding Spring"))].comet.dust_only,
+          "other comets keep their gas and tails");
+}
+
 void run_mission_tests()
 {
     test_solar_system_missions();
@@ -2677,4 +2830,5 @@ void run_mission_tests()
     test_halley_armada();
     test_space_telescopes_scene();
     test_didymos_scene();
+    test_shoemaker_levy_9();
 }

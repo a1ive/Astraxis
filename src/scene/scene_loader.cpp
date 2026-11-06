@@ -1620,10 +1620,14 @@ void Loader::parse(const toml::table& root, Scene& out)
             get_array(*c, "magnitude_m1_k1", comet_ctx, magnitude, 2, 2);
             comet.m1 = magnitude[0];
             comet.k1 = magnitude[1];
-            comet.ion_tail_diameter_km = get_double(*c, "ion_tail_diameter_km", comet_ctx);
-            comet.ion_tail_length_km = get_double(*c, "ion_tail_length_km", comet_ctx);
+            comet.dust_only = (*c)["dust_only"].value<bool>().value_or(false);
+            if (!comet.dust_only) {
+                comet.ion_tail_diameter_km = get_double(*c, "ion_tail_diameter_km", comet_ctx);
+                comet.ion_tail_length_km = get_double(*c, "ion_tail_length_km", comet_ctx);
+            }
             comet.solar_wind_km_s = get_double_or(*c, "solar_wind_km_s", comet.solar_wind_km_s);
-            if (comet.ion_tail_diameter_km <= 0.0 || comet.ion_tail_length_km <= 0.0 || comet.solar_wind_km_s <= 0.0) {
+            if ((!comet.dust_only && (comet.ion_tail_diameter_km <= 0.0 || comet.ion_tail_length_km <= 0.0)) ||
+                comet.solar_wind_km_s <= 0.0) {
                 fail(comet_ctx, "ion tail sizes and the solar wind speed must be positive");
             }
             comet.dust_tail_days = get_double_or(*c, "dust_tail_days", comet.dust_tail_days);

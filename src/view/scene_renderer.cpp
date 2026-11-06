@@ -1452,9 +1452,14 @@ void SceneRenderer::build_comet_items(const Simulation& sim, const OutputView& o
         const glm::dvec3 rel = cam - body.world_position;
         const double distance = glm::length(rel);
 
-        // Scale lengths grow as r_h^2 (comet.hpp).
+        // Dust coma: grains ejected sunward at v0 sqrt(beta / r_h) turn back at
+        // v^2 / (2 beta g) = v0^2 r_h au^2 / (2 GM), whatever beta (fountain model).
+        const double v0 = comet.dust_speed_km_s;
+        const double dust_turn = v0 * v0 * r_au * kAuKm * kAuKm / (2.0 * scene.sun_gm());
+
+        // Scale lengths grow as r_h^2 (comet.hpp). A comet of dust alone has no gas to scale by.
         double lp = kC2ParentScaleKm * r_au * r_au;
-        double ld = kC2DaughterScaleKm * r_au * r_au;
+        double ld = comet.dust_only ? dust_turn : kC2DaughterScaleKm * r_au * r_au;
         const double widen = std::max(1.0, kComaMinPx / (ld / distance * px_per_radian));
         lp *= widen;
         ld *= widen;
@@ -1485,7 +1490,8 @@ void SceneRenderer::build_comet_items(const Simulation& sim, const OutputView& o
         std::vector<std::pair<double, size_t>> near;
         for (size_t k = 0; k < scene.bodies.size(); ++k) {
             const Body& other = scene.bodies[k];
-            if (k != i && other.visible && other.kind == BodyKind::Planet) {
+            // Another comet's nucleus is too small to matter, and SL9 has twenty of them.
+            if (k != i && other.visible && other.kind == BodyKind::Planet && !other.comet.enabled) {
                 near.emplace_back(glm::length(other.world_position - cam), k);
             }
         }
@@ -1507,7 +1513,9 @@ void SceneRenderer::build_comet_items(const Simulation& sim, const OutputView& o
         coma.brightness = static_cast<float>(coma_luminosity);
         coma.box_min = glm::vec3(static_cast<float>(-kComaReach * ld));
         coma.box_max = glm::vec3(static_cast<float>(kComaReach * ld));
-        m_comet_items.push_back(coma);
+        if (!comet.dust_only) {
+            m_comet_items.push_back(coma);
+        }
 
         const double length = comet.ion_tail_length_km;
         const double tail_area = 0.5 * comet.ion_tail_diameter_km * length / (ld * ld / (widen * widen));
@@ -1522,14 +1530,11 @@ void SceneRenderer::build_comet_items(const Simulation& sim, const OutputView& o
         tail.brightness = static_cast<float>(tail_share * luminosity);
         tail.box_min = glm::vec3(static_cast<float>(-2.0 * w0), static_cast<float>(-end_width), static_cast<float>(-end_width));
         tail.box_max = glm::vec3(static_cast<float>(reach), static_cast<float>(end_width), static_cast<float>(end_width));
-        m_comet_items.push_back(tail);
+        if (!comet.dust_only) {
+            m_comet_items.push_back(tail);
+        }
 
-        // Dust coma: grains ejected sunward at v0 sqrt(beta / r_h) turn back at
-        // v^2 / (2 beta g) = v0^2 r_h au^2 / (2 GM), whatever beta (fountain model).
-        const double gm_sun = scene.bodies[static_cast<size_t>(body.parent)].gm_km3_s2;
-        const double v0 = comet.dust_speed_km_s;
-        const double dust_scale = std::max(v0 * v0 * r_au * kAuKm * kAuKm / (2.0 * gm_sun),
-                                           kComaMinPx * distance / px_per_radian);
+        const double dust_scale = std::max(dust_turn, kComaMinPx * distance / px_per_radian);
         const glm::dvec3 sun_display = scene.sun_position();
         const double cos_nucleus =
             glm::dot(glm::normalize(body.world_position - sun_display), glm::normalize(cam - body.world_position));
@@ -1538,10 +1543,14 @@ void SceneRenderer::build_comet_items(const Simulation& sim, const OutputView& o
         dust_coma.shape = glm::vec3(static_cast<float>(1e-3 * dust_scale), static_cast<float>(dust_scale),
                                     static_cast<float>(nucleus));
         dust_coma.color = comet.dust_color;
-        dust_coma.brightness = static_cast<float>(kDustComaShare * coma_luminosity * dust_phase(cos_nucleus));
+        dust_coma.brightness = static_cast<float>((comet.dust_only ? 1.0 : kDustComaShare) * coma_luminosity *
+                                                  dust_phase(cos_nucleus));
         dust_coma.box_min = glm::vec3(static_cast<float>(-kComaReach * dust_scale));
         dust_coma.box_max = glm::vec3(static_cast<float>(kComaReach * dust_scale));
         m_comet_items.push_back(dust_coma);
+        if (comet.dust_only) {
+            continue;
+        }
 
         // Dust tail: Finson-Probstein grains (comet.hpp).
         DustTail& dust = m_dust_tails[i];

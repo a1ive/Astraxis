@@ -537,6 +537,60 @@ base_step_minutes = 720
 tolerance_km = 10.0
 radius_km = 2410.3
 
+# The moons during comet Shoemaker-Levy 9, 1992-1994 (tools/sl9/sl9_bake.py bakes the comet).
+
+[[target]]
+name = "io_sl9"
+command = "501"
+naif_id = 501
+center = "500@599"
+kepler_gm_km3_s2 = 126712764.1
+center_naif_id = 599
+start = "1992-06-01"
+stop = "1994-08-01"
+base_step_minutes = 120
+tolerance_km = 10.0
+radius_km = 1821.49
+
+[[target]]
+name = "europa_sl9"
+command = "502"
+naif_id = 502
+center = "500@599"
+kepler_gm_km3_s2 = 126712764.1
+center_naif_id = 599
+start = "1992-06-01"
+stop = "1994-08-01"
+base_step_minutes = 120
+tolerance_km = 10.0
+radius_km = 1560.8
+
+[[target]]
+name = "ganymede_sl9"
+command = "503"
+naif_id = 503
+center = "500@599"
+kepler_gm_km3_s2 = 126712764.1
+center_naif_id = 599
+start = "1992-06-01"
+stop = "1994-08-01"
+base_step_minutes = 120
+tolerance_km = 10.0
+radius_km = 2631.2
+
+[[target]]
+name = "callisto_sl9"
+command = "504"
+naif_id = 504
+center = "500@599"
+kepler_gm_km3_s2 = 126712764.1
+center_naif_id = 599
+start = "1992-06-01"
+stop = "1994-08-01"
+base_step_minutes = 120
+tolerance_km = 10.0
+radius_km = 2410.3
+
 # The spacecraft come after the moons: refine_near needs the moon tables.
 
 [[target]]

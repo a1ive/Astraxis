@@ -495,7 +495,12 @@ type = "ephemeris"
 file = "ephem/io_gll.eph"
 fallback_blend_days = 1.0
 
-[bodies.orbit.fallback.fallback]       # [ELEM]
+[bodies.orbit.fallback.fallback]       # [HZN] 501, Shoemaker-Levy 9 span
+type = "ephemeris"
+file = "ephem/io_sl9.eph"
+fallback_blend_days = 1.0
+
+[bodies.orbit.fallback.fallback.fallback]       # [ELEM]
 type = "mean_elements"
 a_km = 421800.0
 e = 0.004
@@ -524,7 +529,12 @@ type = "ephemeris"
 file = "ephem/europa_gll.eph"
 fallback_blend_days = 1.0
 
-[bodies.orbit.fallback.fallback]       # [ELEM]
+[bodies.orbit.fallback.fallback]       # [HZN] 502, Shoemaker-Levy 9 span
+type = "ephemeris"
+file = "ephem/europa_sl9.eph"
+fallback_blend_days = 1.0
+
+[bodies.orbit.fallback.fallback.fallback]       # [ELEM]
 type = "mean_elements"
 a_km = 671100.0
 e = 0.009
@@ -553,7 +563,12 @@ type = "ephemeris"
 file = "ephem/ganymede_gll.eph"
 fallback_blend_days = 1.0
 
-[bodies.orbit.fallback.fallback]       # [ELEM]
+[bodies.orbit.fallback.fallback]       # [HZN] 503, Shoemaker-Levy 9 span
+type = "ephemeris"
+file = "ephem/ganymede_sl9.eph"
+fallback_blend_days = 1.0
+
+[bodies.orbit.fallback.fallback.fallback]       # [ELEM]
 type = "mean_elements"
 a_km = 1070400.0
 e = 0.001
@@ -582,7 +597,12 @@ type = "ephemeris"
 file = "ephem/callisto_gll.eph"
 fallback_blend_days = 1.0
 
-[bodies.orbit.fallback.fallback]       # [ELEM]
+[bodies.orbit.fallback.fallback]       # [HZN] 504, Shoemaker-Levy 9 span
+type = "ephemeris"
+file = "ephem/callisto_sl9.eph"
+fallback_blend_days = 1.0
+
+[bodies.orbit.fallback.fallback.fallback]       # [ELEM]
 type = "mean_elements"
 a_km = 1882700.0
 e = 0.007

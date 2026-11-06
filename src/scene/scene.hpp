@@ -395,6 +395,7 @@ struct Body {
         double ion_tail_diameter_km = 0.0;  // near the nucleus
         double ion_tail_length_km = 0.0;    // brightness e-folding length along the tail
         double solar_wind_km_s = 400.0;     // aberration of the tail
+        bool dust_only = false;        // only the dust coma: no gas coma, ion tail or dust tail
         double dust_tail_days = 40.0;  // age of the oldest grains drawn
         double dust_beta_min = 0.003;  // range of radiation pressure / gravity
         double dust_beta_max = 0.9;

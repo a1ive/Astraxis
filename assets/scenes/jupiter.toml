@@ -1,5 +1,6 @@
 # Jupiter, its rings, the Galilean and the four inner satellites, the orbits of
-# Galileo (1995-2003) and Juno (2016-), and Cassini's flyby (2000-2001).
+# Galileo (1995-2003) and Juno (2016-), Cassini's flyby (2000-2001), and the fragments of comet
+# Shoemaker-Levy 9 (1992-1994).
 #
 # Sources
 # [GBS]  Moore et al. 2018, Nature 561, 76: the field's two hemispheres differ, with an intense
@@ -26,8 +27,8 @@
 #        baseline prediction), Juno 2016-06-01 .. 2028-09-01 (reconstructed to 2026-08-24,
 #        then predictions), Cassini 2000-10-01 .. 2001-04-01 (navigation team's
 #        post-mission reconstruction), and the Galilean moons over the Galileo and Juno
-#        spans. Outside them the moons fade over one day into the mean-element model
-#        [ELEM], which drifts by degrees.
+#        spans, and over 1992-06-01 .. 1994-08-01 for comet Shoemaker-Levy 9. Outside them the
+#        moons fade over one day into the mean-element model [ELEM], which drifts by degrees.
 # [PLM]  Io's plumes (always erupting): sources and choices in bodies/io.toml.
 # [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
 # [STKS] P. Stooke, Stooke Small Body Shape Models V2.0 (PDS SBN, small_bodies.stooke.shape-models;
@@ -40,6 +41,14 @@
 # [APX]  E. M. Standish, Approximate Positions of the Planets, Tables 2a/2b
 #        (https://ssd.jpl.nasa.gov/planets/approx_pos.html), 3000 BC - 3000 AD.
 # [IESS] Jupiter's J2 and J4 (Iess et al. 2018, Nature 555, 220): bodies/jupiter.toml.
+# [SL9]  Comet Shoemaker-Levy 9, all in tools/sl9/sl9_bake.py:
+#        [CY96] Chodas & Yeomans 1996, in "The Collision of Comet Shoemaker-Levy 9 and Jupiter"
+#          (Cambridge), pp. 1-30: orbits (Horizons' records D/1993 F2-A .. -W are its solutions),
+#          impact times and places (Table 5), speed and angle (Table 6), capture about 1929.
+#        [SEK] Sekanina 1996, same book, pp. 55-80: perijove and breakup, 1992 July 7.860364 TDB and
+#          2.5 h later (Sec. 4.2); Q2 from Q1 in April 1993 and P2 from Q in December 1992 (Sec. 4.3).
+#        [WEA] Weaver et al. 1995, Science 267, 1282, Table 2: relative sizes and brightness.
+#        [IAUC] IAU Circular 5725 (1993 March 26): discovery, m1 of 14, a train 47 arcsec long.
 #
 # [CAP]  Event captions (retrieved 2026-10-07):
 #        [GLL] NASA, science.nasa.gov/mission/galileo/: arrival on 1995-12-07 with flybys of
@@ -143,7 +152,12 @@ type = "ephemeris"
 file = "ephem/io_gll.eph"
 fallback_blend_days = 1.0
 
-[bodies.orbit.fallback.fallback]       # [ELEM]
+[bodies.orbit.fallback.fallback]       # [HZN] 501, Shoemaker-Levy 9 span
+type = "ephemeris"
+file = "ephem/io_sl9.eph"
+fallback_blend_days = 1.0
+
+[bodies.orbit.fallback.fallback.fallback]       # [ELEM]
 type = "mean_elements"
 a_km = 421800.0
 e = 0.004
@@ -172,7 +186,12 @@ type = "ephemeris"
 file = "ephem/europa_gll.eph"
 fallback_blend_days = 1.0
 
-[bodies.orbit.fallback.fallback]       # [ELEM]
+[bodies.orbit.fallback.fallback]       # [HZN] 502, Shoemaker-Levy 9 span
+type = "ephemeris"
+file = "ephem/europa_sl9.eph"
+fallback_blend_days = 1.0
+
+[bodies.orbit.fallback.fallback.fallback]       # [ELEM]
 type = "mean_elements"
 a_km = 671100.0
 e = 0.009
@@ -201,7 +220,12 @@ type = "ephemeris"
 file = "ephem/ganymede_gll.eph"
 fallback_blend_days = 1.0
 
-[bodies.orbit.fallback.fallback]       # [ELEM]
+[bodies.orbit.fallback.fallback]       # [HZN] 503, Shoemaker-Levy 9 span
+type = "ephemeris"
+file = "ephem/ganymede_sl9.eph"
+fallback_blend_days = 1.0
+
+[bodies.orbit.fallback.fallback.fallback]       # [ELEM]
 type = "mean_elements"
 a_km = 1070400.0
 e = 0.001
@@ -230,7 +254,12 @@ type = "ephemeris"
 file = "ephem/callisto_gll.eph"
 fallback_blend_days = 1.0
 
-[bodies.orbit.fallback.fallback]       # [ELEM]
+[bodies.orbit.fallback.fallback]       # [HZN] 504, Shoemaker-Levy 9 span
+type = "ephemeris"
+file = "ephem/callisto_sl9.eph"
+fallback_blend_days = 1.0
+
+[bodies.orbit.fallback.fallback.fallback]       # [ELEM]
 type = "mean_elements"
 a_km = 1882700.0
 e = 0.007
@@ -399,6 +428,324 @@ trail_linger_days = 30.0
 [bodies.orbit]                         # [HZN] -82
 type = "ephemeris"
 file = "ephem/cassini_jup.eph"
+
+# Comet Shoemaker-Levy 9 [SL9]. The parent comet is fragment K's path up to the breakup, without a
+# coma: nobody saw it ([CY96]: not in a March 1992 exposure to magnitude 21.3). Each fragment shows from
+# when it split off until the 100-mbar level. tools/sl9/sl9_bake.py prints these bodies.
+# Sizes and brightness are per fragment, from [WEA]. dust_only: no gas was ever detected ([WEA]),
+# and the dust tail, which moves around the Sun alone, would leave a comet that is orbiting Jupiter
+# (limitations.md). dust_speed_km_s makes the fountain's turning distance 2000 km at 5.4 au
+# (scene_renderer.cpp), where [WEA] sees the comae stop being round; it is not a measured speed.
+# Only K draws a trail: all of them together would make one thick line.
+
+[[bodies]]
+name = "SL9 parent comet"
+parent = "Jupiter"
+radii_km = [5.0]                       # [CY96] Sec. 2, from the tidal disruption model
+color = "#d9cfc2"
+orbit_color = "#c9a98a"
+trail = "history"
+trail_history_days = 557.0             # the whole table
+trail_linger_days = 5.0
+[bodies.orbit]
+type = "ephemeris"
+file = "ephem/sl9_parent.eph"
+
+[[bodies]]
+name = "SL9 A"
+parent = "Jupiter"
+color = "#d9cfc2"
+trail = "none"
+radii_km = [0.70]
+[bodies.comet]
+dust_only = true
+dust_speed_km_s = 0.066
+magnitude_m1_k1 = [15.34, 0.0]
+[bodies.orbit]
+type = "ephemeris"
+file = "ephem/sl9_a.eph"
+
+[[bodies]]
+name = "SL9 B"
+parent = "Jupiter"
+color = "#d9cfc2"
+trail = "none"
+radii_km = [0.84]
+[bodies.comet]
+dust_only = true
+dust_speed_km_s = 0.066
+magnitude_m1_k1 = [14.90, 0.0]
+[bodies.orbit]
+type = "ephemeris"
+file = "ephem/sl9_b.eph"
+
+[[bodies]]
+name = "SL9 C"
+parent = "Jupiter"
+color = "#d9cfc2"
+trail = "none"
+radii_km = [1.05]
+[bodies.comet]
+dust_only = true
+dust_speed_km_s = 0.066
+magnitude_m1_k1 = [14.48, 0.0]
+[bodies.orbit]
+type = "ephemeris"
+file = "ephem/sl9_c.eph"
+
+[[bodies]]
+name = "SL9 D"
+parent = "Jupiter"
+color = "#d9cfc2"
+trail = "none"
+radii_km = [0.70]
+[bodies.comet]
+dust_only = true
+dust_speed_km_s = 0.066
+magnitude_m1_k1 = [15.34, 0.0]
+[bodies.orbit]
+type = "ephemeris"
+file = "ephem/sl9_d.eph"
+
+[[bodies]]
+name = "SL9 E"
+parent = "Jupiter"
+color = "#d9cfc2"
+trail = "none"
+radii_km = [1.40]
+[bodies.comet]
+dust_only = true
+dust_speed_km_s = 0.066
+magnitude_m1_k1 = [13.78, 0.0]
+[bodies.orbit]
+type = "ephemeris"
+file = "ephem/sl9_e.eph"
+
+[[bodies]]
+name = "SL9 F"
+parent = "Jupiter"
+color = "#d9cfc2"
+trail = "none"
+radii_km = [1.05]
+[bodies.comet]
+dust_only = true
+dust_speed_km_s = 0.066
+magnitude_m1_k1 = [14.43, 0.0]
+[bodies.orbit]
+type = "ephemeris"
+file = "ephem/sl9_f.eph"
+
+[[bodies]]
+name = "SL9 G"
+parent = "Jupiter"
+color = "#d9cfc2"
+trail = "none"
+radii_km = [2.03]
+[bodies.comet]
+dust_only = true
+dust_speed_km_s = 0.066
+magnitude_m1_k1 = [13.05, 0.0]
+[bodies.orbit]
+type = "ephemeris"
+file = "ephem/sl9_g.eph"
+
+[[bodies]]
+name = "SL9 H"
+parent = "Jupiter"
+color = "#d9cfc2"
+trail = "none"
+radii_km = [1.54]
+[bodies.comet]
+dust_only = true
+dust_speed_km_s = 0.066
+magnitude_m1_k1 = [13.61, 0.0]
+[bodies.orbit]
+type = "ephemeris"
+file = "ephem/sl9_h.eph"
+
+[[bodies]]
+name = "SL9 K"
+parent = "Jupiter"
+color = "#d9cfc2"
+orbit_color = "#c9a98a"
+trail = "history"                      # K stands for the train: the others would draw one thick line
+trail_history_days = 742.0             # the whole table
+radii_km = [1.89]
+[bodies.comet]
+dust_only = true
+dust_speed_km_s = 0.066
+magnitude_m1_k1 = [13.18, 0.0]
+[bodies.orbit]
+type = "ephemeris"
+file = "ephem/sl9_k.eph"
+
+[[bodies]]
+name = "SL9 L"
+parent = "Jupiter"
+color = "#d9cfc2"
+trail = "none"
+radii_km = [1.75]
+[bodies.comet]
+dust_only = true
+dust_speed_km_s = 0.066
+magnitude_m1_k1 = [13.37, 0.0]
+[bodies.orbit]
+type = "ephemeris"
+file = "ephem/sl9_l.eph"
+
+[[bodies]]
+name = "SL9 N"
+parent = "Jupiter"
+color = "#d9cfc2"
+trail = "none"
+radii_km = [0.70]
+[bodies.comet]
+dust_only = true
+dust_speed_km_s = 0.066
+magnitude_m1_k1 = [15.34, 0.0]
+[bodies.orbit]
+type = "ephemeris"
+file = "ephem/sl9_n.eph"
+
+[[bodies]]
+name = "SL9 P1"
+parent = "Jupiter"
+color = "#d9cfc2"
+trail = "none"
+radii_km = [0.43]
+[bodies.comet]
+dust_only = true
+dust_speed_km_s = 0.066
+magnitude_m1_k1 = [16.39, 0.0]
+[bodies.orbit]
+type = "ephemeris"
+file = "ephem/sl9_p1.eph"
+
+[[bodies]]
+name = "SL9 P2"
+parent = "Jupiter"
+color = "#d9cfc2"
+trail = "none"
+radii_km = [0.98]
+[bodies.comet]
+dust_only = true
+dust_speed_km_s = 0.066
+magnitude_m1_k1 = [14.70, 0.0]
+[bodies.orbit]
+type = "ephemeris"
+file = "ephem/sl9_p2.eph"
+
+[[bodies]]
+name = "SL9 Q1"
+parent = "Jupiter"
+color = "#d9cfc2"
+trail = "none"
+radii_km = [2.03]
+[bodies.comet]
+dust_only = true
+dust_speed_km_s = 0.066
+magnitude_m1_k1 = [13.00, 0.0]
+[bodies.orbit]
+type = "ephemeris"
+file = "ephem/sl9_q1.eph"
+
+[[bodies]]
+name = "SL9 Q2"
+parent = "Jupiter"
+color = "#d9cfc2"
+trail = "none"
+radii_km = [1.54]
+[bodies.comet]
+dust_only = true
+dust_speed_km_s = 0.066
+magnitude_m1_k1 = [13.63, 0.0]
+[bodies.orbit]
+type = "ephemeris"
+file = "ephem/sl9_q2.eph"
+
+[[bodies]]
+name = "SL9 R"
+parent = "Jupiter"
+color = "#d9cfc2"
+trail = "none"
+radii_km = [1.26]
+[bodies.comet]
+dust_only = true
+dust_speed_km_s = 0.066
+magnitude_m1_k1 = [14.04, 0.0]
+[bodies.orbit]
+type = "ephemeris"
+file = "ephem/sl9_r.eph"
+
+[[bodies]]
+name = "SL9 S"
+parent = "Jupiter"
+color = "#d9cfc2"
+trail = "none"
+radii_km = [1.47]
+[bodies.comet]
+dust_only = true
+dust_speed_km_s = 0.066
+magnitude_m1_k1 = [13.75, 0.0]
+[bodies.orbit]
+type = "ephemeris"
+file = "ephem/sl9_s.eph"
+
+[[bodies]]
+name = "SL9 T"
+parent = "Jupiter"
+color = "#d9cfc2"
+trail = "none"
+radii_km = [0.32]
+[bodies.comet]
+dust_only = true
+dust_speed_km_s = 0.066
+magnitude_m1_k1 = [17.03, 0.0]
+[bodies.orbit]
+type = "ephemeris"
+file = "ephem/sl9_t.eph"
+
+[[bodies]]
+name = "SL9 U"
+parent = "Jupiter"
+color = "#d9cfc2"
+trail = "none"
+radii_km = [0.45]
+[bodies.comet]
+dust_only = true
+dust_speed_km_s = 0.066
+magnitude_m1_k1 = [16.28, 0.0]
+[bodies.orbit]
+type = "ephemeris"
+file = "ephem/sl9_u.eph"
+
+[[bodies]]
+name = "SL9 V"
+parent = "Jupiter"
+color = "#d9cfc2"
+trail = "none"
+radii_km = [0.68]
+[bodies.comet]
+dust_only = true
+dust_speed_km_s = 0.066
+magnitude_m1_k1 = [15.39, 0.0]
+[bodies.orbit]
+type = "ephemeris"
+file = "ephem/sl9_v.eph"
+
+[[bodies]]
+name = "SL9 W"
+parent = "Jupiter"
+color = "#d9cfc2"
+trail = "none"
+radii_km = [1.19]
+[bodies.comet]
+dust_only = true
+dust_speed_km_s = 0.066
+magnitude_m1_k1 = [14.14, 0.0]
+[bodies.orbit]
+type = "ephemeris"
+file = "ephem/sl9_w.eph"
 
 # Events. Closest approaches (TDB at the spacecraft) and distances from the bake tool
 # (tools/bake/ephem.toml encounters; altitudes above the moons' mean radii [SPHY]).
@@ -845,3 +1192,90 @@ caption = """\
     electrons are densest in the middle of the sheet, and Keck measured the red line rising \
     with them. Only the red doublet is used; the other lines are upper limits. The smooth \
     shell stands for an atmosphere nobody has resolved, in far more exposure than Io or Europa."""
+
+
+# Comet Shoemaker-Levy 9 [SL9]. Times from the tables; the explosions are not drawn (limitations.md).
+
+[[events]]
+name = "A comet comes apart at Jupiter (1992-07-07)"
+time_tdb = "1992-07-07 17:30"
+focus = "Jupiter"
+flyby = "SL9 parent comet"
+distance_km = 900000.0
+warp = 600.0
+# [CY96] [SEK]
+caption = """\
+    An unseen comet, on a two-year orbit of Jupiter, passes 94,000 km from the planet's center, \
+    22,000 km above the clouds and inside the distance where tides can pull it apart. About 2.5 \
+    hours after closest approach the pieces stop touching each other. The comet is now a line of \
+    about a dozen bodies on nearly the same orbit, and some of them will go on splitting for months."""
+
+[[events]]
+name = "Discovered: a squashed comet (1993-03-24)"
+time_tdb = "1993-03-24 08:32"
+focus = "SL9 K"
+from_orbit_normal = "SL9 K"
+distance_km = 450000.0
+warp = 86400.0
+# [IAUC] [CY96]
+caption = """\
+    Eight months later, Carolyn and Eugene Shoemaker and David Levy find it on a film from Palomar: \
+    a narrow bar, 47 arcseconds long. It is about 150,000 km long by now, and orbiting Jupiter, not \
+    the Sun. Two months later the orbits say that it will probably hit the planet next July."""
+
+[[events]]
+name = "SL9's last orbit of Jupiter, 1992-1994"
+time_tdb = "1992-07-08 12:00"
+focus = "Jupiter"
+from_orbit_normal = "SL9 K"
+distance_km = 180000000.0
+warp = 1728000.0
+# [CY96]
+caption = """\
+    Its last orbit reaches 0.33 au from Jupiter, about 50 million km, and comes straight back. Jupiter \
+    probably captured it around 1929, and it stayed for decades, on orbits too chaotic to trace in \
+    detail. The train keeps pointing at Jupiter all the way round: the fragment that lags going \
+    out reaches the top first and comes back first, like pebbles thrown upward."""
+
+[[events]]
+name = "The string of pearls (1994-05-17)"
+time_tdb = "1994-05-17 00:00"
+focus = "SL9 K"
+from_orbit_normal = "SL9 K"
+distance_km = 2800000.0
+warp = 21600.0
+# [WEA]
+caption = """\
+    Hubble's image of this day is the only one from 1994 of the whole train: 360 arcseconds, 1.15 million \
+    km in projection. Each fragment sits in its own round cloud of dust. Their sizes are hard to pin \
+    down, at most about 4 km across. Some keep breaking: Q had split in two in April 1993, and P2 \
+    was double by March."""
+
+[[events]]
+name = "Six days of impacts (1994-07-16 to 22)"
+time_tdb = "1994-07-16 18:30"
+focus = "Jupiter"
+from_orbit_normal = "SL9 K"
+distance_km = 9000000.0
+warp = 10800.0
+# [CY96] [SEK]
+caption = """\
+    The train, 3.6 million km long, comes down one piece at a time at about 60 km/s, from the first \
+    at 20:11 UT on July 16 to the last at 08:06 on July 22, as seen from the Earth. All 21 fall near \
+    44 degrees south, just out of sight from the Earth. Jupiter turns under the stream, so they land \
+    at different longitudes. Two more, J and M, were lost on the way."""
+
+[[events]]
+name = "Fragment G hits, just out of sight (1994-07-18)"
+time_tdb = "1994-07-18 06:44"
+focus = "Jupiter"
+from_body = "Sun"
+distance_km = 900000.0
+warp = 20.0
+# [CY96] Table 5, Table 1. From the Sun's direction, 10 deg from the Earth's.
+caption = """\
+    The bright G arrives at 61 km/s, 43 degrees from straight down and 6.4 degrees behind the limb as seen \
+    from here. Light of the impact reached the Earth at 07:33:33 UT. From the Earth, only the \
+    fireball rising over the limb showed at first, and Jupiter's turning brought the site into \
+    view about 15 minutes later. The Galileo spacecraft, 1.6 au away on its way to Jupiter, \
+    had the direct view."""

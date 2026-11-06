@@ -408,3 +408,6 @@ tools/tianwen1/cache/
 
 # Hourly Horizons samples for the element tables (tools/bake/element_table_bake.py)
 tools/bake/cache/
+
+# SL9 fragment samples from Horizons
+tools/sl9/cache/

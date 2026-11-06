@@ -47,7 +47,7 @@ const std::vector<std::pair<std::string, std::shared_ptr<const Scene>>>& all_sce
 void test_scene_loader()
 {
     Scene scene = load_jupiter();
-    check(scene.bodies.size() == 13, "jupiter.toml has 13 bodies (with Juno's ghost)",
+    check(scene.bodies.size() == 35, "jupiter.toml has 35 bodies (with Juno's ghost and SL9's 22)",
           static_cast<double>(scene.bodies.size()));
     check(scene.bodies[0].rings.bands.size() == 5 && scene.bodies[0].rings.bands[1].name == "Main ring",
           "Jupiter's ring bands");

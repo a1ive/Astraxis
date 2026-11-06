@@ -190,8 +190,8 @@ void test_tidal_locking()
         scene.update(t0 + day * kSecondsPerDay);
         for (size_t i = 1; i < scene.bodies.size(); ++i) {
             const Body& moon = scene.bodies[i];
-            if (moon.kind != BodyKind::Planet) {
-                continue; // spacecraft
+            if (moon.kind != BodyKind::Planet || !moon.visible) {
+                continue; // spacecraft, and comet Shoemaker-Levy 9's fragments are long gone
             }
             const glm::dvec3 to_jupiter = glm::normalize(scene.bodies[0].world_position - moon.world_position);
             const glm::dvec3 prime = moon.orientation[0];
