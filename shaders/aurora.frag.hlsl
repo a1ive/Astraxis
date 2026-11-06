@@ -20,7 +20,7 @@ static const float kNoiseCells = 32.0; // lattice cells across the noise tile
 #define PATTERN_SATURN_OVAL 3
 #define PATTERN_BODY_MAP_SHARES 4
 #define PATTERN_UNIFORM 5
-#define PATTERN_EUROPA_TRAILING 6
+#define PATTERN_EUROPA 6
 #define PATTERN_IO_FLANKS 7
 #define PATTERN_BODY_MAP_SEASONS 8
 #define PATTERN_BODY_MAP_DUSK 9
@@ -270,6 +270,17 @@ float earth_pattern(float3 n, float footprint_km)
     return stretch * (band * arcs * rays + u_params.y * diffuse * patches);
 }
 
+// europa_pattern in scene/satellite_aurora.hpp does the same: u_pole.xyz is the field line.
+float europa_pattern(float3 n)
+{
+    float3 afternoon = float3(-u_sun.y, u_sun.x, 0.0);
+    float across = length(afternoon);
+    float dusk = across > 1e-6 ? dot(n, afternoon) / across : 0.0;
+    float along = dot(n, u_pole.xyz);
+    return (1.0 + u_map_sun.w * dusk) *
+           exp(n.z * (u_map_sun.x + u_map_sun.y * n.y) + u_map_sun.z * (along * along - n.z * n.z));
+}
+
 // Brightness across the surface at unit direction n, seen with a pixel
 // footprint of footprint_km.
 float aurora_pattern(float3 n, float footprint_km)
@@ -282,7 +293,7 @@ float aurora_pattern(float3 n, float footprint_km)
     case PATTERN_BODY_MAP_SHARES:
     case PATTERN_BODY_MAP_SEASONS:
     case PATTERN_BODY_MAP_DUSK: return map_pattern(n, footprint_km);
-    case PATTERN_EUROPA_TRAILING: return 1.0 + 0.5 * n.y;
+    case PATTERN_EUROPA: return europa_pattern(n);
     case PATTERN_IO_FLANKS: return 1.0 + 0.75 * (n.x * n.x - n.z * n.z);
     default: return 1.0; // PATTERN_UNIFORM
     }

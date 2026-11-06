@@ -3,6 +3,7 @@
 #include "scene/aurora.hpp"
 #include "scene/aurora_model.hpp"
 
+#include <glm/geometric.hpp>
 #include <glm/vec3.hpp>
 #include <algorithm>
 #include <array>
@@ -93,6 +94,51 @@ struct SatelliteVisibleAurora {
 // are the mean over the eclipse of 2021-05-20, when Europa went from the equator to
 // 0.683 RJ below it (Milby 2026, table 3.1).
 inline constexpr double kEuropaPlasmaScaleRj = 1.7;
+
+// Europa's brightness over the surface. Roth et al. 2016 from 71 HST/STIS images, fitted by
+// tools/geomag/europa_pattern_fit.py to their ratios (Figures 7 and 8), in the 135.6 nm line:
+// - brighter on the afternoon side, 1.59 between the hemispheres, always (de Kleer & Brown
+//   2018 and de Kleer et al. 2023 see the same in the optical lines). The side is fixed to
+//   the sun, not to the body: in eclipse the sun is behind Jupiter and this is the trailing side.
+// - brighter on the side that faces the plasma sheet, up to about 4:1 seen from the trailing
+//   (upstream) side and 2:1 from the leading (downstream) one.
+// - gathered along the field line through the moon, which tilts with the magnetic latitude.
+// In exp: sheet n.z (kSheet + kUpstream n.y) + kFieldTilt ((n.b)^2 - n.z^2); sheet = +1 when
+// farthest below the magnetic equator, -1 when farthest above.
+inline constexpr double kEuropaAfternoon = 0.425;
+inline constexpr double kEuropaSheet = 0.575;
+inline constexpr double kEuropaUpstream = 0.838;
+inline constexpr double kEuropaFieldTilt = 1.925;
+
+// shaders/aurora.frag.hlsl does the same (PATTERN_EUROPA). All vectors are in the moon's axes;
+// field: jovian_field_line_at_moon, to_sun: a unit vector. Before europa_pattern_mean.
+inline double europa_pattern(const glm::dvec3& n, const glm::dvec3& field, double sheet, const glm::dvec3& to_sun)
+{
+    const glm::dvec3 afternoon(-to_sun.y, to_sun.x, 0.0); // z x sun: east of the sub-solar point
+    const double across = glm::length(afternoon);
+    const double dusk = across > 1e-6 ? glm::dot(n, afternoon) / across : 0.0;
+    const double along = glm::dot(n, field);
+    return (1.0 + kEuropaAfternoon * dusk) *
+           std::exp(sheet * n.z * (kEuropaSheet + kEuropaUpstream * n.y) + kEuropaFieldTilt * (along * along - n.z * n.z));
+}
+
+// Its mean over the sphere, so that the pattern moves the light without changing the total,
+// which the plasma's density sets. Without the afternoon term, which averages out but for a
+// few percent where the sheet's terms correlate with it.
+inline double europa_pattern_mean(const glm::dvec3& field, double sheet)
+{
+    constexpr int kSamples = 256;
+    constexpr double kGoldenAngle = 2.39996322972865332;
+    double sum = 0.0;
+    for (int k = 0; k < kSamples; ++k) {
+        const double z = 1.0 - 2.0 * (k + 0.5) / kSamples;
+        const double rho = std::sqrt(1.0 - z * z);
+        const glm::dvec3 n(rho * std::cos(k * kGoldenAngle), rho * std::sin(k * kGoldenAngle), z);
+        const double along = glm::dot(n, field);
+        sum += std::exp(sheet * n.z * (kEuropaSheet + kEuropaUpstream * n.y) + kEuropaFieldTilt * (along * along - n.z * n.z));
+    }
+    return sum / kSamples;
+}
 inline double europa_reference_density()
 {
     constexpr int kSteps = 64;
@@ -149,10 +195,11 @@ inline double io_so2_reference_level()
 
 inline const SatelliteVisibleAurora& europa_visible_aurora()
 {
-    // Assumed heights.
+    // Roth et al. 2016 section 4.2.4: 150 km is the favored height of the 135.6 nm line
+    // above the limb, about O2's. The top is assumed.
     static const SatelliteVisibleAurora model{
-        50.0, 300.0, 50.0,
-        satellite_line_rgb(kEuropaOxygenLines) / aurora_disk_factor(1560.8, 50.0, 300.0),
+        150.0, 600.0, 150.0,
+        satellite_line_rgb(kEuropaOxygenLines) / aurora_disk_factor(1560.8, 150.0, 600.0),
         glm::dvec3(0.0), glm::dvec3(0.0), 3.0e7
     };
     return model;

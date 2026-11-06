@@ -27,6 +27,21 @@ inline double jovian_magnetic_latitude_deg(const glm::dvec3& system_iii)
     return std::asin(std::clamp(glm::dot(glm::normalize(system_iii), axis), -1.0, 1.0)) / kDegToRad;
 }
 
+// The dipole's field line through a moon in the moon's axes (x toward Jupiter, y toward the
+// trailing side, z along Jupiter's spin), the north end, a unit vector. Above the magnetic
+// equator the north end leans toward Jupiter by about twice the magnetic latitude.
+inline glm::dvec3 jovian_field_line_at_moon(const glm::dvec3& system_iii)
+{
+    const double tilt = kJovianDipoleTiltDeg * kDegToRad;
+    const double east = kJovianDipoleEastDeg * kDegToRad;
+    const glm::dvec3 axis(std::sin(tilt) * std::cos(east), std::sin(tilt) * std::sin(east), std::cos(tilt));
+    const glm::dvec3 out = glm::normalize(system_iii);
+    const glm::dvec3 line = axis - 3.0 * glm::dot(axis, out) * out;
+    const glm::dvec3 toward_jupiter = glm::normalize(glm::dvec3(-out.x, -out.y, 0.0));
+    const glm::dvec3 trailing(-toward_jupiter.y, toward_jupiter.x, 0.0);
+    return glm::normalize(glm::dvec3(glm::dot(line, toward_jupiter), glm::dot(line, trailing), line.z));
+}
+
 // Height above the plasma sheet's centrifugal equator (units of Jupiter's 71,492 km radius),
 // positive to the north: the tangent approximation of Milby 2026 (Caltech thesis) Eqs. 1.6
 // and 1.11, after Phipps & Bagenal 2021, good to 2%. The sign follows his tables 1 and 3.1.

@@ -1186,6 +1186,131 @@ void test_plasma_sheet()
           "the plasma scales Europa's column");
 }
 
+// Europa's pattern: Roth et al. 2016 and 2021.
+void test_europa_pattern()
+{
+    // At System III west longitude: the field line, the sign of the sheet, as the paper's text.
+    const auto at_west = [](double west, double radius_rj = 9.4) {
+        const double east = -west * kDegToRad;
+        return radius_rj * 71492.0 * glm::dvec3(std::cos(east), std::sin(east), 0.0);
+    };
+    const auto sheet_at = [&](double west) { return -jovian_magnetic_latitude_deg(at_west(west)) / kJovianDipoleTiltDeg; };
+    check(sheet_at(16.0) > 0.95, "farthest below the plasma sheet at 16 W (Roth section 3.2.1)", sheet_at(16.0));
+    check(sheet_at(196.0) < -0.95, "farthest above it at 196 W", sheet_at(196.0));
+    // Roth's Figure 10: above (181 W), the line's north end leans to the sub-Jovian side;
+    // the projected tilt reaches about 20 degrees in Figure 7a.
+    const glm::dvec3 above = jovian_field_line_at_moon(at_west(196.0));
+    check(above.x > 0.0, "above the equator the line's north end leans toward Jupiter", above.x);
+    const double tilt = std::atan2(above.x, above.z) / kDegToRad;
+    check(std::abs(tilt - 19.0) < 4.0, "by about twice the magnetic latitude", tilt);
+    const glm::dvec3 below = jovian_field_line_at_moon(at_west(16.0));
+    check(below.x < 0.0 && std::abs(below.y) < 0.05 && std::abs(above.y) < 0.05, "and away from it below", below.x);
+
+    // Means over the sphere by regions, in the body axes.
+    constexpr int kSamples = 20000;
+    const auto mean_over = [&](const glm::dvec3& field, double sheet, const glm::dvec3& sun, auto&& keep) {
+        double sum = 0.0;
+        int count = 0;
+        for (int k = 0; k < kSamples; ++k) {
+            const double z = 1.0 - 2.0 * (k + 0.5) / kSamples;
+            const double rho = std::sqrt(1.0 - z * z);
+            const double angle = k * 2.39996322972865332;
+            const glm::dvec3 n(rho * std::cos(angle), rho * std::sin(angle), z);
+            if (!keep(n)) continue;
+            sum += europa_pattern(n, field, sheet, sun);
+            ++count;
+        }
+        return sum / count;
+    };
+    const glm::dvec3 up(0.0, 0.0, 1.0), trailing(0.0, 1.0, 0.0), leading(0.0, -1.0, 0.0), to_jupiter(1.0, 0.0, 0.0);
+    const auto all = [](const glm::dvec3&) { return true; };
+    for (const auto& [field, sheet] : {std::pair{up, 0.0}, std::pair{above, -1.0}, std::pair{below, 1.0}}) {
+        // Without the afternoon term's small correlation with the rest, a few percent.
+        check(std::abs(mean_over(field, sheet, to_jupiter, all) / europa_pattern_mean(field, sheet) - 1.0) < 0.05,
+              "the pattern's mean is what the shell divides by", mean_over(field, sheet, to_jupiter, all) / europa_pattern_mean(field, sheet));
+    }
+    // The afternoon side, seen as HST sees it (the sun behind the observer).
+    for (const glm::dvec3& sun : {trailing, leading, to_jupiter}) {
+        const glm::dvec3 afternoon = glm::cross(up, sun);
+        const auto side = [&](double sign) {
+            return mean_over(up, 0.0, sun, [&](const glm::dvec3& n) { return glm::dot(n, sun) > 0.0 && sign * glm::dot(n, afternoon) > 0.0; });
+        };
+        check(std::abs(side(1.0) / side(-1.0) - 1.59) < 0.1, "1.59 between the afternoon and morning halves (Figure 8a)", side(1.0) / side(-1.0));
+    }
+    // In eclipse the sun is behind Jupiter, which makes the afternoon side the trailing side,
+    // as in de Kleer & Brown 2018.
+    const auto hemisphere = [&](const glm::dvec3& field, double sheet, const glm::dvec3& view, double north) {
+        return mean_over(field, sheet, view, [&](const glm::dvec3& n) { return glm::dot(n, view) > 0.0 && north * n.z > 0.5; });
+    };
+    const auto north_over_south = [&](const glm::dvec3& field, double sheet, const glm::dvec3& view) {
+        return hemisphere(field, sheet, view, 1.0) / hemisphere(field, sheet, view, -1.0);
+    };
+    const double upstream_below = north_over_south(below, 1.0, trailing), upstream_above = north_over_south(above, -1.0, trailing);
+    const double downstream_below = north_over_south(below, 1.0, leading), downstream_above = north_over_south(above, -1.0, leading);
+    std::printf("  info: Europa's north over south: trailing %.2f, %.2f (Figure 7c: about 3.6, 0.26); leading %.2f, %.2f (Figure 7d: about 1.8, 0.7)\n",
+                upstream_below, upstream_above, downstream_below, downstream_above);
+    check(upstream_below > 2.0 && upstream_above < 0.5, "the side facing the plasma sheet is brighter, from upstream", upstream_below);
+    check(downstream_below > 1.2 && downstream_above < 0.85, "and less so from downstream", downstream_below);
+    check(upstream_below > downstream_below && upstream_above < downstream_above, "more on the trailing side");
+    // Figure 7a: the quadrants with the magnetic poles are brighter than the others.
+    const auto quadrants = [&](const glm::dvec3& field, double sheet, const glm::dvec3& view, double sign) {
+        const glm::dvec3 right = glm::cross(up, view);
+        const auto in_quadrant = [&](const glm::dvec3& n, double s) { return glm::dot(n, view) > 0.0 && s * glm::dot(n, right) * n.z > 0.0; };
+        return mean_over(field, sheet, view, [&](const glm::dvec3& n) { return in_quadrant(n, sign); }) /
+               mean_over(field, sheet, view, [&](const glm::dvec3& n) { return in_quadrant(n, -sign); });
+    };
+    // Trailing view: right is anti-Jovian, so above the equator the line runs from the upper left.
+    check(quadrants(above, -1.0, trailing, -1.0) > 1.2, "the light gathers along the tilted field line", quadrants(above, -1.0, trailing, -1.0));
+    check(quadrants(below, 1.0, leading, -1.0) > 1.2, "on the other side too", quadrants(below, 1.0, leading, -1.0));
+
+    // Roth 2021 section 4.1, visit 17: out of eclipse at 146-161 W, into sunlight at 194-209 W,
+    // 135.6 nm falls from 40.2 +- 3.4 to 36.3 +- 3.5 R, 10 +- 11%, moving away from the sheet.
+    const double in_eclipse = plasma_sheet_density(centrifugal_equator_height_rj(at_west(153.5)), kEuropaPlasmaScaleRj);
+    const double after_egress = plasma_sheet_density(centrifugal_equator_height_rj(at_west(201.5)), kEuropaPlasmaScaleRj);
+    std::printf("  info: Europa's plasma from visit 17's eclipse to its egress: %.2f (Roth 2021: 0.90 +- 0.11)\n", after_egress / in_eclipse);
+    check(std::abs(after_egress / in_eclipse - 0.90) < 1.5 * 0.11, "the plasma sheet's fall is within 1.5 sigma of the brightness across visit 17", after_egress / in_eclipse);
+    // Roth 2016 Eq. 2: a fitted scale of 1.8 +- 0.1 RJ at 135.6 nm, 1.6 +- 0.1 at 130.4 nm.
+    check(kEuropaPlasmaScaleRj >= 1.6 && kEuropaPlasmaScaleRj <= 1.8, "1.7 RJ lies between Roth's two lines");
+
+    // The simulation: the state follows the moon, the pattern's total does not change.
+    Simulation sim;
+    std::string error;
+    check(sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/jupiter.toml", &error), "Europa's simulation loads");
+    sim.stop_tour();
+    sim.clock().warp = 60.0;
+    const int index = sim.scene().find("Europa");
+    double t0 = 0.0;
+    check(parse_utc("2021-05-20 13:00:00", &t0), "the date parses");
+    double most_north = -2.0, most_south = 2.0;
+    for (int k = 0; k < 40; ++k) {
+        sim.clock().t_tdb = t0 + k * 900.0;
+        sim.update(0.0);
+        const MoonAuroraState state = sim.moon_aurora(index);
+        most_north = std::max(most_north, state.sheet);
+        most_south = std::min(most_south, state.sheet);
+        const Body& moon = sim.scene().bodies[static_cast<size_t>(index)];
+        check(std::abs(glm::dot(state.field, jovian_field_line_at_moon(moon.in_parent_axes)) - 1.0) < 1e-9, "the state's field line is the moon's");
+    }
+    check(most_north > 0.9 && most_south < -0.9, "Europa goes through the sheet", most_north);
+    // Its body axes are the pattern's: x toward Jupiter, y trailing.
+    const Body& moon = sim.scene().bodies[static_cast<size_t>(index)];
+    const Body& parent = sim.scene().bodies[static_cast<size_t>(moon.parent)];
+    const glm::dvec3 toward = glm::normalize(glm::transpose(moon.orientation) * (parent.world_position - moon.world_position));
+    check(toward.x > 0.98, "Europa's x axis points at Jupiter", toward.x);
+    sim.clock().warp = 86400.0;
+    sim.update(0.0);
+    check(sim.moon_aurora(index).sheet == 0.0 && sim.moon_aurora(index).field == glm::dvec3(0.0, 0.0, 1.0), "at a day per second it evens out");
+    MoonAuroraState tilted;
+    tilted.field = above;
+    tilted.sheet = -1.0;
+    const AuroraProfile shell = aurora_profile(AuroraModel::Europa, false, 3.0, tilted);
+    check(glm::length(shell.low_rgb * europa_pattern_mean(above, -1.0) - aurora_profile(AuroraModel::Europa, false, 3.0).low_rgb) <
+              1e-6 * glm::length(shell.low_rgb),
+          "the pattern moves the light, the plasma sets how much");
+    check(shell.map_sun.x == -kEuropaSheet && shell.map_sun.y == -kEuropaUpstream && shell.map_sun.z == kEuropaFieldTilt && shell.map_sun.w == kEuropaAfternoon,
+          "the shader gets the pattern's numbers");
+}
+
 // Io through an eclipse: Schmidt et al. 2023, de Pater et al. 2020, Milby et al. 2025.
 void test_io_eclipse_levels()
 {
@@ -1290,7 +1415,7 @@ void test_aurora_profiles()
         {Model::Ganymede, true, Pattern::BodyMapShares, Vertical::UniformColumn, Lighting::Always},
         {Model::Uranus, false, Pattern::BodyMapSeasons, Vertical::Table, Lighting::Always},
         {Model::Neptune, false, Pattern::BodyMapDusk, Vertical::ChapmanPair, Lighting::Always},
-        {Model::Europa, false, Pattern::EuropaTrailing, Vertical::Exponential, Lighting::NightOrEclipsed},
+        {Model::Europa, false, Pattern::Europa, Vertical::Exponential, Lighting::NightOrEclipsed},
         {Model::Io, false, Pattern::IoFlanks, Vertical::Exponential, Lighting::NightOrEclipsed},
         {Model::Callisto, false, Pattern::Uniform, Vertical::Exponential, Lighting::NightOrEclipsed},
         {Model::Mars, false, Pattern::Uniform, Vertical::Gaussian, Lighting::NightSide},
@@ -1343,7 +1468,7 @@ void test_aurora_profiles()
 
     // The moons' spectra: the column colors, with their exposure.
     const glm::dvec3 europa = (kRedPerKr * (0.573 + 0.190 * 630.0 / 636.4) + kGreenPerKr * 0.037) * 3.0e7 /
-                              aurora_disk_factor(1560.8, 50.0, 300.0);
+                              aurora_disk_factor(1560.8, 150.0, 600.0);
     check(glm::length(aurora_profile(Model::Europa, false, 3.0).low_rgb - europa) < 1e-9 * glm::length(europa),
           "Europa's column is its disk-average oxygen lines");
     check(aurora_profile(Model::Europa, false, 3.0).high_rgb == glm::dvec3(0.0) &&
@@ -1684,7 +1809,7 @@ void test_europa_aurora()
     const auto solar = load_scene_or_die("solar_system.toml");
     check(solar.bodies[solar.find("Europa")].aurora.model == AuroraModel::Europa, "Europa template shared across scenes");
     // Independent line-of-sight integration, including the off-limb shell.
-    constexpr double R = 1560.8, top = R + 300.0;
+    constexpr double R = 1560.8, top = R + 600.0;
     double flux = 0.0;
     constexpr int radial = 4000, depth = 400;
     for (int i = 0; i < radial; ++i) {
@@ -1695,11 +1820,11 @@ void test_europa_aurora()
         for (int j = 0; j < depth; ++j) {
             const double z = z0 + (z1 - z0) * (j + 0.5) / depth;
             const double h = std::sqrt(b2 + z * z) - R;
-            column += std::exp(-h / 50.0) / (50.0 * (1.0 - std::exp(-6.0))) * (z1 - z0) / depth;
+            column += std::exp(-h / 150.0) / (150.0 * (1.0 - std::exp(-4.0))) * (z1 - z0) / depth;
         }
         flux += column * top * top / (R * R * radial);
     }
-    check(std::abs(flux - aurora_disk_factor(R, 50.0, 300.0)) < 0.003,
+    check(std::abs(flux - aurora_disk_factor(R, 150.0, 600.0)) < 0.003,
           "Europa aperture brightness agrees with independent ray integral", flux);
     int count = 0;
     for (const auto& event : scene.events) {
@@ -1712,13 +1837,13 @@ void test_europa_aurora()
         const auto oc = parent.world_position - moon.world_position;
         const double along = glm::dot(oc, light);
         const double miss = glm::length(oc - along * light);
-        check(along > 0.0 && miss + R + 300.0 + along * 695700.0 / glm::length(scene.sun_position() - moon.world_position) < parent.polar_radius_km,
+        check(along > 0.0 && miss + R + 600.0 + along * 695700.0 / glm::length(scene.sun_position() - moon.world_position) < parent.polar_radius_km,
               "Europa aurora tour lies inside Jupiter shadow", miss);
         check(event.aurora_visible && !event.aurora_ultraviolet, "Europa tour uses visible spectrum");
         scene.update(event.t_tdb + 3.0 * 3600.0);
         const auto day_light = glm::normalize(scene.sun_position() - moon.world_position);
         const auto day_oc = parent.world_position - moon.world_position;
-        check(glm::length(glm::cross(day_oc, day_light)) > parent.equatorial_radius_km + R + 300.0,
+        check(glm::length(glm::cross(day_oc, day_light)) > parent.equatorial_radius_km + R + 600.0,
               "Europa leaves Jupiter shadow three hours after tour");
     }
     check(count == 1, "Europa has an eclipse tour");
@@ -2833,6 +2958,7 @@ void run_appearance_tests()
     test_europa_aurora();
     test_io_callisto_aurora();
     test_plasma_sheet();
+    test_europa_pattern();
     test_io_eclipse_levels();
     test_mars_aurora();
     test_jovian_footprints();

@@ -192,7 +192,9 @@ AuroraProfile aurora_profile(AuroraModel model, bool ultraviolet, double kp, con
         p.map_gain = 1.0;
         break;
     case AuroraModel::Europa:
-        p = moon_profile(europa_visible_aurora(), AuroraPattern::EuropaTrailing, moon);
+        p = moon_profile(europa_visible_aurora(), AuroraPattern::Europa, moon);
+        p.low_rgb /= europa_pattern_mean(moon.field, moon.sheet);
+        p.map_sun = glm::dvec4(moon.sheet * kEuropaSheet, moon.sheet * kEuropaUpstream, kEuropaFieldTilt, kEuropaAfternoon);
         break;
     case AuroraModel::Io:
         p = moon_profile(io_visible_aurora(), AuroraPattern::IoFlanks, moon);

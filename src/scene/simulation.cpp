@@ -394,7 +394,13 @@ MoonAuroraState Simulation::moon_aurora(int body) const
         const double scale = europa ? kEuropaPlasmaScaleRj : kCallistoPlasmaScaleRj;
         const double now = plasma_sheet_density(centrifugal_equator_height_rj(moon.in_parent_axes), scale);
         const double mean = plasma_sheet_mean_density(glm::length(moon.in_parent_axes), scale);
-        state.plasma = std::lerp(mean, now, plasma_sheet_steadiness(m_clock.warp)) / (europa ? europa_reference_density() : 1.0);
+        const double steady = plasma_sheet_steadiness(m_clock.warp);
+        state.plasma = std::lerp(mean, now, steady) / (europa ? europa_reference_density() : 1.0);
+        if (europa) {
+            // A long exposure of a sheet going by evens out above and below.
+            state.field = glm::normalize(glm::mix(glm::dvec3(0.0, 0.0, 1.0), jovian_field_line_at_moon(moon.in_parent_axes), steady));
+            state.sheet = -steady * jovian_magnetic_latitude_deg(moon.in_parent_axes) / kJovianDipoleTiltDeg;
+        }
     }
     if (moon.aurora.model == AuroraModel::Io) {
         // Between eclipses, and when they go by too fast to follow, as before an eclipse.

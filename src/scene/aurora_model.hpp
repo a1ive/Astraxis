@@ -38,7 +38,9 @@ enum class AuroraPattern { // brightness across the surface
     BodyMapShares = 4,     // a brightness map fixed to the body (AuroraMap), its four layers
                            // in the shares map_sun
     Uniform = 5,
-    EuropaTrailing = 6,    // assumed smooth trailing enhancement
+    Europa = 6,            // europa_pattern in scene/satellite_aurora.hpp: map_sun = its
+                           // sheet (kEuropaSheet, kEuropaUpstream parts), field tilt, afternoon;
+                           // the field line is AuroraDrawItem::pole
     IoFlanks = 7,          // broad glows on the plasma flow's flanks: sub- and anti-Jovian
     BodyMapSeasons = 8,    // AuroraMap's two layers mixed by the sun at the latitude's noon:
                            // map_sun = zenith angles (rad) where the sunlit layer's share is
@@ -79,6 +81,10 @@ struct MoonAuroraState {
     // Europa, Callisto: the electrons of the plasma sheet around the moon, relative to their
     // reference (scene/satellite_aurora.hpp).
     double plasma = 1.0;
+    // Europa: the field line through it and where it is in the sheet, +1 farthest below the
+    // magnetic equator (the pattern's gathering of the light, europa_pattern).
+    glm::dvec3 field{0.0, 0.0, 1.0};
+    double sheet = 0.0;
     // Io: its sodium and SO2 through an eclipse, relative to their reference observations.
     double sodium = 1.0;
     double so2 = 1.0;

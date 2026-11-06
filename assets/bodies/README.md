@@ -125,6 +125,6 @@ ctest --test-dir build/win-msvc -C Release --output-on-failure
 python -m unittest discover -s tools -p test_scene_templates.py
 ```
 
-Europa 模板的 `[aurora].europa_visible = true` 在引用它的场景中启用可见光氧极光，要求球形半径 1560.8 km，与其他极光字段互斥。木星遮日按当前父天体位置计算；没有父天体时只用当地昼夜可见度。数据和显示假设见 `../geomag/SOURCES.md`。
+Europa 模板的 `[aurora].europa_visible = true` 在引用它的场景中启用可见光氧极光，要求球形半径 1560.8 km，与其他极光字段互斥。亮度的分布跟着太阳、等离子体片和磁力线，见 `Simulation::moon_aurora`。木星遮日按当前父天体位置计算；没有父天体时只用当地昼夜可见度。数据和显示假设见 `../geomag/SOURCES.md`。
 
 Io 和 Callisto 模板分别使用 `[aurora].io_visible = true`、`[aurora].callisto_visible = true`，要求各自的球形参考半径（1821.49、2410.3 km）。与其他极光字段互斥。导览或手动极光视图启用显示，谱线强度和显示增益分别保存，亮度由 `Simulation::moon_aurora` 按此刻的情况调整（Io 的钠和 SO₂ 跟着日食，Europa、Callisto 跟着等离子体片）；模型与来源见 `../geomag/SOURCES.md`。

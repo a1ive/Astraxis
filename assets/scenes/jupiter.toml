@@ -789,11 +789,11 @@ elevation_deg = 0.0
 distance_km = 6500.0
 warp = 120.0
 caption = """\
-    In Jupiter's shadow, Europa's thin oxygen atmosphere glows mostly red. \
-    Plasma keeps exciting the oxygen, and Jupiter's tilted field carries it past: \
-    the glow fades by about a quarter as the moon leaves the middle of the plasma sheet. \
-    The line strengths are from May 20, 2021, in enhanced exposure; the smooth \
-    trailing-side enhancement and atmospheric height are assumed."""
+    In Jupiter's shadow, Europa's thin oxygen atmosphere glows mostly red. Jupiter's tilted \
+    field carries the plasma past: the glow fades by about a quarter as the moon leaves the \
+    middle of the plasma sheet. The light gathers along the field line, on the afternoon \
+    side and the side facing the sheet, as Hubble mapped in the ultraviolet. Line strengths \
+    are from May 20, 2021, in enhanced exposure; the real aurora is patchier."""
 
 [[frames]]
 name = "Io equator"

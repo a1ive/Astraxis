@@ -1870,7 +1870,8 @@ void SceneRenderer::add_aurora_items(const Simulation& sim, const OutputView& ou
     a.sun_angular_radius = lit.sun_angular_radius;
     a.time = static_cast<float>(sim.aurora_time());
     a.pixel_angle = 2.0f / (view.viewport.y * view.focal_y);
-    set_profile(a, aurora_profile(model, ultraviolet, sim.aurora_kp(), sim.moon_aurora(static_cast<int>(index))));
+    const MoonAuroraState moon_state = sim.moon_aurora(static_cast<int>(index));
+    set_profile(a, aurora_profile(model, ultraviolet, sim.aurora_kp(), moon_state));
 
     switch (model) {
     case AuroraModel::Earth: {
@@ -1927,6 +1928,7 @@ void SceneRenderer::add_aurora_items(const Simulation& sim, const OutputView& ou
     case AuroraModel::Europa:
     case AuroraModel::Io:
     case AuroraModel::Callisto:
+        a.pole = glm::vec3(moon_state.field);
         if (body.parent >= 0) {
             const Body& parent = scene.bodies[static_cast<size_t>(body.parent)];
             a.parent = glm::vec4(glm::vec3(to_unit * (parent.world_position - body.world_position)),
