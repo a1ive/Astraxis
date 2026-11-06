@@ -3040,8 +3040,167 @@ void test_jovian_footprints()
 
 } // namespace
 
+// Comet Shoemaker-Levy 9's impacts: Harrington & Deming 2001 [HD01], Hammel et al. 1995 and 1996 [HAM95],
+// Beebe 1996 [BEE96], Sanchez-Lavega et al. 1998 [SL98].
+void test_impact_sites()
+{
+    Scene scene = load_scene_or_die("jupiter.toml");
+    const int jupiter = scene.find("Jupiter");
+    const Body& planet = scene.bodies[static_cast<size_t>(jupiter)];
+    check(planet.impacts.size() == 21, "Jupiter has 21 impact sites", static_cast<double>(planet.impacts.size()));
+    if (planet.impacts.empty()) {
+        return;
+    }
+
+    // Each site is where its fragment's table ends.
+    double worst_time = 0.0;
+    double worst_place = 0.0;
+    for (const ImpactSite& site : planet.impacts) {
+        const int f = scene.find(("SL9 " + site.name).c_str());
+        check(f > 0, "a site's fragment exists");
+        const MotionSource& motion = *scene.bodies[static_cast<size_t>(f)].motion;
+        double lo = site.t_tdb - 30.0;
+        double hi = site.t_tdb + 30.0;
+        check(motion.valid_at(lo) && !motion.valid_at(hi), "the fragment ends at its site's time");
+        for (int i = 0; i < 40; ++i) {
+            const double mid = 0.5 * (lo + hi);
+            (motion.valid_at(mid) ? lo : hi) = mid;
+        }
+        worst_time = std::max(worst_time, std::abs(lo - site.t_tdb));
+        const glm::dvec3 r = scene.icrf_state_at(f, lo).position - scene.icrf_state_at(jupiter, lo).position;
+        const glm::dvec3 fixed = glm::transpose(scene.body_to_icrf(planet, lo)) * r;
+        const double lat = glm::degrees(std::asin(fixed.z / glm::length(fixed)));
+        const double west = glm::degrees(-std::atan2(fixed.y, fixed.x));
+        worst_place = std::max({worst_place, std::abs(lat - site.lat_deg), std::abs(std::remainder(west - site.west_lon_deg, 360.0))});
+    }
+    check(worst_time < 1.0, "the sites' times match the fragments' tables", worst_time);
+    check(worst_place < 0.02, "the sites' places match the fragments' tables", worst_place);
+
+    auto site = [&](const char* name) -> const ImpactSite& {
+        for (const ImpactSite& s : planet.impacts) {
+            if (s.name == name) {
+                return s;
+            }
+        }
+        return planet.impacts[0];
+    };
+    // [HAM95] Table 2, and its site near G's ring center: 43.65 S, 25.7 W.
+    check(site("G").klass == ImpactClass::C1 && site("K").klass == ImpactClass::C1 && site("L").klass == ImpactClass::C1,
+          "G, K and L are class 1");
+    check(site("B").klass == ImpactClass::C3 && site("F").klass == ImpactClass::C4 && site("Q1").klass == ImpactClass::C2b,
+          "other site classes");
+    check(std::abs(site("G").lat_deg + 43.65) < 0.3 && std::abs(site("G").west_lon_deg - 25.7) < 0.6,
+          "G against Hammel's ring center", site("G").west_lon_deg);
+    // The solar system scene has the same Jupiter.
+    Scene solar = load_scene_or_die("solar_system.toml");
+    check(solar.bodies[static_cast<size_t>(solar.find("Jupiter"))].impacts.size() == 21, "the solar system's Jupiter has them too");
+
+    // The plume [HD01] against the observations [HAM95]: 3000 km within 6-8 minutes or so, settled in 15 to 20.
+    check(std::abs(impact_plume_vanguard_share() - 0.22) < 0.01, "the vanguard's mass share, Harrington & Deming", impact_plume_vanguard_share());
+    const double peak_s = kPlumeVMaxKmS / kPlumeGravityKmS2;
+    check(std::abs(impact_plume_top_km(peak_s) - 3000.0) < 20.0, "plume top 3000 km, Hammel", impact_plume_top_km(peak_s));
+    check(peak_s > 6.0 * 60.0 && peak_s < 9.0 * 60.0, "plume at its top after 6-9 minutes", peak_s / 60.0);
+    check(impact_plume_end_s() > 15.0 * 60.0 && impact_plume_end_s() < 20.0 * 60.0, "plume down within 15-20 minutes", impact_plume_end_s() / 60.0);
+    // Its density integrates to the whole mass, at any time, while nothing has come down.
+    const double age = 200.0;
+    double mass = 0.0;
+    const double step = 160.0;
+    for (double x = -3200.0; x < 3200.0; x += step) {
+        for (double y = -3200.0; y < 3200.0; y += step) {
+            for (double z = 0.5 * step; z < 3200.0; z += step) {
+                mass += impact_plume_density(glm::dvec3(x, y, z), age) * step * step * step;
+            }
+        }
+    }
+    check(std::abs(mass - 1.0) < 0.1, "the plume's density holds its mass", mass);
+    // It leans southeast (Hammel: the fragments came from the south, 16 deg toward the east).
+    check(impact_plume_density(glm::dvec3(500.0, -700.0, 1500.0), age) > 5.0 * impact_plume_density(glm::dvec3(-500.0, 700.0, 1500.0), age),
+          "the plume leans southeast");
+    check(impact_plume_density(glm::dvec3(0.0, 0.0, 100.0), -1.0) == 0.0, "no plume before the impact");
+
+    // The fireball, with the swarm's top, clears the limb about when the second precursor starts (Chodas &
+    // Yeomans Table 1: A +49 s, G +59-70 s, W +8 s), for material 750, 444 and 137 km up.
+    auto clears = [](double km) {
+        double t = 0.0;
+        while (impact_plume_top_km(t) < km) {
+            t += 0.5;
+        }
+        return t;
+    };
+    check(std::abs(clears(750.0) - 49.0) < 25.0, "A's fireball clears the limb", clears(750.0));
+    check(std::abs(clears(444.0) - 65.0) < 30.0, "G's fireball clears the limb", clears(444.0));
+    check(std::abs(clears(137.0) - 8.0) < 10.0, "W's fireball clears the limb", clears(137.0));
+    // The flash: up in 2 s, down within 25-50 s.
+    check(impact_flash(0.0) == 0.0 && impact_flash(2.0) > 0.8 && impact_flash(60.0) < 0.05, "the flash's time scale", impact_flash(2.0));
+
+    // Rings: 454 m/s from 586 km; at 1.5 h, 3,037 km.
+    check(std::abs(impact_ring_radius_km(5400.0, false) - 3037.6) < 0.1, "the main ring", impact_ring_radius_km(5400.0, false));
+    const ImpactClassParams& large = impact_class_params(ImpactClass::C1);
+    auto along_axis = [&](double r, double age_s) {
+        const double a = kPlumeAzimuthDeg * kDegToRad;
+        return impact_scar_shape(large, r * std::sin(a), r * std::cos(a), age_s, 0.0);
+    };
+    // The ring is a dark line, opposite the crescent; and gone in 10 hours.
+    const double a = (kPlumeAzimuthDeg + 180.0) * kDegToRad;
+    const double r_ring = impact_ring_radius_km(5400.0, false);
+    const double on_ring = impact_scar_shape(large, r_ring * std::sin(a), r_ring * std::cos(a), 5400.0, 0.0);
+    const double off_ring = impact_scar_shape(large, (r_ring + 500.0) * std::sin(a), (r_ring + 500.0) * std::cos(a), 5400.0, 0.0);
+    check(on_ring > off_ring + 0.03, "a ring shows at its radius", on_ring - off_ring);
+    const double r_late = impact_ring_radius_km(11.0 * 3600.0, false);
+    check(std::abs(impact_scar_shape(large, r_late * std::sin(a), r_late * std::cos(a), 11.0 * 3600.0, 0.0) -
+                   impact_scar_shape(large, (r_late + 500.0) * std::sin(a), (r_late + 500.0) * std::cos(a), 11.0 * 3600.0, 0.0)) < 0.01,
+          "and it is gone after 10 hours");
+
+    // G's crescent: outer edge 13,000 km to the southeast, and much less on the other side. Nothing
+    // comes down in the first minutes.
+    const double t_look = 5400.0;
+    double crest = 0.0;
+    double crest_r = 0.0;
+    for (double r = 5000.0; r < 18000.0; r += 100.0) {
+        if (along_axis(r, t_look) > crest) {
+            crest = along_axis(r, t_look);
+            crest_r = r;
+        }
+    }
+    double edge_r = crest_r;
+    while (along_axis(edge_r, t_look) > 0.5 * crest && edge_r < 30000.0) {
+        edge_r += 50.0;
+    }
+    check(std::abs(edge_r - 13000.0) < 1500.0, "G's crescent reaches 13,000 km, Hammel", edge_r);
+    check(along_axis(crest_r, t_look) > 3.0 * along_axis(-crest_r, t_look), "the crescent is to the southeast");
+    check(along_axis(crest_r, 200.0) < 0.01 * crest, "no ejecta in the first minutes");
+    // The small and the undetected.
+    const ImpactClassParams& small = impact_class_params(ImpactClass::C3);
+    check(impact_scar_shape(small, 5000.0, 0.0, t_look, 0.0) < 0.01 && impact_scar_shape(small, 0.0, 0.0, t_look, 0.0) > 0.9,
+          "a class 3 site is only a dark patch under 3,000 km");
+    check(impact_class_params(ImpactClass::C4).weight == 0.0, "a class 4 site leaves nothing");
+    check(impact_site_fade(small, 90.0 * 3600.0) < 0.5, "B's site was gone before N arrived, Beebe", impact_site_fade(small, 90.0 * 3600.0));
+
+    // The optical depths at 890 nm, [SL98] Table IV: 3.4 at first, 2.2 on Aug 28, 0.6 in December.
+    check(std::abs(impact_core_depth(2.0 * kSecondsPerDay) - 3.4) < 0.01, "a core's depth at first", impact_core_depth(2.0 * kSecondsPerDay));
+    check(std::abs(impact_core_depth(41.0 * kSecondsPerDay) - 2.2) < 0.01, "on Aug 28", impact_core_depth(41.0 * kSecondsPerDay));
+    const double dec17 = (2449703.8 - 2449550.0); // days after the first impact (July 16.8)
+    check(std::abs(impact_band_depth(dec17) - 0.6) < 0.05, "the band in December 1994", impact_band_depth(dec17));
+
+    // The places: dark at G after 1.5 h, not before the impact; in the band, later, at the latitude of the
+    // sites; none near the equator.
+    const ImpactSite& g = site("G");
+    check(impact_scar_depth(planet.impacts, g.lat_deg, g.west_lon_deg, g.t_tdb + 5400.0) > 2.0, "G is dark",
+          impact_scar_depth(planet.impacts, g.lat_deg, g.west_lon_deg, g.t_tdb + 5400.0));
+    check(impact_scar_depth(planet.impacts, g.lat_deg, g.west_lon_deg, planet.impacts[0].t_tdb - 3600.0) == 0.0, "nothing before");
+    const double t_band = g.t_tdb + 150.0 * kSecondsPerDay;
+    check(impact_scar_depth(planet.impacts, -43.0, 120.0, t_band) > 0.4, "in December a band at 43 S",
+          impact_scar_depth(planet.impacts, -43.0, 120.0, t_band));
+    check(impact_scar_depth(planet.impacts, 0.0, 120.0, t_band) < 0.01, "not at the equator");
+    check(impact_scar_depth(planet.impacts, -43.0, 120.0, g.t_tdb + 4000.0 * kSecondsPerDay) < 1e-6, "gone long after");
+    // East of a site's latitude, the wind [BEE96]: the debris moves east to the north, west to the south.
+    check(impact_wind_km_s(2000.0) > 0.0 && impact_wind_km_s(-2000.0) < 0.0, "the shear's direction");
+    check(impact_wind_km_s(1e5) == 0.020 && impact_wind_km_s(-1e5) == -0.010, "the shear's limits, Table III");
+}
+
 void run_appearance_tests()
 {
+    test_impact_sites();
     test_comet_tails();
     test_dust_tail();
     test_atmospheres();

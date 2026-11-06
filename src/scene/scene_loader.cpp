@@ -193,6 +193,36 @@ Atmosphere parse_atmosphere(const toml::table& t, const std::string& ctx)
     return a;
 }
 
+double parse_event_time(const toml::table& t, const std::string& ctx, Calendar calendar);
+
+// [[bodies.impacts]]
+ImpactSite parse_impact(const toml::table& t, const std::string& ctx)
+{
+    ImpactSite site;
+    site.name = get_string(t, "name", ctx);
+    const std::string c = ctx + " impact '" + site.name + "'";
+    const std::string klass = get_string(t, "class", c);
+    if (klass == "1") {
+        site.klass = ImpactClass::C1;
+    } else if (klass == "2a") {
+        site.klass = ImpactClass::C2a;
+    } else if (klass == "2b") {
+        site.klass = ImpactClass::C2b;
+    } else if (klass == "2c") {
+        site.klass = ImpactClass::C2c;
+    } else if (klass == "3") {
+        site.klass = ImpactClass::C3;
+    } else if (klass == "4") {
+        site.klass = ImpactClass::C4;
+    } else {
+        fail(c, "class must be \"1\", \"2a\", \"2b\", \"2c\", \"3\" or \"4\"");
+    }
+    site.t_tdb = parse_event_time(t, c, Calendar::Gregorian);
+    site.lat_deg = get_double(t, "lat_deg", c);
+    site.west_lon_deg = get_double(t, "west_lon_deg", c);
+    return site;
+}
+
 // [[bodies.plumes]]
 Plume parse_plume(const toml::table& t, const std::string& ctx)
 {
@@ -491,6 +521,9 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
         {"end_lat_lon_deg", list}, {"count", number}, {"spread_deg", number}, {"tail_km", number},
         {"tail_azimuth_deg", number},
     };
+    static const TemplateFields impact = {
+        {"name", text}, {"class", text}, {"time_tdb", text}, {"lat_deg", number}, {"west_lon_deg", number},
+    };
     static const TemplateFields fields = {
         {"kind", text}, {"radii_km", list}, {"body_gm_km3_s2", number}, {"gravity_radius_km", number},
         {"zonal_harmonics", list}, {"spin", number}, {"temperature_k", number}, {"luminosity_solar", number},
@@ -502,7 +535,7 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
         {"night_lights", {{Type::table}, &night_lights}}, {"aurora", {{Type::table}, &aurora}},
         {"magnetic_field", {{Type::table}, &magnetic_field}}, {"magnetic_map", {{Type::table}, &magnetic_map}},
         {"rotor", {{Type::table}, &rotor}}, {"rings", {{Type::table}, &rings}},
-        {"plumes", {{Type::array}, &plume}},
+        {"plumes", {{Type::array}, &plume}}, {"impacts", {{Type::array}, &impact}},
     };
     // nut_prec terms may use an ancestor's nut_prec_angles (a moon those of its planet, as
     // in the PCK); the body loader checks that there are enough of them.
@@ -1608,6 +1641,21 @@ void Loader::parse(const toml::table& root, Scene& out)
                 body.plumes.push_back(parse_plume(*p, ctx));
             }
         }
+        if (const toml::array* impacts = (*t)["impacts"].as_array()) {
+            if (body.kind != BodyKind::Planet || body.shape) {
+                fail(ctx, "only ellipsoidal planets and moons can have impacts");
+            }
+            if (static_cast<int>(impacts->size()) > kImpactSiteLimit) {
+                fail(ctx, "too many impacts");
+            }
+            for (const toml::node& node : *impacts) {
+                const toml::table* p = node.as_table();
+                if (!p) {
+                    fail(ctx, "impacts must be tables");
+                }
+                body.impacts.push_back(parse_impact(*p, ctx));
+            }
+        }
         if (const toml::table* c = (*t)["comet"].as_table()) {
             const std::string comet_ctx = ctx + " comet";
             const bool around_star = body.parent >= 0 && out.bodies[static_cast<size_t>(body.parent)].kind == BodyKind::Star;
@@ -1889,7 +1937,7 @@ void Loader::parse(const toml::table& root, Scene& out)
             }
             if (t->contains("observer")) {
                 e.observer = body_ref(out, *t, "observer", ctx, false);
-                if (e.focus < 0 || e.focus == e.observer || e.from_body >= 0 || e.from_sun ||
+                if (e.focus < 0 || (e.focus == e.observer && !t->contains("aim_offset_km")) || e.from_body >= 0 || e.from_sun ||
                     e.from_earth || e.from_orbit_normal >= 0 || e.flyby >= 0 || t->contains("elevation_deg")) {
                     fail(ctx, "observer needs another focus and no other viewing direction or flyby");
                 }
@@ -1908,6 +1956,18 @@ void Loader::parse(const toml::table& root, Scene& out)
                 }
             } else if (t->contains("observer_offset_km")) {
                 fail(ctx, "observer_offset_km needs observer");
+            }
+            if (t->contains("aim_offset_km")) {
+                if (e.observer < 0) {
+                    fail(ctx, "aim_offset_km needs observer");
+                }
+                double aim[3];
+                get_array(*t, "aim_offset_km", ctx, aim, 3, 3);
+                e.aim_offset_km = glm::dvec3(aim[0], aim[1], aim[2]);
+            }
+            e.observer_body_fixed = (*t)["observer_body_fixed"].value<bool>().value_or(false);
+            if (e.observer_body_fixed && e.observer != e.focus) {
+                fail(ctx, "observer_body_fixed needs observer to be the focus");
             }
             e.corona_enhanced = (*t)["corona_enhanced"].value<bool>().value_or(false);
             e.disk_shifts = (*t)["disk_shifts"].value<bool>().value_or(true);

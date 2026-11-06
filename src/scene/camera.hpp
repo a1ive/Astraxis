@@ -32,7 +32,9 @@ struct CameraShot {
     double distance = 1.0;
     bool relative_to_parent = false;
     int observer = -1;
-    glm::dvec3 observer_offset_km{0.0}; // ICRF
+    glm::dvec3 observer_offset_km{0.0}; // ICRF, or the target's body frame
+    glm::dvec3 aim_offset_km{0.0};      // what to look at, from the target's center
+    bool observer_body_fixed = false;   // the offsets are in the target's body frame
     double fov_deg = 45.0;
 };
 
@@ -76,6 +78,8 @@ private:
     glm::dmat3 m_basis{1.0};
     int m_observer = -1;
     glm::dvec3 m_observer_offset_km{0.0};
+    glm::dvec3 m_aim_offset_km{0.0};
+    bool m_observer_body_fixed = false;
     int m_target = 0;
     int m_prev_target = 0;
 

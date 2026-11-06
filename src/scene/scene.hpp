@@ -6,6 +6,7 @@
 #include "scene/magnetic_field.hpp"
 #include "scene/corona.hpp"
 #include "scene/disk.hpp"
+#include "scene/impact.hpp"
 #include "scene/nebula.hpp"
 #include "scene/refraction.hpp"
 #include "scene/pinwheel.hpp"
@@ -383,6 +384,7 @@ struct Body {
     // moons (scene/jovian_plasma_sheet.hpp). Zero without a parent.
     glm::dvec3 in_parent_axes{0.0};
     std::vector<Plume> plumes;
+    std::vector<ImpactSite> impacts; // what hit it: scene/impact.hpp
 
     // Comets: a gas coma (C2, Haser model), an ion tail and dust (a coma and a
     // Finson-Probstein tail), all glowing in proportion to the comet's total
@@ -562,6 +564,8 @@ struct SceneEvent {
                                                                      // plane normal to the up axis
     int observer = -1; // camera anchored to this body's center plus an ICRF offset
     glm::dvec3 observer_offset_km{0.0};
+    glm::dvec3 aim_offset_km{0.0};   // what the camera looks at, from the focus' center (with observer)
+    bool observer_body_fixed = false; // both offsets are in the focus' body frame: the camera turns with it
     double fov_deg = 45.0;
     bool corona_enhanced = false; // white-light enhancement near Parker
     // Black holes' disks: Doppler and gravitational frequency shifts (color and

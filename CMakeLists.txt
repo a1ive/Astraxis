@@ -74,6 +74,8 @@ add_library(astraxis_sim STATIC
     src/scene/camera_director.cpp
     src/scene/camera_director.hpp
     src/scene/comet.cpp
+    src/scene/impact.cpp
+    src/scene/impact.hpp
     src/scene/comet.hpp
     src/scene/label_layout.cpp
     src/scene/label_layout.hpp
@@ -144,6 +146,8 @@ astraxis_add_shaders(astraxis_shaders
     shaders/fullscreen.vert.hlsl
     shaders/plume.vert.hlsl
     shaders/plume.frag.hlsl
+    shaders/impact_plume.frag.hlsl
+    shaders/impact_scar.frag.hlsl
     shaders/orbit_line.vert.hlsl
     shaders/orbit_line.frag.hlsl
     shaders/nebula.vert.hlsl
@@ -217,6 +221,8 @@ add_executable(astraxis
     src/render/orbit_line_pass.hpp
     src/render/pinwheel_pass.cpp
     src/render/pinwheel_pass.hpp
+    src/render/impact_pass.cpp
+    src/render/impact_pass.hpp
     src/render/plume_pass.cpp
     src/render/plume_pass.hpp
     src/render/post_process.cpp

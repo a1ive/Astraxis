@@ -13,6 +13,7 @@
 #include "render/orbit_line_pass.hpp"
 #include "render/nebula_pass.hpp"
 #include "render/pinwheel_pass.hpp"
+#include "render/impact_pass.hpp"
 #include "render/plume_pass.hpp"
 #include "render/post_process.hpp"
 #include "render/ring_pass.hpp"
@@ -99,6 +100,7 @@ private:
     AtmospherePass m_atmospheres;
     AuroraPass m_auroras;
     PlumePass m_plumes;
+    ImpactPass m_impacts;
     CometPass m_comets;
     DustPass m_dust;
     RingPass m_rings;
@@ -152,6 +154,8 @@ private:
     std::vector<AtmosphereDrawItem> m_atmosphere_items;
     std::vector<AuroraDrawItem> m_aurora_items;
     std::vector<PlumeDrawItem> m_plume_items;
+    std::vector<ImpactScarDrawItem> m_impact_scars;
+    std::vector<ImpactPlumeDrawItem> m_impact_plumes;
     std::vector<CometDrawItem> m_comet_items;
     std::vector<AtmosphereOptics> m_atmosphere_optics; // per body (BodyDrawItem::atmosphere points here)
     std::vector<BeltDrawItem> m_belt_items;

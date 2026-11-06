@@ -80,6 +80,8 @@ void OrbitCamera::fly_to(const CameraShot& shot, double duration, const Scene& s
 {
     m_observer = shot.observer;
     m_observer_offset_km = shot.observer_offset_km;
+    m_aim_offset_km = shot.aim_offset_km;
+    m_observer_body_fixed = shot.observer_body_fixed;
     m_fov_y = std::clamp(shot.fov_deg, 0.1, 120.0) * kDegToRad;
     if (m_observer >= 0) duration = 0.0; // observer shots are placed, not swept through the planet
     // Current absolute angles, re-expressed in the new shot's reference.
@@ -158,11 +160,14 @@ void OrbitCamera::update(double real_dt, const Scene& scene)
     const glm::dvec3 target_pos = scene.bodies[static_cast<size_t>(m_target)].world_position;
     if (m_observer >= 0) {
         const Body& observer = scene.bodies[static_cast<size_t>(m_observer)];
-        const glm::dvec3 position = observer.world_position +
-                                   scene.current_transform().direction_to_display(m_observer_offset_km);
+        const auto to_display = [&](const glm::dvec3& offset) {
+            return m_observer_body_fixed ? scene.bodies[static_cast<size_t>(m_target)].orientation * offset
+                                         : scene.current_transform().direction_to_display(offset);
+        };
+        const glm::dvec3 position = observer.world_position + to_display(m_observer_offset_km);
         const double distance = glm::length(position - target_pos);
         if (observer.visible && std::isfinite(distance) && distance > min_distance(m_target, scene)) {
-            m_focus_point = target_pos;
+            m_focus_point = target_pos + to_display(m_aim_offset_km);
             m_position = position;
             m_distance = distance;
             angles_for_direction(m_position - target_pos, &m_yaw, &m_pitch);

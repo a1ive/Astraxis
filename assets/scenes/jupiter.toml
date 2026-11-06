@@ -49,6 +49,9 @@
 #          2.5 h later (Sec. 4.2); Q2 from Q1 in April 1993 and P2 from Q in December 1992 (Sec. 4.3).
 #        [WEA] Weaver et al. 1995, Science 267, 1282, Table 2: relative sizes and brightness.
 #        [IAUC] IAU Circular 5725 (1993 March 26): discovery, m1 of 14, a train 47 arcsec long.
+#        [HAM95] Hammel et al. 1995, Science 267, 1288, and [HAM96] Hammel 1996, same book, pp. 111-120: plumes,
+#          sites, rings. [HD01] Harrington & Deming 2001, ApJ 561, 455: the ballistic plume. [BEE96] Beebe 1996,
+#          same book, pp. 307-328, and [SL98] Sanchez-Lavega et al. 1998, Icarus 131, 341: how the debris spread.
 #
 # [CAP]  Event captions (retrieved 2026-10-07):
 #        [GLL] NASA, science.nasa.gov/mission/galileo/: arrival on 1995-12-07 with flybys of
@@ -1194,7 +1197,7 @@ caption = """\
     shell stands for an atmosphere nobody has resolved, in far more exposure than Io or Europa."""
 
 
-# Comet Shoemaker-Levy 9 [SL9]. Times from the tables; the explosions are not drawn (limitations.md).
+# Comet Shoemaker-Levy 9 [SL9]. Times from the tables. Each flash, plume and scar: bodies/jupiter.toml.
 
 [[events]]
 name = "A comet comes apart at Jupiter (1992-07-07)"
@@ -1262,20 +1265,83 @@ warp = 10800.0
 caption = """\
     The train, 3.6 million km long, comes down one piece at a time at about 60 km/s, from the first \
     at 20:11 UT on July 16 to the last at 08:06 on July 22, as seen from the Earth. All 21 fall near \
-    44 degrees south, just out of sight from the Earth. Jupiter turns under the stream, so they land \
-    at different longitudes. Two more, J and M, were lost on the way."""
+    44 degrees south, just out of sight from the Earth. Jupiter turns under them, so they land \
+    at different longitudes. Each flash here lasts far longer than the real one."""
 
 [[events]]
-name = "Fragment G hits, just out of sight (1994-07-18)"
-time_tdb = "1994-07-18 06:44"
+name = "Fragment G, just out of sight (1994-07-18)"
+hide_orbits = true
+time_tdb = "1994-07-18 06:51:40"
+focus = "Jupiter"
+observer = "Jupiter"
+observer_offset_km = [836868.9, 515947.5, 148738.5]
+aim_offset_km = [20045.7, -18963.0, -67353.1]
+fov_deg = 2.4
+warp = 30.0
+# [CY96] Table 5, Table 1; [HAM95] [HD01]. As seen from the Earth (tools/sl9/impact_views.py).
+caption = """\
+    From the Earth, G comes down 6.4 degrees behind Jupiter's limb. Its plume climbs over the edge within \
+    a minute or so, then out of Jupiter's shadow into sunlight, 3,000 km up after about 8 minutes. Telescopes \
+    around the world and Hubble watched it rise and collapse within 20 minutes, the same height for large \
+    and small impacts, which surprised the modelers."""
+
+[[events]]
+name = "Fragment G, as Galileo saw it (1994-07-18)"
+hide_orbits = true
+time_tdb = "1994-07-18 06:52:20"
+focus = "Jupiter"
+observer = "Jupiter"
+observer_offset_km = [1012442.9, -73349.6, -175395.7]
+aim_offset_km = [19792.5, -18791.8, -67258.8]
+fov_deg = 2.4
+warp = 4.0
+# [HAM95] [CY96]: Martin et al. 1995 (PPR), Chapman et al. 1995 (SSI). In Galileo's direction, not its distance.
+caption = """\
+    Only the Galileo spacecraft, 1.6 au away, could see the impacts themselves, on Jupiter's night side. Light \
+    rose within 2 seconds and lasted under a minute; G reached 3% of all of Jupiter's light. This is from Galileo's \
+    direction, enlarged, at four times the speed. Then the plume climbs out of the dark into sunlight."""
+
+[[events]]
+name = "A bull's-eye on Jupiter (1994-07-18)"
+hide_orbits = true
+time_tdb = "1994-07-18 08:00"
+focus = "Jupiter"
+observer = "Jupiter"
+observer_body_fixed = true
+observer_offset_km = [649563.1, -318045.4, -787270.2]
+aim_offset_km = [39518.3, -19349.3, -53315.2]
+fov_deg = 3.4
+warp = 120.0
+# [HAM95] [HAM96]; rings 454 m/s, inner about 189 m/s; crescent's outer edge 13,000 km.
+caption = """\
+    An hour later the site has turned into the Sun. Plume material fell back over 180 degrees, thrown 13,000 km \
+    to the southeast into a dark crescent, with a streak at its center. Waves spread at 454 m/s through a \
+    ring that Hubble could follow for a few hours, with a slower one inside it."""
+
+[[events]]
+name = "Black eyes on Jupiter (1994-07-23)"
+time_tdb = "1994-07-23 05:04"
 focus = "Jupiter"
 from_body = "Sun"
-distance_km = 900000.0
-warp = 20.0
-# [CY96] Table 5, Table 1. From the Sun's direction, 10 deg from the Earth's.
+elevation_deg = -30.0
+distance_km = 320000.0
+warp = 1800.0
+# [HAM95] [BEE96]
 caption = """\
-    The bright G arrives at 61 km/s, 43 degrees from straight down and 6.4 degrees behind the limb as seen \
-    from here. Light of the impact reached the Earth at 07:33:33 UT. From the Earth, only the \
-    fireball rising over the limb showed at first, and Jupiter's turning brought the site into \
-    view about 15 minutes later. The Galileo spacecraft, 1.6 au away on its way to Jupiter, \
-    had the direct view."""
+    After the last impact a string of dark sites runs round the southern hemisphere, like nothing seen \
+    on Jupiter before, and darkest toward the limb: the debris lies high above the clouds, so that sunlight \
+    crosses it twice. The largest, G, K and L, were about as wide as the Earth."""
+
+[[events]]
+name = "The debris spreads into a band (1994-08 to 1995)"
+time_tdb = "1994-08-20"
+focus = "Jupiter"
+from_body = "Sun"
+elevation_deg = -24.0
+distance_km = 380000.0
+warp = 432000.0
+# [SL98] [BEE96]
+caption = """\
+    Jupiter's winds shear the sites out along their latitude, and by the end of August they have become one \
+    band of dark haze. It stays visible until the end of the year, and tiny particles still linger over two \
+    years later. Particles spread as far north as 20 degrees south within a year."""

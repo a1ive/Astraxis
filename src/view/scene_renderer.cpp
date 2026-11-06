@@ -447,6 +447,113 @@ void enclose(PlumeDrawItem& item, const glm::dvec3& p, double radius, bool first
     item.box_max = first ? hi : glm::max(item.box_max, hi);
 }
 
+// Displayed extinction of the largest plume, km^2 per unit of the model's density: the shell's optical
+// depth at the top is about 0.15. 1.4e14 g [HD01] of grains at 1e4 cm^2/g would be 1.4e8 km^2, the same order.
+constexpr double kImpactPlumeExtinctionKm2 = 3.5e7;
+constexpr double kImpactPlumeGlow = 0.5;       // radiance per unit of optical depth in the shadow, at first
+constexpr double kImpactPlumeGlowS = 100.0;    // HST saw it in the shadow 2 to 5 minutes after impact
+constexpr double kImpactFlashMinPx = 1.6;      // a flash's sigma on screen, at least
+constexpr double kImpactFlashFloor = 5.0;      // radiance of a flash at the largest impact, at least
+constexpr double kImpactPulseMinWarp = 60.0;   // above this, a flash lasts as long as a second of real time
+constexpr double kImpactPulseSeconds = 0.8;
+
+// The draw items of a body's impacts at the current time.
+void add_impact_items(const Body& body, double t_tdb, double warp, const glm::dvec3& camera, const glm::dvec3& sun_body,
+                      float sun_angular_radius, double px_per_radian, bool plumes,
+                      std::vector<ImpactScarDrawItem>& scars, std::vector<ImpactPlumeDrawItem>& out)
+{
+    double first = std::numeric_limits<double>::infinity();
+    for (const ImpactSite& site : body.impacts) {
+        first = std::min(first, site.t_tdb);
+    }
+    const double days = (t_tdb - first) / kSecondsPerDay;
+    if (t_tdb <= first || days > kImpactBandDays) {
+        return;
+    }
+    const glm::dmat3 to_body = glm::transpose(body.orientation);
+    const glm::dvec3 body_camera = to_body * (camera - body.world_position);
+    const glm::dvec3 local_center = glm::dvec3(0.0);
+
+    ImpactScarDrawItem scar;
+    scar.model = glm::translate(glm::mat4(1.0f), glm::vec3(body.world_position - camera)) * glm::mat4(glm::mat3(body.orientation));
+    scar.to_local = glm::mat3(to_body);
+    scar.camera_local = glm::vec3(body_camera);
+    scar.sun_direction = glm::vec3(sun_body);
+    scar.equatorial_km = static_cast<float>(body.equatorial_radius_km);
+    scar.polar_km = static_cast<float>(body.polar_radius_km);
+    scar.km_per_radian = static_cast<float>(kImpactRadiusKm);
+    scar.band_depth = static_cast<float>(impact_band_depth(days));
+    scar.band_south_rad = static_cast<float>((-46.1 - 0.004 * days) * kDegToRad);
+    scar.band_north_rad = static_cast<float>((-39.4 + 0.033 * days) * kDegToRad);
+
+    const double pulse_s = warp > kImpactPulseMinWarp ? std::max(50.0, kImpactPulseSeconds * warp) : 0.0;
+    for (const ImpactSite& site : body.impacts) {
+        const double age = t_tdb - site.t_tdb;
+        if (age <= 0.0) {
+            continue;
+        }
+        const ImpactClassParams& params = impact_class_params(site.klass);
+        const double depth = params.weight * impact_core_depth(age) * impact_site_fade(params, age);
+        if (depth > 1e-3 && scar.site_count < kMaxImpactSites) {
+            const int k = scar.site_count++;
+            scar.sites[k] = glm::vec4(static_cast<float>(-site.west_lon_deg * kDegToRad),
+                                      static_cast<float>(site.lat_deg * kDegToRad), static_cast<float>(age),
+                                      static_cast<float>(depth));
+            scar.shapes[k] = glm::vec4(static_cast<float>(params.ejecta_km), static_cast<float>(params.core_km),
+                                       static_cast<float>(params.expansion_km_s),
+                                       static_cast<float>(std::fmod(impact_seed(site) + kTwoPi, kTwoPi) + 16.0 * params.rings));
+        }
+
+        if (!plumes) {
+            continue;
+        }
+        const double plume_on = age < impact_plume_end_s() ? 1.0 : 0.0;
+        const double flash = pulse_s > 0.0 ? std::exp(-age / pulse_s) * (age < 4.0 * pulse_s ? 1.0 : 0.0) : impact_flash(age);
+        if (plume_on <= 0.0 && flash < 1e-3) {
+            continue;
+        }
+        const glm::dvec3 dir = lat_lon_direction(glm::dvec2(site.lat_deg, -site.west_lon_deg));
+        const PlumeFrame f = plume_frame(body, dir, 90.0);
+        const glm::dmat3 rot = body.orientation * f.axes;
+        const glm::dmat3 to_local = glm::transpose(rot);
+        const glm::dvec3 place = body.world_position + body.orientation * f.origin;
+
+        ImpactPlumeDrawItem item;
+        item.model = glm::translate(glm::mat4(1.0f), glm::vec3(place - camera)) * glm::mat4(glm::mat3(rot));
+        item.to_local = glm::mat3(to_local);
+        item.camera_local = glm::vec3(to_local * (camera - place));
+        item.planet_center = glm::vec3(glm::transpose(f.axes) * (local_center - f.origin));
+        item.planet_radius = static_cast<float>(glm::length(f.origin));
+        item.sun_direction = glm::vec3(glm::transpose(f.axes) * sun_body);
+        item.sun_angular_radius = sun_angular_radius;
+        item.age_s = static_cast<float>(age);
+        const double top = impact_plume_top_km(age);
+        double reach = 0.0;
+        if (plume_on > 0.0 && pulse_s <= 0.0) {
+            item.extinction_km2 = static_cast<float>(kImpactPlumeExtinctionKm2 * params.plume_weight);
+            item.glow = static_cast<float>(kImpactPlumeGlow * std::exp(-age / kImpactPlumeGlowS));
+            reach = kPlumeVMaxKmS * age + 200.0;
+        }
+        // The fireball rises with the swarm's top, and grows; a flash is at least a few pixels wide.
+        item.flash_height_km = static_cast<float>(pulse_s > 0.0 ? 300.0 : top);
+        const double from_camera = glm::length(camera - place);
+        const double sigma = std::max(150.0 + 15.0 * std::min(age, 60.0), kImpactFlashMinPx * from_camera / px_per_radian);
+        item.flash_sigma_km = static_cast<float>(sigma);
+        // 3% of the planet's flux at the largest [HAM95], the planet's being about 0.5 pi R^2 in I/F.
+        const double power = kImpactFlashShare * 0.5 * kPi * body.equatorial_radius_km * body.equatorial_radius_km;
+        const double weight = params.plume_weight * flash;
+        item.flash_radiance = static_cast<float>(std::max(power / (kTwoPi * sigma * sigma), kImpactFlashFloor) * weight);
+        const double half = std::max(reach, 5.0 * sigma);
+        item.box_min = glm::vec3(static_cast<float>(-half), static_cast<float>(-half), -300.0f);
+        item.box_max = glm::vec3(static_cast<float>(half), static_cast<float>(half),
+                                 static_cast<float>(std::max(top + 200.0, top + 5.0 * sigma)));
+        out.push_back(item);
+    }
+    if (scar.site_count > 0 || scar.band_depth > 0.0f) {
+        scars.push_back(scar);
+    }
+}
+
 // The draw items of one plume (a geyser has two: column and tail).
 // `occluders`: camera-relative centers (xyz) and radii (w).
 void add_plume_items(const Body& body, const Plume& plume, const glm::dvec3& camera, const glm::dvec3& sun_body,
@@ -601,7 +708,7 @@ bool SceneRenderer::init(const GpuDevice& gpu, SDL_GPUTextureFormat output_forma
     const SceneTargetFormat& format = gpu.scene_format();
     return m_starfield.init(device, format, m_catalog) && m_bodies.init(device, format) &&
            m_rings.init(device, format) && m_atmospheres.init(device, format) && m_auroras.init(device, format) &&
-           m_plumes.init(device, format) && m_comets.init(device, format) && m_dust.init(device, format) &&
+           m_plumes.init(device, format) && m_impacts.init(device, format) && m_comets.init(device, format) && m_dust.init(device, format) &&
            m_orbits.init(device, format) && m_belts.init(device, format) && m_pinwheel.init(device, format) &&
            m_nebula.init(device, format) &&
            m_corona.init(device, format) && m_disk.init(device, format) && m_sun.init(device, format) && m_beams.init(device, format) && m_black_hole.init(device, format) &&
@@ -612,7 +719,7 @@ bool SceneRenderer::refresh_pipelines()
 {
     const SceneTargetFormat& format = m_device->scene_format();
     return m_starfield.set_format(format) && m_bodies.set_format(format) && m_rings.set_format(format) &&
-           m_atmospheres.set_format(format) && m_auroras.set_format(format) && m_plumes.set_format(format) &&
+           m_atmospheres.set_format(format) && m_auroras.set_format(format) && m_plumes.set_format(format) && m_impacts.set_format(format) &&
            m_comets.set_format(format) && m_dust.set_format(format) && m_orbits.set_format(format) &&
            m_belts.set_format(format) && m_pinwheel.set_format(format) && m_nebula.set_format(format) && m_corona.set_format(format) && m_disk.set_format(format) && m_sun.set_format(format) &&
            m_beams.set_format(format) && m_black_hole.set_format(format);
@@ -647,6 +754,7 @@ void SceneRenderer::shutdown()
     m_atmospheres.shutdown();
     m_auroras.shutdown();
     m_plumes.shutdown();
+    m_impacts.shutdown();
     m_comets.shutdown();
     m_dust.shutdown();
     m_bodies.shutdown();
@@ -946,6 +1054,8 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
         (options.aurora_view == 0 && event_settings && event_settings->aurora_visible);
     m_atmosphere_optics.resize(scene.bodies.size());
     m_plume_items.clear();
+    m_impact_scars.clear();
+    m_impact_plumes.clear();
     const glm::dvec3& cam = view.position;
     const int star = scene.star_index();
     const double sun_radius = star >= 0 ? scene.bodies[static_cast<size_t>(star)].equatorial_radius_km : kSunRadiusKm;
@@ -1185,6 +1295,11 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
                 add_plume_items(body, plume, cam, sun_body, item.sun_angular_radius, item.occluders,
                                 item.occluder_count, m_plume_items);
             }
+        }
+        if (!body.impacts.empty()) {
+            add_impact_items(body, sim.clock().t_tdb, std::abs(sim.clock().warp), cam,
+                             glm::transpose(body.orientation) * glm::dvec3(item.sun_direction), item.sun_angular_radius,
+                             0.5 * view.viewport.y * view.focal_y, options.plumes, m_impact_scars, m_impact_plumes);
         }
         m_body_items.push_back(item);
 
@@ -2006,10 +2121,12 @@ void SceneRenderer::render(const Frame& frame, const Simulation& sim, const Outp
     SunLight sun;
     sun.ambient = kAmbient;
     m_bodies.draw(frame.cmd, pass, view, sun, m_body_items);
+    m_impacts.draw_scars(frame.cmd, pass, view, m_impact_scars);
     m_corona.composite(frame.cmd, pass, targets.corona);
     m_atmospheres.draw(frame.cmd, pass, view, m_atmosphere_items);
     m_auroras.draw(frame.cmd, pass, view, m_aurora_items);
     m_plumes.draw(frame.cmd, pass, view, time, m_plume_items);
+    m_impacts.draw_plumes(frame.cmd, pass, view, m_impact_plumes);
     m_comets.draw(frame.cmd, pass, view, time, m_comet_items);
     m_dust.draw(frame.cmd, pass, view, static_cast<float>(kDustMinPx));
     m_rings.draw(frame.cmd, pass, view, m_ring_items);

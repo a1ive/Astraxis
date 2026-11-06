@@ -14,7 +14,7 @@ Astraxis is an astronomy background app with planets, spacecraft and stars anima
 | Scene | Highlights |
 |---|---|
 | Solar System (default) | Planets, moons (including Proteus with its Voyager-based shape), dwarf planets, asteroids and interstellar objects; Webb's infrared views of the H3+ glow of Uranus and Neptune in false color |
-| Jupiter | Rings and moons, Galileo and Juno orbits, Cassini flyby; the 21 fragments of comet Shoemaker-Levy 9 from breakup to impact; northern and southern UV aurora overlays with modeled Io, Europa and Ganymede footprints |
+| Jupiter | Rings and moons, Galileo and Juno orbits, Cassini flyby; the 21 fragments of comet Shoemaker-Levy 9 from breakup to impact, with their flashes, plumes, rings and dark scars; northern and southern UV aurora overlays with modeled Io, Europa and Ganymede footprints |
 | Space Telescopes | Hubble in low Earth orbit, Chandra on a high elliptical orbit, TESS in step with the Moon, WMAP, Herschel, Planck, Gaia, JWST, Euclid and Roman around L2, Spitzer and Kepler drifting behind Earth |
 | Earth-Moon | Artemis missions, CAPSTONE and other lunar spacecraft; the Earth's city lights and aurora (from the Kp record since 1932) |
 | Saturn | Rings, major moons, retrograde Phoebe, the co-orbital Janus and Epimetheus trading orbits, Cassini's tour and Huygens' descent; northern and southern UV aurora overlays |

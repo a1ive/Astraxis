@@ -10,6 +10,10 @@
 #        Satellites" (https://pds-rings.seti.org/jupiter/jupiter_tables.html), from Murray &
 #        Dermott 1999 (Solar System Dynamics) and Burns et al. 1999 (Science 284, 1146).
 # Texture: see textures/SOURCES.md.
+# [IMP]  Where comet Shoemaker-Levy 9 hit, 1994-07-16..22: when and where its tables in scenes/jupiter.toml
+#        end (tools/sl9/impact_views.py prints this), which is within 90 s, 0.3 deg and 1.5 deg of Chodas &
+#        Yeomans 1996, Table 5; the times are at Jupiter. Classes: Hammel et al. 1995, Science 267, 1288, Table 2.
+#        What they do: scene/impact.hpp.
 
 radii_km = [71492.0, 66854.0]          # equatorial, polar [PCK]
 body_gm_km3_s2 = 126686531.9           # [SPHY] (JUP365)
@@ -87,3 +91,151 @@ inner_km = 221900.0
 outer_km = 280000.0
 optical_depth = 1.0e-8
 thickness_km = 8800.0
+
+# [IMP]
+[[impacts]]
+name = "A"
+class = "2a"
+time_tdb = "1994-07-16 19:29:44"
+lat_deg = -43.49
+west_lon_deg = 184.68
+
+[[impacts]]
+name = "B"
+class = "3"
+time_tdb = "1994-07-17 02:09:10"
+lat_deg = -43.35
+west_lon_deg = 67.58
+
+[[impacts]]
+name = "C"
+class = "2a"
+time_tdb = "1994-07-17 06:29:52"
+lat_deg = -43.60
+west_lon_deg = 222.94
+
+[[impacts]]
+name = "D"
+class = "3"
+time_tdb = "1994-07-17 11:11:34"
+lat_deg = -43.66
+west_lon_deg = 33.18
+
+[[impacts]]
+name = "E"
+class = "2a"
+time_tdb = "1994-07-17 14:30:30"
+lat_deg = -43.68
+west_lon_deg = 153.18
+
+[[impacts]]
+name = "F"
+class = "4"
+time_tdb = "1994-07-17 23:54:46"
+lat_deg = -43.85
+west_lon_deg = 135.34
+
+[[impacts]]
+name = "G"
+class = "1"
+time_tdb = "1994-07-18 06:52:31"
+lat_deg = -43.84
+west_lon_deg = 26.09
+
+[[impacts]]
+name = "H"
+class = "2a"
+time_tdb = "1994-07-18 18:50:54"
+lat_deg = -43.97
+west_lon_deg = 99.95
+
+[[impacts]]
+name = "K"
+class = "1"
+time_tdb = "1994-07-19 09:43:03"
+lat_deg = -44.06
+west_lon_deg = 278.37
+
+[[impacts]]
+name = "L"
+class = "1"
+time_tdb = "1994-07-19 21:35:32"
+lat_deg = -44.19
+west_lon_deg = 348.53
+
+[[impacts]]
+name = "N"
+class = "3"
+time_tdb = "1994-07-20 09:47:58"
+lat_deg = -44.54
+west_lon_deg = 71.47
+
+[[impacts]]
+name = "P1"
+class = "4"
+time_tdb = "1994-07-20 15:51:15"
+lat_deg = -45.24
+west_lon_deg = 293.76
+
+[[impacts]]
+name = "P2"
+class = "4"
+time_tdb = "1994-07-20 14:39:51"
+lat_deg = -44.92
+west_lon_deg = 248.99
+
+[[impacts]]
+name = "Q1"
+class = "2b"
+time_tdb = "1994-07-20 19:32:30"
+lat_deg = -44.23
+west_lon_deg = 63.63
+
+[[impacts]]
+name = "Q2"
+class = "3"
+time_tdb = "1994-07-20 19:03:02"
+lat_deg = -44.54
+west_lon_deg = 46.41
+
+[[impacts]]
+name = "R"
+class = "2b"
+time_tdb = "1994-07-21 04:53:35"
+lat_deg = -44.34
+west_lon_deg = 42.44
+
+[[impacts]]
+name = "S"
+class = "2c"
+time_tdb = "1994-07-21 14:34:55"
+lat_deg = -44.47
+west_lon_deg = 33.72
+
+[[impacts]]
+name = "T"
+class = "4"
+time_tdb = "1994-07-21 17:28:27"
+lat_deg = -45.26
+west_lon_deg = 141.23
+
+[[impacts]]
+name = "U"
+class = "4"
+time_tdb = "1994-07-21 21:18:32"
+lat_deg = -44.74
+west_lon_deg = 278.52
+
+[[impacts]]
+name = "V"
+class = "4"
+time_tdb = "1994-07-22 03:41:56"
+lat_deg = -44.71
+west_lon_deg = 149.87
+
+[[impacts]]
+name = "W"
+class = "2c"
+time_tdb = "1994-07-22 07:24:41"
+lat_deg = -44.37
+west_lon_deg = 283.30

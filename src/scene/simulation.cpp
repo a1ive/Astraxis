@@ -498,6 +498,8 @@ CameraShot Simulation::event_shot(size_t index, const Flyby& flyby) const
     shot.target = e.focus;
     shot.observer = e.observer;
     shot.observer_offset_km = e.observer_offset_km;
+    shot.aim_offset_km = e.aim_offset_km;
+    shot.observer_body_fixed = e.observer_body_fixed;
     shot.fov_deg = e.fov_deg;
     shot.distance = e.distance_km > 0.0 ? e.distance_km : m_camera.default_distance(e.focus, m_scene);
     shot.yaw = -1.2;
