@@ -24,6 +24,8 @@ EPHEM = os.path.join(REPO, 'assets', 'ephem')
 CLASSES = [('A', '2a'), ('B', '3'), ('C', '2a'), ('D', '3'), ('E', '2a'), ('F', '4'), ('G', '1'), ('H', '2a'),
            ('K', '1'), ('L', '1'), ('N', '3'), ('P1', '4'), ('P2', '4'), ('Q1', '2b'), ('Q2', '3'), ('R', '2b'),
            ('S', '2c'), ('T', '4'), ('U', '4'), ('V', '4'), ('W', '2c')]
+# The peak flux at 945 nm, 1e-15 W/cm2/nm: Martin et al. 1995 Table 1, and Chapman et al. 1995 for K, N, W; L is 6% of Jupiter.
+FLASH = {'G': 2.1, 'H': 1.8, 'L': 2.6, 'Q1': 1.1, 'K': 1.4, 'N': 0.57, 'W': 0.66}
 RA, DEC = math.radians(268.056595), math.radians(64.495303)  # pck00011, as bodies/jupiter.toml
 POLE = (math.cos(DEC) * math.cos(RA), math.cos(DEC) * math.sin(RA), math.sin(DEC))
 DISTANCE_KM = 1.0e6       # far, so that the limb hides what it hid from far away, with a narrow view
@@ -82,7 +84,8 @@ def main():
         lat = math.degrees(math.asin(fixed[2] / math.sqrt(dot(fixed, fixed))))
         west = (-math.degrees(math.atan2(fixed[1], fixed[0]))) % 360.0
         print(f'[[impacts]]\nname = "{name}"\nclass = "{klass}"\ntime_tdb = "{hb.calendar(end[0])[:19]}"\n'
-              f'lat_deg = {lat:.2f}\nwest_lon_deg = {west:.2f}\n')
+              f'lat_deg = {lat:.2f}\nwest_lon_deg = {west:.2f}' +
+              (f'\nflash_share = {0.06 * FLASH[name] / 2.6:.4f}' if name in FLASH else '') + '\n')
 
     t, site, _ = ends['G']
     print('\n# --- the views of fragment G, ICRF ---')

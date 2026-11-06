@@ -220,6 +220,7 @@ ImpactSite parse_impact(const toml::table& t, const std::string& ctx)
     site.t_tdb = parse_event_time(t, c, Calendar::Gregorian);
     site.lat_deg = get_double(t, "lat_deg", c);
     site.west_lon_deg = get_double(t, "west_lon_deg", c);
+    site.flash_share = get_double_or(t, "flash_share", 0.0);
     return site;
 }
 
@@ -523,6 +524,7 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
     };
     static const TemplateFields impact = {
         {"name", text}, {"class", text}, {"time_tdb", text}, {"lat_deg", number}, {"west_lon_deg", number},
+        {"flash_share", number},
     };
     static const TemplateFields fields = {
         {"kind", text}, {"radii_km", list}, {"body_gm_km3_s2", number}, {"gravity_radius_km", number},

@@ -47,10 +47,12 @@ struct ImpactPlumeDrawItem {
     float sun_angular_radius = 0.0f;
     float age_s = 0.0f;
     float extinction_km2 = 0.0f; // per unit of the model's density; 0: only the flash
-    float glow = 0.0f;
+    glm::vec3 glow{0.0f};
     float flash_height_km = 0.0f;
     float flash_sigma_km = 1.0f;
     float flash_radiance = 0.0f;
+    float flash_unhidden = 1.0f;
+    glm::vec3 flash_color{1.0f};
 };
 
 class ImpactPass {

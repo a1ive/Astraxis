@@ -14,8 +14,10 @@ cbuffer Uniforms : register(b0, space3)
     float4 u_box_min;
     float4 u_box_max;
     float4 u_planet;      // xyz = planet center (local), w = radius (km)
-    float4 u_params;      // x = age (s), y = extinction per unit of density (km^2), z = glow in the shadow
-    float4 u_flash;       // x = height of the fireball, y = sigma (km), z = radiance at its center
+    float4 u_params;      // x = age (s), y = extinction per unit of density (km^2)
+    float4 u_flash;       // x = height of the fireball, y = sigma (km), z = radiance at its center, w = unhidden
+    float4 u_flash_color; // rgb, by its temperature
+    float4 u_glow;        // rgb = radiance per unit of optical depth in the shadow
 };
 
 struct PSInput
@@ -36,10 +38,8 @@ static const float kSoft = 0.10471976;     // 6 deg
 static const float3 kAxis = float3(0.28678822, -0.40957602, 0.8660254);
 static const float kVanguardWidth = 0.08;
 static const float kVanguardShare = 0.22425;
-static const float3 kAlbedo = float3(0.70, 0.64, 0.58); // illustrative: plume particles looked gray to dark
-static const float3 kGlowColor = float3(1.0, 0.28, 0.05);
-static const float kBrightness = 1.5; // display: the plumes were far brighter against dark methane-band Jupiter
-static const float3 kFlashColor = float3(1.0, 0.86, 0.68);
+// kPlumeAlbedo in impact.hpp; slightly red, the color illustrative.
+static const float3 kAlbedo = float3(0.74, 0.70, 0.64);
 
 float jitter_noise(float2 p)
 {
@@ -105,19 +105,20 @@ float4 main(PSInput input) : SV_Target0
             t1 = min(t1, ground);
         }
     }
-    if (t1 <= t0) {
-        return float4(0.0, 0.0, 0.0, 1.0);
-    }
 
     float3 light = float3(0.0, 0.0, 0.0);
 
-    // The flash, unless the planet is in the way.
+    // The flash. Whether the planet hides it is decided for its center: it is usually drawn far wider than
+    // it is, and cutting that by the limb would cut it in half.
     if (u_flash.z > 0.0) {
         float3 center = float3(0.0, 0.0, u_flash.x);
         float along = dot(center - o, dir);
         float3 miss = (o + along * dir) - center;
         float sigma2 = u_flash.y * u_flash.y;
-        light += kFlashColor * u_flash.z * exp(-0.5 * dot(miss, miss) / sigma2) * smoothstep(-u_flash.y, u_flash.y, t1 - along);
+        light += u_flash_color.rgb * u_flash.z * u_flash.w * exp(-0.5 * dot(miss, miss) / sigma2);
+    }
+    if (t1 <= t0) {
+        return float4(light, 1.0);
     }
 
     float tau = 0.0;
@@ -145,7 +146,7 @@ float4 main(PSInput input) : SV_Target0
                 tau += sigma * dt;
             }
         }
-        light += kBrightness * 0.25 * phase * kAlbedo * scattered + u_params.z * kGlowColor * glow;
+        light += 0.25 * phase * kAlbedo * scattered + u_glow.rgb * glow;
     }
     return float4(light, exp(-tau));
 }

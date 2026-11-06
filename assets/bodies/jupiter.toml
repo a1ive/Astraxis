@@ -14,6 +14,8 @@
 #        end (tools/sl9/impact_views.py prints this), which is within 90 s, 0.3 deg and 1.5 deg of Chodas &
 #        Yeomans 1996, Table 5; the times are at Jupiter. Classes: Hammel et al. 1995, Science 267, 1288, Table 2.
 #        What they do: scene/impact.hpp.
+#        flash_share: peak flux at 945 nm, 1e-15 W/cm2/nm: Martin et al. 1995, Science 268, 1875, Table 1, with L
+#        (2.6) 6% of Jupiter; K, N and W from Chapman et al. 1995, GRL 22, 1561, scaled to 945 nm by them.
 
 radii_km = [71492.0, 66854.0]          # equatorial, polar [PCK]
 body_gm_km3_s2 = 126686531.9           # [SPHY] (JUP365)
@@ -141,6 +143,7 @@ class = "1"
 time_tdb = "1994-07-18 06:52:31"
 lat_deg = -43.84
 west_lon_deg = 26.09
+flash_share = 0.0485
 
 [[impacts]]
 name = "H"
@@ -148,6 +151,7 @@ class = "2a"
 time_tdb = "1994-07-18 18:50:54"
 lat_deg = -43.97
 west_lon_deg = 99.95
+flash_share = 0.0415
 
 [[impacts]]
 name = "K"
@@ -155,6 +159,7 @@ class = "1"
 time_tdb = "1994-07-19 09:43:03"
 lat_deg = -44.06
 west_lon_deg = 278.37
+flash_share = 0.0323
 
 [[impacts]]
 name = "L"
@@ -162,6 +167,7 @@ class = "1"
 time_tdb = "1994-07-19 21:35:32"
 lat_deg = -44.19
 west_lon_deg = 348.53
+flash_share = 0.0600
 
 [[impacts]]
 name = "N"
@@ -169,6 +175,7 @@ class = "3"
 time_tdb = "1994-07-20 09:47:58"
 lat_deg = -44.54
 west_lon_deg = 71.47
+flash_share = 0.0132
 
 [[impacts]]
 name = "P1"
@@ -190,6 +197,7 @@ class = "2b"
 time_tdb = "1994-07-20 19:32:30"
 lat_deg = -44.23
 west_lon_deg = 63.63
+flash_share = 0.0254
 
 [[impacts]]
 name = "Q2"
@@ -239,3 +247,4 @@ class = "2c"
 time_tdb = "1994-07-22 07:24:41"
 lat_deg = -44.37
 west_lon_deg = 283.30
+flash_share = 0.0152

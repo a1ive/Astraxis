@@ -53,6 +53,8 @@ struct PlumeUniforms {
     glm::vec4 planet;
     glm::vec4 params;
     glm::vec4 flash;
+    glm::vec4 flash_color;
+    glm::vec4 glow;
 };
 
 enum class Kind { Scar, Plume };
@@ -237,8 +239,10 @@ void ImpactPass::draw_plumes(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass,
     SDL_BindGPUVertexBuffers(pass, 0, &vb, 1);
     for (const ImpactPlumeDrawItem& item : items) {
         const glm::vec3 margin = (item.box_max - item.box_min) * kInsideMargin;
-        const bool inside = glm::all(glm::greaterThan(item.camera_local, item.box_min - margin)) &&
-                            glm::all(glm::lessThan(item.camera_local, item.box_max + margin));
+        // A flash is hidden or not as a whole, and its box goes below the surface: as from inside, no depth test.
+        const bool inside = item.flash_radiance > 0.0f ||
+                            (glm::all(glm::greaterThan(item.camera_local, item.box_min - margin)) &&
+                             glm::all(glm::lessThan(item.camera_local, item.box_max + margin)));
         SDL_BindGPUGraphicsPipeline(pass, inside ? m_plume_inside : m_plume_outside);
 
         VertexUniforms vu;
@@ -255,8 +259,10 @@ void ImpactPass::draw_plumes(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass,
         fu.box_min = glm::vec4(item.box_min, 0.0f);
         fu.box_max = glm::vec4(item.box_max, 0.0f);
         fu.planet = glm::vec4(item.planet_center, item.planet_radius);
-        fu.params = glm::vec4(item.age_s, item.extinction_km2, item.glow, 0.0f);
-        fu.flash = glm::vec4(item.flash_height_km, item.flash_sigma_km, item.flash_radiance, 0.0f);
+        fu.params = glm::vec4(item.age_s, item.extinction_km2, 0.0f, 0.0f);
+        fu.flash_color = glm::vec4(item.flash_color, 0.0f);
+        fu.glow = glm::vec4(item.glow, 0.0f);
+        fu.flash = glm::vec4(item.flash_height_km, item.flash_sigma_km, item.flash_radiance, item.flash_unhidden);
         SDL_PushGPUFragmentUniformData(cmd, 0, &fu, sizeof(fu));
         SDL_DrawGPUPrimitives(pass, m_vertex_count, 1, 0, 0);
     }

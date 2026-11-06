@@ -49,12 +49,14 @@ constexpr double kTwoDaysS = 2.0 * kSecondsPerDay;
 const ImpactClassParams& impact_class_params(ImpactClass klass)
 {
     // Sizes [HAM95] Table 2 and G's crescent, 13,000 km; what is not from there is a display choice.
-    static const ImpactClassParams kC1{13000.0, 1000.0, 1.0, 1.0, 2, 0.0, 0.045};
-    static const ImpactClassParams kC2a{6500.0, 700.0, 0.75, 0.5, 2, 0.0, 0.0};
-    static const ImpactClassParams kC2b{5500.0, 600.0, 0.65, 0.4, 1, 0.0, 0.0};
-    static const ImpactClassParams kC2c{4500.0, 600.0, 0.55, 0.35, 0, 0.0, 0.0};
-    static const ImpactClassParams kC3{0.0, 600.0, 0.45, 0.1, 0, 4.0, 0.0};
-    static const ImpactClassParams kC4{0.0, 0.0, 0.0, 0.02, 0, 0.0, 0.0};
+    // Flashes where none was measured: about those measured in the class, [CHA95] N for class 3, and
+    // [MAR95]'s 1 sigma, 0.5%, for the ones too weak to see. Fireball shares from the light curves' shapes.
+    static const ImpactClassParams kC1{13000.0, 1000.0, 1.0, 1.0, 2, 0.0, 0.045, 0.047, 0.85};
+    static const ImpactClassParams kC2a{6500.0, 700.0, 0.75, 0.5, 2, 0.0, 0.0, 0.04, 0.7};
+    static const ImpactClassParams kC2b{5500.0, 600.0, 0.65, 0.4, 1, 0.0, 0.0, 0.025, 0.6};
+    static const ImpactClassParams kC2c{4500.0, 600.0, 0.55, 0.35, 0, 0.0, 0.0, 0.015, 0.2};
+    static const ImpactClassParams kC3{0.0, 600.0, 0.45, 0.1, 0, 4.0, 0.0, 0.013, 0.08};
+    static const ImpactClassParams kC4{0.0, 0.0, 0.0, 0.02, 0, 0.0, 0.0, 0.005, 0.08};
     switch (klass) {
     case ImpactClass::C1:
         return kC1;
@@ -125,12 +127,40 @@ double impact_plume_density(const glm::dvec3& p, double age_s)
     return cone * f / (age_s * age_s * age_s);
 }
 
-double impact_flash(double age_s)
+double impact_flash(double age_s, double fireball_share)
 {
     if (age_s <= 0.0) {
         return 0.0;
     }
-    return smooth(0.0, 2.0, age_s) * std::exp(-age_s / 15.0);
+    const double rise = smooth(0.0, 2.0, age_s);
+    const double bolide = std::exp(-std::max(age_s - 2.0, 0.0) / 3.0);
+    // The stronger the fireball, the longer it lasts: K's 52 s [CHA95] against N's 15.
+    const double lasts = 15.0 + 36.0 * fireball_share;
+    const double fireball = 1.0 - smooth(0.3 * lasts, lasts, age_s);
+    return rise * ((1.0 - fireball_share) * bolide + fireball_share * fireball);
+}
+
+double impact_flash_share(const ImpactSite& site)
+{
+    return site.flash_share > 0.0 ? site.flash_share : impact_class_params(site.klass).flash_share;
+}
+
+double impact_flash_temperature_k(double age_s)
+{
+    // NIMS first saw G about 5 s after the photometer did [CAR95], hence 21 s.
+    static const Point kTable[] = {{0.0, std::log(18000.0)}, {5.0, std::log(7600.0)}, {21.0, std::log(2200.0)}, {65.0, std::log(450.0)}};
+    return std::exp(interpolate(kTable, age_s));
+}
+
+double impact_fireball_height_km(double age_s)
+{
+    const double t = std::clamp(age_s, 0.0, 40.0);
+    return 0.05 * t * t;
+}
+
+double impact_fireball_sigma_km(double age_s)
+{
+    return std::clamp(age_s, 2.0, 60.0);
 }
 
 double impact_ring_radius_km(double age_s, bool inner)

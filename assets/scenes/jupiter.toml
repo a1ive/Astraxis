@@ -1283,7 +1283,7 @@ caption = """\
     From the Earth, G comes down 6.4 degrees behind Jupiter's limb. Its plume climbs over the edge within \
     a minute or so, then out of Jupiter's shadow into sunlight, 3,000 km up after about 8 minutes. Telescopes \
     around the world and Hubble watched it rise and collapse within 20 minutes, the same height for large \
-    and small impacts, which surprised the modelers."""
+    and small impacts, which surprised the modelers. The material was dark, reflecting under a tenth of the sunlight."""
 
 [[events]]
 name = "Fragment G, as Galileo saw it (1994-07-18)"
@@ -1295,11 +1295,13 @@ observer_offset_km = [1012442.9, -73349.6, -175395.7]
 aim_offset_km = [19792.5, -18791.8, -67258.8]
 fov_deg = 2.4
 warp = 4.0
-# [HAM95] [CY96]: Martin et al. 1995 (PPR), Chapman et al. 1995 (SSI). In Galileo's direction, not its distance.
+# [MAR95] Martin et al. 1995, Science 268, 1875 (PPR); [CHA95] Chapman et al. 1995, GRL 22, 1561 (SSI); [CAR95] Carlson et
+# al. 1995, GRL 22, 1557 (NIMS). G's 5% is Martin's L, 6%, by their fluxes. In Galileo's direction, not its distance.
 caption = """\
-    Only the Galileo spacecraft, 1.6 au away, could see the impacts themselves, on Jupiter's night side. Light \
-    rose within 2 seconds and lasted under a minute; G reached 3% of all of Jupiter's light. This is from Galileo's \
-    direction, enlarged, at four times the speed. Then the plume climbs out of the dark into sunlight."""
+    Only the Galileo spacecraft, 1.6 au away, could see the impacts themselves, on Jupiter's night side. The light \
+    rose within 2 seconds, hotter than 7,600 K, reached 5% of all of Jupiter's in the near infrared, and was gone in \
+    under a minute, cooling as it spread. Galileo's camera saw nothing of the plume that followed, too dark and small. \
+    This is its direction, enlarged, at four times the speed."""
 
 [[events]]
 name = "A bull's-eye on Jupiter (1994-07-18)"

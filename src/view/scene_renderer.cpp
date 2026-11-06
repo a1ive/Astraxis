@@ -447,13 +447,14 @@ void enclose(PlumeDrawItem& item, const glm::dvec3& p, double radius, bool first
     item.box_max = first ? hi : glm::max(item.box_max, hi);
 }
 
-// Displayed extinction of the largest plume, km^2 per unit of the model's density: the shell's optical
-// depth at the top is about 0.15. 1.4e14 g [HD01] of grains at 1e4 cm^2/g would be 1.4e8 km^2, the same order.
-constexpr double kImpactPlumeExtinctionKm2 = 3.5e7;
-constexpr double kImpactPlumeGlow = 0.5;       // radiance per unit of optical depth in the shadow, at first
-constexpr double kImpactPlumeGlowS = 100.0;    // HST saw it in the shadow 2 to 5 minutes after impact
+// Glow in the shadow: HST saw "bright pixels" there 2 to 5 minutes after impact, with brightness temperatures of
+// 1300 to 1600 K (Hammel 1995), while Galileo's camera saw nothing after the flash (Chapman 1995). Dim.
+constexpr double kImpactPlumeGlow = 0.12;      // radiance per unit of optical depth, at first
+constexpr double kImpactPlumeGlowS = 120.0;
+constexpr double kImpactPlumeGlowK = 1300.0;   // the color, no redder than this
+constexpr double kImpactFlashMaxRadiance = 40.0; // the HDR target and the bloom cannot show more
 constexpr double kImpactFlashMinPx = 1.6;      // a flash's sigma on screen, at least
-constexpr double kImpactFlashFloor = 5.0;      // radiance of a flash at the largest impact, at least
+constexpr double kImpactFlashFloor = 5.0;      // radiance of the brightest flash at a fast clock, at least
 constexpr double kImpactPulseMinWarp = 60.0;   // above this, a flash lasts as long as a second of real time
 constexpr double kImpactPulseSeconds = 0.8;
 
@@ -508,7 +509,8 @@ void add_impact_items(const Body& body, double t_tdb, double warp, const glm::dv
             continue;
         }
         const double plume_on = age < impact_plume_end_s() ? 1.0 : 0.0;
-        const double flash = pulse_s > 0.0 ? std::exp(-age / pulse_s) * (age < 4.0 * pulse_s ? 1.0 : 0.0) : impact_flash(age);
+        const double flash = pulse_s > 0.0 ? std::exp(-age / pulse_s) * (age < 4.0 * pulse_s ? 1.0 : 0.0)
+                                           : impact_flash(age, params.fireball_share);
         if (plume_on <= 0.0 && flash < 1e-3) {
             continue;
         }
@@ -530,19 +532,37 @@ void add_impact_items(const Body& body, double t_tdb, double warp, const glm::dv
         const double top = impact_plume_top_km(age);
         double reach = 0.0;
         if (plume_on > 0.0 && pulse_s <= 0.0) {
-            item.extinction_km2 = static_cast<float>(kImpactPlumeExtinctionKm2 * params.plume_weight);
-            item.glow = static_cast<float>(kImpactPlumeGlow * std::exp(-age / kImpactPlumeGlowS));
+            item.extinction_km2 = static_cast<float>(kPlumeExtinctionKm2 * params.plume_weight);
+            const glm::dvec3 glow_color =
+                blackbody_linear_srgb(std::max(impact_flash_temperature_k(age), kImpactPlumeGlowK));
+            item.glow = glm::vec3(glow_color * (kImpactPlumeGlow * std::exp(-age / kImpactPlumeGlowS)));
             reach = kPlumeVMaxKmS * age + 200.0;
         }
-        // The fireball rises with the swarm's top, and grows; a flash is at least a few pixels wide.
-        item.flash_height_km = static_cast<float>(pulse_s > 0.0 ? 300.0 : top);
+        // A flash is at least a few pixels wide. In a fast clock it stands out over the limb and in a hot color.
+        item.flash_height_km = static_cast<float>(pulse_s > 0.0 ? 300.0 : impact_fireball_height_km(age));
+        item.flash_color = glm::vec3(blackbody_linear_srgb(pulse_s > 0.0 ? 7600.0 : impact_flash_temperature_k(age)));
         const double from_camera = glm::length(camera - place);
-        const double sigma = std::max(150.0 + 15.0 * std::min(age, 60.0), kImpactFlashMinPx * from_camera / px_per_radian);
+        const double min_px = pulse_s > 0.0 ? 2.0 * kImpactFlashMinPx : kImpactFlashMinPx;
+        const double sigma = std::max(impact_fireball_sigma_km(age), min_px * from_camera / px_per_radian);
         item.flash_sigma_km = static_cast<float>(sigma);
-        // 3% of the planet's flux at the largest [HAM95], the planet's being about 0.5 pi R^2 in I/F.
-        const double power = kImpactFlashShare * 0.5 * kPi * body.equatorial_radius_km * body.equatorial_radius_km;
-        const double weight = params.plume_weight * flash;
-        item.flash_radiance = static_cast<float>(std::max(power / (kTwoPi * sigma * sigma), kImpactFlashFloor) * weight);
+        // A share of the planet's light, the planet's being about 0.5 pi R^2 in I/F.
+        const double share = impact_flash_share(site);
+        const double power = share * 0.5 * kPi * body.equatorial_radius_km * body.equatorial_radius_km;
+        const double radiance = pulse_s > 0.0 ? std::max(power / (kTwoPi * sigma * sigma), kImpactFlashFloor * share / 0.06)
+                                              : std::min(power / (kTwoPi * sigma * sigma), kImpactFlashMaxRadiance);
+        item.flash_radiance = static_cast<float>(radiance * flash);
+        // Hidden when the planet stands between the camera and the fireball.
+        const glm::dvec3 to_flash = glm::dvec3(item.camera_local) * -1.0 + glm::dvec3(0.0, 0.0, item.flash_height_km);
+        const double flash_distance = glm::length(to_flash);
+        const glm::dvec3 along_flash = to_flash / flash_distance;
+        const glm::dvec3 to_planet = glm::dvec3(item.planet_center) - glm::dvec3(item.camera_local);
+        const double closest = glm::dot(to_planet, along_flash);
+        if (closest > 0.0 && closest < flash_distance) {
+            const double miss = glm::length(to_planet - closest * along_flash);
+            const double soft = std::max(impact_fireball_sigma_km(age), 1.0);
+            const double t_edge = std::clamp((miss - item.planet_radius + soft) / (2.0 * soft), 0.0, 1.0);
+            item.flash_unhidden = static_cast<float>(t_edge * t_edge * (3.0 - 2.0 * t_edge));
+        }
         const double half = std::max(reach, 5.0 * sigma);
         item.box_min = glm::vec3(static_cast<float>(-half), static_cast<float>(-half), -300.0f);
         item.box_max = glm::vec3(static_cast<float>(half), static_cast<float>(half),

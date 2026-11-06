@@ -3130,8 +3130,71 @@ void test_impact_sites()
     check(std::abs(clears(750.0) - 49.0) < 25.0, "A's fireball clears the limb", clears(750.0));
     check(std::abs(clears(444.0) - 65.0) < 30.0, "G's fireball clears the limb", clears(444.0));
     check(std::abs(clears(137.0) - 8.0) < 10.0, "W's fireball clears the limb", clears(137.0));
-    // The flash: up in 2 s, down within 25-50 s.
-    check(impact_flash(0.0) == 0.0 && impact_flash(2.0) > 0.8 && impact_flash(60.0) < 0.05, "the flash's time scale", impact_flash(2.0));
+    // The flashes. [MAR95] and [CHA95]: up in 2 s; a plateau of about 10 s, over by 35-50 s, for the large ones;
+    // K's width at half height 27 s; N's flash 6 s and a faint 9 s, at 5-10 s only 5-10% of K (peaking at 40% of K).
+    const double large_share = impact_class_params(ImpactClass::C1).fireball_share;
+    const double small_share = impact_class_params(ImpactClass::C3).fireball_share;
+    check(impact_flash(0.0, large_share) == 0.0 && impact_flash(2.0, large_share) > 0.95, "the flash's 2 s rise", impact_flash(2.0, large_share));
+    check(impact_flash(12.0, large_share) > 0.8, "the plateau of about 10 s", impact_flash(12.0, large_share));
+    check(impact_flash(52.0, large_share) < 0.01, "over within K's 52 s", impact_flash(52.0, large_share));
+    double half = 2.0;
+    while (impact_flash(half, large_share) > 0.5) {
+        half += 0.1;
+    }
+    check(std::abs(half - 1.0 - 27.0) < 3.0, "K's width at half height, Chapman", half - 1.0);
+    const double n_at_7 = 0.4 * impact_flash(7.5, small_share) / impact_flash(7.5, large_share);
+    check(n_at_7 > 0.05 && n_at_7 < 0.12, "N's faint glow against K, Chapman", n_at_7);
+    check(impact_flash(16.0, small_share) < 0.1, "N is over in 15 s", impact_flash(16.0, small_share));
+    // The peaks: the seven measured, relative to L 2.4 : 2.1 : 1.6 : 1.0 (L, G, H, Q1); W was 1.5% in green; the
+    // seven differ by a factor under 6; K, of the largest class, is between Q1 and H.
+    check(std::abs(site("L").flash_share - 0.06) < 1e-3, "L at 6% of Jupiter, Martin", site("L").flash_share);
+    check(std::abs(site("L").flash_share / site("Q1").flash_share - 2.4) < 0.1, "L against Q1, Martin", site("L").flash_share / site("Q1").flash_share);
+    check(std::abs(site("W").flash_share - 0.015) < 2e-3, "W in green, Chapman", site("W").flash_share);
+    check(site("L").flash_share / site("N").flash_share < 6.0, "the bolides differ by under 6 times, Chapman");
+    check(site("K").flash_share > site("Q1").flash_share && site("K").flash_share < site("H").flash_share, "K between Q1 and H, Chapman");
+    check(impact_flash_share(site("C")) > 0.0 && impact_flash_share(site("T")) < 0.01, "the flashes nobody measured");
+    // The color temperatures [MAR95, CHA95, CAR95].
+    check(impact_flash_temperature_k(1.0) > 10000.0, "over 10,000 K at the peak, Martin", impact_flash_temperature_k(1.0));
+    check(std::abs(impact_flash_temperature_k(5.0) - 7600.0) < 1.0, "7600 K in G's first seconds, Chapman");
+    check(std::abs(impact_flash_temperature_k(21.0) - 2200.0) < 1.0, "2200 K, Carlson");
+    check(std::abs(impact_flash_temperature_k(65.0) - 450.0) < 1.0, "450 K, Martin quoting Carlson");
+    // The fireball [CAR95]: 40 km across about 21 s in, 1 km/s or less at first, 2-3 km/s after 20-30 s, and low.
+    check(std::abs(2.0 * impact_fireball_sigma_km(21.0) - 40.0) < 5.0, "G's fireball is 40 km across", 2.0 * impact_fireball_sigma_km(21.0));
+    const double rate = impact_fireball_height_km(25.0) - impact_fireball_height_km(24.0);
+    check(rate > 2.0 && rate < 3.0, "it rises at 2-3 km/s, Carlson", rate);
+    check(impact_fireball_height_km(5.0) - impact_fireball_height_km(4.0) <= 1.0, "1 km/s or less at first");
+    check(impact_fireball_height_km(60.0) < 444.0, "it stays hidden from the Earth, 444 km for G, Hammel", impact_fireball_height_km(60.0));
+
+    // The plume's brightness against the measurements. G from the side, 640 s in: [HAM95] I/F 0.090 +- 0.01. All of it,
+    // [CHA95]: under a quarter of Io for K at 9 minutes, here by the optically thin limit's order.
+    const glm::dvec3 view = glm::normalize(glm::dvec3(0.8, 0.6, -0.15));
+    const glm::dvec3 across = glm::normalize(glm::cross(view, glm::dvec3(0.0, 0.0, 1.0)));
+    const glm::dvec3 upward = glm::cross(across, view);
+    const double g2 = kPlumeAsymmetry * kPlumeAsymmetry;
+    const double back = (1.0 - g2) / std::pow(1.0 + g2 + 2.0 * kPlumeAsymmetry, 1.5);
+    const auto brightness = [&](double age_s, double* total) {
+        const double cell = 120.0;
+        double best = 0.0;
+        double sum = 0.0;
+        for (double u = -7200.0; u < 7200.0; u += cell) {
+            for (double w = -7200.0; w < 7200.0; w += cell) {
+                double column = 0.0;
+                for (double s = -7200.0; s < 7200.0; s += cell) {
+                    column += impact_plume_density(u * across + w * upward + s * view, age_s) * cell;
+                }
+                const double i_f = 0.25 * back * kPlumeAlbedo * (1.0 - std::exp(-kPlumeExtinctionKm2 * column));
+                best = std::max(best, i_f);
+                sum += i_f * cell * cell;
+            }
+        }
+        *total = sum;
+        return best;
+    };
+    double total = 0.0;
+    const double g_if = brightness(640.0, &total);
+    check(std::abs(g_if - 0.09) < 0.02, "G's plume I/F, Hammel", g_if);
+    const double quarter_io = 0.25 * 0.6 * kPi * 1821.0 * 1821.0;
+    check(total < 1.2 * quarter_io, "the plume under a quarter of Io, Chapman", total / quarter_io);
 
     // Rings: 454 m/s from 586 km; at 1.5 h, 3,037 km.
     check(std::abs(impact_ring_radius_km(5400.0, false) - 3037.6) < 0.1, "the main ring", impact_ring_radius_km(5400.0, false));
