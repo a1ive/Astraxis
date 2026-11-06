@@ -1015,12 +1015,11 @@ focus = "Saturn"
 frame = "Saturn equator"
 from_body = "Sun"
 phase_deg = 180.0
-elevation_deg = -25.0
-distance_km = 190000.0
+elevation_deg = -62.0
+distance_km = 170000.0
 warp = 30.0
 caption = """\
-    Cassini saw pink and purple auroral curtains above Saturn's dark southern \
-    limb. The lower glow is pink, turning purple higher up, with hydrogen \
-    emission prominent in the spectrum. This view uses a statistical oval and \
-    enhanced exposure; it illustrates the colors reported on November 27, 2010, \
-    rather than reconstructing the observed arcs."""
+    Cassini saw auroral curtains above Saturn's dark limb: pale pink, then more \
+    than ten times fainter and purple higher up. The colors come from its filters \
+    on November 27, 2010. The oval is statistical, with enhanced exposure, not a \
+    reconstruction of the observed arcs."""

@@ -12,6 +12,12 @@ struct SaturnAurora {
     static constexpr double kScaleKm = 200.0; // assumed Chapman scale
     static constexpr double kBottomKm = 500.0;
     static constexpr double kTopKm = 3000.0;
+    // Visible layers, Dyudina 2015 Fig. 8 and Appendix A.2 (tools/geomag/saturn_visible_colors.py):
+    // I/F in RED, GRN, BL1 per unit clear-filter brightness of the "brightest" and "high" boxes,
+    // and the high layer's column for its 11 kR against the low layer's 150 kR, edge-on.
+    static constexpr glm::dvec3 kVisibleLowRgb{1.000, 0.491, 0.692};
+    static constexpr glm::dvec3 kVisibleHighRgb{0.930, 0.420, 1.384};
+    static constexpr double kVisibleHighColumn = 0.075;
     // North/south planetocentric colatitude, Gaussian sigma (all radians),
     // dawn enhancement (0..1). Width and brightness interpolation are assumed.
     static glm::dvec4 profile(double local_hours);

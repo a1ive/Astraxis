@@ -950,6 +950,39 @@ void test_saturn_aurora()
         check(sim.scene().active_event() == static_cast<int>(i), "Saturn event activates UV overlay");
     }
     check(count == 2, "Saturn has both polar UV tours");
+
+    // Dyudina 2015 Fig. 8: the boxes' clear-filter brightness, edge-on, and the color of the two layers.
+    const AuroraProfile shell = aurora_profile(AuroraModel::Saturn, false, 3.0);
+    const auto chapman = [](double h, double peak, double scale) {
+        const double z = (h - peak) / scale;
+        return std::exp(-z - std::exp(-z)) / scale;
+    };
+    const auto edge_on = [&](double tangent, double peak, double scale) {
+        constexpr double kRadius = 54900.0; // 1 bar near 70 deg latitude
+        double sum = 0.0;
+        for (double s = 2.5; s < 12000.0; s += 5.0) {
+            sum += 2.0 * chapman(std::hypot(kRadius + tangent, s) - kRadius, peak, scale) * 5.0;
+        }
+        return sum;
+    };
+    const auto clear_at = [&](double tangent) {
+        return edge_on(tangent, shell.layers.x, shell.layers.y) +
+               SaturnAurora::kVisibleHighColumn * edge_on(tangent, shell.layers.z, shell.layers.w);
+    };
+    double low_peak = 0.0;
+    for (double h = 200.0; h < 700.0; h += 10.0) {
+        low_peak = std::max(low_peak, clear_at(h));
+    }
+    check(std::abs(clear_at(shell.layers.z) / low_peak - 11.0 / 150.0) < 0.004,
+          "Saturn's high layer is 11 kR against the low layer's 150 kR", clear_at(shell.layers.z) / low_peak);
+    const auto ratio = [](const glm::dvec3& a, const glm::dvec3& b) { return glm::length(a / b - glm::dvec3(a.r / b.r)); };
+    check(ratio(shell.low_rgb, SaturnAurora::kVisibleLowRgb) < 1e-12 && ratio(shell.high_rgb, SaturnAurora::kVisibleHighRgb) < 1e-12,
+          "the shell keeps the measured colors");
+    check(shell.high_rgb.r / shell.low_rgb.r < 0.1, "the high layer's column is an order of magnitude less");
+    const glm::dvec3 low = SaturnAurora::kVisibleLowRgb;
+    const glm::dvec3 high = SaturnAurora::kVisibleHighRgb;
+    check(low.r > low.b && low.b > low.g && low.g > 0.3, "low layer: a pink, not a saturated magenta");
+    check(high.b > high.r && high.r > high.g && high.g > 0.2 * high.b, "high layer: a purple with green in it");
     const auto visible = std::find_if(sim.scene().events.begin(), sim.scene().events.end(),
         [](const SceneEvent& e) { return e.name == "Saturn's visible aurora"; });
     check(visible != sim.scene().events.end(), "Saturn has a visible aurora tour");
@@ -963,8 +996,9 @@ void test_saturn_aurora()
         const Body& body = sim.scene().bodies[static_cast<size_t>(visible->focus)];
         const auto sun = sim.scene().sun_position();
         const auto direction = glm::normalize(view.camera.position - body.world_position);
-        check(glm::dot(direction, glm::normalize(sun - body.world_position)) < -0.7,
-              "visible aurora tour views the nightside");
+        // Steep over the south pole so the oval clears the caption: mostly night, a sunlit crescent below.
+        check(glm::dot(direction, glm::normalize(sun - body.world_position)) < -0.3,
+              "visible aurora tour views the nightside", glm::dot(direction, glm::normalize(sun - body.world_position)));
         check(glm::dot(direction, glm::normalize(body.orientation[2])) < -0.3,
               "visible aurora tour views the southern curtain");
     }

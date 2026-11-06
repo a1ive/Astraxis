@@ -144,13 +144,13 @@ AuroraProfile aurora_profile(AuroraModel model, bool ultraviolet, double kp, con
             p.layers = glm::dvec4(SaturnAurora::kPeakKm, SaturnAurora::kScaleKm,
                                   SaturnAurora::kPeakKm, SaturnAurora::kScaleKm);
         } else {
-            // Dyudina 2015 Fig. 8: illustrative local colors and Chapman
-            // layers for the observed pink lower / purple upper curtains.
+            // Dyudina 2015 Fig. 8: colors and column ratio from the filter photometry,
+            // Chapman layers assumed. The exposure is a display choice.
             p.lighting = AuroraLighting::NightSide;
             p.bottom_km = 200.0;
             p.top_km = 2000.0;
-            p.low_rgb = srgb_to_linear(glm::dvec3(1.0, 0.35, 0.55)) * 0.35;
-            p.high_rgb = srgb_to_linear(glm::dvec3(0.65, 0.22, 1.0)) * 0.35;
+            p.low_rgb = SaturnAurora::kVisibleLowRgb * 0.35;
+            p.high_rgb = SaturnAurora::kVisibleHighRgb * (SaturnAurora::kVisibleHighColumn * 0.35);
             p.layers = glm::dvec4(450.0, 140.0, 1100.0, 180.0);
         }
         for (size_t k = 0; k < p.oval.size(); ++k) {
