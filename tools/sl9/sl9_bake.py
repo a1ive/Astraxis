@@ -271,6 +271,7 @@ radii_km = [{0.7 * size:.2f}]
 [bodies.comet]
 dust_only = true
 dust_speed_km_s = 0.066
+bound_tail_release = ["1992-07-08", "1992-12-31"]
 magnitude_m1_k1 = [{m1:.2f}, 0.0]
 [bodies.orbit]
 type = "ephemeris"

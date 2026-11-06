@@ -20,9 +20,6 @@ namespace {
 
 // As PlumePass: inside when within this fraction of the box size from it.
 constexpr float kInsideMargin = 0.02f;
-// Dark debris absorbs more toward the blue; per unit of optical depth at 890 nm, seen in visible light.
-// Not measured: it makes the largest sites nearly black at the center of the disk.
-const glm::vec4 kScarTint(0.25f, 0.30f, 0.40f, 0.0f);
 
 struct VertexUniforms {
     glm::mat4 model;
@@ -38,7 +35,7 @@ struct ScarUniforms {
     glm::vec4 sun;
     glm::vec4 radii;
     glm::vec4 band;
-    glm::vec4 tint;
+    glm::vec4 debris;
     glm::vec4 sites[kMaxImpactSites];
     glm::vec4 shapes[kMaxImpactSites];
 };
@@ -74,7 +71,7 @@ SDL_GPUGraphicsPipeline* create_pipeline(SDL_GPUDevice* device, const SceneTarge
     color.format = format.color;
     color.blend_state.enable_blend = true;
     if (kind == Kind::Scar) {
-        // result = what lies behind * transmission.
+        // result = what lies behind * factor.
         color.blend_state.src_color_blendfactor = SDL_GPU_BLENDFACTOR_ZERO;
         color.blend_state.dst_color_blendfactor = SDL_GPU_BLENDFACTOR_SRC_COLOR;
     } else {
@@ -219,7 +216,8 @@ void ImpactPass::draw_scars(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, 
         fu.sun = glm::vec4(item.sun_direction, 0.0f);
         fu.radii = glm::vec4(item.equatorial_km, item.polar_km, static_cast<float>(item.site_count), item.km_per_radian);
         fu.band = glm::vec4(item.band_depth, item.band_south_rad, item.band_north_rad, 0.0f);
-        fu.tint = kScarTint;
+        fu.debris = glm::vec4(static_cast<float>(kDebrisRatioRed), static_cast<float>(kDebrisRatioGreen),
+                              static_cast<float>(kDebrisRatioBlue), static_cast<float>(kDebrisDimming));
         for (int k = 0; k < item.site_count && k < kMaxImpactSites; ++k) {
             fu.sites[k] = item.sites[k];
             fu.shapes[k] = item.shapes[k];

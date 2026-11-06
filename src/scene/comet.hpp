@@ -97,4 +97,56 @@ private:
     std::vector<DustGrain> m_grains;
 };
 
+// The tail of a comet orbiting a planet (Shoemaker-Levy 9), after [SEK] Z. Sekanina 1996, in "The Collision of Comet
+// Shoemaker-Levy 9 and Jupiter" (Cambridge), pp. 55-80, Sec. 3.4 and 4.4: the fragments were not active. Their tails
+// were dust released once, between July and the end of 1992, of 1 to 10 cm and smaller, drifting apart at 0.1 to 0.4 m/s
+// and pushed by the sunlight. Relative to the comet a grain follows
+//     d'' = G(t) d + beta f(t),
+// with G the gravity gradient of the planet and the Sun along the comet's path and f the Sun's gravity (so radiation
+// pressure, beta f). That is linear: a grain is d = P(t) v + beta b(t), one P and one b per time of release. They are
+// integrated the first time they are needed and kept, so a grain's place is a function of the time alone.
+class BoundDustTail {
+public:
+    static constexpr int kReleases = 8;
+    static constexpr int kGrains = 192;
+    static constexpr double kBetaMin = 2.0e-5;   // [SEK]: 5e-5 to 2e-4 at 15,000 km from the fragment
+    static constexpr double kBetaMax = 2.0e-3;   // Reaches over 100,000 km by January 1994 [SEK Sec. 3.4]
+    static constexpr double kSpeedMinKmS = 1.0e-4; // [SEK Sec. 4.4]
+    static constexpr double kSpeedMaxKmS = 4.0e-4;
+
+    // Grains of comet `body` at t. Weights: scattering cross section per log beta ~ beta for the n(a) ~ a^-4 of [SEK],
+    // normalized to a sum of 1. A grain is left out when its offset is no longer small (the linearization).
+    void update(const Scene& scene, int body, double t_tdb);
+    const std::vector<DustGrain>& grains() const { return m_grains; }
+
+    // The offset from the comet, ICRF, of a grain released at release_time(release) (after an update or build).
+    void build(const Scene& scene, int body);
+    glm::dvec3 offset(int release, double beta, const glm::dvec3& velocity, double t_tdb) const;
+    double release_time(int release) const { return m_release[static_cast<size_t>(release)]; }
+    size_t row_count() const { return m_times.size(); }
+
+private:
+    struct Row {
+        float p[9]; // column by column
+        float b[3];
+    };
+    struct Seed {
+        int release = 0;
+        double beta = 0.0;
+        glm::dvec3 velocity{0.0};
+        double weight = 0.0;
+        double random = 0.0;
+    };
+    const Row& row(int release, size_t index) const { return m_rows[static_cast<size_t>(release) * m_times.size() + index]; }
+
+    int m_body = -1;
+    double m_last_tdb = std::numeric_limits<double>::quiet_NaN();
+    std::vector<double> m_times;
+    std::vector<double> m_release;
+    std::vector<size_t> m_first_row; // per release
+    std::vector<Row> m_rows;         // kReleases x m_times.size()
+    std::vector<Seed> m_seeds;
+    std::vector<DustGrain> m_grains;
+};
+
 } // namespace astraxis

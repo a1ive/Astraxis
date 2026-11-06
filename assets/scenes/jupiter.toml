@@ -440,6 +440,8 @@ file = "ephem/cassini_jup.eph"
 # (limitations.md). dust_speed_km_s makes the fountain's turning distance 2000 km at 5.4 au
 # (scene_renderer.cpp), where [WEA] sees the comae stop being round; it is not a measured speed.
 # Only K draws a trail: all of them together would make one thick line.
+# bound_tail_release: Sekanina 1996 Sec. 4.4, dust released between July and the end of 1992, not by activity
+# (scene/comet.hpp). It disagrees with Weaver's steady coma, which the fragments here still have.
 
 [[bodies]]
 name = "SL9 parent comet"
@@ -463,6 +465,7 @@ radii_km = [0.70]
 [bodies.comet]
 dust_only = true
 dust_speed_km_s = 0.066
+bound_tail_release = ["1992-07-08", "1992-12-31"]
 magnitude_m1_k1 = [15.34, 0.0]
 [bodies.orbit]
 type = "ephemeris"
@@ -477,6 +480,7 @@ radii_km = [0.84]
 [bodies.comet]
 dust_only = true
 dust_speed_km_s = 0.066
+bound_tail_release = ["1992-07-08", "1992-12-31"]
 magnitude_m1_k1 = [14.90, 0.0]
 [bodies.orbit]
 type = "ephemeris"
@@ -491,6 +495,7 @@ radii_km = [1.05]
 [bodies.comet]
 dust_only = true
 dust_speed_km_s = 0.066
+bound_tail_release = ["1992-07-08", "1992-12-31"]
 magnitude_m1_k1 = [14.48, 0.0]
 [bodies.orbit]
 type = "ephemeris"
@@ -505,6 +510,7 @@ radii_km = [0.70]
 [bodies.comet]
 dust_only = true
 dust_speed_km_s = 0.066
+bound_tail_release = ["1992-07-08", "1992-12-31"]
 magnitude_m1_k1 = [15.34, 0.0]
 [bodies.orbit]
 type = "ephemeris"
@@ -519,6 +525,7 @@ radii_km = [1.40]
 [bodies.comet]
 dust_only = true
 dust_speed_km_s = 0.066
+bound_tail_release = ["1992-07-08", "1992-12-31"]
 magnitude_m1_k1 = [13.78, 0.0]
 [bodies.orbit]
 type = "ephemeris"
@@ -533,6 +540,7 @@ radii_km = [1.05]
 [bodies.comet]
 dust_only = true
 dust_speed_km_s = 0.066
+bound_tail_release = ["1992-07-08", "1992-12-31"]
 magnitude_m1_k1 = [14.43, 0.0]
 [bodies.orbit]
 type = "ephemeris"
@@ -547,6 +555,7 @@ radii_km = [2.03]
 [bodies.comet]
 dust_only = true
 dust_speed_km_s = 0.066
+bound_tail_release = ["1992-07-08", "1992-12-31"]
 magnitude_m1_k1 = [13.05, 0.0]
 [bodies.orbit]
 type = "ephemeris"
@@ -561,6 +570,7 @@ radii_km = [1.54]
 [bodies.comet]
 dust_only = true
 dust_speed_km_s = 0.066
+bound_tail_release = ["1992-07-08", "1992-12-31"]
 magnitude_m1_k1 = [13.61, 0.0]
 [bodies.orbit]
 type = "ephemeris"
@@ -577,6 +587,7 @@ radii_km = [1.89]
 [bodies.comet]
 dust_only = true
 dust_speed_km_s = 0.066
+bound_tail_release = ["1992-07-08", "1992-12-31"]
 magnitude_m1_k1 = [13.18, 0.0]
 [bodies.orbit]
 type = "ephemeris"
@@ -591,6 +602,7 @@ radii_km = [1.75]
 [bodies.comet]
 dust_only = true
 dust_speed_km_s = 0.066
+bound_tail_release = ["1992-07-08", "1992-12-31"]
 magnitude_m1_k1 = [13.37, 0.0]
 [bodies.orbit]
 type = "ephemeris"
@@ -605,6 +617,7 @@ radii_km = [0.70]
 [bodies.comet]
 dust_only = true
 dust_speed_km_s = 0.066
+bound_tail_release = ["1992-07-08", "1992-12-31"]
 magnitude_m1_k1 = [15.34, 0.0]
 [bodies.orbit]
 type = "ephemeris"
@@ -619,6 +632,7 @@ radii_km = [0.43]
 [bodies.comet]
 dust_only = true
 dust_speed_km_s = 0.066
+bound_tail_release = ["1992-07-08", "1992-12-31"]
 magnitude_m1_k1 = [16.39, 0.0]
 [bodies.orbit]
 type = "ephemeris"
@@ -633,6 +647,7 @@ radii_km = [0.98]
 [bodies.comet]
 dust_only = true
 dust_speed_km_s = 0.066
+bound_tail_release = ["1992-07-08", "1992-12-31"]
 magnitude_m1_k1 = [14.70, 0.0]
 [bodies.orbit]
 type = "ephemeris"
@@ -647,6 +662,7 @@ radii_km = [2.03]
 [bodies.comet]
 dust_only = true
 dust_speed_km_s = 0.066
+bound_tail_release = ["1992-07-08", "1992-12-31"]
 magnitude_m1_k1 = [13.00, 0.0]
 [bodies.orbit]
 type = "ephemeris"
@@ -661,6 +677,7 @@ radii_km = [1.54]
 [bodies.comet]
 dust_only = true
 dust_speed_km_s = 0.066
+bound_tail_release = ["1992-07-08", "1992-12-31"]
 magnitude_m1_k1 = [13.63, 0.0]
 [bodies.orbit]
 type = "ephemeris"
@@ -675,6 +692,7 @@ radii_km = [1.26]
 [bodies.comet]
 dust_only = true
 dust_speed_km_s = 0.066
+bound_tail_release = ["1992-07-08", "1992-12-31"]
 magnitude_m1_k1 = [14.04, 0.0]
 [bodies.orbit]
 type = "ephemeris"
@@ -689,6 +707,7 @@ radii_km = [1.47]
 [bodies.comet]
 dust_only = true
 dust_speed_km_s = 0.066
+bound_tail_release = ["1992-07-08", "1992-12-31"]
 magnitude_m1_k1 = [13.75, 0.0]
 [bodies.orbit]
 type = "ephemeris"
@@ -703,6 +722,7 @@ radii_km = [0.32]
 [bodies.comet]
 dust_only = true
 dust_speed_km_s = 0.066
+bound_tail_release = ["1992-07-08", "1992-12-31"]
 magnitude_m1_k1 = [17.03, 0.0]
 [bodies.orbit]
 type = "ephemeris"
@@ -717,6 +737,7 @@ radii_km = [0.45]
 [bodies.comet]
 dust_only = true
 dust_speed_km_s = 0.066
+bound_tail_release = ["1992-07-08", "1992-12-31"]
 magnitude_m1_k1 = [16.28, 0.0]
 [bodies.orbit]
 type = "ephemeris"
@@ -731,6 +752,7 @@ radii_km = [0.68]
 [bodies.comet]
 dust_only = true
 dust_speed_km_s = 0.066
+bound_tail_release = ["1992-07-08", "1992-12-31"]
 magnitude_m1_k1 = [15.39, 0.0]
 [bodies.orbit]
 type = "ephemeris"
@@ -745,6 +767,7 @@ radii_km = [1.19]
 [bodies.comet]
 dust_only = true
 dust_speed_km_s = 0.066
+bound_tail_release = ["1992-07-08", "1992-12-31"]
 magnitude_m1_k1 = [14.14, 0.0]
 [bodies.orbit]
 type = "ephemeris"
@@ -1244,14 +1267,15 @@ caption = """\
 name = "The string of pearls (1994-05-17)"
 time_tdb = "1994-05-17 00:00"
 focus = "SL9 K"
-from_orbit_normal = "SL9 K"
-distance_km = 2800000.0
+observer = "SL9 K"
+observer_offset_km = [1768085.7, 1199858.2, 523653.9]
+aim_offset_km = [0.0, 0.0, 0.0]
 warp = 21600.0
-# [WEA]
+# [WEA] [SEK] From the Earth's direction on that day.
 caption = """\
     Hubble's image of this day is the only one from 1994 of the whole train: 360 arcseconds, 1.15 million \
-    km in projection. Each fragment sits in its own round cloud of dust. Their sizes are hard to pin \
-    down, at most about 4 km across. Some keep breaking: Q had split in two in April 1993, and P2 \
+    km in projection. Each fragment sits in its own round cloud of dust, with a tail of pebbles and dust released in 1992. Their sizes are at most about \
+    4 km across. Some keep breaking: Q had split in two in April 1993, and P2 \
     was double by March."""
 
 [[events]]
@@ -1306,33 +1330,33 @@ caption = """\
 [[events]]
 name = "A bull's-eye on Jupiter (1994-07-18)"
 hide_orbits = true
-time_tdb = "1994-07-18 08:00"
+time_tdb = "1994-07-18 08:20"
 focus = "Jupiter"
 observer = "Jupiter"
 observer_body_fixed = true
 observer_offset_km = [649563.1, -318045.4, -787270.2]
 aim_offset_km = [39518.3, -19349.3, -53315.2]
 fov_deg = 3.4
-warp = 120.0
+warp = 90.0
 # [HAM95] [HAM96]; rings 454 m/s, inner about 189 m/s; crescent's outer edge 13,000 km.
 caption = """\
-    An hour later the site has turned into the Sun. Plume material fell back over 180 degrees, thrown 13,000 km \
-    to the southeast into a dark crescent, with a streak at its center. Waves spread at 454 m/s through a \
+    Two hours later the site has turned into the Sun. Plume material fell back over 180 degrees, thrown 13,000 km \
+    to the southeast into a thin dark crescent, with a streak at its center. Waves spread at 454 m/s through a \
     ring that Hubble could follow for a few hours, with a slower one inside it."""
 
 [[events]]
-name = "Black eyes on Jupiter (1994-07-23)"
+name = "Dark sites on Jupiter (1994-07-23)"
 time_tdb = "1994-07-23 05:04"
 focus = "Jupiter"
 from_body = "Sun"
 elevation_deg = -30.0
 distance_km = 320000.0
 warp = 1800.0
-# [HAM95] [BEE96]
+# [HAM95] [BEE96]; half as bright: West 1996 Fig. 3, by tools/sl9/debris_optics.py
 caption = """\
     After the last impact a string of dark sites runs round the southern hemisphere, like nothing seen \
     on Jupiter before, and darkest toward the limb: the debris lies high above the clouds, so that sunlight \
-    crosses it twice. The largest, G, K and L, were about as wide as the Earth."""
+    crosses it twice. The largest, G, K and L, were about as wide as the Earth, and half as bright as the clouds around."""
 
 [[events]]
 name = "The debris spreads into a band (1994-08 to 1995)"

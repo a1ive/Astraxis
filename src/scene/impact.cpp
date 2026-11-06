@@ -235,39 +235,53 @@ double impact_scar_shape(const ImpactClassParams& params, double east_km, double
 
     const double grown = params.ejecta_km > 0.0 ? ejecta / params.ejecta_km : 1.0;
     const double core = params.core_km * (1.0 + (grown - 1.0) * clamp01(age_s / kTwoDaysS));
-    sum += std::exp(-0.5 * (xw * xw + yw * yw) / (core * core));
+    double dark = std::exp(-0.5 * (xw * xw + yw * yw) / (core * core));
 
     if (params.ejecta_km > 0.0) {
         const double e = params.ejecta_km;
         // The streak, from the center toward the crescent [HAM95].
         const double across = yw / (0.035 * e);
-        sum += 0.9 * smooth(-0.02 * e, 0.0, xw) * (1.0 - smooth(0.22 * e, 0.36 * e, xw)) * std::exp(-0.5 * across * across);
-        // The crescent: at least 180 deg around, with rays from a point 1000-2000 km toward it [HAM95].
+        dark = std::max(dark, 0.85 * smooth(-0.02 * e, 0.0, xw) * (1.0 - smooth(0.22 * e, 0.36 * e, xw)) * std::exp(-0.5 * across * across));
+        // The crescent: at least 180 deg around, with rays from a point 1000-2000 km toward it [HAM95]. It is optically
+        // thin: optical depth about 0.8 at 890 nm against the core's 3.4 ([WEST] Fig. 3, by tools/sl9/debris_optics.py).
         const double x0 = xw - 0.115 * e;
         const double rd = std::hypot(x0, yw);
         const double az = std::atan2(yw, x0);
         const double spread = az / 1.6;
         const double rr = (rd / ejecta - 0.76) / (0.1 * std::max(1.0 - 0.14 * az * az, 0.3));
         const double rays = 1.0 + 0.25 * std::sin(11.0 * az + seed + 2.0 * std::sin(3.0 * az + 1.3 * seed));
-        sum += 0.7 * rays * std::exp(-spread * spread - 0.5 * rr * rr);
+        sum += 0.22 * rays * std::exp(-spread * spread - 0.5 * rr * rr);
         // Fainter traces all around.
         const double halo = r / ejecta;
-        sum += 0.12 * std::exp(-3.0 * halo * halo);
+        sum += 0.05 * std::exp(-3.0 * halo * halo);
     }
-    sum *= landed;
+    sum = (sum + dark) * landed;
 
     // Rings, sharpest soon after the impact and gone within hours.
     if (params.rings > 0 && age_s < 10.0 * 3600.0) {
         const double fade = std::exp(-age_s / (3.0 * 3600.0));
         const double outer = (r - impact_ring_radius_km(age_s, false)) / 120.0;
-        sum += 0.35 * fade * smooth(120.0, 600.0, age_s) * std::exp(-outer * outer);
+        sum += 0.12 * fade * smooth(120.0, 600.0, age_s) * std::exp(-outer * outer);
         if (params.rings > 1) {
             const double inner = (r - impact_ring_radius_km(age_s, true)) / 90.0;
             // Mainly to the northwest of the center [HAM96].
-            sum += 0.2 * fade * smooth(120.0, 600.0, age_s) * std::exp(-inner * inner) * smooth(0.0, 0.5, -x / std::max(r, 1.0));
+            sum += 0.07 * fade * smooth(120.0, 600.0, age_s) * std::exp(-inner * inner) * smooth(0.0, 0.5, -x / std::max(r, 1.0));
         }
     }
     return sum;
+}
+
+namespace {
+double debris_air_mass(double mu, double mu0)
+{
+    return 1.0 / std::max(mu, 0.1) + 1.0 / std::max(mu0, 0.1);
+}
+} // namespace
+
+glm::dvec3 impact_debris_factor(double depth, double mu, double mu0)
+{
+    const double through = std::exp(-kDebrisDimming * depth * debris_air_mass(mu, mu0));
+    return through + (1.0 - through) * glm::dvec3(kDebrisRatioRed, kDebrisRatioGreen, kDebrisRatioBlue);
 }
 
 double impact_seed(const ImpactSite& site)

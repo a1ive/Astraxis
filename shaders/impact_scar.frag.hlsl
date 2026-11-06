@@ -1,6 +1,6 @@
-// What a comet's impacts left on a planet, multiplied over its surface: dark debris high in the
-// atmosphere, seen through twice (sunlight in, light out), so darker toward the limb and the
-// terminator [BEE96 Sec. 1]. The patterns are the same as src/scene/impact.cpp: change them together.
+// What a comet's impacts left on a planet, multiplied over its surface: debris high in the atmosphere, which dims the
+// clouds and shows an albedo of its own (impact_debris_factor). Light crosses it twice, so thin debris shows most
+// toward the limb and the terminator [BEE96 Sec. 1]. The patterns are the same as src/scene/impact.cpp: change them together.
 // Everything is in the body frame (km). The box is around the whole planet; each ray meets the ellipsoid
 // and writes its depth, so what stands in front of the planet is untouched.
 
@@ -14,7 +14,7 @@ cbuffer Uniforms : register(b0, space3)
     float4 u_sun;         // xyz = unit direction to the sun (body frame)
     float4 u_radii;       // x = equatorial, y = polar, z = site count, w = km per radian near the sites
     float4 u_band;        // x = depth of the band, y, z = latitudes of its spread (rad, south, north)
-    float4 u_tint;        // rgb = visible absorption per unit of optical depth at 890 nm
+    float4 u_debris;      // rgb = the debris' albedo over the clouds' (rho), w = dimming per optical depth at 890 nm (a)
     float4 u_site[MAX_SITES];   // x = east longitude, y = latitude (rad), z = age (s), w = depth at the darkest
     float4 u_shape[MAX_SITES];  // x = ejecta km, y = core km, z = expansion km/s, w = seed + 16 * rings
 };
@@ -58,31 +58,31 @@ float scar_shape(float east, float north, float age, float ejecta_km, float core
 
     float grown = ejecta_km > 0.0 ? ejecta / ejecta_km : 1.0;
     float core = core_km * (1.0 + (grown - 1.0) * saturate(age / 172800.0));
-    sum += exp(-0.5 * (xw * xw + yw * yw) / (core * core));
+    float dark = exp(-0.5 * (xw * xw + yw * yw) / (core * core));
 
     if (ejecta_km > 0.0) {
         float across = yw / (0.035 * ejecta_km);
-        sum += 0.9 * smooth_step(-0.02 * ejecta_km, 0.0, xw) * (1.0 - smooth_step(0.22 * ejecta_km, 0.36 * ejecta_km, xw)) *
-               exp(-0.5 * across * across);
+        dark = max(dark, 0.85 * smooth_step(-0.02 * ejecta_km, 0.0, xw) * (1.0 - smooth_step(0.22 * ejecta_km, 0.36 * ejecta_km, xw)) *
+               exp(-0.5 * across * across));
         float x0 = xw - 0.115 * ejecta_km;
         float rd = sqrt(x0 * x0 + yw * yw);
         float az = atan2(yw, x0);
         float spread = az / 1.6;
         float rr = (rd / ejecta - 0.76) / (0.1 * max(1.0 - 0.14 * az * az, 0.3));
         float rays = 1.0 + 0.25 * sin(11.0 * az + seed + 2.0 * sin(3.0 * az + 1.3 * seed));
-        sum += 0.7 * rays * exp(-spread * spread - 0.5 * rr * rr);
+        sum += 0.22 * rays * exp(-spread * spread - 0.5 * rr * rr);
         float halo = r / ejecta;
-        sum += 0.12 * exp(-3.0 * halo * halo);
+        sum += 0.05 * exp(-3.0 * halo * halo);
     }
-    sum *= landed;
+    sum = (sum + dark) * landed;
 
     if (rings > 0 && age < 36000.0) {
         float fade = exp(-age / 10800.0) * smooth_step(120.0, 600.0, age);
         float outer = (r - (586.0 + 0.454 * age)) / 120.0;
-        sum += 0.35 * fade * exp(-outer * outer);
+        sum += 0.12 * fade * exp(-outer * outer);
         if (rings > 1) {
             float inner = (r - (586.0 + 0.189 * age)) / 90.0;
-            sum += 0.2 * fade * exp(-inner * inner) * smooth_step(0.0, 0.5, -x / max(r, 1.0));
+            sum += 0.07 * fade * exp(-inner * inner) * smooth_step(0.0, 0.5, -x / max(r, 1.0));
         }
     }
     return sum;
@@ -152,8 +152,8 @@ PSOutput main(PSInput input)
     }
 
     float3 n = normalize(float3(q.xy / (u_radii.x * u_radii.x), q.z / (u_radii.y * u_radii.y)));
-    float mu = max(dot(-dir, n), 0.1);
-    float mu0 = max(dot(u_sun.xyz, n), 0.1);
-    output.color = float4(exp(-depth * u_tint.rgb * (1.0 / mu + 1.0 / mu0)), 1.0);
+    float air = 1.0 / max(dot(-dir, n), 0.1) + 1.0 / max(dot(u_sun.xyz, n), 0.1);
+    float through = exp(-u_debris.w * depth * air);
+    output.color = float4(through + (1.0 - through) * u_debris.rgb, 1.0);
     return output;
 }

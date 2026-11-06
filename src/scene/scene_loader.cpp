@@ -1671,6 +1671,15 @@ void Loader::parse(const toml::table& root, Scene& out)
             comet.m1 = magnitude[0];
             comet.k1 = magnitude[1];
             comet.dust_only = (*c)["dust_only"].value<bool>().value_or(false);
+            if (const toml::array* span = (*c)["bound_tail_release"].as_array()) {
+                if (!comet.dust_only || span->size() != 2 || !span->get_as<std::string>(0) || !span->get_as<std::string>(1) ||
+                    !parse_date(span->get_as<std::string>(0)->get().c_str(), Calendar::Gregorian, &comet.bound_tail_from_tdb) ||
+                    !parse_date(span->get_as<std::string>(1)->get().c_str(), Calendar::Gregorian, &comet.bound_tail_to_tdb) ||
+                    comet.bound_tail_to_tdb <= comet.bound_tail_from_tdb) {
+                    fail(comet_ctx, "bound_tail_release: two dates in order, for a dust_only comet");
+                }
+                comet.bound_tail = true;
+            }
             if (!comet.dust_only) {
                 comet.ion_tail_diameter_km = get_double(*c, "ion_tail_diameter_km", comet_ctx);
                 comet.ion_tail_length_km = get_double(*c, "ion_tail_length_km", comet_ctx);

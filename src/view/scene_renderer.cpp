@@ -206,6 +206,7 @@ constexpr double kIonTailMinPx = 1.0; // tail radius on screen, at least
 // for (its own ejection speed x age).
 constexpr double kDustComaShare = 0.7;
 constexpr double kDustTailShare = 1.0;
+constexpr double kBoundTailShare = 0.035; // released once, long ago: faint beside the coma (display choice)
 constexpr double kDustAsymmetry = 0.5;
 constexpr double kDustSpread = 1.0; // splat sigma growth / (ejection speed x age)
 constexpr double kDustMinPx = 1.0;  // splat sigma on screen, at least
@@ -788,6 +789,7 @@ void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, u
     release_body_textures();
 
     m_dust_tails.assign(scene.bodies.size(), DustTail{});
+    m_bound_tails.assign(scene.bodies.size(), BoundDustTail{});
     m_belts.clear();
     m_belt_ids.clear();
     m_belt_reference_h.clear();
@@ -1683,16 +1685,22 @@ void SceneRenderer::build_comet_items(const Simulation& sim, const OutputView& o
         dust_coma.box_min = glm::vec3(static_cast<float>(-kComaReach * dust_scale));
         dust_coma.box_max = glm::vec3(static_cast<float>(kComaReach * dust_scale));
         m_comet_items.push_back(dust_coma);
-        if (comet.dust_only) {
+        if (comet.dust_only && !comet.bound_tail) {
             continue;
         }
 
-        // Dust tail: Finson-Probstein grains (comet.hpp).
-        DustTail& dust = m_dust_tails[i];
-        dust.update(scene, static_cast<int>(i), sim.clock().t_tdb);
+        // Dust tail: Finson-Probstein grains, or those released once and orbiting the planet (comet.hpp).
+        const std::vector<DustGrain>* tail_grains = nullptr;
+        if (comet.bound_tail) {
+            m_bound_tails[i].update(scene, static_cast<int>(i), sim.clock().t_tdb);
+            tail_grains = &m_bound_tails[i].grains();
+        } else {
+            m_dust_tails[i].update(scene, static_cast<int>(i), sim.clock().t_tdb);
+            tail_grains = &m_dust_tails[i].grains();
+        }
         const double ld_physical = ld / widen;
-        const double tail_luminosity = kDustTailShare * luminosity;
-        for (const DustGrain& g : dust.grains()) {
+        const double tail_luminosity = (comet.bound_tail ? kBoundTailShare : kDustTailShare) * luminosity;
+        for (const DustGrain& g : *tail_grains) {
             const glm::dvec3 d = g.position - state.position;
             const double boost =
                 std::pow(std::max(glm::dot(d, d) / (ld_physical * ld_physical), 1.0), 1.0 - kCometMagnitudeGamma);

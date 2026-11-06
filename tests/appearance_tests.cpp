@@ -3214,6 +3214,7 @@ void test_impact_sites()
                    impact_scar_shape(large, (r_late + 500.0) * std::sin(a), (r_late + 500.0) * std::cos(a), 11.0 * 3600.0, 0.0)) < 0.01,
           "and it is gone after 10 hours");
 
+    // West 1996 Fig. 3: the crescent's optical depth at 890 nm is about 0.8 against the core's 3.4, at about 2 h.
     // G's crescent: outer edge 13,000 km to the southeast, and much less on the other side. Nothing
     // comes down in the first minutes.
     const double t_look = 5400.0;
@@ -3231,6 +3232,21 @@ void test_impact_sites()
     }
     check(std::abs(edge_r - 13000.0) < 1500.0, "G's crescent reaches 13,000 km, Hammel", edge_r);
     check(along_axis(crest_r, t_look) > 3.0 * along_axis(-crest_r, t_look), "the crescent is to the southeast");
+    const double crescent_depth = impact_core_depth(t_look) * crest;
+    check(crescent_depth > 0.5 && crescent_depth < 1.1, "the crescent's optical depth, West Fig. 3", crescent_depth);
+    const double core_depth = impact_core_depth(t_look) * along_axis(-300.0, t_look);
+    check(std::abs(core_depth - 3.4) < 0.8, "the core's optical depth, Sanchez-Lavega Table IV", core_depth);
+    // What it does to the clouds in visible light, by tools/sl9/debris_optics.py from West Fig. 3: G's core at 0.50 of
+    // its surroundings (he measures 0.64 at 955 nm and 0.56 at 275 nm), the crescent at 0.74 (0.84 and 0.65). Not black,
+    // slightly red; thin debris shows more toward the limb, and thick debris never goes below its own albedo.
+    const double mu_west = 0.77;
+    const glm::dvec3 core_factor = impact_debris_factor(3.4, mu_west, mu_west);
+    check(std::abs(core_factor.g - 0.50) < 0.03, "a core's dimming, West Fig. 3", core_factor.g);
+    check(core_factor.r > core_factor.b, "the debris is slightly red");
+    const double thin = impact_debris_factor(0.8, mu_west, mu_west).g;
+    check(std::abs(thin - 0.74) < 0.03, "a crescent's dimming, West Fig. 3", thin);
+    check(impact_debris_factor(0.8, 0.2, mu_west).g < thin - 0.05, "thin debris shows more toward the limb");
+    check(impact_debris_factor(100.0, mu_west, mu_west).g >= kDebrisRatioGreen - 1e-9, "thick debris shows its own albedo");
     check(along_axis(crest_r, 200.0) < 0.01 * crest, "no ejecta in the first minutes");
     // The small and the undetected.
     const ImpactClassParams& small = impact_class_params(ImpactClass::C3);
@@ -3261,9 +3277,93 @@ void test_impact_sites()
     check(impact_wind_km_s(1e5) == 0.020 && impact_wind_km_s(-1e5) == -0.010, "the shear's limits, Table III");
 }
 
+// The fragments' tails against Sekanina 1996, Sec. 3.4 and 4.4 and Fig. 5.
+void test_bound_dust_tail()
+{
+    Scene scene = load_scene_or_die("jupiter.toml");
+    const int k = scene.find("SL9 K");
+    const Body& fragment = scene.bodies[static_cast<size_t>(k)];
+    check(fragment.comet.bound_tail && fragment.comet.dust_only, "the fragments have tails released once");
+    BoundDustTail tail;
+    const auto started = std::chrono::steady_clock::now();
+    tail.build(scene, k);
+    const double build_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
+    std::printf("info: a fragment's tail takes %.1f ms and %zu steps\n", build_ms, tail.row_count());
+    check(tail.row_count() > 100 && tail.row_count() < 3000, "the tail's table is of a sensible size", static_cast<double>(tail.row_count()));
+
+    // On the sky, from the Earth (Horizons, from Jupiter), with north the ICRF pole; east toward increasing RA.
+    const auto on_sky = [](const glm::dvec3& d, const glm::dvec3& earth) {
+        const glm::dvec3 to_earth = glm::normalize(earth);
+        return d - to_earth * glm::dot(d, to_earth);
+    };
+    const auto position_angle = [](const glm::dvec3& d, const glm::dvec3& earth) {
+        const glm::dvec3 to_earth = glm::normalize(earth);
+        const glm::dvec3 north = glm::normalize(glm::dvec3(0.0, 0.0, 1.0) - to_earth * to_earth.z);
+        const glm::dvec3 east = glm::cross(north, -to_earth);
+        return std::fmod(glm::degrees(std::atan2(glm::dot(d, east), glm::dot(d, north))) + 360.0, 360.0);
+    };
+    const double jan94 = tdb_from_jd_tdb(2449377.5); // 1994-01-25
+    const double jul94 = tdb_from_jd_tdb(2449547.5); // 1994-07-14
+    const glm::dvec3 earth_jan(601460748.0, 520171339.9, 206808453.3);
+    const glm::dvec3 earth_jul(622908828.5, 406956663.6, 159976989.5);
+    const auto earth_from_k = [&](const glm::dvec3& earth, double t) {
+        return earth - (scene.icrf_state_at(k, t).position - scene.icrf_state_at(0, t).position);
+    };
+    const glm::dvec3 none(0.0);
+    const int first = 0;
+    const int last = BoundDustTail::kReleases - 1;
+
+    // [SEK] Sec. 4.4: in July 1994 grains 15,000 km from the fragment have beta 5e-5 if released in early July 1992,
+    // 2e-4 if in late 1992.
+    const glm::dvec3 from_earth_jul = earth_from_k(earth_jul, jul94);
+    const double beta_early = 15000.0 / glm::length(on_sky(tail.offset(first, 1.0, none, jul94), from_earth_jul));
+    const double beta_late = 15000.0 / glm::length(on_sky(tail.offset(last, 1.0, none, jul94), from_earth_jul));
+    check(beta_early > 2.5e-5 && beta_early < 7.5e-5, "beta of the early grains, Sekanina", beta_early);
+    check(beta_late > 1.3e-4 && beta_late < 3.0e-4, "beta of the late grains, Sekanina", beta_late);
+
+    // [SEK] Fig. 5: the tails at position angles of about 270-295 deg in January 1994, 245-255 in mid-July. Sec. 3.4: 30 deg
+    // from the train (itself at about 243 and 240).
+    const glm::dvec3 from_earth_jan = earth_from_k(earth_jan, jan94);
+    const double pa_jan = position_angle(tail.offset(last / 2, 1.0, none, jan94), from_earth_jan);
+    const double pa_jul = position_angle(tail.offset(last / 2, 1.0, none, jul94), from_earth_jul);
+    check(pa_jan > 265.0 && pa_jan < 295.0, "the tails' position angle in January 1994, Sekanina Fig. 5", pa_jan);
+    check(pa_jul > 240.0 && pa_jul < 262.0, "the tails' position angle in July 1994, Sekanina Fig. 5", pa_jul);
+    const int a_body = scene.find("SL9 A");
+    const int w_body = scene.find("SL9 W");
+    const glm::dvec3 train = scene.icrf_state_at(w_body, jan94).position - scene.icrf_state_at(a_body, jan94).position;
+    const double pa_train = position_angle(train, from_earth_jan);
+    check(std::abs(pa_train - 243.0) < 8.0, "the train's position angle in January 1994, Sekanina Fig. 5", pa_train);
+    check(std::abs(std::remainder(pa_jan - pa_train, 360.0) - 30.0) < 12.0, "30 deg from the train, Sekanina", pa_jan - pa_train);
+
+    // [SEK] Sec. 3.4: over 100,000 km long in January 1994 for the major ones, and 8,000 to 25,000 km wide from speeds
+    // of 0.1 to 0.4 m/s (normal to the orbit).
+    const double longest = glm::length(on_sky(tail.offset(last / 2, BoundDustTail::kBetaMax, none, jan94), from_earth_jan));
+    check(longest > 100000.0, "the tails are over 100,000 km long, Sekanina", longest);
+    const glm::dvec3 normal = glm::normalize(glm::cross(scene.icrf_state_at(k, jan94).position - scene.icrf_state_at(0, jan94).position,
+                                                        scene.icrf_state_at(k, jan94).velocity - scene.icrf_state_at(0, jan94).velocity));
+    const double across = 2.0 * glm::length(tail.offset(last / 2, 0.0, normal * BoundDustTail::kSpeedMaxKmS, jan94));
+    check(across > 8000.0 && across < 30000.0, "their width, Sekanina", across);
+
+    // The grains: nothing before the release or after the impact; the same for the same time; none far off.
+    tail.update(scene, k, jan94);
+    const size_t count = tail.grains().size();
+    check(count > 150, "most grains are there in January 1994", static_cast<double>(count));
+    double weights = 0.0;
+    for (const DustGrain& g : tail.grains()) {
+        weights += g.weight;
+        check(g.age_s > 0.0, "a grain's age");
+    }
+    check(weights > 0.5 && weights <= 1.0 + 1e-9, "the weights add up", weights);
+    tail.update(scene, k, tdb_from_jd_tdb(2448800.0));
+    check(tail.grains().empty(), "no grains before the breakup");
+    tail.update(scene, k, tdb_from_jd_tdb(2449600.0));
+    check(tail.grains().empty(), "no grains after the impact");
+}
+
 void run_appearance_tests()
 {
     test_impact_sites();
+    test_bound_dust_tail();
     test_comet_tails();
     test_dust_tail();
     test_atmospheres();

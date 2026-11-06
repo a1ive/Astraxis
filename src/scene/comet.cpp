@@ -158,4 +158,227 @@ void DustTail::update(const Scene& scene, int body, double t_tdb)
     }
 }
 
+namespace {
+
+glm::dmat3 gravity_gradient(const glm::dvec3& r, double gm)
+{
+    const double d = glm::length(r);
+    const glm::dvec3 u = r / d;
+    const double k = gm / (d * d * d);
+    glm::dmat3 g(0.0);
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            g[i][j] = k * (3.0 * u[i] * u[j] - (i == j ? 1.0 : 0.0));
+        }
+    }
+    return g;
+}
+
+// One grain's deviation for one source term: d'' = G d + f.
+struct Deviation {
+    glm::dvec3 d{0.0};
+    glm::dvec3 v{0.0};
+};
+
+Deviation rk4_step(const Deviation& y, const glm::dmat3& g0, const glm::dmat3& g1, const glm::dmat3& g2, const glm::dvec3& f0,
+                   const glm::dvec3& f1, const glm::dvec3& f2, double h)
+{
+    const glm::dvec3 k1d = y.v;
+    const glm::dvec3 k1v = g0 * y.d + f0;
+    const glm::dvec3 k2d = y.v + 0.5 * h * k1v;
+    const glm::dvec3 k2v = g1 * (y.d + 0.5 * h * k1d) + f1;
+    const glm::dvec3 k3d = y.v + 0.5 * h * k2v;
+    const glm::dvec3 k3v = g1 * (y.d + 0.5 * h * k2d) + f1;
+    const glm::dvec3 k4d = y.v + h * k3v;
+    const glm::dvec3 k4v = g2 * (y.d + h * k3d) + f2;
+    return {y.d + h / 6.0 * (k1d + 2.0 * k2d + 2.0 * k3d + k4d), y.v + h / 6.0 * (k1v + 2.0 * k2v + 2.0 * k3v + k4v)};
+}
+
+} // namespace
+
+void BoundDustTail::build(const Scene& scene, int body)
+{
+    if (m_body == body && !m_times.empty()) {
+        return;
+    }
+    m_body = body;
+    m_last_tdb = std::numeric_limits<double>::quiet_NaN();
+    m_times.clear();
+    m_release.clear();
+    m_first_row.clear();
+    m_rows.clear();
+    m_seeds.clear();
+    const Body& comet_body = scene.bodies[static_cast<size_t>(body)];
+    const MotionSource& motion = *comet_body.motion;
+    const int parent = comet_body.parent;
+    const double gm_parent = scene.bodies[static_cast<size_t>(parent)].gm_km3_s2;
+    const double gm_sun = scene.sun_gm();
+
+    // The span of the comet's table (a fragment that split off later starts later).
+    const double from = comet_body.comet.bound_tail_from_tdb;
+    const double to = comet_body.comet.bound_tail_to_tdb;
+    constexpr double kSearchS = 4.0 * kDaysPerJulianYear * kSecondsPerDay;
+    double start = from;
+    if (!motion.valid_at(start)) {
+        double lo = from;
+        double hi = from + kSearchS;
+        while (hi - lo > 1.0) {
+            const double mid = 0.5 * (lo + hi);
+            (motion.valid_at(mid) ? hi : lo) = mid;
+        }
+        start = hi;
+    }
+    double lo = start;
+    double hi = start + kSearchS;
+    while (hi - lo > 1.0) {
+        const double mid = 0.5 * (lo + hi);
+        (motion.valid_at(mid) ? lo : hi) = mid;
+    }
+    const double end = lo;
+    if (end <= start) {
+        return;
+    }
+
+    // Steps by the path: a fiftieth of its time scale, at most 3 days. The sources at each step's ends and middle.
+    const auto relative = [&](double t) {
+        return scene.icrf_state_at(body, t).position - scene.icrf_state_at(parent, t).position;
+    };
+    const auto sources = [&](double t, glm::dmat3* g, glm::dvec3* f) {
+        const glm::dvec3 r = relative(t);
+        const glm::dvec3 from_sun = scene.icrf_state_at(body, t).position - scene.sun_icrf_state_at(t).position;
+        *g = gravity_gradient(r, gm_parent) + gravity_gradient(from_sun, gm_sun);
+        const double s = glm::length(from_sun);
+        *f = gm_sun * from_sun / (s * s * s); // per unit beta: away from the Sun
+    };
+    std::vector<glm::dmat3> g_ends;
+    std::vector<glm::dmat3> g_mids;
+    std::vector<glm::dvec3> f_ends;
+    std::vector<glm::dvec3> f_mids;
+    double t = start;
+    for (;;) {
+        glm::dmat3 g;
+        glm::dvec3 f;
+        sources(t, &g, &f);
+        m_times.push_back(t);
+        g_ends.push_back(g);
+        f_ends.push_back(f);
+        if (t >= end) {
+            break;
+        }
+        const State s = motion.eval(t);
+        const double speed = std::max(glm::length(s.velocity), 1e-3);
+        const double h = std::clamp(0.02 * glm::length(s.position) / speed, 120.0, 3.0 * kSecondsPerDay);
+        const double next = std::min(t + h, end);
+        sources(0.5 * (t + next), &g, &f);
+        g_mids.push_back(g);
+        f_mids.push_back(f);
+        t = next;
+    }
+
+    // One set of rows per time of release, each from the step at or before it.
+    const double first_release = std::max(from, start);
+    const double last_release = std::max(to, start + 30.0 * kSecondsPerDay);
+    const size_t n = m_times.size();
+    m_rows.assign(static_cast<size_t>(kReleases) * n, Row{});
+    for (int k = 0; k < kReleases; ++k) {
+        const double when = first_release + (last_release - first_release) * k / (kReleases - 1);
+        const size_t first = static_cast<size_t>(std::upper_bound(m_times.begin(), m_times.end(), when) - m_times.begin()) - 1;
+        m_release.push_back(m_times[first]);
+        m_first_row.push_back(first);
+        Deviation columns[4];
+        columns[0].v = glm::dvec3(1.0, 0.0, 0.0);
+        columns[1].v = glm::dvec3(0.0, 1.0, 0.0);
+        columns[2].v = glm::dvec3(0.0, 0.0, 1.0);
+        for (size_t i = first; i + 1 < n; ++i) {
+            const double h = m_times[i + 1] - m_times[i];
+            for (int c = 0; c < 3; ++c) {
+                columns[c] = rk4_step(columns[c], g_ends[i], g_mids[i], g_ends[i + 1], glm::dvec3(0.0), glm::dvec3(0.0), glm::dvec3(0.0), h);
+            }
+            columns[3] = rk4_step(columns[3], g_ends[i], g_mids[i], g_ends[i + 1], f_ends[i], f_mids[i], f_ends[i + 1], h);
+            Row& out = m_rows[static_cast<size_t>(k) * n + i + 1];
+            for (int c = 0; c < 3; ++c) {
+                for (int e = 0; e < 3; ++e) {
+                    out.p[c * 3 + e] = static_cast<float>(columns[c].d[e]);
+                }
+                out.b[c] = static_cast<float>(columns[3].d[c]);
+            }
+        }
+    }
+
+    // The grains, the same for all time.
+    const double log_min = std::log(kBetaMin);
+    const double log_step = (std::log(kBetaMax) - log_min) / kGrains;
+    double total = 0.0;
+    m_seeds.resize(kGrains);
+    for (int k = 0; k < kGrains; ++k) {
+        Seed& seed = m_seeds[static_cast<size_t>(k)];
+        seed.release = k % kReleases;
+        seed.beta = std::exp(log_min + log_step * (k + grain_random(body, k, 0)));
+        const double cos_t = 2.0 * grain_random(body, k, 1) - 1.0;
+        const double phi = kTwoPi * grain_random(body, k, 2);
+        const double sin_t = std::sqrt(std::max(0.0, 1.0 - cos_t * cos_t));
+        const double speed = kSpeedMinKmS + (kSpeedMaxKmS - kSpeedMinKmS) * grain_random(body, k, 3);
+        seed.velocity = speed * glm::dvec3(sin_t * std::cos(phi), sin_t * std::sin(phi), cos_t);
+        seed.weight = seed.beta;
+        seed.random = grain_random(body, k, 4);
+        total += seed.weight;
+    }
+    for (Seed& seed : m_seeds) {
+        seed.weight /= total;
+    }
+}
+
+glm::dvec3 BoundDustTail::offset(int release, double beta, const glm::dvec3& velocity, double t_tdb) const
+{
+    if (m_times.empty() || t_tdb <= m_release[static_cast<size_t>(release)]) {
+        return glm::dvec3(0.0);
+    }
+    const size_t hi = std::clamp<size_t>(static_cast<size_t>(std::upper_bound(m_times.begin(), m_times.end(), t_tdb) - m_times.begin()), 1,
+                                         m_times.size() - 1);
+    const double s = std::clamp((t_tdb - m_times[hi - 1]) / (m_times[hi] - m_times[hi - 1]), 0.0, 1.0);
+    const Row& a = row(release, hi - 1);
+    const Row& b = row(release, hi);
+    glm::dvec3 out(0.0);
+    for (int e = 0; e < 3; ++e) {
+        for (int c = 0; c < 3; ++c) {
+            out[e] += velocity[c] * (a.p[c * 3 + e] + s * (b.p[c * 3 + e] - a.p[c * 3 + e]));
+        }
+        out[e] += beta * (a.b[e] + s * (b.b[e] - a.b[e]));
+    }
+    return out;
+}
+
+void BoundDustTail::update(const Scene& scene, int body, double t_tdb)
+{
+    if (body == m_body && t_tdb == m_last_tdb) {
+        return;
+    }
+    build(scene, body);
+    m_last_tdb = t_tdb;
+    m_grains.clear();
+    if (m_times.empty() || t_tdb <= m_times.front() || t_tdb >= m_times.back()) {
+        return;
+    }
+    const glm::dvec3 here = scene.icrf_state_at(body, t_tdb).position;
+    const double from_parent = glm::length(here - scene.icrf_state_at(scene.bodies[static_cast<size_t>(body)].parent, t_tdb).position);
+    for (const Seed& seed : m_seeds) {
+        const double released = m_release[static_cast<size_t>(seed.release)];
+        if (t_tdb <= released) {
+            continue;
+        }
+        const glm::dvec3 d = offset(seed.release, seed.beta, seed.velocity, t_tdb);
+        const double reach = glm::length(d);
+        if (reach > 0.25 * from_parent) {
+            continue;
+        }
+        DustGrain out;
+        out.position = here + d;
+        out.weight = seed.weight;
+        out.age_s = t_tdb - released;
+        out.ejection_km_s = glm::length(seed.velocity);
+        out.random = seed.random;
+        m_grains.push_back(out);
+    }
+}
+
 } // namespace astraxis

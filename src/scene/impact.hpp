@@ -14,6 +14,7 @@ namespace astraxis {
 // [HAM96] Hammel 1996, in "The Collision of Comet Shoemaker-Levy 9 and Jupiter", pp. 111-120.
 // [BEE96] Beebe 1996, same book, pp. 307-328: how the sites spread out.
 // [SL98]  Sanchez-Lavega et al. 1998, Icarus 131, 341: two years of the debris (Tables III, IV).
+// [WEST]  West 1996, same book, pp. 269-292: the debris' optical properties, G's core and crescent (Fig. 3).
 // [MAR95] Martin et al. 1995, Science 268, 1875: Galileo's photometer, the flashes of G, H, L and Q1.
 // [CHA95] Chapman et al. 1995, GRL 22, 1561: Galileo's camera, the flashes of K, N and W.
 // [CAR95] Carlson et al. 1995, GRL 22, 1557: Galileo's infrared spectra of G's fireball.
@@ -117,6 +118,17 @@ double impact_scar_shape(const ImpactClassParams& params, double east_km, double
 double impact_seed(const ImpactSite& site);
 // Optical depth at 890 nm over all the sites at a place on the planet.
 double impact_scar_depth(const std::vector<ImpactSite>& sites, double lat_deg, double west_lon_deg, double t_tdb);
+
+// What the debris does to the clouds below it. Thin, it lets them through; thick, it shows only itself, with an albedo
+// of its own. As a ratio to the clouds (the scene's textures aren't calibrated in I/F):
+//   factor = T + rho (1 - T),   T = exp(-a tau m),   m = 1 / mu + 1 / mu0.
+// tools/sl9/debris_optics.py: a Mie and two-stream layer, brought to [WEST]'s I/F in G's core at 955 and 275 nm and read
+// in visible light, over clouds of I/F 0.5; these make the factor equal it in the core and the crescent.
+inline constexpr double kDebrisDimming = 0.32;   // a
+inline constexpr double kDebrisRatioRed = 0.472;   // rho
+inline constexpr double kDebrisRatioGreen = 0.467;
+inline constexpr double kDebrisRatioBlue = 0.437;
+glm::dvec3 impact_debris_factor(double depth, double mu, double mu0);
 
 // The distance over which latitude and longitude turn into km near the sites.
 inline constexpr double kImpactRadiusKm = 69300.0;

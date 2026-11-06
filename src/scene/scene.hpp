@@ -398,6 +398,10 @@ struct Body {
         double ion_tail_length_km = 0.0;    // brightness e-folding length along the tail
         double solar_wind_km_s = 400.0;     // aberration of the tail
         bool dust_only = false;        // only the dust coma: no gas coma, ion tail or dust tail
+        // A tail of grains released once, in this span, that orbit the parent with the comet (BoundDustTail).
+        bool bound_tail = false;
+        double bound_tail_from_tdb = 0.0;
+        double bound_tail_to_tdb = 0.0;
         double dust_tail_days = 40.0;  // age of the oldest grains drawn
         double dust_beta_min = 0.003;  // range of radiation pressure / gravity
         double dust_beta_max = 0.9;
