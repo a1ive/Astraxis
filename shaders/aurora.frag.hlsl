@@ -338,8 +338,9 @@ float3 layer_emission(float h, float pattern)
         return u_low.rgb * (pattern * exponential_layer(h, u_layers.x, u_layers.y)) +
                u_high.rgb * exponential_layer(h, u_layers.z, u_layers.y);
     case VERTICAL_GAUSSIAN: {
-        float z = (h - u_layers.x) / u_layers.y;
-        return u_low.rgb * (pattern * exp(-0.5 * z * z) * step(u_layers.z, h) * step(h, u_layers.w));
+        // The shell's own limits cut it off.
+        float z = (h - u_layers.x) / (h < u_layers.x ? u_layers.y : u_layers.z);
+        return u_low.rgb * (pattern * exp(-0.5 * z * z));
     }
     case VERTICAL_TABLE:
         return u_low.rgb * (pattern * table_layer(h));

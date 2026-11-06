@@ -3,6 +3,7 @@
 #include "scene/aurora.hpp"
 #include "scene/aurora_map.hpp"
 #include "scene/jovian_aurora.hpp"
+#include "scene/mars_aurora.hpp"
 
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
@@ -54,7 +55,7 @@ enum class AuroraVertical {  // brightness with height; AuroraProfile::layers re
     ChapmanPair = 1,         // low peak, low scale, high peak, high scale (km)
     Exponential = 2,         // low scale, layer top, high scale (km); the high layer
                              // ignores the pattern (Io's sodium corona)
-    Gaussian = 3,            // peak, sigma, bottom, top (km), one layer
+    Gaussian = 3,            // peak, sigma below it, sigma above it (km), one layer
     UniformColumn = 4,       // thickness (km), one layer
     Table = 5,               // first height, step (km), one layer: AuroraProfile::table
 };
@@ -88,6 +89,8 @@ struct MoonAuroraState {
     // Io: its sodium and SO2 through an eclipse, relative to their reference observations.
     double sodium = 1.0;
     double so2 = 1.0;
+    // Mars, not a moon: its green line at the limb (R), by date (MarsAurora::limb_rayleigh_at).
+    double mars_limb_rayleigh = MarsAurora::limb_rayleigh;
 };
 
 // A shell of emission, in linear RGB with its display exposure.

@@ -2,7 +2,6 @@
 
 #include "core/color.hpp"
 #include "core/math.hpp"
-#include "scene/mars_aurora.hpp"
 #include "scene/satellite_aurora.hpp"
 #include "scene/saturn_aurora.hpp"
 
@@ -207,8 +206,8 @@ AuroraProfile aurora_profile(AuroraModel model, bool ultraviolet, double kp, con
         p.lighting = AuroraLighting::NightSide;
         p.bottom_km = MarsAurora::bottom_km;
         p.top_km = MarsAurora::top_km;
-        p.layers = glm::dvec4(MarsAurora::peak_km, MarsAurora::sigma_km, MarsAurora::bottom_km, MarsAurora::top_km);
-        p.low_rgb = kGreenPerKr * (MarsAurora::limb_rayleigh / 1000.0 * MarsAurora::display_gain / MarsAurora::limb_integral());
+        p.layers = glm::dvec4(MarsAurora::peak_km, MarsAurora::sigma_below_km, MarsAurora::sigma_above_km, 0.0);
+        p.low_rgb = kGreenPerKr * (moon.mars_limb_rayleigh / 1000.0 * MarsAurora::display_gain / MarsAurora::limb_integral());
         break;
     }
     return p;

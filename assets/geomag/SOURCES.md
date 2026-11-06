@@ -419,17 +419,40 @@ UV overlay also show this visible emission.
   The paper's radiative transfer model estimates **2.1 kR at the orbital limb**.
   That modeled limb estimate sets our reference intensity; 101 R is a
   dust-attenuated ground measurement and is not used as a zenith column.
-- `src/scene/mars_aurora.hpp` assumes a horizontally uniform Gaussian layer,
-  peak 60 km, sigma 15 km, truncated at 20 and 140 km. These heights approximate
-  diffuse SEP emission; they are not a retrieved 2024 profile. A numerical
-  tangent-ray integral normalizes its peak to 2.1 kR for radius 3396.19 km.
-  The renderer approximates constant physical radial altitude on Mars' ellipsoid.
+- Height: Schneider et al. (2018), *Global aurora on Mars during the September
+  2017 space weather event*, GRL 45, 7391, https://doi.org/10.1029/2018GL077772,
+  Fig. 2 (CO2+ UVD limb curve, orbit 5730; read from the plot). That curve is
+  intensity edge-on, not emission at that height, so
+  `tools/geomag/mars_aurora_profile.py` (`python -I`, standard library) fits the
+  emission through the line-of-sight integral: `src/scene/mars_aurora.hpp` has a
+  horizontally uniform layer with a Gaussian per side, peak 63 km, sigma 12 km
+  below and 17 km above, cut at 20 and 140 km. Edge-on it peaks at 55 km (observed
+  57.5) with an rms of 0.3 kR on the 20 kR curve. The layer below 23 km is not
+  constrained, and the curve is not the green line: Knutsen shaped their model on
+  the 297.2 nm line of the same event, which the paper does not plot; UVD is the
+  paper's profile of the excitation, and O(1S) may be quenched lower down (their
+  Cameron bands are). A numerical tangent-ray integral normalizes the peak to
+  2.1 kR for radius 3396.19 km. The renderer approximates constant physical
+  radial altitude on Mars' ellipsoid.
+- September 2017 (`MarsAurora::limb_rayleigh_at`): Schneider Fig. 3, Cameron bands
+  at the limb, limb scans and apoapse images read from the plot. Dates check
+  against Fig. 1 (orbit 5731's marker falls at 13 Sep 05:34). The sites differ by
+  up to 5 times within hours, so the timeline keeps the brightest of each 6 hours
+  and raises what is under the 0.04 kR noise floor to it, joined in log brightness.
+  Its peak is the limb scan of orbit 5730. Knutsen estimate 130 R of 297.2 nm for
+  2024, "10 times fainter" than this event, so the green line at this peak is
+  taken as 10 x 2.1 = 21 kR. This is inferred from the ultraviolet with the same
+  line ratio as 2024; no visible observation exists, and the Cameron bands may not
+  track the green line through the event. Over the day before and after the record
+  it joins the reference level, so manual viewing has no jump.
 - 557.7 nm linear RGB per kR is the existing `aurora_colors.py` spectral conversion.
   Display gain is independently set to 3e7. Daylight masking fades between
   solar elevations -12 and 0 degrees; it represents visibility, not excitation.
 - The event time is rounded to 06:47 TDB; its orbital camera is illustrative.
-  The reference emission stays constant while enabled. There is no storm time
-  series, terrestrial Kp driver, crustal-field structure, red-line upper-limit
-  emission, dust transfer, multiple scattering or surface illumination.
+  Outside September 2017 the reference emission stays constant while enabled.
+  There is no storm time series for 2024, terrestrial Kp driver, crustal-field
+  structure (including the discrete wisps of orbit 5738 in Schneider Fig. 4),
+  red-line upper-limit emission, dust transfer, multiple scattering or surface
+  illumination.
 - No paper images or datasets are redistributed; the implementation uses the
   cited scalar measurements and an independently written illustrative profile.

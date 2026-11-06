@@ -1032,7 +1032,7 @@ void test_mars_aurora()
         ++events;
         check(e.aurora_visible && !e.aurora_ultraviolet && e.focus == scene.find("Mars"), "Mars visible tour settings");
     }
-    check(events == 1, "Mars has one visible aurora event");
+    check(events == 2, "Mars has the 2017 and 2024 visible aurora events");
     // Independent dense tangent-ray quadrature checks the orbit-limb scaling.
     double maximum = 0.0;
     for (int h = 20; h <= 140; ++h) {
@@ -1042,11 +1042,77 @@ void test_mars_aurora()
         for (int j = 0; j < 8000; ++j) {
             const double x = end * (j + 0.5) / 8000.0;
             const double altitude = std::sqrt(b*b + x*x) - 3396.19;
-            integral += std::exp(-0.5 * std::pow((altitude - 60.0) / 15.0, 2)) * 2.0 * end / 8000.0;
+            const double sigma = altitude < 63.0 ? 12.0 : 17.0;
+            integral += std::exp(-0.5 * std::pow((altitude - 63.0) / sigma, 2)) * 2.0 * end / 8000.0;
         }
         maximum = std::max(maximum, integral);
     }
     check(std::abs(maximum / MarsAurora::limb_integral() - 1.0) < 0.001, "Mars reference limb normalization", maximum);
+
+    // Seen edge-on the layer has the shape of Schneider 2018 Fig. 2's CO2+ UVD (20 kR at its peak).
+    const auto edge_on = [](double tangent) {
+        constexpr double kRadius = 3396.19;
+        const double b = kRadius + tangent;
+        const double end = std::sqrt(std::pow(kRadius + MarsAurora::top_km, 2) - b * b);
+        double sum = 0.0;
+        for (int j = 0; j < 8000; ++j) {
+            sum += MarsAurora::profile(std::hypot(b, end * (j + 0.5) / 8000.0) - kRadius) * 2.0 * end / 8000.0;
+        }
+        return sum;
+    };
+    const struct { double km, kr; } uvd[] = {{23, 11.2}, {35, 14.6}, {45, 17.3}, {57.5, 20.0}, {65, 16.2},
+                                            {75, 10.3}, {85, 4.7}, {95, 1.8}};
+    double worst = 0.0;
+    for (const auto& point : uvd) {
+        worst = std::max(worst, std::abs(20.0 * edge_on(point.km) / MarsAurora::limb_integral() - point.kr));
+    }
+    check(worst < 1.0, "Mars's layer edge-on follows the UVD limb profile (kR)", worst);
+    // Lines of sight below the layer still cross it: edge-on, the peak is under the emission's.
+    double limb_peak_km = 30.0;
+    for (double h = 30.0; h < 90.0; h += 0.5) {
+        if (edge_on(h) > edge_on(limb_peak_km)) limb_peak_km = h;
+    }
+    check(limb_peak_km > 50.0 && limb_peak_km < MarsAurora::peak_km, "the limb's peak is under the emission's", limb_peak_km);
+
+    // Brightness by date. Days of September 2017.
+    const auto september = [](double day) {
+        return (jd_from_calendar({2017, 9, 1, 0, 0, 0}) - 1.0 + day - kJ2000Jd) * kSecondsPerDay;
+    };
+    const double peak = MarsAurora::limb_rayleigh_at(september(13.12));
+    check(std::abs(peak - 21000.0) < 1.0, "the 2017 peak is ten times Knutsen's 2.1 kR", peak);
+    double first_episode = 0.0;
+    double later_episodes = 0.0;
+    for (double day = 11.0; day < 22.0; day += 0.01) {
+        const double r = MarsAurora::limb_rayleigh_at(september(day));
+        if (day < 14.0) first_episode = std::max(first_episode, r);
+        if (day >= 17.0) later_episodes = std::max(later_episodes, r);
+    }
+    check(first_episode > 10.0 * later_episodes, "the first episode is more than 10 times the others (Fig. 3)", first_episode / later_episodes);
+    check(MarsAurora::limb_rayleigh_at(september(21.5)) > 3.0 * MarsAurora::limb_rayleigh_at(september(19.5)),
+          "the third episode stands out of the lull");
+    check(MarsAurora::limb_rayleigh_at(september(12.3)) < 0.05 * peak, "barely there the day before the peak");
+    check(MarsAurora::limb_rayleigh_at(september(0.0)) == MarsAurora::limb_rayleigh &&
+              MarsAurora::limb_rayleigh_at(september(40.0)) == MarsAurora::limb_rayleigh,
+          "other dates use the reference observation");
+    double largest_step = 1.0;
+    for (double day = 5.0; day < 28.0; day += 0.001) {
+        const double a = MarsAurora::limb_rayleigh_at(september(day));
+        const double b = MarsAurora::limb_rayleigh_at(september(day + 0.001));
+        largest_step = std::max(largest_step, std::max(a / b, b / a));
+    }
+    check(largest_step < 1.05, "no jumps, at either end of the record either", largest_step);
+
+    // The simulation hands it to the shell.
+    Simulation sim;
+    std::string load_error;
+    check(sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/mars.toml", &load_error), "Mars simulation loads");
+    sim.stop_tour();
+    const int mars = sim.scene().find("Mars");
+    sim.clock().t_tdb = september(13.12);
+    check(std::abs(sim.moon_aurora(mars).mars_limb_rayleigh - 21000.0) < 1.0, "the simulation reads the date");
+    const AuroraProfile bright = aurora_profile(AuroraModel::Mars, false, 3.0, sim.moon_aurora(mars));
+    const AuroraProfile reference = aurora_profile(AuroraModel::Mars, false, 3.0);
+    check(std::abs(bright.low_rgb.g / reference.low_rgb.g - 10.0) < 1e-6, "the shell brightens with it");
     Scene bad;
     std::string error;
     const std::string base = "name='x'\n[[bodies]]\nname='Mars'\nradii_km=[3396.19,3376.20]\n[bodies.aurora]\n";

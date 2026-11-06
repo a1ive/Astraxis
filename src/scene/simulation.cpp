@@ -408,6 +408,9 @@ MoonAuroraState Simulation::moon_aurora(int body) const
         state.sodium = (m_io_eclipse_valid ? io_sodium_level(m_io_eclipse, t) : 1.0) / kIoSodiumReferenceLevel;
         state.so2 = (m_io_eclipse_valid ? io_so2_level(m_io_eclipse, t) : 1.0) / io_so2_reference_level();
     }
+    if (moon.aurora.model == AuroraModel::Mars) {
+        state.mars_limb_rayleigh = MarsAurora::limb_rayleigh_at(m_clock.t_tdb);
+    }
     return state;
 }
 
