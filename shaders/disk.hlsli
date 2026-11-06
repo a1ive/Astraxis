@@ -8,12 +8,15 @@
 cbuffer Uniforms : register(b0, space3)
 {
     float4x4 u_ray_to_icrf;
-    float4 u_camera;    // w: view (0 scattered, 1 infrared, 2 millimeter, 3 scattered in a thick disk)
+    float4 u_camera;    // w: view (0 scattered, 1 infrared, 2 millimeter, 3 gas, 4 scattered in a thick disk)
     float4 u_params;    // radiance at the reference, gamma, reference, components
     float4 u_range;     // ln inner, ln outer, outer, occluders
     float4 u_phase_g;   // w: a source's least size (radians)
-    float4 u_phase_w;
+    float4 u_phase_w;   // w: a thick disk's gain on the first scattering
     float4 u_tint;      // w: sources
+    float4 u_gas;       // sqrt(GM) in km/s sqrt(au), full color's speed, clumps
+    float4 u_clump[2];  // cos, sin of its azimuth, radius, radial sigma
+    float4 u_clump_shape[2]; // sigma ahead, tail behind (radians), gain
     float4 u_axis_x[4]; // w: sigma
     float4 u_axis_y[4]; // w: second sigma
     float4 u_axis_z[4]; // w: second Gaussian's share
@@ -98,6 +101,30 @@ float4 disk_thermal(float ln_t)
     return float4(v.rgb, exp(v.w));
 }
 
+// disk_clump_factor in scene/disk.cpp, at q in the component's plane.
+float disk_clumps(float3 q, float r)
+{
+    float out_ = 1.0;
+    for (int s = 0; s < (int)u_gas.z; ++s) {
+        float a = (r - u_clump[s].z) / u_clump[s].w;
+        float delta = atan2(u_clump[s].x * q.y - u_clump[s].y * q.x, u_clump[s].x * q.x + u_clump[s].y * q.y);
+        float ahead = delta / u_clump_shape[s].x;
+        float shape = delta >= 0.0 ? exp(-0.5 * ahead * ahead) : exp(delta / u_clump_shape[s].y);
+        out_ += u_clump_shape[s].z * exp(-0.5 * a * a) * shape;
+    }
+    return out_;
+}
+
+// Blue toward us, red away, white at rest: the speed along the ray (positive away)
+// in units of full color. disk_line_of_sight_km_s in scene/disk.cpp.
+float3 disk_gas_color(float3 q, float3 d, float r)
+{
+    float speed = u_gas.x / sqrt(max(r, 1e-3));
+    float along = speed * (-q.y * d.x + q.x * d.y) / max(r, 1e-3) / u_gas.y;
+    float3 toward = along < 0.0 ? float3(0.10, 0.28, 1.0) : float3(1.0, 0.14, 0.06);
+    return lerp(float3(1.0, 1.0, 1.0), toward, saturate(abs(along)));
+}
+
 // The steps of march() in scene/disk.cpp: rgb, and the light they sum to in w.
 float4 disk_march(int c, float3 origin, float3 ray, float t0, float t1)
 {
@@ -125,9 +152,12 @@ float4 disk_march(int c, float3 origin, float3 ray, float t0, float t1)
                 float4 thermal = disk_thermal(disk_ln_temperature(c, distance));
                 value *= thermal.w;
                 rgb = thermal.rgb;
-            } else {
+            } else if (view == 2) {
                 value *= exp(disk_ln_temperature(c, distance));
                 rgb = u_tint.rgb;
+            } else {
+                value *= disk_clumps(q, r);
+                rgb = disk_gas_color(q, d, r);
             }
             sum += float4(rgb * value, value);
         }
@@ -146,13 +176,16 @@ float disk_extinction(float r, float z)
     return out_;
 }
 
-// Optical depth from the star (disk_star_depth in scene/disk.cpp).
-float disk_star_tau(float r, float z)
+// What a sample of a thick disk sends on, without its 1 / d^2 and phase function:
+// x the starlight that reaches it (disk_star_depth in scene/disk.cpp), y the source
+// of the later scatterings (disk_diffuse).
+float2 disk_star_light(float r, float z)
 {
     float u = saturate((log(max(r, 1e-6)) - u_range.x) / (u_range.y - u_range.x));
     float v = sqrt(atan2(abs(z), max(r, 1e-6)) / 1.5707963);
     float2 uv = (float2(u, v) * float2(255.0, 127.0) + 0.5) / float2(256.0, 128.0);
-    return exp(u_star_depth.SampleLevel(u_depth_sampler, uv, 0).r) - 1.0;
+    float2 table = u_star_depth.SampleLevel(u_depth_sampler, uv, 0).rg;
+    return float2(exp(1.0 - exp(table.r)), exp(table.g));
 }
 
 // The steps of march_thick() in scene/disk.cpp: the light, and what gets through in w.
@@ -172,10 +205,10 @@ float2 disk_march_thick(float3 origin, float3 ray, float t0, float t1)
         float extinction = disk_extinction(r, p.z);
         float to_star = max(length(p), 1.0);
         float dt;
-        if (extinction * sigma * 2.5 > 1e-3) {
+        if (extinction * sigma * 2.5 > 1e-4) {
             dt = min(min(0.25 * sigma * min(1.0, sigma / height) / climb, 0.15 / extinction), 0.06 * to_star);
         } else {
-            dt = min(max(0.5 * sigma, abs(p.z) - 5.0 * sigma) / climb, 0.2 * to_star);
+            dt = min(max(0.5 * sigma, abs(p.z) - 5.0 * sigma) / climb, 0.1 * to_star);
         }
         dt = min(dt, t1 - t);
         float3 q = o + (t + 0.5 * dt) * d;
@@ -184,7 +217,8 @@ float2 disk_march_thick(float3 origin, float3 ray, float t0, float t1)
         if (depth > 0.0) {
             float distance = length(q);
             float pass_ = exp(-depth);
-            light += through * (1.0 - pass_) * disk_phase(-dot(q, d) / distance) * exp(-disk_star_tau(rq, q.z)) /
+            float2 star = disk_star_light(rq, q.z);
+            light += through * (1.0 - pass_) * (u_phase_w.w * disk_phase(-dot(q, d) / distance) * star.x + star.y) /
                      (distance * distance);
             through *= pass_;
         }
@@ -221,7 +255,7 @@ float4 disk_integrate(float3 ray)
     if (t1 <= t0) return float4(rgb, through);
 
     float4 sum = 0;
-    if ((int)u_camera.w == 3) {
+    if ((int)u_camera.w == 4) {
         float2 thick = disk_march_thick(origin, ray, t0, t1);
         sum = float4(u_color[0].rgb * thick.x, thick.x);
         through = thick.y;

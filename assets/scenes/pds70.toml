@@ -4,7 +4,8 @@
 #
 # The planets are two-body orbits around the star (no pull on each other, or on
 # it). The disk (scene/disk.hpp) is axisymmetric: optically thick in scattered
-# light, with single scattering only; optically thin at millimeter wavelengths.
+# light, with a table for the scatterings after the first; optically thin at
+# millimeter wavelengths and in the CO line.
 #
 # [TR25] Trevascus et al. 2025, A&A 698 (arXiv:2504.11210). Table 3 (posterior
 #        medians), fits to b and c: "Stable" a_b = 20.8 au, e = 0.18, i = 130.3,
@@ -16,8 +17,9 @@
 #        (tests). Sect. 3.1.1: parallax 8.8975 mas (Gaia DR3); i > 90 is clockwise.
 # [KE19] Keppler et al. 2019, A&A 625, A118 (arXiv:1902.07639): the 870 um ring,
 #        Sect. 3.1.1: i = 51.7, PA = 156.7, peak 73.7 au, widths 14.8 and 13.4 au
-#        inward and outward, a possible second peak near 60 au. "Likely almost
-#        optically thick".
+#        inward and outward, the inner edge's second peak "at about 0.53 arcsec (60
+#        au)", marginally resolved, most pronounced along the major axis. "Likely
+#        almost optically thick". Fig. 2 (vector data): the NW and SE cuts, see below.
 # [BE21] Benisty et al. 2021, ApJL 916, L2 (arXiv:2108.07123): Table 2, inner disk
 #        0.846 mJy with sigma 59.3 mas; emission near c (r 324.9 mas, 111.5 uJy) and
 #        near b (178.5 mas, 83.1 uJy, low surface brightness and extended); Sect. 3,
@@ -26,7 +28,12 @@
 #        10.61 au at 100 au, flaring 1.14; grains 0.001-3000 um, q = 3.9, 19.2%
 #        amorphous carbon, 60.8% silicate, 20% vacuum by volume; L = 0.35 L_sun.
 #        Fig. A.2: the total column of dust, read off the plot; the 1e-5 g cm^-2 in
-#        the gap and beyond 110 au are limits from ALMA's sensitivity.
+#        the gap and beyond 110 au are limits from ALMA's sensitivity. Fig. 3, the
+#        column of gas, traced from the figure's pixels; Fig. A.3, the dust's midplane
+#        temperature, likewise. Eq. 4: C18O J=2-1, optically thin, goes as column / T *
+#        exp(-15.9 K / T). Their dust is the DIANA standard [WO16].
+# [WO16] Woitke et al. 2016, A&A 586, A103: DIANA dust, Mg0.7Fe0.3SiO3 (Dorschner et
+#        al. 1995, 3.01 g cm^-3) and amorphous carbon BE (Zubko et al. 1996, 1.8 g cm^-3).
 # [MU18] Mueller et al. 2018, A&A 617, L2 (arXiv:1806.11567). Table A.1: T = 3972 K,
 #        R = 1.26 R_sun. App. B: the ring in scattered light about 54 au in radius,
 #        the West (near) side brighter. Radius of b 1.4-3.7 R_Jup.
@@ -36,8 +43,6 @@
 #        candidate d (tests); Sect. 1, Mesa et al. 2019 first saw it at 13 au.
 # [DO25] arXiv:2507.09402: the infrared ring at 54 au, ALMA Band 9 at 67 au, the
 #        longer wavelengths at 76 au.
-# [HS15] Hedman & Stark 2015, ApJ 811, 67 (arXiv:1508.00261), Table 7: three
-#        Henyey-Greenstein functions fitted to Saturn's G ring.
 # [WIKI] Wikipedia, PDS 70: ICRS position 14 08 10.15455, -41 23 52.5733 (SIMBAD).
 #
 # [CAP]  Event captions: from the sources above.
@@ -51,20 +56,29 @@
 # inclined to the others; [TR25] find that adding it makes most of their fits
 # unstable, so it is shown only in its own event.
 #
-# The opacity: tau_per_column is the extinction of [PR23]'s grains, not fitted to any
-# image: Q_ext = 2 above 0.1 um and no extinction below it, with bulk densities of 1.8
-# (carbon) and 3.5 g cm^-3 (silicate), assumed, give 3100 cm^2 per gram of dust. With
-# it the ring in scattered light comes out at the observed 54 au, inside the ALMA ring
-# (tests), where starlight first meets the dust's rising edge. The grains that scatter
-# light are taken to fill the gas's height. Inside ~16 au [PR23] do not resolve the disk.
+# The opacity: tools/pds70/mie_opacity.py, Mie theory on [PR23]'s grains with [WO16]'s
+# materials at 1.25 um, the wavelength of the polarized image [PR23] fit. It is not
+# fitted to any image. With it the ring in scattered light comes out at the observed 54
+# au, inside the ALMA ring (tests), where starlight first meets the dust's rising edge.
+# The grains that scatter light are taken to fill the gas's height. Inside ~16 au [PR23]
+# do not resolve the disk.
 # The millimeter light: [KE19]'s ring as brightness, with no temperature, and an inner
-# disk with [BE21]'s flux relative to the whole, 0.846 / 176 (0.28 of the ring's peak
-# brightness for these widths). Heights are assumed.
+# disk with [BE21]'s flux relative to the whole, 0.846 / 176. Heights are assumed. The
+# second peak: [KE19]'s fitted single ring leaves it out, so the ring is split to follow
+# the mean of the NW and SE cuts of their Fig. 2: its outer width unchanged
+# and an inner width of 5.5 au, plus a Gaussian at 60 au with sigma 7.5 au. It is a
+# shoulder, as there: the cuts flatten between 55 and 65 au without dipping.
+# The CO line: [PR23]'s column of gas, as C18O J=2-1 is thin; brightness by their Eq. 4
+# with their temperature. It is colored by the Keplerian speed along the line of sight
+# (a moment 1 map), with no beam and no chemistry. Beyond 130 au it is assumed to fall
+# away ([PR23]: the gas goes on, their model does not).
 #
 # Checks (tests/stellar_system_tests.cpp): the planets against GRAVITY, d against
 # [HA25], the period ratio [TR25], the height [PR23], where the rings peak [MU18]
-# [KE19], which side is brighter [MU18], the inner disk's share of the flux [BE21],
-# the dark gap, and the table of optical depth.
+# [KE19], the second peak's shoulder [KE19], which side is brighter [MU18], the inner
+# disk's share of the flux [BE21], the dark gap in dust and the shallow one in gas
+# [PR23], the disk's sense of rotation, the table of optical depth, and the later
+# scatterings' table against a small Monte Carlo.
 # The sky is a model of the Milky Way as seen from here (tools/sky/make_galaxy_sky.py,
 # assets/sky/SOURCES.md): its stars and dust clouds are statistical, not real ones.
 
@@ -90,8 +104,12 @@ thick = true
 inner_au = 0.2                 # [PR23]'s reaches 0.04 au
 outer_au = 300.0
 extent_au = 110.0
-phase_g = [0.995, 0.665, 0.035] # [HS15]; PDS 70's own is not measured
-phase_w = [0.643, 0.176, 0.181]
+# tools/pds70/mie_opacity.py at 1.25 um: three Henyey-Greenstein functions.
+phase_g = [0.960, 0.640, -0.400]
+phase_w = [0.0962, 0.8864, 0.0174]
+albedo = 0.4012
+asymmetry = 0.6512
+gas_velocity_km_s = 3.0        # c's orbit, 5 km/s, foreshortened by sin i
 display_reference_au = 73.7    # [KE19]'s ring
 display_gamma = 0.6
 display_adapt_au = 150.0
@@ -104,7 +122,7 @@ i_deg = 128.3                  # 51.7 from face-on, turning clockwise [TR25]
 sigma_au = 0.004034            # with the flaring below, H = 10.61 au at 100 au [PR23]
 flare_radius_au = 0.1
 flare_index = 1.14             # [PR23]
-tau_per_column = 3100.0        # cm^2 per g of dust; see above
+tau_per_column = 3349.0        # cm^2 per g of dust, true extinction: tools/pds70/mie_opacity.py
 scattered = 1.0
 color = "#ffdcb4"              # a 3,972 K star's light, by eye
 temperature_k = 20.0           # not shown in this scene's views
@@ -119,9 +137,12 @@ column = [5e-3, 3.5e-3, 2.8e-3, 1.7e-3, 1.35e-3, 1.1e-3, 9e-4, 6e-4, 3e-4, 1e-4,
 name = "Ring"
 node_deg = 156.7               # [KE19]
 i_deg = 128.3
-ring_center_au = 73.7          # [KE19]
-ring_sigma_au = 14.8
-ring_sigma_out_au = 13.4
+ring_center_au = 74.2          # so that with the second ring it peaks at [KE19]'s 73.7
+ring_sigma_au = 5.5           # with the second ring below, [KE19] Fig. 2
+ring_sigma_out_au = 13.4       # [KE19]
+ring2_center_au = 60.0         # [KE19]
+ring2_sigma_au = 7.5           # [KE19] Fig. 2
+ring2_share = 0.65             # [KE19] Fig. 2
 sigma_au = 1.0                 # assumed: large grains settled
 flare_radius_au = 100.0
 millimeter = 1.0
@@ -137,20 +158,38 @@ ring_center_au = 0.0
 ring_sigma_au = 6.665          # 59.3 mas [BE21]
 sigma_au = 0.3                 # assumed
 flare_radius_au = 100.0
-millimeter = 0.28              # 0.846 of 176 mJy [BE21], for these widths
+millimeter = 0.244             # 0.846 of 176 mJy [BE21], for these widths
 temperature_k = 20.0
 temperature_radius_au = 100.0
 temperature_index = 0.0
 
+# The gas, in the CO line.
+[[disk.components]]
+name = "Gas"
+node_deg = 156.7
+i_deg = 128.3
+sigma_au = 0.004034            # as the dust: [PR23]'s gas height
+flare_radius_au = 0.1
+flare_index = 1.14
+gas = 1.0
+temperature_k = 20.0           # the line's temperature is in the table below
+temperature_radius_au = 100.0
+temperature_index = 0.0
+# g cm^-2, [PR23] Fig. 3; K, [PR23] Fig. A.3 (beyond its 130 au, the last value).
+radial_au = [0.2, 1, 2, 4, 6, 8, 10, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68, 72, 76, 80, 84, 88, 92, 96, 100, 110, 130, 180, 300]
+column = [0.4, 0.12, 0.037, 0.019, 0.0136, 0.0105, 0.0064, 0.0048, 0.0045, 0.0034, 0.0039, 0.0046, 0.006, 0.0086, 0.0112, 0.0149, 0.0199, 0.027, 0.037, 0.054, 0.078, 0.112, 0.125, 0.128, 0.117, 0.102, 0.082, 0.063, 0.05, 0.044, 0.035, 0.032, 0.01, 0.0001]
+line_temperature_k = [100, 77.5, 67.6, 46, 34, 29.1, 26.2, 23.5, 21.2, 20, 18.8, 18.8, 18.7, 18.8, 18.9, 18.5, 19, 19.2, 19.3, 19.4, 19.2, 18.9, 18.4, 18, 16.2, 15.2, 14.4, 13.8, 13.2, 12.8, 12.3, 11.4, 11.4, 11.4]
+line_upper_k = 15.9            # C18O J=2-1 [PR23] Eq. 4
+
 # What shines in the gap. Scattered light: the planets' H-alpha [HA19], brightened by
-# eye. Millimeter: [BE21]'s fluxes relative to the ring's peak brightness, 16430 au^2
+# eye. Millimeter: [BE21]'s fluxes relative to the ring's peak brightness, 14330 au^2
 # of it being the ring's whole flux.
 [[disk.sources]]
 body = "PDS 70 c"
 sigma_au = 0.3                 # a marker in H-alpha
 millimeter_sigma_au = 0.6      # half of [BE21]'s upper limit on the radius
 scattered = 2.5
-millimeter = 4.6               # 111.5 uJy
+millimeter = 4.02              # 111.5 uJy
 color = "#ff3b45"
 
 [[disk.sources]]
@@ -158,7 +197,7 @@ body = "PDS 70 b"
 sigma_au = 0.3                 # a marker in H-alpha
 millimeter_sigma_au = 3.0      # assumed: [BE21] find it extended
 scattered = 2.5
-millimeter = 0.137             # 83.1 uJy
+millimeter = 0.120             # 83.1 uJy
 color = "#ff3b45"
 
 # The observer's offsets hang on this point, which stays with the star.
@@ -316,11 +355,29 @@ warp = 7889400.0
 disk_millimeter = true
 # [BE21], [KE19], [DO25]
 caption = """\
-    In false color, ALMA's view at 0.9 mm: the largest grains, gathered into a ring \
-    near 74 au, outside the ring seen in scattered light. A faint inner disk lies \
-    within 18 au. And at planet c is a compact source no wider than 2.4 au, a disk \
+    In false color, ALMA's view at 0.9 mm: the largest grains, in a ring near 74 au \
+    with a shoulder at 60 au, outside the ring in scattered light. A faint inner disk \
+    lies within 18 au. At planet c is a compact source no wider than 2.4 au, a disk \
     around the planet itself, about as wide as a third of the region the planet's \
     gravity holds, and the clearest view yet of a place where moons could form."""
+
+[[events]]
+name = "The gas in the gap"
+time = "2020-03-01"            # [PR23]'s ALMA data, program 2019.1.01619.S
+focus = "PDS 70"
+frame = "PDS 70, north up"
+observer = "PDS 70 system"
+observer_offset_km = [190245628196.6, 119074096698.8, 197853612854.0]   # 2000 au toward Earth: lines of sight almost parallel
+fov_deg = 7.0                  # 120 au above and below the star
+warp = 7889400.0
+disk_gas = true
+# [PR23]
+caption = """\
+    Carbon monoxide shows the gas: blue is coming toward us and red going away, as the \
+    disk turns clockwise. It is a model of the rare isotope C18O, whose light is not \
+    trapped. The planets have thinned the gas in the gap about 30 times, far less than \
+    the 2,500 times for dust, so gas still flows through to feed them and the star. \
+    Dust piles up just outside, where the gas pressure peaks."""
 
 [[events]]
 name = "Near a resonance"

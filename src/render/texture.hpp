@@ -28,6 +28,8 @@ SDL_GPUTexture* create_profile_texture(SDL_GPUDevice* device, const std::vector<
 
 // R16_FLOAT texture of a table of values, without mips, row after row.
 SDL_GPUTexture* create_float_texture(SDL_GPUDevice* device, const float* values, uint32_t width, uint32_t height);
+// Two channels per texel (R16G16_FLOAT), interleaved.
+SDL_GPUTexture* create_float2_texture(SDL_GPUDevice* device, const float* values, uint32_t width, uint32_t height);
 
 // 1x1 texture of the given sRGB color.
 SDL_GPUTexture* create_solid_texture(SDL_GPUDevice* device, uint8_t r, uint8_t g, uint8_t b, uint8_t a);

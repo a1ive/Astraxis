@@ -29,15 +29,23 @@ constexpr int kMaxSteps = 48;
 // depth and of the distance to the star, since the light of the disk's surface comes
 // from a thin layer and a coarser step shows as moire across it. Elsewhere the ray
 // jumps to kThickEnvelope sigmas from the midplane, so the budget lasts.
-constexpr double kThickDustDepth = 1e-3;
+constexpr double kThickDustDepth = 1e-4;
 constexpr double kThickEnvelope = 5.0;
 constexpr double kThickDepthStep = 0.15;
 constexpr double kThickHeightStep = 0.25;
 constexpr double kThickRadialStep = 0.06;
 constexpr double kThickEmptyHeightStep = 0.5;
-constexpr double kThickEmptyRadialStep = 0.2;
+constexpr double kThickEmptyRadialStep = 0.1;
 constexpr int kThickMaxSteps = 96;
 constexpr double kThickMinTransmission = 0.005;
+
+// The grid of the later scatterings' source. Rows and columns as star_depth's, but
+// the source changes slowly: the tables only have to follow the extinction.
+constexpr int kDiffuseColumns = 80;
+constexpr int kDiffuseRows = 40;
+constexpr int kDiffuseRays = 40;
+constexpr int kDiffuseSteps = 48;
+constexpr double kDiffuseLeastDistance = 0.25; // of the point's own distance from the star
 
 const DiskComponent* thick_component(const Disk& disk)
 {
@@ -90,8 +98,11 @@ double march_thick(const Disk& disk, const glm::dvec3& origin, const glm::dvec3&
         if (depth > 0.0) {
             const double distance = glm::length(q);
             const double through = std::exp(-depth);
-            light += transmission * (1.0 - through) * disk_phase(disk, -glm::dot(q, d) / distance) *
-                     std::exp(-disk_star_depth(disk, rq, q.z)) / (distance * distance);
+            light += transmission * (1.0 - through) *
+                     (disk.single_scatter_gain * disk_phase(disk, -glm::dot(q, d) / distance) *
+                          std::exp(-disk_star_depth(disk, rq, q.z)) +
+                      disk_diffuse(disk, rq, q.z)) /
+                     (distance * distance);
             transmission *= through;
         }
         t += dt;
@@ -116,7 +127,7 @@ bool clip_ray(const Disk& disk, const glm::dvec3& origin, const glm::dvec3& dire
 }
 
 double march(const Disk& disk, const DiskComponent& c, DiskView view, const glm::dvec3& origin,
-             const glm::dvec3& direction, double t0, double t1)
+             const glm::dvec3& direction, double t0, double t1, double t_tdb)
 {
     const glm::dmat3 to_plane = glm::transpose(c.to_icrf);
     const glm::dvec3 o = to_plane * origin;
@@ -138,7 +149,8 @@ double march(const Disk& disk, const DiskComponent& c, DiskView view, const glm:
             const double distance = glm::length(q);
             const double along = view == DiskView::Scattered
                                      ? disk_phase(disk, -glm::dot(q, d) / distance) / (distance * distance)
-                                     : disk_thermal_light(c, view, distance);
+                                 : view == DiskView::Gas ? disk_clump_factor(disk, rq, std::atan2(q.y, q.x), t_tdb)
+                                                         : disk_thermal_light(c, view, distance);
             sum += light * disk_vertical(c, rq, q.z) * dt * along;
         }
         t += dt;
@@ -212,8 +224,38 @@ double disk_thermal_light(const DiskComponent& component, DiskView view, double 
     return view == DiskView::Infrared ? nebula_infrared_emission(t) : t;
 }
 
+double disk_clump_azimuth(const DiskClump& clump, double t_tdb)
+{
+    return clump.azimuth_deg * kDegToRad + kTwoPi * (t_tdb - clump.epoch_tdb) / clump.period_s;
+}
+
+double disk_clump_factor(const Disk& disk, double r_au, double phi, double t_tdb)
+{
+    double out = 1.0;
+    for (const DiskClump& clump : disk.clumps) {
+        const double a = (r_au - clump.radius_au) / clump.sigma_au;
+        const double from = phi - disk_clump_azimuth(clump, t_tdb);
+        const double delta = std::atan2(std::sin(from), std::cos(from));
+        const double shape = delta >= 0.0 ? std::exp(-0.5 * (delta / (clump.sigma_deg * kDegToRad)) * (delta / (clump.sigma_deg * kDegToRad)))
+                                          : std::exp(delta / (clump.tail_deg * kDegToRad));
+        out += clump.gain * std::exp(-0.5 * a * a) * shape;
+    }
+    return out;
+}
+
+double disk_line_of_sight_km_s(const DiskComponent& component, double gm_km3_s2, const glm::dvec3& position_au,
+                               const glm::dvec3& direction)
+{
+    const glm::dmat3 to_plane = glm::transpose(component.to_icrf);
+    const glm::dvec3 p = to_plane * position_au;
+    const glm::dvec3 d = to_plane * direction;
+    const double r = std::max(std::hypot(p.x, p.y), 1e-6);
+    const double speed = std::sqrt(gm_km3_s2 / (r * kAuKm));
+    return speed * (-p.y * d.x + p.x * d.y) / r;
+}
+
 double disk_radiance(const Disk& disk, DiskView view, const glm::dvec3& origin, const glm::dvec3& direction,
-                     double t_max)
+                     double t_max, double t_tdb)
 {
     double t0 = 0.0;
     double t1 = 0.0;
@@ -227,7 +269,7 @@ double disk_radiance(const Disk& disk, DiskView view, const glm::dvec3& origin, 
     double sum = 0.0;
     for (const DiskComponent& c : disk.components) {
         if (c.gain[static_cast<size_t>(view)] > 0.0) {
-            sum += march(disk, c, view, origin, direction, t0, t1);
+            sum += march(disk, c, view, origin, direction, t0, t1, t_tdb);
         }
     }
     return sum;
@@ -291,6 +333,217 @@ double disk_star_depth(const Disk& disk, double r_au, double z_au)
     return std::expm1(low * (1.0 - fv) + high * fv);
 }
 
+void disk_apply_similarity(Disk& disk)
+{
+    if (disk.albedo <= 0.0) {
+        disk.single_scatter_gain = 1.0;
+        return;
+    }
+    const double denominator = 1.0 - disk.albedo * disk.asymmetry;
+    for (DiskComponent& c : disk.components) {
+        c.tau_per_column *= denominator;
+    }
+    disk.single_scatter_gain = disk.albedo / denominator;
+}
+
+double disk_scaled_albedo(const Disk& disk)
+{
+    return disk.albedo * (1.0 - disk.asymmetry) / (1.0 - disk.albedo * disk.asymmetry);
+}
+
+namespace {
+
+// Bilinear on a polar table, in whatever the table stores.
+struct PolarGrid {
+    int columns = 0;
+    int rows = 0;
+    double ln_inner = 0.0;
+    double ln_step = 1.0;
+
+    double radius(int column) const { return std::exp(ln_inner + column * ln_step); }
+    static double elevation(int row, int rows)
+    {
+        const double v = static_cast<double>(row) / (rows - 1);
+        return v * v * 0.5 * kPi;
+    }
+    double sample(const std::vector<float>& table, double r, double z_abs) const
+    {
+        const double u = std::clamp((std::log(std::max(r, 1e-6)) - ln_inner) / ln_step, 0.0, columns - 1.0);
+        const double v = std::sqrt(std::atan2(z_abs, std::max(r, 1e-6)) / (0.5 * kPi)) * (rows - 1);
+        const int iu = std::min(static_cast<int>(u), columns - 2);
+        const int iv = std::min(static_cast<int>(v), rows - 2);
+        const double fu = u - iu;
+        const double fv = v - iv;
+        const auto at = [&](int row, int column) {
+            return static_cast<double>(table[static_cast<size_t>(row) * columns + static_cast<size_t>(column)]);
+        };
+        return (at(iv, iu) * (1.0 - fu) + at(iv, iu + 1) * fu) * (1.0 - fv) +
+               (at(iv + 1, iu) * (1.0 - fu) + at(iv + 1, iu + 1) * fu) * fv;
+    }
+};
+
+PolarGrid disk_table_grid(const Disk& disk, int columns, int rows)
+{
+    return {columns, rows, std::log(disk.inner_au), std::log(disk.outer_au / disk.inner_au) / (columns - 1)};
+}
+
+} // namespace
+
+void disk_build_diffuse(Disk& disk)
+{
+    disk.diffuse.clear();
+    const double omega = disk_scaled_albedo(disk);
+    const DiskComponent* c = thick_component(disk);
+    if (disk.albedo <= 0.0 || omega <= 0.0 || !c) {
+        return;
+    }
+    const PolarGrid grid = disk_table_grid(disk, kDiffuseColumns, kDiffuseRows);
+    const size_t cells = static_cast<size_t>(kDiffuseColumns) * kDiffuseRows;
+    constexpr double kFloorExtinction = 1e-30;
+    constexpr double kFloorSource = 1e-30;
+
+    // Fibonacci directions on the sphere.
+    std::array<glm::dvec3, kDiffuseRays> directions{};
+    for (int i = 0; i < kDiffuseRays; ++i) {
+        const double z = 1.0 - (2.0 * i + 1.0) / kDiffuseRays;
+        const double s = std::sqrt(1.0 - z * z);
+        const double phi = i * 2.399963229728653; // the golden angle
+        directions[static_cast<size_t>(i)] = glm::dvec3(s * std::cos(phi), s * std::sin(phi), z);
+    }
+
+    // On the grid: ln extinction, the disk's height, and ln of the source times d^2
+    // (which has none of the 1 / d^2 to resolve). The first scattering's source is
+    // omega * exp(-tau_star) / d^2. It falls off exponentially into the disk, where
+    // interpolating the source itself would light the dust just inside the shadow.
+    std::vector<float> ln_extinction(cells);
+    std::vector<float> first(cells);
+    std::vector<double> sigma(kDiffuseColumns);
+    for (int column = 0; column < kDiffuseColumns; ++column) {
+        sigma[static_cast<size_t>(column)] = c->sigma_au * disk_flare(*c, grid.radius(column));
+    }
+    for (int row = 0; row < kDiffuseRows; ++row) {
+        const double slope = std::tan(std::min(PolarGrid::elevation(row, kDiffuseRows), 1.55));
+        for (int column = 0; column < kDiffuseColumns; ++column) {
+            const double r = grid.radius(column);
+            const size_t k = static_cast<size_t>(row) * kDiffuseColumns + static_cast<size_t>(column);
+            ln_extinction[k] = static_cast<float>(std::log(disk_extinction(disk, r, r * slope) + kFloorExtinction));
+            first[k] = static_cast<float>(std::log(omega * std::exp(-disk_star_depth(disk, r, r * slope)) + kFloorSource));
+        }
+    }
+
+    // The mean intensity at each grid point from a source on the grid. A ray stops
+    // when little of its light would get through. What lies closer to the star than a
+    // fraction of the point's own distance is too small and bright for so few rays to
+    // find except by chance, so it counts as one more star at the center: its
+    // scattered light, summed, dimmed as the starlight is on the way to the point.
+    const auto next_order = [&](const std::vector<float>& source) {
+        std::vector<float> out(cells);
+        // The light scattered within each distance from the star, on both sides of the
+        // disk: extinction * source * volume, in the steps of ln r.
+        std::vector<double> within(kDiffuseColumns + 1, 0.0);
+        const double dv = 1.0 / (kDiffuseRows - 1);
+        for (int row = 0; row < kDiffuseRows; ++row) {
+            const double v = static_cast<double>(row) * dv;
+            const double elevation = std::min(PolarGrid::elevation(row, kDiffuseRows), 1.55);
+            const double slope = std::tan(elevation);
+            const double per_elevation = 1.0 + slope * slope;
+            for (int column = 0; column < kDiffuseColumns; ++column) {
+                const size_t k = static_cast<size_t>(row) * kDiffuseColumns + static_cast<size_t>(column);
+                const double r = grid.radius(column);
+                const double distance2 = r * r * per_elevation;
+                const double dr = r * grid.ln_step;
+                const double dz = r * per_elevation * kPi * v * dv;
+                const double volume = 2.0 * kTwoPi * r * dr * dz;
+                const double light = std::exp(static_cast<double>(ln_extinction[k]) + source[k]) / distance2 * volume;
+                const int bin = static_cast<int>((0.5 * std::log(distance2) - grid.ln_inner) / grid.ln_step) + 1;
+                within[static_cast<size_t>(std::clamp(bin, 0, kDiffuseColumns))] += light;
+            }
+        }
+        for (int bin = 1; bin <= kDiffuseColumns; ++bin) {
+            within[static_cast<size_t>(bin)] += within[static_cast<size_t>(bin) - 1];
+        }
+        for (int row = 0; row < kDiffuseRows; ++row) {
+            const double elevation = std::min(PolarGrid::elevation(row, kDiffuseRows), 1.55);
+            const double slope = std::tan(elevation);
+            for (int column = 0; column < kDiffuseColumns; ++column) {
+                const double r0 = grid.radius(column);
+                const glm::dvec3 start(r0, 0.0, r0 * slope);
+                const double d0 = glm::length(start);
+                const double near_star = kDiffuseLeastDistance * d0;
+                const int near_bin = std::clamp(static_cast<int>((std::log(near_star) - grid.ln_inner) / grid.ln_step) + 1, 0,
+                                                kDiffuseColumns);
+                double sum = 0.0;
+                for (const glm::dvec3& d : directions) {
+                    double t = 0.0;
+                    double tau = 0.0;
+                    for (int step = 0; step < kDiffuseSteps && tau < 5.0; ++step) {
+                        const glm::dvec3 p = start + t * d;
+                        const double r = std::hypot(p.x, p.y);
+                        const double u = std::clamp((std::log(std::max(r, 1e-6)) - grid.ln_inner) / grid.ln_step, 0.0,
+                                                    kDiffuseColumns - 1.0);
+                        const double height = std::max(std::abs(p.z), sigma[static_cast<size_t>(u)]);
+                        const double to_star = std::max(glm::length(p), 1e-3);
+                        if (to_star > disk.outer_au) {
+                            break;
+                        }
+                        const double dt = std::min(0.25 * height / std::max(std::abs(d.z), 1e-3), 0.3 * to_star);
+                        const glm::dvec3 q = p + 0.5 * dt * d;
+                        const double rq = std::hypot(q.x, q.y);
+                        const double zq = std::abs(q.z);
+                        const double depth = std::exp(grid.sample(ln_extinction, rq, zq)) * dt;
+                        const double dq = glm::length(q);
+                        if (dq > near_star) {
+                            sum += std::exp(-tau) * (1.0 - std::exp(-depth)) * std::exp(grid.sample(source, rq, zq)) / (dq * dq);
+                        }
+                        tau += depth;
+                        t += dt;
+                    }
+                }
+                // Mostly light off a flat surface: Lambert's law, with a little that gets
+                // out sideways. The mean over the sphere is 1.
+                constexpr double kCentralSideways = 0.25;
+                const double flat = kCentralSideways + (1.0 - kCentralSideways) * 2.0 * std::sin(elevation);
+                const double central = flat * within[static_cast<size_t>(near_bin)] / (2.0 * kTwoPi * d0 * d0) *
+                                       std::exp(-disk_star_depth(disk, r0, r0 * slope));
+                // Back to the same units: source * d^2 at this grid point.
+                out[static_cast<size_t>(row) * kDiffuseColumns + static_cast<size_t>(column)] =
+                    static_cast<float>(std::log(omega * (sum / kDiffuseRays + central) * d0 * d0 + kFloorSource));
+            }
+        }
+        return out;
+    };
+    const std::vector<float> second = next_order(first);
+    const std::vector<float> third = next_order(second);
+
+    // Onto the same grid as star_depth. What follows the third order is taken as a
+    // geometric series with the ratio omega.
+    std::vector<float> ln_source(cells);
+    const double rest = 1.0 / (1.0 - omega);
+    for (size_t k = 0; k < cells; ++k) {
+        ln_source[k] = static_cast<float>(std::log(std::exp(static_cast<double>(second[k])) +
+                                                   std::exp(static_cast<double>(third[k])) * rest + kDiskDiffuseFloor));
+    }
+    const PolarGrid fine = disk_table_grid(disk, kDiskDepthWidth, kDiskDepthHeight);
+    disk.diffuse.resize(static_cast<size_t>(kDiskDepthWidth) * kDiskDepthHeight);
+    for (int row = 0; row < kDiskDepthHeight; ++row) {
+        const double slope = std::tan(std::min(PolarGrid::elevation(row, kDiskDepthHeight), 1.55));
+        for (int column = 0; column < kDiskDepthWidth; ++column) {
+            const double r = fine.radius(column);
+            disk.diffuse[static_cast<size_t>(row) * kDiskDepthWidth + static_cast<size_t>(column)] =
+                static_cast<float>(grid.sample(ln_source, r, r * slope));
+        }
+    }
+}
+
+double disk_diffuse(const Disk& disk, double r_au, double z_au)
+{
+    if (disk.diffuse.empty()) {
+        return 0.0;
+    }
+    const PolarGrid fine = disk_table_grid(disk, kDiskDepthWidth, kDiskDepthHeight);
+    return std::exp(fine.sample(disk.diffuse, r_au, std::abs(z_au))) - kDiskDiffuseFloor;
+}
+
 double disk_optical_depth(const Disk& disk, const glm::dvec3& origin, const glm::dvec3& direction, double t_max)
 {
     double t0 = 0.0;
@@ -309,6 +562,9 @@ void disk_set_references(Disk& disk)
     if (disk.components.empty()) {
         return;
     }
+    // The reference does not move with the clumps.
+    std::vector<DiskClump> clumps;
+    clumps.swap(disk.clumps);
     // Along the midplane of the view's first component, past the reference radius.
     for (int v = 0; v < kDiskViewCount; ++v) {
         const DiskView view = static_cast<DiskView>(v);
@@ -324,6 +580,16 @@ void disk_set_references(Disk& disk)
             break;
         }
     }
+    clumps.swap(disk.clumps);
+}
+
+double dust_stream_drag_per_km(double gm_km3_s2, double luminosity_solar, double radiation_q, double ism_h_per_cm3)
+{
+    constexpr double kSolarLuminosityKgKm2S3 = 3.828e20; // 3.828e26 W, IAU 2015 B3
+    constexpr double kHydrogenKg = 1.6735e-27;
+    constexpr double kCm3PerKm3 = 1e15;
+    const double density = ism_h_per_cm3 * kHydrogenKg * kCm3PerKm3; // kg per km^3
+    return 4.0 * kPi * gm_km3_s2 * kSpeedOfLightKmS * density / (radiation_q * luminosity_solar * kSolarLuminosityKgKm2S3);
 }
 
 void build_dust_stream(const DustStream& stream, int count, double patch_sigma_km, Nebula& nebula)
@@ -361,9 +627,11 @@ void build_dust_stream(const DustStream& stream, int count, double patch_sigma_k
     for (int k = 0; k < count; ++k) {
         const double beta = stream.beta_lo + (stream.beta_hi - stream.beta_lo) * (k + 0.5) / count;
         const double gm = stream.gm_km3_s2 * (1.0 - beta);
-        const auto acceleration = [gm](const glm::dvec3& p) {
+        const double drag = stream.beta_hi * std::pow(beta / stream.beta_hi, stream.ism_beta_index) * stream.ism_drag_per_km;
+        const auto acceleration = [&stream, gm, drag](const glm::dvec3& p, const glm::dvec3& v) {
             const double r2 = glm::dot(p, p);
-            return -gm * p / (r2 * std::sqrt(r2));
+            const glm::dvec3 wind = stream.ism_velocity_km_s - v;
+            return -gm * p / (r2 * std::sqrt(r2)) + drag * glm::length(wind) * wind;
         };
         const double sequence = static_cast<double>(k);
         const glm::dvec3 kick =
@@ -373,13 +641,13 @@ void build_dust_stream(const DustStream& stream, int count, double patch_sigma_k
         glm::dvec3 p = start;
         glm::dvec3 v = velocity + kick;
         for (int s = 0; s < steps; ++s) {
-            const glm::dvec3 a1 = acceleration(p);
+            const glm::dvec3 a1 = acceleration(p, v);
             const glm::dvec3 v2 = v + 0.5 * dt * a1;
-            const glm::dvec3 a2 = acceleration(p + 0.5 * dt * v);
+            const glm::dvec3 a2 = acceleration(p + 0.5 * dt * v, v2);
             const glm::dvec3 v3 = v + 0.5 * dt * a2;
-            const glm::dvec3 a3 = acceleration(p + 0.5 * dt * v2);
+            const glm::dvec3 a3 = acceleration(p + 0.5 * dt * v2, v3);
             const glm::dvec3 v4 = v + dt * a3;
-            const glm::dvec3 a4 = acceleration(p + dt * v3);
+            const glm::dvec3 a4 = acceleration(p + dt * v3, v4);
             p += dt / 6.0 * (v + 2.0 * v2 + 2.0 * v3 + v4);
             v += dt / 6.0 * (a1 + 2.0 * a2 + 2.0 * a3 + a4);
         }

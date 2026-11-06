@@ -19,7 +19,7 @@ public:
     void shutdown();
     // The scene's table of optical depth from the star (Disk::star_depth; empty
     // for a thin disk).
-    void set_star_depth(const std::vector<float>& depth);
+    void set_star_depth(const std::vector<float>& depth, const std::vector<float>& diffuse);
     // Nothing is drawn when uniforms.params.x is 0.
     void render(SDL_GPUCommandBuffer* cmd, DiskTargets& targets, const DiskUniforms& uniforms, uint32_t width,
                 uint32_t height);

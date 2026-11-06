@@ -27,11 +27,11 @@ Astraxis is an astronomy background app with planets, spacecraft and stars anima
 | Parker Solar Probe | Venus gravity assists, close passes of the Sun and an enhanced white-light view from inside the corona |
 | Solar eclipses | The 2017 and 2024 eclipses above Earth, plus Earth eclipsing the Sun from near the Moon in 2022: white-light corona and a refracted red atmospheric rim |
 | Alpha Centauri | A, B and Proxima in an N-body simulation |
-| Beta Pictoris | The first debris disk ever imaged, edge-on: its second, tilted disk, planets b and c, the planetesimal belt in millimeter light, and the "cat's tail" JWST found in the mid-infrared |
+| Beta Pictoris | The first debris disk ever imaged, edge-on: its second, tilted disk, planets b and c, the planetesimal belt in millimeter light, CO clumps colored by their motion, the "cat's tail" JWST found in the mid-infrared, and comets crossing the star on TESS's dates |
 | Sgr A* | Ray-traced Galactic Centre black hole and orbiting S-stars |
 | Gargantua (Interstellar) | The film's fictional black hole, and a tribute model of the ship Endurance with its turning ring |
 | Kerbol System (Kerbal Space Program) | A tribute to the game's fictional solar system, on its own orbits, clock and calendar |
-| PDS 70 | A young star with two planets still growing inside the gap of an opaque disk, the glow of their accretion, a disk around planet c in millimeter light, and a third candidate |
+| PDS 70 | A young star with two planets still growing inside the gap of an opaque disk, the glow of their accretion, a disk around planet c in millimeter light, its gas in the CO line colored by the disk's rotation, and a third candidate |
 | TRAPPIST-1 | Seven Earth-sized planets in a resonant chain |
 | Kepler-223 | Four sub-Neptunes in a 3:4:6:8 resonant chain |
 | Kepler-47 | Three planets orbiting an eclipsing binary |

@@ -1942,7 +1942,7 @@ void test_beta_pictoris_scene()
     const int b = scene.find("Beta Pic b");
     const int c = scene.find("Beta Pic c");
     check(star >= 0 && b >= 0 && c >= 0, "Beta Pictoris: bodies");
-    check(scene.disk.enabled() && scene.disk.components.size() == 3, "Beta Pictoris: the disk's three components");
+    check(scene.disk.enabled() && scene.disk.components.size() == 4, "Beta Pictoris: the disk's four components");
     const double ra = 86.82118;
     const double dec = -51.06651;
     const glm::dvec3 away = unit_toward(ra, dec); // from Earth to the system
@@ -2166,18 +2166,137 @@ void test_beta_pictoris_scene()
     std::printf("  info: cat's tail: from %.0f to %.0f au along the disk, rising %.0f au at %.0f deg, its tip %.0f au behind the star\n",
                 base_along, tip_along, rise, angle, glm::dot(tip, away));
     check(base_along < -95.0 && base_along > -135.0, "the tail leaves the disk near 115 au [RE24 Sect. 3.2]", base_along);
-    check(tip_along < -140.0 && tip_along > -190.0, "the tail's base ends by 190 au [RE24 Table 2]", tip_along);
-    check(std::abs(angle - 45.0) < 12.0, "the tail's base rises at 45 deg [RE24 Table 2]", angle);
+    check(tip_along < -190.0 && tip_along > -265.0, "the tail's last part lies short of 265 au [RE24 Sect. 3.2]", tip_along);
     check(glm::dot(tip, away) > 0.0, "the tail runs behind the star [RE24]", glm::dot(tip, away));
+    // ISM drag bends its tip toward the disk's direction [RE24 Sect. 5.2].
+    const auto slope_between = [&](double from_au, double to_au) {
+        double n = 0.0, sx = 0.0, sy = 0.0, sxx = 0.0, sxy = 0.0;
+        for (const NebulaGrain& g : tail.grains) {
+            const glm::dvec3 p = glm::dvec3(g.position) / au;
+            const double along_sw = -glm::dot(p, major);
+            const double rise_nw = glm::dot(p, across);
+            if (along_sw >= from_au && along_sw < to_au) {
+                n += 1.0;
+                sx += along_sw;
+                sy += rise_nw;
+                sxx += along_sw * along_sw;
+                sxy += along_sw * rise_nw;
+            }
+        }
+        return n > 2.0 ? std::atan2(n * sxy - sx * sy, n * sxx - sx * sx) * kRadToDeg : -999.0;
+    };
+    double farthest = 0.0;
+    for (const NebulaGrain& g : tail.grains) {
+        if (g.weight > 0.1) {
+            farthest = std::max(farthest, -glm::dot(glm::dvec3(g.position) / au, major));
+        }
+    }
+    const double near_base = slope_between(120.0, 190.0);
+    const double near_tip = slope_between(190.0, 230.0);
+    std::printf("  info: cat's tail by sections: %.0f deg at 120-190 au, %.0f deg at 190-230 au, seen to %.0f au\n", near_base,
+                near_tip, farthest);
+    check(std::abs(near_base - 45.0) < 12.0, "the tail rises at 45 deg within 190 au [RE24 Table 2]", near_base);
+    check(std::abs(near_tip - 21.0) < 10.0, "the tail bends to 21 deg at 190-230 au [RE24 Table 2]", near_tip);
+    check(std::abs(farthest - 265.0) < 25.0, "the tail runs to about 265 au [RE24 Sect. 3.2]", farthest);
+
+    // The CO belt with its clumps [DE14, MA17].
+    const DiskComponent& co = disk.components[3];
+    check(disk.clumps.size() == 2 && co.gain[static_cast<size_t>(DiskView::Gas)] > 0.0, "Beta Pictoris: CO and its clumps");
+    const double jd_2012 = (2456079.5 - 2451545.0) * 86400.0; // the clumps' epoch, 2012-06-01
+    check(std::abs(disk.clumps[0].epoch_tdb - jd_2012) < 100.0, "the clumps' epoch", disk.clumps[0].epoch_tdb - jd_2012);
+    // The flux, summed over the plane: 30% in the clump [DE14].
+    double all = 0.0, first_clump = 0.0;
+    const DiskClump& clump = disk.clumps[0];
+    const double clump_phi = disk_clump_azimuth(clump, jd_2012);
+    Disk no_second = disk;
+    no_second.clumps.resize(1);
+    Disk no_clumps = disk;
+    no_clumps.clumps.clear();
+    for (double r = 5.0; r < 400.0; r += 2.0) {
+        const double column = disk_column(disk, co, r);
+        for (int k = 0; k < 180; ++k) {
+            const double phi = (k + 0.5) * 2.0 * kDegToRad;
+            const double area = r * 2.0 * 2.0 * kDegToRad * column;
+            all += area * disk_clump_factor(disk, r, phi, jd_2012);
+            first_clump += area * (disk_clump_factor(no_second, r, phi, jd_2012) - 1.0);
+        }
+    }
+    std::printf("  info: Beta Pic CO: the SW clump has %.2f of the flux\n", first_clump / all);
+    check(std::abs(first_clump / all - 0.30) < 0.04, "30% of the CO in the clump [DE14]", first_clump / all);
+    // It lies at 85 au, 32 deg from the SW on the sky, and comes toward us at 3-4 km/s
+    // projected 60-90 au from the star [MA17].
+    const glm::dvec3 at_clump =
+        85.0 * (std::cos(clump_phi) * co.to_icrf[0] + std::sin(clump_phi) * co.to_icrf[1]);
+    const double clump_sw = -glm::dot(at_clump, major);
+    const double clump_speed = disk_line_of_sight_km_s(co, disk.gas_star_gm_km3_s2, at_clump, away);
+    std::printf("  info: Beta Pic CO clump: %.0f au SW on the sky, %.0f au behind the star, %.2f km/s along the line of sight\n",
+                clump_sw, glm::dot(at_clump, away), clump_speed);
+    check(clump_sw > 60.0 && clump_sw < 90.0, "the clump 60-90 au SW [MA17]", clump_sw);
+    check(glm::dot(at_clump, away) > 0.0, "the clump behind the sky plane, as in the picture this takes [MA17 Fig. 5]", glm::dot(at_clump, away));
+    check(clump_speed < -3.0 && clump_speed > -4.0, "the clump approaches at 3-4 km/s [MA17]", clump_speed);
+    // The shader's table is lit: along the disk the SW side is brighter by about 2 [DE14].
+    const auto co_on_sky = [&](double along_ne) {
+        const glm::dvec3 origin = co.to_icrf[0] * 0.0 + major * along_ne - away * 3000.0;
+        return disk_radiance(disk, DiskView::Gas, origin, away, std::numeric_limits<double>::infinity(), jd_2012);
+    };
+    double sw_flux = 0.0, ne_flux = 0.0;
+    for (double p = 20.0; p < 220.0; p += 5.0) {
+        sw_flux += co_on_sky(-p);
+        ne_flux += co_on_sky(p);
+    }
+    std::printf("  info: Beta Pic CO: SW %.2f times NE\n", sw_flux / ne_flux);
+    check(sw_flux / ne_flux > 1.3 && sw_flux / ne_flux < 3.5, "CO about twice as bright to the SW [DE14]", sw_flux / ne_flux);
+    // The clump goes round in its period, and in the sense of the gas.
+    const double later = disk_clump_azimuth(clump, jd_2012 + clump.period_s) - clump_phi;
+    check(std::abs(later - kTwoPi) < 1e-9, "a clump goes round once in its period", later);
+    const double tail_light = disk_clump_factor(no_second, 85.0, clump_phi - 0.5, jd_2012);
+    const double ahead_light = disk_clump_factor(no_second, 85.0, clump_phi + 0.5, jd_2012);
+    check(tail_light > ahead_light, "the gas trails behind the clump [DE14 Fig. 3A]", tail_light - ahead_light);
+
+    // The comets cross the star at TESS's times, the nearer ones faster [LE22].
+    const glm::dvec3 toward_star_axis = away;
+    const double radius_star = scene.bodies[static_cast<size_t>(star)].equatorial_radius_km;
+    struct Transit {
+        const char* name;
+        double bjd_after_2457000;
+        double duration_days;
+        double depth;
+    };
+    const Transit transits[] = {{"Exocomet 5", 1458.80, 0.34, 5.65},  {"Exocomet 7", 1468.49, 0.27, 1.97},
+                                {"Exocomet 8", 1474.58, 0.12, 1.77},  {"Exocomet 9", 1476.34, 0.28, 3.76},
+                                {"Exocomet 10", 1484.31, 0.20, 1.63}, {"Exocomet 11", 1485.72, 0.62, 19.63}};
+    for (const Transit& transit : transits) {
+        const int comet = scene.find(transit.name);
+        check(comet >= 0, "the comet exists", 0.0);
+        const Body& body = scene.bodies[static_cast<size_t>(comet)];
+        const double t = (2457000.0 + transit.bjd_after_2457000 - 2451545.0) * 86400.0;
+        const State s = scene.icrf_state_at(comet, t);
+        const State star_state = scene.icrf_state_at(star, t);
+        const glm::dvec3 r = s.position - star_state.position;
+        const glm::dvec3 v = s.velocity - star_state.velocity;
+        const glm::dvec3 r_sky = r - toward_star_axis * glm::dot(r, toward_star_axis);
+        const glm::dvec3 v_sky = v - toward_star_axis * glm::dot(v, toward_star_axis);
+        check(glm::length(r_sky) < radius_star, "a comet in front of the star at TESS's time [LE22]", glm::length(r_sky) / radius_star);
+        check(glm::dot(r, toward_star_axis) < 0.0, "on the near side", glm::dot(r, toward_star_axis));
+        // Their duration: a mean chord pi R / 2 at this speed, within a factor for the
+        // angle on the orbit, which their dt = 13 h sqrt(q) takes as 1.
+        const double duration_days = 0.5 * kPi * radius_star / glm::length(v_sky) / 86400.0;
+        check(duration_days > 0.5 * transit.duration_days && duration_days < 1.5 * transit.duration_days,
+              "the comet crosses the star in about the observed time [LE22]", duration_days / transit.duration_days);
+        check(std::abs(body.equatorial_radius_km - 1.5 * std::sqrt(transit.depth)) < 0.01,
+              "the nucleus from the depth [LE22]", body.equatorial_radius_km);
+        check(body.event >= 0, "a comet shows in its event only", body.event);
+    }
 
     // Events show what they say: the views and the bodies they center on.
-    int millimeter = 0, infrared = 0;
+    int millimeter = 0, infrared = 0, gas_events = 0;
     for (const SceneEvent& e : scene.events) {
         millimeter += e.disk_millimeter ? 1 : 0;
         infrared += e.nebula_infrared ? 1 : 0;
+        gas_events += e.disk_gas ? 1 : 0;
     }
-    check(millimeter == 1 && infrared == 1, "Beta Pictoris: an event in each of the other views");
-    check(disk.reference[0] > 0.0 && disk.reference[1] > 0.0 && disk.reference[2] > 0.0,
+    check(millimeter == 1 && infrared == 1 && gas_events == 2, "Beta Pictoris: events in each of the other views");
+    check(disk.reference[0] > 0.0 && disk.reference[1] > 0.0 && disk.reference[2] > 0.0 && disk.reference[3] > 0.0,
           "the disk has a reference brightness in each view");
     std::string error;
     Scene bad;
@@ -2370,6 +2489,158 @@ void test_pds70_scene()
     check(seen < 0.5, "the star shows through from above", seen);
     check(disk.sources.size() == 2, "PDS 70: b and c shine in the gap");
 
+    // The grains: Mie theory (tools/pds70/mie_opacity.py) through the similarity
+    // relations. What the scaled and the scattering albedo are follows by hand.
+    const double scale = 1.0 - disk.albedo * disk.asymmetry;
+    check(std::abs(dust.tau_per_column / 3349.0 - scale) < 1e-9, "the opacity is the Mie value, scaled", dust.tau_per_column);
+    check(std::abs(disk.single_scatter_gain - disk.albedo / scale) < 1e-12, "the first scattering's gain", disk.single_scatter_gain);
+    check(std::abs(disk_scaled_albedo(disk) - disk.albedo * (1.0 - disk.asymmetry) / scale) < 1e-12, "the scaled albedo",
+          disk_scaled_albedo(disk));
+    // Mean of the fitted phase function over the sphere: 1.
+    double phase_mean = 0.0;
+    for (double u = -1.0 + 5e-5; u < 1.0; u += 1e-4) {
+        phase_mean += disk_phase(disk, u) * 0.5e-4;
+    }
+    check(std::abs(phase_mean - 1.0) < 0.01, "the phase function's mean is 1", phase_mean);
+    // [PR23]'s Mie grains scatter forward and backward as the near and far sides show.
+    check(disk_phase(disk, std::cos(38.3 * kDegToRad)) > 8.0 * disk_phase(disk, std::cos(141.7 * kDegToRad)),
+          "the near side scatters many times the far side's light", disk_phase(disk, std::cos(38.3 * kDegToRad)));
+
+    // The later scatterings: a table, checked against a small Monte Carlo of the
+    // same scaled medium (isotropic scattering, weighted packets from the star, tallying
+    // the scattered packets' paths through a few cells), which shares nothing with the
+    // table but the extinction. In the table's units the star's flux is 1 / d^2, so its
+    // luminosity is (4 pi)^2 and J = 4 pi / N * sum(weight * path) / volume.
+    {
+        const double omega = disk_scaled_albedo(disk);
+        struct Cell {
+            double r, z_over_r;
+            double path = 0.0;
+        };
+        // Where the disk's lit surface is and in the gap; the midplane under the ring has
+        // too few packets, and sends out no light.
+        std::vector<Cell> cells = {{54.0, 0.25}, {78.0, 0.20}, {30.0, 0.05}, {30.0, 0.30}, {120.0, 0.30}, {78.0, 0.40}};
+        constexpr double kCellHalfWidth = 0.1;   // in r, relative
+        constexpr double kCellHalfHeight = 0.02; // in |z| / r
+        uint64_t state = 0x9E3779B97F4A7C15ull;
+        const auto random = [&state]() {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            return static_cast<double>(state >> 11) * (1.0 / 9007199254740992.0);
+        };
+        const auto isotropic = [&]() {
+            const double uz = 2.0 * random() - 1.0;
+            const double side = std::sqrt(1.0 - uz * uz);
+            const double phi = kTwoPi * random();
+            return glm::dvec3(side * std::cos(phi), side * std::sin(phi), uz);
+        };
+        constexpr int kPackets = 60000;
+        for (int n = 0; n < kPackets; ++n) {
+            glm::dvec3 p(0.0);
+            glm::dvec3 dir = isotropic();
+            double weight = 1.0;
+            for (int order = 0; order < 6; ++order) {
+                double target = -std::log(1.0 - 0.999999 * random());
+                double t = 0.0;
+                bool escaped = false;
+                while (target > 0.0) {
+                    const glm::dvec3 here = p + t * dir;
+                    const double to_star = glm::length(here);
+                    if (to_star > disk.outer_au) {
+                        escaped = true;
+                        break;
+                    }
+                    const double r = std::hypot(here.x, here.y);
+                    const double sigma = dust.sigma_au * disk_flare(dust, std::max(r, 0.2));
+                    const double ds = std::min(0.5 * std::max(std::abs(here.z), sigma) / std::max(std::abs(dir.z), 1e-3),
+                                               0.15 * std::max(to_star, 0.2));
+                    const glm::dvec3 mid = here + 0.5 * ds * dir;
+                    const double rm = std::hypot(mid.x, mid.y);
+                    const double depth = disk_extinction(disk, rm, mid.z) * ds;
+                    const double used = depth > target ? target / depth : 1.0;
+                    if (order > 0) {
+                        for (Cell& cell : cells) {
+                            if (std::abs(rm / cell.r - 1.0) < kCellHalfWidth &&
+                                std::abs(std::abs(mid.z) / rm - cell.z_over_r) < kCellHalfHeight) {
+                                cell.path += weight * used * ds;
+                            }
+                        }
+                    }
+                    target -= depth;
+                    t += used * ds;
+                }
+                if (escaped) {
+                    break;
+                }
+                p += t * dir;
+                dir = isotropic();
+                weight *= omega;
+            }
+        }
+        double worst_ratio = 1.0;
+        for (const Cell& cell : cells) {
+            const double r0 = cell.r * (1.0 - kCellHalfWidth);
+            const double r1 = cell.r * (1.0 + kCellHalfWidth);
+            // Both sides of the disk; the height goes with r.
+            const double volume = 2.0 * kTwoPi * 2.0 * kCellHalfHeight * (r1 * r1 * r1 - r0 * r0 * r0) / 3.0;
+            const double j = 4.0 * kPi / kPackets * cell.path / volume;
+            const double monte_carlo = omega * j;
+            // The table's source over the same cell, not at its center: it changes
+            // quickly across the disk's surface.
+            double table = 0.0, weights = 0.0;
+            for (int a = 0; a < 16; ++a) {
+                for (int k = 0; k < 16; ++k) {
+                    const double r = cell.r * (1.0 + kCellHalfWidth * ((a + 0.5) / 8.0 - 1.0));
+                    const double z = r * (cell.z_over_r + kCellHalfHeight * ((k + 0.5) / 8.0 - 1.0));
+                    table += disk_diffuse(disk, r, z) / (r * r + z * z) * r * r;
+                    weights += r * r;
+                }
+            }
+            table /= weights;
+            std::printf("  info: PDS 70 later scatterings at r %.0f, z/r %.2f: table %.3e, Monte Carlo %.3e, ratio %.2f\n", cell.r,
+                        cell.z_over_r, table, monte_carlo, table / monte_carlo);
+            if (cell.path > 0.0) {
+                worst_ratio = std::max({worst_ratio, table / monte_carlo, monte_carlo / table});
+            }
+        }
+        check(worst_ratio < 2.0, "the later scatterings' table within a factor of 2 of a Monte Carlo", worst_ratio);
+    }
+
+    // The second peak, a shoulder on the ring's inner edge at 60 au [KE19 Fig. 2].
+    const DiskComponent& ring = disk.components[1];
+    const double ring_peak = disk_column(disk, ring, 73.7);
+    const auto ring_at = [&](double r) { return disk_column(disk, ring, r) / ring_peak; };
+    check(std::abs(ring_at(60.0) - 0.62) < 0.08, "the cuts at 60 au, 0.62 of the peak [KE19 Fig. 2]", ring_at(60.0));
+    check(std::abs(ring_at(50.0) - 0.34) < 0.1, "the cuts at 50 au, 0.34 of the peak [KE19 Fig. 2]", ring_at(50.0));
+    const double flat = (ring_at(65.0) - ring_at(55.0)) / 10.0;
+    const double steep = (ring_at(70.0) - ring_at(65.0)) / 5.0;
+    check(steep > 1.5 * flat, "the edge flattens between 55 and 65 au, then climbs [KE19]", steep / flat);
+    std::printf("  info: PDS 70 ring cuts: %.2f at 50 au, %.2f at 60 au; slopes %.3f, %.3f per au\n", ring_at(50.0), ring_at(60.0), flat, steep);
+
+    // The gas [PR23]: a far shallower gap than the dust's, the disk turning clockwise.
+    const DiskComponent& gas = disk.components[3];
+    check(gas.gain[static_cast<size_t>(DiskView::Gas)] > 0.0, "PDS 70: the gas is in its view");
+    const auto gas_straight = [&](double r) { return straight_on(DiskView::Gas, r); };
+    const double gas_ring = gas_straight(72.0);
+    const double gas_gap = gas_straight(20.0);
+    const double dust_ring = disk_column(disk, dust, 78.0);
+    const double dust_gap = disk_column(disk, dust, 30.0);
+    std::printf("  info: PDS 70 gas: gap %.3f of its ring in the CO line; dust's column %.5f\n", gas_gap / gas_ring, dust_gap / dust_ring);
+    check(gas_gap / gas_ring > 0.01 && gas_gap / gas_ring < 0.1, "the gas is thinned in the gap [PR23]", gas_gap / gas_ring);
+    check(gas_gap / gas_ring > 20.0 * dust_gap / dust_ring, "far less than the dust is [PR23]", gas_gap / gas_ring);
+    // At the ascending node, by the visual orbit's convention, the gas moves away.
+    const glm::dvec3 major_axis = gas.to_icrf[0];
+    const double speed_at_node = disk_line_of_sight_km_s(gas, disk.gas_star_gm_km3_s2, major_axis * 70.0, away);
+    const double expected_speed = std::sqrt(disk.gas_star_gm_km3_s2 / (70.0 * kAuKm)) * std::sin(51.7 * kDegToRad);
+    std::printf("  info: PDS 70 gas at the node, 70 au: %.2f km/s along the line of sight (expected %.2f)\n", speed_at_node, expected_speed);
+    check(std::abs(speed_at_node - expected_speed) < 0.05, "the gas moves away at the ascending node, by i", speed_at_node);
+    int gas_events = 0;
+    for (const SceneEvent& e : scene.events) {
+        gas_events += e.disk_gas ? 1 : 0;
+    }
+    check(gas_events == 1, "PDS 70: an event in the CO line", gas_events);
+
     // The steps across the disk's surface, against a fine sum along the same ray.
     const glm::dvec3 slant = glm::normalize(-normal + 0.7 * x);
     const glm::dvec3 origin = x * 40.0 + y * 12.0 - slant * 300.0;
@@ -2381,8 +2652,11 @@ void test_pds70_scene()
         const double depth = disk_extinction(disk, rq, q.z) * 0.02;
         if (depth > 0.0) {
             const double distance = glm::length(q);
-            fine += through * (1.0 - std::exp(-depth)) * disk_phase(disk, -glm::dot(q, to_plane * slant) / distance) *
-                    std::exp(-disk_star_depth(disk, rq, q.z)) / (distance * distance);
+            fine += through * (1.0 - std::exp(-depth)) *
+                    (disk.single_scatter_gain * disk_phase(disk, -glm::dot(q, to_plane * slant) / distance) *
+                         std::exp(-disk_star_depth(disk, rq, q.z)) +
+                     disk_diffuse(disk, rq, q.z)) /
+                    (distance * distance);
             through *= std::exp(-depth);
         }
     }

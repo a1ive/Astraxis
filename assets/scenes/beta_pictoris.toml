@@ -4,9 +4,11 @@
 #
 # The planets are nested two-body orbits (Jacobi coordinates, as fitted in
 # [LA21]); their pull on each other is ignored. The disk is a model
-# (scene/disk.hpp): axisymmetric, optically thin, fitted to published profiles.
-# The "cat's tail" is a burst of dust integrated under gravity and radiation
-# pressure when the scene loads.
+# (scene/disk.hpp): optically thin, fitted to published profiles, axisymmetric but
+# for the clumps of its CO. The "cat's tail" is a burst of dust integrated under
+# gravity, radiation pressure and interstellar drag when the scene loads. The comets
+# take their dates, sizes and periastrons from TESS's transits; their orbits are
+# otherwise schematic, and they show in one event only.
 #
 # [LA21] Lacour et al. 2021, A&A 654, L2 (arXiv:2109.10671). Table 2, the fit
 #        "RV + b and c astrometry": b a = 9.93 au, e = 0.103, i = 89.00, omega =
@@ -46,9 +48,29 @@
 #        a parent at 85 au on the far side within ~5 deg of the secondary disk's
 #        minor axis, 0.5 < beta < 10, dN/ds ~ s^-3.8, 150 years old; a plane 6 deg
 #        from edge-on and 2.5 deg in PA from the main disk, near and far sides
-#        swapped so that it orbits like the CO gas; dust near 100 K. Their ISM drag,
-#        which makes the crook near the tip, is left out.
-# [DE14] Dent et al. 2014, Science 343, 1490 (arXiv:1404.1380): dust at 85 K.
+#        swapped so that it orbits like the CO gas; dust near 100 K. Sect. 5.2 and
+#        Fig. 16, ISM drag makes the crook near the tip: 30 H cm^-3, a wind of 4 au/yr
+#        toward the SW along the secondary disk's midplane and 1 au/yr toward the NW
+#        along its normal.
+# [DE14] Dent et al. 2014, Science 343, 1490 (arXiv:1404.1380): dust at 85 K. CO J=3-2
+#        with ALMA in Cycle 0: a belt from 50 to 160 au peaking near 85 au, 30% of the
+#        flux in a clump at 85 au, seen on the SW side; photodissociation in ~120 yr
+#        against a 600 yr orbit; 1.7e20 kg of CO. Fig. 3A, a planet migrating outward
+#        holds bodies in its 2:1 resonance in two clumps on opposite sides that go
+#        round with the planet, each with a tail pointing against the rotation of
+#        length (photodissociation time) / (synodic period); Fig. 3B, a giant impact
+#        leaves one stationary clump.
+# [MA17] Matra et al. 2017, MNRAS 464, 1415 (arXiv:1609.06718): CO J=2-1 and 3-2. The
+#        SW clump approaches at 3-4 km/s, projected 60-90 au out; Fig. 5, it peaks at
+#        +-32 deg from the SW on the sky, with the tail toward (or away from) us, and
+#        the NE side as either that tail or a dimmer clump at +212 deg. Radially broad,
+#        which favors resonance. Extent 50-220 au. Eq. 1, H = 7.0 (R / 85 au)^0.75 au.
+#        Sect. 3.3.2, formal best fit i = 88, a PA 3 deg from the main disk's 29.3;
+#        rotation clockwise (the SW side approaches).
+# [LE22] Lecavelier des Etangs et al. 2022, Sci. Rep. 12, 5855 (arXiv:2204.13618):
+#        TESS, 156 days, 30 transits (Extended Data Table 2); dN ~ AD^-2.3 dAD, so dN ~
+#        R^-3.6 dR; dt = 13 h sqrt(q / au), q from 0.03 to 1.3 au; R = 1.5 km sqrt(AD /
+#        1e-4), 1.5 to 6.7 km. See tools/betapic/exocomets.py.
 # [HS15] Hedman & Stark 2015, ApJ 811, 67 (arXiv:1508.00261), Table 7: three
 #        Henyey-Greenstein functions fitted to Saturn's G ring.
 # [ZI19] Zieba et al. 2019, A&A 625, L13 (arXiv:1903.11071).
@@ -71,6 +93,20 @@
 # is assumed the same as the main disk's narrow part. Inside ~40 au nothing
 # constrains the column except the spine's slope. Its asymmetries (SW brighter at
 # 50-100 au, the bow of the SW wing, the clumps) are left out.
+# The CO line is colored by the Keplerian speed along the line of sight. [DE14] and
+# [MA17] measure where the gas lies only up to which side of the sky plane it is on: this
+# takes the left column of [MA17]'s Fig. 5, the resonant picture of [DE14]'s Fig. 3A,
+# with the SW clump behind the sky plane and a dimmer one opposite. Those clumps go round
+# with their planet, here taken at the 2:1 point of 85 au: 296 yr against the gas's 592 yr
+# (the planet is unseen). The tail's length is then 120 yr / 592 yr of a circle, 73 deg.
+# Assumed: the shape of the belt within [DE14]'s and [MA17]'s limits, the clumps' widths,
+# and the second clump's gain; the first's gain gives [DE14]'s 30% (tests).
+# ISM drag on the cat's tail: [RE24]'s wind and density. They give a grain density, not
+# the radiation pressure efficiency or how drag goes with beta; with Q = 1 drag moves the
+# tip by only a few au, and growing as beta it flattens the whole tail rather than its
+# tip. Their reason the tip alone bends is that it holds the smallest grains, whose beta
+# levels off as the drag per mass goes on rising, so here drag goes as beta^8 with Q =
+# 0.02 at beta = 10: both are set by [RE24]'s 45 deg, 21 deg and 265 au (tests).
 # The infrared and millimeter lights are false color: temperatures T = 85 K at 85 au
 # [DE14], 100 K at 100 au [RE24], r^-1/2; how bright the secondary disk is in the
 # infrared relative to the main one is set by eye to [RE24] Fig. 1.
@@ -78,7 +114,8 @@
 # Checks (tests/stellar_system_tests.cpp): the planets against [LA21]'s GRAVITY
 # positions, the periods, the Hill sphere transit [KE21], the spine's slopes and
 # widths [GO06], the tilt of the secondary disk [GO06], which side is near [AP15],
-# the millimeter belt's vertical widths [MA19], and the cat's tail [RE24].
+# the millimeter belt's vertical widths [MA19], the cat's tail and its tip [RE24], the
+# CO clump's flux, place and speed [DE14] [MA17], and the comets' transits [LE22].
 
 name = "Beta Pictoris"
 
@@ -105,6 +142,8 @@ phase_w = [0.643, 0.176, 0.181]
 display_reference_au = 115.0   # where [GO06]'s spine bends
 display_gamma = 0.65           # by eye: the line stays thin, its outer wings still show
 display_adapt_au = 700.0       # the dust dims as the camera goes inside it, by eye
+gas_velocity_km_s = 4.0        # about the clump's speed [MA17]
+gas_display_gain = 2.0         # by eye: seen from above the path through it is short
 
 [[disk.components]]
 name = "Main disk"
@@ -157,6 +196,42 @@ temperature_k = 85.0           # [DE14]
 temperature_radius_au = 85.0
 temperature_index = 0.5
 
+# CO, in its line: a belt, and the clumps below.
+[[disk.components]]
+name = "CO"
+node_deg = 32.3                # 3 deg from the main disk [MA17]
+i_deg = 88.0                   # [MA17]
+ring_center_au = 85.0          # [DE14]
+ring_sigma_au = 15.0           # assumed: from 50 au [DE14]
+ring_sigma_out_au = 55.0       # assumed: to 220 au [MA17]
+sigma_au = 0.2466              # H = 7.0 au at 85 au [MA17] Eq. 1: 7.0 / 85^0.75
+flare_radius_au = 1.0
+flare_index = 0.75             # [MA17] Eq. 1
+gas = 1.0
+temperature_k = 85.0           # not used: the belt is fitted as brightness
+temperature_radius_au = 85.0
+temperature_index = 0.0
+
+[[disk.clumps]]
+radius_au = 85.0               # [DE14]
+sigma_au = 15.0                # assumed: "radially broad" [MA17]
+azimuth_deg = 148.0            # 32 deg before the SW, behind the sky plane [MA17] Fig. 5
+epoch = "2012-06-01"           # about [DE14]'s ALMA Cycle 0 data
+period_yr = 296.0              # its planet's, half the 592 yr of 85 au [DE14] Fig. 3A
+sigma_deg = 12.0               # assumed
+tail_deg = 73.0                # 120 yr / 592 yr of a circle [DE14]
+gain = 7.5                     # 30% of the flux [DE14] (tests)
+
+[[disk.clumps]]
+radius_au = 85.0
+sigma_au = 15.0
+azimuth_deg = 328.0            # opposite [MA17] Fig. 5
+epoch = "2012-06-01"
+period_yr = 296.0
+sigma_deg = 12.0
+tail_deg = 73.0
+gain = 0.6                     # assumed: dimmer [MA17]
+
 # The cat's tail, in the mid-infrared only [RE24]. It expands from the star here
 # rather than from its parent, which matters only far from the JWST epoch.
 [[nebulae]]
@@ -191,6 +266,12 @@ kick_share = 0.015             # assumed: makes the stream as wide as it looks
 # makes the tail fade toward it instead, as [RE24] Sect. 5.2 measures.
 weight_index = 1.0
 patch_sigma_au = 3.0
+ism_h_per_cm3 = 30.0           # [RE24]
+ism_velocity_au_yr = [4.0, 1.0] # along ism_pa_deg and 90 deg on from it [RE24]
+ism_beta_index = 8.0           # set by the tip, see above
+ism_pa_deg = 214.6             # the SW end of the secondary disk's midplane
+luminosity_solar = 8.62        # [ZW19]
+radiation_q = 0.02             # set by the tip, see above
 
 # Jacobi coordinates [LA21]: b around the star and c's center of mass, c around
 # the star. The system's center of mass does not move.
@@ -240,6 +321,7 @@ parent = "Beta Pic A+c"
 kind = "star"
 radii_km = [1069987.0]         # 1.538 R_sun [ZW19]
 body_gm_km3_s2 = 2.32246770e11 # 1.75 M_sun [LA21]
+gm_km3_s2 = 2.32246770e11      # the comets' dust tails
 temperature_k = 8090.0         # [ZW19]
 luminosity_solar = 8.62        # [ZW19]
 trail = "none"
@@ -273,6 +355,164 @@ node_deg = 31.06
 arg_peri_deg = 66.0
 t_peri_jd_tdb = 2459875.423
 sky_ra_dec_deg = [86.82118, -51.06651]
+
+# tools/betapic/exocomets.py: in the event "Comets crossing the star" only.
+[[bodies]]
+name = "Exocomet 5"
+parent = "Beta Pic"
+radii_km = [3.57]                 # [LE22] from the depth 5.65e-4
+color = "#d8d0c0"
+orbit_color = "#b8c8e8"
+trail = "orbit"
+[bodies.comet]
+magnitude_m1_k1 = [9.28, 5.0]        # scaled from Hale-Bopp, see the tool
+ion_tail_diameter_km = 2.0e5               # illustrative
+ion_tail_length_km = 2.0e7                 # illustrative
+solar_wind_km_s = 400.0                    # illustrative
+dust_beta_range = [2.0e-3, 0.1]            # illustrative
+dust_tail_days = 15.0                      # illustrative
+dust_speed_km_s = 0.3                      # illustrative
+[bodies.orbit]                             # q = 0.394 au from dt = 0.34 d [LE22]; e and the angles are assumed
+type = "visual_orbit"
+gm_km3_s2 = 2.32246770e+11
+a_au = 39.3998
+e = 0.99
+i_deg = 89.8162
+node_deg = 29.3
+arg_peri_deg = 310.0
+t_peri_jd_tdb = 2458464.6530               # crossing the star at BJD 2457000 + 1458.8
+sky_ra_dec_deg = [86.82118, -51.06651]
+
+[[bodies]]
+name = "Exocomet 7"
+parent = "Beta Pic"
+radii_km = [2.11]                 # [LE22] from the depth 1.97e-4
+color = "#d8d0c0"
+orbit_color = "#b8c8e8"
+trail = "orbit"
+[bodies.comet]
+magnitude_m1_k1 = [10.42, 5.0]        # scaled from Hale-Bopp, see the tool
+ion_tail_diameter_km = 2.0e5               # illustrative
+ion_tail_length_km = 2.0e7                 # illustrative
+solar_wind_km_s = 400.0                    # illustrative
+dust_beta_range = [2.0e-3, 0.1]            # illustrative
+dust_tail_days = 15.0                      # illustrative
+dust_speed_km_s = 0.3                      # illustrative
+[bodies.orbit]                             # q = 0.248 au from dt = 0.27 d [LE22]; e and the angles are assumed
+type = "visual_orbit"
+gm_km3_s2 = 2.32246770e+11
+a_au = 24.8464
+e = 0.99
+i_deg = 90.7863
+node_deg = 29.3
+arg_peri_deg = 245.0
+t_peri_jd_tdb = 2458466.7516               # crossing the star at BJD 2457000 + 1468.49
+sky_ra_dec_deg = [86.82118, -51.06651]
+
+[[bodies]]
+name = "Exocomet 8"
+parent = "Beta Pic"
+radii_km = [2.00]                 # [LE22] from the depth 1.77e-4
+color = "#d8d0c0"
+orbit_color = "#b8c8e8"
+trail = "orbit"
+[bodies.comet]
+magnitude_m1_k1 = [10.54, 5.0]        # scaled from Hale-Bopp, see the tool
+ion_tail_diameter_km = 2.0e5               # illustrative
+ion_tail_length_km = 2.0e7                 # illustrative
+solar_wind_km_s = 400.0                    # illustrative
+dust_beta_range = [2.0e-3, 0.1]            # illustrative
+dust_tail_days = 15.0                      # illustrative
+dust_speed_km_s = 0.3                      # illustrative
+[bodies.orbit]                             # q = 0.049 au from dt = 0.12 d [LE22]; e and the angles are assumed
+type = "visual_orbit"
+gm_km3_s2 = 2.32246770e+11
+a_au = 4.9079
+e = 0.99
+i_deg = 87.5368
+node_deg = 29.3
+arg_peri_deg = 285.0
+t_peri_jd_tdb = 2458474.6697               # crossing the star at BJD 2457000 + 1474.58
+sky_ra_dec_deg = [86.82118, -51.06651]
+
+[[bodies]]
+name = "Exocomet 9"
+parent = "Beta Pic"
+radii_km = [2.91]                 # [LE22] from the depth 3.76e-4
+color = "#d8d0c0"
+orbit_color = "#b8c8e8"
+trail = "orbit"
+[bodies.comet]
+magnitude_m1_k1 = [9.72, 5.0]        # scaled from Hale-Bopp, see the tool
+ion_tail_diameter_km = 2.0e5               # illustrative
+ion_tail_length_km = 2.0e7                 # illustrative
+solar_wind_km_s = 400.0                    # illustrative
+dust_beta_range = [2.0e-3, 0.1]            # illustrative
+dust_tail_days = 15.0                      # illustrative
+dust_speed_km_s = 0.3                      # illustrative
+[bodies.orbit]                             # q = 0.267 au from dt = 0.28 d [LE22]; e and the angles are assumed
+type = "visual_orbit"
+gm_km3_s2 = 2.32246770e+11
+a_au = 26.7209
+e = 0.99
+i_deg = 89.1626
+node_deg = 29.3
+arg_peri_deg = 235.0
+t_peri_jd_tdb = 2458473.5377               # crossing the star at BJD 2457000 + 1476.34
+sky_ra_dec_deg = [86.82118, -51.06651]
+
+[[bodies]]
+name = "Exocomet 10"
+parent = "Beta Pic"
+radii_km = [1.92]                 # [LE22] from the depth 1.63e-4
+color = "#d8d0c0"
+orbit_color = "#b8c8e8"
+trail = "orbit"
+[bodies.comet]
+magnitude_m1_k1 = [10.63, 5.0]        # scaled from Hale-Bopp, see the tool
+ion_tail_diameter_km = 2.0e5               # illustrative
+ion_tail_length_km = 2.0e7                 # illustrative
+solar_wind_km_s = 400.0                    # illustrative
+dust_beta_range = [2.0e-3, 0.1]            # illustrative
+dust_tail_days = 15.0                      # illustrative
+dust_speed_km_s = 0.3                      # illustrative
+[bodies.orbit]                             # q = 0.136 au from dt = 0.2 d [LE22]; e and the angles are assumed
+type = "visual_orbit"
+gm_km3_s2 = 2.32246770e+11
+a_au = 13.6331
+e = 0.99
+i_deg = 90.5611
+node_deg = 29.3
+arg_peri_deg = 300.0
+t_peri_jd_tdb = 2458485.1702               # crossing the star at BJD 2457000 + 1484.31
+sky_ra_dec_deg = [86.82118, -51.06651]
+
+[[bodies]]
+name = "Exocomet 11"
+parent = "Beta Pic"
+radii_km = [6.65]                 # [LE22] from the depth 19.63e-4
+color = "#d8d0c0"
+orbit_color = "#b8c8e8"
+trail = "orbit"
+[bodies.comet]
+magnitude_m1_k1 = [7.92, 5.0]        # scaled from Hale-Bopp, see the tool
+ion_tail_diameter_km = 2.0e5               # illustrative
+ion_tail_length_km = 2.0e7                 # illustrative
+solar_wind_km_s = 400.0                    # illustrative
+dust_beta_range = [2.0e-3, 0.1]            # illustrative
+dust_tail_days = 15.0                      # illustrative
+dust_speed_km_s = 0.3                      # illustrative
+[bodies.orbit]                             # q = 1.310 au from dt = 0.62 d [LE22]; e and the angles are assumed
+type = "visual_orbit"
+gm_km3_s2 = 2.32246770e+11
+a_au = 131.0144
+e = 0.99
+i_deg = 89.9690
+node_deg = 29.3
+arg_peri_deg = 260.0
+t_peri_jd_tdb = 2458477.5254               # crossing the star at BJD 2457000 + 1485.72
+sky_ra_dec_deg = [86.82118, -51.06651]
+
 
 [[bodies]]
 name = "Sun"
@@ -357,6 +597,43 @@ caption = """\
     is at the scale of the planets' orbits; the dust is dimmed to show them."""
 
 [[events]]
+name = "A clump of carbon monoxide"
+time = "2012-06-01"            # about [DE14]'s data
+focus = "Beta Pic"
+frame = "Beta Pic, disk level"
+observer = "Beta Pic system"
+observer_offset_km = [-31278480611.1, -563191924924.9, 698211527688.5]   # 6000 au toward Earth: lines of sight almost parallel, as from Earth
+fov_deg = 2.6                  # 240 au to each side
+warp = 7889400.0
+disk_gas = true
+# [DE14], [MA17]
+caption = """\
+    ALMA found carbon monoxide here: blue coming toward us, red going away. Starlight \
+    breaks CO apart in about 120 years, so it must be released all the time, as icy \
+    bodies collide. A third of it sits in one clump on the southwest side, 85 au from \
+    the star: the equivalent of a large comet destroyed every five minutes."""
+
+[[events]]
+name = "A clump that goes round"
+time = "2014-01-01"
+focus = "Beta Pic"
+frame = "Beta Pic, disk level"
+from_body = "Sun"              # above Earth's line of sight, so the colors still show
+phase_deg = 0.0
+elevation_deg = 50.0
+distance_km = 6.0e10           # 400 au
+warp = 315576000.0             # ten years per second: a turn of the clumps in 30 s
+disk_gas = true
+hide_orbits = true
+# [DE14], [MA17]
+caption = """\
+    Which side of the sky each part of the gas lies on cannot be told from Earth, so \
+    this view from up here is one reading. A planet moving outward could trap icy bodies \
+    in two clumps that go round with it, here every 296 years, faster than the gas \
+    itself, which trails behind and fades. A giant impact would instead leave one \
+    clump standing still. No planet has been seen out here."""
+
+[[events]]
 name = "Passing in front"
 time = "2017-09-13"
 focus = "Beta Pic b"
@@ -392,6 +669,25 @@ caption = """\
     system stirs the belt enough to explain the hot one."""
 
 [[events]]
+name = "Comets crossing the star"
+time = "2018-12-22"            # [LE22]'s transits 8 to 11
+focus = "Beta Pic"
+frame = "Beta Pic, disk level"
+from_body = "Sun"              # from Earth's side, but raised out of the plane to see the orbits
+phase_deg = 0.0
+elevation_deg = 35.0
+distance_km = 6.0e8            # 4 au
+warp = 34560.0                 # 0.4 days per second
+show = ["Exocomet 5", "Exocomet 7", "Exocomet 8", "Exocomet 9", "Exocomet 10", "Exocomet 11"]
+# [LE22]
+caption = """\
+    TESS saw this star dim 30 times in 156 days, by a few parts in ten thousand, as the \
+    dust tails of comets crossed it. Here are six of them, on their real dates, with \
+    the sizes and closest distances worked out from the dips: 1.5 to 7 km, as in our \
+    own system, and in the same proportions of large to small. Their orbits are \
+    otherwise only sketched."""
+
+[[events]]
 name = "A second planet"
 time = "2020-02-10"            # [LA21]'s first detection of c
 focus = "Beta Pic"
@@ -422,5 +718,5 @@ caption = """\
     JWST's mid-infrared images in false color show the secondary disk and, on one \
     side, a feature no one had seen: a curved tail rising away from the disk. It \
     may be dust from a collision about 150 years ago, on the far side of the disk, \
-    swept out by the star's light; the smallest grains have gone furthest. The bend \
-    at its tip, perhaps from interstellar gas, is left out of this model."""
+    swept out by the star's light; the smallest grains have gone furthest, and the \
+    bend at its tip could be interstellar gas pushing on them."""

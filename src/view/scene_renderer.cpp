@@ -271,7 +271,7 @@ constexpr float kDiskRadiance = 0.12f;
 // The millimeter view's false color (sRGB): the orange ALMA images are often shown in.
 const glm::dvec3 kDiskMillimeterColor(1.0, 0.62, 0.30);
 
-DiskUniforms disk_uniforms(const Scene& scene, const CameraView& view)
+DiskUniforms disk_uniforms(const Scene& scene, const CameraView& view, double t_tdb)
 {
     DiskUniforms u;
     const Disk& disk = scene.disk;
@@ -282,7 +282,10 @@ DiskUniforms disk_uniforms(const Scene& scene, const CameraView& view)
     DiskView which = DiskView::Scattered;
     if (event >= 0) {
         const SceneEvent& e = scene.events[static_cast<size_t>(event)];
-        which = e.nebula_infrared ? DiskView::Infrared : e.disk_millimeter ? DiskView::Millimeter : DiskView::Scattered;
+        which = e.nebula_infrared  ? DiskView::Infrared
+                : e.disk_millimeter ? DiskView::Millimeter
+                : e.disk_gas        ? DiskView::Gas
+                                    : DiskView::Scattered;
     }
     const double reference = disk.reference[static_cast<size_t>(which)];
     if (reference <= 0.0) {
@@ -298,7 +301,19 @@ DiskUniforms disk_uniforms(const Scene& scene, const CameraView& view)
     u.phase_g = glm::vec4(static_cast<float>(disk.phase_g[0]), static_cast<float>(disk.phase_g[1]),
                           static_cast<float>(disk.phase_g[2]), 2.0f * kDiskSourceMinPx / (view.viewport.y * view.focal_y));
     u.phase_w = glm::vec4(static_cast<float>(disk.phase_w[0]), static_cast<float>(disk.phase_w[1]),
-                          static_cast<float>(disk.phase_w[2]), 0.0f);
+                          static_cast<float>(disk.phase_w[2]), static_cast<float>(disk.single_scatter_gain));
+    if (which == DiskView::Gas) {
+        u.gas = glm::vec4(static_cast<float>(std::sqrt(disk.gas_star_gm_km3_s2 / kAuKm)),
+                          static_cast<float>(disk.gas_velocity_km_s), static_cast<float>(disk.clumps.size()), 0.0f);
+        for (size_t k = 0; k < disk.clumps.size(); ++k) {
+            const DiskClump& clump = disk.clumps[k];
+            const double azimuth = disk_clump_azimuth(clump, t_tdb);
+            u.clump[k] = glm::vec4(static_cast<float>(std::cos(azimuth)), static_cast<float>(std::sin(azimuth)),
+                                   static_cast<float>(clump.radius_au), static_cast<float>(clump.sigma_au));
+            u.clump_shape[k] = glm::vec4(static_cast<float>(clump.sigma_deg * kDegToRad),
+                                         static_cast<float>(clump.tail_deg * kDegToRad), static_cast<float>(clump.gain), 0.0f);
+        }
+    }
     u.tint = glm::vec4(glm::vec3(srgb_to_linear(kDiskMillimeterColor)), 1.0f);
 
     // The components that show in this view, packed.
@@ -329,7 +344,8 @@ DiskUniforms disk_uniforms(const Scene& scene, const CameraView& view)
     const double camera_au = glm::length(glm::dvec3(u.camera));
     const double adapt = std::min(1.0, camera_au / disk.display_adapt_au);
     // A thin disk's table is relative to the reference already.
-    u.params = glm::vec4(kDiskRadiance * static_cast<float>(adapt), static_cast<float>(disk.display_gamma),
+    const double view_gain = which == DiskView::Gas ? disk.gas_display_gain : 1.0;
+    u.params = glm::vec4(kDiskRadiance * static_cast<float>(adapt * view_gain), static_cast<float>(disk.display_gamma),
                          thick ? static_cast<float>(reference) : 1.0f, static_cast<float>(count));
     u.range = glm::vec4(static_cast<float>(std::log(disk.inner_au)), static_cast<float>(std::log(disk.outer_au)),
                         static_cast<float>(disk.outer_au), 0.0f);
@@ -668,7 +684,7 @@ void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, u
     }
     load_pinwheel(scene);
     load_nebulae(scene);
-    m_disk.set_star_depth(scene.disk.star_depth);
+    m_disk.set_star_depth(scene.disk.star_depth, scene.disk.diffuse);
     m_body_textures.assign(scene.bodies.size(), nullptr);
     m_ring_textures.assign(scene.bodies.size(), nullptr);
     m_night_textures.assign(scene.bodies.size(), nullptr);
@@ -1779,7 +1795,8 @@ void SceneRenderer::draw_stars(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pas
         if (scene.disk.thick && scene.disk.enabled()) {
             const int event = scene.active_event();
             const bool scattered = event < 0 || (!scene.events[static_cast<size_t>(event)].nebula_infrared &&
-                                                 !scene.events[static_cast<size_t>(event)].disk_millimeter);
+                                                 !scene.events[static_cast<size_t>(event)].disk_millimeter &&
+                                                 !scene.events[static_cast<size_t>(event)].disk_gas);
             if (scattered) {
                 const glm::dmat3 to_icrf = scene.current_transform().axes;
                 const glm::dvec3 from =
@@ -1971,7 +1988,7 @@ void SceneRenderer::render(const Frame& frame, const Simulation& sim, const Outp
     }
 
     m_corona.render(frame.cmd, targets.corona, corona_uniforms(sim.scene(), view), frame.width, frame.height);
-    m_disk.render(frame.cmd, targets.disk, disk_uniforms(sim.scene(), view), frame.width, frame.height);
+    m_disk.render(frame.cmd, targets.disk, disk_uniforms(sim.scene(), view, sim.clock().t_tdb), frame.width, frame.height);
 
     SDL_GPURenderPass* pass = targets.begin_scene_pass(frame.cmd, {0.0f, 0.0f, 0.0f, 1.0f});
     const float sky = static_cast<float>(sim.sky_visibility());

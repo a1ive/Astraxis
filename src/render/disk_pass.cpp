@@ -8,6 +8,7 @@
 #include <SDL3/SDL_log.h>
 
 #include <algorithm>
+#include <cmath>
 
 namespace astraxis {
 
@@ -18,8 +19,8 @@ bool DiskPass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
     sampler.min_filter = sampler.mag_filter = SDL_GPU_FILTER_LINEAR;
     sampler.address_mode_u = sampler.address_mode_v = sampler.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
     m_linear = SDL_CreateGPUSampler(device, &sampler);
-    const float nothing = 0.0f;
-    m_no_depth = create_float_texture(device, &nothing, 1, 1);
+    const float nothing[2] = {0.0f, 0.0f};
+    m_no_depth = create_float2_texture(device, nothing, 1, 1);
     return m_linear && m_no_depth && create_pipelines(format);
 }
 
@@ -93,10 +94,21 @@ void DiskPass::shutdown()
     m_device = nullptr;
 }
 
-void DiskPass::set_star_depth(const std::vector<float>& depth)
+void DiskPass::set_star_depth(const std::vector<float>& depth, const std::vector<float>& diffuse)
 {
     SDL_ReleaseGPUTexture(m_device, m_star_depth);
-    m_star_depth = depth.empty() ? nullptr : create_float_texture(m_device, depth.data(), kDiskDepthWidth, kDiskDepthHeight);
+    m_star_depth = nullptr;
+    if (depth.empty()) {
+        return;
+    }
+    // r: ln(1 + depth), g: ln of the later scatterings' source.
+    std::vector<float> texels(depth.size() * 2);
+    const float no_source = std::log(static_cast<float>(kDiskDiffuseFloor));
+    for (size_t i = 0; i < depth.size(); ++i) {
+        texels[2 * i] = depth[i];
+        texels[2 * i + 1] = diffuse.empty() ? no_source : diffuse[i];
+    }
+    m_star_depth = create_float2_texture(m_device, texels.data(), kDiskDepthWidth, kDiskDepthHeight);
 }
 
 void DiskPass::render(SDL_GPUCommandBuffer* cmd, DiskTargets& targets, const DiskUniforms& uniforms, uint32_t width,

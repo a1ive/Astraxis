@@ -576,6 +576,9 @@ struct SceneEvent {
     // A disk in its millimeter light (false color) while the event is active;
     // nebula_infrared shows it in the thermal infrared, otherwise in scattered light.
     bool disk_millimeter = false;
+    // A disk's CO line while the event is active (colored by its velocity along the
+    // line of sight).
+    bool disk_gas = false;
     bool aurora_visible = false; // visible aurora while the event is active
     bool aurora_ultraviolet = false; // UV false-color overlay on the visible planet
     bool aurora_infrared = false; // IR false-color overlay on the visible planet

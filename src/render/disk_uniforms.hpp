@@ -13,7 +13,7 @@ inline constexpr int kDiskOccluders = 8;
 inline constexpr int kDiskThermalCount = 16;
 inline constexpr int kDiskSources = 4;
 // The view the shader takes for a thick disk in scattered light, after DiskView.
-inline constexpr int kDiskViewThick = 3;
+inline constexpr int kDiskViewThick = 4;
 
 // Layout shared with shaders/disk.hlsli. Lengths are in au, axes are ICRF, and
 // positions are relative to the star unless said otherwise.
@@ -23,8 +23,11 @@ struct DiskUniforms {
     glm::vec4 params{0.0f};      // radiance at the reference (0: nothing to draw), gamma, reference, components
     glm::vec4 range{0.0f};       // ln inner, ln outer, outer, occluders
     glm::vec4 phase_g{0.0f};     // w: a source's least size (radians)
-    glm::vec4 phase_w{0.0f};
+    glm::vec4 phase_w{0.0f};     // w: a thick disk's gain on the first scattering
     glm::vec4 tint{1.0f};        // millimeter view's false color (linear); w: sources
+    glm::vec4 gas{0.0f};         // sqrt(GM) in km/s sqrt(au), full color's speed, clumps, unused
+    std::array<glm::vec4, kDiskMaxClumps> clump{};       // cos, sin of its azimuth, radius, radial sigma
+    std::array<glm::vec4, kDiskMaxClumps> clump_shape{}; // sigma ahead, tail behind (radians), gain, unused
     std::array<glm::vec4, kDiskMaxComponents> axis_x{}; // w: sigma
     std::array<glm::vec4, kDiskMaxComponents> axis_y{}; // w: second sigma
     std::array<glm::vec4, kDiskMaxComponents> axis_z{}; // w: second Gaussian's share

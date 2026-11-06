@@ -117,11 +117,14 @@ SDL_GPUTexture* create_texture_rgba8(SDL_GPUDevice* device, const uint8_t* rgba,
     return create_and_upload(device, rgba, width, height, mipmaps, srgb);
 }
 
-SDL_GPUTexture* create_float_texture(SDL_GPUDevice* device, const float* values, uint32_t width, uint32_t height)
+namespace {
+
+SDL_GPUTexture* create_half_float_texture(SDL_GPUDevice* device, const float* values, uint32_t width, uint32_t height,
+                                          uint32_t channels)
 {
     SDL_GPUTextureCreateInfo info = {};
     info.type = SDL_GPU_TEXTURETYPE_2D;
-    info.format = SDL_GPU_TEXTUREFORMAT_R16_FLOAT;
+    info.format = channels == 2 ? SDL_GPU_TEXTUREFORMAT_R16G16_FLOAT : SDL_GPU_TEXTUREFORMAT_R16_FLOAT;
     info.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
     info.width = width;
     info.height = height;
@@ -134,14 +137,14 @@ SDL_GPUTexture* create_float_texture(SDL_GPUDevice* device, const float* values,
         return nullptr;
     }
     const SDL_GPUTransferBufferCreateInfo transfer_info = {.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-                                                           .size = width * height * 2, .props = 0};
+                                                           .size = width * height * channels * 2, .props = 0};
     SDL_GPUTransferBuffer* transfer = SDL_CreateGPUTransferBuffer(device, &transfer_info);
     if (!transfer) {
         SDL_ReleaseGPUTexture(device, texture);
         return nullptr;
     }
     auto* texels = static_cast<uint16_t*>(SDL_MapGPUTransferBuffer(device, transfer, false));
-    for (uint32_t i = 0; i < width * height; ++i) {
+    for (uint32_t i = 0; i < width * height * channels; ++i) {
         texels[i] = glm::packHalf1x16(values[i]);
     }
     SDL_UnmapGPUTransferBuffer(device, transfer);
@@ -160,6 +163,18 @@ SDL_GPUTexture* create_float_texture(SDL_GPUDevice* device, const float* values,
     SDL_SubmitGPUCommandBuffer(cmd);
     SDL_ReleaseGPUTransferBuffer(device, transfer);
     return texture;
+}
+
+} // namespace
+
+SDL_GPUTexture* create_float_texture(SDL_GPUDevice* device, const float* values, uint32_t width, uint32_t height)
+{
+    return create_half_float_texture(device, values, width, height, 1);
+}
+
+SDL_GPUTexture* create_float2_texture(SDL_GPUDevice* device, const float* values, uint32_t width, uint32_t height)
+{
+    return create_half_float_texture(device, values, width, height, 2);
 }
 
 SDL_GPUTexture* create_profile_texture(SDL_GPUDevice* device, const std::vector<glm::vec2>& samples)

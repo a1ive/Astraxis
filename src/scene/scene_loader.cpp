@@ -1610,8 +1610,9 @@ void Loader::parse(const toml::table& root, Scene& out)
         }
         if (const toml::table* c = (*t)["comet"].as_table()) {
             const std::string comet_ctx = ctx + " comet";
-            if (body.kind != BodyKind::Planet || body.parent != 0) {
-                fail(comet_ctx, "a comet must be a child of the root (the sun, or the planet the scene is centered on)");
+            const bool around_star = body.parent >= 0 && out.bodies[static_cast<size_t>(body.parent)].kind == BodyKind::Star;
+            if (body.kind != BodyKind::Planet || (body.parent != 0 && !around_star)) {
+                fail(comet_ctx, "a comet must be a child of a star or of the root (the sun, or the planet the scene is centered on)");
             }
             Body::Comet& comet = body.comet;
             comet.enabled = true;
@@ -1909,8 +1910,9 @@ void Loader::parse(const toml::table& root, Scene& out)
             e.dust_visible = (*t)["dust_visible"].value<bool>().value_or(false);
             e.nebula_infrared = (*t)["nebula_infrared"].value<bool>().value_or(false);
             e.disk_millimeter = (*t)["disk_millimeter"].value<bool>().value_or(false);
-            if (e.nebula_infrared && e.disk_millimeter) {
-                fail(ctx, "nebula_infrared and disk_millimeter are different views");
+            e.disk_gas = (*t)["disk_gas"].value<bool>().value_or(false);
+            if ((e.nebula_infrared ? 1 : 0) + (e.disk_millimeter ? 1 : 0) + (e.disk_gas ? 1 : 0) > 1) {
+                fail(ctx, "nebula_infrared, disk_millimeter and disk_gas are different views");
             }
             e.aurora_visible = (*t)["aurora_visible"].value<bool>().value_or(false);
             e.aurora_ultraviolet = (*t)["aurora_ultraviolet"].value<bool>().value_or(false);
@@ -2404,6 +2406,31 @@ void Loader::parse(const toml::table& root, Scene& out)
                 s.age_s = n.t_reference_tdb - n.t_ejection_tdb;
                 s.kick_share = get_double_or(*stream, "kick_share", 0.0);
                 s.weight_index = get_double_or(*stream, "weight_index", 0.0);
+                if (stream->contains("ism_h_per_cm3")) {
+                    // The wind's velocity: along a position angle and 90 deg on from it.
+                    double wind[2];
+                    get_array(*stream, "ism_velocity_au_yr", stream_ctx, wind, 2, 2);
+                    const double pa = get_double(*stream, "ism_pa_deg", stream_ctx) * kDegToRad;
+                    // A plane's first axis lies on the sky at position angle node_deg.
+                    const double node_rad = plane.node_deg * kDegToRad;
+                    const glm::dvec3 toward_node = visual_orbit_frame(plane)[0];
+                    VisualOrbit turned = plane;
+                    turned.node_deg += 90.0;
+                    const glm::dvec3 ahead_on_sky = visual_orbit_frame(turned)[0];
+                    const auto on_sky = [&](double angle) {
+                        return std::cos(angle - node_rad) * toward_node + std::sin(angle - node_rad) * ahead_on_sky;
+                    };
+                    constexpr double kAuYrToKmS = kAuKm / (365.25 * 86400.0);
+                    s.ism_velocity_km_s = kAuYrToKmS * (wind[0] * on_sky(pa) + wind[1] * on_sky(pa + 0.5 * kPi));
+                    const double h = get_double(*stream, "ism_h_per_cm3", stream_ctx);
+                    const double luminosity = get_double(*stream, "luminosity_solar", stream_ctx);
+                    const double q = get_double(*stream, "radiation_q", stream_ctx);
+                    if (h <= 0.0 || luminosity <= 0.0 || q <= 0.0) {
+                        fail(stream_ctx, "needs positive ism_h_per_cm3, luminosity_solar and radiation_q");
+                    }
+                    s.ism_drag_per_km = dust_stream_drag_per_km(s.gm_km3_s2, luminosity, q, h);
+                    s.ism_beta_index = get_double_or(*stream, "ism_beta_index", s.ism_beta_index);
+                }
                 const double patch_km = get_double(*stream, "patch_sigma_au", stream_ctx) * kAuKm;
                 if (s.gm_km3_s2 <= 0.0 || s.radius_km <= 0.0 || s.beta_hi <= s.beta_lo || s.kick_share < 0.0 ||
                     patch_km <= 0.0) {
@@ -2458,6 +2485,16 @@ void Loader::parse_disk(const toml::table& t, Scene& out) const
     disk.display_gamma = get_double_or(t, "display_gamma", disk.display_gamma);
     disk.display_adapt_au = get_double_or(t, "display_adapt_au", disk.display_adapt_au);
     disk.thick = t["thick"].value<bool>().value_or(false);
+    disk.albedo = get_double_or(t, "albedo", 0.0);
+    disk.asymmetry = get_double_or(t, "asymmetry", 0.0);
+    if (disk.albedo < 0.0 || disk.albedo >= 1.0 || std::abs(disk.asymmetry) >= 1.0 || (disk.albedo > 0.0 && !disk.thick)) {
+        fail(ctx, "albedo must be in 0..1 and asymmetry in -1..1, and an albedo needs a thick disk");
+    }
+    disk.gas_velocity_km_s = get_double_or(t, "gas_velocity_km_s", disk.gas_velocity_km_s);
+    disk.gas_display_gain = get_double_or(t, "gas_display_gain", disk.gas_display_gain);
+    if (disk.gas_velocity_km_s <= 0.0 || disk.gas_display_gain <= 0.0) {
+        fail(ctx, "gas_velocity_km_s and gas_display_gain must be positive");
+    }
     if (!(disk.inner_au > 0.0) || disk.outer_au <= disk.inner_au || disk.extent_au <= 0.0 ||
         disk.display_reference_au <= disk.inner_au || disk.display_reference_au >= disk.outer_au ||
         disk.display_gamma <= 0.0 || disk.display_gamma > 1.0 || disk.display_adapt_au <= 0.0) {
@@ -2500,6 +2537,7 @@ void Loader::parse_disk(const toml::table& t, Scene& out) const
         c.gain[static_cast<size_t>(DiskView::Scattered)] = get_double_or(*ct, "scattered", 0.0);
         c.gain[static_cast<size_t>(DiskView::Infrared)] = get_double_or(*ct, "infrared", 0.0);
         c.gain[static_cast<size_t>(DiskView::Millimeter)] = get_double_or(*ct, "millimeter", 0.0);
+        c.gain[static_cast<size_t>(DiskView::Gas)] = get_double_or(*ct, "gas", 0.0);
         const glm::vec3 color = parse_color(*ct, "color", cctx, glm::vec3(1.0f));
         c.color = srgb_to_linear(glm::dvec3(color));
         c.color /= std::max({c.color.x, c.color.y, c.color.z, 1e-6});
@@ -2508,7 +2546,8 @@ void Loader::parse_disk(const toml::table& t, Scene& out) const
         c.temperature_index = get_double(*ct, "temperature_index", cctx);
         if (c.sigma_au <= 0.0 || c.sigma2_au <= 0.0 || c.share2 < 0.0 || c.share2 > 1.0 || c.flare_radius_au <= 0.0 ||
             c.temperature_k <= 0.0 || c.temperature_radius_au <= 0.0 || c.temperature_index < 0.0 ||
-            c.gain[0] < 0.0 || c.gain[1] < 0.0 || c.gain[2] < 0.0 || std::max({c.gain[0], c.gain[1], c.gain[2]}) <= 0.0) {
+            c.gain[0] < 0.0 || c.gain[1] < 0.0 || c.gain[2] < 0.0 || c.gain[3] < 0.0 ||
+            std::max({c.gain[0], c.gain[1], c.gain[2], c.gain[3]}) <= 0.0) {
             fail(cctx, "needs positive sizes and temperature, share2 in 0..1, non-negative view gains and at "
                        "least one of them");
         }
@@ -2520,16 +2559,31 @@ void Loader::parse_disk(const toml::table& t, Scene& out) const
             if (sigma <= 0.0 || sigma_out <= 0.0) {
                 fail(cctx, "ring_sigma_au and ring_sigma_out_au must be positive");
             }
+            // A second ring on top of it, as a share of the first's peak.
+            const double center2 = get_double_or(*ct, "ring2_center_au", 0.0);
+            const double sigma2 = get_double_or(*ct, "ring2_sigma_au", 1.0);
+            const double share = get_double_or(*ct, "ring2_share", 0.0);
+            if (share < 0.0 || sigma2 <= 0.0) {
+                fail(cctx, "ring2_share must not be negative and ring2_sigma_au must be positive");
+            }
             for (int i = 0; i < kDiskRadialCount; ++i) {
                 const double radius = disk_radial_au(disk, i);
                 const double x = (radius - center) / (radius < center ? sigma : sigma_out);
-                c.column[static_cast<size_t>(i)] = std::exp(-0.5 * x * x);
+                const double x2 = (radius - center2) / sigma2;
+                c.column[static_cast<size_t>(i)] = std::exp(-0.5 * x * x) + share * std::exp(-0.5 * x2 * x2);
             }
         } else {
             const toml::array* radii = (*ct)["radial_au"].as_array();
             const toml::array* column = (*ct)["column"].as_array();
             if (!radii || !column || radii->size() < 2 || radii->size() != column->size()) {
                 fail(cctx, "needs ring_center_au and ring_sigma_au, or radial_au and column of the same length");
+            }
+            // In an optically thin line the light per column goes as exp(-E / T) / T,
+            // E the upper level's energy over k.
+            const toml::array* line_t = (*ct)["line_temperature_k"].as_array();
+            const double line_upper = get_double_or(*ct, "line_upper_k", 0.0);
+            if (line_t && line_t->size() != radii->size()) {
+                fail(cctx, "line_temperature_k must be as long as radial_au");
             }
             std::vector<double> ln_r;
             std::vector<double> ln_c;
@@ -2539,8 +2593,16 @@ void Loader::parse_disk(const toml::table& t, Scene& out) const
                 if (!r || !v || *r <= 0.0 || *v <= 0.0 || (k > 0 && std::log(*r) <= ln_r.back())) {
                     fail(cctx, "radial_au must increase and column be positive");
                 }
+                double per_column = 1.0;
+                if (line_t) {
+                    const auto temperature = (*line_t)[k].value<double>();
+                    if (!temperature || *temperature <= 0.0) {
+                        fail(cctx, "line_temperature_k must be positive");
+                    }
+                    per_column = std::exp(-line_upper / *temperature) / *temperature;
+                }
                 ln_r.push_back(std::log(*r));
-                ln_c.push_back(std::log(*v));
+                ln_c.push_back(std::log(*v * per_column));
             }
             for (int i = 0; i < kDiskRadialCount; ++i) {
                 const double x = std::log(disk_radial_au(disk, i));
@@ -2567,8 +2629,37 @@ void Loader::parse_disk(const toml::table& t, Scene& out) const
         if (!first) {
             fail(ctx, "a thick disk needs a component with tau_per_column");
         }
+        disk_apply_similarity(disk);
         disk_build_star_depth(disk);
+        disk_build_diffuse(disk);
     }
+    if (const toml::node* node = t.get("clumps")) {
+        const toml::array* clumps = node->as_array();
+        if (!clumps || clumps->size() > kDiskMaxClumps) {
+            fail(ctx, "clumps must be at most " + std::to_string(kDiskMaxClumps) + " tables ([[disk.clumps]])");
+        }
+        for (const auto& entry : *clumps) {
+            const toml::table* ct = entry.as_table();
+            if (!ct) {
+                fail(ctx, "clumps must be tables");
+            }
+            DiskClump clump;
+            clump.radius_au = get_double(*ct, "radius_au", ctx);
+            clump.sigma_au = get_double(*ct, "sigma_au", ctx);
+            clump.azimuth_deg = get_double(*ct, "azimuth_deg", ctx);
+            clump.epoch_tdb = parse_time(*ct, "epoch", ctx);
+            clump.period_s = get_double(*ct, "period_yr", ctx) * 365.25 * 86400.0;
+            clump.sigma_deg = get_double(*ct, "sigma_deg", ctx);
+            clump.tail_deg = get_double(*ct, "tail_deg", ctx);
+            clump.gain = get_double(*ct, "gain", ctx);
+            if (clump.radius_au <= 0.0 || clump.sigma_au <= 0.0 || clump.period_s <= 0.0 || clump.sigma_deg <= 0.0 ||
+                clump.tail_deg <= 0.0 || clump.gain <= 0.0) {
+                fail(ctx, "a clump needs positive sizes, period and gain");
+            }
+            disk.clumps.push_back(clump);
+        }
+    }
+    disk.gas_star_gm_km3_s2 = out.bodies[static_cast<size_t>(disk.center)].body_gm_km3_s2;
     if (const toml::node* node = t.get("sources")) {
         const toml::array* sources = node->as_array();
         if (!sources || sources->size() > 4) {
