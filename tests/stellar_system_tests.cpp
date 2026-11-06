@@ -2305,6 +2305,136 @@ void test_beta_pictoris_scene()
     check(!load_scene_string(base + "[disk]\ncenter = \"S\"\n", "bad_disk", bad, &error), "rejects a disk with no sizes");
 }
 
+void test_hd206893_scene()
+{
+    Scene scene = load_scene_or_die("hd206893.toml");
+    check_model_sky(scene, "HD 206893 model sky");
+    const int star = scene.find("HD 206893");
+    const int companion_b = scene.find("HD 206893 B");
+    const int c = scene.find("HD 206893 c");
+    const int moon = scene.find("HD 206893 B I (candidate)");
+    check(star >= 0 && companion_b >= 0 && c >= 0 && moon >= 0, "HD 206893: bodies");
+    const glm::dvec3 away = unit_toward(326.34126, -12.78335);
+    const glm::dvec3 north = glm::normalize(glm::dvec3(0, 0, 1) - away * away.z);
+    const glm::dvec3 east = glm::normalize(glm::cross(glm::dvec3(0, 0, 1), away));
+    const double au = kAuKm;
+    const double parallax = 24.5252; // mas [KR25]
+    const auto relative = [&](int body, double t) {
+        scene.update(t);
+        return scene.bodies[static_cast<size_t>(body)].icrf_position - scene.bodies[static_cast<size_t>(star)].icrf_position;
+    };
+
+    // The companions against GRAVITY: [KR25] Table 1, and for c's first epoch [HI23]
+    // Table 2 (the first row of c in [KR25] is 27 mas from every orbit).
+    struct Astrometry {
+        int body;
+        double mjd, ra_mas, dec_mas;
+    };
+    const Astrometry positions[] = {
+        {companion_b, 58681.392, 130.75, 198.12}, {companion_b, 59453.093, 20.06, 205.83},
+        {companion_b, 60127.218, -79.30, 176.07}, {companion_b, 60461.388, -125.29, 149.83},
+        {companion_b, 60834.317, -170.50, 112.56}, {c, 59454.12, -76.56, -82.74},
+        {c, 59485.110, -72.11, -85.32},            {c, 59504.061, -69.30, -86.73},
+        {c, 59721.403, -32.35, -93.50},
+    };
+    double worst = 0.0;
+    for (const Astrometry& p : positions) {
+        const glm::dvec3 r = relative(p.body, tdb_from_jd_tdb(p.mjd + 2400000.5));
+        worst = std::max(worst, std::hypot(glm::dot(r, east) / au * parallax - p.ra_mas,
+                                           glm::dot(r, north) / au * parallax - p.dec_mas));
+    }
+    std::printf("  info: HD 206893 companions against GRAVITY, worst %.2f mas\n", worst);
+    check(worst < 2.5, "HD 206893 B and c stand where GRAVITY saw them (mas)", worst);
+
+    // Periods and the mutual inclination [KR25 Table 2].
+    const auto orbit_normal = [&](int body) {
+        const double t = tdb_from_jd_tdb(2460000.5);
+        const State s = scene.icrf_state_at(body, t);
+        const State center = scene.icrf_state_at(star, t);
+        return glm::normalize(glm::cross(s.position - center.position, s.velocity - center.velocity));
+    };
+    const double mutual = std::acos(std::clamp(glm::dot(orbit_normal(companion_b), orbit_normal(c)), -1.0, 1.0)) * kRadToDeg;
+    std::printf("  info: HD 206893 mutual inclination of B and c %.2f deg\n", mutual);
+    check(mutual < 3.3, "B and c nearly coplanar [KR25: 1.8 +1.5 -0.7 deg]", mutual);
+    // A return to the same place on the sky after a period.
+    const auto returns_after = [&](int body, double years) {
+        const double t0 = tdb_from_jd_tdb(2460000.5);
+        return glm::length(relative(body, t0 + years * 365.25 * 86400.0) - relative(body, t0)) / au;
+    };
+    check(returns_after(c, 6.294) < 0.1, "c's period, 6.28 yr [KR25]", returns_after(c, 6.294));
+    check(returns_after(companion_b, 30.458) < 0.3, "B's period, 30.5 yr [KR25]", returns_after(companion_b, 30.458));
+
+    // The disk [MA20].
+    const Disk& disk = scene.disk;
+    check(disk.enabled() && !disk.thick && disk.components.size() == 1, "HD 206893: a thin disk");
+    const DiskComponent& belt = disk.components[0];
+    const glm::dvec3 normal = belt.to_icrf[2];
+    const double from_face_on = std::acos(std::abs(glm::dot(normal, away))) * kRadToDeg;
+    check(std::abs(from_face_on - 40.0) < 0.01, "40 deg from face-on [MA20]", from_face_on);
+    const glm::dvec3 node = belt.to_icrf[0];
+    const double position_angle = std::atan2(glm::dot(node, east), glm::dot(node, north)) * kRadToDeg;
+    check(std::abs(position_angle - 61.0) < 0.01, "PA 61 deg [MA20]", position_angle);
+    // SE is the near side [MA20 Sect. 4], which the companions' i > 90 agrees with.
+    const glm::dvec3 southeast = glm::normalize(east - north);
+    const glm::dvec3 in_plane = glm::normalize(southeast - normal * glm::dot(southeast, normal));
+    check(glm::dot(in_plane, away) < 0.0, "the SE side is near [MA20]", glm::dot(in_plane, away));
+    const double disk_b = std::acos(glm::dot(normal, orbit_normal(companion_b))) * kRadToDeg;
+    std::printf("  info: HD 206893 belt to B's orbit %.1f deg\n", disk_b);
+    check(disk_b < 5.0, "the belt lies in the companions' plane, within ALMA's errors [MA20, KR25]", disk_b);
+    // Its height, 5% of r.
+    check(std::abs(belt.sigma_au * disk_flare(belt, 100.0) - 5.0) < 0.01, "the height at 100 au [MA20]", belt.sigma_au * disk_flare(belt, 100.0));
+
+    // Straight on at 0.88 mm: the peaks and the gap of [MA20] Sect. 2.1.1.
+    const auto brightness = [&](double r) {
+        return disk_radiance(disk, DiskView::Millimeter, node * r + normal * 500.0, -normal);
+    };
+    double outer_radius = 0.0, outer_peak = 0.0, inner_radius = 0.0, inner_peak = 0.0, low_radius = 0.0, low = 1e30;
+    for (double r = 20.0; r < 200.0; r += 0.5) {
+        const double v = brightness(r);
+        if (r < 60.0 && v > inner_peak) {
+            inner_peak = v;
+            inner_radius = r;
+        }
+        if (r > 80.0 && v > outer_peak) {
+            outer_peak = v;
+            outer_radius = r;
+        }
+        if (r > 50.0 && r < 100.0 && v < low) {
+            low = v;
+            low_radius = r;
+        }
+    }
+    std::printf("  info: HD 206893 at 0.88 mm: peaks at %.0f and %.0f au, gap at %.0f au, %.4f of the peak\n", inner_radius, outer_radius,
+                low_radius, low / outer_peak);
+    check(std::abs(inner_radius - 40.0) < 6.0, "the inner peak near 40 au [MA20]", inner_radius);
+    check(std::abs(outer_radius - 110.0) < 8.0, "the outer peak near 110 au [MA20]", outer_radius);
+    check(std::abs(low_radius - 74.0) < 1.5, "the gap at 74 au [MA20]", low_radius);
+    check(low < 0.01 * outer_peak, "the gap empty at its center, as fitted [MA20]", low / outer_peak);
+    // Half depth of the depletion at +-13.5 au: 27 au FWHM, before the slopes.
+    const double power_law_at_60 = std::pow(60.5 / 114.0, 0.8);
+    const double depletion_at_half = disk_column(disk, belt, 60.5) / power_law_at_60;
+    check(std::abs(depletion_at_half - 0.5) < 0.05, "the gap's half depth 13.5 au from its center [MA20]", depletion_at_half);
+    check(brightness(30.0) > 0.2 * outer_peak && brightness(180.0) > 0.05 * outer_peak, "emission from 30 to 180 au [MA20]",
+          brightness(180.0) / outer_peak);
+    check(brightness(14.0) < 1e-3 * outer_peak, "nothing well inside the inner edge [MA20]", brightness(14.0) / outer_peak);
+
+    // The candidate moon [KR25]: 0.76 yr at 0.22 au, seen in one event only; B would
+    // wobble by a share of it.
+    const Body& moon_body = scene.bodies[static_cast<size_t>(moon)];
+    const double moon_period = kTwoPi * std::sqrt(std::pow(0.22 * au, 3.0) / scene.bodies[static_cast<size_t>(companion_b)].gm_km3_s2) / (365.25 * 86400.0);
+    check(std::abs(moon_period - 0.76) < 0.02, "the moon's period [KR25]", moon_period);
+    check(moon_body.event >= 0, "the moon shows in its event only", moon_body.event);
+    const double wobble = 0.22 * moon_body.body_gm_km3_s2 / scene.bodies[static_cast<size_t>(companion_b)].gm_km3_s2 * parallax;
+    std::printf("  info: HD 206893 B would wobble by %.3f mas about its moon\n", wobble);
+    check(wobble > 0.05 && wobble < 0.2, "within GRAVITY's reach [KR25]", wobble);
+
+    int millimeter = 0;
+    for (const SceneEvent& e : scene.events) {
+        millimeter += e.disk_millimeter ? 1 : 0;
+    }
+    check(millimeter == 2, "HD 206893: events at millimeter wavelengths", millimeter);
+}
+
 void test_pds70_scene()
 {
     Scene scene = load_scene_or_die("pds70.toml");
@@ -3046,6 +3176,7 @@ void run_stellar_system_tests()
     test_alpha_centauri_scene();
     test_beta_pictoris_scene();
     test_pds70_scene();
+    test_hd206893_scene();
     test_trappist1_scene();
     test_kepler223_scene();
     test_kepler47_scene();

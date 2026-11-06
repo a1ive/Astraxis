@@ -32,6 +32,7 @@ Astraxis is an astronomy background app with planets, spacecraft and stars anima
 | Gargantua (Interstellar) | The film's fictional black hole, and a tribute model of the ship Endurance with its turning ring |
 | Kerbol System (Kerbal Space Program) | A tribute to the game's fictional solar system, on its own orbits, clock and calendar |
 | PDS 70 | A young star with two planets still growing inside the gap of an opaque disk, the glow of their accretion, a disk around planet c in millimeter light, its gas in the CO line colored by the disk's rotation, and a third candidate |
+| HD 206893 | A debris belt split by a gap, seen by ALMA, with the reddest substellar companion known and a planet near the deuterium-burning limit inside it, and a candidate moon |
 | TRAPPIST-1 | Seven Earth-sized planets in a resonant chain |
 | Kepler-223 | Four sub-Neptunes in a 3:4:6:8 resonant chain |
 | Kepler-47 | Three planets orbiting an eclipsing binary |

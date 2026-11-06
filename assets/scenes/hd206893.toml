@@ -1,0 +1,327 @@
+# HD 206893: an F5 star 41 pc away with a wide belt of debris split by a gap, and two
+# companions inside it on nearly the same plane: B, the reddest substellar companion
+# known, and c, straddling the limit where deuterium burns.
+#
+# The companions are nested two-body orbits (Jacobi coordinates, as fitted in [KR25]);
+# their pull on each other is ignored. The disk (scene/disk.hpp) is axisymmetric and
+# optically thin, [MA20]'s fit to ALMA. No telescope has clearly seen it in scattered
+# light, so the default view is a model.
+#
+# [KR25] Kral et al. 2025 (arXiv:2511.20091). Table 2: a_B = 10.75 au, e = 0.069, i =
+#        142.0, omega = 102, Omega = 63.8, tau = 0.133; a_c = 3.74, e = 0.283, i = 142.5,
+#        omega = 27, Omega = 65.4, tau = 0.694; parallax 24.5252 mas; M_B = 19.5, M_c =
+#        11.1 M_Jup, M_star = 1.31 M_sun; mutual inclination 1.8 deg. Jacobi coordinates.
+#        The epoch of tau is not stated; MJD 59000 alone fits Table 1 (tests). The moon
+#        candidate B I: a = 0.22 au, 0.76 yr, 0.4 M_Jup, inclination and node near 90,
+#        95% upper limit 0.8 M_Jup, "could be due to systematics".
+# [HI23] Hinkley et al. 2023, A&A 671, L5 (arXiv:2208.04867). The discovery of c at
+#        GRAVITY, guided by HARPS and the Gaia proper motion anomaly, Sept. 2021. Table 2,
+#        astrometry (their first epoch of c stands against [KR25] Table 1's, which is off
+#        by 27 mas from the orbit). Table 3: R_B = 1.25, R_c = 1.46 R_Jup; T 1429 and 1182
+#        K. c is brighter than its mass allows without deuterium burning.
+# [MA20] Marino et al. 2020, MNRAS 498, 1319 (arXiv:2010.12582). Table 2: r_min = 28,
+#        r_c = 114 au, slopes 0.8 and -3.9, gap at 74 +- 3 au, 27 +- 5 au FWHM and fixed
+#        as empty; PA 61, i = 40 from face-on; height fixed at 5% of r. Sect. 2.1.1,
+#        emission from 30 to 180 au, peak near 110, minimum near 70, inner peak near 40.
+#        Stellar T 6500 K, R 1.3 R_sun, L 2.9 L_sun. Sect. 4, SE taken as the near side.
+#        Sect. 3.1: the gap implies 0.9 M_Jup at 74 au if a planet cleared it. No dust
+#        seen around B, no CO. ALMA 2017-2019.
+# [MI17] Milli et al. 2017, A&A 597, L2 (arXiv:1612.00333): B with SPHERE on 2015 Oct 5;
+#        "never detected in scattered light" but for a putative low-S/N signal.
+# [BE26] arXiv:2601.02156. JWST/MIRI, 2023 June 19: no planet in the gap, under 4 M_Jup
+#        at 69 au (Table 4; Imaz Blanco et al. 2023's wider gap, 40 au), 1.6-4 M_Jup if a
+#        single planet cleared that; B and c too close to the star for MIRI; the secular
+#        resonance of B and c lies at 21 au, inside the disk, so does not explain the gap.
+# [KA21] Kammerer et al. 2021, A&A 652, A57 (arXiv:2106.08249): "the reddest known
+#        substellar companion".
+# [HS15] Hedman & Stark 2015, ApJ 811, 67 (arXiv:1508.00261), Table 7: three
+#        Henyey-Greenstein functions fitted to Saturn's G ring, borrowed.
+# [HYG]  assets/stars/hyg.csv (HIP 107412): RA, Dec.
+#
+# [CAP]  Event captions: from the sources above.
+#
+# Derived (tools/hd206893/scene_numbers.py): GM = mass * GM_sun (JPL DE440) or mass *
+# GM_Jup (JUP365), the barycenters' scales, the periods P_B = 30.46 yr, P_c = 6.29 yr, the
+# periastrons, the disk's table. Distance 1000 / 24.5252 mas = 40.77 pc. The dust's
+# temperature is a black body's at L = 2.9 L_sun [MA20].
+# [MA20]'s inner edge, a cut at 28 au they can only place between 14 and 40 au, falls off
+# here as a 3 au Gaussian, and their fixed outer edge at 250 au as a 12 au one. Assumed: the companions' colors; the scattered light's phase function, and that small
+# grains follow the same column as [MA20]'s large ones; the moon's size, phase and
+# circular orbit ([KR25] gives no phase).
+#
+# The sky is a model of the Milky Way as seen from here (tools/sky/make_galaxy_sky.py,
+# assets/sky/SOURCES.md): 41 pc is past where the star catalog is complete. Its stars and
+# dust clouds are statistical, not real ones.
+#
+# Checks (tests/stellar_system_tests.cpp): the companions against [KR25] and [HI23]'s
+# GRAVITY positions, the periods and mutual inclination [KR25], the disk's orientation,
+# gap and peaks [MA20], which side is near [MA20], and the candidate moon [KR25].
+
+name = "HD 206893"
+
+[sky]
+viewer_ra_dec_distance_pc = [326.34126, -12.78335, 40.77]   # [HYG], [KR25]
+milky_way = "sky/hd206893.jpg"
+stars = "sky/hd206893_stars.csv"
+
+[view]
+focus = "HD 206893"
+distance_km = 4.5e10           # 300 au: the belt across the screen
+start = "now"
+warp = 15778800.0              # half a year per second: B's orbit in a minute
+up = "orbit_normal:HD 206893 B"
+pitch_deg = 35.0
+
+[disk]
+center = "HD 206893"
+sky_ra_dec_deg = [326.34126, -12.78335]
+inner_au = 5.0
+outer_au = 300.0
+extent_au = 180.0              # [MA20]
+phase_g = [0.995, 0.665, 0.035] # [HS15]
+phase_w = [0.643, 0.176, 0.181]
+display_reference_au = 114.0   # the peak of the column [MA20]
+display_gamma = 0.4            # by eye: seen nearly face-on the path through it is short
+display_adapt_au = 200.0       # by eye
+
+[[disk.components]]
+name = "Belt"
+node_deg = 61.0                # [MA20]
+i_deg = 140.0                  # 40 from face-on [MA20], turning as B and c do [KR25]
+sigma_au = 0.05                # with the flare below, 5% of r [MA20]
+flare_radius_au = 1.0
+flare_index = 1.0
+scattered = 1.0                # assumed, see above
+millimeter = 1.0
+color = "#fff4e4"              # a 6,500 K star's light, by eye
+temperature_k = 36.3           # black body [MA20]
+temperature_radius_au = 100.0
+temperature_index = 0.5
+# tools/hd206893/scene_numbers.py
+radial_au = [5, 14, 16, 18, 20, 22, 24, 26, 28, 30, 34, 38, 42, 46, 50, 54, 58, 62, 64, 66, 68, 70, 72, 74, 76, 78, 80, 82, 84, 86, 90, 94, 98, 102, 106, 110, 114, 118, 122, 126, 130, 142, 154, 166, 178, 190, 202, 214, 226, 238, 250, 256, 262, 268, 274, 280, 290, 300]
+column = [1e-06, 6.068e-06, 0.0001091, 0.001257, 0.009288, 0.044, 0.1337, 0.2603, 0.3251, 0.3435, 0.379, 0.4122, 0.4407, 0.4593, 0.4593, 0.4299, 0.3624, 0.2591, 0.1993, 0.1395, 0.08464, 0.03997, 0.01045, 1e-06, 0.01092, 0.04358, 0.09639, 0.166, 0.2478, 0.3366, 0.5151, 0.6698, 0.787, 0.8685, 0.9243, 0.9648, 0.9977, 0.8736, 0.7675, 0.6768, 0.5992, 0.4246, 0.3095, 0.2309, 0.1759, 0.1364, 0.1074, 0.08577, 0.06933, 0.05666, 0.04677, 0.03763, 0.02363, 0.01158, 0.004427, 0.001321, 0.0001014, 3.902e-06]
+
+# Jacobi coordinates [KR25]: B around the star and c's center of mass, c around the
+# star. The system's center of mass does not move.
+[[bodies]]
+name = "HD 206893 system"
+kind = "barycenter"
+
+[[bodies]]
+name = "HD 206893 A+c"
+parent = "HD 206893 system"
+kind = "barycenter"
+trail = "none"
+[bodies.orbit]
+scale = -0.013899672           # -M_B / M
+type = "visual_orbit"
+gm_km3_s2 = 1.77729904e11      # M_star + M_B + M_c
+a_au = 10.75
+e = 0.069
+i_deg = 142.0
+node_deg = 63.8
+arg_peri_deg = 102.0
+t_peri_jd_tdb = 2460480.080    # MJD 59000 + 0.133 P
+sky_ra_dec_deg = [326.34126, -12.78335]
+
+[[bodies]]
+name = "HD 206893 B"
+parent = "HD 206893 system"
+radii_km = [89365.0]           # 1.25 R_Jup [HI23]
+body_gm_km3_s2 = 2.47038737e9  # 19.5 M_Jup [KR25]
+gm_km3_s2 = 2.52106198e9       # with the candidate moon
+color = "#b4563a"              # artistic: the reddest known [KA21]
+orbit_color = "#ff9a7a"
+[bodies.orbit]
+scale = 0.986100328            # (M_star + M_c) / M
+type = "visual_orbit"
+gm_km3_s2 = 1.77729904e11
+a_au = 10.75
+e = 0.069
+i_deg = 142.0
+node_deg = 63.8
+arg_peri_deg = 102.0
+t_peri_jd_tdb = 2460480.080
+sky_ra_dec_deg = [326.34126, -12.78335]
+
+[[bodies]]
+name = "HD 206893"
+parent = "HD 206893 A+c"
+kind = "star"
+radii_km = [904473.0]          # 1.3 R_sun [MA20]
+body_gm_km3_s2 = 1.73853296e11 # 1.31 M_sun [KR25]
+temperature_k = 6500.0         # [MA20]
+luminosity_solar = 2.9         # [MA20]
+trail = "none"
+[bodies.orbit]
+scale = -0.008023647           # -M_c / (M_star + M_c)
+type = "visual_orbit"
+gm_km3_s2 = 1.75259517e11      # M_star + M_c
+a_au = 3.74
+e = 0.283
+i_deg = 142.5
+node_deg = 65.4
+arg_peri_deg = 27.0
+t_peri_jd_tdb = 2460595.939    # MJD 59000 + 0.694 P
+sky_ra_dec_deg = [326.34126, -12.78335]
+
+[[bodies]]
+name = "HD 206893 c"
+parent = "HD 206893 A+c"
+radii_km = [104378.0]          # 1.46 R_Jup [HI23]
+body_gm_km3_s2 = 1.40622050e9  # 11.1 M_Jup [KR25]
+color = "#c07a52"              # artistic
+orbit_color = "#ffc08a"
+[bodies.orbit]
+scale = 0.991976353            # M_star / (M_star + M_c)
+type = "visual_orbit"
+gm_km3_s2 = 1.75259517e11
+a_au = 3.74
+e = 0.283
+i_deg = 142.5
+node_deg = 65.4
+arg_peri_deg = 27.0
+t_peri_jd_tdb = 2460595.939
+sky_ra_dec_deg = [326.34126, -12.78335]
+
+# Only in its event. [KR25]'s period and mass, and the orientation their fit peaks at;
+# the phase is arbitrary. B does not wobble in this model; it should by 0.11 mas (tests).
+[[bodies]]
+name = "HD 206893 B I (candidate)"
+parent = "HD 206893 B"
+radii_km = [71492.0]           # 1 R_Jup, assumed
+body_gm_km3_s2 = 5.06746128e7  # 0.4 M_Jup [KR25]
+color = "#b8a898"              # artistic
+orbit_color = "#c8c8d8"
+trail = "orbit"
+[bodies.orbit]
+type = "visual_orbit"
+gm_km3_s2 = 2.52106198e9
+a_au = 0.22
+e = 0.0
+i_deg = 90.0
+node_deg = 90.0
+arg_peri_deg = 0.0
+t_peri_jd_tdb = 2460460.5      # arbitrary
+sky_ra_dec_deg = [326.34126, -12.78335]
+
+[[bodies]]
+name = "Sun"
+template = "bodies/sun.toml"
+parent = "HD 206893 system"
+trail = "none"
+[bodies.orbit]                 # opposite direction of the system as seen from the Sun
+type = "fixed"
+ra_dec_distance_pc = [146.34126, 12.78335, 40.77]
+
+# As astronomers show the sky: north up (east to the left when seen from Earth).
+[[frames]]
+name = "HD 206893, north up"
+type = "inertial"
+origin = "HD 206893"
+up = "north"
+
+[[frames]]
+name = "HD 206893, disk level"
+type = "inertial"
+origin = "HD 206893"
+up = "orbit_normal:HD 206893 B"
+
+[[events]]
+name = "A companion inside the belt"
+time = "2015-10-05"            # [MI17]
+focus = "HD 206893"
+frame = "HD 206893, north up"
+observer = "HD 206893 system"
+observer_offset_km = [-485727827613.9, 323435074972.5, 132403158748.5]   # 4000 au toward Earth: lines of sight almost parallel
+fov_deg = 6.0                  # 210 au above and below the star
+warp = 15778800.0
+# [MI17], [KA21]
+caption = """\
+    Its heat had given this dust belt away, but no image of its scattered light has \
+    clearly shown it; what you see is a model. In 2015 the SPHERE instrument found a \
+    faint companion inside it, about 10 au from the star. HD 206893 B is the reddest \
+    substellar companion known, redder than its temperature can explain, as if veiled \
+    by dust high in its air."""
+
+[[events]]
+name = "A gap in the belt"
+time = "2018-09-26"            # [MA20]'s ALMA data
+focus = "HD 206893"
+frame = "HD 206893, north up"
+observer = "HD 206893 system"
+observer_offset_km = [-485727827613.9, 323435074972.5, 132403158748.5]   # 4000 au toward Earth: lines of sight almost parallel
+fov_deg = 6.0
+warp = 7889400.0
+disk_millimeter = true
+# [MA20]
+caption = """\
+    ALMA's view at 0.9 mm, in false color: large grains from 30 to 180 au, split by a \
+    gap 27 au wide at 74 au. Nothing near that distance is known. If a planet cleared \
+    it, it would be about one Jupiter mass. Several other belts of this age have gaps \
+    near the same radius, which may be telling us something about how they formed."""
+
+[[events]]
+name = "Where the wobble pointed"
+time = "2021-09-02"            # [HI23]'s first epoch of c
+focus = "HD 206893"
+frame = "HD 206893, disk level"
+from_orbit_normal = "HD 206893 B"
+distance_km = 3.5e9            # 23 au
+warp = 2629800.0               # a month per second
+# [HI23], [KR25]
+caption = """\
+    The star was tugged by something B could not account for: its velocity drifted, and \
+    Gaia and Hipparcos disagreed about its motion across the sky. Pointed where that \
+    predicted, the GRAVITY interferometer found c at 3.7 au, on an orbit of six years. \
+    It lies within about two degrees of B's plane, and of the belt's."""
+
+[[events]]
+name = "On the edge of burning"
+time = "2021-10-23"            # [HI23]'s third epoch of c
+focus = "HD 206893 c"
+frame = "HD 206893, disk level"
+from_body = "Sun"
+phase_deg = 60.0
+distance_km = 1.2e6            # 1.2 million km
+warp = 3600.0
+# [HI23]
+caption = """\
+    At about 12 Jupiter masses, c sits at the line between a planet and a brown dwarf: \
+    the mass where deuterium starts to fuse. For its age it shines too brightly to be \
+    merely cooling, and only models with deuterium burning and clouds fit both it and \
+    B. Here c is lit by the star alone; really it glows at 1,200 K with its own heat."""
+
+[[events]]
+name = "Nothing in the gap"
+time = "2023-06-19"            # [BE26]'s MIRI data
+focus = "HD 206893"
+frame = "HD 206893, disk level"
+from_orbit_normal = "HD 206893 B"
+distance_km = 3.5e10           # 230 au
+warp = 15778800.0
+disk_millimeter = true
+# [BE26], [MA20]
+caption = """\
+    JWST looked for the planet in the gap and found none, ruling out anything above \
+    about 4 Jupiter masses there. A smaller one could still be hiding. B and c cannot \
+    do the job from where they are: their secular resonance lies far inside the belt, \
+    at 21 au. This view from above is a model; the belt's real shape is known only \
+    as well as ALMA resolves it."""
+
+[[events]]
+name = "A moon?"
+time = "2024-06-01"            # [KR25]'s run of 2024
+focus = "HD 206893 B"
+frame = "HD 206893, disk level"
+from_body = "Sun"
+phase_deg = 40.0
+distance_km = 1.5e8            # 1 au
+warp = 2629800.0               # a month per second
+show = ["HD 206893 B I (candidate)"]
+# [KR25]
+caption = """\
+    In 2024 GRAVITY watched B for months, measuring its position to tens of microarcseconds, \
+    and something may be tugging it every nine months: possibly a moon of 0.4 Jupiter \
+    masses at 0.22 au. It would be the first found this way, but the signal could still \
+    be an instrumental effect. The orbit shown is one reading, its phase unknown."""
