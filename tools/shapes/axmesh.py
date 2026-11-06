@@ -7,12 +7,15 @@ Format (little endian):
     uint32   triangle count
     uint32   flags: bit 0 = map coordinates present; bit 1 = hard edges (normals are
              averaged only over triangles sharing a vertex index, not over all
-             vertices at the same position: for built shapes with flat faces)
+             vertices at the same position: for built shapes with flat faces);
+             bit 2 = texture atlas (a spacecraft's: map u and v are plain texture
+             coordinates, and the "albedo" is the sunlight reaching the vertex)
     float32  positions (x, y, z km, body-fixed: x toward the prime meridian, z along the pole)
     float32  relative albedo per vertex
     float32  map u per vertex (if flag bit 0): east longitude / 360 deg, continuous
              across each triangle (seam vertices are duplicated with u = 0 and 1);
              the latitude is taken from the vertex direction
+    float32  map v per vertex (if flag bit 2)
     uint32   vertex indices (3 per triangle, counter-clockwise seen from outside)
 """
 
@@ -21,9 +24,9 @@ import os
 import struct
 
 
-def write_mesh(path, positions, albedo, triangles, map_u=None, hard_edges=False):
+def write_mesh(path, positions, albedo, triangles, map_u=None, hard_edges=False, map_v=None):
     os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
-    flags = (1 if map_u is not None else 0) | (2 if hard_edges else 0)
+    flags = (1 if map_u is not None else 0) | (2 if hard_edges else 0) | (4 if map_v is not None else 0)
     with open(path, 'wb') as f:
         f.write(b'AXMESH2\0')
         f.write(struct.pack('<III', len(positions), len(triangles), flags))
@@ -31,6 +34,8 @@ def write_mesh(path, positions, albedo, triangles, map_u=None, hard_edges=False)
         f.write(struct.pack(f'<{len(albedo)}f', *albedo))
         if map_u is not None:
             f.write(struct.pack(f'<{len(map_u)}f', *map_u))
+        if map_v is not None:
+            f.write(struct.pack(f'<{len(map_v)}f', *map_v))
         f.write(struct.pack(f'<{3 * len(triangles)}I', *(i for t in triangles for i in t)))
     print(f'-> {path} ({os.path.getsize(path) // 1024} KB)')
 

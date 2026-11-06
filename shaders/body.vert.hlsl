@@ -7,6 +7,7 @@ cbuffer Uniforms : register(b0, space1)
     float4x4 u_view_proj;
     float4x4 u_rotation;  // body-fixed axes in world space
     float4 u_inv_scale;   // xyz = 1 / scale, for normals; w = map u of longitude 0 (turns)
+    float4 u_atlas;       // x = 1: the vertex has plain texture coordinates (a spacecraft)
 };
 
 static const float kPi = 3.14159265;
@@ -15,8 +16,8 @@ struct VSInput
 {
     float3 position : TEXCOORD0; // unit sphere (ellipsoids) or km (meshes), body-fixed
     float3 normal   : TEXCOORD1; // before scaling
-    float2 uv       : TEXCOORD2; // x = east longitude / 360 deg (y: colatitude / 180 deg, unused)
-    float  albedo   : TEXCOORD3; // relative to the body color
+    float2 uv       : TEXCOORD2; // x = east longitude / 360 deg (y: colatitude / 180 deg, unused); or the atlas's
+    float  albedo   : TEXCOORD3; // relative to the body color; in an atlas mesh, the baked sunlight
 };
 
 struct VSOutput
@@ -51,6 +52,9 @@ VSOutput main(VSInput input)
     dlon -= 2.0 * kPi * round(dlon / (2.0 * kPi));
     output.uv = float2(input.uv.x + dlon / (2.0 * kPi) + u_inv_scale.w,
                        0.5 - asin(clamp(q.z / max(length(q), 1e-20), -1.0, 1.0)) / kPi);
+    if (u_atlas.x > 0.5) {
+        output.uv = input.uv;
+    }
 
     output.axis_x = mul(u_rotation, float4(1.0, 0.0, 0.0, 0.0)).xyz;
     output.axis_y = mul(u_rotation, float4(0.0, 1.0, 0.0, 0.0)).xyz;

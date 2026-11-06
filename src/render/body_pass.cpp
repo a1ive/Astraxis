@@ -26,6 +26,7 @@ struct VertexUniforms {
     glm::mat4 view_proj;
     glm::mat4 rotation;
     glm::vec4 inv_scale; // w = map u of longitude 0 (turns)
+    glm::vec4 atlas;     // x = 1 for plain texture coordinates
 };
 
 struct FragmentUniforms {
@@ -42,6 +43,7 @@ struct FragmentUniforms {
     glm::vec4 atmo_haze;
     glm::vec4 night;
     glm::vec4 surface; // x = scale of the reflected light
+    glm::vec4 craft;   // x = 1 if the vertex albedo is baked sunlight, y = fill light
 };
 
 struct BodyVertex {
@@ -227,17 +229,19 @@ void BodyPass::clear_meshes()
 }
 
 int BodyPass::add_mesh(std::span<const glm::vec3> positions, std::span<const glm::vec3> normals,
-                       std::span<const float> albedo, std::span<const float> map_u,
+                       std::span<const float> albedo, std::span<const float> map_u, std::span<const float> map_v,
                        std::span<const uint32_t> indices)
 {
     if (positions.empty() || normals.size() != positions.size() || albedo.size() != positions.size() ||
-        (!map_u.empty() && map_u.size() != positions.size()) || indices.empty()) {
+        (!map_u.empty() && map_u.size() != positions.size()) || (!map_v.empty() && map_v.size() != positions.size()) ||
+        indices.empty()) {
         return -1;
     }
-    // The shader takes the map latitude from the vertex direction (uv.y is unused).
+    // Without a texture atlas the shader takes the map latitude from the vertex direction (uv.y is unused).
     std::vector<BodyVertex> vertices(positions.size());
     for (size_t k = 0; k < positions.size(); ++k) {
-        vertices[k] = {positions[k], normals[k], glm::vec2(map_u.empty() ? 0.0f : map_u[k], 0.0f), albedo[k]};
+        vertices[k] = {positions[k], normals[k],
+                       glm::vec2(map_u.empty() ? 0.0f : map_u[k], map_v.empty() ? 0.0f : map_v[k]), albedo[k]};
     }
     Mesh mesh;
     mesh.index_count = static_cast<uint32_t>(indices.size());
@@ -281,6 +285,7 @@ void BodyPass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const Ca
         vu.view_proj = view.view_proj;
         vu.rotation = item.rotation;
         vu.inv_scale = glm::vec4(item.inv_scale, -item.texture_left_lon_deg / 360.0f);
+        vu.atlas = glm::vec4(item.atlas ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f);
         SDL_PushGPUVertexUniformData(cmd, 0, &vu, sizeof(vu));
 
         FragmentUniforms fu = {};
@@ -305,6 +310,7 @@ void BodyPass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const Ca
             fu.night = glm::vec4(item.night_lights_color, item.night_lights_gain);
         }
         fu.surface = glm::vec4(item.surface_gain, item.field_map ? 1.0f : 0.0f, item.field_map_strength ? 1.0f : 0.0f, item.field_map_u);
+        fu.craft = glm::vec4(item.atlas ? 1.0f : 0.0f, item.fill_light, 0.0f, 0.0f);
         SDL_PushGPUFragmentUniformData(cmd, 0, &fu, sizeof(fu));
 
         SDL_GPUTextureSamplerBinding tex[4] = {

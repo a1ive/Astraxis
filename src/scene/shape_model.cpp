@@ -15,9 +15,9 @@ static_assert(sizeof(glm::vec3) == 3 * sizeof(float), "positions are read as pac
 
 // File format (tools/shapes/axmesh.py), little endian:
 //   char[8] "AXMESH2\0"; uint32 vertex count; uint32 triangle count; uint32 flags
-//   (bit 0: map coordinates; bit 1: hard edges, see below);
+//   (bit 0: map coordinates; bit 1: hard edges, see below; bit 2: texture atlas);
 //   float32 x, y, z (km) per vertex; float32 relative albedo per vertex;
-//   float32 map u per vertex (if flags bit 0);
+//   float32 map u per vertex (if flags bit 0); float32 map v per vertex (if flags bit 2);
 //   uint32 vertex indices, 3 per triangle (counter-clockwise seen from outside).
 bool load_shape_model(const std::filesystem::path& path, ShapeModel& out, std::string* error)
 {
@@ -39,7 +39,11 @@ bool load_shape_model(const std::filesystem::path& path, ShapeModel& out, std::s
     }
     out.positions.resize(counts[0]);
     out.albedo.resize(counts[0]);
+    if ((counts[2] & 4u) != 0 && (counts[2] & 1u) == 0) {
+        return fail("a texture atlas needs map u too");
+    }
     out.map_u.resize((counts[2] & 1u) ? counts[0] : 0u);
+    out.map_v.resize((counts[2] & 4u) ? counts[0] : 0u);
     out.indices.resize(static_cast<size_t>(counts[1]) * 3);
     if (!in.read(reinterpret_cast<char*>(out.positions.data()),
                  static_cast<std::streamsize>(out.positions.size() * sizeof(glm::vec3))) ||
@@ -47,6 +51,8 @@ bool load_shape_model(const std::filesystem::path& path, ShapeModel& out, std::s
                  static_cast<std::streamsize>(out.albedo.size() * sizeof(float))) ||
         !in.read(reinterpret_cast<char*>(out.map_u.data()),
                  static_cast<std::streamsize>(out.map_u.size() * sizeof(float))) ||
+        !in.read(reinterpret_cast<char*>(out.map_v.data()),
+                 static_cast<std::streamsize>(out.map_v.size() * sizeof(float))) ||
         !in.read(reinterpret_cast<char*>(out.indices.data()),
                  static_cast<std::streamsize>(out.indices.size() * sizeof(uint32_t)))) {
         return fail("truncated");

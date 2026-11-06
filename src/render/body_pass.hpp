@@ -58,6 +58,9 @@ struct BodyDrawItem {
     SDL_GPUTexture* field_map = nullptr;
     bool field_map_strength = false;
     float field_map_u = 0.0f; // added to the map u of longitude 0 (turns)
+    // A spacecraft's mesh: plain texture coordinates, and the vertex albedo is its baked sunlight.
+    bool atlas = false;
+    float fill_light = 0.0f; // illustrative light on the unlit side (Body::fill_light)
 };
 
 struct SunLight {
@@ -74,11 +77,13 @@ public:
 
     // Meshes (shape models) are uploaded once, when a scene is loaded: positions in
     // km in the body-fixed frame, unit normals, albedo relative to the body color,
-    // optional map u (east longitude / 360 deg, for a texture; may be empty) and
-    // counter-clockwise triangles seen from outside.
+    // optional map u (east longitude / 360 deg, for a texture; may be empty), optional
+    // map v (a texture atlas, with u; may be empty) and counter-clockwise triangles seen
+    // from outside.
     void clear_meshes();
     int add_mesh(std::span<const glm::vec3> positions, std::span<const glm::vec3> normals,
-                 std::span<const float> albedo, std::span<const float> map_u, std::span<const uint32_t> indices);
+                 std::span<const float> albedo, std::span<const float> map_u, std::span<const float> map_v,
+                 std::span<const uint32_t> indices);
 
     void draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const CameraView& view, const SunLight& sun,
               std::span<const BodyDrawItem> items) const;

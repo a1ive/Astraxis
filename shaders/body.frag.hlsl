@@ -39,6 +39,8 @@ cbuffer Uniforms : register(b0, space3)
     float4 u_night;                    // night lights: rgb = color (sRGB), w = I/F of a white pixel (0 = none)
     float4 u_surface;                  // x = scale of the reflected light, y = 1 to show the field map, w = its u offset,
                                        // z = 1 if the map is of the strength instead of Br
+    float4 u_craft;                    // x = 1 if the vertex albedo is baked sunlight (a spacecraft's mesh),
+                                       // y = illustrative fill light on the unlit side
 };
 
 // A strength map's false color: viridis, dark where the field is weak (sRGB).
@@ -304,7 +306,12 @@ float4 main(PSInput input) : SV_Target0
     } else {
         albedo = srgb_to_linear(gas_giant ? gas_giant_color(normalize(input.local)) : u_color.rgb);
     }
-    albedo *= input.albedo;
+    float baked_sunlight = 1.0;
+    if (u_craft.x > 0.5) {
+        baked_sunlight = input.albedo;
+    } else {
+        albedo *= input.albedo;
+    }
     float limb = gas_giant || saturn ? lerp(0.65, 1.0, pow(saturate(dot(n, V)), 0.4)) : 1.0;
 
     float3 lit = star_light(input.rel_pos, n, L, u_sun.w) * atmosphere_transmission(dot(n, L));
@@ -313,7 +320,10 @@ float4 main(PSInput input) : SV_Target0
                atmosphere_transmission(dot(n, u_light2.xyz));
     }
 
-    float3 color = albedo * (lit * limb + u_params.y) * u_surface.x;
+    lit *= baked_sunlight;
+    // The fill comes from about the viewer's side, so the unlit side still shows its shape.
+    float ambient = u_params.y + u_craft.y * (0.35 + 0.65 * saturate(dot(n, V)));
+    float3 color = albedo * (lit * limb + ambient) * u_surface.x;
     if (u_night.w > 0.0) {
         // Lights come on between sunset and the sun 6 deg below the horizon,
         // and reach the viewer through the atmosphere.

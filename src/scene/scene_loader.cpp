@@ -531,7 +531,8 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
         {"zonal_harmonics", list}, {"spin", number}, {"temperature_k", number}, {"luminosity_solar", number},
         {"pole_ra_dec_deg", list}, {"prime_meridian_deg", list}, {"pole_rate_deg_per_century", list},
         {"nut_prec_angles", list}, {"nut_prec_ra", list}, {"nut_prec_dec", list}, {"nut_prec_pm", list},
-        {"spin_table", text}, {"color", text}, {"style", text}, {"shape", text}, {"texture", text},
+        {"spin_table", text}, {"point_at", text}, {"fill_light", number}, {"color", text}, {"style", text},
+        {"shape", text}, {"texture", text},
         {"texture_left_lon_deg", number}, {"texture_lon_direction", text},
         {"free_precession", {{Type::table}, &free_precession}}, {"atmosphere", {{Type::table}, &atmosphere}},
         {"night_lights", {{Type::table}, &night_lights}}, {"aurora", {{Type::table}, &aurora}},
@@ -1207,6 +1208,22 @@ void Loader::parse(const toml::table& root, Scene& out)
             }
             body.synchronous_with = body.parent;
         }
+        if (t->contains("point_at")) {
+            // After the bodies it may name: the Sun also means the direction in a scene without one.
+            if (t->contains("pole_ra_dec_deg") || t->contains("prime_meridian_deg") || body.free_precession.enabled ||
+                body.spin_table || body.synchronous_with >= 0) {
+                fail(ctx, "point_at replaces pole_ra_dec_deg, prime_meridian_deg, free_precession, spin_table and "
+                          "synchronous");
+            }
+            const std::string target = get_string(*t, "point_at", ctx);
+            const auto it = index_of.find(target);
+            body.point_at = it != index_of.end() ? it->second : -1;
+            body.point_at_sun = body.point_at < 0 && target == "Sun";
+            if (body.point_at < 0 && !body.point_at_sun) {
+                fail(ctx, "point_at must name a body defined earlier: " + target);
+            }
+        }
+        body.fill_light = get_double_or(*t, "fill_light", 0.0);
         if (t->contains("pole_rate_deg_per_century")) {
             double rate[2];
             get_array(*t, "pole_rate_deg_per_century", ctx, rate, 2, 2);
@@ -1348,6 +1365,9 @@ void Loader::parse(const toml::table& root, Scene& out)
             body.shape = load_shape(shape, ctx);
             if (!body.texture.empty() && body.shape->map_u.empty()) {
                 fail(ctx, "this shape model has no map coordinates for a texture");
+            }
+            if (body.texture.empty() && !body.shape->map_v.empty()) {
+                fail(ctx, "this shape model's atlas needs a texture");
             }
         }
         // [bodies.rotor]: a part turning about the body z axis (Body::Rotor).

@@ -16,6 +16,7 @@
 | `vesta.mesh` | USGS Astrogeology / DLR，Vesta Dawn FC HAMO Global DTM 93m（2013-12-10 发布，黎明号分幅相机 HAMO 立体图像），<https://astrogeology.usgs.gov/search/map/vesta_dawn_fc_hamo_global_dtm_93m>，文件 `Vesta_Dawn_HAMO_DTM_DLR_Global_48ppd.tif` | 公有领域（请引用作者） |
 | `phobos.mesh`、`deimos.mesh` | P. C. Thomas，“Small Body Optical Shape Models” V1.0（PDS SBN，`ast-sat.thomas.shape-models`，由 PDS3 数据集 EAR-A-5-DDR-SHAPE-MODELS-V2.1 迁移），<https://sbnarchive.psi.edu/pds4/non_mission/ast-sat.thomas.shape-models_V1_0/>，文件 `data/m1phobos.tab`、`data/m2deimos.tab`；Thomas 1993, Icarus 105, 326 | PDS 存档数据，公有领域（请引用数据集与作者） |
 | `endurance_hull.mesh`、`endurance_ring.mesh` | 本项目原创的简化造型，致敬电影《星际穿越》（2014）里的飞船 Endurance，由 `tools/shapes/make_endurance.py` 生成（只用标准库）；不是电影的模型或制作数据 | 随本项目（GPL-3.0-or-later） |
+| `voyager.mesh`、`jwst.mesh`、`parker.mesh`（和 `../textures/` 里同名的图集） | NASA 3D Resources，<https://github.com/nasa/NASA-3D-Resources>，见下面的“探测器模型” | NASA 素材，美国不受版权保护（NASA 媒体使用指南），徽标除外 |
 | `didymos.mesh`、`dimorphos.mesh` | DART Shapemodel Archive Bundle（Daly, T.; Barnouin, O.; Ernst, C.; Nair, H.; Espiritu, R.; Waller, D.，PDS SBN `urn:nasa:pds:dart_shapemodel::1.0`，doi:[10.26007/96fn-p578](https://doi.org/10.26007/96fn-p578)），<https://pdssbn.astro.umd.edu/holdings/pds4-dart_shapemodel-v1.0/>：Didymos v003 的 9.3 m 版本 `data_derived_didymos_model_v003/didymos_g_9309mm_spc_obj_0000n00000_v003.obj`（SHA-256 `b5349374186d254ca21b7b00ddd9f6dea7e2762ca6bbff13f43151ee448e3f20`），Dimorphos v004 的 1.9 m 版本 `data_derived_dimorphos_model_v004/dimorphos_g_1940mm_spc_obj_0000n00000_v004.obj`（SHA-256 `833eaeac8c49338abe64012a679b1b9695f774f1b5e4842a8e5b9f0af1d28664`）；Daly et al. 2023, Nature 616, 443；Daly et al. 2024, PSJ 5, 24 | NASA DART 任务的 PDS 数据，公有领域（请引用数据集与作者） |
 | `arrokoth.mesh` | Porter, S. et al. 2024, “New Horizons Porter (2024) Arrokoth Shape Model Collection”，PDS Small Bodies Node，doi:[10.26007/97r3-1e19](https://doi.org/10.26007/97r3-1e19)，<https://pdssbn.astro.umd.edu/holdings/pds4-nh_derived-v3.0/arrokoth_shapemodel_porter2024/>；方法见同目录的 `porteretal2024b.pdf`（Porter et al. 2024, “The Shape of (486958) Arrokoth”） | NASA 新视野号项目的 PDS 数据，公有领域（请引用作者） |
 | `homunculus.mesh` | η Carinae 的 Homunculus 星云三维模型（Steffen et al. 2014, MNRAS 442, 3316，arXiv:1407.4096；SHAPE 软件拟合 VLT/X-shooter 的 H₂ 2.12 μm 速度图），ESO “A 3D Model of the Homunculus Nebula around the star Eta Carinae”（3dmodel_004，2014-07-28），<https://www.eso.org/public/products/models3d/3dmodel_004/>，文件 `model_3d_obj/3dmodel_004.zip` 里的 `Eta_Car_Homunuculus_model.obj` | ESO 公开素材，CC BY 4.0（模型页面的使用条款指向 ESO 的 CC BY 4.0 声明）；署名：NASA's Goddard Space Flight Center/Ed Campion & UNAM/W. Steffen |
@@ -27,7 +28,7 @@
 
 `tools/shapes/make_arrokoth.py` 将原始模型转换为 800 KB 的网格文件，依赖 Pillow。
 
-文件格式见 `tools/shapes/axmesh.py`（小端）：`char[8] "AXMESH2\0"`、`uint32` 顶点数、`uint32` 三角形数、`uint32` 标志（第 0 位：带地图坐标；第 1 位：硬边），之后是每个顶点的 `float32` x、y、z（km），每个顶点的 `float32` 相对反照率，（有标志时）每个顶点的 `float32` 地图 u（东经 / 360°，接缝处的顶点重复，取 0 和 1），每个三角形 3 个 `uint32` 顶点索引（从外面看逆时针）。法线在加载时按面积加权平均算出，位置完全相同的顶点（接缝、极点）共用一个法线。带硬边标志的网格（人造的平面体，如探测器）不做这种合并，只有共用同一个顶点索引的三角形才平滑过渡：每个平面单独用自己的顶点，棱角才是硬的。带地图坐标的网格可以在场景里同时写 `texture`：u 取自文件，纬度取自顶点方向（行星中心纬度）。
+文件格式见 `tools/shapes/axmesh.py`（小端）：`char[8] "AXMESH2\0"`、`uint32` 顶点数、`uint32` 三角形数、`uint32` 标志（第 0 位：带地图坐标；第 1 位：硬边；第 2 位：纹理图集），之后是每个顶点的 `float32` x、y、z（km），每个顶点的 `float32` 相对反照率，（有标志时）每个顶点的 `float32` 地图 u（东经 / 360°，接缝处的顶点重复，取 0 和 1），（有第 2 位时）每个顶点的 `float32` v，每个三角形 3 个 `uint32` 顶点索引（从外面看逆时针）。带纹理图集的网格（探测器）里 u、v 是普通的纹理坐标，“反照率”存的是太阳在 +z 时到达这个顶点的阳光（0 或 1）。法线在加载时按面积加权平均算出，位置完全相同的顶点（接缝、极点）共用一个法线。带硬边标志的网格（人造的平面体，如探测器）不做这种合并，只有共用同一个顶点索引的三角形才平滑过渡：每个平面单独用自己的顶点，棱角才是硬的。带地图坐标的网格可以在场景里同时写 `texture`：u 取自文件，纬度取自顶点方向（行星中心纬度）。
 
 ## Arrokoth
 
@@ -229,5 +230,23 @@ SHA-256：
 - 输入 `3dmodel_004.zip`：`d2dc1cfef4ebccbc8649aac0548a7708288b8e3c9a62e7bff22b66de9ebe717f`
 - 输入 OBJ：`51af9b8ce70c71eb57f0118da17288f2ed1b12d9de21689b64d065ff921c64f4`
 - 输出 `homunculus.mesh`：`96eaa06eb18132e7a9dd0c9b666d74492a4e47a742195cbe2ef3cf2e6234f433`
+
+## 探测器模型
+
+NASA 3D Resources（<https://github.com/nasa/NASA-3D-Resources>，提交 `11ebb4e`，2025-06-03）和 NASA 科学网站上单独发布的模型，用 `tools/shapes/make_spacecraft.py` 转换。原始文件不入库：仓库克隆到 `ref/NASA-3D-Resources`，单独下载的放在 `ref/probes/`。
+
+| 输出 | 输入 GLB | 页面上的署名 | 输入 SHA-256 |
+|---|---|---|---|
+| `voyager.mesh`、`../textures/voyager.jpg` | `Voyager Probe (B)/Voyager Probe (B).glb` | NASA/Michael D. Carbajal，<https://science.nasa.gov/3d-resources/voyager-probe-b/> | `bd86ded828dd3f459293aee4ffc3cd0998d8db67439317c8299650a1174c3289` |
+| `jwst.mesh`、`../textures/jwst.png` | `James Webb Space Telescope (B)/James Webb Space Telescope (B).glb` | NASA/Christopher R. Meaney，<https://science.nasa.gov/3d-resources/james-webb-space-telescope-b/> | `4958e61e5a564f2efcc32cd516b9d36ea0b9bc644f64dbcfe182ce8a422ae526` |
+| `parker.mesh`、`../textures/parker.jpg` | `Parker Solar Probe/Parker Solar Probe.glb` | NASA/Matthew J. Garcia，<https://science.nasa.gov/3d-resources/parker-solar-probe/> | `4d26e84efd29a78c5d07e474f6272bb111668b58da5a7555e305a65c72ddb1c5` |
+| `new_horizons.mesh`、`../textures/new_horizons.jpg` | `New_Horizons.glb`（2023-09-09 的版本，不在仓库里） | NASA Visualization Technology Applications and Development (VTAD)，<https://science.nasa.gov/resource/new-horizons-3d-model/> | `cf152d8cea17c4a83711041cb0d29ca1d980bfafa084ada2656569ea92cdd73f` |
+
+- **许可**：仓库 README 写“free and without copyright”，并指向 NASA 媒体使用指南（<https://www.nasa.gov/nasa-brand-center/images-and-media/>）：渲染 3D 模型用的纹理和多边形数据在美国一般不受版权保护，但 NASA 的徽标和标识不在其内，也不能暗示 NASA 背书。这四个页面（2026-11-07 查看）都没写单独的许可，也没有列第三方权利人。别的模型入库前要同样看一下页面上的署名：仓库的贡献者名单里有 Ball Aerospace、DigitalSpace 等外部机构。
+- **徽标**：Voyager 的纹理里有一个 NASA 徽标（像素矩形 828,440–882,480，贴在一块奶油色的板上），工具用周围的颜色涂掉。JWST 没有纹理，Parker 和 New Horizons 的纹理里没有徽标（New Horizons 的美国国旗是探测器上真实的，留着；`tex_02` 里还有一小张没用到的探测器结构图，没有文字）。
+- **处理**：仓库里的文件用 Draco 压缩，工具用 DracoPy（Apache-2.0，只在这个工具里用，不进程序）解码，Pillow 读图；New Horizons 没有压缩。去掉 Blender 导出时留下的占位方块（`_root`），按配置转到本体系（+z 是指向的轴）。Voyager 按 NASA 的 3.7 m 天线缩放（模型里 3.81 m），New Horizons 按 APL 的 2.1 m 天线缩放（模型里 1.888 m），JWST 和 Parker 的尺寸不改。New Horizons 的金箔在文件里是金属（近乎纯黄），这里只有漫反射，改成 sRGB (186, 140, 58)。JWST 用 2 cm 的网格合并顶点（法线相近的才合并），99,239 个三角形减到约 39,000 个（再加上薄片的背面）。
+- **双面**：管线剔除背面，所以不封闭的部分（薄片，判断方法是整个连通块的每条边是否正好被反向用两次）复制一份反向的面，用各自的顶点，法线也就相反。
+- **图集**：每个探测器一张纹理。模型的图放在上面（周围留 4 像素的重复边），纯色材质各占一个 8×8 的色板格（glTF 的颜色是线性的，转成 sRGB）。伸出 0–1 的 UV 按整数移回来（Parker 的箔材质）。
+- **烘焙的阳光**：顶点的“反照率”通道存太阳在 +z 时能否照到（从顶点沿 +z 的光线和整个网格求交），所以只适用于始终用同一面朝太阳的探测器。
 
 NASA 科学网站上有同一模型的 STL（“Eta Carinae Homunculus Nebula”，835 KB），页面没写许可，没有用。同一网站上 Madura 2015 的“High Mass-Loss Rate”打印模型（碰撞星风在远星点、近星点和相位 1.045 的三个快照，CC BY 4.0）是 Madura 2013 的 SPH 模拟，以后做碰撞星风时可以拿来核对。

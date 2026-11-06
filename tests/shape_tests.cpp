@@ -11,6 +11,7 @@
 #include <cmath>
 #include <cstdio>
 #include <string>
+#include <utility>
 
 using namespace astraxis;
 
@@ -772,6 +773,140 @@ void test_endurance_shape()
 
 } // namespace
 
+// The share of the mesh's sun-facing vertices in a region that its bake left in the light,
+// and how many there are. Vertices facing away from the Sun get no direct light anyway.
+template <typename Region>
+std::pair<double, int> lit_share(const ShapeModel& shape, Region region)
+{
+    int lit = 0, count = 0;
+    for (size_t k = 0; k < shape.positions.size(); ++k) {
+        const glm::dvec3 p_m = glm::dvec3(shape.positions[k]) * 1000.0;
+        if (shape.normals[k].z > 0.3f && region(p_m)) {
+            ++count;
+            lit += shape.albedo[k] > 0.5f ? 1 : 0;
+        }
+    }
+    return {count > 0 ? static_cast<double>(lit) / count : -1.0, count};
+}
+
+void test_spacecraft_models()
+{
+    struct Case {
+        const char* file;
+        const char* craft;
+        const char* target;
+        double t_tdb;
+    };
+    const double t2026 = tdb_from_julian_year(2026.84);
+    const double perihelion = tdb_from_julian_year(2024.98);
+    const Case cases[] = {{"solar_system.toml", "Voyager 1", "Earth", t2026},
+                          {"solar_system.toml", "Voyager 2", "Earth", t2026},
+                          {"solar_system.toml", "New Horizons", "Earth", t2026},
+                          {"space_telescopes.toml", "JWST", "Sun", t2026},
+                          {"parker.toml", "Parker Solar Probe", "Sun", perihelion}};
+    for (const Case& c : cases) {
+        const std::string name = c.craft;
+        Scene scene = load_scene_or_die(c.file);
+        const int craft = scene.find(c.craft);
+        check(craft > 0, (name + " is in its scene").c_str());
+        if (craft <= 0) {
+            continue;
+        }
+        const Body& body = scene.bodies[static_cast<size_t>(craft)];
+        check(body.kind == BodyKind::Spacecraft && body.shape && !body.texture.empty(), (name + " has a model").c_str());
+        if (!body.shape) {
+            continue;
+        }
+        const ShapeModel& shape = *body.shape;
+        check(shape.map_v.size() == shape.positions.size() && shape.map_u.size() == shape.positions.size(),
+              (name + " has texture coordinates at every vertex").c_str());
+        bool in_atlas = true, bake_is_binary = true;
+        int shadowed = 0;
+        for (size_t k = 0; k < shape.positions.size(); ++k) {
+            in_atlas = in_atlas && shape.map_u[k] >= 0.0f && shape.map_u[k] <= 1.0f && shape.map_v[k] >= 0.0f &&
+                       shape.map_v[k] <= 1.0f;
+            bake_is_binary = bake_is_binary && (shape.albedo[k] == 0.0f || shape.albedo[k] == 1.0f);
+            shadowed += shape.albedo[k] == 0.0f ? 1 : 0;
+        }
+        check(in_atlas, (name + " stays inside its atlas").c_str());
+        check(bake_is_binary && shadowed > 0, (name + " has baked sunlight").c_str());
+
+        // The attitude: +z at the target, +y toward the ecliptic north, a right-handed frame.
+        const glm::dmat3 axes = scene.body_to_icrf(body, c.t_tdb);
+        const glm::dvec3 self = scene.icrf_state_at(craft, c.t_tdb).position;
+        const int target = scene.find(c.target);
+        const glm::dvec3 to = target >= 0 ? scene.icrf_state_at(target, c.t_tdb).position
+                                          : scene.sun_icrf_state_at(c.t_tdb).position;
+        check(glm::dot(axes[2], glm::normalize(to - self)) > 1.0 - 1e-12, (name + " points +z at its target").c_str());
+        const glm::dvec3 north = ecliptic_pole_icrf();
+        check(std::abs(glm::dot(axes[0], north)) < 1e-12 && glm::dot(axes[1], north) >= 0.0,
+              (name + " keeps +y toward the ecliptic north").c_str());
+        check(std::abs(glm::determinant(axes) - 1.0) < 1e-12, (name + " has a right-handed frame").c_str());
+    }
+
+    // Scale and bake, in metres. Voyager: the dish, 3.7 m across about +z, its rim 0.6 to 0.9 m
+    // above the origin; the only parts there further out are past 2 m.
+    Scene solar = load_scene_or_die("solar_system.toml");
+    const ShapeModel& voyager = *solar.bodies[static_cast<size_t>(solar.find("Voyager 1"))].shape;
+    double dish = 0.0, reach = 0.0;
+    for (const glm::vec3& p : voyager.positions) {
+        const glm::dvec3 m = glm::dvec3(p) * 1000.0;
+        const double r = std::hypot(m.x, m.y);
+        if (m.z > 0.6 && m.z < 0.9 && r < 2.0) {
+            dish = std::max(dish, r);
+        }
+        reach = std::max(reach, glm::length(m));
+    }
+    check(std::abs(2.0 * dish - 3.7) < 0.08, "the Voyager dish is 3.7 m across", 2.0 * dish);
+    check(reach > 13.0 && reach < 16.0, "the Voyager boom reaches 13 m past the bus", reach);
+    const auto bus = lit_share(voyager, [](const glm::dvec3& m) { return m.z < -0.2 && std::hypot(m.x, m.y) < 0.8; });
+    check(bus.second > 0 && bus.first < 0.05, "the dish shades the Voyager bus", bus.first);
+
+    // New Horizons: the dish, 2.1 m across, its rim above everything else; the generator reaches
+    // out of its shade, about 2.1 m from the axis (the sunward end: its fins shade their roots),
+    // and the bus does not.
+    const ShapeModel& horizons = *solar.bodies[static_cast<size_t>(solar.find("New Horizons"))].shape;
+    double horizons_dish = 0.0;
+    for (const glm::vec3& p : horizons.positions) {
+        const glm::dvec3 m = glm::dvec3(p) * 1000.0;
+        if (m.z > 0.75) {
+            horizons_dish = std::max(horizons_dish, std::hypot(m.x, m.y));
+        }
+    }
+    check(std::abs(2.0 * horizons_dish - 2.1) < 0.08, "the New Horizons dish is 2.1 m across", 2.0 * horizons_dish);
+    const auto horizons_bus =
+        lit_share(horizons, [](const glm::dvec3& m) { return m.z < 0.2 && std::hypot(m.x, m.y) < 0.8; });
+    check(horizons_bus.second > 0 && horizons_bus.first < 0.05, "the dish shades the New Horizons bus", horizons_bus.first);
+    const auto generator = lit_share(horizons, [](const glm::dvec3& m) { return m.y > 1.5 && m.z > -0.12; });
+    check(generator.second > 0 && generator.first > 0.5, "the New Horizons generator reaches out of the shade", generator.first);
+
+    // Webb: the shield about 21 m long, the telescope on the side away from the Sun, in its shade.
+    Scene telescopes = load_scene_or_die("space_telescopes.toml");
+    const ShapeModel& jwst = *telescopes.bodies[static_cast<size_t>(telescopes.find("JWST"))].shape;
+    glm::dvec3 low(1e9), high(-1e9);
+    for (const glm::vec3& p : jwst.positions) {
+        low = glm::min(low, glm::dvec3(p) * 1000.0);
+        high = glm::max(high, glm::dvec3(p) * 1000.0);
+    }
+    check(std::abs(high.x - low.x - 21.0) < 0.5, "the Webb sunshield is about 21 m long", high.x - low.x);
+    check(low.z < -7.0 && high.z < 4.0, "the Webb telescope is on the side away from the Sun", low.z);
+    const auto telescope = lit_share(jwst, [](const glm::dvec3& m) { return m.z < -3.5; });
+    check(telescope.second > 0 && telescope.first < 0.05, "the sunshield shades the Webb telescope", telescope.first);
+    const auto shield = lit_share(jwst, [](const glm::dvec3& m) { return m.z > 2.0; });
+    check(shield.second > 0 && shield.first > 0.5, "the Sun reaches Webb's sunward side", shield.first);
+
+    // Parker: the shield's front in the Sun and the bus behind it in its shade, the solar panels'
+    // front outside the shadow (the shield is about 2.3 m across; layers behind them are shaded).
+    Scene parker = load_scene_or_die("parker.toml");
+    const ShapeModel& probe = *parker.bodies[static_cast<size_t>(parker.find("Parker Solar Probe"))].shape;
+    const auto front = lit_share(probe, [](const glm::dvec3& m) { return m.z > 1.47; });
+    check(front.second > 0 && front.first > 0.95, "the Sun reaches Parker's heat shield", front.first);
+    const auto behind = lit_share(probe, [](const glm::dvec3& m) { return m.z < 1.0 && std::hypot(m.x, m.y) < 0.8; });
+    check(behind.second > 0 && behind.first < 0.05, "the heat shield shades Parker's bus", behind.first);
+    const auto panels = lit_share(probe, [](const glm::dvec3& m) { return std::abs(m.x) > 1.5 && std::abs(m.y) < 0.6 && m.z > 0.02; });
+    check(panels.second > 0 && panels.first > 0.8, "Parker's solar panels reach out of the shadow", panels.first);
+}
+
 void run_shape_tests()
 {
     test_proteus_shape();
@@ -785,4 +920,5 @@ void run_shape_tests()
     test_shape_occlusion();
     test_didymos_shapes();
     test_endurance_shape();
+    test_spacecraft_models();
 }

@@ -6,6 +6,12 @@
 # petals around the Sun. In the Sun-centered (ICRF) frame they nest inside each other.
 #
 # Sources
+# [MDL]  NASA 3D Resources, github.com/nasa/NASA-3D-Resources ("Parker Solar Probe"), converted by
+#        tools/shapes/make_spacecraft.py (assets/shapes/SOURCES.md).
+# [PSPA] NASA Parker Solar Probe blog 2018-05-07, "Solar Power: Parker Solar Probe Tests Its
+#        Arrays" and 2018-09-14, "... Solar Array Cooling System Fully Activated": near the Sun
+#        the arrays retract behind the shield's shadow, leaving a small segment in the Sun;
+#        water flowing through them carries the heat to four radiators.
 # [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py (tools/bake/ephem.toml):
 #        heliocentric ICRF. Parker Solar Probe 2018-08-12 08:17 .. 2029-12-31 TDB (fit to
 #        tracking data through 2026-09-01, then the reference planning trajectory);
@@ -135,7 +141,11 @@ node_deg = [49.71320984, -0.26852431]
 name = "Parker Solar Probe"
 parent = "Sun"
 kind = "spacecraft"
-radii_km = [0.00115]                       # ~2.3 m heat shield
+radii_km = [0.003]                         # the bus and shield; the boom and antennas go on
+shape = "shapes/parker.mesh"               # [MDL]
+texture = "textures/parker.jpg"
+point_at = "Sun"                           # the heat shield; the roll is illustrative
+fill_light = 0.2                           # illustrative
 color = "#ffe9a8"
 orbit_color = "#ffb347"
 trail = "history"                          # since launch
@@ -348,3 +358,22 @@ fov_deg = 55.0
 corona_enhanced = true
 warp = 300.0
 caption = """Looking toward the Sun from Parker at its closest approach, inside the modeled corona. Electrons scatter sunlight along the view into streamers that change with the viewing angle as the spacecraft moves. The structure is illustrative and the white light is enhanced. WISPR looks away from the solar disk; this view is not a reconstruction of its images. Dust-scattered light and coronal mass ejections are not included."""
+
+[[events]]
+name = "Parker at perihelion, up close"
+time_tdb = "2024-12-24 11:42"
+focus = "Parker Solar Probe"
+frame = "Sun-centered (ICRF)"
+from_body = "Sun"
+phase_deg = 145.0
+elevation_deg = 8.0
+distance_km = 0.012
+warp = 1.0
+hide_orbits = true
+# [PSP10], [PSPA], the model [MDL]; the Sun's size from 9.86 R_sun
+caption = """\
+    At this distance the Sun fills about 12 degrees of the sky. The front of the heat \
+    shield reaches 2,500 F, and the instruments behind it stay near 85 F. Near the Sun \
+    the two solar panels fold back until only a small part sticks out of the shadow, \
+    with water carrying off their heat; the model keeps them further out. The roll \
+    about the shield's axis and the light on the shaded side are illustrative."""

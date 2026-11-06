@@ -60,6 +60,11 @@
 #          Lifetime Expectations": thanks to the Ariane 5's precision, propellant for
 #          "significantly more than a 10-year science lifetime".
 #        The halo loops' period: [HZN] (about six months, as the data show).
+#        [JWS] NASA, science.nasa.gov/mission/webb/fact-sheet/ (retrieved 2026-11-07): the
+#          6.5 m primary mirror of gold-coated beryllium.
+#        [MDL] NASA 3D Resources, github.com/nasa/NASA-3D-Resources ("James Webb Space
+#          Telescope (B)"), converted by tools/shapes/make_spacecraft.py
+#          (assets/shapes/SOURCES.md).
 #        Retrieved 2026-10-22:
 #        [EWG] ESA video 2023-07-28, "Webb and Gaia welcome Euclid to L2"
 #          (esa.int/ESA_Multimedia/Videos/2023/07/Webb_and_Gaia_welcome_Euclid_to_L2): a month
@@ -170,13 +175,17 @@ orbit_color = "#c8c4bc"
 type = "ephemeris"
 file = "ephem/moon.eph"
 
-# The telescopes [HZN]. Sizes from Horizons' notes where they give them; all are drawn
-# as markers.
+# The telescopes [HZN]. Sizes from Horizons' notes where they give them; drawn as markers,
+# except JWST.
 [[bodies]]
 name = "JWST"
 parent = "Earth"
 kind = "spacecraft"
 radii_km = [0.011]                         # sunshield ~21 m x 14 m
+shape = "shapes/jwst.mesh"                 # [MDL]
+texture = "textures/jwst.png"
+point_at = "Sun"                           # the sunshield; the roll is illustrative
+fill_light = 0.2                           # illustrative: its cold side never sees the Sun
 color = "#ffd98a"
 orbit_color = "#ffcf6a"
 trail = "history"
@@ -725,3 +734,20 @@ caption = """\
 [[events.trails]]
 body = "Kepler"
 trail_history_days = 1500.0
+
+[[events]]
+name = "Webb, on its cold side"
+time = "2026-11-01"
+focus = "JWST"
+from_body = "Sun"
+phase_deg = 125.0
+elevation_deg = 15.0
+distance_km = 0.034
+warp = 1.0
+hide_orbits = true
+# [JW], [JWS], the model [MDL]
+caption = """\
+    The five layers of the sunshield keep the Sun, the Earth and the Moon off the 6.5 m \
+    gold mirror and its instruments, so the telescope stays cold enough to see faint \
+    infrared light. No sunlight reaches this side, and it is really almost black: the \
+    light here is illustrative, as is the roll about the shield's axis."""

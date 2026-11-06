@@ -439,6 +439,17 @@ glm::dmat3 Scene::body_to_icrf(const Body& body, double t_tdb) const
         const glm::dvec3 z = glm::normalize(glm::cross(r, other.velocity - self.velocity));
         return glm::dmat3(x, glm::cross(z, x), z);
     }
+    if (body.point_at >= 0 || body.point_at_sun) {
+        const glm::dvec3 self = icrf_state_at(static_cast<int>(&body - bodies.data()), t_tdb).position;
+        const glm::dvec3 target =
+            body.point_at_sun ? sun_icrf_state_at(t_tdb).position : icrf_state_at(body.point_at, t_tdb).position;
+        const glm::dvec3 z = glm::normalize(target - self);
+        // y as near the ecliptic north as it can be (any x will do if z is right on it).
+        const glm::dvec3 side = glm::cross(ecliptic_pole_icrf(), z);
+        const glm::dvec3 x = glm::dot(side, side) > 1e-12 ? glm::normalize(side)
+                                                          : glm::normalize(glm::cross(glm::dvec3(1.0, 0.0, 0.0), z));
+        return glm::dmat3(x, glm::cross(z, x), z);
+    }
     const int source = body.nut_prec_source;
     return body_rotation(body, source >= 0 ? bodies[static_cast<size_t>(source)].nut_prec_angles : kNone, t_tdb);
 }

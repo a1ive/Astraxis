@@ -31,6 +31,7 @@
 | `venus.jpg` | USGS Astrogeology，Venus Magellan Global C3-MDIR Synthetic Color Mosaic 4641m（麦哲伦号合成孔径雷达 C3-MIDR 拼接图的合成彩色版，颜色是模拟的地表色调；关闭大气层时显示），<https://astrogeology.usgs.gov/search/map/venus_magellan_global_c3_mdir_synthetic_color_mosaic_4641m> | 公有领域（Use Constraints: None） |
 | `titan.jpg` | USGS Astrogeology / Cassini ISS Team，Titan Cassini ISS Global Mosaic 4005m（2015-06，938 nm 甲烷窗口，数据截至 2014-04 的 T100 飞掠，灰度；关闭大气层时显示；有几块均匀灰色的填补区），<https://astrogeology.usgs.gov/search/map/titan_cassini_iss_global_mosaic_4005m> | 公有领域（请引用作者） |
 | `ceres.jpg` | USGS Astrogeology / DLR，Ceres Dawn FC Global Mosaic 400m（2015-10，`Ceres_Dawn_FC_DLR_global_20ppd_Oct2015.tif`），<https://astrogeology.usgs.gov/search/map/ceres_dawn_fc_global_mosaic_400m> | 公有领域（请引用作者） |
+| `voyager.jpg` / `jwst.png` / `parker.jpg` / `new_horizons.jpg` | 探测器模型的纹理图集，NASA 3D Resources 和 NASA 科学网站，由 `tools/shapes/make_spacecraft.py` 生成，见 `../shapes/SOURCES.md` 的“探测器模型” | NASA 素材，美国不受版权保护（NASA 媒体使用指南）；Voyager 纹理里的 NASA 徽标已涂掉 |
 | `uranus.jpg` / `neptune.jpg` | 哈勃 OPAL（Outer Planet Atmospheres Legacy，PI A. Simon），MAST 高级科学产品，<https://archive.stsci.edu/hlsp/opal>，DOI 10.17909/T9G593。用的是 2015–2025 年每次自转的 F657N、F547M、F467M 全球图（FITS），不是 TIF 预览图。由 `tools/textures/make_ice_giant_textures.py` 生成，做法见下文 | CC BY 4.0（FITS 头的 `LICENSE`），署名 NASA, ESA, A.A. Simon, M.H. Wong |
 
 原始下载地址：

@@ -831,14 +831,14 @@ void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, u
         const Body& body = scene.bodies[i];
         if (body.shape) {
             m_body_meshes[i] = m_bodies.add_mesh(body.shape->positions, body.shape->normals, body.shape->albedo,
-                                                 body.shape->map_u, body.shape->indices);
+                                                 body.shape->map_u, body.shape->map_v, body.shape->indices);
         }
         if (body.shape && body.comet.enabled) {
             m_comet_meshes[i] = m_comets.add_mesh(*body.shape);
         }
         if (const ShapeModel* rotor = body.rotor.shape.get()) {
-            m_rotor_meshes[i] =
-                m_bodies.add_mesh(rotor->positions, rotor->normals, rotor->albedo, rotor->map_u, rotor->indices);
+            m_rotor_meshes[i] = m_bodies.add_mesh(rotor->positions, rotor->normals, rotor->albedo, rotor->map_u,
+                                                  rotor->map_v, rotor->indices);
         }
         if (!body.rings.profile.empty()) {
             m_ring_textures[i] = create_profile_texture(m_device->device(), body.rings.profile);
@@ -1135,6 +1135,8 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
         item.model = glm::translate(glm::mat4(1.0f), to_render(body.world_position, cam)) * item.rotation *
                      glm::scale(glm::mat4(1.0f), scale);
         item.inv_scale = 1.0f / scale;
+        item.atlas = item.mesh >= 0 && !body.shape->map_v.empty();
+        item.fill_light = static_cast<float>(body.fill_light);
         item.color = body.color;
         item.style = static_cast<int>(body.style);
         item.surface_gain = static_cast<float>(aurora_surface_gain(body.aurora.model, infrared));

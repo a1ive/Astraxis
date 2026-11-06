@@ -362,6 +362,14 @@ struct Body {
     // Instead of a rotation model: turns with its orbit around this body,
     // x toward it and z along the orbit normal (-1: no).
     int synchronous_with = -1;
+    // Instead of a rotation model: an illustrative attitude, the body's +z axis toward this
+    // body and its +y as near as it can be to the ecliptic north (-1: no). A spacecraft's
+    // dish or sunshield; point_at_sun is the Sun of a scene without a Sun body.
+    int point_at = -1;
+    bool point_at_sun = false;
+    // Illustrative light on the side away from the Sun (a spacecraft's cold side, which is
+    // really almost black), as a share of full sunlight.
+    double fill_light = 0.0;
 
     RingSystem rings; // no bands: no rings
     Atmosphere atmosphere;
