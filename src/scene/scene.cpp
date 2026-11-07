@@ -164,8 +164,8 @@ void rasterize_ring_bands(RingSystem& rings, int samples)
             const double width = b.outer_km - b.inner_km;
             const double overlap = std::max(0.0, std::min(b.outer_km, r + 0.5 * cell) - std::max(b.inner_km, r - 0.5 * cell));
             const double inside = overlap / cell;
-            tau += inside * b.optical_depth;
-            floor_weighted += inside * b.optical_depth * (b.thickness_km / width);
+            tau += inside * b.optical_depth * b.display_gain;
+            floor_weighted += inside * b.optical_depth * b.display_gain * (b.thickness_km / width);
         }
         // Where bands overlap, their thickness bounds are averaged by optical depth.
         rings.profile.emplace_back(static_cast<float>(tau), tau > 0.0 ? static_cast<float>(floor_weighted / tau) : 0.0f);

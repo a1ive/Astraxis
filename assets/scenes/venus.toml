@@ -14,6 +14,8 @@
 # [MDLG] NASA/JPL/Solar System Simulator, "Galileo", NASA 3D Resources,
 #        science.nasa.gov/3d-resources/galileo/, converted by tools/shapes/make_spacecraft.py
 #        (assets/shapes/SOURCES.md).
+# [MDLS] The spacecraft's model, from NASA 3D Resources (github.com/nasa/NASA-3D-Resources), converted
+#        by tools/shapes/make_spacecraft.py; which model and whose: assets/shapes/SOURCES.md.
 # [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py (tools/bake/ephem.toml,
 #        Kepler-relative AXEPH2):
 #        - Venus (299) relative to the Sun 2004-07-01 .. 2030-01-01 (as in parker.toml); [APX]
@@ -346,7 +348,11 @@ file = "ephem/juice_venus.eph"
 name = "MESSENGER"
 parent = "Venus"
 kind = "spacecraft"
-radii_km = [0.003]                         # a few meters across (drawn as a marker)
+radii_km = [0.003]                         # about 6 m across the solar panels
+shape = "shapes/messenger.mesh"            # [MDLS]
+texture = "textures/messenger.jpg"
+point_at = "Sun"                           # the solar panels or antenna; the roll is illustrative
+fill_light = 0.2                           # illustrative
 color = "#ffd27f"
 orbit_color = "#ffb347"
 trail = "history"

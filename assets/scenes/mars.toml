@@ -12,6 +12,8 @@
 #        dynamo having stopped about 4 billion years ago. Global field below 0.5 nT at the
 #        surface: Connerney et al. 2001, GRL 28, 4015. The map is Morschhauser et al. 2014, JGR
 #        Planets 119, 1162, 150 km up; assets/geomag/SOURCES.md.
+# [MDLS] The spacecraft's model, from NASA 3D Resources (github.com/nasa/NASA-3D-Resources), converted
+#        by tools/shapes/make_spacecraft.py; which model and whose: assets/shapes/SOURCES.md.
 # [HZN]  JPL Horizons state vectors relative to Mars' center, baked by
 #        tools/bake/horizons_bake.py (tools/bake/ephem.toml, Kepler-relative AXEPH2):
 #        - Mars Express (-41): ESA trajectory, 2003-12-20 .. 2029-01-01, reconstructed from
@@ -344,6 +346,10 @@ name = "MRO"
 parent = "Mars"
 kind = "spacecraft"
 radii_km = [0.007]                         # 13.6 m tip to tip (Horizons notes)
+shape = "shapes/mro.mesh"                  # [MDLS]
+texture = "textures/mro.jpg"
+point_at = "Sun"                           # the solar panels or antenna; the roll is illustrative
+fill_light = 0.2                           # illustrative
 color = "#d2f59a"
 orbit_color = "#a8dc6a"
 trail = "history"
@@ -363,6 +369,10 @@ name = "MAVEN"
 parent = "Mars"
 kind = "spacecraft"
 radii_km = [0.006]                         # 11.4 m long (Horizons notes)
+shape = "shapes/maven.mesh"                # [MDLS]
+texture = "textures/maven.jpg"
+point_at = "Sun"                           # the solar panels or antenna; the roll is illustrative
+fill_light = 0.2                           # illustrative
 color = "#ffb0d0"
 orbit_color = "#f28cb8"
 trail = "history"
@@ -376,7 +386,11 @@ file = "ephem/maven_mars.eph"
 name = "Odyssey"
 parent = "Mars"
 kind = "spacecraft"
-radii_km = [0.0015]                        # 2.6 m wide (Horizons notes; drawn as a marker)
+radii_km = [0.003]                         # about 5.7 m across the solar panels
+shape = "shapes/odyssey.mesh"              # [MDLS]
+texture = "textures/odyssey.jpg"
+point_at = "Sun"                           # the solar panels or antenna; the roll is illustrative
+fill_light = 0.2                           # illustrative
 color = "#d2c2ff"
 orbit_color = "#ad95f2"
 trail = "history"
@@ -1114,3 +1128,22 @@ caption = """\
     MAVEN's last orbits as tracked from the Earth. On 6 December 2025 it passed \
     behind Mars and never re-established contact; NASA ended the mission in June \
     2026, after more than eleven years at Mars, ten beyond its planned one."""
+
+[[events]]
+name = "MRO, up close (2025-04-20)"
+time = "2025-04-20 08:23"
+focus = "MRO"
+# The Sun is 36 deg up under MRO then: the camera is 14 deg above the local horizontal on the
+# Sun's side, looking across the sunlit ground at the solar panels.
+from_body = "Mars"
+phase_deg = 106.7
+elevation_deg = 27.9
+distance_km = 0.021
+warp = 1.0
+hide_orbits = true
+# [MRO], the model [MDLS]; its size from Horizons' notes
+caption = """\
+    MRO above Mars, 13.6 m from tip to tip. Its camera can spot something as small as a \
+    dinner table, and it relays data from landers on the surface. It really keeps its \
+    camera on the ground while its panels turn to follow the Sun. Here the panels face \
+    the Sun, and the roll and the light on the shaded side are illustrative."""

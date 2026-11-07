@@ -509,7 +509,7 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
         {"name", text}, {"inner_km", number}, {"outer_km", number}, {"optical_depth", number},
         {"thickness_km", number}, {"inner_ae_km", number}, {"outer_ae_km", number}, {"peri_deg", number},
         {"peri_rate_deg_per_day", number}, {"a_sin_i_km", number}, {"node_deg", number},
-        {"node_rate_deg_per_day", number}, {"arc_length_deg", number}, {"arc_center_deg", number},
+        {"node_rate_deg_per_day", number}, {"display_gain", number}, {"arc_length_deg", number}, {"arc_center_deg", number},
         {"arc_rate_deg_per_day", number}, {"fade_out", list},
     };
     static const TemplateFields rings = {
@@ -1427,6 +1427,7 @@ void Loader::parse(const toml::table& root, Scene& out)
                 band.node_deg = get_double_or(*b, "node_deg", 0.0);
                 band.node_rate_deg_per_day = get_double_or(*b, "node_rate_deg_per_day", 0.0);
                 band.arc_length_deg = get_double_or(*b, "arc_length_deg", 0.0);
+                band.display_gain = get_double_or(*b, "display_gain", 1.0);
                 band.arc_center_deg = get_double_or(*b, "arc_center_deg", 0.0);
                 band.arc_rate_deg_per_day = get_double_or(*b, "arc_rate_deg_per_day", 0.0);
                 if (!(band.arc_length_deg >= 0.0 && band.arc_length_deg < 360.0)) {

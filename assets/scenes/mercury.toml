@@ -14,6 +14,11 @@
 #        offset 484 km north along the spin axis, tilted less than 2.5 deg. Winslow et al. 2013,
 #        JGR Space Physics 118, 2213: mean subsolar magnetopause at 1.45 radii. The ratio of
 #        the fields at the poles is computed from the model; assets/geomag/SOURCES.md.
+# [MDLS] The spacecraft's model, from NASA 3D Resources (github.com/nasa/NASA-3D-Resources), converted
+#        by tools/shapes/make_spacecraft.py; which model and whose: assets/shapes/SOURCES.md.
+
+# [MSC]  JHU/APL, messenger.jhuapl.edu/About/Spacecraft-and-Instruments.html (retrieved 2026-11-07):
+#        the ceramic cloth sunshade; solar panels two-thirds mirrors and one-third cells.
 # [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py (tools/bake/ephem.toml):
 #        - MESSENGER (-236): JHU/APL trajectory delivered 2015-04-02; heliocentric from
 #          launch to 2011-03-12, then relative to Mercury until the impact.
@@ -214,7 +219,11 @@ node_deg = [49.71320984, -0.26852431]
 name = "MESSENGER"
 parent = "Sun"
 kind = "spacecraft"
-radii_km = [0.003]                         # a few meters across (drawn as a marker)
+radii_km = [0.003]                         # about 6 m across the solar panels
+shape = "shapes/messenger.mesh"            # [MDLS]
+texture = "textures/messenger.jpg"
+point_at = "Sun"                           # the solar panels or antenna; the roll is illustrative
+fill_light = 0.2                           # illustrative
 color = "#ffd27f"
 orbit_color = "#ffb347"
 trail = "history"
@@ -494,3 +503,22 @@ caption = """\
     should begin in April 2027. Shown is ESA's MPO in its planned polar orbit, \
     about 2.3 hours around; Japan's Mio, which will study Mercury's magnetosphere, \
     is not in the data."""
+
+[[events]]
+name = "MESSENGER, up close (2012-01-04)"
+time = "2012-01-04 08:55"
+focus = "MESSENGER"
+# The Sun is 44 deg up under MESSENGER then, which is about 1,700 km up: the camera is on the
+# Sun's side, looking down across Mercury at the sunshade.
+from_body = "Mercury"
+phase_deg = 172.0
+elevation_deg = 12.0
+distance_km = 0.014
+warp = 1.0
+hide_orbits = true
+# [MES], [MSC], the model [MDLS]
+caption = """\
+    MESSENGER, the first spacecraft to orbit Mercury, about 1,700 km above it. A ceramic \
+    cloth sunshade keeps its instruments out of the sunlight, and its two solar panels are \
+    two-thirds mirrors, to stay cool. The roll about the shade's axis and the light on the \
+    shaded side are illustrative."""

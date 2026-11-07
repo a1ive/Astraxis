@@ -22,4 +22,4 @@
 
 ## 木星环
 
-木星各环带的参数写在天体模板 `assets/bodies/jupiter.toml` 中，取自 PDS Ring-Moon Systems Node 的木星环与内卫星统计表。加载时，程序将这些参数栅格化为与土星环相同格式的剖面，共 4096 个样本。
+木星各环带的参数写在天体模板 `assets/bodies/jupiter.toml` 中，取自 PDS Ring-Moon Systems Node 的木星环与内卫星统计表。加载时，程序将这些参数栅格化为与土星环相同格式的剖面，共 4096 个样本。环带的 `display_gain` 只改变显示：栅格化时乘到光学深度上（晕环和薄纱环取 0.12，让窄的主环突出），表里的 `optical_depth` 仍是测量值。

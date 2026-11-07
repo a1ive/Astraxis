@@ -773,15 +773,15 @@ void test_endurance_shape()
 
 } // namespace
 
-// The share of the mesh's sun-facing vertices in a region that its bake left in the light,
-// and how many there are. Vertices facing away from the Sun get no direct light anyway.
+// The share of the mesh's vertices across the Sun line in a region that its bake left in the light,
+// and how many there are. Their normals can point either way: a sheet is drawn from both sides.
 template <typename Region>
 std::pair<double, int> lit_share(const ShapeModel& shape, Region region)
 {
     int lit = 0, count = 0;
     for (size_t k = 0; k < shape.positions.size(); ++k) {
         const glm::dvec3 p_m = glm::dvec3(shape.positions[k]) * 1000.0;
-        if (shape.normals[k].z > 0.3f && region(p_m)) {
+        if (std::abs(shape.normals[k].z) > 0.3f && region(p_m)) {
             ++count;
             lit += shape.albedo[k] > 0.5f ? 1 : 0;
         }
@@ -804,6 +804,21 @@ void test_spacecraft_models()
                           {"solar_system.toml", "New Horizons", "Earth", t2026},
                           {"solar_system.toml", "Pioneer 10", "Earth", tdb_from_julian_year(1973.92)},
                           {"space_telescopes.toml", "Hubble", "Sun", t2026},
+                          {"space_telescopes.toml", "Chandra", "Sun", tdb_from_julian_year(2010.0)},
+                          {"space_telescopes.toml", "Roman", "Sun", tdb_from_julian_year(2027.5)},
+                          {"space_telescopes.toml", "Spitzer", "Sun", tdb_from_julian_year(2010.0)},
+                          {"space_telescopes.toml", "Kepler", "Sun", tdb_from_julian_year(2012.0)},
+                          {"space_telescopes.toml", "TESS", "Sun", tdb_from_julian_year(2020.0)},
+                          {"space_telescopes.toml", "WMAP", "Sun", tdb_from_julian_year(2005.0)},
+                          {"mars.toml", "MAVEN", "Sun", tdb_from_julian_year(2016.0)},
+                          {"mars.toml", "MRO", "Sun", tdb_from_julian_year(2025.3)},
+                          {"mars.toml", "Odyssey", "Sun", tdb_from_julian_year(2025.3)},
+                          {"mercury.toml", "MESSENGER", "Sun", tdb_from_julian_year(2012.0)},
+                          {"venus.toml", "MESSENGER", "Sun", tdb_from_julian_year(2007.4)},
+                          {"earth_moon.toml", "LADEE", "Sun", tdb_from_julian_year(2013.9)},
+                          {"earth_moon.toml", "ARTEMIS-P1", "Sun", tdb_from_julian_year(2014.0)},
+                          {"rosetta.toml", "Rosetta", "Sun", tdb_from_julian_year(2015.6)},
+                          {"solar_system.toml", "Pioneer 11", "Earth", tdb_from_julian_year(1979.6)},
                           {"saturn.toml", "Cassini", "Sun", tdb_from_julian_year(2007.3)},
                           {"jupiter.toml", "Cassini", "Sun", tdb_from_julian_year(2000.99)},
                           {"jupiter.toml", "Galileo", "Sun", tdb_from_julian_year(1997.0)},
@@ -930,7 +945,7 @@ void test_spacecraft_models()
         juno_high = glm::max(juno_high, glm::dvec3(p) * 1000.0);
     }
     check(juno_high.y - juno_low.y > 18.0 && juno_high.x - juno_low.x > 17.0, "Juno's panels span about 20 m", juno_high.y - juno_low.y);
-    const auto juno_panels = lit_share(juno, [](const glm::dvec3& m) { return std::abs(m.y) > 4.0 && m.z > 0.05; });
+    const auto juno_panels = lit_share(juno, [](const glm::dvec3& m) { return std::abs(m.y) > 4.0 && m.z > 0.095; });
     check(juno_panels.second > 0 && juno_panels.first > 0.9, "the Sun reaches Juno's panels", juno_panels.first);
     const ShapeModel& galileo = *jupiter_scene.bodies[static_cast<size_t>(jupiter_scene.find("Galileo"))].shape;
     double galileo_low = 1e9, galileo_high = -1e9;
@@ -963,6 +978,56 @@ void test_spacecraft_models()
     const auto hubble_panels =
         lit_share(hubble, [](const glm::dvec3& m) { return std::abs(m.x) > 2.6 && std::abs(m.y) < 2.0 && m.z > 0.1 && m.z < 0.3; });
     check(hubble_panels.second > 0 && hubble_panels.first > 0.8, "the Sun reaches Hubble's solar panels", hubble_panels.first);
+
+    // The rest, to scale. The widest span in the plane across the Sun line (the panels, on most),
+    // or the length along it, against the published or the model's own figure.
+    struct Span {
+        const char* file;
+        const char* craft;
+        double metres;
+        double tolerance;
+    };
+    const Span spans[] = {{"space_telescopes.toml", "Chandra", 19.5, 0.3},   // the model's arrays, in metres
+                          {"space_telescopes.toml", "Roman", 12.7, 0.3},     // [RMS]
+                          {"space_telescopes.toml", "TESS", 3.9, 0.1},       // Horizons' notes
+                          {"space_telescopes.toml", "WMAP", 5.1, 0.1},       // [WMF]
+                          {"mars.toml", "MAVEN", 13.1, 0.3},                 // the model's panels, in metres
+                          {"mars.toml", "MRO", 13.2, 0.5},                   // 13.6 m in Horizons' notes
+                          {"rosetta.toml", "Rosetta", 32.0, 0.2}};           // [ROS]: the scene's 32 m
+    for (const Span& span : spans) {
+        Scene s = load_scene_or_die(span.file);
+        const ShapeModel& model = *s.bodies[static_cast<size_t>(s.find(span.craft))].shape;
+        glm::dvec3 low(1e9), high(-1e9);
+        for (const glm::vec3& p : model.positions) {
+            low = glm::min(low, glm::dvec3(p) * 1000.0);
+            high = glm::max(high, glm::dvec3(p) * 1000.0);
+        }
+        const double across = std::max(high.x - low.x, high.y - low.y);
+        check(std::abs(across - span.metres) < span.tolerance, (std::string(span.craft) + " is to scale").c_str(), across);
+    }
+    // LADEE: 1.85 m across its body [LDF], which is on the body's y axis here.
+    Scene moon_scene = load_scene_or_die("earth_moon.toml");
+    const ShapeModel& ladee = *moon_scene.bodies[static_cast<size_t>(moon_scene.find("LADEE"))].shape;
+    double ladee_width = 0.0;
+    for (const glm::vec3& p : ladee.positions) {
+        if (std::abs(p.y) * 1000.0 < 0.8) {   // the body, not what stands on its ends
+            ladee_width = std::max(ladee_width, 2.0 * std::hypot(p.x, p.z) * 1000.0 * std::cos(22.5 * kDegToRad));
+        }
+    }
+    check(ladee_width > 1.6 && ladee_width < 2.6, "LADEE's body is about 1.85 m across", ladee_width);
+
+    // What keeps to the shade: WMAP's telescopes behind its array, Spitzer's behind its panels and
+    // shield, MESSENGER's bus behind its sunshade, Rosetta's and MRO's panels in the Sun.
+    const ShapeModel& wmap = *hubble_scene.bodies[static_cast<size_t>(hubble_scene.find("WMAP"))].shape;
+    const auto wmap_scope = lit_share(wmap, [](const glm::dvec3& m) { return m.z < -1.3; });
+    check(wmap_scope.second > 0 && wmap_scope.first < 0.05, "the array shades WMAP's telescopes", wmap_scope.first);
+    const ShapeModel& spitzer = *hubble_scene.bodies[static_cast<size_t>(hubble_scene.find("Spitzer"))].shape;
+    const auto spitzer_scope = lit_share(spitzer, [](const glm::dvec3& m) { return m.z < 0.0 && std::abs(m.x) < 0.5 && std::abs(m.y) < 1.5; });
+    check(spitzer_scope.second > 0 && spitzer_scope.first < 0.05, "the shield shades Spitzer's telescope", spitzer_scope.first);
+    Scene mercury_scene = load_scene_or_die("mercury.toml");
+    const ShapeModel& messenger = *mercury_scene.bodies[static_cast<size_t>(mercury_scene.find("MESSENGER"))].shape;
+    const auto messenger_bus = lit_share(messenger, [](const glm::dvec3& m) { return m.z < 0.3 && std::hypot(m.x, m.y) < 0.6; });
+    check(messenger_bus.second > 0 && messenger_bus.first < 0.05, "the sunshade shades MESSENGER's bus", messenger_bus.first);
 
     // Webb: the shield about 21 m long, the telescope on the side away from the Sun, in its shade.
     Scene telescopes = load_scene_or_die("space_telescopes.toml");

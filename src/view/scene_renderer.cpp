@@ -693,7 +693,7 @@ void set_ring_bands(const Body& body, const glm::dmat3& body_to_icrf, double t_t
                                        static_cast<float>(band.inner_ae_km / band.inner_km),
                                        static_cast<float>(band.outer_ae_km / band.outer_km));
         ring.band_shape[k] = glm::vec4(glm::vec2(shape.periapsis), glm::vec2(shape.node));
-        ring.band_optics[k] = glm::vec4(static_cast<float>(band.optical_depth * band.fade(t_tdb) * width),
+        ring.band_optics[k] = glm::vec4(static_cast<float>(band.optical_depth * band.display_gain * band.fade(t_tdb) * width),
                                         static_cast<float>(band.thickness_km / width),
                                         static_cast<float>(shape.arc_center),
                                         static_cast<float>(0.5 * band.arc_length_deg * kDegToRad));

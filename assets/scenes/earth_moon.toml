@@ -14,6 +14,11 @@
 # to ~70,000 km beyond the south pole, repeating 9 times per 2 lunar months.
 #
 # Sources
+# [MDLS] The spacecraft's model, from NASA 3D Resources (github.com/nasa/NASA-3D-Resources), converted
+#        by tools/shapes/make_spacecraft.py; which model and whose: assets/shapes/SOURCES.md.
+
+# [LDF]  NSSDCA, nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=2013-047A (retrieved
+#        2026-11-07): a cylinder 1.85 m across and 2.37 m tall.
 # [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py (tools/bake/ephem.toml):
 #        Moon around the Earth 2007-02-18 .. 2031-09-27; Artemis I (NASA/JSC as flown,
 #        after TLI) 2022-11-16 08:47 .. 2022-12-11 17:20 TDB; Artemis II (NASA/JSC
@@ -218,7 +223,11 @@ file = "ephem/capstone_sel.eph"
 name = "LADEE"
 parent = "Earth"
 kind = "spacecraft"
-radii_km = [0.0012]                        # ~2 m across
+radii_km = [0.002]                         # 1.85 m across and 2.37 m tall [LDF]
+shape = "shapes/ladee.mesh"                # [MDLS]
+texture = "textures/ladee.png"
+point_at = "Sun"                           # the solar panels or antenna; the roll is illustrative
+fill_light = 0.2                           # illustrative
 color = "#ffc8e8"
 orbit_color = "#ff9ccf"
 trail = "history"
@@ -281,7 +290,11 @@ file = "ephem/lcross.eph"
 name = "ARTEMIS-P1"
 parent = "Earth"
 kind = "spacecraft"
-radii_km = [0.001]                         # THEMIS-B: ~1 m across, without its wire booms
+radii_km = [0.001]                         # a THEMIS spacecraft: about 1 m across, without its wire booms
+shape = "shapes/themis.mesh"               # [MDLS]
+texture = "textures/themis.jpg"
+point_at = "Sun"                           # the solar panels or antenna; the roll is illustrative
+fill_light = 0.2                           # illustrative
 color = "#b8c8ff"
 orbit_color = "#8aa2ff"
 trail = "history"
@@ -298,7 +311,11 @@ relative_to = "Moon"
 name = "ARTEMIS-P2"
 parent = "Earth"
 kind = "spacecraft"
-radii_km = [0.001]                         # THEMIS-C
+radii_km = [0.001]                         # a THEMIS spacecraft: about 1 m across, without its wire booms
+shape = "shapes/themis.mesh"               # [MDLS]
+texture = "textures/themis.jpg"
+point_at = "Sun"                           # the solar panels or antenna; the roll is illustrative
+fill_light = 0.2                           # illustrative
 color = "#dcc0ff"
 orbit_color = "#b48aff"
 trail = "history"
@@ -857,3 +874,23 @@ caption = """\
     the field 30 km up, in false color: red leaving the Moon, blue entering it. The strongest, \
     near the crater Gerasimovich at lower left, reach about 25 nT. The one at upper right \
     lies under the bright swirl Reiner Gamma, which it may shield from the solar wind."""
+
+[[events]]
+name = "LADEE, up close (2013-11-25)"
+time = "2013-11-25 12:09"
+focus = "LADEE"
+frame = "Moon-centered"
+# The Sun is 37 deg up under LADEE then, 120 km above the Moon: the camera is 13 deg above the
+# local horizontal on the Sun's side, looking across the sunlit ground.
+from_body = "Moon"
+phase_deg = 110.9
+elevation_deg = 11.1
+distance_km = 0.009
+warp = 1.0
+hide_orbits = true
+# [LADEE], [LDF], the model [MDLS]
+caption = """\
+    LADEE, 1.85 m across and 2.37 m tall, skimming the Moon. Solar panels wrap around its \
+    body. It measured the Moon's thin atmosphere, finding argon-40, and recorded more than \
+    11,000 dust impacts before it was sent to crash on the far side. The roll and the light \
+    on the shaded side are illustrative."""

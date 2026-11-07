@@ -127,7 +127,9 @@ bool BodyPass::init(SDL_GPUDevice* device, const SceneTargetFormat& format)
 bool BodyPass::set_format(const SceneTargetFormat& format)
 {
     SDL_ReleaseGPUGraphicsPipeline(m_device, m_pipeline);
+    SDL_ReleaseGPUGraphicsPipeline(m_device, m_two_sided_pipeline);
     m_pipeline = nullptr;
+    m_two_sided_pipeline = nullptr;
     return create_pipelines(format);
 }
 
@@ -188,9 +190,11 @@ bool BodyPass::create_pipelines(const SceneTargetFormat& format)
     info.target_info.depth_stencil_format = format.depth;
 
     m_pipeline = SDL_CreateGPUGraphicsPipeline(device, &info);
+    info.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_NONE;
+    m_two_sided_pipeline = SDL_CreateGPUGraphicsPipeline(device, &info);
     SDL_ReleaseGPUShader(device, vs);
     SDL_ReleaseGPUShader(device, fs);
-    if (!m_pipeline) {
+    if (!m_pipeline || !m_two_sided_pipeline) {
         SDL_LogError(SDL_LOG_CATEGORY_GPU, "Body pipeline creation failed: %s", SDL_GetError());
         return false;
     }
@@ -215,7 +219,9 @@ void BodyPass::shutdown()
     m_white = nullptr;
     m_no_rings = nullptr;
     SDL_ReleaseGPUGraphicsPipeline(m_device, m_pipeline);
+    SDL_ReleaseGPUGraphicsPipeline(m_device, m_two_sided_pipeline);
     m_pipeline = nullptr;
+    m_two_sided_pipeline = nullptr;
     m_device = nullptr;
 }
 
@@ -266,10 +272,15 @@ void BodyPass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const Ca
         return;
     }
 
-    SDL_BindGPUGraphicsPipeline(pass, m_pipeline);
+    SDL_GPUGraphicsPipeline* bound_pipeline = nullptr;
     const Mesh* bound = nullptr;
 
     for (const BodyDrawItem& item : items) {
+        SDL_GPUGraphicsPipeline* pipeline = item.atlas ? m_two_sided_pipeline : m_pipeline;
+        if (pipeline != bound_pipeline) {
+            SDL_BindGPUGraphicsPipeline(pass, pipeline);
+            bound_pipeline = pipeline;
+        }
         const bool own_mesh = item.mesh >= 0 && item.mesh < static_cast<int>(m_meshes.size());
         const Mesh* mesh = own_mesh ? &m_meshes[static_cast<size_t>(item.mesh)] : &m_sphere;
         if (mesh != bound) {

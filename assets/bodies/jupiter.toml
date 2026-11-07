@@ -53,7 +53,9 @@ deep = "geomag/jupiter_br_deep.fieldmap"
 # optical depths and thicknesses [PDSR]. The real rings are about a millionth as
 # bright as Jupiter's disk, so `gain` is artistic; their relative brightness, the
 # brightening toward edge-on, the forward scattering and Jupiter's shadow are not.
-# Tint and phase asymmetry are illustrative (reddish dust, forward scattering).
+# Tint and phase asymmetry are illustrative (reddish dust, forward scattering). With that gain the
+# wide faint parts read as one broad band like Saturn's, so `display_gain` dims them for the eye
+# (their optical depths stay as measured) and the narrow main ring stands out.
 [rings]
 color = "#c9a487"
 gain = 5.0e4
@@ -65,6 +67,7 @@ inner_km = 89400.0
 outer_km = 123000.0
 optical_depth = 3.0e-6
 thickness_km = 10000.0
+display_gain = 0.12
 
 [[rings.bands]]
 name = "Main ring"
@@ -79,6 +82,7 @@ inner_km = 128940.0
 outer_km = 181350.0
 optical_depth = 1.0e-7
 thickness_km = 2600.0
+display_gain = 0.12
 
 [[rings.bands]]
 name = "Thebe gossamer ring"
@@ -86,6 +90,7 @@ inner_km = 128940.0
 outer_km = 221900.0
 optical_depth = 1.0e-7
 thickness_km = 8800.0
+display_gain = 0.12
 
 [[rings.bands]]
 name = "Thebe extension"
@@ -93,6 +98,7 @@ inner_km = 221900.0
 outer_km = 280000.0
 optical_depth = 1.0e-8
 thickness_km = 8800.0
+display_gain = 0.12
 
 # [IMP]
 [[impacts]]

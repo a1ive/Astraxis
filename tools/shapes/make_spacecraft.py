@@ -127,6 +127,157 @@ CRAFT = {
         'atlas_width': 1600,
         'format': 'jpg',
     },
+    # Telescopes. Chandra, Spitzer and Kepler are to scale as they are. +z below is the side that
+    # keeps to the Sun: the solar panels, or the shield they make.
+    'chandra': {
+        'file': 'NASA-3D-Resources/3D Models/Chandra X-ray Observatory/Chandra X-ray Observatory.glb',
+        'origin_m': (3.5, 0.0, 0.0),
+        'scale': 1.0,
+        'body_z': (-0.64, -0.77, 0.0),   # the panels' normal, in the model
+        'body_x': (0, 0, -1),            # the telescope toward the body's +y
+        'merge_m': 0.015,
+        'atlas_width': 1100,
+        'format': 'jpg',
+    },
+    # An early design, with the door open; 411.9 units are the 12.7 m of the scene's [RMS]. The
+    # telescope looks along the model's -x, with the solar panels on its +y side.
+    'roman': {
+        'file': 'NASA-3D-Resources/3D Models/Nancy Grace Roman Space Telescope (B)/Nancy Grace Roman Space Telescope (B).glb',
+        'origin_m': (50.0, 0.0, 0.0),
+        'scale': 12.7 / 411.9,
+        'body_z': (0, 1, 0),
+        'body_x': (0, 0, -1),   # the door toward the body's +y
+        'merge_m': 0.04,
+        'atlas_width': 512,
+        'format': 'png',
+    },
+    'spitzer': {
+        'file': 'NASA-3D-Resources/3D Models/Spitzer Space Telescope/Spitzer Space Telescope.glb',
+        'origin_m': (0.0, 0.7, 0.0),
+        'scale': 1.0,
+        'body_z': (0, 0, -1),   # the solar panels and their shield
+        'body_x': (-1, 0, 0),   # the telescope toward the body's +y
+        'merge_m': 0.015,
+        'atlas_width': 512,
+        'format': 'png',
+    },
+    'kepler': {
+        'file': 'NASA-3D-Resources/3D Models/Kepler (A)/Kepler (A).glb',
+        'origin_m': (0.0, 0.0, 0.0),
+        'scale': 1.0,
+        'body_z': (-1, 0, 0),   # the solar panels wrap around this side
+        'body_x': (0, 0, 1),    # the aperture toward the body's +y
+        'image_scale': {'r_AO': 0.5, 'dish_AO': 0.5, 'foil_gold_ramp.pn': 0.25, 'foil_silver_ramp': 0.25},
+        'atlas_width': 1600,
+        'format': 'jpg',
+    },
+    # 37.1 units across the panels are the 3.9 m of the scene's Horizons notes. The cameras look along
+    # the model's +y, at right angles to the Sun.
+    'tess': {
+        'file': 'NASA-3D-Resources/3D Models/Transiting Exoplanet Survey Satellite (TESS) (A)/Transiting Exoplanet Survey Satellite (TESS) (A).glb',
+        'origin_m': (0.0, -1.0, 0.0),
+        'scale': 3.9 / 37.1,
+        'body_z': (0, 0, 1),
+        'body_x': (1, 0, 0),
+        'merge_m': 0.01,
+        'atlas_width': 256,
+        'format': 'png',
+    },
+    # 278.3 units across the solar array are the 5.1 m of the scene's [WMF]. The array faces the
+    # Sun on the model's -y, and shades the telescopes above it.
+    'wmap': {
+        'file': 'NASA-3D-Resources/3D Models/Wilkinson Microwave Anisotropy Probe (WMAP)/Wilkinson Microwave Anisotropy Probe (WMAP).glb',
+        'origin_m': (0.0, 0.0, 0.0),
+        'scale': 5.1 / 278.3,
+        'body_z': (0, -1, 0),
+        'body_x': (1, 0, 0),
+        'merge_m': 0.02,   # its 112,000 triangles are mostly brackets
+        'atlas_width': 512,
+        'format': 'png',
+    },
+    # Mars. To scale; the solar panels face the model's +y (MAVEN, with its dish) or -y (MRO).
+    'maven': {
+        'file': 'NASA-3D-Resources/3D Models/Mars Atmosphere and Volatile EvolutioN (MAVEN) (B)/Mars Atmosphere and Volatile EvolutioN (MAVEN) (B).glb',
+        'origin_m': (0.0, 0.0, 0.0),
+        'scale': 1.0,
+        'body_z': (0, 1, 0),
+        'body_x': (1, 0, 0),
+        'image_default_scale': 0.5,
+        'image_scale': {'tex_01': 1.0, 'foil_gold_ramp': 0.25, 'foil_silver_ramp': 0.25},
+        'merge_m': 0.01,
+        'atlas_width': 2100,
+        'format': 'jpg',
+    },
+    'mro': {
+        'file': 'NASA-3D-Resources/3D Models/Mars Reconnaissance Orbiter (MRO) (C)/Mars Reconnaissance Orbiter (MRO) (C).glb',
+        'origin_m': (0.0, 0.0, 0.0),
+        'scale': 1.0,
+        'body_z': (0, -1, 0),
+        'body_x': (1, 0, 0),
+        'image_scale': {'foil_gold_ramp.pn': 0.25, 'foil_silver_ramp': 0.25},
+        'atlas_width': 1600,
+        'format': 'jpg',
+    },
+    # tex_01 has the HEND instrument's emblem and label, and tex_boom the Voyager texture with its
+    # NASA logotype: painted over.
+    'odyssey': {
+        'file': 'NASA-3D-Resources/3D Models/Mars Odyssey/Mars Odyssey.glb',
+        'origin_m': (0.0, 0.0, 0.0),
+        'scale': 1.0,
+        'body_z': (0.0, -0.19, 0.98),   # the solar panels' normal, in the model
+        'body_x': (1, 0, 0),
+        'image_default_scale': 0.5,
+        'image_scale': {'tex_02': 1.0, 'foil_silver_ramp.': 0.25, 'foil_gold': 0.25},
+        'erase_px': {'tex_01': [(8, 660, 250, 980)], 'tex_boom': [(828, 440, 882, 480)]},
+        'atlas_width': 2100,
+        'format': 'jpg',
+    },
+    # The sunshade faces the model's +x, and the magnetometer boom goes off along its -x.
+    'messenger': {
+        'file': 'NASA-3D-Resources/3D Models/MErcury Surface, Space ENvironment, GEochemistry, and Ranging (MESSENGER)/MErcury Surface, Space ENvironment, GEochemistry, and Ranging (MESSENGER).glb',
+        'origin_m': (0.0, 0.0, 0.0),
+        'scale': 1.0,
+        'body_z': (1, 0, 0),
+        'body_x': (0, 0, -1),
+        'image_default_scale': 0.5,
+        'image_scale': {'Messenger_tex_01.': 1.0, 'foil_gold_ramp.pn': 0.25, 'foil_silver_ramp.': 0.25, 'Tex_black.png': 0.125, 'Tex_dark grey.png': 0.125},
+        'atlas_width': 2100,
+        'format': 'jpg',
+    },
+    # The body is 28.3 units across, and 1.85 m ([LDF] in the scene). Solar panels all around.
+    'ladee': {
+        'file': 'NASA-3D-Resources/3D Models/Lunar Atmosphere and Dust Environment Explorer (LADEE)/Lunar Atmosphere and Dust Environment Explorer (LADEE).glb',
+        'origin_m': (0.0, 0.0, 0.0),
+        'scale': 1.85 / 28.3,
+        'body_z': (1, 0, 0),
+        'body_x': (0, 0, -1),
+        'merge_m': 0.02,   # small parts: 49,500 triangles for a 2 m spacecraft
+        'atlas_width': 512,
+        'format': 'png',
+    },
+    # ARTEMIS is two of the THEMIS spacecraft. To scale; solar panels all around.
+    'themis': {
+        'file': 'NASA-3D-Resources/3D Models/Time History of Events and Macroscale Interactions During Substorms (THEMIS)/Time History of Events and Macroscale Interactions During Substorms (THEMIS).glb',
+        'origin_m': (0.0, 0.0, 0.0),
+        'scale': 1.0,
+        'body_z': (0, 0, -1),
+        'body_x': (-1, 0, 0),
+        'image_scale': {'foil_gold_ramp.pn': 0.25, 'foil_silver_ramp.': 0.25},
+        'atlas_width': 1100,
+        'format': 'jpg',
+    },
+    # To scale (32 m across); the solar panels face the model's +z.
+    'rosetta': {
+        'file': 'NASA-3D-Resources/3D Models/Rosetta/Rosetta.glb',
+        'origin_m': (0.0, 0.0, 0.0),
+        'scale': 1.0,
+        'body_z': (0, 0, 1),
+        'body_x': (1, 0, 0),
+        'image_default_scale': 0.5,
+        'image_scale': {'tex_01': 1.0, 'foil_gold_ramp.pn': 0.25, 'foil_silver_ramp': 0.25},
+        'atlas_width': 1700,
+        'format': 'jpg',
+    },
     # The body is 4.52 wide in the model, and 4.3 m ([HBN] in the scene), which makes the tube the
     # 13 m it should be. The telescope looks along the model's +y (the door is open). The solar
     # cells, the dark side of the panels, face its -z ([HBP]: the light side, away from the Sun, is
@@ -326,38 +477,6 @@ class Atlas:
         return (uv * np.array([w, h]) + np.array([px, py])) / np.array([W, H])
 
 
-def closed_triangles(positions, triangles):
-    """Per triangle, whether its connected piece is a closed surface: every edge of the
-    piece is used exactly twice, in opposite directions. Only open pieces (sheets) need a
-    copy of their faces turned the other way to be seen from behind."""
-    _, weld = np.unique(np.round(positions * 1e6).astype(np.int64), axis=0, return_inverse=True)
-    weld = weld.reshape(-1)
-    faces = weld[triangles]
-    parent = np.arange(weld.max() + 1)
-
-    def find(a):
-        while parent[a] != a:
-            parent[a] = parent[parent[a]]
-            a = parent[a]
-        return a
-
-    for a, b, c in faces:
-        ra = find(a)
-        parent[find(b)] = ra
-        parent[find(c)] = ra
-    edges = np.concatenate([faces[:, [0, 1]], faces[:, [1, 2]], faces[:, [2, 0]]])
-    # An edge's two directions cancel in `balance`, and `uses` must be 2.
-    low, high = edges.min(1), edges.max(1)
-    key = low * (weld.max() + 1) + high
-    sign = np.where(edges[:, 0] < edges[:, 1], 1, -1)
-    unique, inverse, uses = np.unique(key, return_inverse=True, return_counts=True)
-    balance = np.bincount(inverse.reshape(-1), weights=sign, minlength=len(unique))
-    bad_edge = (uses != 2) | (balance != 0)
-    open_roots = {find(v) for v in low[bad_edge[inverse.reshape(-1)]]}
-    roots = np.array([find(a) for a in faces[:, 0]])
-    return ~np.isin(roots, list(open_roots))
-
-
 def subdivide(positions, uv, triangles, limit_km):
     """Bisect the longest edge of each triangle until no edge is over the limit. An edge's
     midpoint is shared by the triangles on it, so that no cracks open. The sunlight is baked on
@@ -395,8 +514,9 @@ def vertex_normals(positions, triangles):
 
 
 def sun_visibility(positions, normals, triangles):
-    """1 or 0 per vertex: a ray toward +z from just above the vertex. Vertices facing away
-    get no direct light anyway and stay 1. Triangles are binned by xy on a grid."""
+    """1 or 0 per vertex: a ray toward +z from just above the vertex, on the side of its surface
+    that faces the Sun. The mesh is drawn from both sides, so a sheet whose normal points away from
+    the Sun still has a side in the Sun. Triangles are binned by xy on a grid."""
     a, b, c = (positions[triangles[:, k]] for k in range(3))
     lo = positions[:, :2].min(0)
     size = (positions[:, :2].max(0) - lo).max() / 512.0
@@ -411,8 +531,8 @@ def sun_visibility(positions, normals, triangles):
     grid = {key: np.array(value) for key, value in grid.items()}
     edge1, edge2 = b - a, c - a
     visible = np.ones(len(positions), dtype=np.float32)
-    starts = positions + normals * RAY_START_KM
-    for v in np.nonzero(normals[:, 2] > 0.0)[0]:
+    starts = positions + normals * np.sign(normals[:, 2:3]) * RAY_START_KM
+    for v in range(len(positions)):
         p = starts[v]
         candidates = grid.get(tuple(cell(p[:2])))
         if candidates is None:
@@ -446,7 +566,7 @@ def build(name, spec, models):
     for index in sorted(used):
         info = glb.json['images'][index]
         image = Image.open(io.BytesIO(glb.view(info['bufferView']))).convert('RGB')
-        scale = spec.get('image_scale', {}).get(info.get('name'), 1.0)
+        scale = spec.get('image_scale', {}).get(info.get('name'), spec.get('image_default_scale', 1.0))
         pixels = np.array(image)
         for x0, y0, x1, y1 in spec.get('erase_px', {}).get(info.get('name'), []):
             # The median of the frame just outside the rectangle.
@@ -473,6 +593,7 @@ def build(name, spec, models):
         atlas.placed[index] = atlas.placed[first]
 
     z = np.array(spec['body_z'], dtype=np.float64)
+    z /= np.linalg.norm(z)
     x = np.array(spec['body_x'], dtype=np.float64)
     to_body = np.array([x, np.cross(z, x), z])
     origin = np.array(spec['origin_m'], dtype=np.float64)
@@ -543,16 +664,6 @@ def build(name, spec, models):
     if 'subdivide_m' in spec:
         positions, uv, triangles = subdivide(positions, uv, triangles, spec['subdivide_m'] / 1000.0)
 
-    # The other side of the sheets: own vertices, so that their normals point the other way.
-    # Over the whole model: a closed part may be several materials.
-    closed = closed_triangles(positions, triangles)
-    sheet = triangles[~closed]
-    open_faces, closed_faces = len(sheet), int(closed.sum())
-    ids, inverse = np.unique(sheet, return_inverse=True)
-    triangles = np.concatenate([triangles, inverse.reshape(-1, 3)[:, [0, 2, 1]] + len(positions)])
-    positions = np.concatenate([positions, positions[ids]])
-    uv = np.concatenate([uv, uv[ids]])
-
     # Merging and degenerate faces leave vertices no triangle uses.
     used, inverse = np.unique(triangles, return_inverse=True)
     positions, uv, triangles = positions[used], uv[used], inverse.reshape(-1, 3)
@@ -560,7 +671,7 @@ def build(name, spec, models):
     visible = sun_visibility(positions, normals, triangles)
 
     print(f'{name}: {len(positions)} vertices, {len(triangles)} triangles '
-          f'({closed_faces} closed, {open_faces} open and doubled, {wrapped} wrapped); '
+          f'({wrapped} wrapped); '
           f'atlas {atlas.pixels.shape[1]}x{atlas.pixels.shape[0]}, '
           f'{100.0 * float((visible == 0).sum()) / len(visible):.0f}% of the vertices shadowed')
     extent = np.linalg.norm(positions, axis=1).max() * 1000.0

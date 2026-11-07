@@ -80,6 +80,7 @@ struct RingBand {
     // arc_length_deg around a longitude that moves at arc_rate_deg_per_day
     // (same convention as above), with soft ends. 0: a complete ring.
     double arc_length_deg = 0.0;
+    double display_gain = 1.0; // how bright it is drawn, without changing its optical depth
     double arc_center_deg = 0.0;
     double arc_rate_deg_per_day = 0.0;
     // Optional fading: the optical depth falls linearly to 0 over this span

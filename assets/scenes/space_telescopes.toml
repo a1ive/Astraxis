@@ -115,6 +115,13 @@
 #        [PE] ESA, "Last command sent to ESA's Planck space telescope", 2013-10-23:
 #          https://www.esa.int/Newsroom/Press_Releases/Last_command_sent_to_ESA_s_Planck_space_telescope
 #          Departure from L2 began in August; final transmitter shutdown on 23 October.
+#        [MDLS] The other telescopes' models, from NASA 3D Resources
+#          (github.com/nasa/NASA-3D-Resources), converted by tools/shapes/make_spacecraft.py;
+#          which model and whose: assets/shapes/SOURCES.md.
+#        [RMS] NASA, science.nasa.gov/mission/roman-space-telescope/frequently-asked-questions/
+#          (retrieved 2026-11-07): 12.7 m long with the aperture cover deployed. The model is an
+#          earlier design than the telescope built.
+#        [WMF] Bennett et al. 2003, ApJS 148, 1: the disk at the bottom is 5.1 m across.
 #        [HBN] NASA, "Hubble by the Numbers"
 #          (science.nasa.gov/mission/hubble/overview/hubble-by-the-numbers/, retrieved
 #          2026-11-07): 13 m long, 4.3 m wide, a 2.4 m primary mirror.
@@ -220,7 +227,11 @@ file = "ephem/euclid_geo.eph"
 name = "Roman"
 parent = "Earth"
 kind = "spacecraft"
-radii_km = [0.003]                         # meters across (a 2.4 m mirror)
+radii_km = [0.0065]                        # 12.7 m long [RMS]
+shape = "shapes/roman.mesh"                # [MDLS]
+texture = "textures/roman.png"
+point_at = "Sun"                           # the solar panels or antenna; the roll is illustrative
+fill_light = 0.2                           # illustrative
 color = "#d2b0ff"
 orbit_color = "#bf96ff"
 trail = "history"
@@ -246,7 +257,11 @@ file = "ephem/gaia_geo.eph"
 name = "TESS"
 parent = "Earth"
 kind = "spacecraft"
-radii_km = [0.002]                         # 3.9 x 1.2 x 1.5 m deployed
+radii_km = [0.002]                         # 3.9 x 1.2 x 1.5 m deployed (Horizons notes)
+shape = "shapes/tess.mesh"                 # [MDLS]
+texture = "textures/tess.png"
+point_at = "Sun"                           # the solar panels or antenna; the roll is illustrative
+fill_light = 0.2                           # illustrative
 color = "#ffb8cc"
 orbit_color = "#ff9fba"
 trail = "history"
@@ -259,7 +274,11 @@ file = "ephem/tess_geo.eph"
 name = "Kepler"
 parent = "Earth"
 kind = "spacecraft"
-radii_km = [0.002]                         # meters across (a 1.4 m mirror)
+radii_km = [0.0025]                        # about 5 m tall in the model
+shape = "shapes/kepler.mesh"               # [MDLS]
+texture = "textures/kepler.jpg"
+point_at = "Sun"                           # the solar panels or antenna; the roll is illustrative
+fill_light = 0.2                           # illustrative
 color = "#ffb27a"
 orbit_color = "#ff9c5c"
 trail = "history"
@@ -272,7 +291,11 @@ file = "ephem/kepler_geo.eph"
 name = "Spitzer"
 parent = "Earth"
 kind = "spacecraft"
-radii_km = [0.0023]                       # illustrative marker size
+radii_km = [0.0025]                        # about 4.5 m tall in the model
+shape = "shapes/spitzer.mesh"              # [MDLS]
+texture = "textures/spitzer.png"
+point_at = "Sun"                           # the solar panels or antenna; the roll is illustrative
+fill_light = 0.2                           # illustrative
 color = "#ed9386"
 orbit_color = "#e98272"
 trail = "history"
@@ -311,7 +334,11 @@ file = "ephem/planck_geo.eph"
 name = "WMAP"
 parent = "Earth"
 kind = "spacecraft"
-radii_km = [0.0025]                       # illustrative marker size
+radii_km = [0.0026]                        # 5.1 m across the solar array [WMF]
+shape = "shapes/wmap.mesh"                 # [MDLS]
+texture = "textures/wmap.png"
+point_at = "Sun"                           # the solar panels or antenna; the roll is illustrative
+fill_light = 0.2                           # illustrative
 color = "#c7e896"
 orbit_color = "#b1d775"
 trail = "history"
@@ -324,7 +351,11 @@ file = "ephem/wmap_geo.eph"
 name = "Chandra"
 parent = "Earth"
 kind = "spacecraft"
-radii_km = [0.01]                         # illustrative marker size
+radii_km = [0.01]                          # 19.5 m across the solar panels in the model
+shape = "shapes/chandra.mesh"              # [MDLS]
+texture = "textures/chandra.jpg"
+point_at = "Sun"                           # the solar panels or antenna; the roll is illustrative
+fill_light = 0.2                           # illustrative
 color = "#c4b5ed"
 orbit_color = "#ac97dd"
 trail = "history"

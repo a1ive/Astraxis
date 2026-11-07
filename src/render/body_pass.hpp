@@ -58,7 +58,8 @@ struct BodyDrawItem {
     SDL_GPUTexture* field_map = nullptr;
     bool field_map_strength = false;
     float field_map_u = 0.0f; // added to the map u of longitude 0 (turns)
-    // A spacecraft's mesh: plain texture coordinates, and the vertex albedo is its baked sunlight.
+    // A spacecraft's mesh: plain texture coordinates, the vertex albedo is its baked sunlight, and
+    // it is drawn from both sides (many of its parts are open sheets).
     bool atlas = false;
     float fill_light = 0.0f; // illustrative light on the unlit side (Body::fill_light)
 };
@@ -99,6 +100,7 @@ private:
 
     SDL_GPUDevice* m_device = nullptr;
     SDL_GPUGraphicsPipeline* m_pipeline = nullptr;
+    SDL_GPUGraphicsPipeline* m_two_sided_pipeline = nullptr; // for BodyDrawItem::atlas
     Mesh m_sphere;
     std::vector<Mesh> m_meshes;
     SDL_GPUSampler* m_sampler = nullptr;

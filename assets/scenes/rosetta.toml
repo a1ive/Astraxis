@@ -13,6 +13,8 @@
 # into spirals.
 #
 # Sources
+# [MDLS] The spacecraft's model, from NASA 3D Resources (github.com/nasa/NASA-3D-Resources), converted
+#        by tools/shapes/make_spacecraft.py; which model and whose: assets/shapes/SOURCES.md.
 # [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py (tools/bake/ephem.toml):
 #        - Rosetta (-226): ESA's merged predicts and reconstructions; heliocentric to
 #          2014-05-01, then relative to 67P (center @1000012) until the touchdown,
@@ -268,7 +270,11 @@ file = "ephem/c67p_jpl.eph"
 name = "Rosetta"
 parent = "Sun"
 kind = "spacecraft"
-radii_km = [0.016]                         # 32 m across its solar arrays (drawn as a marker)
+radii_km = [0.008]                         # the bus and inner panels; 32 m across them
+shape = "shapes/rosetta.mesh"              # [MDLS]
+texture = "textures/rosetta.jpg"
+point_at = "Sun"                           # the solar panels or antenna; the roll is illustrative
+fill_light = 0.2                           # illustrative
 color = "#ffd27f"
 orbit_color = "#ffb347"
 trail = "history"
@@ -630,3 +636,24 @@ caption = """\
 [[events.trails]]                          # from the arrival on
 body = "Rosetta"
 trail_history_days = 1000.0
+
+[[events]]
+name = "Rosetta, up close (2015-02-14)"
+time = "2015-02-14 11:22"
+focus = "Rosetta"
+frame = "67P-centered"
+# 67P is at yaw -25.8, pitch 28.1 deg from the spacecraft then, 10 km away with the Sun 53 deg up:
+# the camera on the far side, so that the comet shows beside the spacecraft (elevation_deg
+# replaces the pitch) and the panels, turned to the Sun, show their face.
+from_body = "67P"
+phase_deg = 156.0
+elevation_deg = -20.0
+distance_km = 0.042
+warp = 1.0
+hide_orbits = true
+# [ROS], [ROSF], the model [MDLS]; the distance from the ephemeris
+caption = """\
+    Rosetta, 32 m across its solar arrays, 10 km from comet 67P on the morning of its closest \
+    flyby, 6 km above the surface. It was the first spacecraft to orbit a comet and land on \
+    its surface, and the first to fly close to Jupiter's orbit on solar cells alone. The roll \
+    and the light on the shaded side are illustrative."""

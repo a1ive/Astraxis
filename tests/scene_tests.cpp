@@ -51,6 +51,12 @@ void test_scene_loader()
           static_cast<double>(scene.bodies.size()));
     check(scene.bodies[0].rings.bands.size() == 5 && scene.bodies[0].rings.bands[1].name == "Main ring",
           "Jupiter's ring bands");
+    // The wide faint bands are dimmed for the eye, and only that: the measured depths stay.
+    const RingSystem& jupiter_rings = scene.bodies[0].rings;
+    check(jupiter_rings.bands[0].optical_depth == 3.0e-6 && jupiter_rings.bands[0].display_gain == 0.12,
+          "the halo keeps its optical depth and is drawn dim");
+    check(std::abs(jupiter_rings.optical_depth(126000.0) - 5.0e-6) < 1e-9 && jupiter_rings.optical_depth(126000.0) > 10.0 * jupiter_rings.optical_depth(110000.0),
+          "the narrow main ring stands out from the halo", jupiter_rings.optical_depth(110000.0));
     check(scene.bodies[0].name == "Jupiter" && scene.bodies[0].parent == -1, "root is Jupiter");
     check(scene.bodies[4].name == "Callisto" && scene.bodies[4].parent == 0, "Callisto orbits Jupiter");
     check(std::abs(scene.bodies[0].polar_radius_km - 66854.0) < 1e-9, "Jupiter polar radius");

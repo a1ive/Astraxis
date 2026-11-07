@@ -21,7 +21,8 @@ struct ShapeModel {
     std::vector<float> map_u;
     // Optional: a spacecraft's texture atlas (tools/shapes/make_spacecraft.py). map_u and
     // map_v are then plain texture coordinates, and `albedo` is not a color but the
-    // sunlight reaching the vertex (0 or 1) with the Sun on the body's +z axis.
+    // sunlight reaching the vertex (0 or 1) with the Sun on the body's +z axis. Such a mesh is
+    // drawn from both sides, as many of its parts are open sheets.
     std::vector<float> map_v;
     std::vector<uint32_t> indices;    // 3 per triangle, counter-clockwise seen from outside
 };

@@ -266,9 +266,13 @@ DeathStarSurface death_star(float3 p)
     return s;
 }
 
-float4 main(PSInput input) : SV_Target0
+float4 main(PSInput input, bool front_face : SV_IsFrontFace) : SV_Target0
 {
     float3 n = normalize(input.normal);
+    // Only a spacecraft's mesh is drawn from both sides: a sheet is lit on the side seen.
+    if (!front_face) {
+        n = -n;
+    }
     float3 L = u_sun.xyz;
     float3 V = normalize(-input.rel_pos);
 
