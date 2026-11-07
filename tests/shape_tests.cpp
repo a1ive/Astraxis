@@ -789,6 +789,11 @@ std::pair<double, int> lit_share(const ShapeModel& shape, Region region)
     return {count > 0 ? static_cast<double>(lit) / count : -1.0, count};
 }
 
+const ShapeModel* telescopes_scene_model(const Scene& scene, const char* name)
+{
+    return scene.bodies[static_cast<size_t>(scene.find(name))].shape.get();
+}
+
 glm::dvec3 scene_direction(const Scene& scene, int from, int to, double t_tdb)
 {
     return glm::normalize(scene.icrf_state_at(to, t_tdb).position - scene.icrf_state_at(from, t_tdb).position);
@@ -822,6 +827,9 @@ void test_spacecraft_models()
                           {"venus.toml", "MESSENGER", "Sun", tdb_from_julian_year(2007.4)},
                           {"earth_moon.toml", "LADEE", "Sun", tdb_from_julian_year(2013.9)},
                           {"earth_moon.toml", "ARTEMIS-P1", "Sun", tdb_from_julian_year(2014.0)},
+                          {"earth_moon.toml", "Artemis II", "Sun", tdb_from_julian_year(2026.26)},
+                          {"space_telescopes.toml", "Gaia", "Sun", tdb_from_julian_year(2020.0)},
+                          {"space_telescopes.toml", "Euclid", "Sun", tdb_from_julian_year(2026.4)},
                           {"mars.toml", "TGO", "Sun", tdb_from_julian_year(2025.3)},
                           {"mars.toml", "Europa Clipper", "Sun", tdb_from_julian_year(2025.165)},
                           {"didymos.toml", "DART", "Sun", tdb_from_julian_year(2022.6)},
@@ -1085,6 +1093,97 @@ void test_spacecraft_models()
     check(std::abs(huygens_width - 2.7) < 0.03, "Huygens is 2.7 m across", huygens_width);
     check(huygens_nose < 0.6, "the Huygens shield narrows to its nose on +z", huygens_nose);
     check(huygens_unbaked, "Huygens has no baked sunlight");
+
+    // Gaia Sky's models. Gaia: the sunshield 10.2 m across [GSS], lit underneath, the payload above it
+    // in its shade. Euclid: 3.7 m across [EUO] (the model 3.5 m), the telescope behind the sunshield.
+    const ShapeModel& gaia = *telescopes_scene_model(hubble_scene, "Gaia");
+    glm::dvec3 gaia_low(1e9), gaia_high(-1e9);
+    for (const glm::vec3& p : gaia.positions) {
+        gaia_low = glm::min(gaia_low, glm::dvec3(p) * 1000.0);
+        gaia_high = glm::max(gaia_high, glm::dvec3(p) * 1000.0);
+    }
+    check(std::abs(gaia_high.x - gaia_low.x - 10.2) < 0.1, "Gaia's sunshield is 10.2 m across", gaia_high.x - gaia_low.x);
+    const auto gaia_payload = lit_share(gaia, [](const glm::dvec3& m) { return m.z < -0.5; });
+    check(gaia_payload.second > 0 && gaia_payload.first < 0.05, "the sunshield shades Gaia's payload", gaia_payload.first);
+    const auto gaia_cells = lit_share(gaia, [](const glm::dvec3& m) { return m.z > 0.2; });   // the lowest layer
+    check(gaia_cells.second > 0 && gaia_cells.first > 0.8, "the Sun reaches the underside of Gaia's sunshield", gaia_cells.first);
+    const ShapeModel& euclid = *telescopes_scene_model(hubble_scene, "Euclid");
+    double euclid_low = 1e9, euclid_high = -1e9;
+    for (const glm::vec3& p : euclid.positions) {
+        euclid_low = std::min(euclid_low, static_cast<double>(p.x) * 1000.0);
+        euclid_high = std::max(euclid_high, static_cast<double>(p.x) * 1000.0);
+    }
+    check(std::abs(euclid_high - euclid_low - 3.7) < 0.3, "Euclid is about 3.7 m across", euclid_high - euclid_low);
+    const auto euclid_scope = lit_share(euclid, [](const glm::dvec3& m) { return m.z < -0.5 && m.y > 0.0; });
+    check(euclid_scope.second > 0 && euclid_scope.first < 0.05, "the sunshield shades Euclid's telescope", euclid_scope.first);
+
+    // Orion [MDLO]: the crew module 5 m across on +z, the four arrays about 19 m tip to tip across the
+    // Sun line, their cells on the sunward side in the Sun (bake and attitude: the cases above).
+    Scene earth_moon = load_scene_or_die("earth_moon.toml");
+    const Body& artemis = earth_moon.bodies[static_cast<size_t>(earth_moon.find("Artemis II"))];
+    check(artemis.shape != nullptr && !artemis.texture.empty(), "Artemis II has a model");
+    if (artemis.shape) {
+        double crew_width = 0.0, array_span = 0.0, stack_low = 1e9, stack_high = -1e9;
+        for (const glm::vec3& p : artemis.shape->positions) {
+            const glm::dvec3 m = glm::dvec3(p) * 1000.0;
+            const double r = std::hypot(m.x, m.y);
+            if (m.z > 0.5) {
+                crew_width = std::max(crew_width, 2.0 * r);
+            }
+            array_span = std::max(array_span, 2.0 * r);
+            stack_low = std::min(stack_low, m.z);
+            stack_high = std::max(stack_high, m.z);
+        }
+        check(std::abs(crew_width - 5.0) < 0.1, "Orion's crew module is 5 m across", crew_width);
+        check(std::abs(array_span - 19.0) < 0.3, "Orion's arrays are about 19 m across", array_span);
+        check(std::abs(stack_high - stack_low - 7.4) < 0.1, "the Orion stack is about 7.4 m long", stack_high - stack_low);
+        const auto cells = lit_share(*artemis.shape, [](const glm::dvec3& m) {
+            return std::hypot(m.x, m.y) > 3.5 && m.z > -1.48 && m.z < -1.4;
+        });
+        check(cells.second > 0 && cells.first > 0.9, "the Sun reaches Orion's solar cells", cells.first);
+        const auto rear = lit_share(*artemis.shape, [](const glm::dvec3& m) {
+            return std::hypot(m.x, m.y) > 3.5 && m.z < -1.5;
+        });
+        check(rear.second > 0 && rear.first < 0.1, "the backs of Orion's arrays are in their own shade", rear.first);
+        const Body& artemis1 = earth_moon.bodies[static_cast<size_t>(earth_moon.find("Artemis I"))];
+        check(artemis1.shape != nullptr && artemis1.shape->positions.size() == artemis.shape->positions.size(),
+              "Artemis I has the Orion model too");
+    }
+
+    // ISEE-3 [MDLI]: the drum 1.58 m tall (the origin halfway up; thruster pods hang below it) about the spin axis (the body's y, toward the ecliptic north
+    // [SPIN]), the four wires 49 m beyond it in the plane across, the axial antennas 7.01 m; a side to
+    // the Sun; nothing baked, as it spins.
+    Scene isee3_scene = load_scene_or_die("isee3.toml");
+    const int isee3_index = isee3_scene.find("ISEE-3");
+    const Body& isee3 = isee3_scene.bodies[static_cast<size_t>(isee3_index)];
+    check(isee3.shape != nullptr && !isee3.texture.empty(), "ISEE-3 has a model");
+    if (isee3.shape) {
+        double drum_high = -1e9, drum_radius = 0.0, wire_reach = 0.0, axial_reach = 0.0;
+        bool isee3_unbaked = true;
+        for (size_t k = 0; k < isee3.shape->positions.size(); ++k) {
+            const glm::dvec3 m = glm::dvec3(isee3.shape->positions[k]) * 1000.0;
+            const double r = std::hypot(m.x, m.z);
+            if (r > 0.5 && r < 0.9) {
+                drum_high = std::max(drum_high, m.y);
+                drum_radius = std::max(drum_radius, r);
+            }
+            wire_reach = std::max(wire_reach, r);
+            axial_reach = std::max(axial_reach, std::abs(m.y));
+            isee3_unbaked = isee3_unbaked && isee3.shape->albedo[k] == 1.0f;
+        }
+        check(std::abs(2.0 * drum_high - 1.58) < 0.03, "the ISEE-3 drum is 1.58 m tall", 2.0 * drum_high);
+        check(std::abs(2.0 * drum_radius - 1.77) < 0.03, "the ISEE-3 drum is 1.77 m across", 2.0 * drum_radius);
+        check(std::abs(wire_reach - drum_radius - 49.0) < 0.1, "ISEE-3's wires reach 49 m beyond the drum", wire_reach - drum_radius);
+        check(std::abs(axial_reach - drum_high - 7.01) < 0.05, "ISEE-3's axial antennas are 7.01 m", axial_reach - drum_high);
+        check(isee3_unbaked, "ISEE-3 has no baked sunlight");
+        const double t_isee3 = tdb_from_julian_year(1980.0);
+        const glm::dmat3 axes = isee3_scene.body_to_icrf(isee3, t_isee3);
+        const glm::dvec3 self = isee3_scene.icrf_state_at(isee3_index, t_isee3).position;
+        const glm::dvec3 sun = glm::normalize(isee3_scene.sun_icrf_state_at(t_isee3).position - self);
+        check(glm::dot(axes[2], sun) > 1.0 - 1e-12, "ISEE-3 turns a side to the Sun");
+        check(glm::dot(axes[1], ecliptic_pole_icrf()) > 0.999, "ISEE-3's spin axis points to the ecliptic north",
+              glm::dot(axes[1], ecliptic_pole_icrf()));
+    }
 
     // Webb: the shield about 21 m long, the telescope on the side away from the Sun, in its shade.
     Scene telescopes = load_scene_or_die("space_telescopes.toml");

@@ -16,6 +16,11 @@
 # Sources
 # [MDLS] The spacecraft's model, from NASA 3D Resources (github.com/nasa/NASA-3D-Resources), converted
 #        by tools/shapes/make_spacecraft.py; which model and whose: assets/shapes/SOURCES.md.
+# [MDLO] Artemis I and II: Orion with the European Service Module and four solar arrays, modeled
+#        for this project from published dimensions (crew module 5 m across and 3.35 m tall, NASA
+#        "Orion by the Numbers" 2025; arrays about 7 m each, 19 m across, Airbus "Orion European
+#        Service Module"); simplified, not engineering CAD. Converted by
+#        tools/shapes/make_spacecraft.py; assets/shapes/SOURCES.md.
 
 # [LDF]  NSSDCA, nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=2013-047A (retrieved
 #        2026-11-07): a cylinder 1.85 m across and 2.37 m tall.
@@ -183,7 +188,11 @@ file = "ephem/moon_geo.eph"
 name = "Artemis II"
 parent = "Earth"
 kind = "spacecraft"
-radii_km = [0.005]                         # Orion with its solar arrays, ~19 m across
+radii_km = [0.005]                         # Orion with its solar arrays, ~19 m across [MDLO]
+shape = "shapes/orion.mesh"                # [MDLO]
+texture = "textures/orion.png"
+point_at = "Sun"                           # the arrays' cells; illustrative
+fill_light = 0.2                           # illustrative
 color = "#ffe08a"
 orbit_color = "#ffc34d"
 trail = "history"                          # the whole flight
@@ -197,6 +206,10 @@ name = "Artemis I"
 parent = "Earth"
 kind = "spacecraft"
 radii_km = [0.005]
+shape = "shapes/orion.mesh"                # [MDLO]
+texture = "textures/orion.png"
+point_at = "Sun"                           # the arrays' cells; illustrative
+fill_light = 0.2                           # illustrative
 color = "#ffb3a0"
 orbit_color = "#ff8a6e"
 trail = "history"

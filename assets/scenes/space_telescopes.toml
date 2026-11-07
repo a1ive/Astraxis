@@ -118,6 +118,16 @@
 #        [MDLS] The other telescopes' models, from NASA 3D Resources
 #          (github.com/nasa/NASA-3D-Resources), converted by tools/shapes/make_spacecraft.py;
 #          which model and whose: assets/shapes/SOURCES.md.
+#        [MDLG] Gaia and Euclid from Gaia Sky's spacecraft repository
+#          (gaia.ari.uni-heidelberg.de/gaiasky/repository/extra/spacecraft/), CC BY: Gaia by
+#          Toni Sagrista, Euclid ESA's (scifleet.esa.int); converted by
+#          tools/shapes/make_spacecraft.py (assets/shapes/SOURCES.md).
+#        [GSS] ESA, sci.esa.int/web/gaia/-/45313-deployable-sunshield (retrieved 2026-11-07): the
+#          sunshield is 10.2 m across deployed.
+#        [EUO] ESA, "Euclid overview" (esa.int/Science_Exploration/Space_Science/Euclid_overview,
+#          retrieved 2026-11-07): about 4.7 m tall and 3.7 m in diameter; the fact sheet
+#          (sci.esa.int/web/euclid/-/fact-sheet): a 1.2 m telescope, with the VIS and NISP
+#          instruments.
 #        [RMS] NASA, science.nasa.gov/mission/roman-space-telescope/frequently-asked-questions/
 #          (retrieved 2026-11-07): 12.7 m long with the aperture cover deployed. The model is an
 #          earlier design than the telescope built.
@@ -214,7 +224,11 @@ file = "ephem/jwst_geo.eph"
 name = "Euclid"
 parent = "Earth"
 kind = "spacecraft"
-radii_km = [0.0024]                        # 4.7 m tall, 3.7 m across
+radii_km = [0.0024]                        # 4.7 m tall, 3.7 m across [EUO]
+shape = "shapes/euclid.mesh"               # [MDLG]
+texture = "textures/euclid.jpg"
+point_at = "Sun"                           # the sunshield; the roll is illustrative
+fill_light = 0.2                           # illustrative
 color = "#9fd4ff"
 orbit_color = "#7cc2ff"
 trail = "history"
@@ -244,7 +258,11 @@ file = "ephem/roman_geo.eph"
 name = "Gaia"
 parent = "Earth"
 kind = "spacecraft"
-radii_km = [0.003]                         # meters across
+radii_km = [0.005]                         # the sunshield, 10.2 m across [GSS]
+shape = "shapes/gaia.mesh"                 # [MDLG]
+texture = "textures/gaia.jpg"
+point_at = "Sun"                           # the sunshield; really 45 deg off, turning (illustrative)
+fill_light = 0.2                           # illustrative
 color = "#a6ecb6"
 orbit_color = "#86dd9c"
 trail = "history"

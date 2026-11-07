@@ -1,4 +1,5 @@
-"""Convert NASA's GLB and STL models of spacecraft to AXMESH2 meshes with a texture atlas.
+"""Convert spacecraft models (NASA's GLB and STL, Gaia Sky's OBJ, this project's Orion) to AXMESH2
+meshes with a texture atlas.
 
 Run (the decoder and images need packages; the models are not checked in, the argument is
 ref/ with a clone of github.com/nasa/NASA-3D-Resources and the models in probes/):
@@ -19,6 +20,7 @@ way. This is exact while the Sun stays on +z, which is why only spacecraft that 
 face to the Sun are baked this way; `bake_sun: False` leaves every vertex at 1.
 
 An STL has no materials: `parts` names them, per connected piece, and `colors` gives each one's.
+Parts printed separately (ISEE-3) are put together by `assembly`.
 """
 import argparse
 import io
@@ -392,6 +394,96 @@ CRAFT = {
         'atlas_width': 530,
         'format': 'jpg',
     },
+    # Gaia Sky's models (OBJ with MTL). Gaia: the sunshield is 1 unit across in the model and 10.2 m
+    # deployed (ESA); it faces the model's -y, under the payload. Many textures repeat several
+    # times across a triangle, which an atlas cannot do: those are plain colors here (each its
+    # texture's average), and the solar cells, the one pattern worth keeping, are laid out in a grid
+    # first (the panels span up to 7 tiles).
+    'gaia': {
+        'file': 'probes/mission-gaia/gaia.obj',
+        'origin_m': (0.0, 0.0, 0.0),
+        'scale': 10.2,
+        'body_z': (0, -1, 0),
+        'body_x': (1, 0, 0),
+        'colors': {'GaiaMetal': (76, 76, 78), 'DarkMetal': (30, 30, 32), 'DarkM_darkmetal': (30, 30, 32),
+                   'BelowTTS': (60, 60, 62), 'Bottom': (40, 40, 42), 'Circuit1': (40, 40, 42),
+                   'Circuit2': (62, 62, 62), 'DarkM': (48, 48, 48), 'CCD': (40, 44, 90),
+                   'Gold': (186, 140, 58), 'AluminumGold': (186, 140, 58), 'GoldFoil': (186, 140, 58)},
+        'tile_images': {'solar-panel-small.jpg': (8, 8, 32, 1.0)},
+        'atlas_width': 800,
+        'format': 'jpg',
+    },
+    # ESA's Euclid as Gaia Sky has it. 0.869 units from the bottom of the service module to the top
+    # of the sunshield, without the dish and thrusters below, are ESA's 4.7 m: it is then 3.5 m
+    # across (ESA: 3.7 m). The sunshield faces the model's +z, and the telescope looks along +y.
+    'euclid': {
+        'file': 'probes/spacecraft-euclid/euclid.obj',
+        'origin_m': (-0.015, 0.066, 0.0),
+        'scale': 4.7 / 0.869,
+        'body_z': (0, 0, 1),
+        'body_x': (1, 0, 0),    # the telescope toward the body's +y
+        'image_scale': {'Euclid2_Base_Color.png': 0.25},
+        'merge_m': 0.02,
+        'merge_uv': 256,
+        'atlas_width': 1040,
+        'format': 'jpg',
+    },
+    # Orion with the European Service Module and its four arrays, as built for this project in
+    # Blender (ref/artemis_orion/build_orion.py, from NASA's and Airbus's published dimensions; no
+    # third-party mesh). Metres, +z from the engine toward the crew module's docking ring; the
+    # arrays lie flat across +z with their cells on the +z side, so the scenes keep +z to the Sun
+    # and the Sun is baked. The origin is halfway up the 7.4 m stack.
+    'orion': {
+        'file': 'artemis_orion/artemis_orion.obj',
+        'origin_m': (0.0, 0.0, 3.7),
+        'scale': 1.0,
+        'body_z': (0, 0, 1),
+        'body_x': (1, 0, 0),
+        'merge_m': 0.02,
+        'atlas_width': 64,
+        'format': 'png',
+    },
+    # ISEE-3 from NASA's printable parts (inches): the 16-sided drum, the booms and wires each in
+    # its own file, put together here after the JHU/APL flight configuration (eoPortal, fig. 3) and
+    # the NASA program document (spacecollege.org/?p=245): the drum's y is the spin axis; four rigid
+    # booms and four wire antennas leave from the band at mid-height (y 27.9 .. 30.2), the
+    # experiment booms (search coil and magnetometer, 302 cm) where the drum has hinge brackets
+    # (model +-z), the inertia booms (114 cm) at right angles, the wires (49 m) between them, and
+    # the axial antennas (701 cm) along the spin axis. Thruster.stl, a loose part that fits none of
+    # the drum's pods, is left out. The solar array covers the side except the
+    # band and two rings. The spin axis is kept perpendicular to the ecliptic, pointing north: the
+    # body's +y, with +z (a side) to the Sun. It spins every 3 s, so nothing is baked; the colors
+    # are illustrative.
+    'isee3': {
+        'file': 'probes/isee3',
+        'assembly': [
+            {'file': 'Core 2.stl', 'material': 'structure',
+             'bands': [(lo, hi, 33.0, 34.9, 'cells') for lo, hi in ((-0.01, 15.14), (19.85, 42.21), (47.3, 62.07))]
+                      + [(27.87, 30.25, 33.0, 34.9, 'structure')],
+             'caps': [(0.0, 34.79, 16, 'structure'), (62.06, 34.79, 16, 'structure')]},   # printed open
+            {'file': 'Exboom1.stl', 'material': 'boom', 'at': (7.15, 29.06, 34.5), 'toward': (0, 0, 1)},
+            {'file': 'Exboom2.stl', 'material': 'boom', 'at': (-7.15, 29.06, -34.5), 'toward': (0, 0, -1)},
+            {'file': 'Inertia boom.stl', 'material': 'boom', 'at': (34.6, 29.06, 0.0), 'toward': (1, 0, 0)},
+            {'file': 'Inertia boom.stl', 'material': 'boom', 'at': (-34.6, 29.06, 0.0), 'toward': (-1, 0, 0)},
+            *({'file': 'Rad antenna.stl', 'material': 'wire', 'at': (24.4 * sx, 29.06, 24.4 * sz),
+               'toward': (sx, 0, sz), 'length': 4900.0 / 2.54} for sx, sz in ((1, 1), (1, -1), (-1, 1), (-1, -1))),
+            {'file': 'Rad antenna.stl', 'material': 'wire', 'at': (0.0, 62.06, 0.0), 'toward': (0, 1, 0),
+             'up': (0, 0, 1), 'length': 701.0 / 2.54},
+            {'file': 'Rad antenna.stl', 'material': 'wire', 'at': (0.0, -1.55, 0.0), 'toward': (0, -1, 0),
+             'up': (0, 0, 1), 'length': 701.0 / 2.54},
+        ],
+        'origin_m': (0.0, 31.03, 0.0),
+        'scale': 0.0254,
+        'body_z': (1, 0, 0),
+        'body_x': (0, 0, -1),   # the spin axis (model +y) is the body's +y
+        'colors': {'cells': (38, 42, 78), 'structure': (178, 178, 172), 'boom': (205, 205, 200),
+                   'wire': (160, 150, 120)},
+        'merge_m': 0.01,
+        'merge_skip': ['wire'],
+        'bake_sun': False,
+        'atlas_width': 64,
+        'format': 'png',
+    },
 }
 
 
@@ -515,10 +607,14 @@ class Stl:
     pieces, and the normals are smoothed across edges under 40 deg, as a shaded CAD model looks."""
     CREASE_COS = np.cos(np.radians(40.0))
 
+    RECORD = np.dtype([('normal', '<f4', 3), ('corners', '<f4', (3, 3)), ('attribute', '<u2')])
+
     def __init__(self, path, spec):
-        record = np.dtype([('normal', '<f4', 3), ('corners', '<f4', (3, 3)), ('attribute', '<u2')])
-        raw = np.fromfile(path, dtype=record, offset=84)
-        corners = raw['corners'].astype(np.float64).reshape(-1, 3)
+        if 'assembly' in spec:
+            corners, material_names = self.assemble(path, spec)
+        else:
+            corners = np.fromfile(path, dtype=self.RECORD, offset=84)['corners'].astype(np.float64)
+        corners = corners.reshape(-1, 3)
         _, first, inverse = np.unique(np.round(corners * 1e4).astype(np.int64), axis=0, return_index=True, return_inverse=True)
         self.positions = corners[first]
         self.triangles = inverse.reshape(-1, 3)
@@ -527,6 +623,11 @@ class Stl:
         self.corner_normals = self.smooth_normals()
         unit = self.faces_normal / np.maximum(np.linalg.norm(self.faces_normal, axis=1, keepdims=True), 1e-30)
 
+        if 'assembly' in spec:
+            self.names = list(dict.fromkeys(material_names))
+            self.json = {'materials': [{'name': name} for name in self.names]}
+            self.material = np.array([self.names.index(name) for name in material_names])
+            return
         names = [part[0] for part in spec['parts']] + [spec['fallback_part']] + list(spec.get('back_faces', {}).values())
         self.names = list(dict.fromkeys(names))
         self.json = {'materials': [{'name': name} for name in self.names]}
@@ -545,6 +646,45 @@ class Stl:
         for name, back in spec.get('back_faces', {}).items():
             away = (self.material == self.names.index(name)) & (unit @ sunward <= 0.5)
             self.material[away] = self.names.index(back)
+
+    @classmethod
+    def assemble(cls, folder, spec):
+        """Parts printed separately (each in its own file and frame), put together: per entry of
+        `assembly`, the part's +z (along a boom) turned to `toward` with its +y as near `up` as it
+        goes, scaled along +z to `length` (model units) and its origin moved to `at`; without `at`
+        the part is already in place.
+        `bands` gives the side faces of a part with all three corners in a y range and a range of
+        radius from the y axis another material (a drum's solar array), in order, later ones winning;
+        `caps` closes an open drum with flat polygons (y, circumradius, sides, material). One material name per triangle."""
+        corners, names = [], []
+        for entry in spec['assembly']:
+            raw = np.fromfile(folder / entry['file'], dtype=cls.RECORD, offset=84)['corners'].astype(np.float64)
+            if 'at' in entry:
+                if 'length' in entry:
+                    raw[:, :, 2] *= entry['length'] / raw[:, :, 2].max()
+                z = np.array(entry['toward'], dtype=np.float64)
+                z /= np.linalg.norm(z)
+                up = np.array(entry.get('up', (0, 1, 0)), dtype=np.float64)
+                y = up - (up @ z) * z
+                y /= np.linalg.norm(y)
+                x = np.cross(y, z)
+                raw = raw @ np.array([x, y, z]) + np.array(entry['at'], dtype=np.float64)
+            material = np.full(len(raw), entry['material'], dtype=object)
+            radius = np.hypot(raw[:, :, 0], raw[:, :, 2])
+            normal = np.cross(raw[:, 1] - raw[:, 0], raw[:, 2] - raw[:, 0])
+            side = np.abs(normal[:, 1]) < 0.5 * np.linalg.norm(normal, axis=1)
+            for low, high, min_radius, max_radius, name in entry.get('bands', []):
+                inside = (raw[:, :, 1] >= low) & (raw[:, :, 1] <= high) & (radius >= min_radius) & (radius <= max_radius)
+                material[inside.all(axis=1) & side] = name
+            corners.append(raw)
+            names.extend(material.tolist())
+            for y, radius, sides, name in entry.get('caps', []):
+                angle = np.radians(360.0 / sides) * np.arange(sides + 1)
+                rim = np.stack([radius * np.cos(angle), np.full(sides + 1, y), radius * np.sin(angle)], axis=1)
+                fan = np.stack([np.tile([0.0, y, 0.0], (sides, 1)), rim[:-1], rim[1:]], axis=1)
+                corners.append(fan)
+                names.extend([name] * sides)
+        return np.concatenate(corners), names
 
     def connected_pieces(self):
         parent = list(range(len(self.positions)))
@@ -594,6 +734,100 @@ class Stl:
 
     def material_color(self, material, overrides):
         return overrides[self.names[material]]
+
+
+class Obj:
+    """A Wavefront OBJ with its MTL, with the interface `build` uses of Glb: one primitive per
+    material, the images read from the files `map_Kd` names. OBJ texture coordinates start at the
+    bottom of the image (glTF's at the top), so v is flipped. Kd is taken as linear, as Blender's
+    exporter writes it. Faces with more than three corners are fanned."""
+    plain = ()
+
+    def __init__(self, path):
+        self.folder = path.parent
+        positions, uvs, normals = [], [], []
+        faces = {}   # material -> list of corner triples (v, vt, vn)
+        material = None
+        library = None
+        with open(path, encoding='utf-8', errors='replace') as f:
+            for line in f:
+                head, _, rest = line.strip().partition(' ')
+                if head == 'v':
+                    positions.append([float(x) for x in rest.split()[:3]])
+                elif head == 'vt':
+                    uvs.append([float(x) for x in rest.split()[:2]])
+                elif head == 'vn':
+                    normals.append([float(x) for x in rest.split()[:3]])
+                elif head == 'usemtl':
+                    material = rest.strip()
+                elif head == 'mtllib':
+                    library = rest.strip()
+                elif head == 'f':
+                    corners = []
+                    for token in rest.split():
+                        parts = (token.split('/') + ['', ''])[:3]
+                        corners.append(tuple(int(p) if p else 0 for p in parts))
+                    target = faces.setdefault(material, [])
+                    for k in range(1, len(corners) - 1):
+                        target.append((corners[0], corners[k], corners[k + 1]))
+        self.positions = np.array(positions, dtype=np.float64)
+        self.uvs = np.array(uvs, dtype=np.float64).reshape(-1, 2)
+        self.normals = np.array(normals, dtype=np.float64).reshape(-1, 3)
+        self.faces = {name: np.array(corners, dtype=np.int64) for name, corners in faces.items()}
+
+        colors, images = {}, {}
+        current = None
+        if library is not None:
+            with open(self.folder / library, encoding='utf-8', errors='replace') as f:
+                for line in f:
+                    head, _, rest = line.strip().partition(' ')
+                    if head == 'newmtl':
+                        current = rest.strip()
+                    elif head == 'Kd' and current is not None:
+                        colors[current] = [float(x) for x in rest.split()[:3]]
+                    elif head == 'map_Kd' and current is not None:
+                        images[current] = rest.split()[-1]   # options come before the file name
+        self.names = list(self.faces)
+        files = sorted(set(images[name] for name in self.names if name in images))
+        self.json = {'materials': [{'name': name} for name in self.names],
+                     'images': [{'name': file, 'bufferView': k} for k, file in enumerate(files)]}
+        self.image_of = {name: files.index(images[name]) for name in self.names if name in images}
+        self.colors = colors
+
+    def view(self, index):
+        return (self.folder / self.json['images'][index]['name']).read_bytes()
+
+    @staticmethod
+    def resolve(index, count):
+        """OBJ indices start at 1; negative ones count back from the end."""
+        return np.where(index > 0, index - 1, count + index)
+
+    def primitives(self):
+        out = []
+        for material, name in enumerate(self.names):
+            corners = self.faces[name].reshape(-1, 3)   # rows of (v, vt, vn)
+            points = self.positions[self.resolve(corners[:, 0], len(self.positions))]
+            uv = None
+            if name in self.image_of and corners[:, 1].all():
+                uv = self.uvs[self.resolve(corners[:, 1], len(self.uvs))] * np.array([1.0, -1.0]) + np.array([0.0, 1.0])
+            if corners[:, 2].all():
+                normals = self.normals[self.resolve(corners[:, 2], len(self.normals))]
+            else:
+                a, b, c = points[0::3], points[1::3], points[2::3]
+                normals = np.repeat(np.cross(b - a, c - a), 3, axis=0)
+            normals = normals / np.maximum(np.linalg.norm(normals, axis=1, keepdims=True), 1e-30)
+            out.append((material, points, normals, uv, np.arange(len(points)).reshape(-1, 3)))
+        return out
+
+    def material_image(self, material):
+        name = self.names[material]
+        return None if name in self.plain else self.image_of.get(name)
+
+    def material_color(self, material, overrides):
+        name = self.names[material]
+        if name in overrides:
+            return overrides[name]
+        return tuple(int(round(255.0 * c)) for c in linear_to_srgb(self.colors.get(name, (0.8, 0.8, 0.8))))
 
 
 class Atlas:
@@ -727,7 +961,8 @@ def sun_visibility(positions, normals, triangles):
 
 
 def build(name, spec, models):
-    glb = Stl(models / spec['file'], spec) if spec['file'].endswith('.stl') else Glb(models / spec['file'])
+    path = models / spec['file']
+    glb = Stl(path, spec) if path.suffix == '.stl' or 'assembly' in spec else Obj(path) if path.suffix == '.obj' else Glb(path)
     glb.plain = tuple(spec.get('colors', {}))
     skip = spec.get('skip_materials', [])
     prims = [p for p in glb.primitives()
@@ -817,7 +1052,7 @@ def build(name, spec, models):
 
         # Parts smaller than the grid are not seen from any distance the camera goes to: merge
         # vertices in one cell (with about the same normal, so that big flat faces stay flat).
-        if grid_km > 0.0:
+        if grid_km > 0.0 and (material is None or glb.json['materials'][material].get('name') not in spec.get('merge_skip', [])):
             key = np.concatenate([np.floor(positions / grid_km), np.round(normals * 2.0), np.round(uv * spec.get('merge_uv', 1e5))], axis=1)
             _, first, inverse = np.unique(key.astype(np.int64), axis=0, return_index=True, return_inverse=True)
             inverse = inverse.reshape(-1)

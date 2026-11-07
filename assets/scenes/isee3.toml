@@ -42,6 +42,18 @@
 #        1985-06-05 (~39 m/s), 07-09 (~1 m/s), 09-08 (2.3 m/s, three days before the
 #        encounter) (pp. 47-49); ~40 m/s spent after the encounter to aim ICE at a lunar
 #        flyby on 2014-08-10 (p. 50).
+# [MDLI] NASA 3D Resources, "International Sun-Earth Explorer-3" (science.nasa.gov/3d-resources/
+#        international-sun-earth-explorer-3, printable STL parts), assembled by
+#        tools/shapes/make_spacecraft.py after the JHU/APL flight configuration (eoPortal, "ISEE-3 /
+#        ICE", fig. 3) and NASA's program document (spacecollege.org/?p=245, retrieved 2026-11-07):
+#        16-sided drum 174 cm across, 161 cm tall; booms and four 49 m wire antennas from the
+#        midsection, the experiment booms 302 cm, the inertia booms 114 cm, the axial antennas
+#        701 cm. Not spinning here (19.75 rpm), and the colors are illustrative.
+# [SPIN] Spin axis perpendicular to the ecliptic: Wikipedia, "International Cometary Explorer"
+#        (retrieved 2026-11-07: 19.76 rpm "about an axis perpendicular to the ecliptic"); for the
+#        ISEE spacecraft "maintained nominally within 1 degree of perpendicular to the ecliptic
+#        plane, pointing north" (SPENVIS, ISEE model page). Spin rate 19.75 +- 0.2 rpm specified,
+#        19.76 rpm after the 2014 spin-up (ISEE-3 Reboot Project, spacecollege.org/?p=298).
 # [APX]  E. M. Standish, Approximate Positions of the Planets, Table 2a: Venus, Mars.
 # [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
 # [ELEM] JPL SSD, Planetary Satellite Mean Elements (the Moon, outside its tables).
@@ -346,7 +358,11 @@ file = "ephem/halley.eph"
 name = "ISEE-3"
 parent = "Sun"
 kind = "spacecraft"
-radii_km = [0.0009]                        # drum 1.74 m x 1.61 m (TDA PR 42-84; drawn as a marker)
+radii_km = [0.0009]                        # drum 1.74 m x 1.61 m (TDA PR 42-84), without the booms and wires
+shape = "shapes/isee3.mesh"                # [MDLI]
+texture = "textures/isee3.png"
+point_at = "Sun"                           # a side to the Sun, the spin axis toward ecliptic north [SPIN]
+fill_light = 0.2                           # illustrative
 color = "#ffd27f"
 orbit_color = "#ffb347"
 trail = "history"

@@ -263,10 +263,37 @@ NASA 3D Resources（<https://github.com/nasa/NASA-3D-Resources>，提交 `11ebb4
 | `clipper.mesh`、`../textures/clipper.jpg` | `clipper_spacecraft.glb`（2023-09-09 的版本，不在仓库里） | NASA Visualization Technology Applications and Development (VTAD)，<https://science.nasa.gov/resource/europa-clipper-3d-model/> | `a3f5e4533b31bf4bb25f4332f6879055dfd744f3ff9add23bfa9bdfbefd4f7fe` |
 | `dart.mesh`、`../textures/dart.png` | `3D Printing/Double Asteroid Redirection Test (DART)/…(DART).stl`（打印用，没有颜色） | 页面没写署名，<https://science.nasa.gov/3d-resources/double-asteroid-redirection-test-dart/> | `324725ab0595f0d69b4921e2d9521c42cceb0655b157a77b53813b9830d3eaf3` |
 | `huygens.mesh`、`../textures/huygens.jpg` | `Cassini-Huygens (A) (without Cassini).glb` | NASA/Brian E. Kumanchik，<https://science.nasa.gov/3d-resources/cassini-huygens-a/> | `d2cb317244d4a64eca408bcaf1c908f77c3c25124df2b4d083ec23f5eee14aca` |
+| `isee3.mesh`、`../textures/isee3.png` | `probes/isee3/` 下打印用的零件（2025-04-25 上传，没有颜色）：`Core 2.stl`、`Exboom1.stl`、`Exboom2.stl`、`Inertia boom.stl`、`Rad antenna.stl` | 页面没写署名，<https://science.nasa.gov/3d-resources/international-sun-earth-explorer-3/> | `04a9f9c0f6ecd9359a4b48640ec1fad03451ad2f265f8d1b28486a1ae1cdb3a6`、`b30c38e63363dd8e5b33cd4df68a4d84bea0244f64258994743783ac3950fa6b`、`4e49b9251c444fa3609acfa34748313c2aeefd9cded371fb430c1094bf3b4e66`、`75e70795cad2c1fa55affa04ed663ab53cc7f793df9355fdcbe804d7d1e2c811`、`2138bbf5ef241014d2a3a345204201476ef121e48788c1fd31897f7a4942fd73` |
 
 - **许可**：仓库 README 写“free and without copyright”，并指向 NASA 媒体使用指南（<https://www.nasa.gov/nasa-brand-center/images-and-media/>）：渲染 3D 模型用的纹理和多边形数据在美国一般不受版权保护，但 NASA 的徽标和标识不在其内，也不能暗示 NASA 背书。这些页面（2026-11-07 查看）都没写单独的许可，也没有列第三方权利人。别的模型入库前要同样看一下页面上的署名：仓库的贡献者名单里有 Ball Aerospace、DigitalSpace 等外部机构。`Hubble Space Telescope (A)` 的页面署名就是 DigitalSpace Corporation（一家公司，版权归属不清楚），所以没有用；`(B)` 没有署名也没有材质，82 万个三角形，还有零件飘在外面。用的是 NASA 网站上 VTAD 署名的那个。
 - **徽标**：Voyager 的纹理里有一个 NASA 徽标（像素矩形 828,440–882,480，贴在一块奶油色的板上），工具用周围的颜色涂掉。Hubble 的纹理里有一条横幅，印着 NASA 和 ESA 的徽标，只有 `NASA_logo` 这个贴花用它：工具跳过这个材质（`skip_materials`），并把横幅涂成灰色（`erase_polygon`），徽标不留在发布的图集里。Odyssey 的 `tex_01` 有 HEND 仪器的徽标和标签，`tex_boom` 是 Voyager 那张带 NASA 徽标的贴图，都涂掉。纯色的模型（JWST、Galileo、Roman、Spitzer、TESS、WMAP、LADEE、DART）没有纹理，其余的纹理里没有徽标（MESSENGER 的美国国旗也是真实的，留着；New Horizons 的美国国旗是探测器上真实的，留着；`tex_02` 里还有一小张没用到的探测器结构图，没有文字）。
 - **处理**：仓库里的文件用 Draco 压缩，工具用 DracoPy（Apache-2.0，只在这个工具里用，不进程序）解码，Pillow 读图；New Horizons 没有压缩。去掉 Blender 导出时留下的占位方块（`_root`），按配置转到本体系（+z 是指向的轴）。Voyager 按 NASA 的 3.7 m 天线缩放（模型里 3.81 m），New Horizons 按 APL 的 2.1 m 天线缩放（模型里 1.888 m），Galileo 按 NASA 的 5.3 m 总高缩放（模型里 146.7 个单位，单位没写），Hubble 按 NASA 的 4.3 m 宽度缩放（模型里 4.52 m，镜筒也就是 13 m），Roman 按 NASA 的 12.7 m 长度（411.9 个单位），TESS 按 Horizons 说明里 3.9 m 的跨度（37.1 个单位），WMAP 按 Bennett 2003 的 5.1 m 圆盘（278.3 个单位），LADEE 按 NSSDCA 的 1.85 m 直径（机身 28.3 个单位），其余的尺寸不改。为控制文件大小，`merge_m` 把小于这个尺寸、法线相近的顶点合并（JWST、Chandra、Roman、Spitzer、TESS、WMAP、MAVEN、LADEE）。Hubble 的文件把同一张图存了三份，工具只放一份进图集。它的电池片（深色）朝模型的 −z，转到本体系里就是朝太阳的 +z；背面（浅色）是白色的散热器（ESA 和 NASA 都这样写）。New Horizons 的金箔在文件里是金属（近乎纯黄），这里只有漫反射，改成 sRGB (186, 140, 58)。Galileo 文件里的颜色是假的（叫 `bus:black` 的是亮紫色），改成深色和金色，半透明的金网画成不透明。Juno 有几个完全透明的材质，面和可见的面重合，跳过。JWST 用 2 cm 的网格合并顶点（法线相近的才合并），99,239 个三角形减到约 39,000 个（再加上薄片的背面）。
+
+### Gaia Sky 的模型
+
+Gaia Sky 的探测器仓库（<https://gaia.ari.uni-heidelberg.de/gaiasky/repository/extra/spacecraft/>）里的 OBJ（带 MTL 和纹理），放在 `ref/probes/` 下各自的目录里，也用 `make_spacecraft.py` 转换（`Obj`：v 翻转，因为 OBJ 的纹理坐标从图的底部量起；Kd 按 Blender 导出的线性值读）。许可都按 CC BY，署名照各目录的 `credit.txt` / `credits.txt`。
+
+| 输出 | 输入 | 署名（`credit.txt`） | 输入 SHA-256 |
+|---|---|---|---|
+| `gaia.mesh`、`../textures/gaia.jpg` | `mission-gaia/gaia.obj` | Toni Sagristà（Gaia Sky），CC BY | `66ddc8ef4ffd34d2751d0763dd9130a8c826099cca76b1f26f6bc60790a8a5d4` |
+| `euclid.mesh`、`../textures/euclid.jpg` | `spacecraft-euclid/euclid.obj`、`Euclid2_Base_Color.png` | ESA，CC BY | `c138a35e182e6b70bfcb1906b9c7d7d198411184b1e610f887ece5f75f682526`、`cd4c48630ebd8c256304f68197ee98b71a3796ea9042e6f9a04c13f6b1a09117` |
+
+- **Gaia**：遮阳罩在模型里宽 1 个单位，按 ESA 的 10.2 m（sci.esa.int 的 deployable sunshield 页）缩放，高约 3.5 m。很多纹理在一个三角形上平铺好几次，图集做不到，换成各自纹理的平均色；太阳能电池片按 8 × 8 格先铺好（`tile_images`，板子的 UV 最多跨 7 格）。纹理里没有徽标。
+- **Euclid**：Scifleet 的模型，单张 4096 像素的图集，缩到 1/4。从服务舱底到遮阳罩顶 0.869 个单位，按 ESA 概览页的 4.7 m 缩放（下面的天线和推力器不算），宽度因此是 3.5 m，ESA 写 3.7 m（概览页）或收拢时的 3.1 m（fact sheet）。按 2 cm 和图集的 1/256 合并顶点，136,061 个三角形减到约 74,000 个。纹理里没有徽标。
+
+### Orion（本项目自建）
+
+| 输出 | 输入 | 来源 | 输入 SHA-256 |
+|---|---|---|---|
+| `orion.mesh`、`../textures/orion.png`（Artemis I、II） | `ref/artemis_orion/artemis_orion.obj`、`.mtl`（由同目录的 `build_orion.py` 在 Blender 里生成，`ref/` 不入库） | 本项目为 Astraxis 生成的几何和材质，GPL-3.0-or-later；没有导入第三方网格、纹理或徽标 | `a93f3d6c703fd494495a54275974510f54b712e3b1f35da3dbb2067a84cb7fb7`、`248b2ca1f9978af691e0cb33d2ae3eaac8621cd2504a381505dc5efaf1d342c0`（`build_orion.py`：`90785e4ce87add1d3ffa9172b59c7fe245933de39823e5561062914c8f67140a`） |
+
+- **外形**：太阳翼展开的在轨组合体：乘员舱、适配器、欧洲服务舱、主发动机和辅助发动机、四片各三块 2 m 面板的太阳翼。尺寸按 NASA “Orion by the Numbers” 2025（乘员舱直径约 5 m、高 3.35 m）、NASA “How to Draw Artemis / Orion”（布局、每片三段）、Airbus 的欧洲服务舱页面（每片约 7 m、展开约 19 m）和 ESA “Orion's wings”（电池片布局），2026-11-07 查阅；服务舱各段长度、喷口、隔热片接缝和电池片数量（每块 24 × 26 片，比实物少）是近似重建，不是工程 CAD。
+- **处理**：米制，Z 轴从发动机指向舱顶，就是本体系的 +z；太阳翼平放在垂直于 +z 的平面里，电池片朝 +z，所以场景让 +z 朝太阳并烘焙阳光（乘员舱挡住翼根，翼背面在自己的阴影里）。原点在 7.4 m 的组合体中间。纯色材质（Kd 按 Blender 写的线性值），四种电池片颜色各占一个色板格，没有纹理图。按 2 cm 合并顶点，117,436 个三角形减到约 95,000 个。
+
+### ISEE-3 的组装
+
+NASA 的 ISEE-3 是给 3D 打印的散件（英寸，鼓 69.6 英寸宽 = 1.77 m），每根吊杆在自己的文件里、从原点沿 +z 伸出，没有装配图。`make_spacecraft.py` 的 `assembly` 按 JHU/APL 的飞行构型图（eoPortal “ISEE-3 / ICE” 图 3）和 NASA 计划文件（spacecollege.org/?p=245，2026-11-07 查看）装起来：鼓的轴（模型 y）是自转轴；四根刚性吊杆和四根导线天线都从鼓中间那条带（y 27.9–30.2 英寸）伸出，实验吊杆（`Exboom1` 是搜索线圈，`Exboom2` 是磁强计，标称 302 cm）装在鼓上有铰链座的两侧（模型 ±z，座的中心偏 7.15 英寸），惯性吊杆（`Inertia boom`，114 cm）装在与之垂直的两侧，导线天线（`Rad antenna` 拉伸到 49 m）在它们之间的 45° 方向，轴向天线（同一个零件拉伸到 701 cm）沿自转轴上下各一根。文件自己的 `Rad antenna` 是 55 m。`Exboom (empty).stl` 是没有探头的空吊杆，`Thruster.stl` 是一个装不到鼓上任何推力器座的散件，都不用。鼓是打印用的空筒，两端补上 16 边形的盖。太阳能电池覆盖侧面，除了中间那条带和上下两道环（按面的三个顶点所在的高度分，大的侧面三角形跨过中间的带，所以带只在少数面上看得到）。颜色都是示意的。它每 3 秒转一圈，所以不烘焙阳光。
+
 - **TGO、Europa Clipper、DART、Huygens**：TGO 和 Clipper 没有压缩，尺寸不改（17.5 m、30.5 m，和 Horizons 的说明一致）；纹理里没有徽标。TGO 的金属材质在这里的漫反射下近乎纯白、纯黄，毯子的纹理又几乎全黑（1024 像素的图上只有一些金点），都换成纯色（颜色是这里选的，见 `make_spacecraft.py` 的 `colors`）。Clipper 的太阳能板每个 0.56 × 0.79 m 的矩形把一张电池片的图平铺 7 × 18 次，图集不能平铺，工具把电池片缩到 24 像素、铺成 7 × 19 格放进图集（`tile_images`），亮度乘 2.6（原图近乎全黑，在天空上看不出来）；雷达天线上有几十个三角形的 UV 也跨过多个平铺，这些被截断，天线太细看不出来。为控制大小，Clipper 按 3 cm 和图集的 1/128 合并顶点（`merge_m`、`merge_uv`），203,662 个三角形减到约 114,000 个。DART 的 STL 有 446,397 个三角形、348 个互不相连的零件，单位不明：跨度 40.34 个单位，按场景的 19 m 缩放后机身宽 1.2 m，和 APL 的 1.2 × 1.3 × 1.3 m 一致；法线按 40° 的折痕角平滑，按 3 cm 合并后约 90,000 个三角形。它没有材质，工具按零件的外接盒归类（电池片、吊杆、散热板、毯子、天线、DRACO、离子发动机、其他），颜色都是示意的（没有找到能据以取色的公开资料）。两翼是同一个形状绕望远镜的轴转 180°，文件看不出电池片在哪一面，这里都放在模型的 +y。Huygens 是进入舱（防热罩和背罩），直径 2.615 m，按 2.7 m 缩放；它朝向 Titan 而不是太阳，所以不烘焙阳光（`bake_sun: False`），顶点通道都是 1。
 - **双面**：这些模型有很多不封闭的薄片，程序画图集网格时不剔除背面，从背面看时翻转法线，所以文件里每个面只存一次。
 - **图集**：每个探测器一张纹理。模型的图放在上面（周围留 4 像素的重复边），纯色材质各占一个 8×8 的色板格（glTF 的颜色是线性的，转成 sRGB）。伸出 0–1 的 UV 按整数移回来（Parker 的箔材质）。
