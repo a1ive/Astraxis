@@ -29,6 +29,12 @@
 # [NHD]  NASA, "NASA's New Horizons 'Phones Home' Safe after Pluto Flyby" and "New Horizons Will
 #        Go Dark, As Planned" (retrieved 2026-11-07): the antenna turned away from the Earth and
 #        the imagers toward Pluto and Charon, out of contact for about 21.5 hours.
+# [MDLP] NASA/JPL/Eyes on the Solar System, "Pioneer 10", NASA 3D Resources,
+#        science.nasa.gov/3d-resources/pioneer/, converted by tools/shapes/make_spacecraft.py
+#        (assets/shapes/SOURCES.md).
+# [PTM]  NASA TM 102269, "Pioneers 10 and 11 Deep Space Missions"
+#        (ntrs.nasa.gov/citations/19900009039, retrieved 2026-11-07): the 2.74 m dish, spinning
+#        at about 4.8 turns a minute; two radioisotope generators on 3 m booms.
 # [VOY]  NASA, science.nasa.gov/mission/voyager/spacecraft/ (retrieved 2026-11-07): the 3.7 m
 #        high-gain antenna, three radioisotope generators; the magnetometers on a 13 m boom;
 #        the 30 cm gold-plated record.
@@ -1729,7 +1735,11 @@ extrapolate = "linear"
 name = "Pioneer 10"
 parent = "Sun"
 kind = "spacecraft"
-radii_km = [0.0014]                        # 2.74 m high-gain antenna
+radii_km = [0.0025]                        # the bus, dish and generators; the boom goes on
+shape = "shapes/pioneer10.mesh"            # [MDLP]
+texture = "textures/pioneer10.jpg"
+point_at = "Earth"                         # the antenna; the roll is illustrative
+fill_light = 0.2                           # illustrative
 color = "#d9f28c"
 orbit_color = "#b8d96a"
 trail = "history"                          # since launch
@@ -2373,3 +2383,23 @@ caption = """\
     Earth. For the flyby it really turned the dish away and aimed its seven instruments \
     at Pluto and Charon, silent for about 21.5 hours. Here the dish stays on the Earth; \
     the roll and the light on the shaded side are illustrative."""
+
+[[events]]
+name = "Pioneer 10, two hours before Jupiter"
+time = "1973-12-04 00:12"
+focus = "Pioneer 10"
+# Jupiter is at yaw 7.7, pitch 14.0 deg from the spacecraft then, 51 deg from full phase: the
+# camera on the far side, so that Jupiter shows beside the spacecraft (elevation_deg replaces
+# the pitch) and the dish, turned to the Earth, shows from the side.
+from_body = "Jupiter"
+phase_deg = 155.0
+elevation_deg = -9.0
+distance_km = 0.011
+warp = 1.0
+hide_orbits = true
+# [PTM], the model [MDLP]
+caption = """\
+    Pioneer 10, two hours from the first close pass of Jupiter by any spacecraft. Its 2.74 m \
+    dish faces the Earth, and two plutonium generators stand off on 3 m booms. It really \
+    spins about the dish's axis nearly five times a minute; the spin is not drawn here, \
+    and the roll and the light on the shaded side are illustrative."""

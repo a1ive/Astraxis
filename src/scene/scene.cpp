@@ -607,7 +607,9 @@ void Scene::update(double t_tdb)
             vel += s.velocity;
             visible = visible && body.motion->valid_at(t_tdb);
         }
-        if (body.event >= 0 && body.event != m_active_event) {
+        if (body.event >= 0 && body.event != m_active_event &&
+            std::find(body.also_shown_by.begin(), body.also_shown_by.end(), m_active_event) ==
+                body.also_shown_by.end()) {
             visible = false;
         }
         body.icrf_position = pos;

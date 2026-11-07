@@ -115,6 +115,15 @@
 #        [PE] ESA, "Last command sent to ESA's Planck space telescope", 2013-10-23:
 #          https://www.esa.int/Newsroom/Press_Releases/Last_command_sent_to_ESA_s_Planck_space_telescope
 #          Departure from L2 began in August; final transmitter shutdown on 23 October.
+#        [HBN] NASA, "Hubble by the Numbers"
+#          (science.nasa.gov/mission/hubble/overview/hubble-by-the-numbers/, retrieved
+#          2026-11-07): 13 m long, 4.3 m wide, a 2.4 m primary mirror.
+#        [HBP] ESA/Hubble, "Hubble's Solar Panels" (esahubble.org/about/general/solar_panels/,
+#          retrieved 2026-11-07) and NASA's Electrical Power page: the arrays turn so that the
+#          cells face the Sun; the sides away from it are white radiators.
+#        [MDLH] NASA Visualization Technology Applications and Development, "Hubble Space
+#          Telescope 3D Model", science.nasa.gov/resource/hubble-space-telescope-3d-model-2/,
+#          converted by tools/shapes/make_spacecraft.py (assets/shapes/SOURCES.md).
 #        [HB] ESA/Hubble fact sheet, https://esahubble.org/about/general/fact_sheet/:
 #          initial circular orbit ~569 km high, inclination 28.5 deg, period ~96 min;
 #          dimensions 13.2 x 4.2 m. Hubble's phase and node here are illustrative.
@@ -329,7 +338,11 @@ file = "ephem/chandra_geo.eph"
 name = "Hubble"
 parent = "Earth"
 kind = "spacecraft"
-radii_km = [0.0066]
+radii_km = [0.0066]                        # 13 m long [HBN]
+shape = "shapes/hubble.mesh"               # [MDLH]
+texture = "textures/hubble.jpg"
+point_at = "Sun"                           # the solar panels; the roll is illustrative
+fill_light = 0.2                           # illustrative
 color = "#d3e0ef"
 orbit_color = "#b0c6e0"
 trail = "orbit"                         # one osculating ellipse in the close-up
@@ -751,3 +764,24 @@ caption = """\
     gold mirror and its instruments, so the telescope stays cold enough to see faint \
     infrared light. No sunlight reaches this side, and it is really almost black: the \
     light here is illustrative, as is the roll about the shield's axis."""
+
+[[events]]
+name = "Hubble, up close"
+time = "2010-04-24 12:16"
+focus = "Hubble"
+frame = "Earth-centered (ICRF)"
+# The Sun is 39.5 deg up over this place on the illustrative orbit: the camera is 15 deg above
+# the local horizontal on the Sun's side, looking across the sunlit Earth at the panels.
+from_body = "Earth"
+phase_deg = 112.0
+elevation_deg = 22.8
+distance_km = 0.036
+warp = 1.0
+hide_orbits = true
+show = ["Hubble"]
+# [HBN], [HBP], the model [MDLH]
+caption = """\
+    Hubble, 13 m long and 4.3 m wide around its 2.4 m mirror, with the aperture door open \
+    at the top. It really points wherever it is told to, turning its solar panels on their \
+    masts to keep them on the Sun. Here the panels face the Sun and the roll is \
+    illustrative, as are its place on this orbit and the light on the shaded side."""

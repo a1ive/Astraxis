@@ -802,6 +802,12 @@ void test_spacecraft_models()
     const Case cases[] = {{"solar_system.toml", "Voyager 1", "Earth", t2026},
                           {"solar_system.toml", "Voyager 2", "Earth", t2026},
                           {"solar_system.toml", "New Horizons", "Earth", t2026},
+                          {"solar_system.toml", "Pioneer 10", "Earth", tdb_from_julian_year(1973.92)},
+                          {"space_telescopes.toml", "Hubble", "Sun", t2026},
+                          {"saturn.toml", "Cassini", "Sun", tdb_from_julian_year(2007.3)},
+                          {"jupiter.toml", "Cassini", "Sun", tdb_from_julian_year(2000.99)},
+                          {"jupiter.toml", "Galileo", "Sun", tdb_from_julian_year(1997.0)},
+                          {"jupiter.toml", "Juno", "Sun", tdb_from_julian_year(2024.8)},
                           {"space_telescopes.toml", "JWST", "Sun", t2026},
                           {"parker.toml", "Parker Solar Probe", "Sun", perihelion}};
     for (const Case& c : cases) {
@@ -879,6 +885,84 @@ void test_spacecraft_models()
     check(horizons_bus.second > 0 && horizons_bus.first < 0.05, "the dish shades the New Horizons bus", horizons_bus.first);
     const auto generator = lit_share(horizons, [](const glm::dvec3& m) { return m.y > 1.5 && m.z > -0.12; });
     check(generator.second > 0 && generator.first > 0.5, "the New Horizons generator reaches out of the shade", generator.first);
+
+    // Pioneer 10: the dish, 2.74 m across [PTM], shades the bus behind its own apex (0.53 m back);
+    // the generators stand clear.
+    const ShapeModel& pioneer = *solar.bodies[static_cast<size_t>(solar.find("Pioneer 10"))].shape;
+    double pioneer_dish = 0.0;
+    for (const glm::vec3& p : pioneer.positions) {
+        const glm::dvec3 m = glm::dvec3(p) * 1000.0;
+        if (m.z > -0.6 && m.z < 1.1 && std::abs(m.x) < 1.7) {
+            pioneer_dish = std::max(pioneer_dish, std::abs(m.x));
+        }
+    }
+    check(std::abs(2.0 * pioneer_dish - 2.74) < 0.08, "the Pioneer 10 dish is 2.74 m across", 2.0 * pioneer_dish);
+    const auto pioneer_bus =
+        lit_share(pioneer, [](const glm::dvec3& m) { return m.z < -0.6 && std::hypot(m.x, m.y) < 0.9; });
+    check(pioneer_bus.second > 0 && pioneer_bus.first < 0.05, "the dish shades the Pioneer 10 bus", pioneer_bus.first);
+    const auto pioneer_rtg = lit_share(pioneer, [](const glm::dvec3& m) { return std::abs(m.x) > 1.6; });
+    check(pioneer_rtg.second > 0 && pioneer_rtg.first > 0.3, "the Pioneer 10 generators reach out of the shade", pioneer_rtg.first);
+
+    // Cassini: 4 m wide across the dish and about 6.7 m high [CLK], the dish shading the bus.
+    Scene saturn_scene = load_scene_or_die("saturn.toml");
+    const ShapeModel& cassini = *saturn_scene.bodies[static_cast<size_t>(saturn_scene.find("Cassini"))].shape;
+    double cassini_dish = 0.0, cassini_top = -1e9;
+    for (const glm::vec3& p : cassini.positions) {
+        const glm::dvec3 m = glm::dvec3(p) * 1000.0;
+        cassini_top = std::max(cassini_top, m.z);
+        if (const double r = std::hypot(m.x, m.y); m.z > 1.6 && r < 2.5) {   // not the long antennas
+            cassini_dish = std::max(cassini_dish, r);
+        }
+    }
+    check(std::abs(2.0 * cassini_dish - 4.0) < 0.1, "the Cassini dish is 4 m across", 2.0 * cassini_dish);
+    check(std::abs(cassini_top - 3.39) < 0.1, "the Cassini model is to scale", cassini_top);
+    const auto cassini_bus =
+        lit_share(cassini, [](const glm::dvec3& m) { return m.z < 0.0 && std::hypot(m.x, m.y) < 1.2; });
+    check(cassini_bus.second > 0 && cassini_bus.first < 0.05, "the dish shades the Cassini bus", cassini_bus.first);
+
+    // Jupiter's scene: Juno's panels span about 20 m and face the Sun, with no shade but their
+    // own; Galileo is 5.3 m from the top of its antenna to the bottom of its probe [GLF].
+    Scene jupiter_scene = load_scene_or_die("jupiter.toml");
+    const ShapeModel& juno = *jupiter_scene.bodies[static_cast<size_t>(jupiter_scene.find("Juno"))].shape;
+    glm::dvec3 juno_low(1e9), juno_high(-1e9);
+    for (const glm::vec3& p : juno.positions) {
+        juno_low = glm::min(juno_low, glm::dvec3(p) * 1000.0);
+        juno_high = glm::max(juno_high, glm::dvec3(p) * 1000.0);
+    }
+    check(juno_high.y - juno_low.y > 18.0 && juno_high.x - juno_low.x > 17.0, "Juno's panels span about 20 m", juno_high.y - juno_low.y);
+    const auto juno_panels = lit_share(juno, [](const glm::dvec3& m) { return std::abs(m.y) > 4.0 && m.z > 0.05; });
+    check(juno_panels.second > 0 && juno_panels.first > 0.9, "the Sun reaches Juno's panels", juno_panels.first);
+    const ShapeModel& galileo = *jupiter_scene.bodies[static_cast<size_t>(jupiter_scene.find("Galileo"))].shape;
+    double galileo_low = 1e9, galileo_high = -1e9;
+    for (const glm::vec3& p : galileo.positions) {
+        galileo_low = std::min(galileo_low, static_cast<double>(p.z) * 1000.0);
+        galileo_high = std::max(galileo_high, static_cast<double>(p.z) * 1000.0);
+    }
+    check(std::abs(galileo_high - galileo_low - 5.3) < 0.02, "Galileo is 5.3 m tall", galileo_high - galileo_low);
+    const auto galileo_bus =
+        lit_share(galileo, [](const glm::dvec3& m) { return m.z < 0.0 && std::hypot(m.x, m.y) < 1.0; });
+    check(galileo_bus.second > 0 && galileo_bus.first < 0.05, "the sunshield shades the Galileo bus", galileo_bus.first);
+
+    // Hubble: 4.3 m wide and about 13 m long [HBN] without its open door; the Sun reaches the
+    // front of its solar panels, which stand clear of the tube (the layers behind them are shaded).
+    Scene hubble_scene = load_scene_or_die("space_telescopes.toml");
+    const ShapeModel& hubble = *hubble_scene.bodies[static_cast<size_t>(hubble_scene.find("Hubble"))].shape;
+    double hubble_width = 0.0, hubble_low = 1e9, hubble_high = -1e9;
+    for (const glm::vec3& p : hubble.positions) {
+        const glm::dvec3 m = glm::dvec3(p) * 1000.0;
+        hubble_low = std::min(hubble_low, m.y);
+        if (m.y < 7.0) {   // the door is open above that
+            hubble_high = std::max(hubble_high, m.y);
+        }
+        if (m.y < -4.0 && std::hypot(m.x, m.z) < 3.0) {   // the aft shroud, not the panels' ends
+            hubble_width = std::max(hubble_width, 2.0 * std::abs(m.x));
+        }
+    }
+    check(std::abs(hubble_width - 4.3) < 0.15, "Hubble is 4.3 m wide", hubble_width);
+    check(std::abs(hubble_high - hubble_low - 13.0) < 0.5, "Hubble is 13 m long", hubble_high - hubble_low);
+    const auto hubble_panels =
+        lit_share(hubble, [](const glm::dvec3& m) { return std::abs(m.x) > 2.6 && std::abs(m.y) < 2.0 && m.z > 0.1 && m.z < 0.3; });
+    check(hubble_panels.second > 0 && hubble_panels.first > 0.8, "the Sun reaches Hubble's solar panels", hubble_panels.first);
 
     // Webb: the shield about 21 m long, the telescope on the side away from the Sun, in its shade.
     Scene telescopes = load_scene_or_die("space_telescopes.toml");

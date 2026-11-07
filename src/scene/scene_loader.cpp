@@ -2073,9 +2073,10 @@ void Loader::parse(const toml::table& root, Scene& out)
                     }
                     Body& body = out.bodies[static_cast<size_t>(k)];
                     if (body.event >= 0) {
-                        fail(ctx, "show: '" + body.name + "' is already shown by another event");
+                        body.also_shown_by.push_back(static_cast<int>(out.events.size()));
+                    } else {
+                        body.event = static_cast<int>(out.events.size());
                     }
-                    body.event = static_cast<int>(out.events.size());
                 }
             }
             if (const toml::node* ghost = t->get("ghost")) {

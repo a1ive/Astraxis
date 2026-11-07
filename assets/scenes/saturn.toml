@@ -15,6 +15,13 @@
 # [PLM]  Enceladus' plumes (always erupting): sources and choices in bodies/enceladus.toml.
 # [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
 # [APX]  E. M. Standish, Approximate Positions of the Planets, Tables 2a + 2b.
+# [MDLC] NASA/Brian E. Kumanchik, "Cassini-Huygens (A)" (without Huygens), NASA 3D Resources,
+#        science.nasa.gov/3d-resources/cassini-huygens-a/, converted by
+#        tools/shapes/make_spacecraft.py (assets/shapes/SOURCES.md).
+
+# [CLK]  NASA, "Cassini Launch" press kit (jpl.nasa.gov/news/press_kits/cassini.pdf) and
+#        science.nasa.gov/mission/cassini/quick-facts/ (retrieved 2026-11-07): 6.7 m high and
+#        4 m wide; the magnetometers on a 13 m boom.
 # [HZN]  JPL Horizons state vectors relative to Saturn's center, baked by
 #        tools/bake/horizons_bake.py (tools/bake/ephem.toml, Kepler-relative AXEPH2):
 #        Cassini 2004-06-01 .. its entry into Saturn on 2017-09-15 (navigation team's
@@ -541,7 +548,11 @@ extrapolate = "kepler"
 name = "Cassini"
 parent = "Saturn"
 kind = "spacecraft"
-radii_km = [0.002]                         # 4 m high-gain antenna
+radii_km = [0.004]                         # the bus and dish; the boom and antennas go on
+shape = "shapes/cassini.mesh"              # [MDLC]
+texture = "textures/cassini.jpg"
+point_at = "Sun"                           # the antenna; the roll is illustrative
+fill_light = 0.2                           # illustrative
 color = "#ffd27f"
 orbit_color = "#ffbf5c"
 trail = "history"
@@ -1023,3 +1034,25 @@ caption = """\
     than ten times fainter and purple higher up. The colors come from its filters \
     on November 27, 2010. The oval is statistical, with enhanced exposure, not a \
     reconstruction of the observed arcs."""
+
+[[events]]
+name = "Cassini, up close (2007-03-07)"
+time = "2007-03-07 17:35"
+focus = "Cassini"
+# Saturn is at yaw -37.0, pitch 58.2 deg from the spacecraft then, 60 deg from full phase and
+# 58 deg south of the rings: the camera on the far side, so that Saturn shows beside the
+# spacecraft (elevation_deg replaces the pitch) and the dish, turned to the Sun, shows from
+# the side.
+from_body = "Saturn"
+phase_deg = 163.0
+elevation_deg = -53.0
+distance_km = 0.019
+warp = 1.0
+hide_orbits = true
+# [CLK], [HUY], the model [MDLC]
+caption = """\
+    Cassini, as tall as a two-story house and 4 m wide, over the south side of the rings. \
+    The magnetometers ride on a 13 m boom, away from the spacecraft's own fields. Huygens \
+    left in 2004, so the model is without it. Cassini's instruments were fixed to its \
+    body, and it really turned as a whole to aim them; here the dish stays on the Sun, \
+    and the roll and the light on the shaded side are illustrative."""

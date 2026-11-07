@@ -7,6 +7,13 @@
 # before BepiColombo.
 #
 # Sources
+# [MDLC] NASA/Brian E. Kumanchik, "Cassini-Huygens (A)" (without Huygens), NASA 3D Resources,
+#        science.nasa.gov/3d-resources/cassini-huygens-a/, converted by
+#        tools/shapes/make_spacecraft.py (assets/shapes/SOURCES.md).
+
+# [MDLG] NASA/JPL/Solar System Simulator, "Galileo", NASA 3D Resources,
+#        science.nasa.gov/3d-resources/galileo/, converted by tools/shapes/make_spacecraft.py
+#        (assets/shapes/SOURCES.md).
 # [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py (tools/bake/ephem.toml,
 #        Kepler-relative AXEPH2):
 #        - Venus (299) relative to the Sun 2004-07-01 .. 2030-01-01 (as in parker.toml); [APX]
@@ -285,7 +292,11 @@ relative_to = "Venus"
 name = "Galileo"
 parent = "Venus"
 kind = "spacecraft"
-radii_km = [0.0024]                        # 4.8 m high-gain antenna (still furled in 1990)
+radii_km = [0.0035]                        # the bus, dish and generators; the boom goes on
+shape = "shapes/galileo.mesh"              # [MDLG]
+texture = "textures/galileo.png"
+point_at = "Sun"                           # the antenna; the roll is illustrative
+fill_light = 0.2                           # illustrative
 color = "#ffd27f"
 orbit_color = "#ffbf5c"
 trail = "history"
@@ -299,7 +310,11 @@ file = "ephem/galileo_venus.eph"
 name = "Cassini"
 parent = "Venus"
 kind = "spacecraft"
-radii_km = [0.002]                         # 4 m high-gain antenna
+radii_km = [0.004]                         # the bus and dish; the boom and antennas go on
+shape = "shapes/cassini.mesh"              # [MDLC]
+texture = "textures/cassini.jpg"
+point_at = "Sun"                           # the antenna; the roll is illustrative
+fill_light = 0.2                           # illustrative
 color = "#d2f59a"
 orbit_color = "#a8dc6a"
 trail = "history"

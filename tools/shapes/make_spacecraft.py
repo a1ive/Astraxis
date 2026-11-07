@@ -27,7 +27,7 @@ from pathlib import Path
 
 import DracoPy
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))  # -P leaves the script's directory out
 from axmesh import write_mesh
@@ -75,6 +75,76 @@ CRAFT = {
         'body_x': (1, 0, 0),
         'image_scale': {'PSP_Spec': 0.5},
         'atlas_width': 1300,
+        'format': 'jpg',
+    },
+    # The model's +y is the way the dish faces, and it is to scale (a 4 m dish, 6.7 m high).
+    # Huygens leaves in 2004 and is its own body in the scene, so this is the file without it.
+    'cassini': {
+        'file': 'NASA-3D-Resources/3D Models/Cassini-Huygens (A)/Cassini-Huygens (A) (without Hyugens).glb',
+        'origin_m': (0.0, 0.0, 0.0),
+        'scale': 1.0,
+        'body_z': (0, 1, 0),
+        'body_x': (1, 0, 0),    # the magnetometer boom toward the body's +y
+        'image_scale': {'dish_AO.png': 0.5},
+        'atlas_width': 1600,
+        'format': 'jpg',
+    },
+    # The model's +y is the way the dish and the solar panels face, and it is to scale (20 m across).
+    'juno': {
+        'file': 'NASA-3D-Resources/3D Models/Juno (A)/Juno (A).glb',
+        'origin_m': (0.0, 0.0, 0.0),
+        'scale': 1.0,
+        'body_z': (0, 1, 0),
+        'body_x': (1, 0, 0),
+        'image_scale': {'Juno_Texture_Solar': 0.5, 'black_krinkle': 0.5},
+        'atlas_width': 2100,
+        'format': 'jpg',
+    },
+    # The model's unit is not stated; 146.7 units from the low-gain antenna to the probe are the
+    # 5.3 m of the scene's [GLF]. Its +z is the way the antenna faces, and the boom goes off along
+    # +y. The colors in the file are false (a bright purple named "black"): dark blankets and
+    # gold. The furled antenna's mesh is half transparent in the file, and opaque here.
+    'galileo': {
+        'file': 'NASA-3D-Resources/3D Models/Galileo/Galileo.glb',
+        'origin_m': (0.0, 0.0, 0.0),
+        'scale': 5.3 / 146.7,
+        'body_z': (0, 0, 1),
+        'body_x': (1, 0, 0),
+        'colors': {'bus:black': (92, 92, 98), 'rtga_top:gold_fo': (176, 128, 58), 'ribs:gold_mesh': (196, 150, 70)},
+        'subdivide_m': 0.25,    # the sunshield is one fan from its center
+        'atlas_width': 64,
+        'format': 'png',
+    },
+    # To scale (a 2.74 m dish). The dish faces the model's -z, and the boom goes off along its -y.
+    'pioneer10': {
+        'file': 'NASA-3D-Resources/3D Models/Pioneer 10/Pioneer 10.glb',
+        'origin_m': (0.0, 0.0, 0.0),
+        'scale': 1.0,
+        'body_z': (0, 0, -1),
+        'body_x': (1, 0, 0),    # the boom toward the body's +y
+        'image_scale': {'dis_AO': 0.5, 'other_AO.png': 0.5, 'RTG_AO_new': 0.5, 'Pioneer_tex_01': 0.25,
+                        'foil_gold_ramp': 0.25, 'foil_silver_ramp': 0.25, 'Tex_black.png': 0.125},
+        'atlas_width': 1600,
+        'format': 'jpg',
+    },
+    # The body is 4.52 wide in the model, and 4.3 m ([HBN] in the scene), which makes the tube the
+    # 13 m it should be. The telescope looks along the model's +y (the door is open). The solar
+    # cells, the dark side of the panels, face its -z ([HBP]: the light side, away from the Sun, is
+    # the white radiator).
+    # The texture has a banner with the NASA and ESA logotypes, neither in the public domain,
+    # used only by the NASA_logo decal: the decal is left out and the banner painted over.
+    'hubble': {
+        'file': 'probes/Hubble-1.glb',
+        'origin_m': (0.0, 0.6, 0.0),
+        'scale': 4.3 / 4.52,
+        'body_z': (0, 0, -1),
+        'body_x': (-1, 0, 0),   # the door toward the body's +y
+        'skip_materials': ['NASA_logo'],
+        'erase_polygon': {'hubble_tex_01.jpg': [(95, 105), (125, 90), (200, 55), (340, 25), (420, 12), (520, 8),
+                                                (690, 14), (850, 40), (1000, 95), (1012, 362), (930, 325), (770, 280),
+                                                (690, 268), (520, 240), (430, 265), (250, 310), (70, 382)]},
+        'image_scale': {'hubble_AO_1.jpg': 0.5, 'hubble_AO_light.jpg': 0.5},
+        'atlas_width': 2100,
         'format': 'jpg',
     },
     # The dish (1.888 m in the model) is 2.1 m (the scene's [NHS]). The model's +y is the way the
@@ -164,6 +234,8 @@ class Glb:
             # '_root' is a unit cube Blender's exporter left as a placeholder.
             if 'mesh' in node and node.get('name') != '_root':
                 for prim in self.json['meshes'][node['mesh']]['primitives']:
+                    if self.invisible(prim.get('material')):
+                        continue
                     points, normals, uv, faces = self.decode(prim)
                     linear = matrix[:3, :3]
                     world = points @ linear.T + matrix[:3, 3]
@@ -176,6 +248,14 @@ class Glb:
         for root in self.json['scenes'][self.json.get('scene', 0)]['nodes']:
             walk(root, np.eye(4))
         return out
+
+    def invisible(self, material):
+        """Fully transparent: Juno has copies of faces in such materials, which would flicker here."""
+        if material is None:
+            return False
+        info = self.json['materials'][material]
+        factor = info.get('pbrMetallicRoughness', {}).get('baseColorFactor', (1, 1, 1, 1))
+        return info.get('alphaMode') in ('MASK', 'BLEND') and factor[3] == 0.0
 
     def material_image(self, material):
         """Index of the JSON image of a material's base color (the PNG, not the WebP copy), or None."""
@@ -278,6 +358,32 @@ def closed_triangles(positions, triangles):
     return ~np.isin(roots, list(open_roots))
 
 
+def subdivide(positions, uv, triangles, limit_km):
+    """Bisect the longest edge of each triangle until no edge is over the limit. An edge's
+    midpoint is shared by the triangles on it, so that no cracks open. The sunlight is baked on
+    the vertices: a big low-poly fan with one shaded vertex at its center would go dark all over."""
+    positions, uv = positions.tolist(), uv.tolist()
+    midpoints = {}
+    out, stack = [], [tuple(t) for t in triangles.tolist()]
+    while stack:
+        a, b, c = stack.pop()
+        edges = [(a, b, c), (b, c, a), (c, a, b)]   # edge p-q and the opposite corner r
+        p, q, r = max(edges, key=lambda e: sum((x - y) ** 2 for x, y in zip(positions[e[0]], positions[e[1]])))
+        length = sum((x - y) ** 2 for x, y in zip(positions[p], positions[q])) ** 0.5
+        if length <= limit_km:
+            out.append((a, b, c))
+            continue
+        key = (min(p, q), max(p, q))
+        if key not in midpoints:
+            midpoints[key] = len(positions)
+            positions.append([(x + y) / 2.0 for x, y in zip(positions[p], positions[q])])
+            uv.append([(x + y) / 2.0 for x, y in zip(uv[p], uv[q])])
+        m = midpoints[key]
+        stack.append((p, m, r))
+        stack.append((m, q, r))
+    return np.array(positions), np.array(uv), np.array(out, dtype=np.int64)
+
+
 def vertex_normals(positions, triangles):
     """As the loader computes them: the area-weighted average of the faces sharing a vertex."""
     a, b, c = (positions[triangles[:, k]] for k in range(3))
@@ -329,11 +435,15 @@ def sun_visibility(positions, normals, triangles):
 
 def build(name, spec, models):
     glb = Glb(models / spec['file'])
-    prims = glb.primitives()
+    skip = spec.get('skip_materials', [])
+    prims = [p for p in glb.primitives()
+             if p[0] is None or glb.json['materials'][p[0]].get('name') not in skip]
     used = {glb.material_image(m) for m, *_ in prims if m is not None} - {None}
 
     atlas = Atlas(spec['atlas_width'])
-    for index in used:
+    copies = {}    # a file can store the same image several times (Hubble's three of one)
+    same_as = {}
+    for index in sorted(used):
         info = glb.json['images'][index]
         image = Image.open(io.BytesIO(glb.view(info['bufferView']))).convert('RGB')
         scale = spec.get('image_scale', {}).get(info.get('name'), 1.0)
@@ -343,14 +453,24 @@ def build(name, spec, models):
             frame = np.concatenate([pixels[y0 - 3:y0, x0:x1].reshape(-1, 3), pixels[y1:y1 + 3, x0:x1].reshape(-1, 3),
                                     pixels[y0:y1, x0 - 3:x0].reshape(-1, 3), pixels[y0:y1, x1:x1 + 3].reshape(-1, 3)])
             pixels[y0:y1, x0:x1] = np.median(frame, axis=0)
+        if info.get('name') in spec.get('erase_polygon', {}):
+            canvas = Image.fromarray(pixels)
+            ImageDraw.Draw(canvas).polygon(spec['erase_polygon'][info['name']], fill=(130, 138, 152))
+            pixels = np.array(canvas)
         if scale != 1.0:
             size = (int(pixels.shape[1] * scale), int(pixels.shape[0] * scale))
             pixels = np.array(Image.fromarray(pixels).resize(size, Image.LANCZOS))
+        first = copies.setdefault(pixels.tobytes(), index)
+        if first != index:
+            same_as[index] = first
+            continue
         atlas.add_image(index, pixels)
     for material, *_ in prims:
         if material is None or glb.material_image(material) is None:
             atlas.add_color(glb.material_color(material, spec.get('colors', {})))
     atlas.build()
+    for index, first in same_as.items():
+        atlas.placed[index] = atlas.placed[first]
 
     z = np.array(spec['body_z'], dtype=np.float64)
     x = np.array(spec['body_x'], dtype=np.float64)
@@ -420,6 +540,8 @@ def build(name, spec, models):
     positions = np.concatenate(all_positions)
     uv = np.concatenate(all_uv)
     triangles = np.concatenate(all_triangles)
+    if 'subdivide_m' in spec:
+        positions, uv, triangles = subdivide(positions, uv, triangles, spec['subdivide_m'] / 1000.0)
 
     # The other side of the sheets: own vertices, so that their normals point the other way.
     # Over the whole model: a closed part may be several materials.

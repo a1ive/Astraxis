@@ -2330,6 +2330,24 @@ void test_space_telescopes_scene()
             hubble_sim.jump_to_event(event);
             hubble_sim.update(0.0);
             check(h.visible, "Hubble appears in its close-up event");
+            for (const int other : h.also_shown_by) {   // its orbit, and up close
+                hubble_sim.jump_to_event(static_cast<size_t>(other));
+                hubble_sim.update(0.0);
+                check(h.visible, "Hubble appears in each event that shows it");
+                // It orbits inside the clearance the camera keeps from the Earth: the camera can
+                // still come close to it, and stays out of the Earth.
+                for (int k = 0; k < 40; ++k) {
+                    hubble_sim.update(0.1);
+                }
+                OutputView close_up;
+                hubble_sim.compute_view(1280, 720, 1.0, close_up);
+                const double to_hubble = glm::length(close_up.camera.position - h.world_position);
+                check(to_hubble < 0.05, "the camera comes close to Hubble in low orbit (km)", to_hubble);
+                const double to_earth = glm::length(close_up.camera.position - hs.bodies[static_cast<size_t>(hs.find("Earth"))].world_position);
+                check(to_earth > 6378.0 * 1.05, "the camera stays out of the Earth (km)", to_earth);
+            }
+            hubble_sim.jump_to_event(event);
+            hubble_sim.update(0.0);
             check(hs.trail_mode(hi) == TrailMode::Orbit, "Hubble draws its current orbit, not centuries of history");
             const SceneEvent& shot = hs.events[event];
             const auto* motion = dynamic_cast<const MeanElementOrbit*>(h.motion.get());

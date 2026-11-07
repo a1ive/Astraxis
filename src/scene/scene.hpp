@@ -330,6 +330,7 @@ struct Body {
     bool label = true; // false: no name on screen unless focused (e.g. a crowd of stars)
     int event = -1;    // shown only while this event is active: its ghost (SceneEvent::Ghost) or a body
                        // it shows (SceneEvent's `show` in the file, e.g. a planet claim since refuted)
+    std::vector<int> also_shown_by; // and these events (several events can `show` a body)
     TrailMode trail = TrailMode::Orbit;
     double trail_history_days = 0.0; // History trails: 0 = everything since the motion became valid
     double trail_linger_days = 0.0;  // History trails: how long the trail stays after the motion ends

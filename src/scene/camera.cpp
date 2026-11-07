@@ -17,6 +17,7 @@ constexpr double kPitchLimit = 89.0 * kDegToRad;
 // The camera never gets closer than this many radii to any body's center
 // (transitions between distant targets could otherwise cut through a planet).
 constexpr double kBodyClearance = 1.1;
+constexpr double kLowOrbitClearance = 1.01;
 // Black holes (radius = horizon): stay outside ~12 M, where the view is still
 // recognisable (shadow plus disk) rather than filled by the shadow.
 constexpr double kBlackHoleClearance = 6.0;
@@ -210,8 +211,15 @@ void OrbitCamera::update(double real_dt, const Scene& scene)
 
     // Collision avoidance: push the camera out of any body it would be inside.
     m_position = m_focus_point + orbit_offset();
-    for (const Body& body : scene.bodies) {
-        const double clearance = clearance_radius(body);
+    for (size_t k = 0; k < scene.bodies.size(); ++k) {
+        const Body& body = scene.bodies[k];
+        double clearance = clearance_radius(body);
+        // A target already inside this body's clearance (Hubble in low orbit): the camera can
+        // follow it there, just not into the body.
+        if (static_cast<int>(k) != m_target && body.kind != BodyKind::BlackHole &&
+            glm::length(target_pos - body.world_position) < clearance) {
+            clearance = std::min(clearance, body.equatorial_radius_km * kLowOrbitClearance);
+        }
         const glm::dvec3 rel = m_position - body.world_position;
         const double d = glm::length(rel);
         if (d < clearance) {

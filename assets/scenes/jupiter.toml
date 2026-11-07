@@ -21,6 +21,25 @@
 # [PCK]  NAIF pck00011.tpc (IAU WGCCRE 2015 report): pole, prime meridian, radii.
 #        Linear T terms and nutation/precession terms are ignored (< 0.01 deg over centuries
 #        for the Galilean moons; < 1 deg for the inner moons).
+# [MDLC] NASA/Brian E. Kumanchik, "Cassini-Huygens (A)" (without Huygens), NASA 3D Resources,
+#        science.nasa.gov/3d-resources/cassini-huygens-a/, converted by
+#        tools/shapes/make_spacecraft.py (assets/shapes/SOURCES.md).
+
+# [MDLG] NASA/JPL/Solar System Simulator, "Galileo", NASA 3D Resources,
+#        science.nasa.gov/3d-resources/galileo/, converted by tools/shapes/make_spacecraft.py
+#        (assets/shapes/SOURCES.md).
+
+# [MDLJ] "Juno (A)", NASA 3D Resources, science.nasa.gov/3d-resources/juno-a/ (the page names
+#        no author), converted by tools/shapes/make_spacecraft.py (assets/shapes/SOURCES.md).
+
+# [GLF]  NASA, "Galileo End of Mission" press kit (jpl.nasa.gov/news/press_kits/galileo-end.pdf,
+#        retrieved 2026-11-07): 5.3 m from the top of the low-gain antenna to the bottom of the
+#        probe; the 4.8 m high-gain antenna failed to open fully; an 11 m magnetometer boom;
+#        the spinning section turns about 3 times a minute.
+# [JNK]  NASA, "Juno Jupiter Orbit Insertion" press kit, spacecraft section
+#        (jpl.nasa.gov/news/press_kits/juno/spacecraft/, retrieved 2026-11-07): a body 3.5 m
+#        tall and wide; solar panels spanning more than 20 m; 2 turns a minute in science
+#        operations.
 # [HZN]  JPL Horizons state vectors relative to Jupiter's center, baked by
 #        tools/bake/horizons_bake.py (tools/bake/ephem.toml, Kepler-relative AXEPH2 tables):
 #        Galileo 1995-11-01 .. 2003-09-21 (navigation fits to 2002-08-12, then the
@@ -393,7 +412,11 @@ laplace_pole_ra_dec_deg = [268.1, 64.5]
 name = "Galileo"
 parent = "Jupiter"
 kind = "spacecraft"
-radii_km = [0.0024]                    # 4.8 m high-gain antenna (it never fully opened)
+radii_km = [0.0035]                        # the bus, dish and generators; the boom goes on
+shape = "shapes/galileo.mesh"              # [MDLG]
+texture = "textures/galileo.png"
+point_at = "Sun"                           # the antenna; the roll is illustrative
+fill_light = 0.2                           # illustrative
 color = "#ffd27f"
 orbit_color = "#ffbf5c"
 trail = "history"
@@ -407,7 +430,11 @@ file = "ephem/galileo_jup.eph"
 name = "Juno"
 parent = "Jupiter"
 kind = "spacecraft"
-radii_km = [0.010]                     # ~20 m across the solar arrays
+radii_km = [0.010]                         # about 20 m across the solar arrays
+shape = "shapes/juno.mesh"                 # [MDLJ]
+texture = "textures/juno.jpg"
+point_at = "Sun"                           # the antenna; the roll is illustrative
+fill_light = 0.2                           # illustrative
 color = "#9fe7ff"
 orbit_color = "#6fd3ff"
 trail = "history"
@@ -421,7 +448,11 @@ file = "ephem/juno_jup.eph"
 name = "Cassini"
 parent = "Jupiter"
 kind = "spacecraft"
-radii_km = [0.002]                     # 4 m high-gain antenna
+radii_km = [0.004]                         # the bus and dish; the boom and antennas go on
+shape = "shapes/cassini.mesh"              # [MDLC]
+texture = "textures/cassini.jpg"
+point_at = "Sun"                           # the antenna; the roll is illustrative
+fill_light = 0.2                           # illustrative
 color = "#ffc2cf"                      # not saturn.toml's gold, which is Galileo's here
 orbit_color = "#ff9bb0"
 trail = "history"
@@ -1371,3 +1402,42 @@ caption = """\
     Jupiter's winds shear the sites out along their latitude, and by the end of August they have become one \
     band of dark haze. It stays visible until the end of the year, and tiny particles still linger over two \
     years later. Particles spread as far north as 20 degrees south within a year."""
+
+[[events]]
+name = "Galileo, minutes before Io (1995-12-07)"
+time = "1995-12-07 17:37"
+focus = "Galileo"
+# Io is at yaw -89.5, pitch 10.3 deg from the spacecraft then, nearly full: the camera on the
+# far side, so that Io shows beside the spacecraft (elevation_deg replaces the pitch).
+from_body = "Io"
+phase_deg = 158.0
+elevation_deg = -6.0
+distance_km = 0.012
+warp = 1.0
+hide_orbits = true
+# [GLF], [GLL], the model [MDLG]
+caption = """\
+    Galileo on arrival day, 5.3 m tall, ten minutes before it passes Io. Its 4.8 m antenna \
+    never opened fully, and the model shows it furled. The model also still carries the \
+    probe at the bottom, which had left months before and enters Jupiter's atmosphere \
+    today. The colors, the roll about the antenna's axis and the light on the shaded side \
+    are illustrative, and the 11 m boom is short here."""
+
+[[events]]
+name = "Juno, up close (2024-10-22)"
+time = "2024-10-22 16:20"
+focus = "Juno"
+# Jupiter is at yaw 108.2, pitch -9.5 deg from the spacecraft then: the camera on the far side,
+# so that Jupiter shows beside the spacecraft (elevation_deg replaces the pitch).
+from_body = "Jupiter"
+phase_deg = 153.0
+elevation_deg = 14.0
+distance_km = 0.034
+warp = 1.0
+hide_orbits = true
+# [JNK], the model [MDLJ]
+caption = """\
+    Juno, on its way in for a pass over Jupiter's poles. Its body is 3.5 m tall and wide, and \
+    its three solar panels span over 20 m to catch sunlight five times farther from the Sun \
+    than the Earth. It really spins, twice a minute, like a top; the spin is not drawn here, \
+    and the roll and the light on the shaded side are illustrative."""
