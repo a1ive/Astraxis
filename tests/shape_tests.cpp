@@ -789,6 +789,11 @@ std::pair<double, int> lit_share(const ShapeModel& shape, Region region)
     return {count > 0 ? static_cast<double>(lit) / count : -1.0, count};
 }
 
+glm::dvec3 scene_direction(const Scene& scene, int from, int to, double t_tdb)
+{
+    return glm::normalize(scene.icrf_state_at(to, t_tdb).position - scene.icrf_state_at(from, t_tdb).position);
+}
+
 void test_spacecraft_models()
 {
     struct Case {
@@ -817,6 +822,9 @@ void test_spacecraft_models()
                           {"venus.toml", "MESSENGER", "Sun", tdb_from_julian_year(2007.4)},
                           {"earth_moon.toml", "LADEE", "Sun", tdb_from_julian_year(2013.9)},
                           {"earth_moon.toml", "ARTEMIS-P1", "Sun", tdb_from_julian_year(2014.0)},
+                          {"mars.toml", "TGO", "Sun", tdb_from_julian_year(2025.3)},
+                          {"mars.toml", "Europa Clipper", "Sun", tdb_from_julian_year(2025.165)},
+                          {"didymos.toml", "DART", "Sun", tdb_from_julian_year(2022.6)},
                           {"rosetta.toml", "Rosetta", "Sun", tdb_from_julian_year(2015.6)},
                           {"solar_system.toml", "Pioneer 11", "Earth", tdb_from_julian_year(1979.6)},
                           {"saturn.toml", "Cassini", "Sun", tdb_from_julian_year(2007.3)},
@@ -993,6 +1001,9 @@ void test_spacecraft_models()
                           {"space_telescopes.toml", "WMAP", 5.1, 0.1},       // [WMF]
                           {"mars.toml", "MAVEN", 13.1, 0.3},                 // the model's panels, in metres
                           {"mars.toml", "MRO", 13.2, 0.5},                   // 13.6 m in Horizons' notes
+                          {"mars.toml", "TGO", 17.5, 0.2},                   // Horizons' notes
+                          {"mars.toml", "Europa Clipper", 30.5, 0.2},        // Horizons' notes
+                          {"didymos.toml", "DART", 19.0, 0.1},               // the scene's figure
                           {"rosetta.toml", "Rosetta", 32.0, 0.2}};           // [ROS]: the scene's 32 m
     for (const Span& span : spans) {
         Scene s = load_scene_or_die(span.file);
@@ -1028,6 +1039,52 @@ void test_spacecraft_models()
     const ShapeModel& messenger = *mercury_scene.bodies[static_cast<size_t>(mercury_scene.find("MESSENGER"))].shape;
     const auto messenger_bus = lit_share(messenger, [](const glm::dvec3& m) { return m.z < 0.3 && std::hypot(m.x, m.y) < 0.6; });
     check(messenger_bus.second > 0 && messenger_bus.first < 0.05, "the sunshade shades MESSENGER's bus", messenger_bus.first);
+
+    // TGO and Europa Clipper: the Sun reaches the cell side of the arrays.
+    Scene mars_scene = load_scene_or_die("mars.toml");
+    const ShapeModel& tgo = *mars_scene.bodies[static_cast<size_t>(mars_scene.find("TGO"))].shape;
+    const auto tgo_panels = lit_share(tgo, [](const glm::dvec3& m) { return std::abs(m.x) > 3.0 && m.z > 0.015 && m.z < 0.05; });
+    check(tgo_panels.second > 0 && tgo_panels.first > 0.8, "the Sun reaches TGO's solar panels", tgo_panels.first);
+    const ShapeModel& clipper = *mars_scene.bodies[static_cast<size_t>(mars_scene.find("Europa Clipper"))].shape;
+    const auto clipper_arrays = lit_share(clipper, [](const glm::dvec3& m) { return std::abs(m.x) > 2.5 && m.z > -0.001 && m.z < 0.05; });
+    check(clipper_arrays.second > 0 && clipper_arrays.first > 0.8, "the Sun reaches Europa Clipper's arrays", clipper_arrays.first);
+
+    // DART: scaled to 19 m across, its bus comes out at APL's 1.2 m (model's +x side, the body's -x:
+    // the other side has a fitting on it). The cells are on the sunward face of both arrays, which
+    // sit at different heights.
+    Scene didymos_scene = load_scene_or_die("didymos.toml");
+    const ShapeModel& dart = *didymos_scene.bodies[static_cast<size_t>(didymos_scene.find("DART"))].shape;
+    double dart_bus = 0.0;
+    for (const glm::vec3& p : dart.positions) {
+        const glm::dvec3 m = glm::dvec3(p) * 1000.0;
+        if (m.x < 0.0 && m.x > -1.0 && std::abs(m.y) < 0.4 && std::abs(m.z) < 0.55) {   // not the array's far end
+            dart_bus = std::max(dart_bus, -m.x);
+        }
+    }
+    check(std::abs(2.0 * dart_bus - 1.2) < 0.05, "DART's bus is 1.2 m wide", 2.0 * dart_bus);
+    const auto dart_cells = lit_share(dart, [](const glm::dvec3& m) {
+        return (m.x < -2.0 && m.z > 0.645 && m.z < 0.67) || (m.x > 2.0 && m.z > -0.78 && m.z < -0.75);
+    });
+    check(dart_cells.second > 0 && dart_cells.first > 0.9, "the Sun reaches DART's solar arrays", dart_cells.first);
+
+    // Huygens: 2.7 m across, its nose (+z) at Titan, and nothing baked: it does not keep to the Sun.
+    const Body& huygens_body = saturn_scene.bodies[static_cast<size_t>(saturn_scene.find("Huygens"))];
+    const double t_huygens = tdb_from_julian_year(2005.03);
+    const glm::dvec3 to_titan = scene_direction(saturn_scene, saturn_scene.find("Huygens"), saturn_scene.find("Titan"), t_huygens);
+    check(glm::dot(saturn_scene.body_to_icrf(huygens_body, t_huygens)[2], to_titan) > 1.0 - 1e-12, "Huygens points its shield at Titan");
+    double huygens_width = 0.0, huygens_nose = 0.0;
+    bool huygens_unbaked = true;
+    for (size_t k = 0; k < huygens_body.shape->positions.size(); ++k) {
+        const glm::dvec3 m = glm::dvec3(huygens_body.shape->positions[k]) * 1000.0;
+        huygens_width = std::max(huygens_width, 2.0 * std::hypot(m.x, m.y));
+        if (m.z > 0.3) {
+            huygens_nose = std::max(huygens_nose, std::hypot(m.x, m.y));
+        }
+        huygens_unbaked = huygens_unbaked && huygens_body.shape->albedo[k] == 1.0f;
+    }
+    check(std::abs(huygens_width - 2.7) < 0.03, "Huygens is 2.7 m across", huygens_width);
+    check(huygens_nose < 0.6, "the Huygens shield narrows to its nose on +z", huygens_nose);
+    check(huygens_unbaked, "Huygens has no baked sunlight");
 
     // Webb: the shield about 21 m long, the telescope on the side away from the Sun, in its shade.
     Scene telescopes = load_scene_or_die("space_telescopes.toml");

@@ -18,6 +18,8 @@
 # [MDLC] NASA/Brian E. Kumanchik, "Cassini-Huygens (A)" (without Huygens), NASA 3D Resources,
 #        science.nasa.gov/3d-resources/cassini-huygens-a/, converted by
 #        tools/shapes/make_spacecraft.py (assets/shapes/SOURCES.md).
+# [MDLH] The same model's "without Cassini" file: Huygens as it was released, heat shield and back
+#        cover, scaled to the 2.7 m shield (assets/shapes/SOURCES.md).
 
 # [CLK]  NASA, "Cassini Launch" press kit (jpl.nasa.gov/news/press_kits/cassini.pdf) and
 #        science.nasa.gov/mission/cassini/quick-facts/ (retrieved 2026-11-07): 6.7 m high and
@@ -567,6 +569,10 @@ name = "Huygens"
 parent = "Saturn"
 kind = "spacecraft"
 radii_km = [0.0014]                        # 2.7 m heat shield
+shape = "shapes/huygens.mesh"              # [MDLH]
+texture = "textures/huygens.jpg"
+point_at = "Titan"                         # the shield ahead; illustrative, and kept to the landing
+fill_light = 0.2                           # illustrative
 color = "#ffe9c0"
 orbit_color = "#ffd9a0"
 trail = "history"
@@ -673,6 +679,22 @@ caption = """\
     Cassini completes 294 orbits over thirteen years, with few alike. As it moves \
     between moons, its orbits stretch and shrink, tilting out of the ring plane \
     and back."""
+
+[[events]]
+name = "Huygens, up close (2005-01-10)"
+time_tdb = "2005-01-10 00:00"
+focus = "Huygens"
+from_body = "Titan"                         # the shield's side, which faces Titan
+phase_deg = 55.0
+distance_km = 0.012
+warp = 1.0
+hide_orbits = true
+# [HUY], [CAS], the model [MDLH]
+caption = """\
+    Huygens, on its own since Cassini let it go: a heat shield 2.7 m across, with the \
+    probe behind it under a back cover. The shield takes the heat of hitting Titan's \
+    air and then falls away, and the parachutes do the rest. The way it faces here and \
+    the light on the shaded side are illustrative."""
 
 # Touchdown 2005-01-14 11:38:49 TDB (2 km below Titan's mean radius: the local surface).
 [[events]]

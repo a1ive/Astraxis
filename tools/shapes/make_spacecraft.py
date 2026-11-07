@@ -1,4 +1,4 @@
-"""Convert NASA's GLB models of spacecraft to AXMESH2 meshes with a texture atlas.
+"""Convert NASA's GLB and STL models of spacecraft to AXMESH2 meshes with a texture atlas.
 
 Run (the decoder and images need packages; the models are not checked in, the argument is
 ref/ with a clone of github.com/nasa/NASA-3D-Resources and the models in probes/):
@@ -16,7 +16,9 @@ constant, so the renderer samples mip 0 and neighbors do not bleed in).
 The vertex "albedo" channel holds the sunlight reaching the vertex with the Sun on +z, by
 a ray along +z against the whole model: 1 where it is free, 0 where another part is in the
 way. This is exact while the Sun stays on +z, which is why only spacecraft that keep one
-face to the Sun are baked this way.
+face to the Sun are baked this way; `bake_sun: False` leaves every vertex at 1.
+
+An STL has no materials: `parts` names them, per connected piece, and `colors` gives each one's.
 """
 import argparse
 import io
@@ -25,7 +27,6 @@ import struct
 import sys
 from pathlib import Path
 
-import DracoPy
 import numpy as np
 from PIL import Image, ImageDraw
 
@@ -312,6 +313,85 @@ CRAFT = {
         'atlas_width': 1600,
         'format': 'jpg',
     },
+    # To scale (17.5 m across the panels, the scene's Horizons notes). The solar cells face the
+    # model's +z and the dish its -y; Schiaparelli's mounting is on its +y. The metals are near pure
+    # white or yellow lit as matte surfaces here, and the blankets (a texture of black with a few
+    # gold specks) a silhouette: replaced.
+    'tgo': {
+        'file': 'probes/TGO.glb',
+        'origin_m': (0.0, -0.4, 0.0),
+        'scale': 1.0,
+        'body_z': (0, 0, 1),
+        'body_x': (1, 0, 0),
+        'colors': {'black_krinkle_dots': (118, 118, 122), 'black krinkle': (118, 118, 122),
+                   'foil gold': (186, 140, 58), 'array gold trim': (186, 140, 58),
+                   'foil silver': (190, 190, 195), 'foil silver antenna': (205, 205, 208),
+                   'mirror chrome': (125, 130, 140), 'aluminum': (170, 170, 175)},
+        'atlas_width': 1100,
+        'format': 'jpg',
+    },
+    # To scale (30.5 m across the arrays, the scene's Horizons notes). The solar cells face the
+    # model's +z; the dish faces its -y, the magnetometer boom goes off toward -y and -z, and the
+    # radar antennas lie along z.
+    'clipper': {
+        'file': 'probes/clipper_spacecraft.glb',
+        'origin_m': (0.0, 0.0, 1.76),
+        'scale': 1.0,
+        'body_z': (0, 0, 1),
+        'body_x': (1, 0, 0),
+        'merge_m': 0.03,
+        'merge_uv': 128,   # the textures are mostly flat color, so nearby texels can merge
+        # Each 0.56 x 0.79 m rectangle of the arrays repeats one solar cell 7 x 18 times (19 rows,
+        # since the rows do not start on a whole tile), and an atlas cannot repeat. Columns, rows,
+        # pixels per cell, and a gain: the cell is near black, and would not show against the sky.
+        'tile_images': {'clipper_solar_cells_albedo': (7, 19, 24, 2.6)},
+        'atlas_width': 2100,
+        'format': 'jpg',
+    },
+    # An STL with no colors, and 40.3 units across are the 19 m of the scene; the bus comes out 1.2 m
+    # wide (APL: 1.2 x 1.3 x 1.3 m). The two wings are the same shape turned 180 deg about the
+    # telescope's axis, so which face has the cells is a choice: both on the model's +y here. DRACO
+    # looks along +z, and the ion engine along -z. The colors are illustrative.
+    'dart': {
+        'file': 'probes/Double Asteroid Redirection Test (DART).stl',
+        'origin_m': (0.0, 1.77, -0.49),
+        'scale': 19.0 / 40.34,
+        'body_z': (0, 1, 0),
+        'body_x': (-1, 0, 0),   # the telescope toward the body's +y
+        # Material, then the box a piece has to fit in and the size it has to reach (model units).
+        'parts': [('cells', (2.6, 3.1, -2.2), (20.0, 3.19, 1.2), 2.0),
+                  ('cells', (-20.0, 0.07, -2.2), (-2.6, 0.15, 1.2), 2.0),
+                  ('boom', (1.85, -1.0, -3.0), (20.2, 4.0, 2.0), 0.0),
+                  ('boom', (-20.2, -1.0, -3.0), (-1.85, 4.0, 2.0), 0.0),
+                  ('radiator', (-1.3, 0.4, -1.8), (-1.2, 3.1, 0.8), 1.0),
+                  ('radiator', (1.2, 0.4, -1.8), (1.3, 3.1, 0.8), 1.0),
+                  ('blanket', (-1.3, 0.3, -2.0), (1.3, 3.2, 1.01), 2.0),
+                  ('dish', (-2.1, 2.8, -1.3), (-1.0, 4.0, 0.0), 0.5),
+                  ('camera', (-0.6, 1.2, 1.6), (0.6, 2.35, 2.42), 0.25),
+                  ('engine', (-0.73, 1.04, -2.51), (0.73, 2.49, -0.7), 0.3)],
+        'fallback_part': 'fitting',
+        'back_faces': {'cells': 'array_back'},
+        'colors': {'cells': (28, 32, 62), 'array_back': (170, 170, 165), 'boom': (150, 150, 155),
+                   'radiator': (205, 205, 200), 'blanket': (128, 128, 134), 'dish': (210, 210, 205),
+                   'camera': (190, 190, 195), 'engine': (70, 70, 74), 'fitting': (165, 165, 170)},
+        'merge_m': 0.03,
+        'atlas_width': 64,
+        'format': 'png',
+    },
+    # The entry assembly, heat shield and back cover. 2.615 m across in the model, and 2.7 m (the
+    # scene's). The shield's nose is on the model's +x. The scene points it at Titan, not the Sun, so
+    # nothing is baked.
+    'huygens': {
+        'file': 'probes/Cassini-Huygens (A) (without Cassini).glb',
+        'origin_m': (0.0, 0.0, 0.0),
+        'scale': 2.7 / 2.615,
+        'body_z': (1, 0, 0),
+        'body_x': (0, 1, 0),
+        'image_scale': {'tex_01_': 0.5},
+        'bake_sun': False,
+        'atlas_width': 530,
+        'format': 'jpg',
+    },
 }
 
 
@@ -334,6 +414,8 @@ def node_matrix(node):
 
 
 class Glb:
+    plain = ()
+
     def __init__(self, path):
         with open(path, 'rb') as f:
             if f.read(4) != b'glTF':
@@ -363,6 +445,7 @@ class Glb:
     def decode(self, prim):
         """(positions, normals, uv or None, triangles) of a primitive, Draco-compressed or not."""
         if 'KHR_draco_mesh_compression' in prim.get('extensions', {}):
+            import DracoPy   # only the files from the repository need it
             draco = prim['extensions']['KHR_draco_mesh_compression']
             mesh = DracoPy.decode(self.view(draco['bufferView']))
             uv = None if mesh.tex_coord is None or len(mesh.tex_coord) == 0 else \
@@ -409,7 +492,10 @@ class Glb:
         return info.get('alphaMode') in ('MASK', 'BLEND') and factor[3] == 0.0
 
     def material_image(self, material):
-        """Index of the JSON image of a material's base color (the PNG, not the WebP copy), or None."""
+        """Index of the JSON image of a material's base color (the PNG, not the WebP copy), or None:
+        also None for a material the spec gives a plain color instead (`plain`)."""
+        if self.json['materials'][material].get('name') in self.plain:
+            return None
         info = self.json['materials'][material].get('pbrMetallicRoughness', {}).get('baseColorTexture')
         return None if info is None else self.json['textures'][info['index']]['source']
 
@@ -421,6 +507,93 @@ class Glb:
             return overrides[self.json['materials'][material]['name']]
         factor = self.json['materials'][material].get('pbrMetallicRoughness', {}).get('baseColorFactor', (1, 1, 1, 1))
         return tuple(int(round(255.0 * c)) for c in linear_to_srgb(factor[:3]))
+
+
+class Stl:
+    """A binary STL, with the interface `build` uses of Glb: one plain material per name in the
+    spec's `parts`. The file keeps three vertices per triangle: they are welded to find the connected
+    pieces, and the normals are smoothed across edges under 40 deg, as a shaded CAD model looks."""
+    CREASE_COS = np.cos(np.radians(40.0))
+
+    def __init__(self, path, spec):
+        record = np.dtype([('normal', '<f4', 3), ('corners', '<f4', (3, 3)), ('attribute', '<u2')])
+        raw = np.fromfile(path, dtype=record, offset=84)
+        corners = raw['corners'].astype(np.float64).reshape(-1, 3)
+        _, first, inverse = np.unique(np.round(corners * 1e4).astype(np.int64), axis=0, return_index=True, return_inverse=True)
+        self.positions = corners[first]
+        self.triangles = inverse.reshape(-1, 3)
+        a, b, c = (self.positions[self.triangles[:, k]] for k in range(3))
+        self.faces_normal = np.cross(b - a, c - a)
+        self.corner_normals = self.smooth_normals()
+        unit = self.faces_normal / np.maximum(np.linalg.norm(self.faces_normal, axis=1, keepdims=True), 1e-30)
+
+        names = [part[0] for part in spec['parts']] + [spec['fallback_part']] + list(spec.get('back_faces', {}).values())
+        self.names = list(dict.fromkeys(names))
+        self.json = {'materials': [{'name': name} for name in self.names]}
+        pieces = self.connected_pieces()
+        low = np.full((pieces.max() + 1, 3), np.inf)
+        high = np.full((pieces.max() + 1, 3), -np.inf)
+        np.minimum.at(low, pieces, self.positions)
+        np.maximum.at(high, pieces, self.positions)
+        piece_material = np.full(len(low), self.names.index(spec['fallback_part']))
+        for name, box_low, box_high, size in reversed(spec['parts']):
+            fits = np.all(low >= box_low, axis=1) & np.all(high <= box_high, axis=1) & ((high - low).max(axis=1) >= size)
+            piece_material[fits] = self.names.index(name)
+        self.material = piece_material[pieces[self.triangles[:, 0]]]
+        sunward = np.array(spec['body_z'], dtype=np.float64)
+        sunward /= np.linalg.norm(sunward)
+        for name, back in spec.get('back_faces', {}).items():
+            away = (self.material == self.names.index(name)) & (unit @ sunward <= 0.5)
+            self.material[away] = self.names.index(back)
+
+    def connected_pieces(self):
+        parent = list(range(len(self.positions)))
+
+        def find(a):
+            while parent[a] != a:
+                parent[a] = parent[parent[a]]
+                a = parent[a]
+            return a
+
+        for a, b, c in self.triangles.tolist():
+            ra = find(a)
+            parent[find(b)] = ra
+            parent[find(c)] = ra
+        return np.unique([find(a) for a in range(len(parent))], return_inverse=True)[1]
+
+    def smooth_normals(self):
+        """Per corner of each triangle: the area-weighted normal of the faces at that vertex within
+        the crease angle of this one."""
+        count = len(self.triangles)
+        vertex = self.triangles.reshape(-1)
+        order = np.argsort(vertex, kind='stable')
+        edges = np.flatnonzero(np.diff(vertex[order])) + 1
+        unit = self.faces_normal / np.maximum(np.linalg.norm(self.faces_normal, axis=1, keepdims=True), 1e-30)
+        out = np.zeros((3 * count, 3))
+        for group in np.split(order, edges):
+            faces = group // 3
+            similar = unit[faces] @ unit[faces].T > self.CREASE_COS
+            out[group] = similar @ self.faces_normal[faces]
+        out /= np.maximum(np.linalg.norm(out, axis=1, keepdims=True), 1e-30)
+        return out.reshape(-1, 3, 3)
+
+    def primitives(self):
+        out = []
+        for index in range(len(self.names)):
+            chosen = np.flatnonzero(self.material == index)
+            if len(chosen) == 0:
+                continue
+            # Three vertices per triangle: the weld in `build` joins those with the same normal.
+            points = self.positions[self.triangles[chosen]].reshape(-1, 3)
+            normals = self.corner_normals[chosen].reshape(-1, 3)
+            out.append((index, points, normals, None, np.arange(len(points)).reshape(-1, 3)))
+        return out
+
+    def material_image(self, material):
+        return None
+
+    def material_color(self, material, overrides):
+        return overrides[self.names[material]]
 
 
 class Atlas:
@@ -554,7 +727,8 @@ def sun_visibility(positions, normals, triangles):
 
 
 def build(name, spec, models):
-    glb = Glb(models / spec['file'])
+    glb = Stl(models / spec['file'], spec) if spec['file'].endswith('.stl') else Glb(models / spec['file'])
+    glb.plain = tuple(spec.get('colors', {}))
     skip = spec.get('skip_materials', [])
     prims = [p for p in glb.primitives()
              if p[0] is None or glb.json['materials'][p[0]].get('name') not in skip]
@@ -580,6 +754,10 @@ def build(name, spec, models):
         if scale != 1.0:
             size = (int(pixels.shape[1] * scale), int(pixels.shape[0] * scale))
             pixels = np.array(Image.fromarray(pixels).resize(size, Image.LANCZOS))
+        if info.get('name') in spec.get('tile_images', {}):
+            columns, rows, cell, gain = spec['tile_images'][info['name']]
+            tile = np.array(Image.fromarray(pixels).resize((cell, cell), Image.LANCZOS)) * gain
+            pixels = np.tile(np.minimum(tile, 255.0).astype(np.uint8), (rows, columns, 1))
         first = copies.setdefault(pixels.tobytes(), index)
         if first != index:
             same_as[index] = first
@@ -624,6 +802,9 @@ def build(name, spec, models):
                 uv = np.concatenate([uv, (corners[out] - shift).reshape(-1, 2)])
                 faces = faces.copy()
                 faces[out] = np.arange(start, start + 3 * len(ids)).reshape(-1, 3)
+            tiles = spec.get('tile_images', {}).get(glb.json['images'][image].get('name'))
+            if tiles is not None:
+                uv = uv / np.array(tiles[:2], dtype=np.float64)
             uv = atlas.image_uv(image, uv)
 
         # Weld: the files keep up to three vertices per triangle. A vertex stays separate where
@@ -637,7 +818,7 @@ def build(name, spec, models):
         # Parts smaller than the grid are not seen from any distance the camera goes to: merge
         # vertices in one cell (with about the same normal, so that big flat faces stay flat).
         if grid_km > 0.0:
-            key = np.concatenate([np.floor(positions / grid_km), np.round(normals * 2.0), np.round(uv * 1e5)], axis=1)
+            key = np.concatenate([np.floor(positions / grid_km), np.round(normals * 2.0), np.round(uv * spec.get('merge_uv', 1e5))], axis=1)
             _, first, inverse = np.unique(key.astype(np.int64), axis=0, return_index=True, return_inverse=True)
             inverse = inverse.reshape(-1)
             positions, normals, uv = positions[first], normals[first], uv[first]
@@ -668,7 +849,8 @@ def build(name, spec, models):
     used, inverse = np.unique(triangles, return_inverse=True)
     positions, uv, triangles = positions[used], uv[used], inverse.reshape(-1, 3)
     normals = vertex_normals(positions, triangles)
-    visible = sun_visibility(positions, normals, triangles)
+    visible = sun_visibility(positions, normals, triangles) if spec.get('bake_sun', True) \
+        else np.ones(len(positions), dtype=np.float32)
 
     print(f'{name}: {len(positions)} vertices, {len(triangles)} triangles '
           f'({wrapped} wrapped); '
