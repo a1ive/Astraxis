@@ -1185,6 +1185,35 @@ void test_spacecraft_models()
               glm::dot(axes[1], ecliptic_pole_icrf()));
     }
 
+    // LICIACube [MDLL]: 0.72 m across its wings, a bus about 30 cm long with the cameras at its +z end,
+    // pointed at Dimorphos, the cells on +y; nothing baked.
+    const int licia_index = didymos_scene.find("LICIACube");
+    const Body& licia = didymos_scene.bodies[static_cast<size_t>(licia_index)];
+    check(licia.shape != nullptr && !licia.texture.empty(), "LICIACube has a model");
+    if (licia.shape) {
+        glm::dvec3 low(1e9), high(-1e9);
+        double bus_low = 1e9, bus_high = -1e9;
+        bool licia_unbaked = true;
+        for (size_t k = 0; k < licia.shape->positions.size(); ++k) {
+            const glm::dvec3 m = glm::dvec3(licia.shape->positions[k]) * 1000.0;
+            low = glm::min(low, m);
+            high = glm::max(high, m);
+            if (std::abs(m.x) < 0.04) {
+                bus_low = std::min(bus_low, m.z);
+                bus_high = std::max(bus_high, m.z);
+            }
+            licia_unbaked = licia_unbaked && licia.shape->albedo[k] == 1.0f;
+        }
+        check(std::abs(high.x - low.x - 0.72) < 0.02, "LICIACube is 0.72 m across its wings", high.x - low.x);
+        check(std::abs(bus_high - bus_low - 0.3) < 0.04, "LICIACube's bus is about 30 cm long", bus_high - bus_low);
+        check(licia_unbaked, "LICIACube has no baked sunlight");
+        const double t_flyby = tdb_from_utc_jd(jd_from_calendar({2022, 9, 26, 23, 17, 11}) + 0.5 / 86400.0);
+        const glm::dmat3 axes = didymos_scene.body_to_icrf(licia, t_flyby);
+        const glm::dvec3 to_dimorphos = scene_direction(didymos_scene, licia_index, didymos_scene.find("Dimorphos"), t_flyby);
+        check(glm::dot(axes[2], to_dimorphos) > 1.0 - 1e-12, "LICIACube points its cameras at Dimorphos");
+        check(glm::dot(axes[1], ecliptic_pole_icrf()) >= 0.0, "LICIACube keeps its cells toward the ecliptic north");
+    }
+
     // Webb: the shield about 21 m long, the telescope on the side away from the Sun, in its shade.
     Scene telescopes = load_scene_or_die("space_telescopes.toml");
     const ShapeModel& jwst = *telescopes.bodies[static_cast<size_t>(telescopes.find("JWST"))].shape;

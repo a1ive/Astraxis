@@ -290,6 +290,15 @@ Gaia Sky 的探测器仓库（<https://gaia.ari.uni-heidelberg.de/gaiasky/reposi
 - **外形**：太阳翼展开的在轨组合体：乘员舱、适配器、欧洲服务舱、主发动机和辅助发动机、四片各三块 2 m 面板的太阳翼。尺寸按 NASA “Orion by the Numbers” 2025（乘员舱直径约 5 m、高 3.35 m）、NASA “How to Draw Artemis / Orion”（布局、每片三段）、Airbus 的欧洲服务舱页面（每片约 7 m、展开约 19 m）和 ESA “Orion's wings”（电池片布局），2026-11-07 查阅；服务舱各段长度、喷口、隔热片接缝和电池片数量（每块 24 × 26 片，比实物少）是近似重建，不是工程 CAD。
 - **处理**：米制，Z 轴从发动机指向舱顶，就是本体系的 +z；太阳翼平放在垂直于 +z 的平面里，电池片朝 +z，所以场景让 +z 朝太阳并烘焙阳光（乘员舱挡住翼根，翼背面在自己的阴影里）。原点在 7.4 m 的组合体中间。纯色材质（Kd 按 Blender 写的线性值），四种电池片颜色各占一个色板格，没有纹理图。按 2 cm 合并顶点，117,436 个三角形减到约 95,000 个。
 
+### LICIACube（本项目自建）
+
+| 输出 | 输入 | 来源 | 输入 SHA-256 |
+|---|---|---|---|
+| `liciacube.mesh`、`../textures/liciacube.png` | `ref/LICIACube/liciacube.obj`、`.mtl`（由同目录的 `build_liciacube.py` 在 Blender 里生成，`ref/` 不入库） | 本项目为 Astraxis 生成的几何和材质，GPL-3.0-or-later；没有导入第三方网格、纹理或标识 | `a203a3a7a29337726732804019025a62980b59537b8aec02dd9401d9ebce67cf`、`c99b911b86c3204beb0627931a33b3ebf4f6d43caf99be09dc93ee4156d87250`（`build_liciacube.py`：`abbd2046aaf82d14b1b4fc105cc7ef050ebdeacb0efffe08938db260feb04fe1`） |
+
+- **外形**：太阳翼展开构型。机身按 INAF（“LICIACube, nanosatellite tutto italiano”，2023）的 6U、约 10 × 20 × 30 cm；两侧各三块太阳能板、端面的 LEIA 和 LUKE 两台相机、顶部的平板天线按 Argotec 的任务页面（argotecgroup.com/missions/liciacube）和 Poggiali 等 2022 图 1 估计，背面设备是示意的，不是工程尺寸。2026-11-07 查阅。
+- **处理**：米制，电池片朝模型 +z，相机朝 −y。场景让相机对着 Dimorphos（本体 +z = 模型 −y），电池片因此在本体 +y，太阳不在 +z，所以不烘焙阳光。全部是纯色材质，没有纹理图；15,612 个三角形，不合并顶点。
+
 ### ISEE-3 的组装
 
 NASA 的 ISEE-3 是给 3D 打印的散件（英寸，鼓 69.6 英寸宽 = 1.77 m），每根吊杆在自己的文件里、从原点沿 +z 伸出，没有装配图。`make_spacecraft.py` 的 `assembly` 按 JHU/APL 的飞行构型图（eoPortal “ISEE-3 / ICE” 图 3）和 NASA 计划文件（spacecollege.org/?p=245，2026-11-07 查看）装起来：鼓的轴（模型 y）是自转轴；四根刚性吊杆和四根导线天线都从鼓中间那条带（y 27.9–30.2 英寸）伸出，实验吊杆（`Exboom1` 是搜索线圈，`Exboom2` 是磁强计，标称 302 cm）装在鼓上有铰链座的两侧（模型 ±z，座的中心偏 7.15 英寸），惯性吊杆（`Inertia boom`，114 cm）装在与之垂直的两侧，导线天线（`Rad antenna` 拉伸到 49 m）在它们之间的 45° 方向，轴向天线（同一个零件拉伸到 701 cm）沿自转轴上下各一根。文件自己的 `Rad antenna` 是 55 m。`Exboom (empty).stl` 是没有探头的空吊杆，`Thruster.stl` 是一个装不到鼓上任何推力器座的散件，都不用。鼓是打印用的空筒，两端补上 16 边形的盖。太阳能电池覆盖侧面，除了中间那条带和上下两道环（按面的三个顶点所在的高度分，大的侧面三角形跨过中间的带，所以带只在少数面上看得到）。颜色都是示意的。它每 3 秒转一圈，所以不烘焙阳光。

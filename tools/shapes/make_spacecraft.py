@@ -484,6 +484,21 @@ CRAFT = {
         'atlas_width': 64,
         'format': 'png',
     },
+    # LICIACube, deployed, as built for this project in Blender (ref/LICIACube/build_liciacube.py,
+    # from Argotec's and INAF's descriptions: a 6U bus of about 10 x 20 x 30 cm, two wings; no
+    # third-party mesh). Metres; the solar cells face the model's +z and the two cameras its -y.
+    # The scene points the cameras at Dimorphos (the body's +z), which puts the cells on the
+    # body's +y; the Sun is not on +z, so nothing is baked.
+    'liciacube': {
+        'file': 'LICIACube/liciacube.obj',
+        'origin_m': (0.0, 0.0, 0.0),
+        'scale': 1.0,
+        'body_z': (0, -1, 0),
+        'body_x': (1, 0, 0),
+        'bake_sun': False,
+        'atlas_width': 64,
+        'format': 'png',
+    },
 }
 
 
