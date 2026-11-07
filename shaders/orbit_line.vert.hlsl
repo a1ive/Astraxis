@@ -21,6 +21,20 @@ struct VSOutput
 
 static const float kMinW = 1e-4;
 
+// The point a fraction t from `behind` to `front` where w = kMinW. A segment can run from
+// metres in front of the camera to millions of km behind it, and then w is a difference
+// of numbers 1e10 times kMinW: in float, its rounding error is far larger than kMinW and
+// has either sign, so the point lands on either side of the screen and changes every
+// frame. So this starts from the end nearer the plane, where a small step is accurate,
+// and sets w exactly.
+float4 point_at_min_w(float4 behind, float4 front, float t)
+{
+    float4 p = abs(behind.w) < abs(front.w) ? behind + t * (front - behind)
+                                            : front + (kMinW - front.w) / (behind.w - front.w) * (behind - front);
+    p.w = kMinW;
+    return p;
+}
+
 VSOutput main(uint vertex_id : SV_VertexID)
 {
     // Corner table: (end 0/1, side -1/+1).
@@ -51,11 +65,11 @@ VSOutput main(uint vertex_id : SV_VertexID)
     // Clip the part behind the camera.
     if (c0.w < kMinW) {
         float t = (kMinW - c0.w) / (c1.w - c0.w);
-        c0 = lerp(c0, c1, t);
+        c0 = point_at_min_w(c0, c1, t);
         f0 = lerp(f0, f1, t);
     } else if (c1.w < kMinW) {
         float t = (kMinW - c1.w) / (c0.w - c1.w);
-        c1 = lerp(c1, c0, t);
+        c1 = point_at_min_w(c1, c0, t);
         f1 = lerp(f1, f0, t);
     }
 
