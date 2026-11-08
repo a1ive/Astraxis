@@ -516,6 +516,35 @@ CRAFT = {
         'atlas_width': 64,
         'format': 'png',
     },
+    # India's Mars Orbiter Mission, as built for this project in Blender (ref/mom/build_mom.py, from
+    # ISRO's figures: three 1.8 x 1.4 m panels, the 2.2 m dish; no third-party mesh, the rest estimated).
+    # Metres; the panels are on the OBJ's +y with their cells on +z, which the scene turns to the Sun
+    # (the body's +z): baked. The origin is at the middle of the 1.5 m bus.
+    'mom': {
+        'file': 'mom/mom.obj',
+        'origin_m': (0.0, 0.0, 0.85),
+        'scale': 1.0,
+        'body_z': (0, 0, 1),
+        'body_x': (1, 0, 0),
+        'merge_m': 0.01,
+        'atlas_width': 64,
+        'format': 'png',
+    },
+    # ISAS's Suisei (Planet-A), as built for this project in Blender (ref/suisei/build_suisei.py, from
+    # ISAS's figures, a 1.4 x 0.7 m drum and a 0.8 m elliptical dish, and pictures; no third-party
+    # mesh). Metres; the spin axis is +z, the dish on top. The scene puts the spin axis on the body's
+    # +y and a side of the drum (the OBJ's +x) to the Sun. It spins, so nothing is baked. Also drawn
+    # for Sakigake, which has the same drum.
+    'suisei': {
+        'file': 'suisei/suisei.obj',
+        'origin_m': (0.0, 0.0, 0.35),
+        'scale': 1.0,
+        'body_z': (1, 0, 0),
+        'body_x': (0, 1, 0),
+        'bake_sun': False,
+        'atlas_width': 64,
+        'format': 'png',
+    },
     # The Emirates Mars Mission's Hope, as built for this project in Blender (ref/hope/build_hope.py,
     # from Amiri et al. 2022, sec. 6, and a picture; no third-party mesh): the 1.85 m dish from the
     # paper, the 7.9 m span and the rest estimated. Metres; the long axis is +z, and the solar cells

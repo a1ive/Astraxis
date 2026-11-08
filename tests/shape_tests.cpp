@@ -831,6 +831,7 @@ void test_spacecraft_models()
                           {"earth_moon.toml", "Chang'e 5-T1", "Sun", tdb_from_julian_year(2014.95)},
                           {"mars.toml", "Tianwen-1", "Sun", tdb_from_julian_year(2021.3)},
                           {"mars.toml", "Hope", "Sun", tdb_from_julian_year(2021.5)},
+                          {"mars.toml", "MOM", "Sun", tdb_from_julian_year(2015.5)},
                           {"space_telescopes.toml", "Gaia", "Sun", tdb_from_julian_year(2020.0)},
                           {"space_telescopes.toml", "Euclid", "Sun", tdb_from_julian_year(2026.4)},
                           {"mars.toml", "TGO", "Sun", tdb_from_julian_year(2025.3)},
@@ -1260,6 +1261,64 @@ void test_spacecraft_models()
         check(high.z < 1.2, "Chang'e 5-T1 flies without its return capsule", high.z);
         const auto cells = lit_share(*ce5.shape, [](const glm::dvec3& m) { return std::abs(m.x) > 1.5; });
         check(cells.second > 0 && cells.first > 0.4, "the Sun reaches Chang'e 5-T1's solar cells", cells.first);
+    }
+
+    // MOM [MDLM]: three panels 5.48 m across on +y, their cells in the Sun and their backs in shade,
+    // the 2.2 m dish on -y.
+    const Body& mom = mars_scene.bodies[static_cast<size_t>(mars_scene.find("MOM"))];
+    check(mom.shape != nullptr, "MOM has a model");
+    if (mom.shape) {
+        double panel_low = 1e9, panel_high = -1e9, dish_low = 1e9, dish_high = -1e9;
+        for (const glm::vec3& q : mom.shape->positions) {
+            const glm::dvec3 m = glm::dvec3(q) * 1000.0;
+            if (m.y > 1.4) {
+                panel_low = std::min(panel_low, m.x);
+                panel_high = std::max(panel_high, m.x);
+            }
+            if (m.y < -0.8) {
+                dish_low = std::min(dish_low, m.x);
+                dish_high = std::max(dish_high, m.x);
+            }
+        }
+        check(std::abs(panel_high - panel_low - 5.48) < 0.05, "MOM's panels are 5.48 m across", panel_high - panel_low);
+        check(std::abs(dish_high - dish_low - 2.2) < 0.05, "MOM's dish is 2.2 m across", dish_high - dish_low);
+        const auto cells = lit_share(*mom.shape, [](const glm::dvec3& m) { return m.y > 1.45 && m.z > -0.18 && m.z < -0.16; });
+        check(cells.second > 0 && cells.first > 0.9, "the Sun reaches MOM's solar cells", cells.first);
+        const auto backs = lit_share(*mom.shape, [](const glm::dvec3& m) { return m.y > 1.45 && m.z < -0.24; });
+        check(backs.second > 0 && backs.first < 0.1, "the backs of MOM's panels are in their own shade", backs.first);
+    }
+
+    // Suisei [MDLP], also drawn for Sakigake: the drum 1.4 m across (with its cells), the dish on the
+    // spin axis's north end, nothing baked; a side to the Sun.
+    for (const char* craft : {"Suisei", "Sakigake"}) {
+        const std::string name = craft;
+        const int index = isee3_scene.find(craft);
+        const Body& probe = isee3_scene.bodies[static_cast<size_t>(index)];
+        check(probe.shape != nullptr && !probe.texture.empty(), (name + " has a model").c_str());
+        if (!probe.shape) {
+            continue;
+        }
+        double drum = 0.0, top = -1e9, bottom = 1e9;
+        bool unbaked = true;
+        for (size_t k = 0; k < probe.shape->positions.size(); ++k) {
+            const glm::dvec3 m = glm::dvec3(probe.shape->positions[k]) * 1000.0;
+            if (std::abs(m.y) < 0.3) {
+                drum = std::max(drum, 2.0 * std::hypot(m.x, m.z));
+            }
+            top = std::max(top, m.y);
+            bottom = std::min(bottom, m.y);
+            unbaked = unbaked && probe.shape->albedo[k] == 1.0f;
+        }
+        check(std::abs(drum - 1.4) < 0.03, (name + "'s drum is 1.4 m across").c_str(), drum);
+        check(top > 1.3 && bottom > -1.2, (name + "'s dish is on the +y end").c_str(), top);
+        check(unbaked, (name + " has no baked sunlight").c_str());
+        const double t_halley = tdb_from_julian_year(1986.19);
+        const glm::dmat3 axes = isee3_scene.body_to_icrf(probe, t_halley);
+        const glm::dvec3 self = isee3_scene.icrf_state_at(index, t_halley).position;
+        const glm::dvec3 sun = glm::normalize(isee3_scene.sun_icrf_state_at(t_halley).position - self);
+        check(glm::dot(axes[2], sun) > 1.0 - 1e-12, (name + " turns a side to the Sun").c_str());
+        check(glm::dot(axes[1], ecliptic_pole_icrf()) > 0.99, (name + "'s spin axis points to the ecliptic north").c_str(),
+              glm::dot(axes[1], ecliptic_pole_icrf()));
     }
 
     // Hope [MDLH]: 7.9 m across its wings, the 1.85 m dish on the sunward side (+z) with the cells,

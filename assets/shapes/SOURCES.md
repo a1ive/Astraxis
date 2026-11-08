@@ -300,6 +300,17 @@ Gaia Sky 的探测器仓库（<https://gaia.ari.uni-heidelberg.de/gaiasky/reposi
 - **外形**：太阳翼展开构型。机身按 INAF（“LICIACube, nanosatellite tutto italiano”，2023）的 6U、约 10 × 20 × 30 cm；两侧各三块太阳能板、端面的 LEIA 和 LUKE 两台相机、顶部的平板天线按 Argotec 的任务页面（argotecgroup.com/missions/liciacube）和 Poggiali 等 2022 图 1 估计，背面设备是示意的，不是工程尺寸。2026-11-07 查阅。
 - **处理**：米制，电池片朝 +z，相机在 Blender 里朝 −y、在 OBJ 里朝 +y（导出时 `forward_axis='NEGATIVE_Y'` 让模型绕 z 转了 180°）。场景让相机对着 Dimorphos（本体 +z = OBJ 的 +y），电池片因此在本体 +y，太阳不在 +z，所以不烘焙阳光。全部是纯色材质，没有纹理图；15,612 个三角形，不合并顶点。
 
+### MOM、Suisei（本项目自建）
+
+| 输出 | 输入 | 来源 | 输入 SHA-256 |
+|---|---|---|---|
+| `mom.mesh`、`../textures/mom.png` | `ref/mom/mom.obj`、`.mtl`（`build_mom.py` 在 Blender 里生成，`ref/` 不入库） | 本项目为 Astraxis 生成的几何和材质，GPL-3.0-or-later；没有导入第三方网格、纹理或标识 | `cc5037cc59062d23d5effaf694672a977eef631aacdb60c1cb2f46b828159296`、`24ee8ff8191a8824192e3ce512f55b209a8877119a123582e690ff07e063046a`（`build_mom.py`：`664dc9357e620ca59a05012b4e07f099761ec23e35df3c447c6be9e9648308dd`） |
+| `suisei.mesh`、`../textures/suisei.png`（Suisei 和 Sakigake） | `ref/suisei/suisei.obj`、`.mtl`（`build_suisei.py` 在 Blender 里生成，`ref/` 不入库） | 同上 | `2e50470552d963968feee2a0937251441e5eced0945e36ea3aa89748ace99032`、`277d9b582ec4f253693662a92e2a1f593717bcfaf1f25d40d81e61fe96194a29`（`build_suisei.py`：`8f39cba9a433253126a1b40c23de1bd14f46cad29424d226527a0d01709a7159`） |
+
+- **MOM**：ISRO 的三块 1.8 × 1.4 m 太阳能板、2.2 m 天线；1.5 m 的机身和其余是估计；参考图片的权利归原作者，没有放进模型。米制，太阳能板在 OBJ 的 +y 一侧、电池片朝 +z，场景让 +z 朝太阳并烘焙阳光。原点在机身中间。按 1 cm 合并顶点，约 45,000 个三角形。
+- **Suisei**：ISAS 的 1.4 × 0.7 m 圆筒、标称 0.8 m 的椭圆天线；其余按图片估计；参考图片的权利归原作者，没有放进模型。米制，自旋轴是 +z，天线在 +z 一端。场景让自旋轴在本体 +y（靠近黄道北），圆筒的一个侧面（OBJ 的 +x）朝太阳；它在自转，所以不烘焙阳光。天线的细网（管径 0.9 mm）合并顶点会塌掉，所以不合并，约 80,000 个三角形。
+- **Sakigake** 没有单独的模型，用 Suisei 的网格和图集（两者圆筒相同，载荷不同）。
+
 ### 希望号（本项目自建）
 
 | 输出 | 输入 | 来源 | 输入 SHA-256 |

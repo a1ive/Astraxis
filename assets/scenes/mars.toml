@@ -71,6 +71,10 @@
 #        first interplanetary mission", arrival 2014-09-24, "366 x 80000 km Mars orbit with
 #        inclination 150 degrees" (the plan), 6-8 months of planned work, contact lost in
 #        April 2022 "7.5 years into a 6 month mission", formally ended 2022-10-02.
+# [MDLM] MOM (Mangalyaan): modeled for this project from ISRO's figures ("Spacecraft", isro.gov.in:
+#        three 1.8 x 1.4 m panels; Space India 2013-14: the 2.2 m dish) and pictures; the 1.5 m bus
+#        and the rest estimated. Converted by tools/shapes/make_spacecraft.py
+#        (assets/shapes/SOURCES.md).
 # [MDLH] Hope (Emirates Mars Mission): modeled for this project from Amiri et al. 2022, "The
 #        Emirates Mars Mission", Space Sci. Rev. 218, 4, sec. 6 (two wings of two panels, a 1.85 m
 #        high-gain dish, six main and eight attitude thrusters, the EXI, EMIRS and EMUS instruments
@@ -443,7 +447,11 @@ file = "ephem/tgo_arrival.eph"
 name = "MOM"
 parent = "Mars"
 kind = "spacecraft"
-radii_km = [0.003]                         # a 1.5 m cube with solar panels (drawn as a marker)
+radii_km = [0.003]                         # a 1.5 m cube with 5.5 m of solar panels [MDLM]
+shape = "shapes/mom.mesh"                  # [MDLM]
+texture = "textures/mom.png"
+point_at = "Sun"                           # the solar cells; illustrative
+fill_light = 0.2                           # illustrative
 color = "#ffb38a"
 orbit_color = "#f2905e"
 trail = "history"

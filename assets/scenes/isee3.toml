@@ -54,6 +54,11 @@
 #        ISEE spacecraft "maintained nominally within 1 degree of perpendicular to the ecliptic
 #        plane, pointing north" (SPENVIS, ISEE model page). Spin rate 19.75 +- 0.2 rpm specified,
 #        19.76 rpm after the 2014 spin-up (ISEE-3 Reboot Project, spacecollege.org/?p=298).
+# [MDLP] Suisei (Planet-A): modeled for this project from ISAS's mission pages (a drum 1.4 m across,
+#        0.7 m tall, a 0.8 m elliptical dish; isas.jaxa.jp), ISAS News 55 (1985) and pictures, the
+#        rest estimated. Converted by tools/shapes/make_spacecraft.py (assets/shapes/SOURCES.md).
+#        Sakigake (MS-T5) had the same drum and is drawn with it: its own instruments and booms
+#        are not there. The direction of their spin axes is assumed (no source found).
 # [APX]  E. M. Standish, Approximate Positions of the Planets, Table 2a: Venus, Mars.
 # [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
 # [ELEM] JPL SSD, Planetary Satellite Mean Elements (the Moon, outside its tables).
@@ -415,6 +420,10 @@ name = "Sakigake"
 parent = "Sun"
 kind = "spacecraft"
 radii_km = [0.0007]                        # body 1.4 m across [SP1066]
+shape = "shapes/suisei.mesh"               # [MDLP]
+texture = "textures/suisei.png"
+point_at = "Sun"                           # a side of the drum, the spin axis toward ecliptic north; illustrative
+fill_light = 0.2                           # illustrative
 color = "#c8a6ff"
 orbit_color = "#a98ae0"
 trail = "history"
@@ -428,6 +437,10 @@ name = "Suisei"
 parent = "Sun"
 kind = "spacecraft"
 radii_km = [0.0007]                        # body 1.4 m across [SP1066]
+shape = "shapes/suisei.mesh"               # [MDLP]
+texture = "textures/suisei.png"
+point_at = "Sun"                           # a side of the drum, the spin axis toward ecliptic north; illustrative
+fill_light = 0.2                           # illustrative
 color = "#9fe58a"
 orbit_color = "#7cc86a"
 trail = "history"
