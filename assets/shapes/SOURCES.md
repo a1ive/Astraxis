@@ -298,7 +298,16 @@ Gaia Sky 的探测器仓库（<https://gaia.ari.uni-heidelberg.de/gaiasky/reposi
 | `liciacube.mesh`、`../textures/liciacube.png` | `ref/LICIACube/liciacube.obj`、`.mtl`（由同目录的 `build_liciacube.py` 在 Blender 里生成，`ref/` 不入库） | 本项目为 Astraxis 生成的几何和材质，GPL-3.0-or-later；没有导入第三方网格、纹理或标识 | `a203a3a7a29337726732804019025a62980b59537b8aec02dd9401d9ebce67cf`、`c99b911b86c3204beb0627931a33b3ebf4f6d43caf99be09dc93ee4156d87250`（`build_liciacube.py`：`abbd2046aaf82d14b1b4fc105cc7ef050ebdeacb0efffe08938db260feb04fe1`） |
 
 - **外形**：太阳翼展开构型。机身按 INAF（“LICIACube, nanosatellite tutto italiano”，2023）的 6U、约 10 × 20 × 30 cm；两侧各三块太阳能板、端面的 LEIA 和 LUKE 两台相机、顶部的平板天线按 Argotec 的任务页面（argotecgroup.com/missions/liciacube）和 Poggiali 等 2022 图 1 估计，背面设备是示意的，不是工程尺寸。2026-11-07 查阅。
-- **处理**：米制，电池片朝模型 +z，相机朝 −y。场景让相机对着 Dimorphos（本体 +z = 模型 −y），电池片因此在本体 +y，太阳不在 +z，所以不烘焙阳光。全部是纯色材质，没有纹理图；15,612 个三角形，不合并顶点。
+- **处理**：米制，电池片朝 +z，相机在 Blender 里朝 −y、在 OBJ 里朝 +y（导出时 `forward_axis='NEGATIVE_Y'` 让模型绕 z 转了 180°）。场景让相机对着 Dimorphos（本体 +z = OBJ 的 +y），电池片因此在本体 +y，太阳不在 +z，所以不烘焙阳光。全部是纯色材质，没有纹理图；15,612 个三角形，不合并顶点。
+
+### 希望号（本项目自建）
+
+| 输出 | 输入 | 来源 | 输入 SHA-256 |
+|---|---|---|---|
+| `hope.mesh`、`../textures/hope.png` | `ref/hope/hope.obj`、`.mtl`（`build_hope.py` 在 Blender 里生成，`ref/` 不入库） | 本项目为 Astraxis 生成的几何和材质，GPL-3.0-or-later；没有导入第三方网格、纹理或标识 | `0dcf89564dde3304d8c628c90cbbb5bbb12ba35f69e5559c9ded4eb6fea5dd1e`、`989f64ab19240b5fcfdf71e75f87e599d96fd4350eb198da469bce9ba260cd90`（`build_hope.py`：`4d2a9112118d44ef304a63ced4ffeaf5eff7c9811327c48176534c08d825de16`） |
+
+- **外形**：太阳翼展开构型。按 Amiri 等 2022（“The Emirates Mars Mission”，Space Sci. Rev. 218, 4）第 6 节：两翼各两块太阳能板、1.85 m 高增益天线、六个主推进器、八个姿控推进器、同一块仪器板上的 EXI、EMIRS、EMUS；外观对照 The National 发表的发射前照片（图片的权利归原作者，没有放进模型）。翼展约 7.9 m、机身各边、仪器外壳和推进器位置是估计的，不是工程尺寸。
+- **处理**：米制，机身长轴是 +z；电池片和天线在 Blender 里朝 −y，在 OBJ 里朝 +y（同 LICIACube），场景让它们朝太阳（本体 +z）并烘焙阳光，长轴因此是本体 +y。原点在长轴中间。按 1 cm 合并顶点，约 28,000 个三角形。
 
 ### 嫦娥五号 T1、天问一号（本项目自建）
 

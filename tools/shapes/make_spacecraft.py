@@ -484,11 +484,6 @@ CRAFT = {
         'atlas_width': 64,
         'format': 'png',
     },
-    # LICIACube, deployed, as built for this project in Blender (ref/LICIACube/build_liciacube.py,
-    # from Argotec's and INAF's descriptions: a 6U bus of about 10 x 20 x 30 cm, two wings; no
-    # third-party mesh). Metres; the solar cells face the model's +z and the two cameras its -y.
-    # The scene points the cameras at Dimorphos (the body's +z), which puts the cells on the
-    # body's +y; the Sun is not on +z, so nothing is baked.
     # Chang'e 5-T1, as built for this project in Blender (ref/ce5t1/build_ce5t1.py, from two pictures
     # of the spacecraft; no third-party mesh, the sizes estimated). Metres; +z from the service module
     # to the return capsule, the wings along x with their cells on +z. The scene has the service
@@ -521,12 +516,33 @@ CRAFT = {
         'atlas_width': 64,
         'format': 'png',
     },
+    # The Emirates Mars Mission's Hope, as built for this project in Blender (ref/hope/build_hope.py,
+    # from Amiri et al. 2022, sec. 6, and a picture; no third-party mesh): the 1.85 m dish from the
+    # paper, the 7.9 m span and the rest estimated. Metres; the long axis is +z, and the solar cells
+    # and the dish face the OBJ's +y (-y in Blender, as for LICIACube), which the scene turns to the
+    # Sun (the body's +z): baked. The long axis is then the body's +y.
+    'hope': {
+        'file': 'hope/hope.obj',
+        'origin_m': (0.0, 0.0, 1.2),
+        'scale': 1.0,
+        'body_z': (0, 1, 0),
+        'body_x': (-1, 0, 0),
+        'merge_m': 0.01,
+        'atlas_width': 64,
+        'format': 'png',
+    },
+    # LICIACube, deployed, as built for this project in Blender (ref/LICIACube/build_liciacube.py,
+    # from Argotec's and INAF's descriptions: a 6U bus of about 10 x 20 x 30 cm, two wings; no
+    # third-party mesh). Metres; the solar cells face the OBJ's +z and the two cameras its +y (-y in
+    # Blender: the exporter's forward_axis='NEGATIVE_Y' turns the model 180 deg about z). The scene
+    # points the cameras at Dimorphos (the body's +z), which puts the cells on the body's +y; the Sun
+    # is not on +z, so nothing is baked.
     'liciacube': {
         'file': 'LICIACube/liciacube.obj',
         'origin_m': (0.0, 0.0, 0.0),
         'scale': 1.0,
-        'body_z': (0, -1, 0),
-        'body_x': (1, 0, 0),
+        'body_z': (0, 1, 0),
+        'body_x': (-1, 0, 0),
         'bake_sun': False,
         'atlas_width': 64,
         'format': 'png',

@@ -830,6 +830,7 @@ void test_spacecraft_models()
                           {"earth_moon.toml", "Artemis II", "Sun", tdb_from_julian_year(2026.26)},
                           {"earth_moon.toml", "Chang'e 5-T1", "Sun", tdb_from_julian_year(2014.95)},
                           {"mars.toml", "Tianwen-1", "Sun", tdb_from_julian_year(2021.3)},
+                          {"mars.toml", "Hope", "Sun", tdb_from_julian_year(2021.5)},
                           {"space_telescopes.toml", "Gaia", "Sun", tdb_from_julian_year(2020.0)},
                           {"space_telescopes.toml", "Euclid", "Sun", tdb_from_julian_year(2026.4)},
                           {"mars.toml", "TGO", "Sun", tdb_from_julian_year(2025.3)},
@@ -1235,6 +1236,8 @@ void test_spacecraft_models()
         }
         check(std::abs(high.x - low.x - 0.72) < 0.02, "LICIACube is 0.72 m across its wings", high.x - low.x);
         check(std::abs(bus_high - bus_low - 0.3) < 0.04, "LICIACube's bus is about 30 cm long", bus_high - bus_low);
+        // The camera rims stand 7 mm proud of the end they look out of (Blender's -y, the OBJ's +y).
+        check(bus_high > -bus_low + 0.004, "LICIACube's cameras are at its +z end", bus_high + bus_low);
         check(licia_unbaked, "LICIACube has no baked sunlight");
         const double t_flyby = tdb_from_utc_jd(jd_from_calendar({2022, 9, 26, 23, 17, 11}) + 0.5 / 86400.0);
         const glm::dmat3 axes = didymos_scene.body_to_icrf(licia, t_flyby);
@@ -1257,6 +1260,29 @@ void test_spacecraft_models()
         check(high.z < 1.2, "Chang'e 5-T1 flies without its return capsule", high.z);
         const auto cells = lit_share(*ce5.shape, [](const glm::dvec3& m) { return std::abs(m.x) > 1.5; });
         check(cells.second > 0 && cells.first > 0.4, "the Sun reaches Chang'e 5-T1's solar cells", cells.first);
+    }
+
+    // Hope [MDLH]: 7.9 m across its wings, the 1.85 m dish on the sunward side (+z) with the cells,
+    // which are in the Sun.
+    const Body& hope = mars_scene.bodies[static_cast<size_t>(mars_scene.find("Hope"))];
+    check(hope.shape != nullptr, "Hope has a model");
+    if (hope.shape) {
+        glm::dvec3 low(1e9), high(-1e9);
+        double dish_low = 1e9, dish_high = -1e9;
+        for (const glm::vec3& q : hope.shape->positions) {
+            const glm::dvec3 m = glm::dvec3(q) * 1000.0;
+            low = glm::min(low, m);
+            high = glm::max(high, m);
+            if (m.z > 1.0) {
+                dish_low = std::min(dish_low, m.x);
+                dish_high = std::max(dish_high, m.x);
+            }
+        }
+        check(std::abs(high.x - low.x - 7.9) < 0.05, "Hope is 7.9 m across its wings", high.x - low.x);
+        check(high.z > 1.3 && -low.z < 1.0, "Hope's dish is on its sunward side", high.z);
+        check(dish_high - dish_low > 1.8 && dish_high - dish_low < 2.0, "Hope's dish is about 1.85 m across", dish_high - dish_low);
+        const auto cells = lit_share(*hope.shape, [](const glm::dvec3& m) { return std::abs(m.x) > 1.5 && m.z > 0.02; });
+        check(cells.second > 0 && cells.first > 0.9, "the Sun reaches Hope's solar cells", cells.first);
     }
 
     // Tianwen-1 [MDLT]: 14.1 m across its wings; the entry capsule on the side away from the Sun (-z)
