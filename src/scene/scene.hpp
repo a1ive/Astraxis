@@ -357,6 +357,12 @@ struct Body {
         std::shared_ptr<const ShapeModel> shape; // null: none
         double period_s = 0.0;
     } rotor;
+    // A shape model drawn instead of `shape` from a time on (a spacecraft after it
+    // let go of a lander), with the same texture atlas.
+    struct ShapeAfter {
+        std::shared_ptr<const ShapeModel> shape; // null: none
+        double t_tdb = 0.0;
+    } shape_after;
     // A star filling its Roche lobe around `synchronous_with` (Algol B): its
     // surface, also drawn as `shape`; the radii are then the distances from its
     // center to L1, the sides and the poles.

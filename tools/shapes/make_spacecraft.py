@@ -489,6 +489,38 @@ CRAFT = {
     # third-party mesh). Metres; the solar cells face the model's +z and the two cameras its -y.
     # The scene points the cameras at Dimorphos (the body's +z), which puts the cells on the
     # body's +y; the Sun is not on +z, so nothing is baked.
+    # Chang'e 5-T1, as built for this project in Blender (ref/ce5t1/build_ce5t1.py, from two pictures
+    # of the spacecraft; no third-party mesh, the sizes estimated). Metres; +z from the service module
+    # to the return capsule, the wings along x with their cells on +z. The scene has the service
+    # module after it let go of the capsule (2014-10-31), so the capsule's parts are left out; the
+    # adapter it sat on stays. The cells face the Sun: baked.
+    'ce5t1': {
+        'file': 'ce5t1/ce5t1.obj',
+        'origin_m': (0.0, 0.0, 0.0),
+        'scale': 1.0,
+        'body_z': (0, 0, 1),
+        'body_x': (1, 0, 0),
+        'skip_objects': ['Return_capsule_dark_base', 'Return_capsule_rounded_shell', 'Capsule_shoulder_joint',
+                         'Capsule_top_cover', 'Capsule_attitude_port', 'Capsule_small_service_port'],
+        'merge_m': 0.01,
+        'atlas_width': 64,
+        'format': 'png',
+    },
+    # Tianwen-1, the cruise stack (orbiter and entry capsule), as built for this project in Blender
+    # (ref/tianwen1/build_tianwen1.py, from a picture; no third-party mesh, the sizes estimated).
+    # Metres; +z from the engine toward the entry capsule, the wings along x with their cells on -z,
+    # which the scene turns to the Sun (the body's +z): baked. 'tianwen1_orbiter' is the orbiter
+    # alone, after it let go of the capsule (2021-05-14), in the same atlas.
+    'tianwen1': {
+        'file': 'tianwen1/tianwen1.obj',
+        'origin_m': (0.0, 0.0, 0.8),
+        'scale': 1.0,
+        'body_z': (0, 0, -1),
+        'body_x': (1, 0, 0),
+        'merge_m': 0.01,
+        'atlas_width': 64,
+        'format': 'png',
+    },
     'liciacube': {
         'file': 'LICIACube/liciacube.obj',
         'origin_m': (0.0, 0.0, 0.0),
@@ -500,6 +532,11 @@ CRAFT = {
         'format': 'png',
     },
 }
+# Orion's crew module alone, from the separation to the end of the tables, in the same atlas.
+CRAFT['orion_crew_module'] = dict(CRAFT['orion'], texture='orion',
+                                  keep_glb_node=('artemis_orion/artemis_orion.glb', 'Orion_Return_Capsule'))
+CRAFT['tianwen1_orbiter'] = dict(CRAFT['tianwen1'], texture='tianwen1', skip_objects=[
+    'Entry_capsule', 'Capsule_service_port', 'Capsule_external_patch'])
 
 
 def linear_to_srgb(c):
@@ -762,8 +799,10 @@ class Obj:
         self.folder = path.parent
         positions, uvs, normals = [], [], []
         faces = {}   # material -> list of corner triples (v, vt, vn)
+        objects = {}   # material -> the object ('o') of each of those triangles
         material = None
         library = None
+        current_object = ''
         with open(path, encoding='utf-8', errors='replace') as f:
             for line in f:
                 head, _, rest = line.strip().partition(' ')
@@ -775,6 +814,8 @@ class Obj:
                     normals.append([float(x) for x in rest.split()[:3]])
                 elif head == 'usemtl':
                     material = rest.strip()
+                elif head == 'o':
+                    current_object = rest.strip()
                 elif head == 'mtllib':
                     library = rest.strip()
                 elif head == 'f':
@@ -783,12 +824,15 @@ class Obj:
                         parts = (token.split('/') + ['', ''])[:3]
                         corners.append(tuple(int(p) if p else 0 for p in parts))
                     target = faces.setdefault(material, [])
+                    owner = objects.setdefault(material, [])
                     for k in range(1, len(corners) - 1):
                         target.append((corners[0], corners[k], corners[k + 1]))
+                        owner.append(current_object)
         self.positions = np.array(positions, dtype=np.float64)
         self.uvs = np.array(uvs, dtype=np.float64).reshape(-1, 2)
         self.normals = np.array(normals, dtype=np.float64).reshape(-1, 3)
         self.faces = {name: np.array(corners, dtype=np.int64) for name, corners in faces.items()}
+        self.objects = {name: np.array(owner, dtype=object) for name, owner in objects.items()}
 
         colors, images = {}, {}
         current = None
@@ -817,10 +861,16 @@ class Obj:
         """OBJ indices start at 1; negative ones count back from the end."""
         return np.where(index > 0, index - 1, count + index)
 
-    def primitives(self):
+    def primitives(self, skip_objects=(), keep_objects=None):
+        """Without the triangles of the objects whose names start with one of `skip_objects`, and
+        only those of `keep_objects` (exact names) if given."""
         out = []
         for material, name in enumerate(self.names):
-            corners = self.faces[name].reshape(-1, 3)   # rows of (v, vt, vn)
+            keep = np.array([not str(o).startswith(tuple(skip_objects)) and (keep_objects is None or o in keep_objects)
+                             for o in self.objects[name]], dtype=bool)
+            if not keep.any():
+                continue
+            corners = self.faces[name][keep].reshape(-1, 3)   # rows of (v, vt, vn)
             points = self.positions[self.resolve(corners[:, 0], len(self.positions))]
             uv = None
             if name in self.image_of and corners[:, 1].all():
@@ -975,6 +1025,28 @@ def sun_visibility(positions, normals, triangles):
     return visible
 
 
+def glb_node_meshes(path, node_name):
+    """The names of the mesh nodes under the named node of a GLB, as Blender's OBJ exporter writes
+    them (spaces as underscores)."""
+    data = path.read_bytes()
+    length = struct.unpack('<I', data[12:16])[0]
+    nodes = json.loads(data[20:20 + length])['nodes']
+    roots = [i for i, node in enumerate(nodes) if node.get('name') == node_name]
+    if len(roots) != 1:
+        raise SystemExit(f'{path}: {len(roots)} nodes named {node_name!r}')
+    names = set()
+
+    def walk(index):
+        node = nodes[index]
+        if 'mesh' in node:
+            names.add(node['name'].replace(' ', '_'))
+        for child in node.get('children', []):
+            walk(child)
+
+    walk(roots[0])
+    return names
+
+
 def build(name, spec, models):
     path = models / spec['file']
     glb = Stl(path, spec) if path.suffix == '.stl' or 'assembly' in spec else Obj(path) if path.suffix == '.obj' else Glb(path)
@@ -983,6 +1055,17 @@ def build(name, spec, models):
     prims = [p for p in glb.primitives()
              if p[0] is None or glb.json['materials'][p[0]].get('name') not in skip]
     used = {glb.material_image(m) for m, *_ in prims if m is not None} - {None}
+    # `skip_objects` (OBJ only) leaves parts out of the mesh but not out of the atlas, so that
+    # a mesh without them (Tianwen-1 after letting go of its lander) shares the whole model's.
+    # `keep_glb_node` (OBJ only) keeps only the objects under a node of the GLB exported from the
+    # same Blender file: the OBJ has no hierarchy, but its object names are Blender's with the
+    # spaces made underscores (Orion's crew module, after it let go of the service module).
+    mesh_prims = prims
+    keep_objects = glb_node_meshes(models / spec['keep_glb_node'][0], spec['keep_glb_node'][1]) \
+        if 'keep_glb_node' in spec else None
+    if spec.get('skip_objects') or keep_objects is not None:
+        mesh_prims = [q for q in glb.primitives(spec.get('skip_objects', ()), keep_objects)
+                      if q[0] is None or glb.json['materials'][q[0]].get('name') not in skip]
 
     atlas = Atlas(spec['atlas_width'])
     copies = {}    # a file can store the same image several times (Hubble's three of one)
@@ -1030,7 +1113,7 @@ def build(name, spec, models):
     count = 0
     wrapped = 0
     grid_km = spec.get('merge_m', 0.0) / 1000.0
-    for material, world, normals, uv, faces in prims:
+    for material, world, normals, uv, faces in mesh_prims:
         positions = (world - origin) @ to_body.T * spec['scale'] / 1000.0
         normals = normals @ to_body.T
         image = None if material is None else glb.material_image(material)
@@ -1112,8 +1195,13 @@ def build(name, spec, models):
 
     write_mesh(str(ROOT / 'assets' / 'shapes' / f'{name}.mesh'), positions.tolist(), visible.tolist(),
                triangles.tolist(), map_u=uv[:, 0].tolist(), hard_edges=True, map_v=uv[:, 1].tolist())
-    target = ROOT / 'assets' / 'textures' / f'{name}.{spec["format"]}'
+    # `texture`: another entry's atlas, the same image, which is then not written again.
+    target = ROOT / 'assets' / 'textures' / f'{spec.get("texture", name)}.{spec["format"]}'
     image = Image.fromarray(atlas.pixels)
+    if 'texture' in spec:
+        same = target.exists() and np.array_equal(np.array(Image.open(target).convert('RGB')), atlas.pixels)
+        print(f'-> uses {target}' + ('' if same else ' (DIFFERENT: build that entry again)'))
+        return
     if spec['format'] == 'jpg':
         image.save(target, quality=90, subsampling=0, optimize=True)
     else:

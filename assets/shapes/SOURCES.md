@@ -285,10 +285,11 @@ Gaia Sky 的探测器仓库（<https://gaia.ari.uni-heidelberg.de/gaiasky/reposi
 
 | 输出 | 输入 | 来源 | 输入 SHA-256 |
 |---|---|---|---|
-| `orion.mesh`、`../textures/orion.png`（Artemis I、II） | `ref/artemis_orion/artemis_orion.obj`、`.mtl`（由同目录的 `build_orion.py` 在 Blender 里生成，`ref/` 不入库） | 本项目为 Astraxis 生成的几何和材质，GPL-3.0-or-later；没有导入第三方网格、纹理或徽标 | `a93f3d6c703fd494495a54275974510f54b712e3b1f35da3dbb2067a84cb7fb7`、`248b2ca1f9978af691e0cb33d2ae3eaac8621cd2504a381505dc5efaf1d342c0`（`build_orion.py`：`90785e4ce87add1d3ffa9172b59c7fe245933de39823e5561062914c8f67140a`） |
+| `orion.mesh`、`orion_crew_module.mesh`、`../textures/orion.png`（Artemis I、II） | `ref/artemis_orion/artemis_orion.obj`、`.mtl`（由同目录的 `build_orion.py` 在 Blender 里生成，`ref/` 不入库）；乘员舱的零件名单取自同一 Blender 文件导出的 `artemis_orion.glb`（`2d3dc13368fd7fb67ca813236efb8197bf154fcd381f74f5971a1644e191d5cb`） | 本项目为 Astraxis 生成的几何和材质，GPL-3.0-or-later；没有导入第三方网格、纹理或徽标 | `a93f3d6c703fd494495a54275974510f54b712e3b1f35da3dbb2067a84cb7fb7`、`248b2ca1f9978af691e0cb33d2ae3eaac8621cd2504a381505dc5efaf1d342c0`（`build_orion.py`：`90785e4ce87add1d3ffa9172b59c7fe245933de39823e5561062914c8f67140a`） |
 
 - **外形**：太阳翼展开的在轨组合体：乘员舱、适配器、欧洲服务舱、主发动机和辅助发动机、四片各三块 2 m 面板的太阳翼。尺寸按 NASA “Orion by the Numbers” 2025（乘员舱直径约 5 m、高 3.35 m）、NASA “How to Draw Artemis / Orion”（布局、每片三段）、Airbus 的欧洲服务舱页面（每片约 7 m、展开约 19 m）和 ESA “Orion's wings”（电池片布局），2026-11-07 查阅；服务舱各段长度、喷口、隔热片接缝和电池片数量（每块 24 × 26 片，比实物少）是近似重建，不是工程 CAD。
 - **处理**：米制，Z 轴从发动机指向舱顶，就是本体系的 +z；太阳翼平放在垂直于 +z 的平面里，电池片朝 +z，所以场景让 +z 朝太阳并烘焙阳光（乘员舱挡住翼根，翼背面在自己的阴影里）。原点在 7.4 m 的组合体中间。纯色材质（Kd 按 Blender 写的线性值），四种电池片颜色各占一个色板格，没有纹理图。按 2 cm 合并顶点，117,436 个三角形减到约 95,000 个。
+- **乘员舱**：`orion_crew_module.mesh` 是和服务舱分离以后只剩的乘员舱，场景用 `[bodies.shape_after]` 在分离时刻换过去。Blender 文件把乘员舱的 237 个零件放在 `01 Return capsule (Crew module)` 集合的父对象 `Orion_Return_Capsule` 下；OBJ 没有层级，所以工具从 GLB 的节点树读出这个父对象下的网格名（`keep_glb_node`，空格换成下划线就是 OBJ 的对象名），网格只留这些对象，图集仍按整个模型做，和 `orion.mesh` 共用 `orion.png`。坐标系和原点不变，分离时乘员舱留在原处。防热罩是平的圆盘（模型在组合体里看不到底面，没有做出曲面），烘焙按同样的“+z 朝太阳”，约 19,000 个三角形。
 
 ### LICIACube（本项目自建）
 
@@ -298,6 +299,17 @@ Gaia Sky 的探测器仓库（<https://gaia.ari.uni-heidelberg.de/gaiasky/reposi
 
 - **外形**：太阳翼展开构型。机身按 INAF（“LICIACube, nanosatellite tutto italiano”，2023）的 6U、约 10 × 20 × 30 cm；两侧各三块太阳能板、端面的 LEIA 和 LUKE 两台相机、顶部的平板天线按 Argotec 的任务页面（argotecgroup.com/missions/liciacube）和 Poggiali 等 2022 图 1 估计，背面设备是示意的，不是工程尺寸。2026-11-07 查阅。
 - **处理**：米制，电池片朝模型 +z，相机朝 −y。场景让相机对着 Dimorphos（本体 +z = 模型 −y），电池片因此在本体 +y，太阳不在 +z，所以不烘焙阳光。全部是纯色材质，没有纹理图；15,612 个三角形，不合并顶点。
+
+### 嫦娥五号 T1、天问一号（本项目自建）
+
+| 输出 | 输入 | 来源 | 输入 SHA-256 |
+|---|---|---|---|
+| `ce5t1.mesh`、`../textures/ce5t1.png` | `ref/ce5t1/ce5t1.obj`、`.mtl`（`build_ce5t1.py` 在 Blender 里生成，`ref/` 不入库） | 本项目为 Astraxis 生成的几何和材质，GPL-3.0-or-later；没有导入第三方网格、纹理或标识 | `51777e4f170899fd3f4843596061121f01f0b83acaedf90cad9ef394bd0efd4f`、`3ddccb19322a4da59eadb22364ad770936856476822c180672a3f20e13c4753b`（`build_ce5t1.py`：`a23bea23d3f7dd50a6f5ab28006d19d51ae994d345d8eb1de2b6305df2d78ce3`） |
+| `tianwen1.mesh`、`tianwen1_orbiter.mesh`、`../textures/tianwen1.png` | `ref/tianwen1/tianwen1.obj`、`.mtl`（`build_tianwen1.py` 在 Blender 里生成，`ref/` 不入库） | 同上 | `523177590663292fd3222ce1da9a4f36001715b39666f6d46e308579dc2d2b10`、`0d49258b8b556c4d0361a3b0b542be6db2c5e0d81fef9fa353b024a856e2f056`（`build_tianwen1.py`：`337846008cd9bab5db6850a6493c0c09831b32802166060fbabee56ee632647c`） |
+
+- **外形**：都按图片建模（嫦娥五号 T1 两张，天问一号一张）。图上没有尺寸，模型的尺寸都是估计的：嫦娥五号 T1 服务舱约 1.68 × 1.48 × 1.52 m、翼展 8.64 m；天问一号机身约 2.65 × 2.25 × 1.35 m、进入舱底部直径约 3.34 m、翼展 14.1 m。没有对照工程资料，不能当实物尺寸引用。
+- **嫦娥五号 T1**：场景里的表从返回舱分离之后（2014-10-31 22:19 TDB）开始，所以只画服务舱：工具按 OBJ 的对象名去掉返回舱的零件（`skip_objects`），留下它坐的适配器。米制，+z 从服务舱指向返回舱，电池片朝 +z，场景让 +z 朝太阳并烘焙阳光。按 1 cm 合并顶点，约 15,000 个三角形。
+- **天问一号**：两份网格，同一张图集。`tianwen1.mesh` 是带着进入舱的巡航组合体，`tianwen1_orbiter.mesh` 是 2021-05-14 20:00 UTC 放下进入舱之后的轨道器（去掉进入舱、分离环和舱上的小零件），场景用 `[bodies.shape_after]` 在这个时刻换过去。`skip_objects` 只从网格里去掉零件，图集仍按整个模型做，所以两份网格的纹理坐标一样（`texture` 指向同一张图，第二次不再写）。米制，+z 朝进入舱，电池片朝 −z，场景让 −z 朝太阳（本体 +z）并烘焙阳光。Blender 里隔热膜的程序凹凸没有烘焙进 OBJ，看起来是平的。按 1 cm 合并顶点，约 36,000 和 34,000 个三角形。
 
 ### ISEE-3 的组装
 

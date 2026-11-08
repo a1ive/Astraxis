@@ -137,6 +137,7 @@ private:
     std::vector<int> m_comet_meshes;              // per body: nucleus occlusion BVH
     std::vector<int> m_body_meshes;               // per body: BodyPass mesh index (-1: ellipsoid)
     std::vector<int> m_rotor_meshes;              // per body: its rotor's mesh index (-1: none)
+    std::vector<int> m_shape_after_meshes;        // per body: its later shape's mesh index (-1: none)
     std::vector<DustTail> m_dust_tails;           // per body (comets only are updated)
     std::vector<BoundDustTail> m_bound_tails;     // per body (only the comets that have one)
     std::vector<int> m_belt_ids;                  // per scene belt: BeltPass index (-1: not uploaded)

@@ -828,6 +828,8 @@ void test_spacecraft_models()
                           {"earth_moon.toml", "LADEE", "Sun", tdb_from_julian_year(2013.9)},
                           {"earth_moon.toml", "ARTEMIS-P1", "Sun", tdb_from_julian_year(2014.0)},
                           {"earth_moon.toml", "Artemis II", "Sun", tdb_from_julian_year(2026.26)},
+                          {"earth_moon.toml", "Chang'e 5-T1", "Sun", tdb_from_julian_year(2014.95)},
+                          {"mars.toml", "Tianwen-1", "Sun", tdb_from_julian_year(2021.3)},
                           {"space_telescopes.toml", "Gaia", "Sun", tdb_from_julian_year(2020.0)},
                           {"space_telescopes.toml", "Euclid", "Sun", tdb_from_julian_year(2026.4)},
                           {"mars.toml", "TGO", "Sun", tdb_from_julian_year(2025.3)},
@@ -1148,6 +1150,33 @@ void test_spacecraft_models()
         const Body& artemis1 = earth_moon.bodies[static_cast<size_t>(earth_moon.find("Artemis I"))];
         check(artemis1.shape != nullptr && artemis1.shape->positions.size() == artemis.shape->positions.size(),
               "Artemis I has the Orion model too");
+
+        // After the separation [CMS] the crew module alone: 5 m across, no arrays or service module
+        // (the stack's lower end, 3.7 m below the origin), in the same atlas.
+        struct Separation {
+            const Body* body;
+            CalendarDateTime utc;
+        };
+        for (const Separation& s : {Separation{&artemis, {2026, 4, 10, 23, 33, 0}},
+                                    Separation{&artemis1, {2022, 12, 11, 17, 0, 0}}}) {
+            const std::string craft = s.body->name;
+            const ShapeModel* crew = s.body->shape_after.shape.get();
+            check(crew != nullptr && !crew->map_v.empty(), (craft + " drops the service module").c_str());
+            if (!crew) {
+                continue;
+            }
+            const double separation = tdb_from_utc_jd(jd_from_calendar(s.utc));
+            check(std::abs(s.body->shape_after.t_tdb - separation) < 1.0, (craft + "'s crew module separates on time").c_str(),
+                  s.body->shape_after.t_tdb - separation);
+            double crew_reach = 0.0, crew_low = 1e9;
+            for (const glm::vec3& q : crew->positions) {
+                const glm::dvec3 m = glm::dvec3(q) * 1000.0;
+                crew_reach = std::max(crew_reach, 2.0 * std::hypot(m.x, m.y));
+                crew_low = std::min(crew_low, m.z);
+            }
+            check(std::abs(crew_reach - 5.0) < 0.1, (craft + "'s crew module is 5 m across").c_str(), crew_reach);
+            check(crew_low > 0.0, (craft + "'s crew module leaves the service module behind").c_str(), crew_low);
+        }
     }
 
     // ISEE-3 [MDLI]: the drum 1.58 m tall (the origin halfway up; thruster pods hang below it) about the spin axis (the body's y, toward the ecliptic north
@@ -1212,6 +1241,50 @@ void test_spacecraft_models()
         const glm::dvec3 to_dimorphos = scene_direction(didymos_scene, licia_index, didymos_scene.find("Dimorphos"), t_flyby);
         check(glm::dot(axes[2], to_dimorphos) > 1.0 - 1e-12, "LICIACube points its cameras at Dimorphos");
         check(glm::dot(axes[1], ecliptic_pole_icrf()) >= 0.0, "LICIACube keeps its cells toward the ecliptic north");
+    }
+
+    // Chang'e 5-T1 [MDLC]: the service module, 8.64 m across its wings, without the return capsule
+    // (the model's top reaches 1.95 m with it); its cells on +z in the Sun.
+    const Body& ce5 = moon_scene.bodies[static_cast<size_t>(moon_scene.find("Chang'e 5-T1"))];
+    check(ce5.shape != nullptr, "Chang'e 5-T1 has a model");
+    if (ce5.shape) {
+        glm::dvec3 low(1e9), high(-1e9);
+        for (const glm::vec3& q : ce5.shape->positions) {
+            low = glm::min(low, glm::dvec3(q) * 1000.0);
+            high = glm::max(high, glm::dvec3(q) * 1000.0);
+        }
+        check(std::abs(high.x - low.x - 8.64) < 0.05, "Chang'e 5-T1 is 8.64 m across its wings", high.x - low.x);
+        check(high.z < 1.2, "Chang'e 5-T1 flies without its return capsule", high.z);
+        const auto cells = lit_share(*ce5.shape, [](const glm::dvec3& m) { return std::abs(m.x) > 1.5; });
+        check(cells.second > 0 && cells.first > 0.4, "the Sun reaches Chang'e 5-T1's solar cells", cells.first);
+    }
+
+    // Tianwen-1 [MDLT]: 14.1 m across its wings; the entry capsule on the side away from the Sun (-z)
+    // until 2021-05-14 20:00 UTC [SEP], then the orbiter alone, in the same atlas.
+    const Body& tw1 = mars_scene.bodies[static_cast<size_t>(mars_scene.find("Tianwen-1"))];
+    check(tw1.shape != nullptr && tw1.shape_after.shape != nullptr, "Tianwen-1 has both models");
+    if (tw1.shape && tw1.shape_after.shape) {
+        const auto extent = [](const ShapeModel& m) {
+            glm::dvec3 low(1e9), high(-1e9);
+            for (const glm::vec3& q : m.positions) {
+                low = glm::min(low, glm::dvec3(q) * 1000.0);
+                high = glm::max(high, glm::dvec3(q) * 1000.0);
+            }
+            return std::make_pair(low, high);
+        };
+        const auto [stack_low, stack_high] = extent(*tw1.shape);
+        const auto [orbiter_low, orbiter_high] = extent(*tw1.shape_after.shape);
+        check(std::abs(stack_high.x - stack_low.x - 14.12) < 0.05, "Tianwen-1 is 14.1 m across its wings",
+              stack_high.x - stack_low.x);
+        check(orbiter_low.z > stack_low.z + 0.4, "Tianwen-1 lets go of the entry capsule on its far side from the Sun",
+              orbiter_low.z - stack_low.z);
+        check(std::abs(orbiter_high.x - stack_high.x) < 1e-6 && !tw1.shape_after.shape->map_v.empty(),
+              "the orbiter keeps the wings and the atlas");
+        const double separation = tdb_from_utc_jd(jd_from_calendar({2021, 5, 14, 20, 0, 0}));
+        check(std::abs(tw1.shape_after.t_tdb - separation) < 1.0, "Tianwen-1 drops the capsule at 2021-05-14 20:00 UTC",
+              tw1.shape_after.t_tdb - separation);
+        const auto cells = lit_share(*tw1.shape, [](const glm::dvec3& m) { return std::abs(m.x) > 2.5; });
+        check(cells.second > 0 && cells.first > 0.4, "the Sun reaches Tianwen-1's solar cells", cells.first);
     }
 
     // Webb: the shield about 21 m long, the telescope on the side away from the Sun, in its shade.

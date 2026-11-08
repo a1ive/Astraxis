@@ -71,6 +71,15 @@
 #        first interplanetary mission", arrival 2014-09-24, "366 x 80000 km Mars orbit with
 #        inclination 150 degrees" (the plan), 6-8 months of planned work, contact lost in
 #        April 2022 "7.5 years into a 6 month mission", formally ended 2022-10-02.
+# [MDLT] Tianwen-1: modeled for this project from a picture of the spacecraft (the sizes estimated:
+#        a bus of about 2.65 x 2.25 x 1.35 m, the entry capsule 3.3 m across, two wings 14.1 m tip
+#        to tip, the high-gain dish on the side), the orbiter with the entry capsule until it let
+#        go of it and the orbiter alone after [SEP]. Converted by tools/shapes/make_spacecraft.py
+#        (assets/shapes/SOURCES.md).
+# [SEP]  People's Daily / Xinhua, "China succeeds in first Mars landing" (2021-05-15, reprinted at
+#        globalsecurity.org/space/library/news/2021/space-210515-pdo01.htm): "the entry capsule
+#        enclosing the lander and rover separated from the orbiter at about 4 a.m." Beijing time
+#        on 05-15, i.e. 2021-05-14 20:00 UTC; landing at 7:18 a.m.
 # [TW1]  Tianwen-1, tools/tianwen1/ (assets/ephem/SOURCES.md), Mars-centered:
 #        - 2021-02-08 .. 2021-11-16: the state vectors in the orbiter's telemetry (decoded by
 #          D. Estevez from amateur stations such as AMSAT-DL's 20 m dish at Bochum;
@@ -443,7 +452,11 @@ file = "ephem/mom_mars.eph"
 name = "Tianwen-1"
 parent = "Mars"
 kind = "spacecraft"
-radii_km = [0.006]                         # meters across (drawn as a marker)
+radii_km = [0.006]                         # 14 m across its wings [MDLT]
+shape = "shapes/tianwen1.mesh"             # [MDLT] the orbiter with the entry capsule
+texture = "textures/tianwen1.png"
+point_at = "Sun"                           # the solar cells; illustrative
+fill_light = 0.2                           # illustrative
 color = "#ff8f8f"
 orbit_color = "#f06a6a"
 trail = "history"
@@ -451,6 +464,9 @@ trail_history_days = 0.3                   # 7 hours (2-sol and 8-hour orbits in
 [bodies.orbit]                             # [TW1]
 type = "ephemeris"
 file = "ephem/tianwen1_mars.eph"
+[bodies.shape_after]                       # [SEP] the orbiter alone
+time = "2021-05-14 20:00"
+shape = "shapes/tianwen1_orbiter.mesh"
 
 [[bodies]]
 name = "Hope"

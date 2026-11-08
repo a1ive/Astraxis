@@ -505,6 +505,7 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
     };
     static const TemplateFields magnetic_map = {{"surface", text}, {"deep", text}, {"crust", text}};
     static const TemplateFields rotor = {{"shape", text}, {"period_s", number}};
+    static const TemplateFields shape_after = {{"shape", text}, {"time", text}, {"time_tdb", text}};
     static const TemplateFields ring_band = {
         {"name", text}, {"inner_km", number}, {"outer_km", number}, {"optical_depth", number},
         {"thickness_km", number}, {"inner_ae_km", number}, {"outer_ae_km", number}, {"peri_deg", number},
@@ -537,7 +538,8 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
         {"free_precession", {{Type::table}, &free_precession}}, {"atmosphere", {{Type::table}, &atmosphere}},
         {"night_lights", {{Type::table}, &night_lights}}, {"aurora", {{Type::table}, &aurora}},
         {"magnetic_field", {{Type::table}, &magnetic_field}}, {"magnetic_map", {{Type::table}, &magnetic_map}},
-        {"rotor", {{Type::table}, &rotor}}, {"rings", {{Type::table}, &rings}},
+        {"rotor", {{Type::table}, &rotor}}, {"shape_after", {{Type::table}, &shape_after}},
+        {"rings", {{Type::table}, &rings}},
         {"plumes", {{Type::array}, &plume}}, {"impacts", {{Type::array}, &impact}},
     };
     // nut_prec terms may use an ancestor's nut_prec_angles (a moon those of its planet, as
@@ -1380,6 +1382,19 @@ void Loader::parse(const toml::table& root, Scene& out)
             body.rotor.period_s = get_double(*r, "period_s", rctx);
             if (body.rotor.period_s <= 0.0) {
                 fail(rctx, "period_s must be positive");
+            }
+        }
+        // [bodies.shape_after]: another shape model from a time on (Body::ShapeAfter), in the
+        // same atlas as `shape`.
+        if (const toml::table* a = (*t)["shape_after"].as_table()) {
+            const std::string actx = ctx + " shape_after";
+            if (!body.shape) {
+                fail(ctx, "shape_after needs the body's own shape model");
+            }
+            body.shape_after.shape = load_shape(get_string(*a, "shape", actx), actx);
+            body.shape_after.t_tdb = parse_event_time(*a, actx, m_scene->calendar);
+            if (body.shape_after.shape->map_v.empty() != body.shape->map_v.empty()) {
+                fail(actx, "both shape models need the same kind of texture coordinates");
             }
         }
 

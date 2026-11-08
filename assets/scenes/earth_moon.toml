@@ -20,8 +20,17 @@
 #        for this project from published dimensions (crew module 5 m across and 3.35 m tall, NASA
 #        "Orion by the Numbers" 2025; arrays about 7 m each, 19 m across, Airbus "Orion European
 #        Service Module"); simplified, not engineering CAD. Converted by
-#        tools/shapes/make_spacecraft.py; assets/shapes/SOURCES.md.
+#        tools/shapes/make_spacecraft.py; assets/shapes/SOURCES.md. From the separation [CMS] to
+#        the end of the tables, the crew module alone.
+# [CMS]  Crew module separation from the service module: Artemis I, NASA blog 2022-12-11
+#        ("Artemis I - Flight Day 26: Orion Crew Module Separation From Service Module
+#        Complete"): "at 11:00 a.m. CST", i.e. 17:00 UTC; Artemis II, NASA blog 2026-04-10
+#        ("Artemis II Flight Day 10: Live Re-Entry Updates"): "7:33 p.m." EDT, i.e. 23:33 UTC.
 
+# [MDLC] Chang'e 5-T1's service module: modeled for this project from two pictures of the
+#        spacecraft (the sizes estimated: a box of about 1.7 x 1.5 x 1.5 m, two wings 8.6 m tip to
+#        tip), without the return capsule, which it had let go of before this scene's tables
+#        begin. Converted by tools/shapes/make_spacecraft.py (assets/shapes/SOURCES.md).
 # [LDF]  NSSDCA, nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=2013-047A (retrieved
 #        2026-11-07): a cylinder 1.85 m across and 2.37 m tall.
 # [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py (tools/bake/ephem.toml):
@@ -200,6 +209,9 @@ trail_linger_days = 30.0                   # after splashdown, fading
 [bodies.orbit]                             # [HZN] -1024
 type = "ephemeris"
 file = "ephem/artemis2.eph"
+[bodies.shape_after]                       # [CMS] the crew module alone
+time = "2026-04-10 23:33"
+shape = "shapes/orion_crew_module.mesh"
 
 [[bodies]]
 name = "Artemis I"
@@ -217,6 +229,9 @@ trail_linger_days = 30.0                   # after splashdown, fading
 [bodies.orbit]                             # [HZN] -1023
 type = "ephemeris"
 file = "ephem/artemis1.eph"
+[bodies.shape_after]                       # [CMS] the crew module alone
+time = "2022-12-11 17:00"
+shape = "shapes/orion_crew_module.mesh"
 
 [[bodies]]
 name = "CAPSTONE"
@@ -259,6 +274,10 @@ name = "Chang'e 5-T1"
 parent = "Earth"
 kind = "spacecraft"
 radii_km = [0.0026]                        # the service module: 21.7 m^2 cross-section [L16] Table 1
+shape = "shapes/ce5t1.mesh"                # [MDLC]
+texture = "textures/ce5t1.png"
+point_at = "Sun"                           # the solar cells; illustrative
+fill_light = 0.2                           # illustrative
 color = "#ffb0bc"
 orbit_color = "#ff6f86"
 trail = "history"

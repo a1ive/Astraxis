@@ -827,6 +827,7 @@ void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, u
     m_bodies.clear_meshes();
     m_body_meshes.assign(scene.bodies.size(), -1);
     m_rotor_meshes.assign(scene.bodies.size(), -1);
+    m_shape_after_meshes.assign(scene.bodies.size(), -1);
     for (size_t i = 0; i < scene.bodies.size(); ++i) {
         const Body& body = scene.bodies[i];
         if (body.shape) {
@@ -835,6 +836,10 @@ void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, u
         }
         if (body.shape && body.comet.enabled) {
             m_comet_meshes[i] = m_comets.add_mesh(*body.shape);
+        }
+        if (const ShapeModel* later = body.shape_after.shape.get()) {
+            m_shape_after_meshes[i] = m_bodies.add_mesh(later->positions, later->normals, later->albedo, later->map_u,
+                                                        later->map_v, later->indices);
         }
         if (const ShapeModel* rotor = body.rotor.shape.get()) {
             m_rotor_meshes[i] = m_bodies.add_mesh(rotor->positions, rotor->normals, rotor->albedo, rotor->map_u,
@@ -1130,6 +1135,10 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
         }
         // A shape model is in km already; the ellipsoid is a scaled unit sphere.
         item.mesh = i < m_body_meshes.size() ? m_body_meshes[i] : -1;
+        if (i < m_shape_after_meshes.size() && m_shape_after_meshes[i] >= 0 &&
+            sim.clock().t_tdb >= body.shape_after.t_tdb) {
+            item.mesh = m_shape_after_meshes[i];
+        }
         const glm::vec3 scale = item.mesh >= 0 ? glm::vec3(1.0f) : radii;
         item.rotation = glm::mat4(glm::mat3(body.orientation));
         item.model = glm::translate(glm::mat4(1.0f), to_render(body.world_position, cam)) * item.rotation *
