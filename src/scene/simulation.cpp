@@ -434,6 +434,7 @@ void Simulation::compute_view(int width, int height, double content_scale, Outpu
     if (target >= 0 && target < static_cast<int>(out.body_fades.size())) {
         out.body_fades[static_cast<size_t>(target)] = 1.0f; // the focus always shows
     }
+    lens_bodies(m_scene, view, out.lens);
 }
 
 void Simulation::reset_to_now()

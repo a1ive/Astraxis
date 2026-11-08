@@ -2,10 +2,13 @@
 
 #include "test_util.hpp"
 
+#include "scene/lensing.hpp"
 #include "scene/pulsar.hpp"
+#include "scene/simulation.hpp"
 
 #include "core/math.hpp"
 #include "core/time.hpp"
+#include "ephem/kerr_lens.hpp"
 #include "ephem/kerr_null.hpp"
 #include "ephem/kerr_orbit.hpp"
 #include "ephem/post_keplerian.hpp"
@@ -1224,6 +1227,203 @@ void test_edmunds_planet()
                 in_plane / earth);
 }
 
+// Point lens with the deflection to second order, alpha(b) = 4/b + 15 pi/(4 b^2)
+// (Keeton & Petters 2005, Phys. Rev. D 72, 104006, with a = 0; also the total of
+// weak_pass_deflection): beta = theta - (D_ls / D_s) alpha(theta D_l). The image
+// angle from the hole on the source's side (side = 1), or the other image's
+// (side = -1, as a positive angle).
+double point_lens_angle(double beta, double d_l, double d_ls, double side)
+{
+    const double d_s = d_l + d_ls;
+    auto lens = [&](double theta) {
+        const double b = theta * d_l;
+        const double alpha = 4.0 / b + 15.0 * kPi / (4.0 * b * b);
+        return theta - d_ls / d_s * alpha - side * beta;
+    };
+    double lo = 1e-6;
+    double hi = 1.0;
+    for (int i = 0; i < 200; ++i) {
+        const double mid = 0.5 * (lo + hi);
+        (lens(mid) < 0.0 ? lo : hi) = mid;
+    }
+    return 0.5 * (lo + hi);
+}
+
+double angle_between(const glm::dvec3& a, const glm::dvec3& b)
+{
+    return std::atan2(glm::length(glm::cross(a, b)), glm::dot(a, b));
+}
+
+// Images of a point bent around a black hole (ephem/kerr_lens.hpp).
+void test_kerr_lens()
+{
+    // Far from the hole (b ~ 140 M): the point-lens images, as angles from the hole seen
+    // from the camera, and their magnifications (Paczynski's formula).
+    const double d_l = 1e4;
+    const double d_ls = 1e4;
+    const double d_s = d_l + d_ls;
+    const double theta_e = std::sqrt(4.0 * d_ls / (d_l * d_s));
+    const glm::dvec3 cam(-d_l, 0.0, 0.0);
+    const glm::dvec3 toward_hole(1.0, 0.0, 0.0);
+    for (double u : {0.3, 1.0}) {
+        const double beta = u * theta_e;
+        const glm::dvec3 target(d_ls, d_s * std::tan(beta), 0.0);
+        LensSettings settings;
+        settings.tolerance_rad = 1e-9;
+        LensImage images[2];
+        const int found = find_lens_images(cam, target, settings, nullptr, 0, images);
+        check(found == 3, "point lens: both images found", found);
+        if (found != 3) {
+            continue;
+        }
+        const double theta_plus = angle_between(images[0].direction, toward_hole);
+        const double theta_minus = angle_between(images[1].direction, toward_hole);
+        const double expect_plus = point_lens_angle(beta, d_l, d_ls, 1.0);
+        const double expect_minus = point_lens_angle(beta, d_l, d_ls, -1.0);
+        std::printf("info: point lens u = %.1f: theta+ %.6f (lens equation %.6f), theta- %.6f (%.6f); "
+                    "mu %.4f, %.4f\n",
+                    u, theta_plus, expect_plus, theta_minus, expect_minus, images[0].magnification,
+                    images[1].magnification);
+        check(std::abs(theta_plus / expect_plus - 1.0) < 2e-3, "point lens: primary image angle",
+              theta_plus / expect_plus);
+        check(std::abs(theta_minus / expect_minus - 1.0) < 2e-3, "point lens: secondary image angle",
+              theta_minus / expect_minus);
+        check(images[0].direction.y > 0.0 && images[1].direction.y < 0.0,
+              "point lens: the primary on the source's side, the secondary opposite");
+        const double total = (u * u + 2.0) / (u * std::sqrt(u * u + 4.0));
+        const double mu_sum = std::abs(images[0].magnification) + std::abs(images[1].magnification);
+        const double mu_diff = images[0].magnification + images[1].magnification; // the secondary is mirrored
+        check(std::abs(mu_sum / total - 1.0) < 0.03, "point lens: total magnification", mu_sum / total);
+        check(std::abs(mu_diff - 1.0) < 0.03, "point lens: mu+ - |mu-| = 1", mu_diff);
+        check(images[1].magnification < 0.0 && images[0].magnification > 1.0,
+              "point lens: the secondary image is mirrored, the primary brightened");
+        // The image of a small sphere is drawn out along the circle around the hole.
+        const glm::dvec3 radial =
+            glm::normalize(toward_hole - glm::dot(toward_hole, images[0].direction) * images[0].direction);
+        check(std::abs(glm::dot(images[0].axis[1], radial)) < 1e-3 &&
+                  images[0].angle_per_m[1] > images[0].angle_per_m[0],
+              "point lens: the primary image is longest around the hole");
+
+        // From the last solution (the target moved a little), the same images again.
+        const glm::dvec3 moved = target + glm::dvec3(0.0, 0.2, 0.1);
+        LensImage cold[2];
+        LensImage warm[2];
+        const int cold_found = find_lens_images(cam, moved, settings, nullptr, 0, cold);
+        const int warm_found = find_lens_images(cam, moved, settings, images, found, warm);
+        check(cold_found == 3 && warm_found == 3 && angle_between(cold[0].direction, warm[0].direction) < 1e-8 &&
+                  angle_between(cold[1].direction, warm[1].direction) < 1e-8,
+              "point lens: refining the last solution finds the same images");
+    }
+
+    // A target right behind the hole: an Einstein ring, both images at theta_E.
+    {
+        LensSettings settings;
+        settings.tolerance_rad = 1e-9;
+        LensImage images[2];
+        const int found = find_lens_images(cam, glm::dvec3(d_ls, 1e-9, 0.0), settings, nullptr, 0, images);
+        const double ring = point_lens_angle(0.0, d_l, d_ls, 1.0);
+        check(found == 3 && std::abs(angle_between(images[0].direction, toward_hole) / ring - 1.0) < 2e-3 &&
+                  std::abs(angle_between(images[1].direction, toward_hole) / ring - 1.0) < 2e-3,
+              "point lens: a source behind the hole makes a ring");
+    }
+
+    // A target near the camera and off to the side: hardly bent, nor brightened.
+    {
+        LensSettings settings;
+        LensImage images[2];
+        const glm::dvec3 target = cam + glm::dvec3(5.0, 30.0, -2.0);
+        const int found = find_lens_images(cam, target, settings, nullptr, 0, images);
+        check((found & 1) && angle_between(images[0].direction, glm::normalize(target - cam)) < 1e-5 &&
+                  std::abs(images[0].magnification - 1.0) < 1e-3,
+              "lens: a nearby target is seen where it is", images[0].magnification);
+    }
+
+    // Gargantua (a/M = 0.6) from the camera of [JA15] Figure 13 (74.1 M, 3.44 deg above
+    // the disk): the example planet on the ISCO, straight behind the hole. Unlensed it
+    // would be hidden by the shadow; its light comes over the top of the shadow, in
+    // front of the disk (whose far side lies farther out), and under the bottom,
+    // through the disk.
+    {
+        const double a = 0.6;
+        const double elevation = 3.44 * kDegToRad;
+        const glm::dvec3 camera(-74.1 * std::cos(elevation), 0.0, 74.1 * std::sin(elevation));
+        const glm::dvec3 planet(isco_radius(a), 0.0, 0.0);
+        LensSettings settings;
+        settings.spin = a;
+        settings.disk_r_in = 9.26;
+        settings.disk_r_out = 18.70;
+        LensImage images[2];
+        const int found = find_lens_images(camera, planet, settings, nullptr, 0, images);
+        check(found == 3, "Gargantua: both images of the ISCO planet behind the hole", found);
+        const glm::dvec3 hole = -glm::normalize(camera);
+        const glm::dvec3 up = glm::normalize(glm::dvec3(0.0, 0.0, 1.0) - hole.z * hole);
+        const double straight = angle_between(glm::normalize(planet - camera), hole);
+        const double first = angle_between(images[0].direction, hole);
+        const double second = angle_between(images[1].direction, hole);
+        std::printf("info: Gargantua ISCO planet behind the hole: straight %.4f rad, images %.4f (up %+.4f) and "
+                    "%.4f (up %+.4f) rad from the center, mu %.3f, %.3f, behind the disk %d %d\n",
+                    straight, first, glm::dot(images[0].direction, up), second,
+                    glm::dot(images[1].direction, up), images[0].magnification, images[1].magnification,
+                    images[0].disk_first, images[1].disk_first);
+        // The shadow's edge is at an impact parameter of ~4.5-6 M at this spin: 0.06-0.08 rad.
+        check(straight < 0.05 && std::min(first, second) > 0.06,
+              "Gargantua: the planet behind the hole shows outside the shadow", std::min(first, second));
+        const bool first_on_top = glm::dot(images[0].direction, up) > glm::dot(images[1].direction, up);
+        const LensImage& top = first_on_top ? images[0] : images[1];
+        const LensImage& bottom = first_on_top ? images[1] : images[0];
+        check(glm::dot(top.direction, up) > 0.0 && glm::dot(bottom.direction, up) < 0.0,
+              "Gargantua: one image above the shadow, one below");
+        check(!top.disk_first && bottom.disk_first,
+              "Gargantua: the image over the top is in front of the disk, the one below behind it");
+    }
+}
+
+// The scene's bodies are drawn at their images (Simulation::compute_view, lens_bodies).
+void test_gargantua_lensed_bodies()
+{
+    Simulation sim;
+    std::string error;
+    check(sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/gargantua.toml", &error), "gargantua.toml loads");
+    sim.jump_to_event(0);
+    sim.update(0.1);
+    OutputView view;
+    sim.compute_view(1280, 720, 1.0, view);
+    const Scene& scene = sim.scene();
+    int lensed = 0;
+    for (size_t i = 0; i < scene.bodies.size() && i < view.lens.size(); ++i) {
+        const Body& body = scene.bodies[i];
+        const bool child =
+            body.parent >= 0 && scene.bodies[static_cast<size_t>(body.parent)].kind == BodyKind::BlackHole;
+        check(!view.lens[i].lensed || child, "Gargantua: only bodies around the hole are lensed");
+        if (view.lens[i].lensed) {
+            ++lensed;
+            const LensedView& image = view.lens[i].images[0];
+            check(image.angular_radius_per_km > 0.0 && glm::length(image.offset) > 0.0 &&
+                      std::abs(glm::determinant(image.turn) - 1.0) < 1e-9,
+                  "Gargantua: a lensed body has a place, a size and a rotation");
+        }
+    }
+    check(view.lens.size() == scene.bodies.size() && lensed == 4,
+          "Gargantua: the four bodies around the hole are lensed", lensed);
+    // Again from the last frame's solution, a little later.
+    sim.update(0.05);
+    sim.compute_view(1280, 720, 1.0, view);
+    int still = 0;
+    for (const BodyLens& lens : view.lens) {
+        still += lens.lensed ? 1 : 0;
+    }
+    check(still == 4, "Gargantua: refined images next frame", still);
+
+    // Endurance's own event: the camera 160 m from it, which is then drawn where it is.
+    sim.jump_to_event(scene.events.size() - 1);
+    for (int i = 0; i < 100; ++i) {
+        sim.update(0.1); // the camera's flight
+    }
+    sim.compute_view(1280, 720, 1.0, view);
+    const int craft = scene.find("Endurance");
+    check(craft >= 0 && !view.lens[static_cast<size_t>(craft)].lensed, "Gargantua: Endurance seen from up close");
+}
+
 } // namespace
 
 void run_relativity_tests()
@@ -1241,4 +1441,6 @@ void run_relativity_tests()
     test_gargantua_scene();
     test_mann_orbit();
     test_edmunds_planet();
+    test_kerr_lens();
+    test_gargantua_lensed_bodies();
 }

@@ -58,8 +58,13 @@ void draw_labels(LabelLayout& labels, const Scene& scene, const OutputView& view
             draw->AddCircle(center, std::max(dot_radius, mark.radius) + 1.0f,
                             to_imgui_color(body.orbit_color, 0.95f * mark.fade * alpha), 0, 1.5f);
         } else if (mark.dot == LabelLayout::Dot::Filled) {
-            draw->AddCircleFilled(center, dot_radius,
-                                  to_imgui_color(glm::mix(body.color, glm::vec3(1.0f), 0.3f), 0.95f * mark.fade * alpha));
+            const glm::vec3 color = glm::mix(body.color, glm::vec3(1.0f), 0.3f);
+            draw->AddCircleFilled(center, dot_radius, to_imgui_color(color, 0.95f * mark.fade * alpha));
+            if (mark.image2_alpha > 0.0f) {
+                // The same body's secondary image, around the other side of a black hole.
+                draw->AddCircleFilled(ImVec2(mark.image2.x, mark.image2.y), dot_radius,
+                                      to_imgui_color(color, 0.95f * mark.image2_alpha * mark.fade * alpha));
+            }
         }
         if (mark.text_alpha > 0.0f) {
             draw->AddText(ImVec2(mark.text_position.x, mark.text_position.y),

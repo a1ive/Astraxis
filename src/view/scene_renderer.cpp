@@ -6,6 +6,7 @@
 #include "ephem/kerr_null.hpp"
 #include "render/render_output.hpp"
 #include "render/texture.hpp"
+#include "scene/lensing.hpp"
 #include "scene/light_curve.hpp"
 #include "scene/pulsar.hpp"
 #include "scene/saturn_aurora.hpp"
@@ -994,10 +995,7 @@ void SceneRenderer::trace_black_hole(SDL_GPUCommandBuffer* cmd, uint32_t width, 
         const double a = body.spin;
 
         // Hole frame: z along the spin / disk axis.
-        const glm::dvec3 z = glm::normalize(frame.direction_to_display(body.pole));
-        const glm::dvec3 helper = std::abs(z.z) < 0.9 ? glm::dvec3(0.0, 0.0, 1.0) : glm::dvec3(1.0, 0.0, 0.0);
-        const glm::dvec3 x = glm::normalize(glm::cross(helper, z));
-        const glm::dmat3 hole(x, glm::cross(z, x), z); // hole -> display
+        const glm::dmat3 hole = black_hole_axes(scene, body); // hole -> display
         const glm::dmat3 to_hole = glm::transpose(hole);
 
         const glm::dvec3 rel = view.position - body.world_position;
@@ -1063,6 +1061,30 @@ void SceneRenderer::release_body_textures()
     }
 }
 
+namespace {
+
+// A body drawn as one of its images bent around a black hole: moved to where the
+// image is, turned to show the side the light leaves from (with its lighting) and
+// stretched to the image's shape. Shadows from other bodies are left out.
+BodyDrawItem lensed_item(const BodyDrawItem& item, const LensedView& image)
+{
+    BodyDrawItem out = item;
+    glm::mat4 local = item.model;
+    local[3] = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    const glm::mat3 turn(image.turn);
+    out.model = glm::translate(glm::mat4(1.0f), glm::vec3(image.offset)) * glm::mat4(glm::mat3(image.stretch)) *
+                glm::mat4(turn) * local;
+    out.rotation = glm::mat4(turn) * item.rotation;
+    out.sun_direction = turn * item.sun_direction;
+    out.light2_direction = turn * item.light2_direction;
+    out.ring_center = glm::vec3(image.offset);
+    out.ring_normal = turn * item.ring_normal;
+    out.occluder_count = 0;
+    return out;
+}
+
+} // namespace
+
 void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& output_view, const ViewOptions& options)
 {
     const Scene& scene = sim.scene();
@@ -1119,7 +1141,20 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
         // An atmosphere with an opaque deck shows the deck (in the body's
         // color) instead of the surface.
         const Atmosphere& atmosphere = body.atmosphere;
-        const bool show_atmosphere = options.atmospheres && atmosphere.enabled;
+        // Bent around a black hole: drawn at its images, without the effects around it.
+        const BodyLens* lens = i < output_view.lens.size() && output_view.lens[i].lensed ? &output_view.lens[i] : nullptr;
+        auto emit = [&](const BodyDrawItem& drawn) {
+            if (!lens) {
+                m_body_items.push_back(drawn);
+                return;
+            }
+            for (int k = 0; k < 2; ++k) {
+                if (lens->found & (1 << k)) {
+                    m_body_items.push_back(lensed_item(drawn, lens->images[k]));
+                }
+            }
+        };
+        const bool show_atmosphere = options.atmospheres && atmosphere.enabled && !lens;
         const double deck_km = show_atmosphere ? atmosphere.deck_altitude_km : 0.0;
         const glm::dvec3 radii_km = glm::dvec3(body.equatorial_radius_km, body.equatorial_radius_b_km,
                                                body.polar_radius_km) + deck_km;
@@ -1160,7 +1195,7 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
             item.color *= static_cast<float>(observed_star_display_gain(
                 scene.observed_light_curve, static_cast<int>(i), sim.clock().t_tdb));
             item.texture = nullptr;
-            m_body_items.push_back(item);
+            emit(item);
             continue;
         }
         if (body.kind == BodyKind::BlackHole) {
@@ -1244,7 +1279,7 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
             m_atmosphere_items.push_back(shell);
         }
         // Earth's aurora goes with the atmospheres.
-        if (aurora_shown(body.aurora.model, visible_aurora, ultraviolet, infrared) &&
+        if (aurora_shown(body.aurora.model, visible_aurora, ultraviolet, infrared) && !lens &&
             (body.aurora.model != AuroraModel::Earth || show_atmosphere)) {
             add_aurora_items(sim, output_view, i, item, ultraviolet);
         }
@@ -1274,7 +1309,7 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
             item.field_map_u = static_cast<float>(u - std::floor(u));
         }
 
-        SDL_GPUTexture* ring_texture = i < m_ring_textures.size() ? m_ring_textures[i] : nullptr;
+        SDL_GPUTexture* ring_texture = i < m_ring_textures.size() && !lens ? m_ring_textures[i] : nullptr;
         if (ring_texture) {
             // The rings shade the planet...
             item.ring_profile = ring_texture;
@@ -1322,19 +1357,19 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
             item.occluders[item.occluder_count++] = glm::vec4(to_render(other.world_position, cam),
                                                               static_cast<float>(other.equatorial_radius_km));
         }
-        if (options.plumes) {
+        if (options.plumes && !lens) {
             const glm::dvec3 sun_body = glm::transpose(body.orientation) * glm::dvec3(item.sun_direction);
             for (const Plume& plume : body.plumes) {
                 add_plume_items(body, plume, cam, sun_body, item.sun_angular_radius, item.occluders,
                                 item.occluder_count, m_plume_items);
             }
         }
-        if (!body.impacts.empty()) {
+        if (!body.impacts.empty() && !lens) {
             add_impact_items(body, sim.clock().t_tdb, std::abs(sim.clock().warp), cam,
                              glm::transpose(body.orientation) * glm::dvec3(item.sun_direction), item.sun_angular_radius,
                              0.5 * view.viewport.y * view.focal_y, options.plumes, m_impact_scars, m_impact_plumes);
         }
-        m_body_items.push_back(item);
+        emit(item);
 
         // The rotor: the same body turned about its z axis.
         if (const int rotor = i < m_rotor_meshes.size() ? m_rotor_meshes[i] : -1; rotor >= 0) {
@@ -1344,7 +1379,7 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
             item.mesh = rotor;
             item.rotation = glm::mat4(glm::mat3(body.orientation * turn));
             item.model = glm::translate(glm::mat4(1.0f), to_render(body.world_position, cam)) * item.rotation;
-            m_body_items.push_back(item);
+            emit(item);
         }
     }
 }
@@ -1942,6 +1977,11 @@ void SceneRenderer::draw_stars(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pas
             continue;
         }
         any_star = true;
+        const size_t index = static_cast<size_t>(&body - scene.bodies.data());
+        // A star bent around a black hole shows at each image, brightened or dimmed by the
+        // image's magnification (a point's light; a resolved disk keeps its surface brightness).
+        const BodyLens* lens =
+            index < output_view.lens.size() && output_view.lens[index].lensed ? &output_view.lens[index] : nullptr;
         const glm::dvec3 to_star = body.world_position - view.position;
         const double distance = glm::length(to_star);
         SunPass::Star s;
@@ -1987,7 +2027,21 @@ void SceneRenderer::draw_stars(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pas
             }
             s.display_gain *= static_cast<float>(1.0 + kBeamFlashGain * flash);
         }
-        m_sun.draw(cmd, pass, view, s);
+        if (!lens) {
+            m_sun.draw(cmd, pass, view, s);
+            continue;
+        }
+        for (int k = 0; k < 2; ++k) {
+            if (lens->found & (1 << k)) {
+                const LensedView& image = lens->images[k];
+                SunPass::Star lensed = s;
+                lensed.position = glm::vec3(image.offset);
+                lensed.angular_radius = static_cast<float>(body.equatorial_radius_km * image.angular_radius_per_km);
+                lensed.magnitude = s.magnitude - static_cast<float>(2.5 * std::log10(std::abs(image.magnification)));
+                lensed.draw_disk = lensed.angular_radius * viewport_half < 3.0f;
+                m_sun.draw(cmd, pass, view, lensed);
+            }
+        }
     }
     if (!any_star) {
         const glm::dvec3 to_sun = scene.sun_position() - view.position;

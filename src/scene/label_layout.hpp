@@ -46,6 +46,11 @@ public:
         float fade = 1.0f;   // the body's fade (satellite_fades); the dot's opacity
         glm::vec2 text_position{0.0f}; // top left of the label
         float text_alpha = 0.0f;       // label opacity (eased, times the fade)
+        // A body bent around a black hole is marked at its primary image (`position`);
+        // a filled dot also goes at its secondary image, at this opacity relative to the
+        // first's (0: none).
+        glm::vec2 image2{0.0f};
+        float image2_alpha = 0.0f;
     };
 
     // Width and height of `text` on screen.

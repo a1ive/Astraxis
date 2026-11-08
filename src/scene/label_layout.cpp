@@ -18,6 +18,7 @@ constexpr float kLabelFadeSeconds = 0.7f; // labels ease in/out over this long
 // long, so that it does not blink as bodies graze each other.
 constexpr float kLabelReshowSeconds = 1.0f;
 constexpr float kPickMinAlpha = 0.3f;     // a label must be at least this visible to be picked
+constexpr float kMinImageAlpha = 0.05f;   // a secondary image's dot fainter than this is left out
 
 // True if the segment from the camera (origin) to `target` passes through a sphere.
 bool occluded(const glm::dvec3& target, const glm::dvec3& center, double radius)
@@ -68,6 +69,8 @@ void LabelLayout::update(const Scene& scene, const OutputView& view, int focus, 
         int rank;
         glm::vec2 screen;
         float radius_px;
+        float image2_alpha = 0.0f; // the secondary image's dot (bent around a black hole)
+        glm::vec2 image2{0.0f};
     };
     std::vector<Candidate> candidates;
     m_labels.resize(scene.bodies.size());
@@ -79,13 +82,17 @@ void LabelLayout::update(const Scene& scene, const OutputView& view, int focus, 
             m_labels[i] = {};
             continue;
         }
-        const glm::dvec3 rel = body.world_position - cam;
+        // A body bent around a black hole is marked at its primary image, which the
+        // hole does not hide (the disk may).
+        const BodyLens* lens = i < view.lens.size() && view.lens[i].lensed ? &view.lens[i] : nullptr;
+        const glm::dvec3 rel = lens ? lens->images[0].offset : body.world_position - cam;
 
-        bool hidden = false;
+        bool hidden = lens && lens->images[0].behind_disk;
         for (size_t k = 0; k < scene.bodies.size() && !hidden; ++k) {
             const Body& other = scene.bodies[k];
             if (k != i && other.visible && other.kind != BodyKind::Spacecraft &&
-                other.kind != BodyKind::Barycenter && other.kind != BodyKind::Ghost) {
+                other.kind != BodyKind::Barycenter && other.kind != BodyKind::Ghost &&
+                !(lens && other.kind == BodyKind::BlackHole)) {
                 hidden = occluded(rel, other.world_position - cam, other.equatorial_radius_km);
             }
         }
@@ -95,8 +102,21 @@ void LabelLayout::update(const Scene& scene, const OutputView& view, int focus, 
             m_labels[i] = {};
             continue;
         }
-        const float radius_px =
-            static_cast<float>(body.equatorial_radius_km) / w * camera.focal_y * 0.5f * screen_size.y;
+        const float px_per_radian = camera.focal_y * 0.5f * screen_size.y;
+        const float radius_px = lens ? static_cast<float>(body.equatorial_radius_km * lens->images[0].angular_radius_per_km) *
+                                           px_per_radian
+                                     : static_cast<float>(body.equatorial_radius_km) / w * px_per_radian;
+        // The secondary image's dot, fainter with the ratio of the images' light (their
+        // magnifications; its square root, so that a faint image still shows).
+        glm::vec2 image2(0.0f);
+        float image2_alpha = 0.0f;
+        if (lens && (lens->found & 2) && !lens->images[1].behind_disk && project(lens->images[1].offset, &image2, &w)) {
+            image2_alpha = static_cast<float>(std::min(
+                std::sqrt(std::abs(lens->images[1].magnification / lens->images[0].magnification)), 1.0));
+            if (image2_alpha < kMinImageAlpha) {
+                image2_alpha = 0.0f;
+            }
+        }
         const int host = scene.satellite_host(static_cast<int>(i));
         int rank = 4; // moons
         double delta_v = 0.0;
@@ -113,7 +133,7 @@ void LabelLayout::update(const Scene& scene, const OutputView& view, int focus, 
         } else if (host < 0 || scene.bodies[static_cast<size_t>(host)].kind == BodyKind::Star) {
             rank = 2;
         }
-        candidates.push_back({static_cast<int>(i), rank, screen, radius_px});
+        candidates.push_back({static_cast<int>(i), rank, screen, radius_px, image2_alpha, image2});
     }
     std::sort(candidates.begin(), candidates.end(), [&](const Candidate& a, const Candidate& b) {
         if (a.rank != b.rank) {
@@ -168,6 +188,8 @@ void LabelLayout::update(const Scene& scene, const OutputView& view, int focus, 
             mark.dot = Dot::Hollow;
         } else if (c.radius_px < kMarkerRadius || (body.kind == BodyKind::Spacecraft && !body.shape)) {
             mark.dot = Dot::Filled;
+            mark.image2 = c.image2;
+            mark.image2_alpha = c.image2_alpha;
         }
         m_bodies.push_back(mark);
     }

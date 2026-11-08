@@ -3,6 +3,7 @@
 #include "core/sim_clock.hpp"
 #include "scene/camera.hpp"
 #include "scene/camera_director.hpp"
+#include "scene/lensing.hpp"
 #include "scene/light_curve.hpp"
 #include "scene/scene.hpp"
 
@@ -31,6 +32,9 @@ struct OutputView {
     CameraView camera;
     std::vector<float> body_fades; // per body: label/marker/orbit visibility (satellite_fades)
     double content_scale = 1.0;    // output pixels per point
+    // Per body: its images bent around a black hole (lens_bodies), refined each frame
+    // from the last.
+    std::vector<BodyLens> lens;
 };
 
 // What is shown, independent of where and how: the scene, its clock, the

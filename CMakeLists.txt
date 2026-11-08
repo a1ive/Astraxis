@@ -40,6 +40,8 @@ add_library(astraxis_sim STATIC
     src/ephem/ephemeris.hpp
     src/ephem/kerr_geodesic.cpp
     src/ephem/kerr_geodesic.hpp
+    src/ephem/kerr_lens.cpp
+    src/ephem/kerr_lens.hpp
     src/ephem/kerr_null.cpp
     src/ephem/kerr_null.hpp
     src/ephem/kerr_orbit.cpp
@@ -79,6 +81,8 @@ add_library(astraxis_sim STATIC
     src/scene/comet.hpp
     src/scene/label_layout.cpp
     src/scene/label_layout.hpp
+    src/scene/lensing.cpp
+    src/scene/lensing.hpp
     src/scene/magnetic_field.cpp
     src/scene/magnetic_field.hpp
     src/scene/pulsar.cpp

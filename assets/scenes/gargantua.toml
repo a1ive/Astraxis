@@ -40,8 +40,9 @@
 #   orbit integrator and the drawing can resolve. The shadow of such a hole looks much
 #   like that of a/M = 0.999 (JA15's Figure 14). Miller's planet is therefore not in the
 #   scene; an example planet on this hole's own ISCO stands in for it in the last event.
-# - Bodies are not lensed: the example planet is drawn where it is, so behind the hole it
-#   is hidden, while its bent light would really show above the shadow.
+# - Bodies are drawn at their two lensed images (scene/lensing.hpp): behind the hole the
+#   example planet shows above the shadow, and faintly below it through the disk. Their
+#   orbit lines are drawn unbent, and the images take no light-travel time.
 # - The disk keeps its 4500 K everywhere [JA15]; its streaks are this program's (the
 #   film's was painted by artists). Its gas orbits at the Keplerian rate: ~0.35 c at
 #   the inner edge (measured by a local non-rotating observer), less than the ~0.55 c
