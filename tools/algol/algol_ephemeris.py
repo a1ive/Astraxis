@@ -45,7 +45,7 @@ def read_header(f):
                 cards[card[:8].strip()] = card[10:].split('/')[0].strip().strip("'").strip()
 
 
-def read_light_curve(path):
+def read_light_curve(path, names=('TIME', 'SAP_FLUX', 'QUALITY')):
     """TIME (BTJD), SAP_FLUX and QUALITY of a SPOC light curve file."""
     with open(path, 'rb') as f:
         read_header(f)
@@ -62,7 +62,7 @@ def read_light_curve(path):
     if h.get('TIMESYS') != 'TDB' or int(h.get('BJDREFI', 0)) != 2457000:
         sys.exit(f'{path}: unexpected time system')
     out = {}
-    for name in ('TIME', 'SAP_FLUX', 'QUALITY'):
+    for name in names:
         offset, dtype = columns[name]
         out[name] = raw[:, offset:offset + dtype.itemsize].copy().view(dtype).ravel().astype(float)
     return out

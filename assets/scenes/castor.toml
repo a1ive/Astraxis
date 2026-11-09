@@ -44,6 +44,18 @@
 #        Longitude here, from the star's axis toward its companion, in the sense
 #        of the rotation: -360 phase on Ca, 180 - 360 phase on Cb.
 #        Sect. 5, table 5: both turn with the orbit (v sin i 37 km/s, 38.5 expected).
+# [TESSSPOT] The spots of 2019-2023, fitted to the TESS curves between the eclipses by
+#        tools/castor/yy_gem_spots.py in [TR02]'s model (latitude, contrast fixed;
+#        phase and radius free; 786.5 nm), after scaling by the eclipses' depth:
+#        Castor's saturated light fills the aperture (YY Gem is 1.5-5% of it). Sectors
+#        20, 46, 60, 72 at 2020.02, 2021.96, 2023.01, 2023.90, rms 0.0014-0.0031. The
+#        curve cannot tell which star a spot is on: Cb has the largest, Ca the next.
+# [MB71] Moffett & Bopp 1971, ApJ 168, L117: Fig. 1, flare of 1971 March 24 (U +1.17 mag);
+#        Fig. 3, flare of March 28 (B, V, U; U +0.6 mag), read by
+#        tools/castor/yy_gem_flares.py. Strong continuum with weak H alpha on March 24 and
+#        the reverse on March 28. Phases 0.154 at 04:09 UT and 0.095 at 04:43 UT.
+# [BO74] Bopp 1974, ApJ 193, 389: Table 3, flares 2-4 of March 1971 on the primary; Sect. V:
+#        one region, at most 60 deg wide; longitude 40-120 deg from the three limits.
 # [TESS] Primary minima in the TESS light curves (sectors 20, 46, 60, 72; 2019-2023),
 #        measured by tools/castor/yy_gem_ephemeris.py: BJD_TDB 2459690.57515,
 #        P = 0.81428247 d, rms 0.7 min over 93 minima. [TR02]'s linear ephemeris
@@ -302,6 +314,40 @@ spots = [
     { longitude_deg = 96.12, latitude_deg = 45.0, radius_deg = 20.1 },
     { longitude_deg = 270.0, latitude_deg = 45.0, radius_deg = 9.0 },
 ]
+[[bodies.starspots.epochs]]    # TESS sector 20, 2020.02 [TESSSPOT]
+from_year = 2019.0
+spots = [
+    { longitude_deg = 244.43, latitude_deg = 45.0, radius_deg = 24.8 },
+]
+[[bodies.starspots.epochs]]    # sector 46, 2021.96
+from_year = 2020.99
+spots = [
+    { longitude_deg = 121.70, latitude_deg = 45.0, radius_deg = 15.8 },
+]
+[[bodies.starspots.epochs]]    # sector 60, 2023.01: one spot fits, on Cb
+from_year = 2022.49
+spots = []
+[[bodies.starspots.epochs]]    # sector 72, 2023.90
+from_year = 2023.45
+spots = [
+    { longitude_deg = 285.02, latitude_deg = 45.0, radius_deg = 21.6 },
+]
+[[bodies.flares]]              # [MB71], [BO74]: flare 2, on this star
+time = "1971-03-24 04:03:00"
+curve = "stars/yy_gem_flare_1971_03_24.csv"
+temperature_k = 9000.0         # as for Proxima's [HO18]
+peak_disk_share = 0.0076       # tools/castor/yy_gem_flares.py
+site_longitude_deg = 280.0     # [BO74] Sect. V: longitude 80 deg, phase 0.222
+site_latitude_deg = 45.0       # assumed: the spots' [TR02]
+window_hours = [0.5, 1.5]
+[[bodies.flares]]              # [MB71], [BO74]: flare 3, the same region
+time = "1971-03-28 04:23:00"
+curve = "stars/yy_gem_flare_1971_03_28.csv"
+temperature_k = 9000.0
+peak_disk_share = 0.0050
+site_longitude_deg = 280.0
+site_latitude_deg = 45.0
+window_hours = [0.5, 1.5]
 [bodies.orbit]
 scale = -0.501418558           # -M_Cb / M_C
 type = "transit_orbit"
@@ -335,6 +381,26 @@ spots = [
 from_year = 1960.0
 spots = [
     { longitude_deg = 328.68, latitude_deg = 45.0, radius_deg = 21.0 },
+]
+[[bodies.starspots.epochs]]    # TESS sector 20, 2020.02 [TESSSPOT]
+from_year = 2019.0
+spots = [
+    { longitude_deg = 307.52, latitude_deg = 45.0, radius_deg = 25.5 },
+]
+[[bodies.starspots.epochs]]    # sector 46, 2021.96
+from_year = 2020.99
+spots = [
+    { longitude_deg = 80.83, latitude_deg = 45.0, radius_deg = 21.8 },
+]
+[[bodies.starspots.epochs]]    # sector 60, 2023.01
+from_year = 2022.49
+spots = [
+    { longitude_deg = 60.33, latitude_deg = 45.0, radius_deg = 15.6 },
+]
+[[bodies.starspots.epochs]]    # sector 72, 2023.90
+from_year = 2023.45
+spots = [
+    { longitude_deg = 351.24, latitude_deg = 45.0, radius_deg = 31.2 },
 ]
 [bodies.orbit]
 scale = 0.498581442            # M_Ca / M_C
@@ -487,6 +553,56 @@ caption = """\
     unique: the light alone cannot say which star a spot is on."""
 
 [[events]]
+name = "24 March 1971: a flare, caught in the ultraviolet"
+focus_orbits_only = true
+time = "1971-03-24 03:54"
+focus = "Castor Ca"
+frame = "Castor C-centered"
+from_body = "Sun"
+distance_km = 2.5e6
+warp = 60.0                    # 1 minute per second
+light_curve_span_days = 0.1
+# [MB71], [BO74]
+caption = """\
+    Moffett and Bopp were monitoring YY Gem when one star flared: in four minutes \
+    its light rose 1.2 magnitudes in the ultraviolet, about 0.2 in visible light, \
+    and faded over half an hour. A spectrum showed which star it was. The site \
+    is the region Bopp mapped, near a dark spot; its latitude and size are assumed."""
+
+[[events]]
+name = "28 March 1971: the same region again"
+focus_orbits_only = true
+time = "1971-03-28 04:15"
+focus = "Castor Ca"
+frame = "Castor C-centered"
+from_body = "Sun"
+distance_km = 2.5e6
+warp = 60.0
+light_curve_span_days = 0.1
+# [MB71], [BO74]
+caption = """\
+    Four days later the same star flared twice in fifteen minutes. This time the \
+    ultraviolet rose only 0.6 magnitude, yet the hydrogen emission was far stronger \
+    than on the 24th. Three flares within five days came from one region, Bopp \
+    found, no more than 60 degrees across."""
+
+[[events]]
+name = "2023: the spots TESS saw"
+focus_orbits_only = true
+time = "2023-11-25"
+focus = "Castor C"
+frame = "Castor C-centered"
+from_orbit_normal = "Castor Cb"
+distance_km = 1.2e7
+warp = 1800.0
+# [TESSSPOT]
+caption = """\
+    TESS recorded YY Gem four times between 2019 and 2023, half a century after \
+    the light curve of 1971. Dark regions keep returning near the same quarters of the orbit, \
+    but they grow and shrink from year to year. The spots shown are fitted to its \
+    light of late 2023. Light alone cannot tell which star each one is on."""
+
+[[events]]
 name = "Castor A from above the wide orbit: 92 degrees"
 focus_orbits_only = true
 time = "2026-11-10"
@@ -566,7 +682,7 @@ warp = 1800.0                  # 30 minutes per second: one orbit in 39 s
 caption = """\
     Each star has 0.60 solar masses and a radius of 0.62 Suns, and they sit only \
     6 radii apart. The eclipses let their sizes be measured to one percent. Both \
-    are active flare stars. The spots are the 1971 pattern, kept for lack of a later fit."""
+    are active flare stars. The spots are the last pattern TESS gave, from late 2023."""
 
 [[events]]
 name = "All six: C on its ~14,500-year orbit"

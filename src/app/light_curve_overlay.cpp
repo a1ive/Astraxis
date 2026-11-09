@@ -239,9 +239,12 @@ void draw_light_curve(const CaptionFonts& fonts, const Scene& scene, const Light
     };
     if (lc.quiescent_mag > 0.0) {
         // The quiescent level is 0, and brighter is negative.
-        for (double k = 0.0; k <= lc.quiescent_mag + 1e-6; k += 1.0) {
-            std::snprintf(text, sizeof(text), k == 0.0 ? "0" : "-%.0f", k);
-            tick(lc.quiescent_mag - k);
+        const int first = static_cast<int>(-std::floor(lc.quiescent_mag / step + 1e-6));
+        const int last = static_cast<int>(std::floor((lc.depth_mag - lc.quiescent_mag) / step + 1e-6));
+        for (int k = first; k <= last; ++k) {
+            const double value = k * step;
+            std::snprintf(text, sizeof(text), step < 1.0 && k != 0 ? "%.1f" : "%.0f", value);
+            tick(lc.quiescent_mag + value);
         }
     } else {
         for (double m = 0.0; m <= lc.depth_mag + 1e-6; m += step) {

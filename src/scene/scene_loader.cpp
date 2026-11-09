@@ -1305,50 +1305,64 @@ void Loader::parse(const toml::table& root, Scene& out)
             m_roche_stars.push_back(spec);
         }
 
-        // [bodies.flare]: one recorded flare of a star (see StarFlare).
-        if (const toml::table* f = (*t)["flare"].as_table()) {
-            const std::string fctx = ctx + " flare";
+        // [[bodies.flares]]: recorded flares of a star (see StarFlare).
+        if (const toml::array* flares = (*t)["flares"].as_array()) {
+            const std::string fctx = ctx + " flares";
             if (body.kind != BodyKind::Star || t->contains("roche")) {
-                fail(ctx, "only a spherical star can have a flare");
+                fail(ctx, "only a spherical star can have flares");
             }
-            StarFlare& flare = body.flare;
-            flare.t_zero_tdb = parse_time(*f, "time", fctx);
-            flare.temperature_k = get_double(*f, "temperature_k", fctx);
-            flare.peak_disk_share = get_double(*f, "peak_disk_share", fctx);
-            flare.site_offset_deg = get_double(*f, "site_offset_deg", fctx);
-            flare.surface_scale = get_double_or(*f, "surface_scale", 1.0);
-            double window[2] = {0.0, 0.0};
-            get_array(*f, "window_hours", fctx, window, 2, 2);
-            flare.before_s = window[0] * 3600.0;
-            flare.after_s = window[1] * 3600.0;
-            const std::string file = get_string(*f, "curve", fctx);
-            std::ifstream in(m_asset_root / file);
-            if (!in) {
-                fail(fctx, "cannot open " + file);
-            }
-            std::string line;
-            bool header_seen = false;
-            while (std::getline(in, line)) { // "minutes,flux", '#' comments
-                if (line.empty() || line[0] == '#') {
-                    continue;
+            for (const toml::node& flare_node : *flares) {
+                const toml::table* f = flare_node.as_table();
+                if (!f) {
+                    fail(fctx, "must be tables");
                 }
-                if (!header_seen) {
-                    header_seen = true;
-                    continue;
+                StarFlare flare;
+                flare.t_zero_tdb = parse_time(*f, "time", fctx);
+                flare.temperature_k = get_double(*f, "temperature_k", fctx);
+                flare.peak_disk_share = get_double(*f, "peak_disk_share", fctx);
+                flare.site_offset_deg = get_double_or(*f, "site_offset_deg", flare.site_offset_deg);
+                if (f->contains("site_longitude_deg")) { // fixed on the star: longitude as for starspots
+                    const double lon = get_double(*f, "site_longitude_deg", fctx) * kDegToRad;
+                    const double lat = get_double(*f, "site_latitude_deg", fctx) * kDegToRad;
+                    flare.site_body_fixed = true;
+                    flare.site_body =
+                        glm::dvec3(std::cos(lat) * std::cos(lon), std::cos(lat) * std::sin(lon), std::sin(lat));
                 }
-                char* end = nullptr;
-                const double minutes = std::strtod(line.c_str(), &end);
-                const double value = *end == ',' ? std::strtod(end + 1, nullptr) : 0.0;
-                if (value <= 0.0 || (!flare.t_s.empty() && minutes * 60.0 <= flare.t_s.back())) {
-                    fail(fctx, "bad line in " + file + ": " + line);
+                flare.surface_scale = get_double_or(*f, "surface_scale", 1.0);
+                double window[2] = {0.0, 0.0};
+                get_array(*f, "window_hours", fctx, window, 2, 2);
+                flare.before_s = window[0] * 3600.0;
+                flare.after_s = window[1] * 3600.0;
+                const std::string file = get_string(*f, "curve", fctx);
+                std::ifstream in(m_asset_root / file);
+                if (!in) {
+                    fail(fctx, "cannot open " + file);
                 }
-                flare.t_s.push_back(minutes * 60.0);
-                flare.factor.push_back(value);
-                flare.peak_factor = std::max(flare.peak_factor, value);
-            }
-            if (flare.t_s.size() < 2 || flare.temperature_k <= 0.0 || flare.peak_disk_share <= 0.0 ||
-                flare.surface_scale <= 0.0) {
-                fail(fctx, "needs a curve of 2 points or more, temperature_k, peak_disk_share and surface_scale > 0");
+                std::string line;
+                bool header_seen = false;
+                while (std::getline(in, line)) { // "minutes,flux", '#' comments
+                    if (line.empty() || line[0] == '#') {
+                        continue;
+                    }
+                    if (!header_seen) {
+                        header_seen = true;
+                        continue;
+                    }
+                    char* end = nullptr;
+                    const double minutes = std::strtod(line.c_str(), &end);
+                    const double value = *end == ',' ? std::strtod(end + 1, nullptr) : 0.0;
+                    if (value <= 0.0 || (!flare.t_s.empty() && minutes * 60.0 <= flare.t_s.back())) {
+                        fail(fctx, "bad line in " + file + ": " + line);
+                    }
+                    flare.t_s.push_back(minutes * 60.0);
+                    flare.factor.push_back(value);
+                    flare.peak_factor = std::max(flare.peak_factor, value);
+                }
+                if (flare.t_s.size() < 2 || flare.temperature_k <= 0.0 || flare.peak_disk_share <= 0.0 ||
+                    flare.surface_scale <= 0.0) {
+                    fail(fctx, "needs a curve of 2 points or more, temperature_k, peak_disk_share and surface_scale > 0");
+                }
+                body.flares.push_back(std::move(flare));
             }
         }
 
@@ -2127,6 +2141,7 @@ void Loader::parse(const toml::table& root, Scene& out)
             e.magnetic_lines = (*t)["magnetic_lines"].value<bool>().value_or(false);
             e.flux_tubes = (*t)["flux_tubes"].value<bool>().value_or(false);
             e.focus_orbits_only = (*t)["focus_orbits_only"].value<bool>().value_or(false);
+            e.light_curve_span_days = get_double_or(*t, "light_curve_span_days", 0.0);
             e.hide_orbits = (*t)["hide_orbits"].value<bool>().value_or(false);
             if (const auto view = (*t)["magnetic_map"].value<std::string>()) {
                 if (*view != "surface" && *view != "deep" && *view != "crust") {
@@ -2403,6 +2418,7 @@ void Loader::parse(const toml::table& root, Scene& out)
         curve.wavelength_nm = get_double_or(*lc, "wavelength_nm", curve.wavelength_nm);
         curve.limb_darkening = get_double_or(*lc, "limb_darkening", curve.limb_darkening);
         curve.span_days = get_double(*lc, "span_days", ctx);
+        curve.default_span_days = curve.span_days;
         if (curve.wavelength_nm <= 0.0 || curve.span_days <= 0.0 || curve.limb_darkening < 0.0 ||
             curve.limb_darkening > 1.0) {
             fail(ctx, "needs wavelength_nm > 0, span_days > 0 and 0 <= limb_darkening <= 1");

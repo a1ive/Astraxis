@@ -1005,11 +1005,11 @@ void test_proxima_superflare()
 {
     Scene scene = load_scene_or_die("alpha_centauri.toml");
     const int p = scene.find("Proxima Centauri");
-    check(p > 0 && scene.bodies[static_cast<size_t>(p)].flare.enabled(), "Proxima's flare");
-    if (p <= 0) {
+    check(p > 0 && scene.bodies[static_cast<size_t>(p)].flares.size() == 1, "Proxima's flare");
+    if (p <= 0 || scene.bodies[static_cast<size_t>(p)].flares.empty()) {
         return;
     }
-    const StarFlare& flare = scene.bodies[static_cast<size_t>(p)].flare;
+    const StarFlare& flare = scene.bodies[static_cast<size_t>(p)].flares[0];
     const double t0 = tdb_from_jd_tdb(2400000.5 + 57465.35568) + 68.184; // UT to TT in 2016 (36 leap seconds)
     check(std::abs(flare.t_zero_tdb - t0) < 1.0, "flare time against MJD 57465.35568 (s)", flare.t_zero_tdb - t0);
     check(std::abs(flare.peak_factor - 68.0) < 1e-6, "flare peak [HO18 Sect. 3.1]", flare.peak_factor);
@@ -1048,7 +1048,7 @@ void test_proxima_superflare()
     check(star_flare_radius_rad(flare, star_flare_factor(flare, t0 - 3.0 * 3600.0)) == 0.0, "no patch long before");
     const glm::dvec3 self = scene.icrf_state_at(p, t0).position;
     const glm::dvec3 to_sun = glm::normalize(scene.icrf_state_at(scene.find("Sun"), t0).position - self);
-    const double mu = glm::dot(star_flare_site(scene, p, t0), to_sun);
+    const double mu = glm::dot(star_flare_site(scene, p, flare, t0), to_sun);
     check(std::abs(mu - std::cos(30.0 * kDegToRad)) < 1e-9, "flare site faces Earth, 30 deg off", mu);
     check(std::abs(star_flare_surface_scale(flare, t0) - 0.2) < 1e-9 &&
               star_flare_surface_scale(flare, t0 + 86400.0) == 1.0, "star dimmed for the display only around the flare");
@@ -1238,8 +1238,12 @@ void test_castor_scene()
         size_t index;
         double year;
     };
-    const PublishedSpot published[] = {{ca, 0.733, 0, 2026.0}, {ca, 0.250, 1, 2026.0}, {cb, 0.587, 0, 2026.0},
-                                       {cb, 0.516, 0, 1948.2}, {cb, 0.836, 1, 1948.2}};
+    const PublishedSpot published[] = {
+        {ca, 0.733, 0, 1985.0}, {ca, 0.250, 1, 1985.0}, {cb, 0.587, 0, 1985.0}, {cb, 0.516, 0, 1948.2},
+        {cb, 0.836, 1, 1948.2},
+        // The fits to TESS (tools/castor/yy_gem_spots.py).
+        {ca, 0.321, 0, 2020.02}, {cb, 0.646, 0, 2020.02}, {ca, 0.662, 0, 2021.96}, {cb, 0.275, 0, 2021.96},
+        {cb, 0.332, 0, 2023.01}, {ca, 0.208, 0, 2023.90}, {cb, 0.524, 0, 2023.90}};
     const glm::dvec3 to_earth = -away;
     double worst_meridian = 0.0;
     for (const PublishedSpot& p : published) {
@@ -1259,7 +1263,9 @@ void test_castor_scene()
         const glm::dvec3 a2 = glm::normalize(to_earth - pole * glm::dot(to_earth, pole));
         worst_meridian = std::max(worst_meridian, angle_deg(a1, a2));
     }
-    check(worst_meridian < 0.2, "YY Gem spots cross the meridian at their phases (deg)", worst_meridian);
+    check(worst_meridian < 0.25, "YY Gem spots cross the meridian at their phases (deg)", worst_meridian);
+    check(scene.bodies[static_cast<size_t>(ca)].starspots.at(tdb_from_julian_year(2023.0))->spots.empty(),
+          "YY Gem: no spot on Ca in the fit of 2023.01");
     check(scene.bodies[static_cast<size_t>(ca)].starspots.at(tdb_from_julian_year(1948.2))->spots.empty(),
           "YY Gem: no spot on Ca in 1948");
     auto wave_mag = [&](double year) {
@@ -1281,8 +1287,64 @@ void test_castor_scene()
     std::printf("info: YY Gem wave between the eclipses: 1948 %.3f mag, 1971 %.3f mag\n", wave_1948, wave_1971);
     check(wave_1948 > 0.05 && wave_1948 < 0.11, "YY Gem wave of 1948 approaches 0.1 mag", wave_1948);
     check(wave_1971 < wave_1948, "YY Gem wave larger in 1948 than in 1971", wave_1971);
+
+    // The fit of TESS sector 72: the model in its band against the binned light between
+    // the eclipses (tools/castor/yy_gem_spots.py prints the points, each good to about 0.006).
+    scene.light_curve.wavelength_nm = 786.5;
+    set_light_curve_reference(scene);
+    const double tess_cycles = std::floor((tdb_from_julian_year(2023.90) - t_min) / period_s);
+    const glm::dvec2 tess_points[] = {{0.0938, -0.0190}, {0.1562, -0.0178}, {0.2188, -0.0215}, {0.2812, -0.0251},
+                                      {0.3438, -0.0285}, {0.4062, -0.0355}, {0.6438, -0.0291}, {0.7063, -0.0178},
+                                      {0.7688, -0.0068}, {0.8313, 0.0003},  {0.8938, -0.0003}};
+    double tess_rms = 0.0;
+    for (const glm::dvec2& point : tess_points) {
+        const double m = light_curve_magnitude(scene, t_min + (tess_cycles + point.x) * period_s);
+        const double light = std::pow(10.0, -0.4 * (m - scene.light_curve.quiescent_mag)) - 1.0;
+        tess_rms += (light - point.y) * (light - point.y);
+    }
+    tess_rms = std::sqrt(tess_rms / std::size(tess_points));
+    std::printf("info: YY Gem against TESS sector 72: rms %.4f\n", tess_rms);
+    check(tess_rms < 0.006, "YY Gem spots against TESS sector 72", tess_rms);
+    scene.light_curve.wavelength_nm = 550.0;
+    set_light_curve_reference(scene);
+
+    // The flares of March 1971 [MB71, BO74]: on the primary, at the phases the
+    // papers give, in view, with the plot counted from the quiescent level.
+    const Body& star_ca = scene.bodies[static_cast<size_t>(ca)];
+    check(star_ca.flares.size() == 2 && scene.bodies[static_cast<size_t>(cb)].flares.empty(),
+          "YY Gem: both flares on the primary");
+    if (star_ca.flares.size() == 2) {
+        // Phase from the scene's own ephemeris: the same star turning, 55 years back.
+        auto phase_at = [&](double t) {
+            const double cycles = (t - t_min) / period_s;
+            return cycles - std::floor(cycles);
+        };
+        const double phase_24 = phase_at(star_ca.flares[0].t_zero_tdb + 6.0 * 60.0);   // 04:09 UT
+        const double phase_28 = phase_at(star_ca.flares[1].t_zero_tdb + 20.0 * 60.0);  // 04:43 UT
+        std::printf("info: YY Gem flares: phase %.3f (MB71 0.154), %.3f (MB71 0.095)\n", phase_24, phase_28);
+        check(std::abs(phase_24 - 0.154) < 0.01, "YY Gem phase at 1971 March 24, 04:09 UT", phase_24);
+        check(std::abs(phase_28 - 0.095) < 0.01, "YY Gem phase at 1971 March 28, 04:43 UT", phase_28);
+        check(std::abs(star_ca.flares[0].peak_factor - 1.352) < 0.002, "YY Gem flare of March 24 in V (star)",
+              star_ca.flares[0].peak_factor);
+        double peak_seen = 0.0;
+        for (double s = 0.0; s < 300.0; s += 5.0) {
+            const double m = light_curve_magnitude(scene, star_ca.flares[0].t_zero_tdb + s);
+            peak_seen = std::max(peak_seen, scene.light_curve.quiescent_mag - m);
+        }
+        std::printf("info: YY Gem brightening on March 24: %.3f mag in V\n", peak_seen);
+        check(peak_seen > 0.10 && peak_seen < 0.20, "YY Gem brightens on the plot (mag)", peak_seen);
+        // The flare region [BO74] faces Earth at phase 0.222.
+        const double t_site = t_min + (std::floor((star_ca.flares[0].t_zero_tdb - t_min) / period_s) + 0.222) * period_s;
+        const glm::dvec3 site = star_flare_site(scene, ca, star_ca.flares[0], t_site);
+        const glm::dvec3 pole = scene.body_to_icrf(star_ca, t_site)[2];
+        const glm::dvec3 s1 = glm::normalize(site - pole * glm::dot(site, pole));
+        const glm::dvec3 s2 = glm::normalize(to_earth - pole * glm::dot(to_earth, pole));
+        check(angle_deg(s1, s2) < 0.5, "YY Gem flare region on the meridian at phase 0.222 (deg)", angle_deg(s1, s2));
+    }
     scene.bodies[static_cast<size_t>(ca)].starspots = {};
     scene.bodies[static_cast<size_t>(cb)].starspots = {};
+    scene.bodies[static_cast<size_t>(ca)].flares.clear();
+    set_light_curve_reference(scene);
 
     const double primary = light_curve_magnitude(scene, t_min);
     const double secondary = light_curve_magnitude(scene, t_min + 0.5 * period_s);

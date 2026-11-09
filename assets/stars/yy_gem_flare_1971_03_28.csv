@@ -1,0 +1,16 @@
+# YY Gem flare, the flaring star's V light over its quiescent light. Moffett & Bopp 1971, Fig. 3 (V; the first peak from B).
+# tools/castor/yy_gem_flares.py. Minutes from the time in castor.toml.
+minutes,flux
+-1.00,1.0000
+0.60,1.1658
+1.00,1.1554
+2.40,1.1316
+6.70,1.0552
+10.10,1.1062
+13.60,1.1741
+16.50,1.1316
+24.20,1.0552
+31.00,1.0382
+35.40,1.0255
+41.80,1.0127
+47.70,1.0000

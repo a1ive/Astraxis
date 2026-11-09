@@ -285,6 +285,11 @@ void Simulation::update(double real_dt)
 
     // Use the final clock after tour jumps and warp changes, as the plot does.
     // Keep cached samples while hidden; catch up before the plot reappears.
+    if (LightCurve& curve = m_scene.light_curve; curve.enabled()) {
+        const int event = m_scene.active_event();
+        const double span = event >= 0 ? m_scene.events[static_cast<size_t>(event)].light_curve_span_days : 0.0;
+        curve.span_days = span > 0.0 ? span : curve.default_span_days;
+    }
     const double light_curve_rate = m_clock.paused ? 0.0 : m_clock.warp;
     if (light_curve_in_view() && light_curve_visibility(m_scene.light_curve, light_curve_rate) > 0.0) {
         m_light_curve.update(m_scene, m_clock.t_tdb);
@@ -327,7 +332,7 @@ bool Simulation::light_curve_in_view() const
     if (m_scene.light_curve.shown_during_flare) {
         const std::vector<int>& stars = m_scene.light_curve.stars;
         if (std::none_of(stars.begin(), stars.end(), [&](int star) {
-                return star_flare_in_window(m_scene.bodies[static_cast<size_t>(star)].flare, m_clock.t_tdb);
+                return body_flare_in_window(m_scene.bodies[static_cast<size_t>(star)], m_clock.t_tdb);
             })) {
             return false;
         }

@@ -354,6 +354,44 @@ double star_flare_factor(const StarFlare& flare, double t_tdb)
     return flare.factor[i - 1] + u * (flare.factor[i] - flare.factor[i - 1]);
 }
 
+double body_flare_factor(const Body& body, double t_tdb)
+{
+    double factor = 1.0;
+    for (const StarFlare& flare : body.flares) {
+        factor *= star_flare_factor(flare, t_tdb);
+    }
+    return factor;
+}
+
+const StarFlare* strongest_flare(const Body& body, double t_tdb)
+{
+    const StarFlare* found = nullptr;
+    double brightest = 1.0;
+    for (const StarFlare& flare : body.flares) {
+        const double factor = star_flare_factor(flare, t_tdb);
+        if (factor > brightest) {
+            brightest = factor;
+            found = &flare;
+        }
+    }
+    return found;
+}
+
+bool body_flare_in_window(const Body& body, double t_tdb)
+{
+    return std::any_of(body.flares.begin(), body.flares.end(),
+                       [&](const StarFlare& flare) { return star_flare_in_window(flare, t_tdb); });
+}
+
+double body_flare_surface_scale(const Body& body, double t_tdb)
+{
+    double scale = 1.0;
+    for (const StarFlare& flare : body.flares) {
+        scale = std::min(scale, star_flare_surface_scale(flare, t_tdb));
+    }
+    return scale;
+}
+
 bool star_flare_in_window(const StarFlare& flare, double t_tdb)
 {
     return flare.enabled() && t_tdb >= flare.t_zero_tdb - flare.before_s && t_tdb <= flare.t_zero_tdb + flare.after_s;
@@ -375,19 +413,23 @@ double star_flare_radius_rad(const StarFlare& flare, double factor)
     if (factor <= 1.0 || flare.peak_factor <= 1.0) {
         return 0.0;
     }
-    // A cap of angular radius r seen at mu covers sin^2 r mu of the disk.
-    const double mu = std::cos(flare.site_offset_deg * kDegToRad);
+    // A cap of angular radius r seen at mu covers sin^2 r mu of the disk; a site fixed on
+    // the star turns, and peak_disk_share is then sin^2 r itself.
+    const double mu = flare.site_body_fixed ? 1.0 : std::cos(flare.site_offset_deg * kDegToRad);
     const double share = flare.peak_disk_share * (factor - 1.0) / (flare.peak_factor - 1.0);
     return std::asin(std::clamp(std::sqrt(share / mu), 0.0, 1.0));
 }
 
-glm::dvec3 star_flare_site(const Scene& scene, int star, double t_tdb)
+glm::dvec3 star_flare_site(const Scene& scene, int star, const StarFlare& flare, double t_tdb)
 {
+    if (flare.site_body_fixed) {
+        return scene.body_to_icrf(scene.bodies[static_cast<size_t>(star)], t_tdb) * flare.site_body;
+    }
     const glm::dvec3 self = scene.icrf_state_at(star, t_tdb).position;
     const int sun = scene.find("Sun");
     const glm::dvec3 to_sun = glm::normalize((sun >= 0 ? scene.icrf_state_at(sun, t_tdb).position : glm::dvec3(0.0)) - self);
     const glm::dvec3 north = glm::normalize(glm::dvec3(0.0, 0.0, 1.0) - to_sun * to_sun.z);
-    const double offset = scene.bodies[static_cast<size_t>(star)].flare.site_offset_deg * kDegToRad;
+    const double offset = flare.site_offset_deg * kDegToRad;
     return to_sun * std::cos(offset) + north * std::sin(offset);
 }
 
@@ -457,7 +499,7 @@ StarDisk star_disk_at(const Scene& scene, int star, double t_tdb)
         disk.spots = epoch;
         disk.spot_temperature_k = body.temperature_k * body.starspots.temperature_ratio;
     }
-    disk.flux_factor = star_flare_factor(body.flare, t_tdb);
+    disk.flux_factor = body_flare_factor(body, t_tdb);
     return disk;
 }
 
@@ -467,6 +509,7 @@ void set_light_curve_reference(Scene& scene)
     lc.reference_flux = 0.0;
     lc.quiescent_mag = 0.0;
     double quiescent = 0.0;
+    double brightest_flare = 0.0; // the most any one flare adds
     for (int star : lc.stars) {
         const Body& body = scene.bodies[static_cast<size_t>(star)];
         double brightest = 0.0;
@@ -482,9 +525,13 @@ void set_light_curve_reference(Scene& scene)
             const StarDisk disk{glm::dvec3(0.0), body.equatorial_radius_km, body.temperature_k};
             brightest = disks_full_flux(std::span(&disk, 1), lc.wavelength_nm, lc.limb_darkening);
         }
-        lc.reference_flux += brightest * (body.flare.enabled() ? body.flare.peak_factor : 1.0);
+        lc.reference_flux += brightest;
         quiescent += brightest;
+        for (const StarFlare& flare : body.flares) {
+            brightest_flare = std::max(brightest_flare, brightest * (flare.peak_factor - 1.0));
+        }
     }
+    lc.reference_flux += brightest_flare;
     if (quiescent < lc.reference_flux) {
         lc.quiescent_mag = -2.5 * std::log10(quiescent / lc.reference_flux);
     }

@@ -199,7 +199,7 @@ temperature_k = 3050.0         # [BO12]
 luminosity_solar = 0.00185
 orbit_color = "#ff8a6a"
 trail_history_days = 365250.0  # a thousand years: Proxima's orbit takes ~550,000
-[bodies.flare]                 # [HO18]
+[[bodies.flares]]              # [HO18]
 time = "2016-03-18 08:32:10"
 curve = "stars/proxima_superflare_2016.csv"
 temperature_k = 9000.0

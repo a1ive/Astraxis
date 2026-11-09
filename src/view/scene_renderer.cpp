@@ -1212,15 +1212,15 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
                     }
                 }
             }
-            if (body.flare.enabled()) {
+            if (!body.flares.empty()) {
                 const double t = sim.clock().t_tdb;
-                item.color *= static_cast<float>(star_flare_surface_scale(body.flare, t));
-                const double radius = star_flare_radius_rad(body.flare, star_flare_factor(body.flare, t));
-                if (radius > 0.0) {
+                item.color *= static_cast<float>(body_flare_surface_scale(body, t));
+                if (const StarFlare* flare = strongest_flare(body, t)) {
+                    const double radius = star_flare_radius_rad(*flare, star_flare_factor(*flare, t));
                     const glm::dvec3 site = glm::transpose(scene.body_to_icrf(body, t)) *
-                                            star_flare_site(scene, static_cast<int>(i), t);
+                                            star_flare_site(scene, static_cast<int>(i), *flare, t);
                     item.flare = glm::vec4(glm::vec3(site), static_cast<float>(radius));
-                    item.flare_color = glm::vec3(blackbody_linear_srgb(body.flare.temperature_k)) * kFlareSurface;
+                    item.flare_color = glm::vec3(blackbody_linear_srgb(flare->temperature_k)) * kFlareSurface;
                 }
             }
             item.texture = nullptr;
@@ -2023,8 +2023,8 @@ void SceneRenderer::draw_stars(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pas
         s.display_gain = static_cast<float>(observed_star_display_gain(
             observed, static_cast<int>(&body - scene.bodies.data()), sim.clock().t_tdb));
         s.draw_disk = s.angular_radius * viewport_half < 3.0f; // otherwise the sphere shows it
-        if (body.flare.enabled()) { // compressed as magnitudes are (observed_star_display_gain)
-            s.display_gain *= static_cast<float>(std::pow(star_flare_factor(body.flare, sim.clock().t_tdb), 0.56));
+        if (!body.flares.empty()) { // compressed as magnitudes are (observed_star_display_gain)
+            s.display_gain *= static_cast<float>(std::pow(body_flare_factor(body, sim.clock().t_tdb), 0.56));
         }
         // A thick disk in scattered light dims the star behind it.
         if (scene.disk.thick && scene.disk.enabled()) {

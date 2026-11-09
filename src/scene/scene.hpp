@@ -84,9 +84,9 @@ struct StarSpots {
 
 // One recorded flare of a star ([bodies.flare]). Its light is the observed
 // curve; the bright patch drawn for it keeps the temperature and changes in
-// area, so that the patch's light follows the curve. The site is an assumption:
-// on the side facing the Sun body (the observer), site_offset_deg from its
-// center, toward the north.
+// area, so that the patch's light follows the curve. The site is either fixed on
+// the star (site_body_fixed), or an assumption: on the side facing the Sun body
+// (the observer), site_offset_deg from its center, toward the north.
 struct StarFlare {
     double t_zero_tdb = 0.0;   // the curve's time zero
     std::vector<double> t_s;   // from t_zero_tdb, ascending
@@ -95,6 +95,8 @@ struct StarFlare {
     double temperature_k = 9000.0;
     double peak_disk_share = 0.0; // of the disk's area covered by the patch at the peak
     double site_offset_deg = 30.0;
+    bool site_body_fixed = false;
+    glm::dvec3 site_body{1.0, 0.0, 0.0}; // unit, in the body's axes
     double surface_scale = 1.0;   // of the drawn star around the flare (the usual one saturates)
     double before_s = 0.0;        // the time around t_zero_tdb it applies, and the light curve shows
     double after_s = 0.0;
@@ -419,7 +421,7 @@ struct Body {
         double t_tdb = 0.0;
     } shape_after;
     StarSpots starspots; // none unless enabled()
-    StarFlare flare;     // none unless enabled()
+    std::vector<StarFlare> flares;
     // A star filling its Roche lobe around `synchronous_with` (Algol B): its
     // surface, also drawn as `shape`; the radii are then the distances from its
     // center to L1, the sides and the poles.
@@ -671,6 +673,7 @@ struct SceneEvent {
     // are drawn, so that a close view is not crossed by those of distant bodies.
     bool focus_orbits_only = false;
     bool hide_orbits = false; // none at all, where they would cross what the event shows
+    double light_curve_span_days = 0.0; // the plot's span while the event is on (0: the scene's)
     int flyby = -1;            // >= 0: the body whose pass of the focus the event shows (-1: looked for)
     std::string caption;        // a museum-style note on why the view is worth seeing; may be empty
 
@@ -726,7 +729,8 @@ struct LightCurve {
     std::string band = "V";     // shown with the plot
     double wavelength_nm = 550.0;
     double limb_darkening = 0.6; // u in I(mu) = 1 - u (1 - mu)
-    double span_days = 1.0;      // shown at once
+    double span_days = 1.0;      // shown at once: default_span_days, or the event's
+    double default_span_days = 1.0;
     double depth_mag = 1.0;      // the plot's range, from the deepest dip (set on load)
     // Magnitudes count from this light: every star as bright as it gets
     // (a pulsating one at its brightest), nothing hidden (set on load).
