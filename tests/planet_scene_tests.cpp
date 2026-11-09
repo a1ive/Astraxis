@@ -684,6 +684,29 @@ void test_ring_arcs()
                   std::abs(liberte->fade(0.5 * (y1989 + y2009)) - 0.5) < 0.01 && liberte->fade(y2009 + kSecondsPerDay) == 0.0,
               "Liberte fades out by 2009");
     }
+    // The new arc, CBET 5759: spread from 5 to almost 20 deg behind Fraternite's brightness
+    // maximum on 2021 Oct. 7-8, compact 8 +- 1 deg behind it on 2022 July 12.
+    const RingBand* fraternite = find_band(neptune, "Fraternite");
+    const RingBand* spread = find_band(neptune, "Sincerite (spread out)");
+    const RingBand* compact = find_band(neptune, "Sincerite");
+    if (fraternite && spread && compact) {
+        double keck = 0.0, webb = 0.0;
+        parse_utc("2021-10-07 12:00", &keck);
+        parse_utc("2022-07-12", &webb);
+        const double year = 365.25 * kSecondsPerDay;
+        check(spread->fade(keck) > 0.99 && spread->fade(keck - 2.0 * year) == 0.0 && spread->fade(webb) == 0.0,
+              "the spread material is there for Keck and gone for Webb", spread->fade(keck));
+        check(compact->fade(keck) == 0.0 && compact->fade(webb) == 1.0 && compact->fade(webb + 10.0 * year) == 1.0,
+              "the compact arc gathers by Webb's images and stays", compact->fade(keck));
+        check(std::abs(fraternite->arc_center_deg - compact->arc_center_deg - 8.0) < 0.01, "Sincerite 8 deg behind Fraternite");
+        const double near_end = fraternite->arc_center_deg - (spread->arc_center_deg + 0.5 * spread->arc_length_deg);
+        const double far_end = fraternite->arc_center_deg - (spread->arc_center_deg - 0.5 * spread->arc_length_deg);
+        check(std::abs(near_end - 5.0) < 0.01 && std::abs(far_end - 20.0) < 0.01, "the spread material 5 to 20 deg behind", far_end);
+        check(spread->arc_rate_deg_per_day == fraternite->arc_rate_deg_per_day && compact->arc_rate_deg_per_day == fraternite->arc_rate_deg_per_day,
+              "moving with the other arcs");
+        check(compact->optical_depth < fraternite->optical_depth, "and fainter than Fraternite");
+        check(compact->shaped() && spread->shaped(), "fading bands are drawn one by one");
+    }
 
     // Quaoar's arc moves at the circular mean motion at its radius.
     const Body& quaoar = scene.bodies[static_cast<size_t>(scene.find("Quaoar"))];

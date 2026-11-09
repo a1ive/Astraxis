@@ -511,7 +511,7 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
         {"thickness_km", number}, {"inner_ae_km", number}, {"outer_ae_km", number}, {"peri_deg", number},
         {"peri_rate_deg_per_day", number}, {"a_sin_i_km", number}, {"node_deg", number},
         {"node_rate_deg_per_day", number}, {"display_gain", number}, {"arc_length_deg", number}, {"arc_center_deg", number},
-        {"arc_rate_deg_per_day", number}, {"fade_out", list},
+        {"arc_rate_deg_per_day", number}, {"fade_out", list}, {"fade_in", list},
     };
     static const TemplateFields rings = {
         {"color", text}, {"gain", number}, {"phase_g", number}, {"profile", text},
@@ -1558,9 +1558,12 @@ void Loader::parse(const toml::table& root, Scene& out)
                 if (!(band.arc_length_deg >= 0.0 && band.arc_length_deg < 360.0)) {
                     fail(rctx, "band '" + band.name + "' needs 0 <= arc_length_deg < 360");
                 }
-                if (b->contains("fade_out")) {
-                    const std::string fctx = rctx + " band '" + band.name + "' fade_out";
-                    const toml::array* span = (*b)["fade_out"].as_array();
+                const auto read_fade = [&](const char* key, double* from, double* to) {
+                    if (!b->contains(key)) {
+                        return;
+                    }
+                    const std::string fctx = rctx + " band '" + band.name + "' " + key;
+                    const toml::array* span = (*b)[key].as_array();
                     double ends[2] = {0.0, 0.0};
                     for (size_t e = 0; e < 2; ++e) {
                         const std::optional<std::string> text =
@@ -1572,9 +1575,11 @@ void Loader::parse(const toml::table& root, Scene& out)
                     if (!(ends[1] > ends[0])) {
                         fail(fctx, "must end after it starts");
                     }
-                    band.fade_from_tdb = ends[0];
-                    band.fade_to_tdb = ends[1];
-                }
+                    *from = ends[0];
+                    *to = ends[1];
+                };
+                read_fade("fade_out", &band.fade_from_tdb, &band.fade_to_tdb);
+                read_fade("fade_in", &band.fade_in_from_tdb, &band.fade_in_to_tdb);
                 // The edges must not cross: the width varies by the difference of their a e.
                 if (band.inner_ae_km < 0.0 || band.outer_ae_km < 0.0 || band.a_sin_i_km < 0.0 ||
                     std::abs(band.outer_ae_km - band.inner_ae_km) >= band.outer_km - band.inner_km ||

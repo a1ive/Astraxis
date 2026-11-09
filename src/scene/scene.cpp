@@ -102,10 +102,14 @@ double Pulsation::max_temperature_k() const
 
 double RingBand::fade(double t_tdb) const
 {
-    if (!(fade_to_tdb > fade_from_tdb)) {
-        return 1.0;
+    double left = 1.0;
+    if (fade_to_tdb > fade_from_tdb) {
+        left *= std::clamp((fade_to_tdb - t_tdb) / (fade_to_tdb - fade_from_tdb), 0.0, 1.0);
     }
-    return std::clamp((fade_to_tdb - t_tdb) / (fade_to_tdb - fade_from_tdb), 0.0, 1.0);
+    if (fade_in_to_tdb > fade_in_from_tdb) {
+        left *= std::clamp((t_tdb - fade_in_from_tdb) / (fade_in_to_tdb - fade_in_from_tdb), 0.0, 1.0);
+    }
+    return left;
 }
 
 double ring_edge_radius(double a_km, double ae_km, double from_periapsis)

@@ -29,6 +29,7 @@
 # [VPV]  NASA, "Voyager: Planetary Voyage", science.nasa.gov/mission/voyager/planetary-voyage/
 #        (4,950 km above Neptune's north pole; Voyager 2 "diving below the ecliptic plane").
 # [PLM]  Triton's plumes: bodies/triton.toml.
+# [CBET] Souami et al., CBET 5759 (2026 Oct. 16): the new arc Sincerite; bodies/neptune.toml.
 # [NRV]  de Pater et al. 2018, "The rings of Neptune" (arXiv:1906.11728): the arcs' optical
 #        depth; Liberte and Courage had essentially disappeared by 2009.
 # [SOU22] Souami et al. 2022, A&A 657, A134: the arcs' mean motion, 820.11178 deg/day.
@@ -286,6 +287,26 @@ caption = """\
     leaving the planet, blue entering it. Instead of two even halves there are patches of \
     both colors at the same latitudes. The strongest, about 0.9 gauss, is three times what \
     the dipole alone would give, on the side its off-center field lies nearest."""
+
+# The view of the 1989 event, closer, at a moment when the arcs are on the left, clear of
+# Neptune's shadow and the caption.
+[[events]]
+name = "A new arc in the Adams ring (2022)"
+hide_orbits = true
+time_tdb = "2022-07-12 05:00"
+focus = "Neptune"
+frame = "Neptune equator"
+from_body = "Sun"
+phase_deg = 150.0
+elevation_deg = 35.0
+distance_km = 1.4e5
+warp = 30.0
+# [CBET], [NRV]
+caption = """\
+    Courage and Liberte had faded away by 2009. In October 2021, Keck saw new material \
+    spread from 5 to almost 20 degrees behind Fraternite. By July 2022, Webb found it drawn \
+    together 8 degrees behind: Sincerite, the first new arc seen since Voyager. Its length \
+    and brightness here are guesses."""
 
 # The clock is the observation time less the light time (tests/appearance_tests.cpp); the
 # camera is where the Earth is at that moment, seen from Neptune: the scene has no Earth.

@@ -22,6 +22,10 @@
 #        and 217.43 +- 0.30 deg on 2016 Aug 23 (light leaving Neptune 4.01 h before the
 #        05:33:52 UT frame of Table 1). Longitudes in the ring plane from the J2000.0
 #        ascending node of Neptune's equator.
+# [CBET] Souami, de Pater, Renner, Hedman, Sicardy, El Moutamid & Showalter, CBET 5759 (2026
+#        Oct. 16): new material trailing Fraternite's brightness maximum on the Adams ring, about
+#        5 to almost 20 deg behind it on 2021 Oct. 7-8 (Keck II, NIRC-2), and a more compact
+#        concentration 8 +- 1 deg behind it on 2022 July 12 (JWST, NIRCam), named Sincerite.
 # [NRV]  de Pater et al. 2018, "The rings of Neptune" (Planetary Ring Systems,
 #        arXiv:1906.11728): Table 1, arcs 15 km wide with normal optical depth 0.1;
 #        Sect. 2.1, Liberte and Courage had essentially disappeared by 2009.
@@ -60,7 +64,11 @@ surface = "geomag/neptune_br.fieldmap"
 # not drawn). The rings are dusty, so they scatter forward (g = 0.5, illustrative);
 # their dark, reddish tint and the gain are artistic (gain x tau x albedo about
 # twice that of Jupiter's main ring in jupiter.toml, so that the narrow Le Verrier
-# and Adams rings show; Galle and Lassell stay 100 times fainter).
+# and Adams rings show; Galle and Lassell stay 100 times fainter). The new material [CBET]
+# moves with the other arcs (assumed). Its place in 2021 and 2022 is measured, from
+# Fraternite's middle here; its optical depth, the compact arc's 4 deg, and when it
+# appeared before the first images are illustrative. It was detected at only 3 sigma or
+# more, so it is drawn well fainter than Fraternite.
 [rings]
 color = "#4c4440"
 gain = 400.0
@@ -137,3 +145,24 @@ arc_center_deg = 285.0                     # [ARCS]
 arc_length_deg = 1.0
 arc_rate_deg_per_day = 820.11178           # [SOU22]
 fade_out = ["1989-08-18 12:00", "2009-01-01"] # [NRV]
+
+[[rings.bands]]
+name = "Sincerite (spread out)"
+inner_km = 62925.50
+outer_km = 62940.50
+optical_depth = 0.02                       # illustrative
+arc_center_deg = 239.38                    # [CBET] 5 to 20 deg behind Fraternite
+arc_length_deg = 15.0
+arc_rate_deg_per_day = 820.11178           # assumed: with the other arcs
+fade_in = ["2020-10-07", "2021-10-07"]     # the end [CBET]; the start illustrative
+fade_out = ["2021-10-08", "2022-07-12"]    # [CBET]: gathered into the arc below
+
+[[rings.bands]]
+name = "Sincerite"
+inner_km = 62925.50
+outer_km = 62940.50
+optical_depth = 0.05                       # illustrative
+arc_center_deg = 243.88                    # [CBET] 8 +- 1 deg behind Fraternite
+arc_length_deg = 4.0                       # illustrative: [CBET] says "more compact"
+arc_rate_deg_per_day = 820.11178           # assumed: with the other arcs
+fade_in = ["2021-10-08", "2022-07-12"]     # [CBET]

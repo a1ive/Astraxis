@@ -19,7 +19,7 @@ Astraxis is an astronomy background app with planets, spacecraft and stars anima
 | Earth-Moon | Artemis missions, CAPSTONE and other lunar spacecraft; the Earth's city lights and aurora (from the Kp record since 1932) |
 | Saturn | Rings, major moons, retrograde Phoebe, the co-orbital Janus and Epimetheus trading orbits, Cassini's tour and Huygens' descent; northern and southern UV aurora overlays |
 | Uranus | The planet on its side, its eccentric rings and five large moons, Voyager 2's flyby; its lopsided magnetic field, and Webb's infrared H3+ glow with a model of its seasons |
-| Neptune | Rings with the Adams arcs, Triton's plumes, Voyager 2's closest pass; its off-center magnetic field and Webb's first infrared aurora |
+| Neptune | Rings with the Adams arcs and the new arc Sincerite, Triton's plumes, Voyager 2's closest pass; its off-center magnetic field and Webb's first infrared aurora |
 | Mercury: MESSENGER & BepiColombo | Gravity assists and orbits around Mercury |
 | Venus | Venus Express, Akatsuki, Zoozve and spacecraft flybys |
 | Mars | Phobos, Deimos, eight orbiters, comet Siding Spring and interstellar comet 3I/ATLAS |

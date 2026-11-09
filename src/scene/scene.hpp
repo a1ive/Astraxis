@@ -144,11 +144,14 @@ struct RingBand {
     // (TDB seconds since J2000; equal: never fades).
     double fade_from_tdb = 0.0;
     double fade_to_tdb = 0.0;
+    // And it rises linearly from 0 over this span (equal: there from the start).
+    double fade_in_from_tdb = 0.0;
+    double fade_in_to_tdb = 0.0;
 
     bool shaped() const
     {
         return inner_ae_km != 0.0 || outer_ae_km != 0.0 || a_sin_i_km != 0.0 || arc_length_deg > 0.0 ||
-               fade_to_tdb > fade_from_tdb;
+               fade_to_tdb > fade_from_tdb || fade_in_to_tdb > fade_in_from_tdb;
     }
     // Fraction of the optical depth left at t_tdb.
     double fade(double t_tdb) const;
