@@ -998,6 +998,75 @@ double find_light_maximum(const Scene& scene, double t_guess, double window)
     return 0.5 * (lo + hi);
 }
 
+// Proxima's superflare of 2016 [Howard et al. 2018]: the time, the peak of 68 and the
+// 38 over the two-minute integration, the energy in the g band, the plot counted from
+// the quiescent level and shown only around the flare, the patch on the Earth side.
+void test_proxima_superflare()
+{
+    Scene scene = load_scene_or_die("alpha_centauri.toml");
+    const int p = scene.find("Proxima Centauri");
+    check(p > 0 && scene.bodies[static_cast<size_t>(p)].flare.enabled(), "Proxima's flare");
+    if (p <= 0) {
+        return;
+    }
+    const StarFlare& flare = scene.bodies[static_cast<size_t>(p)].flare;
+    const double t0 = tdb_from_jd_tdb(2400000.5 + 57465.35568) + 68.184; // UT to TT in 2016 (36 leap seconds)
+    check(std::abs(flare.t_zero_tdb - t0) < 1.0, "flare time against MJD 57465.35568 (s)", flare.t_zero_tdb - t0);
+    check(std::abs(flare.peak_factor - 68.0) < 1e-6, "flare peak [HO18 Sect. 3.1]", flare.peak_factor);
+
+    // The peak integration (its center is -0.47 min in Fig. 1) and the energy in g.
+    double sum = 0.0;
+    const int n = 240;
+    for (int i = 0; i < n; ++i) {
+        sum += star_flare_factor(flare, t0 + (-0.47 + 2.0 * ((i + 0.5) / n - 0.5)) * 60.0);
+    }
+    const double integration = sum / n;
+    double energy = 0.0;
+    for (double s = -40.0 * 60.0; s < 90.0 * 60.0; s += 1.0) {
+        energy += (star_flare_factor(flare, t0 + s) - 1.0) * std::pow(10.0, 28.6);
+    }
+    std::printf("info: Proxima flare: %.1f over the peak integration, g energy 10^%.2f erg\n", integration,
+                std::log10(energy));
+    check(std::abs(integration - 37.0) < 4.0, "flare over the two-minute integration [HO18: 38]", integration);
+    check(std::abs(std::log10(energy) - 32.8) < 0.1, "flare energy in g [HO18: 10^32.8 erg]", std::log10(energy));
+
+    // The plot: from the peak to the quiescent level, which is g = 11.4 against the peak's 6.8.
+    const LightCurve& lc = scene.light_curve;
+    check(lc.stars.size() == 1 && lc.stars[0] == p, "the plot is Proxima's");
+    const double before = light_curve_magnitude(scene, t0 - 3600.0);
+    const double peak_time = flare.t_zero_tdb + flare.t_s[static_cast<size_t>(
+                                      std::max_element(flare.factor.begin(), flare.factor.end()) - flare.factor.begin())];
+    const double at_peak = light_curve_magnitude(scene, peak_time);
+    check(std::abs(lc.quiescent_mag - 2.5 * std::log10(68.0)) < 1e-3, "quiescent level below the peak (mag)", lc.quiescent_mag);
+    check(std::abs(before - lc.quiescent_mag) < 1e-3, "quiescent before the flare (mag)", before);
+    check(at_peak < 1e-3, "the peak is the plot's top (mag)", at_peak);
+    check(std::abs(11.4 - lc.quiescent_mag - 6.8) < 0.05, "g at the peak [HO18: 6.8]", 11.4 - lc.quiescent_mag);
+
+    // The patch: about 10 degrees across at the peak, nothing before; 30 degrees from the sub-Earth point.
+    const double radius = star_flare_radius_rad(flare, flare.peak_factor) * kRadToDeg;
+    check(std::abs(radius - 10.0) < 0.2, "flare patch radius at the peak (deg)", radius);
+    check(star_flare_radius_rad(flare, star_flare_factor(flare, t0 - 3.0 * 3600.0)) == 0.0, "no patch long before");
+    const glm::dvec3 self = scene.icrf_state_at(p, t0).position;
+    const glm::dvec3 to_sun = glm::normalize(scene.icrf_state_at(scene.find("Sun"), t0).position - self);
+    const double mu = glm::dot(star_flare_site(scene, p, t0), to_sun);
+    check(std::abs(mu - std::cos(30.0 * kDegToRad)) < 1e-9, "flare site faces Earth, 30 deg off", mu);
+    check(std::abs(star_flare_surface_scale(flare, t0) - 0.2) < 1e-9 &&
+              star_flare_surface_scale(flare, t0 + 86400.0) == 1.0, "star dimmed for the display only around the flare");
+
+    Simulation sim;
+    std::string error;
+    check(sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/alpha_centauri.toml", &error), "alpha Cen simulation loads");
+    const int star = sim.scene().find("Proxima Centauri");
+    sim.set_focus(star);
+    sim.clock().t_tdb = t0;
+    check(sim.light_curve_in_view(), "Proxima's plot shows around the flare");
+    sim.clock().t_tdb = t0 + 86400.0;
+    check(!sim.light_curve_in_view(), "Proxima's plot hidden a day later");
+    sim.clock().t_tdb = t0;
+    sim.set_focus(sim.scene().find("Alpha Centauri A"));
+    check(!sim.light_curve_in_view(), "Proxima's plot hidden at A");
+}
+
 // A star spot's share of a star's light, against the closed form for a cap at
 // the center of the disk; nothing on the far side, nothing behind a disk in front.
 void test_star_spot_light()
@@ -3426,6 +3495,7 @@ void test_eta_carinae_scene()
 void run_stellar_system_tests()
 {
     test_alpha_centauri_scene();
+    test_proxima_superflare();
     test_beta_pictoris_scene();
     test_pds70_scene();
     test_hd206893_scene();

@@ -71,6 +71,17 @@
 # Its orbit is taken as circular and coplanar with the AB orbit [AK21] (assumed): mass
 # 1.13 / sin 79.243 deg = 1.150 M_earth, radius 1.048 R_earth [CK17]; a = 0.04148 au from
 # P and GM_B. At this inclination it would pass 1.9 stellar radii from B's center.
+# [HO18] Howard et al. 2018, ApJL 860, L30 (arXiv:1804.02001): the superflare of 2016
+#        March 18, 08:32:10 UT (MJD 57465.35568), Evryscope, two-minute integrations:
+#        about an hour with three weaker flares after it (Sect. 3), flux 38 times
+#        the quiescent level over the peak integration and 68 times at the peak
+#        from a template (Sect. 3.1), g = 11.4 to 6.8; quiescent g-band luminosity
+#        10^28.6 erg/s, 9000 K blackbody with 19% of its light in g, g-band
+#        energy 10^32.8 erg (Sect. 3.2); a HARPS spectrum 27 minutes after the peak
+#        (Sect. 2.1). The curve is its Fig. 1 with the template of Davenport et al.
+#        2014 around the peak (tools/proxima/superflare_curve.py).
+#        Flare patch: 9000 K, 2.61% of the disk at the peak (from those numbers). Its
+#        site is not known and is assumed, on the side facing Earth.
 # [GDR3] Gaia DR3 via SIMBAD: Proxima at RA 217.42894222, Dec -62.67949019 deg.
 # [CK17] Chen & Kipping 2017, ApJ 834, 17 (arXiv:1603.08614), Table 1:
 #        R = 1.008 M^0.2790 below 2.04 M_earth, R proportional to M^0.589 above
@@ -140,6 +151,17 @@ start = "now"
 warp = 31557600.0             # 1 year per second: one AB orbit in 80 s
 up = "orbit_normal:Alpha Centauri B"
 
+# The plot in the corner around the superflare of 2016 [HO18]: Proxima alone.
+[light_curve]
+observer = "Sun"
+stars = ["Proxima Centauri"]
+shown_under = "Proxima Centauri"
+shown_during_flare = true
+band = "g'"
+wavelength_nm = 480.0
+limb_darkening = 0.6
+span_days = 0.08               # 115 minutes
+
 [[bodies]]
 name = "Alpha Centauri AB"
 kind = "barycenter"
@@ -177,6 +199,14 @@ temperature_k = 3050.0         # [BO12]
 luminosity_solar = 0.00185
 orbit_color = "#ff8a6a"
 trail_history_days = 365250.0  # a thousand years: Proxima's orbit takes ~550,000
+[bodies.flare]                 # [HO18]
+time = "2016-03-18 08:32:10"
+curve = "stars/proxima_superflare_2016.csv"
+temperature_k = 9000.0
+peak_disk_share = 0.0261
+site_offset_deg = 30.0         # assumed
+surface_scale = 0.2            # the usual surface saturates: the patch would not stand out
+window_hours = [1.5, 3.0]
 [bodies.orbit]
 type = "nbody"
 
@@ -396,6 +426,22 @@ caption = """\
     In 2035 the two stars come within 11.2 au of each other, a little more than \
     Saturn's distance from the Sun and about a third of their widest separation. \
     They move faster through this part of their orbit."""
+
+[[events]]
+name = "2016: a flare visible to the naked eye"
+time = "2016-03-18 08:02:00"
+focus = "Proxima Centauri"
+frame = "Proxima Centauri-centered"
+from_body = "Sun"              # as seen from Earth
+focus_orbits_only = true
+distance_km = 9.0e5
+warp = 120.0                   # 2 minutes per second: the flare and its tail in about 40 s
+# [HO18]
+caption = """\
+    On 18 March 2016 Proxima brightened 68-fold within minutes, from magnitude \
+    11.4 to 6.8, just visible to the naked eye at a dark site. Evryscope caught \
+    it, and HARPS, hunting for Proxima b, took a spectrum 27 minutes later. It \
+    faded over an hour. The size of the patch follows the light; its place is assumed."""
 
 [[events]]
 name = "Proxima d and b, 0.03 and 0.05 au from their star"

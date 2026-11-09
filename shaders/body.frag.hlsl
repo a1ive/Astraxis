@@ -43,7 +43,15 @@ cbuffer Uniforms : register(b0, space3)
                                        // y = illustrative fill light on the unlit side
     float4 u_spots[4];                 // a star's dark spots: xyz = direction in the body's axes, w = angular radius
     float4 u_spot_color;               // rgb = their linear radiance, a = how many
+    float4 u_flare;                    // a star's flare: xyz = site in the body's axes, w = angular radius (0 = none)
+    float4 u_flare_color;              // rgb = its linear radiance
 };
+
+// A wobble of an edge on a star's surface that changes smoothly over the sphere.
+float surface_wobble(float3 p)
+{
+    return sin(9.1 * p.x + 1.3) * sin(7.7 * p.y + 0.4) + 0.6 * sin(17.3 * p.z + 2.1) * sin(13.9 * p.y + 5.2);
+}
 
 // How much of a star's surface at unit vector p (body axes) is dark spot. The soft,
 // uneven edge is only for the look: real spots are not circles. The light curve
@@ -51,8 +59,7 @@ cbuffer Uniforms : register(b0, space3)
 float star_spot_cover(float3 p)
 {
     int count = (int)u_spot_color.a;
-    // A wobble of the edge that changes smoothly over the sphere.
-    float wobble = sin(9.1 * p.x + 1.3) * sin(7.7 * p.y + 0.4) + 0.6 * sin(17.3 * p.z + 2.1) * sin(13.9 * p.y + 5.2);
+    float wobble = surface_wobble(p);
     float cover = 0.0;
     for (int i = 0; i < count; ++i) {
         float angle = acos(clamp(dot(p, u_spots[i].xyz), -1.0, 1.0));
@@ -315,6 +322,12 @@ float4 main(PSInput input, bool front_face : SV_IsFrontFace) : SV_Target0
         float3 surface = u_color.rgb * input.albedo;
         if (u_spot_color.a > 0.5) {
             surface = lerp(surface, u_spot_color.rgb, star_spot_cover(normalize(input.local)));
+        }
+        if (u_flare.w > 0.0) {
+            // Soft and uneven at the edge; the area is what sets the light.
+            float3 p = normalize(input.local);
+            float x = acos(clamp(dot(p, u_flare.xyz), -1.0, 1.0)) / u_flare.w + 0.12 * surface_wobble(p);
+            surface = lerp(surface, u_flare_color.rgb, 1.0 - smoothstep(0.72, 1.28, x));
         }
         return float4(surface * (1.0 - 0.6 * (1.0 - mu)), 1.0);
     }

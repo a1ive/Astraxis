@@ -23,10 +23,22 @@ struct StarDisk {
     // Dark spots, turning with `axes` (a sphere only; null: none).
     const StarSpotEpoch* spots = nullptr;
     double spot_temperature_k = 0.0;
+    double flux_factor = 1.0; // of the light as seen: a flare
 };
 
 // Divides the epoch's spots into facets for the light curve (the loader calls it).
 void build_star_spot_facets(StarSpotEpoch& epoch);
+
+// A flare's light relative to the quiescent star at t_tdb (1 outside its curve).
+double star_flare_factor(const StarFlare& flare, double t_tdb);
+// Whether t_tdb is in the time around the flare it applies.
+bool star_flare_in_window(const StarFlare& flare, double t_tdb);
+// The factor on the drawn surface: surface_scale around the flare, easing to 1 at the ends.
+double star_flare_surface_scale(const StarFlare& flare, double t_tdb);
+// Angular radius of the flare's patch (rad) when the light is `factor` times the quiescent light.
+double star_flare_radius_rad(const StarFlare& flare, double factor);
+// Unit vector (ICRF) from the star's center to the flare's site.
+glm::dvec3 star_flare_site(const Scene& scene, int star, double t_tdb);
 
 // Planck's spectral radiance at `wavelength_nm` up to a constant factor
 // (1 / (exp(hc / lambda k T) - 1)).

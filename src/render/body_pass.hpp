@@ -66,6 +66,9 @@ struct BodyDrawItem {
     int spot_count = 0;
     glm::vec4 spots[4] = {};
     glm::vec3 spot_color{0.0f};
+    // A star's flare: site in the body's axes, angular radius (rad; 0 = none), and its radiance.
+    glm::vec4 flare{0.0f};
+    glm::vec3 flare_color{0.0f};
 };
 
 struct SunLight {

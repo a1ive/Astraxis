@@ -324,6 +324,14 @@ double Simulation::fade() const
 
 bool Simulation::light_curve_in_view() const
 {
+    if (m_scene.light_curve.shown_during_flare) {
+        const std::vector<int>& stars = m_scene.light_curve.stars;
+        if (std::none_of(stars.begin(), stars.end(), [&](int star) {
+                return star_flare_in_window(m_scene.bodies[static_cast<size_t>(star)].flare, m_clock.t_tdb);
+            })) {
+            return false;
+        }
+    }
     const int ancestor = m_scene.light_curve.shown_under;
     if (ancestor < 0) {
         return true;

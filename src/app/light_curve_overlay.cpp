@@ -212,7 +212,9 @@ void draw_light_curve(const CaptionFonts& fonts, const Scene& scene, const Light
     const int i0 = std::min(static_cast<int>(x), count - 2);
     const double now_mag = mags[static_cast<size_t>(i0)] +
                            (mags[static_cast<size_t>(i0 + 1)] - mags[static_cast<size_t>(i0)]) * (x - i0);
-    std::snprintf(text, sizeof(text), fonts.book ? "\xce\x94m %.2f" : "dm %.2f", now_mag);
+    // After a flare's peak is the reference: read from the quiescent level instead.
+    const double readout = std::abs(now_mag - lc.quiescent_mag) < 0.005 ? 0.0 : now_mag - lc.quiescent_mag;
+    std::snprintf(text, sizeof(text), fonts.book ? "\xce\x94m %.2f" : "dm %.2f", readout);
     const float readout_width = font->CalcTextSizeA(text_size, FLT_MAX, 0.0f, text).x;
     draw->AddText(font, text_size, ImVec2(rect.max_x - pad - readout_width, rect.min_y + 0.6f * pad),
                   IM_COL32(255, 222, 170, static_cast<int>(230.0f * alpha)), text);
@@ -229,12 +231,23 @@ void draw_light_curve(const CaptionFonts& fonts, const Scene& scene, const Light
 
     const double step = lc.depth_mag <= 0.3 ? 0.1 : lc.depth_mag <= 1.5 ? 0.5 : 1.0;
     const float small = 0.85f * em;
-    for (double m = 0.0; m <= lc.depth_mag + 1e-6; m += step) {
+    const auto tick = [&](double m) {
         const float y = to_y(m);
         draw->AddLine(ImVec2(left, y), ImVec2(right, y), gray(150, 0.18f * alpha), 1.0f);
-        std::snprintf(text, sizeof(text), step < 0.5 ? "%.1f" : m == std::floor(m) ? "%.0f" : "%.1f", m);
         const float w = font->CalcTextSizeA(small, FLT_MAX, 0.0f, text).x;
         draw->AddText(font, small, ImVec2(left - 0.4f * em - w, y - 0.5f * small), gray(170, 0.6f * alpha), text);
+    };
+    if (lc.quiescent_mag > 0.0) {
+        // The quiescent level is 0, and brighter is negative.
+        for (double k = 0.0; k <= lc.quiescent_mag + 1e-6; k += 1.0) {
+            std::snprintf(text, sizeof(text), k == 0.0 ? "0" : "-%.0f", k);
+            tick(lc.quiescent_mag - k);
+        }
+    } else {
+        for (double m = 0.0; m <= lc.depth_mag + 1e-6; m += step) {
+            std::snprintf(text, sizeof(text), step < 0.5 ? "%.1f" : m == std::floor(m) ? "%.0f" : "%.1f", m);
+            tick(m);
+        }
     }
     // A tick for every day (TDB), if they are not too dense.
     if (t1 - t0 <= 40.0 * kSecondsPerDay) {

@@ -312,7 +312,7 @@ double disk_flux(std::span<const StarDisk> disks, size_t index, const glm::dvec3
     if (hide && disk.spots) {
         sum -= spot_deficit(disk, toward, e1, e2, wavelength_nm, limb_darkening, in_front);
     }
-    return sum * planck_shape(disk.temperature_k, wavelength_nm);
+    return sum * planck_shape(disk.temperature_k, wavelength_nm) * (hide ? disk.flux_factor : 1.0);
 }
 
 } // namespace
@@ -337,6 +337,58 @@ void build_star_spot_facets(StarSpotEpoch& epoch)
             }
         }
     }
+}
+
+double star_flare_factor(const StarFlare& flare, double t_tdb)
+{
+    if (!flare.enabled()) {
+        return 1.0;
+    }
+    const std::vector<double>& t = flare.t_s;
+    const double s = t_tdb - flare.t_zero_tdb;
+    if (s <= t.front() || s >= t.back()) {
+        return 1.0;
+    }
+    const size_t i = static_cast<size_t>(std::upper_bound(t.begin(), t.end(), s) - t.begin());
+    const double u = (s - t[i - 1]) / (t[i] - t[i - 1]);
+    return flare.factor[i - 1] + u * (flare.factor[i] - flare.factor[i - 1]);
+}
+
+bool star_flare_in_window(const StarFlare& flare, double t_tdb)
+{
+    return flare.enabled() && t_tdb >= flare.t_zero_tdb - flare.before_s && t_tdb <= flare.t_zero_tdb + flare.after_s;
+}
+
+double star_flare_surface_scale(const StarFlare& flare, double t_tdb)
+{
+    if (!star_flare_in_window(flare, t_tdb)) {
+        return 1.0;
+    }
+    constexpr double kEaseSeconds = 1800.0;
+    const double s = t_tdb - flare.t_zero_tdb;
+    const double in = std::min({(s + flare.before_s) / kEaseSeconds, (flare.after_s - s) / kEaseSeconds, 1.0});
+    return 1.0 + in * (flare.surface_scale - 1.0);
+}
+
+double star_flare_radius_rad(const StarFlare& flare, double factor)
+{
+    if (factor <= 1.0 || flare.peak_factor <= 1.0) {
+        return 0.0;
+    }
+    // A cap of angular radius r seen at mu covers sin^2 r mu of the disk.
+    const double mu = std::cos(flare.site_offset_deg * kDegToRad);
+    const double share = flare.peak_disk_share * (factor - 1.0) / (flare.peak_factor - 1.0);
+    return std::asin(std::clamp(std::sqrt(share / mu), 0.0, 1.0));
+}
+
+glm::dvec3 star_flare_site(const Scene& scene, int star, double t_tdb)
+{
+    const glm::dvec3 self = scene.icrf_state_at(star, t_tdb).position;
+    const int sun = scene.find("Sun");
+    const glm::dvec3 to_sun = glm::normalize((sun >= 0 ? scene.icrf_state_at(sun, t_tdb).position : glm::dvec3(0.0)) - self);
+    const glm::dvec3 north = glm::normalize(glm::dvec3(0.0, 0.0, 1.0) - to_sun * to_sun.z);
+    const double offset = scene.bodies[static_cast<size_t>(star)].flare.site_offset_deg * kDegToRad;
+    return to_sun * std::cos(offset) + north * std::sin(offset);
 }
 
 double planck_shape(double temperature_k, double wavelength_nm)
@@ -405,6 +457,7 @@ StarDisk star_disk_at(const Scene& scene, int star, double t_tdb)
         disk.spots = epoch;
         disk.spot_temperature_k = body.temperature_k * body.starspots.temperature_ratio;
     }
+    disk.flux_factor = star_flare_factor(body.flare, t_tdb);
     return disk;
 }
 
@@ -412,6 +465,8 @@ void set_light_curve_reference(Scene& scene)
 {
     LightCurve& lc = scene.light_curve;
     lc.reference_flux = 0.0;
+    lc.quiescent_mag = 0.0;
+    double quiescent = 0.0;
     for (int star : lc.stars) {
         const Body& body = scene.bodies[static_cast<size_t>(star)];
         double brightest = 0.0;
@@ -427,7 +482,11 @@ void set_light_curve_reference(Scene& scene)
             const StarDisk disk{glm::dvec3(0.0), body.equatorial_radius_km, body.temperature_k};
             brightest = disks_full_flux(std::span(&disk, 1), lc.wavelength_nm, lc.limb_darkening);
         }
-        lc.reference_flux += brightest;
+        lc.reference_flux += brightest * (body.flare.enabled() ? body.flare.peak_factor : 1.0);
+        quiescent += brightest;
+    }
+    if (quiescent < lc.reference_flux) {
+        lc.quiescent_mag = -2.5 * std::log10(quiescent / lc.reference_flux);
     }
 }
 

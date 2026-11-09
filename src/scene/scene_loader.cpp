@@ -1305,6 +1305,53 @@ void Loader::parse(const toml::table& root, Scene& out)
             m_roche_stars.push_back(spec);
         }
 
+        // [bodies.flare]: one recorded flare of a star (see StarFlare).
+        if (const toml::table* f = (*t)["flare"].as_table()) {
+            const std::string fctx = ctx + " flare";
+            if (body.kind != BodyKind::Star || t->contains("roche")) {
+                fail(ctx, "only a spherical star can have a flare");
+            }
+            StarFlare& flare = body.flare;
+            flare.t_zero_tdb = parse_time(*f, "time", fctx);
+            flare.temperature_k = get_double(*f, "temperature_k", fctx);
+            flare.peak_disk_share = get_double(*f, "peak_disk_share", fctx);
+            flare.site_offset_deg = get_double(*f, "site_offset_deg", fctx);
+            flare.surface_scale = get_double_or(*f, "surface_scale", 1.0);
+            double window[2] = {0.0, 0.0};
+            get_array(*f, "window_hours", fctx, window, 2, 2);
+            flare.before_s = window[0] * 3600.0;
+            flare.after_s = window[1] * 3600.0;
+            const std::string file = get_string(*f, "curve", fctx);
+            std::ifstream in(m_asset_root / file);
+            if (!in) {
+                fail(fctx, "cannot open " + file);
+            }
+            std::string line;
+            bool header_seen = false;
+            while (std::getline(in, line)) { // "minutes,flux", '#' comments
+                if (line.empty() || line[0] == '#') {
+                    continue;
+                }
+                if (!header_seen) {
+                    header_seen = true;
+                    continue;
+                }
+                char* end = nullptr;
+                const double minutes = std::strtod(line.c_str(), &end);
+                const double value = *end == ',' ? std::strtod(end + 1, nullptr) : 0.0;
+                if (value <= 0.0 || (!flare.t_s.empty() && minutes * 60.0 <= flare.t_s.back())) {
+                    fail(fctx, "bad line in " + file + ": " + line);
+                }
+                flare.t_s.push_back(minutes * 60.0);
+                flare.factor.push_back(value);
+                flare.peak_factor = std::max(flare.peak_factor, value);
+            }
+            if (flare.t_s.size() < 2 || flare.temperature_k <= 0.0 || flare.peak_disk_share <= 0.0 ||
+                flare.surface_scale <= 0.0) {
+                fail(fctx, "needs a curve of 2 points or more, temperature_k, peak_disk_share and surface_scale > 0");
+            }
+        }
+
         // [bodies.starspots]: dark spots fixed on a star (see StarSpots).
         if (const toml::table* s = (*t)["starspots"].as_table()) {
             const std::string sctx = ctx + " starspots";
@@ -2360,6 +2407,7 @@ void Loader::parse(const toml::table& root, Scene& out)
             curve.limb_darkening > 1.0) {
             fail(ctx, "needs wavelength_nm > 0, span_days > 0 and 0 <= limb_darkening <= 1");
         }
+        curve.shown_during_flare = (*lc)["shown_during_flare"].value<bool>().value_or(false);
         if (lc->contains("shown_under")) {
             curve.shown_under = body_ref(out, *lc, "shown_under", ctx, false);
         }

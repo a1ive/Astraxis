@@ -126,6 +126,9 @@ static_assert(kAuroraTableVectors * 4 == kAuroraTableSize);
 constexpr float kStarSurface = 6.0f;
 // Wavelength at which relative star surfaces (SceneView::relative_star_surfaces) are compared.
 constexpr double kStarSurfaceWavelengthNm = 550.0;
+// A flare's patch on a star: the display cannot show its real radiance (hundreds of
+// times the photosphere's), only white with a glare around it.
+constexpr float kFlareSurface = 16.0f;
 // With relative star surfaces the hottest is this much fainter than kStarSurface:
 // at 6 the tone curve saturates, and a Cepheid's surface dimming to 45% (or a
 // 5000 K star beside a 6000 K one) would look the same white.
@@ -1209,6 +1212,17 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
                     }
                 }
             }
+            if (body.flare.enabled()) {
+                const double t = sim.clock().t_tdb;
+                item.color *= static_cast<float>(star_flare_surface_scale(body.flare, t));
+                const double radius = star_flare_radius_rad(body.flare, star_flare_factor(body.flare, t));
+                if (radius > 0.0) {
+                    const glm::dvec3 site = glm::transpose(scene.body_to_icrf(body, t)) *
+                                            star_flare_site(scene, static_cast<int>(i), t);
+                    item.flare = glm::vec4(glm::vec3(site), static_cast<float>(radius));
+                    item.flare_color = glm::vec3(blackbody_linear_srgb(body.flare.temperature_k)) * kFlareSurface;
+                }
+            }
             item.texture = nullptr;
             emit(item);
             continue;
@@ -2009,6 +2023,9 @@ void SceneRenderer::draw_stars(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pas
         s.display_gain = static_cast<float>(observed_star_display_gain(
             observed, static_cast<int>(&body - scene.bodies.data()), sim.clock().t_tdb));
         s.draw_disk = s.angular_radius * viewport_half < 3.0f; // otherwise the sphere shows it
+        if (body.flare.enabled()) { // compressed as magnitudes are (observed_star_display_gain)
+            s.display_gain *= static_cast<float>(std::pow(star_flare_factor(body.flare, sim.clock().t_tdb), 0.56));
+        }
         // A thick disk in scattered light dims the star behind it.
         if (scene.disk.thick && scene.disk.enabled()) {
             const int event = scene.active_event();

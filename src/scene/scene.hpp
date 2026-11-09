@@ -82,6 +82,26 @@ struct StarSpots {
     }
 };
 
+// One recorded flare of a star ([bodies.flare]). Its light is the observed
+// curve; the bright patch drawn for it keeps the temperature and changes in
+// area, so that the patch's light follows the curve. The site is an assumption:
+// on the side facing the Sun body (the observer), site_offset_deg from its
+// center, toward the north.
+struct StarFlare {
+    double t_zero_tdb = 0.0;   // the curve's time zero
+    std::vector<double> t_s;   // from t_zero_tdb, ascending
+    std::vector<double> factor; // the star's light over its quiescent light
+    double peak_factor = 1.0;
+    double temperature_k = 9000.0;
+    double peak_disk_share = 0.0; // of the disk's area covered by the patch at the peak
+    double site_offset_deg = 30.0;
+    double surface_scale = 1.0;   // of the drawn star around the flare (the usual one saturates)
+    double before_s = 0.0;        // the time around t_zero_tdb it applies, and the light curve shows
+    double after_s = 0.0;
+
+    bool enabled() const { return !t_s.empty(); }
+};
+
 enum class TrailMode {
     None,
     Orbit,   // osculating orbit around the parent (closed ellipse)
@@ -399,6 +419,7 @@ struct Body {
         double t_tdb = 0.0;
     } shape_after;
     StarSpots starspots; // none unless enabled()
+    StarFlare flare;     // none unless enabled()
     // A star filling its Roche lobe around `synchronous_with` (Algol B): its
     // surface, also drawn as `shape`; the radii are then the distances from its
     // center to L1, the sides and the poles.
@@ -698,6 +719,10 @@ struct LightCurve {
     // Shown only while the camera's focus is this body or inside it (-1: always),
     // for a curve that belongs to one part of the system.
     int shown_under = -1;
+    bool shown_during_flare = false; // only around a flare of one of its stars
+    // How far the quiescent stars are below reference_flux, if the reference is a flare's peak
+    // (0: none). The plot then counts magnitudes from the quiescent level.
+    double quiescent_mag = 0.0;
     std::string band = "V";     // shown with the plot
     double wavelength_nm = 550.0;
     double limb_darkening = 0.6; // u in I(mu) = 1 - u (1 - mu)
