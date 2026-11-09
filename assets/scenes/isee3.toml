@@ -59,6 +59,8 @@
 #        rest estimated. Converted by tools/shapes/make_spacecraft.py (assets/shapes/SOURCES.md).
 #        Sakigake (MS-T5) had the same drum and is drawn with it: its own instruments and booms
 #        are not there. The direction of their spin axes is assumed (no source found).
+# [MDLB] Pioneer 7 and Pioneer Venus Orbiter: modeled for this project from NASA mission
+#        drawings and dimensions. See assets/shapes/SOURCES.md.
 # [APX]  E. M. Standish, Approximate Positions of the Planets, Table 2a: Venus, Mars.
 # [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
 # [ELEM] JPL SSD, Planetary Satellite Mean Elements (the Moon, outside its tables).
@@ -466,7 +468,11 @@ file = "ephem/giotto.eph"
 name = "Pioneer 7"
 parent = "Sun"
 kind = "spacecraft"
-radii_km = [0.0005]                        # drawn as a marker
+radii_km = [0.0005]                        # 0.947 m drum, excluding booms [MDLB]
+shape = "shapes/pioneer7.mesh"             # [MDLB]
+texture = "textures/pioneer7.png"
+point_at = "Sun"                           # the side of the drum, axis toward ecliptic north, illustrative
+fill_light = 0.2
 color = "#e4e4e4"
 orbit_color = "#b4b4b4"
 trail = "history"
@@ -480,7 +486,11 @@ file = "ephem/pioneer7.eph"
 name = "Pioneer Venus Orbiter"
 parent = "Venus"
 kind = "spacecraft"
-radii_km = [0.001]                         # drawn as a marker
+radii_km = [0.00125]                       # 2.50 m drum, excluding booms [MDLB]
+shape = "shapes/pioneervo.mesh"            # [MDLB]
+texture = "textures/pioneervo.png"
+point_at = "Sun"                           # the side of the drum, axis toward ecliptic north, illustrative
+fill_light = 0.2
 color = "#e2f07a"
 orbit_color = "#c4d45e"
 trail = "history"

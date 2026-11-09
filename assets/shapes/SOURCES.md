@@ -331,6 +331,20 @@ Gaia Sky 的探测器仓库（<https://gaia.ari.uni-heidelberg.de/gaiasky/reposi
 - **嫦娥五号 T1**：场景里的表从返回舱分离之后（2014-10-31 22:19 TDB）开始，所以只画服务舱：工具按 OBJ 的对象名去掉返回舱的零件（`skip_objects`），留下它坐的适配器。米制，+z 从服务舱指向返回舱，电池片朝 +z，场景让 +z 朝太阳并烘焙阳光。按 1 cm 合并顶点，约 15,000 个三角形。
 - **天问一号**：两份网格，同一张图集。`tianwen1.mesh` 是带着进入舱的巡航组合体，`tianwen1_orbiter.mesh` 是 2021-05-14 20:00 UTC 放下进入舱之后的轨道器（去掉进入舱、分离环和舱上的小零件），场景用 `[bodies.shape_after]` 在这个时刻换过去。`skip_objects` 只从网格里去掉零件，图集仍按整个模型做，所以两份网格的纹理坐标一样（`texture` 指向同一张图，第二次不再写）。米制，+z 朝进入舱，电池片朝 −z，场景让 −z 朝太阳（本体 +z）并烘焙阳光。Blender 里隔热膜的程序凹凸没有烘焙进 OBJ，看起来是平的。按 1 cm 合并顶点，约 36,000 和 34,000 个三角形。
 
+### LCROSS、CAPSTONE、Akatsuki 与两艘 Pioneer（本项目自建）
+
+运行 `python -E -P tools/shapes/make_spacecraft.py ref lcross capstone akatsuki pioneervo pioneer7`，为每艘探测器生成同名的 `.mesh` 和 `.png` 图集。输入是各自目录中的同名 OBJ、MTL，由 `build_<名称>.py` 在 Blender 中生成。几何和材质采用 GPL-3.0-or-later。各目录的 `SOURCES.md` 记录了建模资料与估算尺寸，`ref/` 由 Git 忽略。
+
+| 名称 | 建模依据 | OBJ、MTL 的 SHA-256 |
+|---|---|---|
+| `lcross` | NASA 的 LRO/LCROSS 发射资料、飞行运行报告和 PDS 仪器标定图 | `e1e6e64b43c2da7a689d9542c392ea037b280a6bad232aa81275bc8f084015ad`、`f6a0554487ccd0b23fa3aa62d5d602f6538505111bc2d10bc184b7e05ac68350` |
+| `capstone` | NASA 的装配资料和洁净室照片、Advanced Space 的飞行运行论文 | `18f0c1b15946e55ab888855bde54e011945fda6d4cb10bb02e362bbe46d3cf3e`、`241d9a20cb0e1c49c858a22c6697e9f20eed55bc7a0b3bbcdf1b8f7b13f01ac3` |
+| `akatsuki` | JAXA/ISAS 构型图、NEC Technical Journal 6(1) 第 48 页图 3 | `e75ef4e2ab1a20ebb77fbbcb8d7e07483b55b478775b2072d02cb05844f3e069`、`aa368f1f3fa71bf9b13237b46d692ef000f00753614e8d7f800b78f760ca7159` |
+| `pioneervo` | NASA SP-461 第 38–44 页、Ames 装配照和 JPL 42-28 图 1 | `08e9dda984cbe858bad5ed650cc2095d9aa3a5cf7139ffcf25d9b92b5d58414e`、`36afd0f93734f0042a964a6404f6c044f2d8ddbfe03bf570a00138eec8eed59a` |
+| `pioneer7` | NASA SP-278 卷一第 50–52、58–61 页和 NASA/TRW 设计报告图 3–4 | `75921f86344b6636532ef134a7d6e9608f7f12a0feed57b3d6411c6866af7c1f`、`79f4a4f16b8f77b169700096da80c855f75110a82bebc5ecc0fa9a84f4b5495f` |
+
+OBJ 使用米制。LCROSS 和 CAPSTONE 的电池面在 OBJ +y，Akatsuki 的在 OBJ +z。转换把这些面转到本体 +z，按场景的朝日方向烘焙自阴影。两艘 Pioneer 的圆筒轴从 OBJ +z 转到本体 +y，和 `point_at` 给出的朝日方向垂直，顶点的自阴影系数统一取 1。
+
 ### ISEE-3 的组装
 
 NASA 的 ISEE-3 是给 3D 打印的散件（英寸，鼓 69.6 英寸宽 = 1.77 m），每根吊杆在自己的文件里、从原点沿 +z 伸出，没有装配图。`make_spacecraft.py` 的 `assembly` 按 JHU/APL 的飞行构型图（eoPortal “ISEE-3 / ICE” 图 3）和 NASA 计划文件（spacecollege.org/?p=245，2026-11-07 查看）装起来：鼓的轴（模型 y）是自转轴；四根刚性吊杆和四根导线天线都从鼓中间那条带（y 27.9–30.2 英寸）伸出，实验吊杆（`Exboom1` 是搜索线圈，`Exboom2` 是磁强计，标称 302 cm）装在鼓上有铰链座的两侧（模型 ±z，座的中心偏 7.15 英寸），惯性吊杆（`Inertia boom`，114 cm）装在与之垂直的两侧，导线天线（`Rad antenna` 拉伸到 49 m）在它们之间的 45° 方向，轴向天线（同一个零件拉伸到 701 cm）沿自转轴上下各一根。文件自己的 `Rad antenna` 是 55 m。`Exboom (empty).stl` 是没有探头的空吊杆，`Thruster.stl` 是一个装不到鼓上任何推力器座的散件，都不用。鼓是打印用的空筒，两端补上 16 边形的盖。太阳能电池覆盖侧面，除了中间那条带和上下两道环（按面的三个顶点所在的高度分，大的侧面三角形跨过中间的带，所以带只在少数面上看得到）。颜色都是示意的。它每 3 秒转一圈，所以不烘焙阳光。

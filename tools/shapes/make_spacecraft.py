@@ -576,6 +576,57 @@ CRAFT = {
         'atlas_width': 64,
         'format': 'png',
     },
+    # LCROSS and CAPSTONE: the fixed solar cells face Blender -y (OBJ +y).
+    'lcross': {
+        'file': 'lcross/lcross.obj',
+        'origin_m': (0.0, 0.0, 0.0),
+        'scale': 1.0,
+        'body_z': (0, 1, 0),
+        'body_x': (-1, 0, 0),
+        'atlas_width': 64,
+        'format': 'png',
+    },
+    'capstone': {
+        'file': 'capstone/capstone.obj',
+        'origin_m': (0.0, 0.0, 0.0),
+        'scale': 1.0,
+        'body_z': (0, 1, 0),
+        'body_x': (-1, 0, 0),
+        'atlas_width': 64,
+        'format': 'png',
+    },
+    # Akatsuki: the solar cells and the flat antennas face OBJ +z.
+    'akatsuki': {
+        'file': 'akatsuki/akatsuki.obj',
+        'origin_m': (0.0, 0.0, 0.0),
+        'scale': 1.0,
+        'body_z': (0, 0, 1),
+        'body_x': (-1, 0, 0),
+        'atlas_width': 64,
+        'format': 'png',
+    },
+    # Both Pioneers spin about OBJ +z. Put that axis on body +y, toward ecliptic
+    # north, and a side of the solar-cell drum on body +z. The spin phase is illustrative.
+    'pioneervo': {
+        'file': 'pioneervo/pioneervo.obj',
+        'origin_m': (0.0, 0.0, 0.0),
+        'scale': 1.0,
+        'body_z': (1, 0, 0),
+        'body_x': (0, 1, 0),
+        'bake_sun': False,
+        'atlas_width': 64,
+        'format': 'png',
+    },
+    'pioneer7': {
+        'file': 'pioneer7/pioneer7.obj',
+        'origin_m': (0.0, 0.0, 0.0),
+        'scale': 1.0,
+        'body_z': (1, 0, 0),
+        'body_x': (0, 1, 0),
+        'bake_sun': False,
+        'atlas_width': 64,
+        'format': 'png',
+    },
 }
 # Orion's crew module alone, from the separation to the end of the tables, in the same atlas.
 CRAFT['orion_crew_module'] = dict(CRAFT['orion'], texture='orion',

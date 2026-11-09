@@ -806,6 +806,7 @@ void test_spacecraft_models()
         const char* craft;
         const char* target;
         double t_tdb;
+        bool bake_sun = true;
     };
     const double t2026 = tdb_from_julian_year(2026.84);
     const double perihelion = tdb_from_julian_year(2024.98);
@@ -829,6 +830,11 @@ void test_spacecraft_models()
                           {"earth_moon.toml", "ARTEMIS-P1", "Sun", tdb_from_julian_year(2014.0)},
                           {"earth_moon.toml", "Artemis II", "Sun", tdb_from_julian_year(2026.26)},
                           {"earth_moon.toml", "Chang'e 5-T1", "Sun", tdb_from_julian_year(2014.95)},
+                          {"earth_moon.toml", "CAPSTONE", "Sun", tdb_from_julian_year(2023.0)},
+                          {"earth_moon.toml", "LCROSS", "Sun", tdb_from_utc_jd(jd_from_calendar({2009, 10, 9, 10, 0, 0}))},
+                          {"venus.toml", "Akatsuki", "Sun", tdb_from_julian_year(2017.0)},
+                          {"isee3.toml", "Pioneer 7", "Sun", tdb_from_julian_year(1986.2), false},
+                          {"isee3.toml", "Pioneer Venus Orbiter", "Sun", tdb_from_julian_year(1986.2), false},
                           {"mars.toml", "Tianwen-1", "Sun", tdb_from_julian_year(2021.3)},
                           {"mars.toml", "Hope", "Sun", tdb_from_julian_year(2021.5)},
                           {"mars.toml", "MOM", "Sun", tdb_from_julian_year(2015.5)},
@@ -870,7 +876,8 @@ void test_spacecraft_models()
             shadowed += shape.albedo[k] == 0.0f ? 1 : 0;
         }
         check(in_atlas, (name + " stays inside its atlas").c_str());
-        check(bake_is_binary && shadowed > 0, (name + " has baked sunlight").c_str());
+        check(bake_is_binary && (c.bake_sun ? shadowed > 0 : shadowed == 0),
+              (name + (c.bake_sun ? " has baked sunlight" : " has no baked sunlight")).c_str());
 
         // The attitude: +z at the target, +y toward the ecliptic north, a right-handed frame.
         const glm::dmat3 axes = scene.body_to_icrf(body, c.t_tdb);

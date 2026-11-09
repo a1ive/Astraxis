@@ -16,6 +16,8 @@
 #        (assets/shapes/SOURCES.md).
 # [MDLS] The spacecraft's model, from NASA 3D Resources (github.com/nasa/NASA-3D-Resources), converted
 #        by tools/shapes/make_spacecraft.py; which model and whose: assets/shapes/SOURCES.md.
+# [MDLA] Akatsuki: modeled for this project from the ISAS and NEC configuration drawings.
+#        The deployed arrays span 5.062 m. See assets/shapes/SOURCES.md.
 # [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py (tools/bake/ephem.toml,
 #        Kepler-relative AXEPH2):
 #        - Venus (299) relative to the Sun 2004-07-01 .. 2030-01-01 (as in parker.toml); [APX]
@@ -274,7 +276,11 @@ file = "ephem/vex_venus.eph"
 name = "Akatsuki"
 parent = "Sun"
 kind = "spacecraft"
-radii_km = [0.003]                         # 1.04 x 1.45 x 1.4 m with two solar paddles ([HZN] notes)
+radii_km = [0.003]                         # 5.062 m across the deployed arrays [MDLA]
+shape = "shapes/akatsuki.mesh"             # [MDLA]
+texture = "textures/akatsuki.png"
+point_at = "Sun"                           # the solar cells, illustrative
+fill_light = 0.2
 color = "#ffb38a"
 orbit_color = "#f2905e"
 trail = "history"

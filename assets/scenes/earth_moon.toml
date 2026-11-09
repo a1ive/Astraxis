@@ -31,6 +31,9 @@
 #        spacecraft (the sizes estimated: a box of about 1.7 x 1.5 x 1.5 m, two wings 8.6 m tip to
 #        tip), without the return capsule, which it had let go of before this scene's tables
 #        begin. Converted by tools/shapes/make_spacecraft.py (assets/shapes/SOURCES.md).
+# [MDLCL] CAPSTONE and LCROSS: modeled for this project from published dimensions and
+#         images. CAPSTONE has its arrays deployed. LCROSS is the Shepherding Spacecraft
+#         with the observation cover open. See assets/shapes/SOURCES.md.
 # [LDF]  NSSDCA, nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=2013-047A (retrieved
 #        2026-11-07): a cylinder 1.85 m across and 2.37 m tall.
 # [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py (tools/bake/ephem.toml):
@@ -237,7 +240,11 @@ shape = "shapes/orion_crew_module.mesh"
 name = "CAPSTONE"
 parent = "Moon"
 kind = "spacecraft"
-radii_km = [0.001]                         # 12U CubeSat with solar arrays
+radii_km = [0.00075]                       # about 1.5 m across the deployed arrays [MDLCL]
+shape = "shapes/capstone.mesh"             # [MDLCL]
+texture = "textures/capstone.png"
+point_at = "Sun"                           # the solar cells, illustrative
+fill_light = 0.2
 color = "#a8f0c8"
 orbit_color = "#6fdba0"
 trail = "history"
@@ -309,7 +316,11 @@ file = "ephem/ce5t1_booster.eph"
 name = "LCROSS"
 parent = "Earth"
 kind = "spacecraft"
-radii_km = [0.007]                         # with the Centaur upper stage attached (until 9.75 h before impact)
+radii_km = [0.0015]                        # Shepherding Spacecraft, 3.3 m across the antennas [MDLCL]
+shape = "shapes/lcross.mesh"               # [MDLCL]
+texture = "textures/lcross.png"
+point_at = "Sun"                           # the fixed solar array, illustrative
+fill_light = 0.2
 color = "#9fe7ff"
 orbit_color = "#5fc8f0"
 trail = "history"                          # the whole flight
