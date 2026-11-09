@@ -527,6 +527,12 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
         {"name", text}, {"class", text}, {"time_tdb", text}, {"lat_deg", number}, {"west_lon_deg", number},
         {"flash_share", number},
     };
+    static const TemplateFields dark_spot = {
+        {"name", text}, {"years", list}, {"planetographic_lat_deg", list}, {"east_west_km", list},
+        {"north_south_km", list}, {"contrast_blue", list}, {"contrast_green", list},
+        {"red_share", number}, {"display_gain", number}, {"anchor", text}, {"anchor_east_lon_deg", number},
+        {"drift_m_s", number}, {"fade_in", list}, {"fade_out", list},
+    };
     static const TemplateFields fields = {
         {"kind", text}, {"radii_km", list}, {"body_gm_km3_s2", number}, {"gravity_radius_km", number},
         {"zonal_harmonics", list}, {"spin", number}, {"temperature_k", number}, {"luminosity_solar", number},
@@ -541,6 +547,7 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
         {"rotor", {{Type::table}, &rotor}}, {"shape_after", {{Type::table}, &shape_after}},
         {"rings", {{Type::table}, &rings}},
         {"plumes", {{Type::array}, &plume}}, {"impacts", {{Type::array}, &impact}},
+        {"dark_spots", {{Type::array}, &dark_spot}},
     };
     // nut_prec terms may use an ancestor's nut_prec_angles (a moon those of its planet, as
     // in the PCK); the body loader checks that there are enough of them.
@@ -1782,6 +1789,77 @@ void Loader::parse(const toml::table& root, Scene& out)
                 body.magnetic_map.crust = load_map("crust");
             }
         }
+        // [[bodies.dark_spots]]: vortices that come and go (see DarkSpot).
+        if (const toml::array* spots = (*t)["dark_spots"].as_array()) {
+            if (body.kind == BodyKind::Star || body.kind == BodyKind::BlackHole ||
+                spots->size() > static_cast<size_t>(kMaxDarkSpots)) {
+                fail(ctx, "only an ellipsoidal planet can have dark spots, at most 4");
+            }
+            for (const toml::node& node : *spots) {
+                const toml::table* s = node.as_table();
+                if (!s) {
+                    fail(ctx, "dark_spots must be tables");
+                }
+                DarkSpot spot;
+                spot.name = get_string(*s, "name", ctx);
+                const std::string sctx = ctx + " dark spot '" + spot.name + "'";
+                const toml::array* year_list = (*s)["years"].as_array();
+                const size_t n = year_list ? year_list->size() : 0;
+                if (n == 0) {
+                    fail(sctx, "needs years");
+                }
+                std::vector<double> years(n), lat(n), ew(n), ns(n), blue(n), green(n);
+                get_array(*s, "years", sctx, years.data(), n, n);
+                get_array(*s, "planetographic_lat_deg", sctx, lat.data(), n, n);
+                get_array(*s, "east_west_km", sctx, ew.data(), n, n);
+                get_array(*s, "north_south_km", sctx, ns.data(), n, n);
+                get_array(*s, "contrast_blue", sctx, blue.data(), n, n);
+                get_array(*s, "contrast_green", sctx, green.data(), n, n);
+                const double red_share = get_double(*s, "red_share", sctx);
+                const double flattening = body.polar_radius_km / body.equatorial_radius_km;
+                for (size_t k = 0; k < n; ++k) {
+                    DarkSpotSample sample;
+                    sample.t_tdb = tdb_from_julian_year(years[k]);
+                    if (k > 0 && sample.t_tdb <= spot.samples.back().t_tdb) {
+                        fail(sctx, "years must ascend");
+                    }
+                    sample.lat_rad = std::atan(flattening * flattening * std::tan(lat[k] * kDegToRad));
+                    sample.east_west_km = ew[k];
+                    sample.north_south_km = ns[k];
+                    sample.contrast = glm::dvec3(red_share * green[k], green[k], blue[k]);
+                    if (!(ew[k] > 0.0 && ns[k] > 0.0)) {
+                        fail(sctx, "needs positive widths");
+                    }
+                    spot.samples.push_back(sample);
+                }
+                if (!parse_utc(get_string(*s, "anchor", sctx).c_str(), &spot.anchor_tdb)) {
+                    fail(sctx, "anchor must be a date (UTC)");
+                }
+                spot.anchor_east_lon_rad = get_double(*s, "anchor_east_lon_deg", sctx) * kDegToRad;
+                spot.drift_m_s = get_double(*s, "drift_m_s", sctx);
+                spot.display_gain = get_double_or(*s, "display_gain", 1.0);
+                const auto read_span = [&](const char* key, double* from, double* to) {
+                    const toml::array* span = (*s)[key].as_array();
+                    double ends[2] = {0.0, 0.0};
+                    for (size_t e = 0; e < 2; ++e) {
+                        const std::optional<std::string> date =
+                            span && span->size() == 2 ? (*span)[e].value<std::string>() : std::nullopt;
+                        if (!date || !parse_utc(date->c_str(), &ends[e])) {
+                            fail(sctx, std::string(key) + " must be two dates (UTC)");
+                        }
+                    }
+                    if (!(ends[1] > ends[0])) {
+                        fail(sctx, std::string(key) + " must end after it starts");
+                    }
+                    *from = ends[0];
+                    *to = ends[1];
+                };
+                read_span("fade_in", &spot.fade_in_from_tdb, &spot.fade_in_to_tdb);
+                read_span("fade_out", &spot.fade_out_from_tdb, &spot.fade_out_to_tdb);
+                body.dark_spots.push_back(std::move(spot));
+            }
+        }
+
         if (const toml::array* plumes = (*t)["plumes"].as_array()) {
             if (body.kind != BodyKind::Planet || body.shape) {
                 fail(ctx, "only ellipsoidal planets and moons can have plumes");

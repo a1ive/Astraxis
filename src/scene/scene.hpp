@@ -64,6 +64,41 @@ struct StarSpotEpoch {
     std::vector<StarSpot> spots;
     std::vector<StarSpotFacet> facets;
 };
+// A vortex in a giant planet's atmosphere ([[bodies.dark_spots]], Neptune's), darkening its clouds
+// for a few years. Measurements come as a table in time, with the spot's shape a 2D Gaussian
+// (the fit they are reported from). shaders/body.frag.hlsl holds dark_spot_weight too.
+inline constexpr int kMaxDarkSpots = 4;
+struct DarkSpotSample {
+    double t_tdb = 0.0;
+    double lat_rad = 0.0;        // planetocentric
+    double east_west_km = 0.0;   // full widths at half maximum
+    double north_south_km = 0.0;
+    glm::dvec3 contrast{0.0};    // relative change of the reflected light at the center (rgb, negative: dark)
+};
+struct DarkSpot {
+    std::string name;
+    std::vector<DarkSpotSample> samples; // ascending t_tdb; the ends hold outside them
+    double anchor_tdb = 0.0;             // it is at this longitude (body axes, east) at this moment
+    double anchor_east_lon_rad = 0.0;
+    double drift_m_s = 0.0;              // westward, relative to the body's axes
+    double fade_in_from_tdb = 0.0;       // rises from nothing over this span
+    double fade_in_to_tdb = 0.0;
+    double fade_out_from_tdb = 0.0;      // and falls to nothing over this one
+    double fade_out_to_tdb = 0.0;
+    double display_gain = 1.0;           // of the contrast, without changing the data
+};
+struct DarkSpotState {
+    double lat_rad = 0.0;
+    double east_lon_rad = 0.0;   // in -pi .. pi
+    double width_ew_rad = 0.0;   // along the parallel, as an angle at the center of the planet
+    double width_ns_rad = 0.0;
+    glm::dvec3 contrast{0.0};    // with the fade and the display gain
+};
+// The spot at t_tdb on a planet of equatorial radius radius_km.
+DarkSpotState dark_spot_state(const DarkSpot& spot, double radius_km, double t_tdb);
+// 1 at the center of the spot, 0.5 half a width from it; p is a unit vector in the body's axes.
+double dark_spot_weight(const DarkSpotState& state, const glm::dvec3& p);
+
 struct StarSpots {
     double temperature_ratio = 1.0; // of the spots to the photosphere
     double surface_scale = 1.0;     // of the drawn surface: the usual one saturates, hiding them
@@ -424,6 +459,7 @@ struct Body {
         double t_tdb = 0.0;
     } shape_after;
     StarSpots starspots; // none unless enabled()
+    std::vector<DarkSpot> dark_spots;
     std::vector<StarFlare> flares;
     // A star filling its Roche lobe around `synchronous_with` (Algol B): its
     // surface, also drawn as `shape`; the radii are then the distances from its

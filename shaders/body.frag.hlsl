@@ -45,6 +45,8 @@ cbuffer Uniforms : register(b0, space3)
     float4 u_spot_color;               // rgb = their linear radiance, a = how many
     float4 u_flare;                    // a star's flare: xyz = site in the body's axes, w = angular radius (0 = none)
     float4 u_flare_color;              // rgb = its linear radiance
+    float4 u_spot_tints[4];            // a planet's dark spots (their places in u_spots, how many in u_spot_color.a):
+                                       // rgb = relative change of the albedo at the center
 };
 
 // A wobble of an edge on a star's surface that changes smoothly over the sphere.
@@ -67,6 +69,24 @@ float star_spot_cover(float3 p)
         cover = max(cover, 1.0 - smoothstep(0.78, 1.22, x));
     }
     return cover;
+}
+
+// A planet's dark spots: u_spots[i] = (east longitude, latitude, east-west width, north-south
+// width), radians, widths at half maximum. dark_spot_weight in scene.cpp is the same.
+float3 dark_spot_albedo(float3 p)
+{
+    float lat = asin(clamp(p.z, -1.0, 1.0));
+    float lon = atan2(p.y, p.x);
+    int count = (int)u_spot_color.a;
+    float3 factor = 1.0;
+    for (int i = 0; i < count; ++i) {
+        float dlon = lon - u_spots[i].x;
+        dlon -= 2.0 * kPi * round(dlon / (2.0 * kPi));
+        float x = dlon * cos(u_spots[i].y) / u_spots[i].z;
+        float y = (lat - u_spots[i].y) / u_spots[i].w;
+        factor *= 1.0 + u_spot_tints[i].rgb * exp(-2.7725887 * (x * x + y * y));
+    }
+    return factor;
 }
 
 // A strength map's false color: viridis, dark where the field is weak (sRGB).
@@ -345,6 +365,9 @@ float4 main(PSInput input, bool front_face : SV_IsFrontFace) : SV_Target0
         albedo = saturn_color(normalize(input.local), srgb_to_linear(u_color.rgb));
     } else {
         albedo = srgb_to_linear(gas_giant ? gas_giant_color(normalize(input.local)) : u_color.rgb);
+    }
+    if (u_spot_color.a > 0.5) {
+        albedo *= dark_spot_albedo(normalize(input.local));
     }
     float baked_sunlight = 1.0;
     if (u_craft.x > 0.5) {

@@ -112,6 +112,56 @@ double RingBand::fade(double t_tdb) const
     return left;
 }
 
+DarkSpotState dark_spot_state(const DarkSpot& spot, double radius_km, double t_tdb)
+{
+    const auto sample_at = [&](double t) {
+        const std::vector<DarkSpotSample>& s = spot.samples;
+        if (t <= s.front().t_tdb) {
+            return s.front();
+        }
+        if (t >= s.back().t_tdb) {
+            return s.back();
+        }
+        size_t k = 1;
+        while (s[k].t_tdb < t) {
+            ++k;
+        }
+        const double f = (t - s[k - 1].t_tdb) / (s[k].t_tdb - s[k - 1].t_tdb);
+        DarkSpotSample out;
+        out.t_tdb = t;
+        out.lat_rad = s[k - 1].lat_rad + f * (s[k].lat_rad - s[k - 1].lat_rad);
+        out.east_west_km = s[k - 1].east_west_km + f * (s[k].east_west_km - s[k - 1].east_west_km);
+        out.north_south_km = s[k - 1].north_south_km + f * (s[k].north_south_km - s[k - 1].north_south_km);
+        out.contrast = s[k - 1].contrast + f * (s[k].contrast - s[k - 1].contrast);
+        return out;
+    };
+    const DarkSpotSample now = sample_at(t_tdb);
+    double fade = 1.0;
+    if (spot.fade_in_to_tdb > spot.fade_in_from_tdb) {
+        fade *= std::clamp((t_tdb - spot.fade_in_from_tdb) / (spot.fade_in_to_tdb - spot.fade_in_from_tdb), 0.0, 1.0);
+    }
+    if (spot.fade_out_to_tdb > spot.fade_out_from_tdb) {
+        fade *= std::clamp((spot.fade_out_to_tdb - t_tdb) / (spot.fade_out_to_tdb - spot.fade_out_from_tdb), 0.0, 1.0);
+    }
+    // At the latitude of the anchor: a constant angular rate, whatever the latitude does later.
+    const double rate = 1e-3 * spot.drift_m_s / (radius_km * std::cos(sample_at(spot.anchor_tdb).lat_rad));
+    DarkSpotState state;
+    state.lat_rad = now.lat_rad;
+    state.east_lon_rad = std::remainder(spot.anchor_east_lon_rad - rate * (t_tdb - spot.anchor_tdb), kTwoPi);
+    state.width_ew_rad = now.east_west_km / radius_km;
+    state.width_ns_rad = now.north_south_km / radius_km;
+    state.contrast = now.contrast * fade * spot.display_gain;
+    return state;
+}
+
+double dark_spot_weight(const DarkSpotState& state, const glm::dvec3& p)
+{
+    const double lat = std::asin(std::clamp(p.z, -1.0, 1.0));
+    const double x = std::remainder(std::atan2(p.y, p.x) - state.east_lon_rad, kTwoPi) * std::cos(state.lat_rad) / state.width_ew_rad;
+    const double y = (lat - state.lat_rad) / state.width_ns_rad;
+    return std::exp(-4.0 * std::log(2.0) * (x * x + y * y));
+}
+
 double ring_edge_radius(double a_km, double ae_km, double from_periapsis)
 {
     const double e = ae_km / a_km;

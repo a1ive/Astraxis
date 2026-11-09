@@ -1608,6 +1608,92 @@ double angle_difference_deg(double a, double b)
     return std::remainder(a - b, 360.0);
 }
 
+// Neptune's dark spots against Wong et al. 2022 (Tables 2-5), and their events.
+void test_dark_spots()
+{
+    Scene scene = load_scene_or_die("neptune.toml");
+    const int index = scene.find("Neptune");
+    Body& neptune = scene.bodies[static_cast<size_t>(index)];
+    const auto find = [&](const char* name) -> const DarkSpot* {
+        for (const DarkSpot& s : neptune.dark_spots) {
+            if (s.name == name) return &s;
+        }
+        check(false, name);
+        return nullptr;
+    };
+    const DarkSpot* gds = find("GDS");
+    const DarkSpot* nds = find("NDS-2018");
+    const DarkSpot* second = find("Secondary dark feature");
+    if (!gds || !nds || !second) return;
+    const double radius = neptune.equatorial_radius_km;
+    const auto year = [](double y) { return tdb_from_julian_year(y); };
+    // The measured contrast, without what is added for the eye.
+    const auto state = [&](const DarkSpot& s, double y) {
+        DarkSpotState out = dark_spot_state(s, radius, year(y));
+        out.contrast /= s.display_gain;
+        return out;
+    };
+    const auto planetographic = [&](double lat_rad) {
+        const double ratio = neptune.equatorial_radius_km / neptune.polar_radius_km;
+        return std::atan(ratio * ratio * std::tan(lat_rad)) / kDegToRad;
+    };
+
+    // Table 3, 4 and 5, at their epochs.
+    const DarkSpotState peak = state(*nds, 2020.48);
+    check(std::abs(peak.contrast.z + 0.187) < 1e-6, "NDS-2018 at its darkest, -18.7 percent in F467M", peak.contrast.z);
+    check(std::abs(planetographic(peak.lat_rad) - 17.56) < 1e-6, "its latitude in 2020.48 (planetographic)", planetographic(peak.lat_rad));
+    check(std::abs(peak.width_ew_rad * radius - 6656.0) < 1e-6 && std::abs(peak.width_ns_rad * radius - 4019.0) < 1e-6, "its size in 2020.48");
+    check(std::abs(state(*nds, 2020.02).contrast.y + 0.126) < 1e-6, "F547M in 2020.02", state(*nds, 2020.02).contrast.y);
+    const double southmost = planetographic(state(*nds, 2020.02).lat_rad);
+    check(planetographic(state(*nds, 2020.48).lat_rad) > southmost, "it turned back in early 2020", southmost);
+    const double migration = (planetographic(state(*nds, 2018.85).lat_rad) - southmost) / (2020.02 - 2018.85);
+    check(std::abs(migration - 3.34) < 0.3, "3.34 deg/yr toward the equator until then", migration);
+    check(std::abs(state(*second, 2020.02).width_ew_rad * radius - 7248.0) < 1e-6, "the secondary feature's size in 2020.02");
+
+    // They come and go.
+    check(state(*gds, 1987.0).contrast == glm::dvec3(0.0), "no Great Dark Spot before Voyager's time");
+    check(std::abs(state(*gds, 1989.65).contrast.z + 0.12) < 1e-6, "12 percent in blue at the flyby", state(*gds, 1989.65).contrast.z);
+    check(std::abs(planetographic(state(*gds, 1989.65).lat_rad) + 20.0) < 1e-6, "20 S at the flyby", planetographic(state(*gds, 1989.65).lat_rad));
+    const double monthly = (planetographic(state(*gds, 1989.65).lat_rad) - planetographic(state(*gds, 1989.0).lat_rad)) / (0.65 * 12.0);
+    check(std::abs(monthly - 1.3) < 0.05, "1.3 deg a month toward the equator", monthly);
+    check(state(*gds, 1994.8).contrast == glm::dvec3(0.0), "gone when Hubble could see it in 1994");
+    check(state(*nds, 2017.5).contrast == glm::dvec3(0.0) && state(*nds, 2023.0).contrast == glm::dvec3(0.0), "NDS-2018 only in its lifetime");
+    check(state(*second, 2019.0).contrast == glm::dvec3(0.0) && state(*second, 2021.0).contrast == glm::dvec3(0.0), "the secondary feature in 2019-2020");
+    check(std::abs(state(*nds, 2020.95).contrast.z / state(*nds, 2020.95).contrast.y - 0.166 / 0.119) < 1e-6, "bluer than green");
+
+    // The shape: half depth half a width away, along both axes.
+    const DarkSpotState s = state(*nds, 2020.02);
+    const auto at = [](double lon, double lat) { return glm::dvec3(std::cos(lat) * std::cos(lon), std::cos(lat) * std::sin(lon), std::sin(lat)); };
+    check(std::abs(dark_spot_weight(s, at(s.east_lon_rad, s.lat_rad)) - 1.0) < 1e-12, "the spot's center");
+    check(std::abs(dark_spot_weight(s, at(s.east_lon_rad, s.lat_rad + 0.5 * s.width_ns_rad)) - 0.5) < 1e-6, "half depth north");
+    check(std::abs(dark_spot_weight(s, at(s.east_lon_rad + 0.5 * s.width_ew_rad / std::cos(s.lat_rad), s.lat_rad)) - 0.5) < 1e-6, "half depth east");
+    check(std::abs(dark_spot_weight(s, at(s.east_lon_rad + kTwoPi - 0.5 * s.width_ew_rad / std::cos(s.lat_rad), s.lat_rad)) - 0.5) < 1e-6, "across the seam");
+
+    // It goes round westward at the measured speed.
+    const double day = 86400.0;
+    const DarkSpotState later = dark_spot_state(*nds, radius, nds->anchor_tdb + day);
+    const double moved = std::remainder(later.east_lon_rad - nds->anchor_east_lon_rad, kTwoPi) * radius * std::cos(dark_spot_state(*nds, radius, nds->anchor_tdb).lat_rad);
+    check(std::abs(moved * 1000.0 / day + 333.0) < 0.01, "333 m/s westward", moved * 1000.0 / day);
+
+    // Each event opens with its spot on the sunlit side.
+    const struct { const char* event; const DarkSpot* spot; double west_of_center_deg; } shots[] = {
+        {"The Great Dark Spot", gds, 25.0},
+        {"A dark spot that turned back", nds, 55.0},
+    };
+    for (const auto& shot : shots) {
+        const auto e = std::find_if(scene.events.begin(), scene.events.end(), [&](const SceneEvent& v) { return v.name.find(shot.event) != std::string::npos; });
+        check(e != scene.events.end(), shot.event);
+        if (e == scene.events.end()) continue;
+        scene.update(e->t_tdb);
+        const glm::dvec3 to_sun = glm::transpose(neptune.orientation) * (scene.sun_position() - neptune.world_position);
+        const double sub_solar = std::atan2(to_sun.y, to_sun.x) / kDegToRad;
+        const double east = dark_spot_state(*shot.spot, radius, e->t_tdb).east_lon_rad / kDegToRad;
+        const double off = std::remainder(sub_solar - shot.west_of_center_deg - east, 360.0);
+        std::printf("  info: %s: sub-solar longitude %.2f; the spot should be at %.2f, is off by %.2f deg\n", e->name.c_str(), sub_solar, sub_solar - shot.west_of_center_deg, off);
+        check(std::abs(off) < 2.0, "the spot opens on the sunlit side", off);
+    }
+}
+
 void test_ice_giant_aurora()
 {
     Scene scene = load_scene_or_die("solar_system.toml");
@@ -3391,6 +3477,7 @@ void run_appearance_tests()
     test_saturn_aurora();
     test_aurora_profiles();
     test_ice_giant_aurora();
+    test_dark_spots();
     test_magnetic_field();
     test_flux_tubes();
     test_magnetic_maps();

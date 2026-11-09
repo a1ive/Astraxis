@@ -22,6 +22,21 @@
 #        and 217.43 +- 0.30 deg on 2016 Aug 23 (light leaving Neptune 4.01 h before the
 #        05:33:52 UT frame of Table 1). Longitudes in the ring plane from the J2000.0
 #        ascending node of Neptune's equator.
+# [SMI89] Smith et al. 1989, Science 246, 1422, as quoted in [WON18] and [WON22].
+# [SRO93] Sromovsky, Limaye & Fry 1993, Icarus 105, 110, as quoted in Hadland et al. 2020
+#        (MNRAS 496, 4760, arXiv:2006.12744): the Great Dark Spot drifted toward the equator
+#        by 1.3 deg a month.
+# [LD98]  LeBeau & Dowling 1998, Icarus 132, 239, as quoted in [WON22]: it should fall apart
+#        at about 15 deg S.
+# [WON18] Wong et al. 2018, AJ 155, 117, Table 1: the Great Dark Spot at 20 S, 38 x 15 deg, its
+#        demise estimated at 1990.
+# [WON22] Wong et al. 2022, Icarus 387, 115123 (NTRS 20220009409): NDS-2018 and the secondary
+#        dark features, Tables 2-5. Contrast is the relative difference of I/F at the center
+#        (Appendix B.4), the Great Dark Spot's -11 percent in Voyager's clear filter and -12
+#        percent in blue (Smith et al. 1989). Latitudes are planetographic. HST could not
+#        resolve dark spots before 1994, when the Great Dark Spot was gone (Hammel et al. 1995).
+# [WON26] Wong et al. 2026, GRL 53, e2026GL122748 (abstract): NDS-2018 faded around 2022, within
+#        about 8 deg of the equator.
 # [CBET] Souami, de Pater, Renner, Hedman, Sicardy, El Moutamid & Showalter, CBET 5759 (2026
 #        Oct. 16): new material trailing Fraternite's brightness maximum on the Adams ring, about
 #        5 to almost 20 deg behind it on 2021 Oct. 7-8 (Keck II, NIRC-2), and a more compact
@@ -53,6 +68,64 @@ reference_radius_km = 24765.0
 prime_meridian_deg = [253.18, 536.3128492] # [NLS]
 [magnetic_map]                      # O8 on the surface, in NLS (it turns against these axes)
 surface = "geomag/neptune_br.fieldmap"
+
+# Dark spots [WON22]: drawn as the 2D Gaussians the widths come from (the real profile has
+# a flatter bottom; the major axis tilts by up to 14 deg: not drawn). The blue contrast is
+# F467M (NDS-2018) or Voyager's blue, the green F547M or Voyager's clear; F547M is missing in
+# 2018.69 and 2020.48 (taken at the neighbors' ratio to blue, and between the neighbors) and
+# for the secondary features (the same 0.6 of blue). Red was not measured: half of green,
+# illustrative. So are the dates of the fades except where noted, the anchors' longitudes
+# (chosen so that each spot faces the Sun in its event: its real longitude in these axes is
+# unknown) and the Great Dark Spot's drift. Companion clouds and the 8-day wobble of the
+# Great Dark Spot [SRO93] are not drawn. The contrasts are data; display_gain is for the eye,
+# and the events say so.
+[[dark_spots]]
+name = "GDS"
+years = [1989.0, 1989.65, 1990.0]          # 20 S near the flyby [WON18], at 1.3 deg a month [SRO93]
+planetographic_lat_deg = [-30.1, -20.0, -15.0]  # the end: [LD98]
+east_west_km = [15430.0, 15430.0, 15430.0] # 38 deg at 20 S [WON18]
+north_south_km = [6480.0, 6480.0, 6480.0]  # 15 deg [WON18]
+contrast_blue = [-0.12, -0.12, -0.12]      # [SMI89]
+contrast_green = [-0.11, -0.11, -0.11]     # clear filter [SMI89]
+red_share = 0.5                            # illustrative
+display_gain = 2.5                         # the contrast as drawn; at 1 the spots hardly show in true color
+anchor = "1989-08-20 00:00"
+anchor_east_lon_deg = 63.65
+drift_m_s = 300.0                          # illustrative, like NDS-2018's
+fade_in = ["1988-01-01", "1989-01-01"]     # already formed when Voyager arrived [WON22]
+fade_out = ["1989-12-01", "1990-12-31"]    # [WON18] about 1990
+
+[[dark_spots]]
+name = "NDS-2018"
+years = [2018.69, 2018.85, 2019.74, 2020.02, 2020.48, 2020.63, 2020.95, 2022.0]
+planetographic_lat_deg = [19.75, 20.36, 17.36, 16.44, 17.56, 17.48, 16.05, 8.0]  # Table 4; the last [WON26]
+east_west_km = [10597.0, 10546.0, 6285.0, 6594.0, 6656.0, 6841.0, 7031.0, 7031.0]   # Table 5; held
+north_south_km = [4393.0, 4109.0, 3937.0, 3709.0, 4019.0, 4048.0, 3767.0, 3767.0]   # Table 5; held
+contrast_blue = [-0.065, -0.122, -0.142, -0.168, -0.187, -0.175, -0.166, -0.166]    # Table 3; held
+contrast_green = [-0.038, -0.071, -0.078, -0.126, -0.121, -0.117, -0.119, -0.119]   # Table 3; see above
+red_share = 0.5                            # illustrative
+display_gain = 2.5                         # the contrast as drawn; at 1 the spots hardly show in true color
+anchor = "2020-01-07 12:00"
+anchor_east_lon_deg = -31.85
+drift_m_s = 333.0                          # Table 4, 2020.02
+fade_in = ["2018-01-01", "2018-09-10"]     # the end: the first image
+fade_out = ["2021-06-01", "2022-06-01"]    # [WON26] around 2022
+
+[[dark_spots]]
+name = "Secondary dark feature"
+years = [2019.74, 2020.02, 2020.48, 2020.63]
+planetographic_lat_deg = [7.33, 6.76, 4.19, 6.86]    # Table 4
+east_west_km = [8815.0, 7248.0, 3927.0, 5374.0]      # Table 2
+north_south_km = [3368.0, 3358.0, 3224.0, 3920.0]    # Table 2
+contrast_blue = [-0.041, -0.040, -0.015, -0.018]     # Table 3
+contrast_green = [-0.025, -0.024, -0.009, -0.011]    # see above
+red_share = 0.5                            # illustrative
+display_gain = 2.5                         # the contrast as drawn; at 1 the spots hardly show in true color
+anchor = "2020-01-07 12:00"
+anchor_east_lon_deg = 32.15
+drift_m_s = 333.0                          # with NDS-2018; its own drift is not given
+fade_in = ["2019-06-01", "2019-09-28"]     # the end: the first image
+fade_out = ["2020-08-20", "2020-12-12"]    # none of this size in December [WON22]
 
 # Rings [PDSN]: Galle, Le Verrier, Lassell and Adams (Arago, a brightening at
 # Lassell's outer edge, has no width or optical depth in the table), Le Verrier at

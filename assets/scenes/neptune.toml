@@ -29,6 +29,8 @@
 # [VPV]  NASA, "Voyager: Planetary Voyage", science.nasa.gov/mission/voyager/planetary-voyage/
 #        (4,950 km above Neptune's north pole; Voyager 2 "diving below the ecliptic plane").
 # [PLM]  Triton's plumes: bodies/triton.toml.
+# [WON22] Wong et al. 2022, Icarus 387, 115123, and the other sources of the dark spots:
+#        bodies/neptune.toml.
 # [CBET] Souami et al., CBET 5759 (2026 Oct. 16): the new arc Sincerite; bodies/neptune.toml.
 # [NRV]  de Pater et al. 2018, "The rings of Neptune" (arXiv:1906.11728): the arcs' optical
 #        depth; Liberte and Courage had essentially disappeared by 2009.
@@ -205,6 +207,23 @@ up = "Neptune"
 # --- Events -------------------------------------------------------------------------
 
 [[events]]
+name = "The Great Dark Spot (1989)"
+hide_orbits = true
+time_tdb = "1989-08-20 00:00"
+focus = "Neptune"
+frame = "Neptune equator"
+from_body = "Sun"
+elevation_deg = -22.0
+distance_km = 1.1e5
+warp = 900.0
+# [WON22] (Smith et al. 1989, Sromovsky et al. 1993, Hammel et al. 1995)
+caption = """\
+    A dark oval wider than the Earth, drifting toward the equator by more than a degree a \
+    month. It may have fallen apart soon after Voyager 2 left. When Hubble could finally \
+    resolve spots like this, in 1994, it was gone. Its longitude here is a guess, and it \
+    is drawn 2.5 times stronger than the 12 percent dimming measured in blue."""
+
+[[events]]
 name = "The Adams ring arcs (1989)"
 hide_orbits = true
 time_tdb = "1989-08-22 00:00"
@@ -287,6 +306,24 @@ caption = """\
     leaving the planet, blue entering it. Instead of two even halves there are patches of \
     both colors at the same latitudes. The strongest, about 0.9 gauss, is three times what \
     the dipole alone would give, on the side its off-center field lies nearest."""
+
+[[events]]
+name = "A dark spot that turned back (2020)"
+hide_orbits = true
+time_tdb = "2020-01-07 12:00"
+focus = "Neptune"
+frame = "Neptune equator"
+from_body = "Sun"
+elevation_deg = 10.0
+distance_km = 1.1e5
+warp = 900.0
+# [WON22], [WON26]
+caption = """\
+    Hubble saw this spot form in 2018, the darkest ever measured on Neptune. It was moving \
+    toward the equator by 3.3 degrees a year and should have broken up by mid-2020, but early \
+    that year it turned back, as a fainter dark patch appeared nearer the equator. It faded \
+    around 2022, close to the equator after all. Its longitude is a guess, its contrast \
+    drawn 2.5 times the measured 17 percent."""
 
 # The view of the 1989 event, closer, at a moment when the arcs are on the left, clear of
 # Neptune's shadow and the caption.

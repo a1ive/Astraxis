@@ -66,6 +66,9 @@ struct BodyDrawItem {
     int spot_count = 0;
     glm::vec4 spots[4] = {};
     glm::vec3 spot_color{0.0f};
+    // A planet's dark spots use spots[] and spot_count too: (east longitude, latitude, east-west
+    // width, north-south width), in radians, and the change of the albedo at the center of each.
+    glm::vec4 spot_tints[4] = {};
     // A star's flare: site in the body's axes, angular radius (rad; 0 = none), and its radiance.
     glm::vec4 flare{0.0f};
     glm::vec3 flare_color{0.0f};

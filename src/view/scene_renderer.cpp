@@ -1227,6 +1227,18 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
             emit(item);
             continue;
         }
+        if (!body.dark_spots.empty()) {
+            item.spot_count = 0;
+            for (const DarkSpot& spot : body.dark_spots) {
+                const DarkSpotState state = dark_spot_state(spot, body.equatorial_radius_km, sim.clock().t_tdb);
+                if (state.contrast != glm::dvec3(0.0) && item.spot_count < kMaxDarkSpots) {
+                    item.spots[item.spot_count] = glm::vec4(static_cast<float>(state.east_lon_rad), static_cast<float>(state.lat_rad),
+                                                            static_cast<float>(state.width_ew_rad), static_cast<float>(state.width_ns_rad));
+                    item.spot_tints[item.spot_count] = glm::vec4(glm::vec3(state.contrast), 0.0f);
+                    ++item.spot_count;
+                }
+            }
+        }
         if (body.kind == BodyKind::BlackHole) {
             if (m_black_hole.ready()) {
                 continue; // ray traced (shadow, lensing, disk) by trace_black_hole()

@@ -48,6 +48,7 @@ struct FragmentUniforms {
     glm::vec4 spot_color; // rgb = their linear radiance, a = how many
     glm::vec4 flare;      // a star's flare: xyz = site in the body's axes, w = angular radius (0: none)
     glm::vec4 flare_color; // rgb = its linear radiance
+    glm::vec4 spot_tints[4]; // a planet's dark spots: rgb = relative change of the albedo at the center
 };
 
 struct BodyVertex {
@@ -328,6 +329,7 @@ void BodyPass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const Ca
         fu.craft = glm::vec4(item.atlas ? 1.0f : 0.0f, item.fill_light, 0.0f, 0.0f);
         for (int k = 0; k < item.spot_count && k < 4; ++k) {
             fu.spots[k] = item.spots[k];
+            fu.spot_tints[k] = item.spot_tints[k];
         }
         fu.spot_color = glm::vec4(item.spot_color, static_cast<float>(item.spot_count));
         fu.flare = item.flare;

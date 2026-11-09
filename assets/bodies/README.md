@@ -75,7 +75,7 @@ file = "ephem/moon_geo.eph"
 | IAU 自转 | `pole_ra_dec_deg`、`prime_meridian_deg`、`pole_rate_deg_per_century`、`nut_prec_angles`、`nut_prec_ra`、`nut_prec_dec`、`nut_prec_pm` |
 | 其他独立自转模型 | `spin_table`、`free_precession` |
 | 表面与形状 | `color`、`style`、`shape`、`texture`、`texture_left_lon_deg`、`texture_lon_direction` |
-| 外观子表 | `atmosphere`、`night_lights`、`aurora`、`magnetic_field`、`magnetic_map`、`rotor`、`shape_after`（从某个时刻起换用的形状模型：`shape` 和 `time` 或 `time_tdb`，与 `shape` 共用纹理图集）、`rings`（含 `[[rings.bands]]`）、`[[plumes]]`、`[[impacts]]`（撞击点：`name`、`class`、`time_tdb`、`lat_deg`、`west_lon_deg`，见 `scene/impact.hpp`） |
+| 外观子表 | `atmosphere`、`night_lights`、`aurora`、`magnetic_field`、`magnetic_map`、`rotor`、`shape_after`（从某个时刻起换用的形状模型：`shape` 和 `time` 或 `time_tdb`，与 `shape` 共用纹理图集）、`rings`（含 `[[rings.bands]]`）、`[[plumes]]`、`[[dark_spots]]`（大气里的暗斑：按十进制年份列出的纬度、宽度和对比度，经度锚点和漂移，淡入淡出，见 `DarkSpot`）、`[[impacts]]`（撞击点：`name`、`class`、`time_tdb`、`lat_deg`、`west_lon_deg`，见 `scene/impact.hpp`） |
 
 `atmosphere.refractivity` 是大气底部的 `n-1`，默认 0；设为 0 可关闭折射像。地球模板采用 550 nm 标准干空气的值，随 Rayleigh 气体的指数密度变化。`atmosphere.refraction_gain` 默认 1，独立调整折射像的显示亮度，日食场景采用 64。加载时计算弯折和透射率表；不支持 `n(r)r` 非单调的波导大气。公式与适用范围见 [日冕与折射来源](../corona/SOURCES.md#地球边缘的大气折射像)。
 
