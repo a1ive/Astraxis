@@ -14,30 +14,32 @@ from jplephem.spk import SPK
 import element_table_bake as et
 
 
-def state(kernel, t):
-    """ICRF km and km/s, Proteus minus Neptune, at TDB seconds since J2000."""
+def barycentric_state(kernel, t, target, barycenter):
+    """ICRF km and km/s at TDB seconds since J2000."""
     jd = et.hb.J2000_JD + t / et.hb.DAY
     result = np.zeros((2, 3, len(t)))
-    for target, sign in ((808, 1), (899, -1)):
-        covered = np.zeros(len(t), dtype=bool)
-        for segment in kernel.segments:
-            if segment.target != target or segment.center != 8:
-                continue
-            if segment.frame != 1:
-                raise ValueError('expected ICRF segments')
-            # jplephem excerpts can label each segment with the whole requested
-            # span. Intersect it with the actual Chebyshev record coverage.
-            first, step, coefficients = segment.load_array()
-            last = first + step * coefficients.shape[1]
-            mask = (jd >= max(segment.start_jd, first)) & (jd <= min(segment.end_jd, last)) & ~covered
-            if mask.any():
-                p, v = segment.compute_and_differentiate(jd[mask])
-                result[0][:, mask] += sign * p
-                result[1][:, mask] += sign * v / et.hb.DAY
-                covered |= mask
-        if not covered.all():
-            raise ValueError(f'SPK does not cover target {target} at all requested times')
-    return result[0].T, result[1].T
+    covered = np.zeros(len(t), dtype=bool)
+    for segment in kernel.segments:
+        if segment.target != target or segment.center != barycenter:
+            continue
+        if segment.frame != 1:
+            raise ValueError('expected ICRF segments')
+        # Excerpt summaries can span the entire request. Check the Chebyshev records too.
+        first, step, coefficients = segment.load_array()
+        last = first + step * coefficients.shape[1]
+        mask = (jd >= max(segment.start_jd, first)) & (jd <= min(segment.end_jd, last)) & ~covered
+        if mask.any():
+            p, v = segment.compute_and_differentiate(jd[mask])
+            result[0][:, mask] = p
+            result[1][:, mask] = v / et.hb.DAY
+            covered |= mask
+    if not covered.all():
+        raise ValueError(f'SPK does not cover target {target} at JD {jd[~covered][0]}')
+    return result.transpose(0, 2, 1)
+
+
+def state(kernel, t):
+    return barycentric_state(kernel, t, 808, 8) - barycentric_state(kernel, t, 899, 8)
 
 
 def main():

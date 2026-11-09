@@ -490,6 +490,51 @@ void test_solar_system_belts()
 }
 
 // Uranus' eccentric, inclined rings [FR24 = French et al. 2024, arXiv:2401.04634].
+void test_ice_giant_moons()
+{
+    struct Moon {
+        const char* name;
+        double min_radius_km;
+        double max_radius_km;
+    };
+    const Moon neptune_moons[] = {
+        {"Naiad", 48000, 48500}, {"Thalassa", 49900, 50300}, {"Despina", 52300, 52800},
+        {"Galatea", 61600, 62300}, {"Larissa", 73200, 73900}, {"Hippocamp", 105000, 105600},
+        {"Nereid", 1300000, 9900000},
+    };
+    const Moon uranus_moons[] = {
+        {"Cordelia", 49600, 50100}, {"Ophelia", 53000, 54600}, {"Portia", 65800, 66400},
+        {"Belinda", 75000, 75600}, {"Puck", 85000, 87000}, {"Mab", 96900, 98600},
+        {"Caliban", 4900000, 9300000}, {"Sycorax", 4900000, 19500000},
+    };
+    const auto check_moons = [](const char* file, const char* planet, const auto& moons) {
+        Scene scene = load_scene_or_die(file);
+        const int parent = scene.find(planet);
+        for (const Moon& moon : moons) {
+            const int id = scene.find(moon.name);
+            check(id >= 0, moon.name);
+            if (id < 0) {
+                continue;
+            }
+            const Body& body = scene.bodies[static_cast<size_t>(id)];
+            check(body.parent == parent, moon.name);
+            const auto relative = [&](double t) {
+                return scene.icrf_state_at(id, t).position - scene.icrf_state_at(parent, t).position;
+            };
+            // Check coverage before, during and after the baked span.
+            for (double jd : {2440587.5, 2446445.5, 2461041.5, 2488068.5, 2488434.5}) {
+                const double t = tdb_from_jd_tdb(jd) + 37.0;
+                const glm::dvec3 p = relative(t);
+                const double r = glm::length(p);
+                check(r > moon.min_radius_km && r < moon.max_radius_km, moon.name, r);
+                check(glm::length(relative(t + 60.0) - p) > 10.0, moon.name);
+            }
+        }
+    };
+    check_moons("neptune.toml", "Neptune", neptune_moons);
+    check_moons("uranus.toml", "Uranus", uranus_moons);
+}
+
 void test_uranus_rings()
 {
     Scene scene = load_scene_or_die("solar_system.toml");
@@ -1214,6 +1259,7 @@ void run_planet_scene_tests()
     test_solar_system_scene();
     test_solar_system_bodies();
     test_solar_system_belts();
+    test_ice_giant_moons();
     test_uranus_rings();
     test_ring_arcs();
     test_earth_moon_frame();

@@ -864,3 +864,30 @@ python -E tools/bake/proteus_bake.py nep098_proteus.bsp
 生成结果：849 个节点（54,392 字节），1,122,049 个小时样本；280,512 个独立时刻的最大位置误差为 9.9953 km，RMS 为 4.1432 km。这里衡量的是拟合表相对 NEP098 的误差，不是该轨道解相对观测的绝对精度。
 
 输出 `proteus_nep.elm` 的 SHA-256：`dbd3cc8a15acf190398995cb669cc557837a21e34ab7abf63508573b8a1f7166`.
+
+## Neptune 和 Uranus 的小卫星
+
+星历覆盖 1972-01-01 至 2100-01-01 TDB。场景求值后的状态相对各自行星中心，坐标系为 ICRF。原始 SPK 用系统质心作原点，烘焙时减去行星中心的状态。Nereid 使用 NEP098 的海王星中心，Caliban 和 Sycorax 使用 URA184 内的 URA182 天王星中心。轨道解见 [JPL 卫星星历目录](https://ssd.jpl.nasa.gov/sats/ephem/)。
+
+| 轨道解 | 卫星 | 场景使用的格式 |
+|---|---|---|
+| NEP098 | Naiad、Thalassa、Despina、Galatea、Larissa、Hippocamp | AXELM1 |
+| URA184 | Cordelia、Ophelia、Portia、Belinda、Puck、Mab | AXELM1 |
+| NEP105 | Nereid | AXEPH2 |
+| URA117 | Caliban、Sycorax | AXEPH2 |
+
+内卫星按小时采样，在固定赤道基底中拟合进动椭圆。海王星基底的极为 RA 299.36°、Dec 43.46°，天王星采用顺行卫星的正角动量方向（RA 77.311°、Dec 15.175°）。外卫星每 8 小时采样，按 AXEPH2 的开普勒参考弧抽稀，以保留随太阳摄动而变的轨道。每颗卫星用错开原采样时刻的 374,016 个 SPK 向量复查。内卫星在这些时刻的最大位置误差低于 13 km，外卫星低于 25 km。误差衡量的是压缩表相对源星历的偏差。
+
+在仓库根目录运行以下命令复现。需要 NumPy 和 jplephem，下载的 SPK 摘取文件放在 `build/` 下。
+
+```powershell
+$dir = 'build/ice_giant_moons'
+$base = 'https://ssd.jpl.nasa.gov/ftp/eph/satellites/bsp'
+New-Item -ItemType Directory -Force -Path $dir | Out-Null
+python -m jplephem excerpt --targets 803,804,805,806,807,814,899 1972/1/1 2100/1/1 "$base/nep098.bsp" "$dir/nep098.bsp"
+python -m jplephem excerpt --targets 706,707,712,714,715,726,799 1972/1/1 2100/1/1 "$base/ura184.bsp" "$dir/ura184.bsp"
+python -m jplephem excerpt --targets 802 1972/1/1 2100/1/1 "$base/nep105.bsp" "$dir/nep105.bsp"
+python -m jplephem excerpt --targets 716,717 1972/1/1 2100/1/1 "$base/ura117.bsp" "$dir/ura117.bsp"
+python -u -E tools/bake/ice_giant_moons.py $dir nep
+python -u -E tools/bake/ice_giant_moons.py $dir ura
+```

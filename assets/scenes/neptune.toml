@@ -1,5 +1,5 @@
-# Neptune: its rings with the Adams arcs, Triton and Proteus, its off-center magnetic field and
-# its infrared H3+, with Voyager 2's flyby of 1989.
+# Neptune, its rings and moons, its off-center magnetic field and infrared H3+,
+# and Voyager 2's flyby of 1989.
 #
 # Sources
 # Properties of the planet and the moons, with their sources: bodies/neptune.toml, proteus.toml,
@@ -11,6 +11,9 @@
 #        (worst 0.15) of Horizons over 1972-2100.
 # [PROT] Proteus' orbit: JPL NEP098 SPK, 1972-2100, fitted by tools/bake/proteus_bake.py. See
 #        assets/ephem/SOURCES.md.
+# [NEP098], [NEP105] JPL SPK orbits for the inner moons and Nereid from 1972 to 2100.
+#        See assets/ephem/SOURCES.md for the bake. Moon radii below are from NASA NSSDCA,
+#        https://nssdc.gsfc.nasa.gov/planetary/factsheet/neptuniansatfact.html.
 # [APX]  E. M. Standish, Approximate Positions of the Planets, Tables 2a + 2b.
 # [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py (tools/bake/ephem.toml):
 #        Neptune system barycenter around the Sun, 1972-2100 (the Sun's direction); Voyager 2
@@ -110,6 +113,84 @@ trail_linger_days = 10.0
 [bodies.orbit]                             # [HZN] -32
 type = "ephemeris"
 file = "ephem/voyager2_nep.eph"
+
+# --- Small moons ----------------------------------------------------------------
+
+[[bodies]]
+name = "Naiad"
+parent = "Neptune"
+radii_km = [48.0, 30.0, 26.0]
+synchronous = true
+color = "#777777"
+orbit_color = "#a0b1c1"
+[bodies.orbit]                             # [NEP098] 803
+type = "element_table"
+file = "ephem/naiad_nep.elm"
+
+[[bodies]]
+name = "Thalassa"
+parent = "Neptune"
+radii_km = [54.0, 50.0, 26.0]
+synchronous = true
+color = "#858585"
+orbit_color = "#a4b9bb"
+[bodies.orbit]                             # [NEP098] 804
+type = "element_table"
+file = "ephem/thalassa_nep.elm"
+
+[[bodies]]
+name = "Despina"
+parent = "Neptune"
+radii_km = [90.0, 74.0, 64.0]
+synchronous = true
+color = "#858585"
+orbit_color = "#abb4c8"
+[bodies.orbit]                             # [NEP098] 805
+type = "element_table"
+file = "ephem/despina_nep.elm"
+
+[[bodies]]
+name = "Galatea"
+parent = "Neptune"
+radii_km = [102.0, 92.0, 72.0]
+synchronous = true
+color = "#7e7e7e"
+orbit_color = "#b0afc5"
+[bodies.orbit]                             # [NEP098] 806
+type = "element_table"
+file = "ephem/galatea_nep.elm"
+
+[[bodies]]
+name = "Larissa"
+parent = "Neptune"
+radii_km = [108.0, 102.0, 84.0]
+synchronous = true
+color = "#858585"
+orbit_color = "#b4aea5"
+[bodies.orbit]                             # [NEP098] 807
+type = "element_table"
+file = "ephem/larissa_nep.elm"
+
+[[bodies]]
+name = "Hippocamp"
+parent = "Neptune"
+radii_km = [17.0]
+color = "#8c8c8c"
+orbit_color = "#a7b9c6"
+[bodies.orbit]                             # [NEP098] 814
+type = "element_table"
+file = "ephem/hippocamp_nep.elm"
+
+[[bodies]]
+name = "Nereid"
+parent = "Neptune"
+radii_km = [170.0]
+color = "#a7a39e"
+orbit_color = "#aaa397"
+[bodies.orbit]                             # [NEP105] 802
+type = "ephemeris"
+file = "ephem/nereid_nep.eph"
+extrapolate = "kepler"
 
 # With the north pole up, for the map of the field and the arcs.
 [[frames]]

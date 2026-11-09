@@ -1,5 +1,5 @@
-# Uranus: the planet tipped on its side, its rings and five large moons, its lopsided magnetic
-# field and its infrared H3+, with Voyager 2's flyby of 1986.
+# Uranus tipped on its side, its rings and moons, its lopsided magnetic field and infrared H3+,
+# and Voyager 2's flyby of 1986.
 #
 # Sources
 # Properties of the planet and the moons, with their sources: bodies/uranus.toml, miranda.toml,
@@ -12,6 +12,11 @@
 #        M) = 360 / (360 / P - apsis rate - node rate), with apsides advancing and nodes
 #        regressing (oblateness). With its phases, the direction is within 0.1-0.3 deg rms of
 #        Horizons over 1972-2100 (Miranda: 1.8 deg). The same as in solar_system.toml.
+# [URA184], [URA117] JPL SPK orbits for the inner moons and Caliban and Sycorax from 1972
+#        to 2100. See assets/ephem/SOURCES.md for the bake. Inner moon radii are from NASA NSSDCA,
+#        https://nssdc.gsfc.nasa.gov/planetary/factsheet/uraniansatfact.html.
+# [FT17] Farkas-Takacs et al. 2017, AJ 154, 119 (https://arxiv.org/abs/1706.06837),
+#        thermal diameters of Caliban and Sycorax.
 # [APX]  E. M. Standish, Approximate Positions of the Planets, Tables 2a + 2b.
 # [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py (tools/bake/ephem.toml):
 #        Uranus system barycenter around the Sun, 1972-2100 (the Sun's direction); Voyager 2
@@ -176,6 +181,90 @@ trail_linger_days = 10.0
 [bodies.orbit]                             # [HZN] -32
 type = "ephemeris"
 file = "ephem/voyager2_ura.eph"
+
+# --- Small moons ----------------------------------------------------------------
+
+[[bodies]]
+name = "Cordelia"
+parent = "Uranus"
+radii_km = [20.0]
+color = "#777777"
+orbit_color = "#a3b3bd"
+[bodies.orbit]                             # [URA184] 706
+type = "element_table"
+file = "ephem/cordelia_ura.elm"
+
+[[bodies]]
+name = "Ophelia"
+parent = "Uranus"
+radii_km = [21.0]
+color = "#777777"
+orbit_color = "#a7b8c5"
+[bodies.orbit]                             # [URA184] 707
+type = "element_table"
+file = "ephem/ophelia_ura.elm"
+
+[[bodies]]
+name = "Portia"
+parent = "Uranus"
+radii_km = [70.0]
+color = "#777777"
+orbit_color = "#a9b4b9"
+[bodies.orbit]                             # [URA184] 712
+type = "element_table"
+file = "ephem/portia_ura.elm"
+
+[[bodies]]
+name = "Belinda"
+parent = "Uranus"
+radii_km = [45.0]
+color = "#777777"
+orbit_color = "#aeb5bf"
+[bodies.orbit]                             # [URA184] 714
+type = "element_table"
+file = "ephem/belinda_ura.elm"
+
+[[bodies]]
+name = "Puck"
+parent = "Uranus"
+radii_km = [81.0]
+color = "#8c8c8c"
+orbit_color = "#b3bdc3"
+[bodies.orbit]                             # [URA184] 715
+type = "element_table"
+file = "ephem/puck_ura.elm"
+
+[[bodies]]
+name = "Mab"
+parent = "Uranus"
+radii_km = [12.0]
+color = "#8c8c8c"
+orbit_color = "#a3b8ca"
+[bodies.orbit]                             # [URA184] 726
+type = "element_table"
+file = "ephem/mab_ura.elm"
+
+[[bodies]]
+name = "Caliban"
+parent = "Uranus"
+radii_km = [21.0]  # [FT17]
+color = "#b5a79d"
+orbit_color = "#b3a194"
+[bodies.orbit]                             # [URA117] 716
+type = "ephemeris"
+file = "ephem/caliban_ura.eph"
+extrapolate = "kepler"
+
+[[bodies]]
+name = "Sycorax"
+parent = "Uranus"
+radii_km = [78.5]  # [FT17]
+color = "#82716c"
+orbit_color = "#a28e85"
+[bodies.orbit]                             # [URA117] 717
+type = "ephemeris"
+file = "ephem/sycorax_ura.eph"
+extrapolate = "kepler"
 
 # With the north pole up, for the maps of the field and the seasons.
 [[frames]]
