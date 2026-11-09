@@ -80,7 +80,7 @@ bool load_star_catalog(const std::filesystem::path& path, StarCatalog& out, std:
 }
 
 std::vector<CatalogStar> catalog_sky(const StarCatalog& catalog, const glm::dvec3& viewer_pc,
-                                     std::span<const int> hidden_hip)
+                                     std::span<const int> hidden_hip, double own_system_pc)
 {
     std::vector<CatalogStar> sky;
     sky.reserve(catalog.stars.size());
@@ -93,7 +93,7 @@ std::vector<CatalogStar> catalog_sky(const StarCatalog& catalog, const glm::dvec
             const glm::dvec3 d =
                 unit_from_ra_dec(c.ra_deg * kDegToRad, c.dec_deg * kDegToRad) * c.distance_pc - viewer_pc;
             const double distance = glm::length(d);
-            if (distance < kOwnSystemPc) {
+            if (distance < own_system_pc) {
                 continue;
             }
             const glm::dvec3 dir = d / distance;

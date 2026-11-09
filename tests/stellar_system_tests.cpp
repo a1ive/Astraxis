@@ -9,6 +9,7 @@
 #include "ephem/kepler.hpp"
 #include "scene/light_curve.hpp"
 #include "scene/scene_loader.hpp"
+#include "scene/simulation.hpp"
 #include "scene/star_catalog.hpp"
 
 #include <glm/glm.hpp>
@@ -995,6 +996,168 @@ double find_light_maximum(const Scene& scene, double t_guess, double window)
         }
     }
     return 0.5 * (lo + hi);
+}
+
+// Castor [Torres et al. 2022, Torres & Ribas 2002]: Ab and Bb stand where CHARA
+// saw them (Table 2, at the barycentric times), A and B are as far along the
+// line of sight as the table's light-time corrections say (which fixes the
+// depth), the orbits are at the published angles to each other, C is at its
+// measured place and moves as measured, YY Gem eclipses on the TESS ephemeris
+// and only its plot appears, and only near it.
+void test_castor_scene()
+{
+    Scene scene = load_scene_or_die("castor.toml");
+    const double brightest = check_relocated_sky(scene, "Castor sky from the system");
+    check(brightest > -2.0, "Castor sky without the catalog's copies (V)", brightest); // they would be -4
+    const int ab = scene.find("Castor AB");
+    const int a = scene.find("Castor A");
+    const int b = scene.find("Castor B");
+    const int c = scene.find("Castor C");
+    const int aa = scene.find("Castor Aa");
+    const int ab_star = scene.find("Castor Ab");
+    const int ba = scene.find("Castor Ba");
+    const int bb = scene.find("Castor Bb");
+    const int ca = scene.find("Castor Ca");
+    const int cb = scene.find("Castor Cb");
+    if (ab <= 0 || a <= 0 || b <= 0 || c <= 0 || aa <= 0 || ab_star <= 0 || ba <= 0 || bb <= 0 || ca <= 0 || cb <= 0) {
+        check(false, "Castor bodies");
+        return;
+    }
+    const double distance_km = 15.0703 * kParsecKm;
+    const double ra = 113.64947164 * kDegToRad;
+    const double dec = 31.88828222 * kDegToRad;
+    const glm::dvec3 away = unit_toward(113.64947164, 31.88828222);
+    const glm::dvec3 north(-std::sin(dec) * std::cos(ra), -std::sin(dec) * std::sin(ra), std::cos(dec));
+    const glm::dvec3 east(-std::sin(ra), std::cos(ra), 0.0);
+    const double to_mas = kRadToDeg * 3600.0e3 / distance_km;
+    auto relative = [&](int body, int center, double t) {
+        const State s = scene.icrf_state_at(body, t);
+        const State o = scene.icrf_state_at(center, t);
+        return State{s.position - o.position, s.velocity - o.velocity};
+    };
+
+    // [TO22] Table 2: BJD - 2400000, light-time correction (d), rho (mas), theta
+    // (deg), major axis of the error ellipse (mas).
+    struct Seen {
+        double bjd, dt, rho, theta, sigma;
+    };
+    const Seen a_seen[] = {
+        {54423.9754, -0.1121, 10.100, 37.56, 0.982}, {54426.9056, -0.1121, 3.482, 197.97, 0.043},
+        {54427.9267, -0.1121, 6.791, 280.64, 0.119}, {59275.6936, -0.0778, 9.475, 329.54, 0.066},
+        {59279.6593, -0.0777, 8.441, 49.01, 0.091},  {59538.0184, -0.0758, 7.934, 59.93, 0.029},
+        {59557.0147, -0.0756, 6.788, 78.93, 0.123},  {59568.8842, -0.0755, 7.419, 290.63, 0.050},
+    };
+    const Seen b_seen[] = {
+        {59275.7346, 0.0988, 1.221, 24.43, 0.008},  {59279.6873, 0.0987, 2.986, 274.54, 0.194},
+        {59537.9664, 0.0962, 1.391, 160.78, 0.062}, {59557.0657, 0.0960, 1.786, 324.09, 0.140},
+        {59568.9552, 0.0959, 2.549, 306.31, 0.022}, {59569.0202, 0.0959, 2.843, 300.95, 0.111},
+    };
+    auto worst_miss = [&](int companion, int primary, int pair, std::span<const Seen> seen) {
+        double worst = 0.0;
+        double worst_light_time = 0.0;
+        for (const Seen& p : seen) {
+            const double t = tdb_from_jd_tdb(2400000.0 + p.bjd + p.dt);
+            const glm::dvec3 r = relative(companion, primary, t).position;
+            const glm::dvec2 model = glm::dvec2(glm::dot(r, east), glm::dot(r, north)) * to_mas;
+            const double th = p.theta * kDegToRad;
+            const glm::dvec2 measured(p.rho * std::sin(th), p.rho * std::cos(th));
+            // The formal errors of a few points are tiny; 0.1 mas is about the orbit's rms.
+            worst = std::max(worst, glm::length(model - measured) / std::max(p.sigma, 0.1));
+            const double depth = glm::dot(relative(pair, ab, t).position, away);
+            worst_light_time = std::max(worst_light_time, std::abs(-depth / kSpeedOfLightKmS / kSecondsPerDay - p.dt));
+        }
+        return glm::dvec2(worst, worst_light_time);
+    };
+    const glm::dvec2 miss_a = worst_miss(ab_star, aa, a, a_seen);
+    const glm::dvec2 miss_b = worst_miss(bb, ba, b, b_seen);
+    std::printf("info: Castor on CHARA: Ab within %.2f sigma, Bb within %.2f sigma; light time within %.4f, %.4f d\n",
+                miss_a.x, miss_b.x, miss_a.y, miss_b.y);
+    check(miss_a.x < 1.6, "Castor Ab on the CHARA positions (sigma)", miss_a.x);
+    check(miss_b.x < 1.6, "Castor Bb on the CHARA positions (sigma)", miss_b.x);
+    check(miss_a.y < 0.001, "Castor A on the light-time corrections (d)", miss_a.y);
+    check(miss_b.y < 0.001, "Castor B on the light-time corrections (d)", miss_b.y);
+
+    // Kepler's third law gives [TO22]'s semi-major axes; the planes are at their angles.
+    auto normal_and_a = [&](int companion, int primary, double gm, double* a_km) {
+        const State s = relative(companion, primary, 0.0);
+        OrbitElements el;
+        osculating_elements(s, gm, &el);
+        *a_km = 0.5 * (el.periapsis_km + el.apoapsis_km);
+        return glm::normalize(glm::cross(s.position, s.velocity));
+    };
+    double a_outer = 0.0, a_a = 0.0, a_b = 0.0;
+    const glm::dvec3 n_outer = normal_and_a(b, a, 6.545908393e11, &a_outer);
+    const glm::dvec3 n_a = normal_and_a(ab_star, aa, 3.658749259e11, &a_a);
+    const glm::dvec3 n_b = normal_and_a(bb, ba, 2.887159133e11, &a_b);
+    check(std::abs(a_outer * to_mas - 6722.0) < 5.0, "Castor AB a (mas)", a_outer * to_mas);
+    check(std::abs(a_a * to_mas - 8.002) < 0.01, "Castor A a (mas)", a_a * to_mas);
+    check(std::abs(a_b * to_mas - 3.4442) < 0.01, "Castor B a (mas)", a_b * to_mas);
+    auto angle_deg = [](const glm::dvec3& u, const glm::dvec3& v) {
+        return std::acos(std::clamp(glm::dot(u, v), -1.0, 1.0)) * kRadToDeg;
+    };
+    check(std::abs(angle_deg(n_a, n_b) - 76.12) < 0.1, "Castor A-B mutual inclination (deg)", angle_deg(n_a, n_b));
+    check(std::abs(angle_deg(n_a, n_outer) - 92.34) < 0.1, "Castor A-AB mutual inclination (deg)",
+          angle_deg(n_a, n_outer));
+    check(std::abs(angle_deg(n_b, n_outer) - 59.68) < 0.1, "Castor B-AB mutual inclination (deg)",
+          angle_deg(n_b, n_outer));
+
+    // C at its place at J2000 and moving as [TO22] Sect. 4.2 measured.
+    auto c_offset = [&](double t) {
+        const glm::dvec3 r = relative(c, ab, t).position;
+        return glm::dvec2(glm::dot(r, east), glm::dot(r, north)) * to_mas;
+    };
+    const double j2000 = tdb_from_julian_year(2000.0);
+    const glm::dvec2 c_now = c_offset(j2000);
+    const glm::dvec2 c_rate = (c_offset(tdb_from_julian_year(2010.0)) - c_offset(tdb_from_julian_year(1990.0))) / 20.0;
+    const double c_pa = std::atan2(c_now.x, c_now.y) * kRadToDeg;
+    check(std::abs(glm::length(c_now) / 1000.0 - 70.82) < 0.05, "Castor C separation (arcsec)",
+          glm::length(c_now) / 1000.0);
+    check(std::abs(c_pa + 360.0 * (c_pa < 0.0) - 164.75) < 0.1, "Castor C position angle (deg)", c_pa);
+    check(std::abs(c_rate.x + 26.21) < 0.1 && std::abs(c_rate.y - 2.88) < 0.1, "Castor C motion (mas/yr)", c_rate.x);
+    double a_c = 0.0;
+    normal_and_a(c, ab, 8.136334274e11, &a_c);
+    check(std::abs(a_c / kAuKm - 1088.3) < 1.0, "Castor C semi-major axis (au)", a_c / kAuKm);
+
+    // YY Gem: Cb crosses Ca on the [TESS] ephemeris, and each covers about 78% of
+    // the other's light at minimum [TR02 Sect. 4.1.2].
+    const double period_s = 0.81428247 * kSecondsPerDay;
+    const double t_min = tdb_from_jd_tdb(2459690.57515 + 1000.0 * 0.81428247);
+    const double found = find_conjunction(scene, cb, ca, away, t_min, 0.1 * kSecondsPerDay);
+    check(std::abs(found - t_min) < 10.0, "YY Gem primary minimum on the TESS ephemeris (s)", found - t_min);
+    check(glm::dot(relative(cb, ca, t_min).position, away) < 0.0, "YY Gem: Cb in front at primary minimum");
+    check(scene.light_curve.enabled() && scene.light_curve.stars.size() == 2, "Castor's curve is YY Gem's");
+    const double primary = light_curve_magnitude(scene, t_min);
+    const double secondary = light_curve_magnitude(scene, t_min + 0.5 * period_s);
+    const double out_of_eclipse = light_curve_magnitude(scene, t_min + 0.25 * period_s);
+    const double expected = -2.5 * std::log10(1.0 - 0.78 / 2.0);
+    std::printf("info: YY Gem eclipse depths: %.3f, %.3f mag (78%% covered: %.3f), out of eclipse %.4f\n", primary,
+                secondary, expected, out_of_eclipse);
+    check(std::abs(primary - expected) < 0.05, "YY Gem eclipse depth (mag)", primary);
+    check(std::abs(secondary - primary) < 0.01, "YY Gem eclipses almost equal (mag)", secondary - primary);
+    check(out_of_eclipse < 0.001, "YY Gem out of eclipse (mag)", out_of_eclipse);
+
+    // The eclipse event opens before a primary minimum, soon enough to be seen.
+    for (const SceneEvent& e : scene.events) {
+        if (e.name.rfind("YY Geminorum: an eclipse", 0) == 0) {
+            const double cycles = (e.t_tdb - t_min) / period_s;
+            const double lead = (std::ceil(cycles) - cycles) * period_s;
+            check(std::abs(lead / 3600.0 - 1.5) < 0.02, "YY Gem event 1.5 h before a minimum (h)", lead / 3600.0);
+        }
+    }
+    check(scene.bodies[static_cast<size_t>(scene.find("Orbit of A, x200"))].event >= 0 &&
+              scene.bodies[static_cast<size_t>(scene.find("Orbit of B, x200"))].event >= 0,
+          "Castor's enlarged orbits appear only in their event");
+
+    // The plot follows the camera into YY Gem and stays away from A and B.
+    Simulation sim;
+    std::string error;
+    check(sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/castor.toml", &error), "Castor simulation loads");
+    sim.set_focus(sim.scene().find("Castor Ca"));
+    check(sim.light_curve_in_view(), "YY Gem's plot shows at YY Gem");
+    sim.set_focus(sim.scene().find("Castor C"));
+    check(sim.light_curve_in_view(), "YY Gem's plot shows at its barycenter");
+    sim.set_focus(sim.scene().find("Castor Aa"));
+    check(!sim.light_curve_in_view(), "YY Gem's plot hidden at Castor A");
 }
 
 // Delta Cephei [Merand et al. 2015, Engle et al. 2014, Anderson et al. 2015]:
@@ -3182,6 +3345,7 @@ void run_stellar_system_tests()
     test_kepler47_scene();
     test_tic168789840_scene();
     test_algol_scene();
+    test_castor_scene();
     test_delta_cephei_scene();
     test_polaris_scene();
     test_kepler64_scene();

@@ -1,0 +1,513 @@
+# Castor (alpha Geminorum), six stars 15 parsecs away: two A-type stars, each with
+# a close red-dwarf companion, orbit each other every 459 years; a third pair of
+# red dwarfs, the eclipsing binary YY Geminorum (Castor C), orbits the four from
+# more than 1,000 au away.
+#
+# Nested two-body (Keplerian) orbits around barycenters; the interactions between
+# the pairs are ignored (2.9 and 9.2 d inside 459 yr inside ~14,500 yr). Times of
+# the inner orbits are at the barycenter of the quadruple [TO22], as here: the
+# scene draws no light-time effect.
+#
+# [TO22] Torres et al. 2022, ApJ 941, 8 (arXiv:2210.16322), "The Orbits and
+#        Dynamical Masses of the Castor System":
+#        Table 5, the global solution. AB: P = 459.1 yr, e = 0.3382, i = 115.107 deg,
+#        omega_B = 251.84 deg, Omega = 41.304 deg, T = 1959.59. A: P = 9.2127496 d,
+#        a = 8.002 mas, e = 0.48769, i = 35.00 deg, omega_Aa = 264.968 deg (the
+#        primary's: Ab's is 84.968), Omega = 95.100 deg, T = HJD 2455817.7868.
+#        B: P = 2.92835083 d, a = 3.4442 mas, circular, i = 110.50 deg, Omega =
+#        106.47 deg, T = HJD 2456705.4942, the maximum velocity of Ba (so Bb is at
+#        argument of latitude 180 deg then).
+#        Table 6: distance 15.0703 pc; masses Aa 2.371, Ab 0.3859, Ba 1.789,
+#        Bb 0.3865 M_sun; mutual inclinations A-B 76.12, A-AB 92.34, B-AB 59.68 deg.
+#        Sect. 4.1: radii of Aa 2.089 and Ba 1.648 R_sun. Sect. 2.1: Ab and Bb
+#        assumed 0.23 mas across (PARSEC models for their masses): 0.3727 R_sun.
+#        Sect. 2.2: templates 9750 K (A) and 8250 K (B), the best match to the
+#        spectra. Sect. 5: Ab and Bb of type M2 or M3.
+#        Sect. 1: Pound 1718, Bradley 1719, Herschel 1803, Belopolsky 1897.
+#        Appendix: H. D. Curtis found Castor A's period at Lick in 1904.
+#        Sect. 4.2: C relative to AB moves -26.21 mas/yr in RA and +2.88 in Dec, and
+#        its period is roughly 14,500 yr. Sect. 4.3: its orbit is very poorly known.
+#        Table 2: the CHARA positions and light-time corrections (tests).
+# [TR02] Torres & Ribas 2002, ApJ 567, 1140 (arXiv:astro-ph/0111167), YY Gem:
+#        Sect. 5: i = 86.29 deg, masses 0.5975 and 0.6009 M_sun, mean radius
+#        0.6191 R_sun, T_eff = 3820 K for both. Sect. 4.1.2: circular orbit; about
+#        78% of each star's light blocked at minimum. Sect. 1: Adams & Joy found it double in
+#        1916, van Gent the eclipses in 1926.
+# [TESS] Primary minima in the TESS light curves (sectors 20, 46, 60, 72; 2019-2023),
+#        measured by tools/castor/yy_gem_ephemeris.py: BJD_TDB 2459690.57515,
+#        P = 0.81428247 d, rms 0.7 min over 93 minima. [TR02]'s linear ephemeris
+#        (from 1994) is 10.5 minutes off by 2022.
+# [PM13] Pecaut & Mamajek 2013, ApJS 208, 9, and E. Mamajek's online table
+#        (EEM_dwarf_UBVIJHK_colors_Teff.txt): M2.5V, 3470 K.
+# [BU15] Butler et al. 2015, MNRAS 446, 4205 (arXiv:1501.03930): YY Gem, flare stars.
+# [SIMB] SIMBAD: ICRS position of alpha Gem at J2000, 113.64947164, 31.88828222 deg.
+#
+# [CAP]  Event captions: from the sources above.
+# Assumed (not measured): Castor C's orbit (see tools/castor/scene_numbers.py): the
+# one with its measured place (SIMBAD, 70.8" from AB's barycenter at J2000), its
+# measured motion on the sky [TO22], no radial velocity relative to AB ([TO22]:
+# "just 0.5 km/s, if not less"), behind AB and at the depth that gives [TO22]'s
+# period; YY Gem's node (0); the temperatures of Ab and Bb.
+# GM = mass * GM_sun (1.32712440041279419e11 km^3/s^2, JPL DE440).
+# Luminosity = R^2 (T / 5772 K)^4.
+# Checks (tests/stellar_system_tests.cpp): the [TO22] positions, light-time
+# corrections and mutual inclinations, the [TESS] minima, C's place and motion.
+
+name = "Castor"
+
+[sky]
+viewer_ra_dec_distance_pc = [113.64947164, 31.88828222, 15.0703]   # [SIMB], [TO22]
+# The catalog has the system at Hipparcos distances 0.5 to 0.7 pc from here,
+# B and C without Hipparcos numbers: three stars as bright as -4 mag otherwise.
+own_system_pc = 1.0
+
+[view]
+focus = "Castor AB"
+distance_km = 4.0e10
+start = "now"
+warp = 31557600.0              # 1 year per second
+up = "orbit_normal:Castor B"
+
+# YY Gem's light as seen from Earth; A and B are not eclipsing and far brighter.
+[light_curve]
+observer = "Sun"
+stars = ["Castor Ca", "Castor Cb"]
+shown_under = "Castor C"
+band = "V"
+wavelength_nm = 550.0
+limb_darkening = 0.6           # as the star disks are drawn (shaders/sun.frag.hlsl)
+span_days = 2.0
+
+[[bodies]]
+name = "Castor"
+kind = "barycenter"
+
+# The quadruple and C around the barycenter of all six: C relative to AB (assumed).
+[[bodies]]
+name = "Castor AB"
+parent = "Castor"
+kind = "barycenter"
+orbit_color = "#7088a8"
+[bodies.orbit]
+scale = -0.195472043           # -M_C / M_total
+type = "visual_orbit"
+gm_km3_s2 = 8.136334274e11     # 6.1308 M_sun
+period_days = 5296125.0        # 14,500 yr [TO22]
+e = 0.3474
+i_deg = 34.940
+node_deg = 96.271
+arg_peri_deg = 207.679
+t_peri_year = -8397.66
+sky_ra_dec_deg = [113.64947164, 31.88828222]
+
+[[bodies]]
+name = "Castor C"
+parent = "Castor"
+kind = "barycenter"
+orbit_color = "#ff9a70"
+[bodies.orbit]
+scale = 0.804527957            # M_AB / M_total
+type = "visual_orbit"
+gm_km3_s2 = 8.136334274e11
+period_days = 5296125.0
+e = 0.3474
+i_deg = 34.940
+node_deg = 96.271
+arg_peri_deg = 207.679
+t_peri_year = -8397.66
+sky_ra_dec_deg = [113.64947164, 31.88828222]
+
+# A and B around the quadruple's barycenter: B relative to A [TO22 Table 5].
+[[bodies]]
+name = "Castor A"
+parent = "Castor AB"
+kind = "barycenter"
+orbit_color = "#c8d8ff"
+[bodies.orbit]
+scale = -0.441063174           # -M_B / M_AB
+type = "visual_orbit"
+gm_km3_s2 = 6.545908393e11     # 4.9324 M_sun
+period_days = 167684.8         # 459.1 yr
+e = 0.3382
+i_deg = 115.107
+node_deg = 41.304
+arg_peri_deg = 251.84
+t_peri_year = 1959.59
+sky_ra_dec_deg = [113.64947164, 31.88828222]
+
+[[bodies]]
+name = "Castor B"
+parent = "Castor AB"
+kind = "barycenter"
+orbit_color = "#e8e8ff"
+[bodies.orbit]
+scale = 0.558936826            # M_A / M_AB
+type = "visual_orbit"
+gm_km3_s2 = 6.545908393e11
+period_days = 167684.8
+e = 0.3382
+i_deg = 115.107
+node_deg = 41.304
+arg_peri_deg = 251.84
+t_peri_year = 1959.59
+sky_ra_dec_deg = [113.64947164, 31.88828222]
+
+# Castor A: Ab relative to Aa [TO22 Table 5].
+[[bodies]]
+name = "Castor Aa"
+parent = "Castor A"
+kind = "star"
+radii_km = [1453317.0]         # 2.089 R_sun [TO22]
+temperature_k = 9750.0
+luminosity_solar = 35.53
+orbit_color = "#c8d8ff"
+[bodies.orbit]
+scale = -0.139976060           # -M_Ab / M_A
+type = "visual_orbit"
+gm_km3_s2 = 3.658749259e11     # 2.7569 M_sun
+period_days = 9.2127496
+e = 0.48769
+i_deg = 35.00
+node_deg = 95.100
+arg_peri_deg = 84.968
+t_peri_jd_tdb = 2455817.7868
+sky_ra_dec_deg = [113.64947164, 31.88828222]
+
+[[bodies]]
+name = "Castor Ab"
+parent = "Castor A"
+kind = "star"
+radii_km = [259287.0]          # 0.3727 R_sun [TO22]
+temperature_k = 3470.0         # [PM13]
+luminosity_solar = 0.01814
+orbit_color = "#ff9a70"
+[bodies.orbit]
+scale = 0.860023940            # M_Aa / M_A
+type = "visual_orbit"
+gm_km3_s2 = 3.658749259e11
+period_days = 9.2127496
+e = 0.48769
+i_deg = 35.00
+node_deg = 95.100
+arg_peri_deg = 84.968
+t_peri_jd_tdb = 2455817.7868
+sky_ra_dec_deg = [113.64947164, 31.88828222]
+
+# Castor B: Bb relative to Ba [TO22 Table 5].
+[[bodies]]
+name = "Castor Ba"
+parent = "Castor B"
+kind = "star"
+radii_km = [1146514.0]         # 1.648 R_sun [TO22]
+temperature_k = 8250.0
+luminosity_solar = 11.34
+orbit_color = "#e8e8ff"
+[bodies.orbit]
+scale = -0.177660308           # -M_Bb / M_B
+type = "visual_orbit"
+gm_km3_s2 = 2.887159133e11     # 2.1755 M_sun
+period_days = 2.92835083
+e = 0.0
+i_deg = 110.50
+node_deg = 106.47
+arg_peri_deg = 180.0
+t_peri_jd_tdb = 2456705.4942
+sky_ra_dec_deg = [113.64947164, 31.88828222]
+
+[[bodies]]
+name = "Castor Bb"
+parent = "Castor B"
+kind = "star"
+radii_km = [259287.0]          # 0.3727 R_sun [TO22]
+temperature_k = 3470.0         # [PM13]
+luminosity_solar = 0.01814
+orbit_color = "#ff9a70"
+[bodies.orbit]
+scale = 0.822339692            # M_Ba / M_B
+type = "visual_orbit"
+gm_km3_s2 = 2.887159133e11
+period_days = 2.92835083
+e = 0.0
+i_deg = 110.50
+node_deg = 106.47
+arg_peri_deg = 180.0
+t_peri_jd_tdb = 2456705.4942
+sky_ra_dec_deg = [113.64947164, 31.88828222]
+
+# The two inner orbits drawn 200 times too large, only in the event that says so:
+# at their real size they would be less than a pixel next to the wide orbit.
+[[bodies]]
+name = "Orbit of A, x200"
+parent = "Castor A"
+kind = "barycenter"
+orbit_color = "#ffd890"
+[bodies.orbit]
+scale = 200.0
+type = "visual_orbit"
+gm_km3_s2 = 3.658749259e11
+period_days = 9.2127496
+e = 0.48769
+i_deg = 35.00
+node_deg = 95.100
+arg_peri_deg = 84.968
+t_peri_jd_tdb = 2455817.7868
+sky_ra_dec_deg = [113.64947164, 31.88828222]
+
+[[bodies]]
+name = "Orbit of B, x200"
+parent = "Castor B"
+kind = "barycenter"
+orbit_color = "#90d8ff"
+[bodies.orbit]
+scale = 200.0
+type = "visual_orbit"
+gm_km3_s2 = 2.887159133e11
+period_days = 2.92835083
+e = 0.0
+i_deg = 110.50
+node_deg = 106.47
+arg_peri_deg = 180.0
+t_peri_jd_tdb = 2456705.4942
+sky_ra_dec_deg = [113.64947164, 31.88828222]
+
+# YY Gem: Cb relative to Ca, in front of it at primary minimum [TR02], [TESS].
+[[bodies]]
+name = "Castor Ca"
+parent = "Castor C"
+kind = "star"
+radii_km = [430708.0]          # 0.6191 R_sun [TR02]
+temperature_k = 3820.0
+luminosity_solar = 0.0735
+orbit_color = "#ffb890"
+[bodies.orbit]
+scale = -0.501418558           # -M_Cb / M_C
+type = "transit_orbit"
+gm_km3_s2 = 1.590425881e11     # 1.1984 M_sun
+period_days = 0.81428247
+t_transit_bjd_tdb = 2459690.57515
+e = 0.0
+arg_peri_deg = 90.0
+i_deg = 86.29
+transit_u_deg = 90.0
+sky_ra_dec_deg = [113.64947164, 31.88828222]
+
+[[bodies]]
+name = "Castor Cb"
+parent = "Castor C"
+kind = "star"
+radii_km = [430708.0]          # 0.6191 R_sun [TR02]
+temperature_k = 3820.0
+luminosity_solar = 0.0735
+orbit_color = "#ff9a70"
+[bodies.orbit]
+scale = 0.498581442            # M_Ca / M_C
+type = "transit_orbit"
+gm_km3_s2 = 1.590425881e11
+period_days = 0.81428247
+t_transit_bjd_tdb = 2459690.57515
+e = 0.0
+arg_peri_deg = 90.0
+i_deg = 86.29
+transit_u_deg = 90.0
+sky_ra_dec_deg = [113.64947164, 31.88828222]
+
+[[bodies]]
+name = "Sun"
+template = "bodies/sun.toml"
+parent = "Castor"
+trail = "none"
+[bodies.orbit]                 # opposite direction of the system as seen from the Sun [SIMB]
+type = "fixed"
+ra_dec_distance_pc = [293.64947164, -31.88828222, 15.0703]
+
+[[frames]]
+name = "Castor AB-centered"
+type = "inertial"
+origin = "Castor AB"
+
+[[frames]]
+name = "Castor AB, north up"
+type = "inertial"
+origin = "Castor AB"
+up = "north"
+
+[[frames]]
+name = "Castor AB, wide orbit up"
+type = "inertial"
+origin = "Castor AB"
+up = "orbit_normal:Castor B"
+
+[[frames]]
+name = "Castor A-centered"
+type = "inertial"
+origin = "Castor A"
+
+[[frames]]
+name = "Castor B-centered"
+type = "inertial"
+origin = "Castor B"
+
+[[frames]]
+name = "Castor C-centered"
+type = "inertial"
+origin = "Castor C"
+
+[[events]]
+name = "1778-1803: Herschel sees the line turn"
+focus_orbits_only = true
+time = "1778-06-01"
+focus = "Castor AB"
+frame = "Castor AB, north up"
+from_earth = true
+distance_km = 3.0e10
+warp = 31557600.0              # 1 year per second
+# [TO22 Sect. 1]
+caption = """\
+    James Pound and James Bradley measured these two stars as a double in 1718 \
+    and 1719. William Herschel followed them from 1778, and in 1803 reported that \
+    the line joining them had turned. Castor was the first pair recognized as \
+    truly bound, which some have taken as the first evidence that Newton's \
+    gravity works beyond the solar system."""
+
+[[events]]
+name = "1897: Castor B is itself a pair"
+focus_orbits_only = true
+time = "1897-03-01"
+focus = "Castor B"
+frame = "Castor B-centered"
+from_orbit_normal = "Castor Bb"
+distance_km = 3.0e7
+warp = 7200.0                  # 2 hours per second: one orbit in 35 s
+# [TO22]
+caption = """\
+    In 1897 Aristarkh Belopolsky found that the fainter star shifts in velocity \
+    every 2.9 days. Its unseen companion is a red dwarf of 0.39 solar masses, on \
+    a circular orbit 0.05 au from an A-type star of 1.79 solar masses. It was not \
+    seen directly until interferometers at the CHARA Array resolved the pair."""
+
+[[events]]
+name = "Periastron, 1959: 67 au apart"
+focus_orbits_only = true
+time = "1900-01-01"
+focus = "Castor AB"
+frame = "Castor AB, wide orbit up"
+from_orbit_normal = "Castor B"
+distance_km = 5.0e10
+warp = 157788000.0             # 5 years per second
+# [TO22 Tables 5, 6]
+caption = """\
+    Since the first measurement the two have not yet gone once around each other: \
+    the orbit takes 459 years. They came closest in 1959, at 67 au, and will be \
+    farthest in 2189, at 136 au. The pair has been followed for more than three \
+    centuries, and the orbit is known to a fraction of a percent."""
+
+[[events]]
+name = "1904: Castor A, a 9.2-day eccentric pair"
+focus_orbits_only = true
+time = "1904-03-01"
+focus = "Castor A"
+frame = "Castor A-centered"
+from_orbit_normal = "Castor Ab"
+distance_km = 6.0e7
+warp = 21600.0                 # 6 hours per second: one orbit in 37 s
+# [TO22]
+caption = """\
+    The brighter star followed in 1904, when Heber Curtis found its 9.2-day \
+    period at Lick Observatory. Here a red dwarf swings between 0.06 and 0.18 au \
+    from an A-type star of 2.37 solar masses. This orbit is markedly eccentric, \
+    while that of the tighter pair in Castor B is circular."""
+
+[[events]]
+name = "Castor A from above the wide orbit: 92 degrees"
+focus_orbits_only = true
+time = "2026-11-10"
+focus = "Castor A"
+frame = "Castor A-centered"
+from_orbit_normal = "Castor A"
+distance_km = 6.0e7
+warp = 21600.0
+# [TO22 Table 6]
+caption = """\
+    The camera now looks straight down on the 459-year orbit, and Castor A's \
+    own orbit is seen almost edge-on. The two planes are 92.3 degrees apart, \
+    measured to better than half a degree: nearly at right angles, and formally \
+    the small orbit runs backward against the large one."""
+
+[[events]]
+name = "Castor B from the same direction: 60 degrees"
+focus_orbits_only = true
+time = "2026-11-14"
+focus = "Castor B"
+frame = "Castor B-centered"
+from_orbit_normal = "Castor A"
+distance_km = 3.0e7
+warp = 7200.0
+# [TO22 Table 6]
+caption = """\
+    From the same direction Castor B's orbit is a flattened circle: its plane is \
+    tilted 59.7 degrees from the wide orbit. The planes of the two small orbits \
+    are 76.1 degrees from each other. Whatever made these stars, it did not \
+    leave their orbits in one plane."""
+
+[[events]]
+name = "Three orbits, none in the same plane"
+focus_orbits_only = true
+time = "2026-11-16"
+focus = "Castor AB"
+frame = "Castor AB, wide orbit up"
+from_body = "Sun"
+elevation_deg = 25.0
+distance_km = 4.5e10
+warp = 86400.0
+show = ["Orbit of A, x200", "Orbit of B, x200"]
+trails = [{ body = "Orbit of A, x200", trail = "orbit" }, { body = "Orbit of B, x200", trail = "orbit" }]
+# [TO22 Table 6]
+caption = """\
+    Here the two small orbits are drawn 200 times larger than they are, each \
+    around its own pair, so they can be seen against the large one. At true \
+    size they would be barely a pixel across. Castor A's orbit stands almost \
+    upright on the plane of the wide orbit."""
+
+[[events]]
+name = "YY Geminorum: an eclipse every 9.8 hours"
+focus_orbits_only = true
+time_tdb = "2026-11-17 17:37"  # 1.5 hours before primary minimum [TESS]
+focus = "Castor C"
+frame = "Castor C-centered"
+from_body = "Sun"
+distance_km = 8.0e6
+warp = 300.0                   # 5 minutes per second: the eclipse in 23 s
+# [TR02], [TESS]
+caption = """\
+    Castor C, or YY Geminorum, is two nearly identical red dwarfs circling in \
+    19.5 hours. Seen almost edge-on, each covers about 78 percent of the other's \
+    light in turn. Walter Adams and Alfred Joy found it double in 1916, and \
+    Hendrik van Gent found the eclipses in 1926."""
+
+[[events]]
+name = "YY Geminorum from above: 0.018 au apart"
+focus_orbits_only = true
+time = "2026-11-19"
+focus = "Castor C"
+frame = "Castor C-centered"
+from_orbit_normal = "Castor Cb"
+distance_km = 1.2e7
+warp = 1800.0                  # 30 minutes per second: one orbit in 39 s
+# [TR02], [BU15]
+caption = """\
+    Each star has 0.60 solar masses and a radius of 0.62 Suns, and they sit only \
+    6 radii apart. The eclipses let their sizes be measured to one percent. Both \
+    are active flare stars with starspots, which are not drawn here."""
+
+[[events]]
+name = "All six: C on its ~14,500-year orbit"
+time = "2026-11-21"
+focus = "Castor"
+distance_km = 4.5e11
+warp = 3155760000.0            # 100 years per second
+# [TO22 Sect. 4.2, 4.3]
+caption = """\
+    Castor C lies 71 arcseconds from the bright pair, more than 1,000 au. In two \
+    centuries it has moved only 4 degrees around them, too small an arc to find \
+    the orbit. The period is roughly 14,500 years. The orbit drawn here fits the \
+    measured motion, but it is one of many that would."""

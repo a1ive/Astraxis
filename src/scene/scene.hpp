@@ -658,7 +658,10 @@ struct SceneEvent {
 // behind them.
 struct LightCurve {
     int observer = -1;          // the body it is seen from (the Sun: from Earth); -1: no light curve
-    std::vector<int> stars;     // every Star body but the observer
+    std::vector<int> stars;     // every Star body but the observer, or the listed ones
+    // Shown only while the camera's focus is this body or inside it (-1: always),
+    // for a curve that belongs to one part of the system.
+    int shown_under = -1;
     std::string band = "V";     // shown with the plot
     double wavelength_nm = 550.0;
     double limb_darkening = 0.6; // u in I(mu) = 1 - u (1 - mu)

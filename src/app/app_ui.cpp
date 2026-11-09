@@ -738,7 +738,7 @@ void App::draw_light_curve_plot()
     const ScreenRect rect = light_curve_plot_rect(io.DisplaySize, bottom, margin, caption_width, m_panel_rects);
     draw_light_curve(m_fonts, m_sim.scene(), m_sim.light_curve(), m_sim.clock().t_tdb,
                      m_sim.clock().paused ? 0.0 : m_sim.clock().warp, rect,
-                     static_cast<float>(m_sim.fade()));
+                     m_sim.light_curve_in_view() ? static_cast<float>(m_sim.fade()) : 0.0f);
 }
 
 void App::toggle_caption()

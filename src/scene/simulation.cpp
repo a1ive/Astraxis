@@ -285,7 +285,8 @@ void Simulation::update(double real_dt)
 
     // Use the final clock after tour jumps and warp changes, as the plot does.
     // Keep cached samples while hidden; catch up before the plot reappears.
-    if (light_curve_visibility(m_scene.light_curve, m_clock.paused ? 0.0 : m_clock.warp) > 0.0) {
+    const double light_curve_rate = m_clock.paused ? 0.0 : m_clock.warp;
+    if (light_curve_in_view() && light_curve_visibility(m_scene.light_curve, light_curve_rate) > 0.0) {
         m_light_curve.update(m_scene, m_clock.t_tdb);
     }
 
@@ -319,6 +320,20 @@ double Simulation::rotor_turns(int body) const
 double Simulation::fade() const
 {
     return smoothstep(m_fade);
+}
+
+bool Simulation::light_curve_in_view() const
+{
+    const int ancestor = m_scene.light_curve.shown_under;
+    if (ancestor < 0) {
+        return true;
+    }
+    for (int b = m_camera.target(); b >= 0; b = m_scene.bodies[static_cast<size_t>(b)].parent) {
+        if (b == ancestor) {
+            return true;
+        }
+    }
+    return false;
 }
 
 double Simulation::sky_visibility() const

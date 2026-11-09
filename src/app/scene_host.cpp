@@ -280,7 +280,7 @@ void SceneHost::draw_scene(Output& out, const Frame& frame)
                 io.DisplaySize, io.DisplaySize.y * (1.0f - out.bottom_inset) - margin, margin, caption_width);
             draw_light_curve(m_fonts, m_sim.scene(), m_sim.light_curve(), m_sim.clock().t_tdb,
                              m_sim.clock().paused ? 0.0 : m_sim.clock().warp, rect,
-                             static_cast<float>(m_sim.fade()));
+                             m_sim.light_curve_in_view() ? static_cast<float>(m_sim.fade()) : 0.0f);
         }
         if (title) {
             draw_scene_title(m_fonts, m_sim.scene().name, m_sim.scene_age());

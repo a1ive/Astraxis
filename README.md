@@ -38,6 +38,7 @@ Astraxis is an astronomy background app with planets, spacecraft and stars anima
 | Kepler-47 | Three planets orbiting an eclipsing binary |
 | Kepler-64 / PH1 | A planet in a four-star system |
 | TIC 168789840 | Six stars in three eclipsing binaries |
+| Castor | Six stars: two close pairs on a 459-year orbit, their own orbits almost at right angles to it, and the eclipsing red dwarfs of YY Geminorum with their light curve |
 | Algol | The "demon star": an eclipsing triple, with its light curve as seen from Earth |
 | Delta Cephei | The prototype Cepheid pulsating every 5.37 days, and its eccentric companion |
 | Polaris | The North Star: a Cepheid with a barely-there 3.97-day pulse, its 29-year companion and the distant Polaris B |

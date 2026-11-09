@@ -736,6 +736,15 @@ python tools/bake/horizons_bake.py tools/bake/ephem.toml io_sl9 europa_sl9 ganym
 - 结果：几何主极小 BJD_TDB 2459743.07502，周期 2.8673453 d。往回推到 Baron 2012 的 CHARA 观测（2006–2010），B 相对 A 的位置差在 0.14 mas 以内
 - Baron 2012 表 6 的 T0（JD 2441771.353）注明是“主极小”，实际是内轨道过升交点的时刻：主极小在其后 3/4 周期（2441773.5035），与 GCVS/TIDAK 的历表（HJD 2445641.5135 + 2.86730431 E）差 0.016 d；他们表 3 里 B 离 A 最近的几次观测也在这个相位
 
+## YY Gem 的食时刻（`castor.toml`，`tools/castor/`）
+
+Castor C 的相位不来自星历，而是 TESS 测光拟合出的线性历表：`tools/castor/yy_gem_ephemeris.py`（需要 numpy）读 SPOC 的 2 分钟光变曲线，量出主极小的时刻后做线性拟合。
+
+- 数据：TIC 239187696 在扇区 20（2019-12）、46（2021-12）、60（2022-12）、72（2023-11）的 SPOC 光变曲线，NASA/MAST 公开数据（公有领域）。下载地址形如 `https://stpubdata.s3.us-east-1.amazonaws.com/tess/public/tid/s0020/0000/0002/3918/7696/tess2019357164649-s0020-0000000239187696-0165-s_lc.fits`，另三个是 `s0046/.../tess2021336043614-s0046-0000000239187696-0217-s_lc.fits`、`s0060/.../tess2022357055054-s0060-0000000239187696-0249-s_lc.fits`、`s0072/.../tess2023315124025-s0072-0000000239187696-0267-s_lc.fits`。MAST 的 `Mast.Caom.Cone` 接口按位置可以查到。文件不入库
+- 极小时刻：在 ±0.08 d 内除去一条穿过食外两侧流量的直线（星斑的起伏），取 ±0.05 d 内 SAP 流量镜像对称的时刻。主次极小几乎一样深，用 Torres & Ribas 2002 的历表分开。耀斑会破坏对称：离第一次拟合 2.5σ 以外的扔掉再拟合，102 个里留下 93 个
+- 结果：主极小 BJD_TDB 2459690.57515，周期 0.81428247 d，残差 0.7 分钟 rms。次极小的相位偏 0.5 只有 −0.13 分钟（圆轨道）。Torres & Ribas 2002 式 1 的历表（HJD 2449345.112327 + 0.814282212 E）在此时差 10.5 分钟，远超它的误差，周期有变化
+- 轨道的朝向对照 Torres 2022 表 2 的 CHARA 位置和光行时改正，在 `test_castor_scene` 里
+
 ## Kerbol 场景的 Kerbin→Mun 转移（`kerbol.toml`，`tools/kerbol/kerbol_transfer.py`）
 
 `kerbol_mun_transfer.eph` 是设计出来的示意轨道，不是实际飞行记录，也不来自游戏：一艘飞船从 Kerbin 上空 80 km 的圆停泊轨道（刚好高于 70 km 的大气层）点火，走霍曼式转移去 Mun，在近 Mun 点减速，进入离 Mun 表面 30 km 的圆轨道。运动按拼接圆锥曲线算，和 KSP 一样：进入 Mun 的影响球（SOI）之前只受 Kerbin 引力，之后只受 Mun 引力。所有数值（GM、半径、Mun 的轨道和 SOI 半径）来自 `tools/kerbol/kerbol_bodies.txt`（KSP 1.12.5 的 kOS 导出）。

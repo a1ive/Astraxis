@@ -2174,7 +2174,8 @@ void Loader::parse(const toml::table& root, Scene& out)
                     hidden.push_back(static_cast<int>(*hip));
                 }
             }
-            out.sky.stars = catalog_sky(catalog, out.sky.viewer_pc, hidden);
+            out.sky.stars = catalog_sky(catalog, out.sky.viewer_pc, hidden,
+                                        get_double_or(*sky, "own_system_pc", kOwnSystemPc));
         }
         if (const toml::table* c = (*sky)["cluster"].as_table()) {
             const std::string ctx = "sky.cluster";
@@ -2310,10 +2311,24 @@ void Loader::parse(const toml::table& root, Scene& out)
             curve.limb_darkening > 1.0) {
             fail(ctx, "needs wavelength_nm > 0, span_days > 0 and 0 <= limb_darkening <= 1");
         }
-        for (size_t i = 0; i < out.bodies.size(); ++i) {
-            const Body& b = out.bodies[i];
-            if (b.kind == BodyKind::Star && static_cast<int>(i) != curve.observer) {
-                curve.stars.push_back(static_cast<int>(i));
+        if (lc->contains("shown_under")) {
+            curve.shown_under = body_ref(out, *lc, "shown_under", ctx, false);
+        }
+        if (const toml::array* listed = (*lc)["stars"].as_array()) {
+            for (const toml::node& n : *listed) {
+                const std::optional<std::string> name = n.value<std::string>();
+                const int k = name ? out.find(*name) : -1;
+                if (k < 0 || out.bodies[static_cast<size_t>(k)].kind != BodyKind::Star) {
+                    fail(ctx, "stars: not a star: '" + name.value_or("") + "'");
+                }
+                curve.stars.push_back(k);
+            }
+        } else {
+            for (size_t i = 0; i < out.bodies.size(); ++i) {
+                const Body& b = out.bodies[i];
+                if (b.kind == BodyKind::Star && static_cast<int>(i) != curve.observer) {
+                    curve.stars.push_back(static_cast<int>(i));
+                }
             }
         }
         if (curve.stars.empty() || curve.stars.size() > 9) {

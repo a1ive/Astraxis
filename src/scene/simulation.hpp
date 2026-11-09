@@ -93,6 +93,8 @@ public:
     // would spin it past faster than the eye can follow (turning with Janus at days
     // per second).
     double sky_visibility() const;
+    // Whether the camera's focus is where the light curve belongs (LightCurve::shown_under).
+    bool light_curve_in_view() const;
     // Brightness of a pinwheel's dust, 0..1: it fades out while the time warp
     // turns the spiral faster than the eye can follow.
     double pinwheel_visibility() const;

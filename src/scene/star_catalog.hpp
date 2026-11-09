@@ -43,9 +43,10 @@ bool load_star_catalog(const std::filesystem::path& path, StarCatalog& out, std:
 // within kOwnSystemPc of the viewer and those in `hidden_hip` (the viewer's
 // own system where the catalog puts it farther than kOwnSystemPc from where
 // the scene does, e.g. at a less precise parallax). Stars of unknown distance
-// keep their direction and magnitude.
+// keep their direction and magnitude. A system whose stars the catalog lists
+// without Hipparcos numbers can widen `own_system_pc` instead (Castor B and C).
 std::vector<CatalogStar> catalog_sky(const StarCatalog& catalog, const glm::dvec3& viewer_pc,
-                                     std::span<const int> hidden_hip = {});
+                                     std::span<const int> hidden_hip = {}, double own_system_pc = kOwnSystemPc);
 
 // A sky as seen from one place, written by tools/sky/make_galaxy_sky.py:
 // directions and apparent V (header "ra_deg,dec_deg,vmag,bv"), and from the
