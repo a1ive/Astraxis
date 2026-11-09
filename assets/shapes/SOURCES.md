@@ -207,6 +207,19 @@ SHA-256：
 - PDS `n8proteus.tab`：`d079c8eac52d84224d5cb413526ff9415ab33afd48965e7e025544832ddd1868`
 - 输出 `proteus.mesh`：`3425f7459d83a0b200f30d34a9f88d4d6d4e1747ebc7467394f786390306fe5a`
 
+## Larissa
+
+`larissa.mesh` 来自 Stooke 用旅行者 2 号图像重建的 Larissa 形状模型。论文与数据集同 Proteus，PDS 产品为 [`n7larissa.tab`](https://sbnarchive.psi.edu/pds4/non_mission/small_bodies.stooke.shape-models/data/)。
+
+```powershell
+python -X utf8 tools/shapes/make_plate_shape.py ref/neptune_moons/Larissa_Stooke.obj assets/shapes/larissa.mesh
+```
+
+MeshLab 导出的 OBJ 有 2,522 个顶点和 5,040 个三角面。坐标以 km 为单位原样写入。场景按 Proteus 的体轴约定解释 OBJ，+x 为零经线，+z 朝北。网格范围约为 201.1 × 192.6 × 177.7 km，等体积半径为 94.56 km。5° 网格描述大尺度轮廓，表面用场景里的示意灰色均匀着色。
+
+- 输入 OBJ 的 SHA-256 为 `904016d2ad0a8b53e332ff2406e40ca7f2dbb7ae558bef59b4ea6dc4716af5fc`
+- 输出网格的 SHA-256 为 `478666ec40174ed77ac25432ed986768b4498f4e8fb5be00a59d24b7c5c483ab`
+
 ## Homunculus（η Carinae，Steffen 2014 的 SHAPE 模型）
 
 `homunculus.mesh` 由 ESO 的 3dmodel_004（OBJ）转换，坐标原样保留（单位是模型自己的，不是 km）：

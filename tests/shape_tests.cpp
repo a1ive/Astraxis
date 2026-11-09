@@ -242,6 +242,29 @@ void test_proteus_shape()
     check(nearest < 0.00002, "Proteus orientation matches PDS west longitudes (km)", nearest);
 }
 
+void test_larissa_shape()
+{
+    Scene scene = load_scene_or_die("neptune.toml");
+    const int id = scene.find("Larissa");
+    check(id >= 0, "Larissa exists in the Neptune scene");
+    if (id < 0) {
+        return;
+    }
+    const Body& body = scene.bodies[static_cast<size_t>(id)];
+    const int neptune = scene.find("Neptune");
+    check(body.shape != nullptr && body.parent == neptune, "Larissa mesh orbits Neptune");
+    if (!body.shape || neptune < 0) {
+        return;
+    }
+    const double radius = std::cbrt(3.0 * signed_volume(*body.shape) / (4.0 * kPi));
+    check(std::abs(radius - 94.56) < 0.05, "Larissa mesh has km units and outward winding", radius);
+
+    const double t = tdb_from_jd_tdb(2447763.5);
+    const glm::dvec3 toward_planet = scene.icrf_state_at(neptune, t).position - scene.icrf_state_at(id, t).position;
+    check(glm::dot(scene.body_to_icrf(body, t)[0], glm::normalize(toward_planet)) > 0.999999,
+          "Larissa zero meridian faces Neptune");
+}
+
 // Arrokoth's shape model and pole against independent numbers in Porter et al. 2024,
 // Table 2: the volume (equal-volume diameter 19.896 km) and the pole's inclination to
 // the heliocentric orbit (100.39 deg) and to New Horizons' approach direction (41.096 deg).
@@ -1409,6 +1432,7 @@ void test_spacecraft_models()
 void run_shape_tests()
 {
     test_proteus_shape();
+    test_larissa_shape();
     test_arrokoth_shape();
     test_mars_moon_shapes();
     test_vesta_shape();

@@ -14,6 +14,7 @@
 # [NEP098], [NEP105] JPL SPK orbits for the inner moons and Nereid from 1972 to 2100.
 #        See assets/ephem/SOURCES.md for the bake. Moon radii below are from NASA NSSDCA,
 #        https://nssdc.gsfc.nasa.gov/planetary/factsheet/neptuniansatfact.html.
+# [STK]  Stooke 1994, The Surfaces of Larissa and Proteus. See assets/shapes/SOURCES.md.
 # [APX]  E. M. Standish, Approximate Positions of the Planets, Tables 2a + 2b.
 # [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py (tools/bake/ephem.toml):
 #        Neptune system barycenter around the Sun, 1972-2100 (the Sun's direction); Voyager 2
@@ -164,6 +165,7 @@ file = "ephem/galatea_nep.elm"
 name = "Larissa"
 parent = "Neptune"
 radii_km = [108.0, 102.0, 84.0]
+shape = "shapes/larissa.mesh"              # [STK]
 synchronous = true
 color = "#858585"
 orbit_color = "#b4aea5"
