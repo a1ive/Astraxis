@@ -1,0 +1,139 @@
+# [SPHY] JPL SSD, Planetary Satellite Physical Parameters (https://ssd.jpl.nasa.gov/sats/phys_par/):
+#        the GM of the planet alone (NEP097).
+# [PCK]  NAIF pck00011.tpc (IAU 2015): radii, pole, prime meridian and the periodic terms.
+# [MEL25N] Melin et al. 2025, Nature Astronomy 9, 666: the H3+ from JWST, June 2023.
+# [CON91]  Connerney, Acuna & Ness 1991, JGR 96, 19023: field model O8, in the Neptune
+#        longitude system (NLS, west longitude, about 16.11 h): dipole tilted 47 deg, quadrupole
+#        as large as the dipole at the surface.
+# [NLS]  W = 253.18 + 536.3128492 d: IAU's Neptune before the 2009 report, with the same -0.48
+#        sin N as [PCK]; it puts Voyager 2 at the NLS longitude of the PDS catalog (167.7 deg
+#        at 1989-08-25 03:56 UTC, tests/appearance_tests.cpp). The phase today is unknown.
+# [PDSN] PDS Ring-Moon Systems Node, "Vital Statistics for Neptune's Rings and Inner
+#        Satellites" (https://pds-rings.seti.org/neptune/neptune_tables.html).
+# [ARCS] Adams ring arcs at 1989 Aug 18 12:00 UT (at Neptune), longitudes: Fraternite
+#        247-257, Egalite 1 261-264, Egalite 2 265-266, Liberte 276-280, Courage
+#        284.5-285.5 deg, as compiled in Wikipedia's "Rings of Neptune" from Porco 1991
+#        (Science 253, 995) and Miner et al. 2007 (Planetary Ring Systems); the original
+#        tables were not at hand. Fraternite's middle agrees with 251.88 deg (Porco et
+#        al. 1995, quoted in [SOU22]); the extents with the ~10, 4, 4 and 1-2 deg of
+#        arXiv:2006.10939 and the 9.6 deg of Fraternite in [NRV].
+# [SOU22] Souami et al. 2022, A&A 657, A134 (arXiv:2110.12669), Sect. 3.2: the arcs'
+#        mean motion, 820.11178 +- 0.00003 deg/day, from Fraternite at 251.88 deg in 1989
+#        and 217.43 +- 0.30 deg on 2016 Aug 23 (light leaving Neptune 4.01 h before the
+#        05:33:52 UT frame of Table 1). Longitudes in the ring plane from the J2000.0
+#        ascending node of Neptune's equator.
+# [NRV]  de Pater et al. 2018, "The rings of Neptune" (Planetary Ring Systems,
+#        arXiv:1906.11728): Table 1, arcs 15 km wide with normal optical depth 0.1;
+#        Sect. 2.1, Liberte and Courage had essentially disappeared by 2009.
+
+radii_km = [24764.0, 24341.0]
+body_gm_km3_s2 = 6835099.97                # [SPHY] (NEP097)
+pole_ra_dec_deg = [299.36, 43.46]
+prime_meridian_deg = [249.978, 541.1397757]
+nut_prec_angles = [[357.85, 52.316], [323.92, 62606.6], [220.51, 55064.2], [354.27, 46564.5],
+                   [75.31, 26109.4], [35.36, 14325.4], [142.61, 2824.6], [177.85, 52.316],
+                   [647.84, 125213.2], [355.7, 104.632], [533.55, 156.948], [711.4, 209.264],
+                   [889.25, 261.58], [1067.1, 313.896], [1244.95, 366.212], [1422.8, 418.528],
+                   [1600.65, 470.844]]  # [PCK] BODY8 (N, N1..N7, 2 N1, 2..9 N7)
+nut_prec_ra = [0.70]
+nut_prec_dec = [-0.51]
+nut_prec_pm = [-0.48]
+texture = "textures/neptune.jpg"           # Hubble OPAL zonal profile, assets/textures/SOURCES.md
+texture_left_lon_deg = 0.0
+color = "#5b7fd6"
+[aurora]                            # [MEL25N], assets/geomag/SOURCES.md
+neptune_map = "geomag/neptune_h3p.txt"
+[magnetic_field]                    # [CON91], assets/geomag/SOURCES.md
+coefficients = "geomag/field_neptune_o8.txt"
+reference_radius_km = 24765.0
+prime_meridian_deg = [253.18, 536.3128492] # [NLS]
+[magnetic_map]                      # O8 on the surface, in NLS (it turns against these axes)
+surface = "geomag/neptune_br.fieldmap"
+
+# Rings [PDSN]: Galle, Le Verrier, Lassell and Adams (Arago, a brightening at
+# Lassell's outer edge, has no width or optical depth in the table), Le Verrier at
+# its upper width bound (< 100 km). The Adams arcs [ARCS] lie on the Adams ring, 15
+# km wide with tau 0.1 [NRV], and move together at [SOU22]'s mean motion; their ends
+# are softened over 15% of their length. Liberte and Courage fade out linearly from
+# Voyager's flyby to 2009 [NRV] (in between, Liberte was almost gone by 2003 and
+# Courage flared in 1998 and jumped 8 deg ahead; Fraternite shortened by a quarter:
+# not drawn). The rings are dusty, so they scatter forward (g = 0.5, illustrative);
+# their dark, reddish tint and the gain are artistic (gain x tau x albedo about
+# twice that of Jupiter's main ring in jupiter.toml, so that the narrow Le Verrier
+# and Adams rings show; Galle and Lassell stay 100 times fainter).
+[rings]
+color = "#4c4440"
+gain = 400.0
+phase_g = 0.5
+epoch = "1989-08-18 12:00"                 # [ARCS] (UT at Neptune)
+
+[[rings.bands]]
+name = "Galle"
+inner_km = 41000.00
+outer_km = 43000.00
+optical_depth = 0.0001
+
+[[rings.bands]]
+name = "Le Verrier"
+inner_km = 53150.00
+outer_km = 53250.00
+optical_depth = 0.01                       # width < 100 km
+
+[[rings.bands]]
+name = "Lassell"
+inner_km = 53200.00
+outer_km = 57200.00
+optical_depth = 0.0001
+
+[[rings.bands]]
+name = "Adams"
+inner_km = 62925.50
+outer_km = 62940.50
+optical_depth = 0.01                       # between the arcs (0.01 to 0.1 with them)
+
+[[rings.bands]]
+name = "Fraternite"
+inner_km = 62925.50
+outer_km = 62940.50
+optical_depth = 0.1                        # [NRV]
+arc_center_deg = 251.88                    # [SOU22] (Porco et al. 1995)
+arc_length_deg = 10.0
+arc_rate_deg_per_day = 820.11178           # [SOU22]
+
+[[rings.bands]]
+name = "Egalite 1"
+inner_km = 62925.50
+outer_km = 62940.50
+optical_depth = 0.1                        # [NRV]
+arc_center_deg = 262.5                     # [ARCS]
+arc_length_deg = 3.0
+arc_rate_deg_per_day = 820.11178           # [SOU22]
+
+[[rings.bands]]
+name = "Egalite 2"
+inner_km = 62925.50
+outer_km = 62940.50
+optical_depth = 0.1                        # [NRV]
+arc_center_deg = 265.5                     # [ARCS]
+arc_length_deg = 1.0
+arc_rate_deg_per_day = 820.11178           # [SOU22]
+
+[[rings.bands]]
+name = "Liberte"
+inner_km = 62925.50
+outer_km = 62940.50
+optical_depth = 0.1                        # [NRV]
+arc_center_deg = 278.0                     # [ARCS]
+arc_length_deg = 4.0
+arc_rate_deg_per_day = 820.11178           # [SOU22]
+fade_out = ["1989-08-18 12:00", "2009-01-01"] # [NRV]
+
+[[rings.bands]]
+name = "Courage"
+inner_km = 62925.50
+outer_km = 62940.50
+optical_depth = 0.1                        # [NRV]
+arc_center_deg = 285.0                     # [ARCS]
+arc_length_deg = 1.0
+arc_rate_deg_per_day = 820.11178           # [SOU22]
+fade_out = ["1989-08-18 12:00", "2009-01-01"] # [NRV]

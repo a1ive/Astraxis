@@ -92,22 +92,24 @@ file = "ephem/moon_geo.eph"
 - [earth.toml](earth.toml)：地球的半径、自身 GM、自转、表面、大气、夜光和极光。物理参数、散射模型和显示取值的来源在文件头。
 - [moon.toml](moon.toml)：月球的半径、自身 GM、简化 IAU 自转和贴图。地月与空间望远镜场景通过 `unset` 省略长期极轴漂移。
 - [sun.toml](sun.toml)：太阳的半径、自身 GM、温度和光度。各场景的自转和显示颜色单独定义。
-- 行星：[mercury.toml](mercury.toml)、[venus.toml](venus.toml)（含大气）、[mars.toml](mars.toml)（含大气和 J2–J4）、[jupiter.toml](jupiter.toml)（含 J2、J4、环和紫外统计极光卵）、[saturn.toml](saturn.toml)（含 J2、J4、环和卫星周期项的角度）。
+- 行星：[mercury.toml](mercury.toml)、[venus.toml](venus.toml)（含大气）、[mars.toml](mars.toml)（含大气和 J2–J4）、[jupiter.toml](jupiter.toml)（含 J2、J4、环和紫外统计极光卵）、[saturn.toml](saturn.toml)（含 J2、J4、环和卫星周期项的角度）、[uranus.toml](uranus.toml)（含环、红外 H₃⁺、磁场和卫星周期项的角度）、[neptune.toml](neptune.toml)（含环弧、红外 H₃⁺、磁场和卫星周期项的角度）。
 - 火卫：[phobos.toml](phobos.toml)、[deimos.toml](deimos.toml)（形状模型）。
 - 伽利略卫星：[io.toml](io.toml)（含羽流）、[europa.toml](europa.toml)、[ganymede.toml](ganymede.toml)、[callisto.toml](callisto.toml)。
 - 土星的大卫星：[mimas.toml](mimas.toml)、[enceladus.toml](enceladus.toml)（含羽流）、[tethys.toml](tethys.toml)、[dione.toml](dione.toml)、[rhea.toml](rhea.toml)、[titan.toml](titan.toml)（含大气）、[iapetus.toml](iapetus.toml)。
+- 天王星的卫星：[miranda.toml](miranda.toml)、[ariel.toml](ariel.toml)、[umbriel.toml](umbriel.toml)、[titania.toml](titania.toml)、[oberon.toml](oberon.toml)。
+- 海王星的卫星：[proteus.toml](proteus.toml)（形状模型）、[triton.toml](triton.toml)（含大气和羽流）。
 
-只在一个场景里出现的天体（天王星、海王星及其卫星、Janus 等）仍内联定义，第二个场景用到时再移进模板。
+只在一个场景里出现的天体（Janus 等）仍内联定义，第二个场景用到时再移进模板。
 
 属性移入模板时，将它的来源与简化说明一起放入模板。贴图、形状和数据文件的许可证与处理步骤仍在各资源目录的 `SOURCES.md` 中。场景保留轨道、事件与覆盖值的依据。
 
 木星模板的 `[aurora]` 用 `jovian_oval` 指定统计主卵、`footprints` 指定卫星磁场映射表。后者需要木星的 1 bar 半径，只计算场景中名为 Io、Europa、Ganymede 的直属卫星，缺少某颗时跳过它。两项数据用于紫外叠加视图，与地球的 `kp` 模型互斥；格式、领先角和显示假设见 [地磁与极光来源](../geomag/SOURCES.md)。`flux_tubes` 是从这三颗卫星到足点的线（同一磁场，需要 `footprints`），由事件的 `flux_tubes = true` 或手动开关（`B`）打开。
 
-天王星、海王星（内联在太阳系场景）用 `[aurora].uranus_map`、`neptune_map` 读取 JWST 的 H₃⁺ 图，要求各自的半径，与其他极光字段互斥，只在红外视图显示，见 [极光来源](../geomag/SOURCES.md#天王星与海王星的红外-h₃)。
+天王星、海王星用 `[aurora].uranus_map`、`neptune_map` 读取 JWST 的 H₃⁺ 图，要求各自的半径，与其他极光字段互斥，只在红外视图显示，见 [极光来源](../geomag/SOURCES.md#天王星与海王星的红外-h₃)。
 
 Ganymede 模板的 `[aurora].ganymede_map` 读取 HST 的柱亮度图（平均图和电流片上方、内部、下方三组），要求木卫三的球形半径，与其他极光字段互斥。它随本体旋转，按木卫三此刻在木星磁层里的磁纬选组，通过紫外叠加开关显示；数据和 70 km 壳层的说明见 [极光来源](../geomag/SOURCES.md#ganymede-自身的紫外极光)。
 
-`[magnetic_field]` 是内部磁场的磁力线（水星、地球、木星、土星、Ganymede 在模板里，天王星、海王星内联在太阳系场景）：`coefficients` 和 `reference_radius_km` 必填；`l_shells`、`lines_per_shell`、`max_radius` 决定画哪些线，`color` 是颜色；模型坐标系和本体系不同时用 `flip_pole` 加 `longitude_offset_deg`，或用 `prime_meridian_deg` 给模型自己的 W（两种写法互斥）。默认不显示，由事件的 `magnetic_lines = true` 或手动开关（`B`）打开，见 [地磁与极光来源](../geomag/SOURCES.md#行星内部磁场磁力线)。
+`[magnetic_field]` 是内部磁场的磁力线（水星、地球、木星、土星、天王星、海王星、Ganymede 在模板里）：`coefficients` 和 `reference_radius_km` 必填；`l_shells`、`lines_per_shell`、`max_radius` 决定画哪些线，`color` 是颜色；模型坐标系和本体系不同时用 `flip_pole` 加 `longitude_offset_deg`，或用 `prime_meridian_deg` 给模型自己的 W（两种写法互斥）。默认不显示，由事件的 `magnetic_lines = true` 或手动开关（`B`）打开，见 [地磁与极光来源](../geomag/SOURCES.md#行星内部磁场磁力线)。
 
 `[magnetic_map]` 是固定在本体上的磁场伪彩色图（火星、月球、木星、天王星、海王星是径向场，地球的 `surface` 是总强度，由文件决定）：`surface` 必填，`deep` 是更深处的第二张图（木星），`crust` 是只有地壳的图（地球）。行按行星中心纬度，列从 180°W 开始，和贴图的 `texture_left_lon_deg` 无关；`[magnetic_field]` 用 `prime_meridian_deg` 时图在模型的经度里，渲染时跟着转（海王星）。默认不显示，由事件的 `magnetic_map = "surface"`、`"deep"` 或 `"crust"`、手动开关（`G`）打开，见 [径向磁场图](../geomag/SOURCES.md#径向磁场图)。
 

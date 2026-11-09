@@ -1,0 +1,57 @@
+# [PCK]  NAIF pck00011.tpc (IAU 2015): radii, pole, prime meridian and the periodic terms,
+#        with the angles of Neptune's template.
+# [SPHY] JPL SSD, Planetary Satellite Physical Parameters (NEP097).
+# [ATM]  Thin haze as summarized by Ohno et al. 2021 (ApJ, doi:10.3847/1538-4357/abee82,
+#        arXiv:2012.11932, Sect. 1 and Table 2), citing Voyager 2 results: seen to ~30 km
+#        (Smith et al. 1989; the shell goes to 60 km, 5.5 scale heights); scale height
+#        11.0 +- 0.6 km (Rages & Pollack 1992); scattering optical depth ~0.003 (Pollack et
+#        al. 1990), 0.001-0.01 and nearly proportional to lambda^-2; single-scattering albedo
+#        near unity (Hillier et al. 1990, 1991). g illustrative (forward scattering, 0.17 um
+#        particles). The discrete clouds below 4 km are not drawn.
+# [PLM]  Plumes, always erupting (single scattering; optical depths, colors and phase
+#        functions are illustrative, chosen to be visible; real plumes are faint). Vent
+#        coordinates: IAU Gazetteer of Planetary Nomenclature (planetographic, used as
+#        planetocentric). Hili (57 S 35 E) and Mahilani (50.5 S 359.5 E), dark columns rising
+#        to ~8 km with radii of tens of meters to a kilometer, whose clouds drift downwind over
+#        100 km (Soderblom et al. 1990, Science 250, 410), toward the west: winds above 8 km
+#        blow west (Hansen et al. 1990, Science 250, 421). The tail's e-folding length is 50 km.
+
+radii_km = [1352.6]                        # [PCK]
+body_gm_km3_s2 = 1428.49546                # [SPHY] (NEP097)
+pole_ra_dec_deg = [299.36, 41.17]          # [PCK]
+prime_meridian_deg = [296.53, -61.2572637]
+nut_prec_ra = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -32.35, 0.0, -6.28, -2.08, -0.74, -0.28, -0.11, -0.07, -0.02, -0.01]
+nut_prec_dec = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 22.55, 0.0, 2.1, 0.55, 0.16, 0.05, 0.02, 0.01]
+nut_prec_pm = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 22.25, 0.0, 6.73, 2.05, 0.74, 0.28, 0.11, 0.05, 0.02, 0.01]
+color = "#d9c8be"
+texture = "textures/triton.jpg"
+texture_left_lon_deg = -180.0
+[atmosphere]                        # [ATM]
+height_km = 60.0
+haze_depth = 0.003
+haze_angstrom = 2.0
+haze_scale_height_km = 11.0
+haze_albedo = 1.0
+haze_g = 0.6
+[[plumes]]                          # [PLM]
+name = "Hili"
+type = "geyser"
+lat_lon_deg = [-57.0, 35.0]
+height_km = 8.0
+radius_km = 0.5
+tail_km = 50.0
+tail_azimuth_deg = 270.0
+optical_depth = 0.5
+albedo = 0.1
+g = 0.5
+[[plumes]]                          # [PLM]
+name = "Mahilani"
+type = "geyser"
+lat_lon_deg = [-50.5, 359.5]
+height_km = 8.0
+radius_km = 0.5
+tail_km = 50.0
+tail_azimuth_deg = 270.0
+optical_depth = 0.5
+albedo = 0.1
+g = 0.5

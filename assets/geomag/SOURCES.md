@@ -274,7 +274,7 @@ CVRL 下载不可用时，本次从 Colour 的 `DATA_CMFS_STANDARD_OBSERVER["CIE
 
 ## 天王星与海王星的红外 H₃⁺
 
-`uranus_h3p.txt`、`neptune_h3p.txt` 由 `tools/geomag/ice_giant_h3p_bake.py` 从下面的公开数据烘焙。太阳系场景的两个事件用 `aurora_infrared = true` 开启，也可以在 `Planetary aurora` 选 `UV/IR false color`。都是伪彩色，固定在本体上，不是实时模型。
+`uranus_h3p.txt`、`neptune_h3p.txt` 由 `tools/geomag/ice_giant_h3p_bake.py` 从下面的公开数据烘焙。天王星、海王星场景的事件用 `aurora_infrared = true` 开启（天王星的 1986 和 2007 年两个事件是同一张图换成当时的太阳，不是观测），也可以在 `Planetary aurora` 选 `UV/IR false color`。都是伪彩色，固定在本体上，不是实时模型。
 
 天王星，CC BY 4.0：
 

@@ -2832,8 +2832,60 @@ void test_shoemaker_levy_9()
           "other comets keep their gas and tails");
 }
 
+// uranus.toml, neptune.toml: Voyager 2's flybys from the planet-centered trajectories, and the
+// same system as in the Solar System scene.
+void test_ice_giant_scenes()
+{
+    struct Case {
+        const char* file;
+        const char* planet;
+        const char* moon;
+        double ca_jd, ca_km, tolerance_km;
+    };
+    // PDS and Horizons: closest to the planets' centers, TDB; the moon is in both scenes.
+    const Case cases[] = {
+        {"uranus.toml", "Uranus", "Titania", 2446455.25, 107154.0, 50.0},
+        {"neptune.toml", "Neptune", "Triton", 2447763.665, 29241.0, 50.0},
+    };
+    Scene solar = load_scene_or_die("solar_system.toml");
+    for (const Case& c : cases) {
+        Scene scene = load_scene_or_die(c.file);
+        const int planet = scene.find(c.planet);
+        const int voyager = scene.find("Voyager 2");
+        const int moon = scene.find(c.moon);
+        check(planet == 0 && voyager > 0 && moon > 0, "the ice giant is the scene's root");
+
+        const double t0 = tdb_from_jd_tdb(c.ca_jd);
+        const Flyby flyby = find_flyby(scene, planet, voyager, t0 - 86400.0, t0 + 86400.0);
+        check(flyby.body == voyager, "Voyager 2's flyby is found", static_cast<double>(flyby.body));
+        std::printf("  info: Voyager 2 at %s: %.1f km at %.1f s from JD %.3f\n", c.planet, flyby.distance_km, flyby.t_tdb - t0, c.ca_jd);
+        check(std::abs(flyby.distance_km - c.ca_km) < c.tolerance_km, "Voyager 2's closest approach (km)", flyby.distance_km);
+
+        // The Sun's direction and a moon as in the Solar System scene.
+        const double t = t0 + 40.0 * 86400.0;
+        scene.update(t);
+        solar.update(t);
+        const Body& p = scene.bodies[static_cast<size_t>(planet)];
+        const Body& solar_planet = solar.bodies[static_cast<size_t>(solar.find(c.planet))];
+        const glm::dvec3 here = scene.bodies[static_cast<size_t>(moon)].icrf_position - p.icrf_position;
+        const glm::dvec3 there = solar.bodies[static_cast<size_t>(solar.find(c.moon))].icrf_position - solar_planet.icrf_position;
+        check(glm::length(here - there) < 1e-3, "the moon's orbit as in the Solar System scene (km)", glm::length(here - there));
+        const glm::dvec3 sun = glm::normalize(scene.sun_position() - p.world_position);
+        const glm::dvec3 solar_sun = glm::normalize(solar.sun_position() - solar_planet.world_position);
+        check(glm::length(sun - solar_sun) < 1e-6, "the Sun's direction as in the Solar System scene", glm::length(sun - solar_sun));
+        check(p.aurora.map && p.magnetic_field.model && p.magnetic_map.surface && p.rings.bands.size() == solar_planet.rings.bands.size(),
+              "the planet's aurora, field and rings come with its template");
+    }
+
+    // The events the planets took with them are gone from the Solar System's tour.
+    for (const SceneEvent& e : solar.events) {
+        check(!e.magnetic_lines && !e.aurora_infrared, "no ice giant field or aurora event in the Solar System scene");
+    }
+}
+
 void run_mission_tests()
 {
+    test_ice_giant_scenes();
     test_solar_system_missions();
     test_solar_system_interstellar();
     test_parker_scene();

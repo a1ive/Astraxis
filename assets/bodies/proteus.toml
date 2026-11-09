@@ -1,0 +1,8 @@
+# [PCK]  NAIF pck00011.tpc (IAU 2015): radii.
+# [PROT] Stooke 1994, The Surfaces of Larissa and Proteus (EMP 65, 31-54), PDS shape model
+#        (https://sbn.psi.edu/pds/resource/stkshape.html); supplied OBJ converted without
+#        scaling (assets/shapes/SOURCES.md). Uniform illustrative color.
+
+radii_km = [218.0, 208.0, 201.0]            # [PCK]
+shape = "shapes/proteus.mesh"
+color = "#777777"                         # illustrative gray; no surface albedo map

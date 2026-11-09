@@ -1,0 +1,16 @@
+# [PCK]  NAIF pck00011.tpc (IAU 2015): radii, pole, prime meridian and the periodic terms,
+#        with the angles of Uranus's template.
+# [SPHY] JPL SSD, Planetary Satellite Physical Parameters (URA111).
+# Surface map (assets/textures/SOURCES.md): Voyager 2 saw only the southern hemisphere, in
+# 1986; the rest is filled with a plain surface.
+
+radii_km = [240.4, 234.2, 232.9]           # [PCK]
+body_gm_km3_s2 = 4.3                       # [SPHY] (URA111)
+pole_ra_dec_deg = [257.43, -15.08]         # [PCK]
+prime_meridian_deg = [30.70, -254.6906892]
+nut_prec_ra = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 4.41, 0.0, 0.0, 0.0, 0.0, 0.0, -0.04]
+nut_prec_dec = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 4.25, 0.0, 0.0, 0.0, 0.0, 0.0, -0.02]
+nut_prec_pm = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.15, -1.27, 0.0, 0.0, 0.0, 0.0, -0.09, 0.15]
+color = "#b5b3ae"
+texture = "textures/miranda.jpg"
+texture_left_lon_deg = -180.0

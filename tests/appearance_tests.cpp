@@ -1831,17 +1831,30 @@ void test_ice_giant_aurora()
     check(profile.top_km > 5000.0 && profile.bottom_km < 475.0, "the shell holds the observed altitudes");
 
     // The event is at the observation: the longitude Melin's first dither saw.
-    const auto find_event = [&](const char* text) {
-        return std::find_if(scene.events.begin(), scene.events.end(),
+    const Scene uranus_scene = load_scene_or_die("uranus.toml");
+    const Scene neptune_scene = load_scene_or_die("neptune.toml");
+    const auto find_event = [](const Scene& where, const char* text) {
+        return std::find_if(where.events.begin(), where.events.end(),
                             [&](const SceneEvent& e) { return e.name.find(text) != std::string::npos; });
     };
-    const auto uranus_event = find_event("Uranus's infrared");
-    const auto neptune_event = find_event("Neptune's first infrared");
-    check(uranus_event != scene.events.end() && neptune_event != scene.events.end(), "the ice giants' events");
-    if (uranus_event == scene.events.end() || neptune_event == scene.events.end()) return;
+    const auto uranus_event = find_event(uranus_scene, "Uranus's infrared");
+    const auto neptune_event = find_event(neptune_scene, "Neptune's first infrared");
+    check(uranus_event != uranus_scene.events.end() && neptune_event != neptune_scene.events.end(), "the ice giants' events");
+    if (uranus_event == uranus_scene.events.end() || neptune_event == neptune_scene.events.end()) return;
     for (const auto& e : {*uranus_event, *neptune_event}) {
         check(e.aurora_infrared && !e.aurora_ultraviolet && !e.aurora_visible, "the ice giants' events are infrared");
     }
+    // These scenes have no Earth: the cameras are written as offsets toward it.
+    const auto check_earth_view = [&](const SceneEvent& e, int planet) {
+        scene.update(e.t_tdb);
+        const glm::dvec3 to_earth = scene.bodies[static_cast<size_t>(scene.find("Earth"))].icrf_position - scene.bodies[static_cast<size_t>(planet)].icrf_position;
+        const glm::dvec3 wanted = glm::normalize(to_earth) * 150000.0;
+        const double off_deg = std::acos(std::min(1.0, glm::dot(glm::normalize(wanted), glm::normalize(e.observer_offset_km)))) / kDegToRad;
+        std::printf("  info: %s: toward the Earth [%.1f, %.1f, %.1f], off by %.4f deg\n", e.name.c_str(), wanted.x, wanted.y, wanted.z, off_deg);
+        check(off_deg < 0.01 && std::abs(glm::length(e.observer_offset_km) - 150000.0) < 1.0, "the event's camera is toward the Earth", off_deg);
+    };
+    check_earth_view(*uranus_event, uranus);
+    check_earth_view(*neptune_event, neptune);
     const double uranus_observed = tdb_from_utc_jd(kJan8 + (15 + 33 / 60.0 + 21 / 3600.0) / 24.0);
     check(std::abs(uranus_event->t_tdb - (uranus_observed - first.light_s)) < 300.0, "Uranus's event less the light time",
           uranus_event->t_tdb - (uranus_observed - first.light_s));
@@ -2446,7 +2459,9 @@ void test_magnetic_field()
     check(field_line_size_fade(1.0) == 0.0 && field_line_size_fade(10.0) == 1.0, "nor a dot of a planet");
 
     // Off by default; only these events turn them on, and with something to show.
-    for (const Scene* scene : {&solar, &saturn_scene, &earth_scene, &jupiter_scene, &mercury_scene}) {
+    Scene uranus_scene = load_scene_or_die("uranus.toml");
+    Scene neptune_scene = load_scene_or_die("neptune.toml");
+    for (const Scene* scene : {&solar,&uranus_scene, &neptune_scene, &saturn_scene, &earth_scene, &jupiter_scene, &mercury_scene}) {
         for (const SceneEvent& event : scene->events) {
             if (event.magnetic_lines) {
                 check(event.focus >= 0 && scene->bodies[static_cast<size_t>(event.focus)].magnetic_field.model != nullptr,
@@ -2458,8 +2473,9 @@ void test_magnetic_field()
     const auto shown = [](const Scene& scene) {
         return std::count_if(scene.events.begin(), scene.events.end(), [](const SceneEvent& e) { return e.magnetic_lines; });
     };
-    check(shown(solar) == 2 && shown(saturn_scene) == 1 && shown(mercury_scene) == 1 && shown(jupiter_scene) == 1,
+    check(shown(uranus_scene) == 1 && shown(neptune_scene) == 1 && shown(saturn_scene) == 1 && shown(mercury_scene) == 1 && shown(jupiter_scene) == 1,
           "the ice giants, Saturn, Mercury and Ganymede each have their event");
+    check(shown(solar) == 0, "the Solar System's tour leaves them to the planets' own scenes");
 
     // A wrong description is refused.
     const auto loads = [](const std::string& field) {
@@ -2870,6 +2886,8 @@ void test_magnetic_maps()
 
     // The events open with the feature coming round into the sunlight, or for the Moon, which
     // turns slowly, with its two patches on either side of the sub-solar point.
+    Scene uranus_scene = load_scene_or_die("uranus.toml");
+    Scene neptune_scene = load_scene_or_die("neptune.toml");
     const auto sub_solar_east = [](Scene& scene, const Body& body, double t) {
         scene.update(t);
         const glm::dvec3 to_sun = glm::transpose(body.orientation) * (scene.sun_position() - body.world_position);
@@ -2883,8 +2901,8 @@ void test_magnetic_maps()
         {&earth_scene, &moon, 270.0, FieldMapView::Surface},
         {&earth_scene, &earth, 325.5, FieldMapView::Surface},
         {&earth_scene, &earth, 50.0, FieldMapView::Crust},
-        {&giants, &uranus, 155.5, FieldMapView::Surface},
-        {&giants, &neptune, 117.5, FieldMapView::Surface},
+        {&uranus_scene, &uranus_scene.bodies[static_cast<size_t>(uranus_scene.find("Uranus"))], 155.5, FieldMapView::Surface},
+        {&neptune_scene, &neptune_scene.bodies[static_cast<size_t>(neptune_scene.find("Neptune"))], 117.5, FieldMapView::Surface},
     };
     for (const auto& e : expected) {
         int found = 0;

@@ -13,11 +13,13 @@ Astraxis is an astronomy background app with planets, spacecraft and stars anima
 
 | Scene | Highlights |
 |---|---|
-| Solar System (default) | Planets, moons (including Proteus with its Voyager-based shape), dwarf planets, asteroids and interstellar objects; Webb's infrared views of the H3+ glow of Uranus and Neptune in false color |
+| Solar System (default) | Planets, moons (including Proteus with its Voyager-based shape), dwarf planets, asteroids and interstellar objects |
 | Jupiter | Rings and moons, Galileo and Juno orbits, Cassini flyby; the 21 fragments of comet Shoemaker-Levy 9 from breakup to impact, with their dust tails, flashes, plumes, rings and dark scars; northern and southern UV aurora overlays with modeled Io, Europa and Ganymede footprints |
 | Space Telescopes | Hubble in low Earth orbit, Chandra on a high elliptical orbit, TESS in step with the Moon, WMAP, Herschel, Planck, Gaia, JWST, Euclid and Roman around L2, Spitzer and Kepler drifting behind Earth |
 | Earth-Moon | Artemis missions, CAPSTONE and other lunar spacecraft; the Earth's city lights and aurora (from the Kp record since 1932) |
 | Saturn | Rings, major moons, retrograde Phoebe, the co-orbital Janus and Epimetheus trading orbits, Cassini's tour and Huygens' descent; northern and southern UV aurora overlays |
+| Uranus | The planet on its side, its eccentric rings and five large moons, Voyager 2's flyby; its lopsided magnetic field, and Webb's infrared H3+ glow with a model of its seasons |
+| Neptune | Rings with the Adams arcs, Triton's plumes, Voyager 2's closest pass; its off-center magnetic field and Webb's first infrared aurora |
 | Mercury: MESSENGER & BepiColombo | Gravity assists and orbits around Mercury |
 | Venus | Venus Express, Akatsuki, Zoozve and spacecraft flybys |
 | Mars | Phobos, Deimos, eight orbiters, comet Siding Spring and interstellar comet 3I/ATLAS |

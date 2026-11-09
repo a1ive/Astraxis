@@ -1,0 +1,295 @@
+# Uranus: the planet tipped on its side, its rings and five large moons, its lopsided magnetic
+# field and its infrared H3+, with Voyager 2's flyby of 1986.
+#
+# Sources
+# Properties of the planet and the moons, with their sources: bodies/uranus.toml, miranda.toml,
+# ariel.toml, umbriel.toml, titania.toml, oberon.toml.
+# [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
+# [ELEM] JPL SSD, Planetary Satellite Mean Elements (https://ssd.jpl.nasa.gov/sats/elem/),
+#        epoch 2000-01-01.5 TDB (URA182, "equatorial": the plane of Uranus' equator, referred
+#        to its positive (right-hand) pole, i.e. opposite to the IAU north pole). Its P is the
+#        period of the mean longitude (360 / P equals the PCK spin rates), so period_days (of
+#        M) = 360 / (360 / P - apsis rate - node rate), with apsides advancing and nodes
+#        regressing (oblateness). With its phases, the direction is within 0.1-0.3 deg rms of
+#        Horizons over 1972-2100 (Miranda: 1.8 deg). The same as in solar_system.toml.
+# [APX]  E. M. Standish, Approximate Positions of the Planets, Tables 2a + 2b.
+# [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py (tools/bake/ephem.toml):
+#        Uranus system barycenter around the Sun, 1972-2100 (the Sun's direction); Voyager 2
+#        relative to Uranus's center, 1986-01-04 .. 02-13. This is the planet-centered
+#        trajectory, 107,154 km at closest approach, where the real pass was 107,000 km; the
+#        heliocentric table of solar_system.toml (assets/ephem/SOURCES.md) passes 102,180 km.
+# [MDL]  NASA 3D Resources, github.com/nasa/NASA-3D-Resources ("Voyager Probe (B)"), converted by
+#        tools/shapes/make_spacecraft.py (assets/shapes/SOURCES.md).
+# [LAM25]  Lamy et al. 2025, Nature Astronomy 9, doi:10.1038/s41550-025-02492-z: rotation
+#        period 17.247864 +/- 0.000010 h.
+# [MEL25]  Melin et al. 2025, GRL 52, e2025GL118301: the H3+ map from JWST, January 2023.
+# [TIR26]  Tiranti et al. 2026, GRL 53, e2025GL119304: its vertical profiles from JWST, January 2025.
+# [MOO19]  Moore et al. 2019, as quoted in assets/geomag/SOURCES.md: the sunlit H3+ lasts about
+#        an hour, so it follows the sunlight.
+# [HER09]  Herbert 2009, JGR 114, A11206: the field model AH5.
+# [JAS24]  Jasinski et al. 2024, Nature Astronomy, doi:10.1038/s41550-024-02389-3: Voyager 2 saw
+#        Uranus's magnetosphere in a compressed state.
+# [V2]   NASA, science.nasa.gov/mission/voyager/voyager-2/ (first to fly past Uranus; 10 new
+#        moons and two new rings there).
+# [UFS]  NASA NSSDCA Uranus Fact Sheet: obliquity 97.77 deg; orbital period 84 years.
+#
+# Colors are sRGB and illustrative where no surface map is used.
+
+name = "Uranus"
+
+[view]
+focus = "Uranus"
+distance_km = 1.5e6
+pitch_deg = 18.0
+start = "now"
+warp = 3600.0                  # 1 hour per second: Uranus turns in 17 seconds
+
+# Heliocentric orbit of the scene origin, used for the Sun direction.
+[origin_heliocentric]                             # [HZN] Uranus barycenter
+type = "ephemeris"
+file = "ephem/uranus.eph"
+[origin_heliocentric.fallback]                    # [APX] Tables 2a + 2b
+type = "jpl_approx_planet"
+a_au = [19.18797948, -0.00020455]
+e = [0.04685740, -0.00001550]
+i_deg = [0.77298127, -0.00180155]
+mean_longitude_deg = [314.20276625, 428.49512595]
+lon_peri_deg = [172.43404441, 0.09266985]
+node_deg = [73.96250215, 0.05739699]
+b = 0.00058331
+c = -0.97731848
+s = 0.17689245
+f = 7.67025000
+
+[[bodies]]
+name = "Uranus"
+template = "bodies/uranus.toml"
+gm_km3_s2 = 5794556.4                      # system [GM]
+
+# --- Moons ----------------------------------------------------------------------
+
+[[bodies]]
+name = "Miranda"
+parent = "Uranus"
+template = "bodies/miranda.toml"
+orbit_color = "#c4c8cc"
+[bodies.orbit]                             # [ELEM]
+type = "mean_elements"
+a_km = 129846.0
+e = 0.001
+arg_peri_deg = 154.8
+mean_anomaly_deg = 73.0
+i_deg = 4.4
+node_deg = 100.9
+period_days = 1.413783464                  # of M; [ELEM] P = 1.413479 (mean longitude)
+apsis_period_years = 8.939
+node_period_years = -17.787
+laplace_pole_ra_dec_deg = [77.311, 15.175]
+
+[[bodies]]
+name = "Ariel"
+parent = "Uranus"
+template = "bodies/ariel.toml"
+orbit_color = "#d2d6dc"
+[bodies.orbit]                             # [ELEM]
+type = "mean_elements"
+a_km = 190929.0
+e = 0.001
+arg_peri_deg = 9.6
+mean_anomaly_deg = 193.5
+i_deg = 0.0
+node_deg = 0.0
+period_days = 2.520980911                  # of M; [ELEM] P = 2.520379 (mean longitude)
+apsis_period_years = 28.901
+laplace_pole_ra_dec_deg = [77.311, 15.175]
+
+[[bodies]]
+name = "Umbriel"
+parent = "Uranus"
+template = "bodies/umbriel.toml"
+orbit_color = "#9a9ca2"
+[bodies.orbit]                             # [ELEM]
+type = "mean_elements"
+a_km = 265986.0
+e = 0.004
+arg_peri_deg = 183.4
+mean_anomaly_deg = 253.0
+i_deg = 0.1
+node_deg = 174.8
+period_days = 4.144547877                  # of M; [ELEM] P = 4.144177 (mean longitude)
+apsis_period_years = 64.126
+node_period_years = -129.745
+laplace_pole_ra_dec_deg = [77.311, 15.175]
+
+[[bodies]]
+name = "Titania"
+parent = "Uranus"
+template = "bodies/titania.toml"
+orbit_color = "#c8beb2"
+[bodies.orbit]                             # [ELEM]
+type = "mean_elements"
+a_km = 436298.0
+e = 0.002
+arg_peri_deg = 184.0
+mean_anomaly_deg = 68.1
+i_deg = 0.1
+node_deg = 29.5
+period_days = 8.706100651                  # of M; [ELEM] P = 8.705869 (mean longitude)
+apsis_period_years = 579.928
+node_period_years = -1644.649
+laplace_pole_ra_dec_deg = [77.311, 15.175]
+
+[[bodies]]
+name = "Oberon"
+parent = "Uranus"
+template = "bodies/oberon.toml"
+orbit_color = "#b6aaa0"
+[bodies.orbit]                             # [ELEM]
+type = "mean_elements"
+a_km = 583511.0
+e = 0.002
+arg_peri_deg = 132.2
+mean_anomaly_deg = 143.6
+i_deg = 0.1
+node_deg = 76.8
+period_days = 13.463791958                 # of M; [ELEM] P = 13.463237 (mean longitude)
+apsis_period_years = 158.604
+node_period_years = -192.798
+laplace_pole_ra_dec_deg = [77.311, 15.175]
+
+# --- Spacecraft -----------------------------------------------------------------
+
+[[bodies]]
+name = "Voyager 2"
+parent = "Uranus"
+kind = "spacecraft"
+radii_km = [0.006]                         # the bus, dish and short booms; the magnetometer boom goes on
+shape = "shapes/voyager.mesh"              # [MDL]
+texture = "textures/voyager.jpg"
+point_at = "Sun"                           # the dish to the Earth, a few degrees away; the roll is illustrative
+fill_light = 0.2                           # illustrative
+color = "#9fe7ff"
+orbit_color = "#6fd3ff"
+trail = "history"
+trail_history_days = 10.0
+trail_linger_days = 10.0
+[bodies.orbit]                             # [HZN] -32
+type = "ephemeris"
+file = "ephem/voyager2_ura.eph"
+
+# With the north pole up, for the maps of the field and the seasons.
+[[frames]]
+name = "Uranus equator"
+type = "inertial"
+origin = "Uranus"
+up = "Uranus"
+
+# --- Events -------------------------------------------------------------------------
+
+[[events]]
+name = "Voyager 2 at Uranus (CA 1986-01-24 18:00, 107,154 km)"
+time_tdb = "1986-01-24 12:00"
+focus = "Uranus"
+flyby = "Voyager 2"
+distance_km = 5.0e5
+warp = 600.0
+# [V2], [UFS]
+caption = """\
+    Nobody has been back. Voyager 2 flew in almost along the planet's axis, because in 1986 \
+    that axis pointed nearly at the Sun: Uranus is tipped over by 98 degrees and rolls round \
+    its 84-year orbit on its side. It found ten new moons and two new rings in a few days."""
+
+[[events]]
+name = "Uranus's lopsided magnetic field (1986-01-24)"
+magnetic_lines = true
+focus_orbits_only = true
+trails = [{ body = "Voyager 2", trail_history_days = 10.0 }]
+time_tdb = "1986-01-24 18:00"
+focus = "Uranus"
+from_body = "Sun"
+phase_deg = 40.0
+distance_km = 6.0e5
+warp = 1800.0
+# [HER09], [JAS24], [LAM25]
+caption = """\
+    Voyager 2 found a field tilted 59 degrees from the spin axis, with its center a third \
+    of a radius off the planet's. Each 17.2-hour turn swings the lines from side to side. \
+    Drawn from a model of what the planet itself makes, without the solar wind that shapes \
+    them farther out. Voyager arrived while a gust had squeezed the whole magnetosphere."""
+
+# Seen across the equator: the sunlit hemisphere above, the night below.
+[[events]]
+name = "A polar night in the infrared (false color, model of 1986)"
+aurora_infrared = true
+hide_orbits = true
+time_tdb = "1986-01-26 00:00"
+focus = "Uranus"
+frame = "Uranus equator"
+from_body = "Sun"
+elevation_deg = 0.0
+distance_km = 150000.0
+warp = 900.0
+# [MEL25], [MOO19]; assets/geomag/SOURCES.md
+caption = """\
+    The H3+ glow in false color, with the Sun over one pole. Sunlight makes these ions and \
+    they last about an hour, so the other hemisphere, deep in its 42-year night, should go \
+    dark except for its aurorae. No one has seen this: it is Webb's map of 2023 under the \
+    sunlight of 1986."""
+
+[[events]]
+name = "The equinox in the infrared (false color, model of 2007)"
+aurora_infrared = true
+hide_orbits = true
+time_tdb = "2007-12-08 00:00"
+focus = "Uranus"
+frame = "Uranus equator"
+from_body = "Sun"
+phase_deg = 35.0
+elevation_deg = 0.0
+distance_km = 150000.0
+warp = 900.0
+# [MEL25], [UFS]; assets/geomag/SOURCES.md
+caption = """\
+    Twice in each 84-year orbit the Sun stands over the equator, and day and night come \
+    round everywhere, as they do on the Earth. In this model of the H3+ glow the two \
+    hemispheres shine about alike. The map below 25 degrees south is extrapolated, since \
+    Webb could see only the northern side."""
+
+# The clock is the observation time less the light time (tests/appearance_tests.cpp); the
+# camera is where the Earth is at that moment, seen from Uranus: the scene has no Earth.
+[[events]]
+name = "Uranus's infrared ionosphere (false color, 2023)"
+aurora_infrared = true
+time_tdb = "2023-01-08 12:51"
+focus = "Uranus"
+observer = "Uranus"
+observer_offset_km = [-106598.0, -97190.1, -41121.2]
+aim_offset_km = [0.0, 0.0, 0.0]
+warp = 900.0
+# [MEL25], [TIR26], [LAM25]
+caption = """\
+    The whole sunlit disk glows in the infrared lines of the ion H3+, shown here in \
+    false color. Uranus's magnetic field is tilted 59 degrees, so its aurorae lie at low \
+    and middle latitudes, not the poles. Webb found both, up to twice as radiant as their \
+    surroundings but hardly warmer, and a dark chevron across the pole."""
+
+# The strongest field is on the side the off-center dipole sits nearest, in the hemisphere
+# that faces the Sun in the 2020s. The numbers are geomag/uranus_br.fieldmap, the AH5 model
+# [HER09] at the surface; its dipole alone would give 0.46 gauss at most.
+[[events]]
+name = "Uranus's lopsided field at its surface (false color)"
+magnetic_map = "surface"
+hide_orbits = true
+time_tdb = "2025-01-19 02:32"
+focus = "Uranus"
+frame = "Uranus equator"
+from_body = "Sun"
+elevation_deg = 12.0
+distance_km = 1.3e5
+warp = 400.0
+# [HER09], [LAM25]
+caption = """\
+    The field at the cloud tops, in false color, red leaving the planet and blue entering \
+    it. A centered magnet would give two even halves. Here the blue north reaches about 1.5 \
+    gauss, three times what the dipole alone would give, because the field's center sits a \
+    third of a radius off toward it. The red side stays under half that. All from one pass."""

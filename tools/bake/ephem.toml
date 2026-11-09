@@ -134,6 +134,34 @@ stop = "2099-12-31"   # Horizons coverage ends exactly at 2100-01-01
 base_step_minutes = 1440
 encounters = ["jupiter", "saturn", "uranus", "neptune"]
 
+# Voyager 2 relative to the planets' centers, for uranus.toml and neptune.toml. These agree
+# with the real flybys (107,000 and 29,240 km); the heliocentric table above misses them
+# by thousands of km (see assets/ephem/SOURCES.md). The Neptune table stops before the
+# seam of 1989-08-29, where Horizons switches to the 2022 reconstruction.
+[[target]]
+name = "voyager2_ura"
+command = "-32"
+naif_id = -32
+center = "500@799"
+kepler_gm_km3_s2 = 5793951.3
+center_naif_id = 799
+start = "1986-01-04"
+stop = "1986-02-13"
+base_step_minutes = 1
+tolerance_km = 1.0
+
+[[target]]
+name = "voyager2_nep"
+command = "-32"
+naif_id = -32
+center = "500@899"
+kepler_gm_km3_s2 = 6835099.97
+center_naif_id = 899
+start = "1989-08-05"
+stop = "1989-08-28"
+base_step_minutes = 1
+tolerance_km = 1.0
+
 [[target]]
 name = "pioneer10"
 command = "-23"

@@ -1,0 +1,223 @@
+# Neptune: its rings with the Adams arcs, Triton and Proteus, its off-center magnetic field and
+# its infrared H3+, with Voyager 2's flyby of 1989.
+#
+# Sources
+# Properties of the planet and the moons, with their sources: bodies/neptune.toml, proteus.toml,
+# triton.toml.
+# [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
+# [ELEM] JPL SSD, Planetary Satellite Mean Elements (https://ssd.jpl.nasa.gov/sats/elem/),
+#        epoch 2000-01-01.5 TDB. Triton's plane, phase and rate were refitted to Horizons
+#        (solar_system.toml has the notes): the circular orbit stays within 0.05 deg rms
+#        (worst 0.15) of Horizons over 1972-2100.
+# [PROT] Proteus' orbit: JPL NEP098 SPK, 1972-2100, fitted by tools/bake/proteus_bake.py. See
+#        assets/ephem/SOURCES.md.
+# [APX]  E. M. Standish, Approximate Positions of the Planets, Tables 2a + 2b.
+# [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py (tools/bake/ephem.toml):
+#        Neptune system barycenter around the Sun, 1972-2100 (the Sun's direction); Voyager 2
+#        relative to Neptune's center, 1989-08-05 .. 08-28, stopping before Horizons' seam of
+#        1989-08-29. This planet-centered trajectory passes 29,236 km from the center, as
+#        Voyager did (29,241 km); the heliocentric table of solar_system.toml passes 33,661 km.
+# [MDL]  NASA 3D Resources, github.com/nasa/NASA-3D-Resources ("Voyager Probe (B)"), converted by
+#        tools/shapes/make_spacecraft.py (assets/shapes/SOURCES.md).
+# [MEL25N] Melin et al. 2025, Nature Astronomy 9, 666: the H3+ from JWST, June 2023.
+# [CON91]  Connerney, Acuna & Ness 1991, JGR 96, 19023: the field model O8.
+# [NLS]  The Neptune longitude system, whose phase holds near the flyby: bodies/neptune.toml.
+# [VPV]  NASA, "Voyager: Planetary Voyage", science.nasa.gov/mission/voyager/planetary-voyage/
+#        (4,950 km above Neptune's north pole; Voyager 2 "diving below the ecliptic plane").
+# [PLM]  Triton's plumes: bodies/triton.toml.
+# [NRV]  de Pater et al. 2018, "The rings of Neptune" (arXiv:1906.11728): the arcs' optical
+#        depth; Liberte and Courage had essentially disappeared by 2009.
+# [SOU22] Souami et al. 2022, A&A 657, A134: the arcs' mean motion, 820.11178 deg/day.
+#
+# Colors are sRGB and illustrative where no surface map is used.
+
+name = "Neptune"
+
+[view]
+focus = "Neptune"
+distance_km = 1.5e6
+pitch_deg = 18.0
+start = "now"
+warp = 3600.0                  # 1 hour per second: Neptune turns in 16 seconds
+
+# Heliocentric orbit of the scene origin, used for the Sun direction.
+[origin_heliocentric]                             # [HZN] Neptune barycenter
+type = "ephemeris"
+file = "ephem/neptune.eph"
+[origin_heliocentric.fallback]                    # [APX] Tables 2a + 2b
+type = "jpl_approx_planet"
+a_au = [30.06952752, 0.00006447]
+e = [0.00895439, 0.00000818]
+i_deg = [1.77005520, 0.00022400]
+mean_longitude_deg = [304.22289287, 218.46515314]
+lon_peri_deg = [46.68158724, 0.01009938]
+node_deg = [131.78635853, -0.00606302]
+b = -0.00041348
+c = 0.68346318
+s = -0.10162547
+f = 7.67025000
+
+[[bodies]]
+name = "Neptune"
+template = "bodies/neptune.toml"
+gm_km3_s2 = 6836527.10058                  # system [GM]
+
+# --- Moons ----------------------------------------------------------------------
+
+[[bodies]]
+name = "Proteus"
+parent = "Neptune"
+template = "bodies/proteus.toml"
+synchronous = true
+orbit_color = "#9ca6b3"
+[bodies.orbit]                             # [PROT] 808 relative to 899, ICRF
+type = "element_table"
+file = "ephem/proteus_nep.elm"
+
+[[bodies]]
+name = "Triton"
+parent = "Neptune"
+template = "bodies/triton.toml"
+orbit_color = "#c8d4e0"
+[bodies.orbit]                             # [ELEM] + plane precession and phase fitted to [HZN]
+type = "mean_elements"
+a_km = 354759.0
+e = 0.0
+arg_peri_deg = 0.0
+mean_anomaly_deg = 57.743
+i_deg = 157.238
+node_deg = 176.777
+period_days = 5.876714259
+node_period_years = 675.5585
+laplace_pole_ra_dec_deg = [299.8, 43.1]
+
+# --- Spacecraft -----------------------------------------------------------------
+
+[[bodies]]
+name = "Voyager 2"
+parent = "Neptune"
+kind = "spacecraft"
+radii_km = [0.006]                         # the bus, dish and short booms; the magnetometer boom goes on
+shape = "shapes/voyager.mesh"              # [MDL]
+texture = "textures/voyager.jpg"
+point_at = "Sun"                           # the dish to the Earth, a few degrees away; the roll is illustrative
+fill_light = 0.2                           # illustrative
+color = "#9fe7ff"
+orbit_color = "#6fd3ff"
+trail = "history"
+trail_history_days = 10.0
+trail_linger_days = 10.0
+[bodies.orbit]                             # [HZN] -32
+type = "ephemeris"
+file = "ephem/voyager2_nep.eph"
+
+# With the north pole up, for the map of the field and the arcs.
+[[frames]]
+name = "Neptune equator"
+type = "inertial"
+origin = "Neptune"
+up = "Neptune"
+
+# --- Events -------------------------------------------------------------------------
+
+[[events]]
+name = "The Adams ring arcs (1989)"
+hide_orbits = true
+time_tdb = "1989-08-22 00:00"
+focus = "Neptune"
+frame = "Neptune equator"
+from_body = "Sun"
+phase_deg = 150.0                          # the dust scatters forward: against the Sun
+elevation_deg = 35.0
+distance_km = 2.0e5
+warp = 60.0
+# [NRV], [SOU22]
+caption = """\
+    Neptune's outermost ring is uneven: in one stretch the dust is ten times as thick, in \
+    five arcs that go round together, 820 degrees a day. This is how Voyager 2 saw them. \
+    Two of the five had essentially gone by 2009."""
+
+[[events]]
+name = "Voyager 2 at Neptune (CA 1989-08-25 03:57, 29,236 km)"
+time_tdb = "1989-08-24 22:00"
+focus = "Neptune"
+flyby = "Voyager 2"
+distance_km = 3.0e5
+warp = 600.0
+# [VPV]
+caption = """\
+    The last planet of the tour, and the closest pass of the whole mission: about 4,950 \
+    km above the north pole. Neptune's gravity then sent Voyager 2 diving south of the \
+    plane of the planets, and it has not come back."""
+
+[[events]]
+name = "Neptune's off-center magnetic field (1989-08-25)"
+magnetic_lines = true
+focus_orbits_only = true
+trails = [{ body = "Voyager 2", trail_history_days = 10.0 }]
+time_tdb = "1989-08-25 04:05"
+focus = "Neptune"
+from_body = "Sun"
+phase_deg = 35.0
+distance_km = 6.0e5
+warp = 1800.0
+# [CON91], [NLS]
+caption = """\
+    Like Uranus, and unlike the planets before it: the field is tilted 47 degrees and \
+    centered about half a radius from the middle of the planet, and near the surface its \
+    four-lobed part is as strong as the dipole. One pass by Voyager 2 is all we have, so \
+    where the lines lie today is unknown. Drawn from a model, without the solar wind."""
+
+[[events]]
+name = "Triton, as Voyager 2 passed (1989-08-25)"
+hide_orbits = true
+time_tdb = "1989-08-25 09:10"
+focus = "Triton"
+from_body = "Sun"
+phase_deg = 50.0
+elevation_deg = -35.0
+distance_km = 7000.0
+warp = 30.0
+# [VPV], [PLM]
+caption = """\
+    Five hours after Neptune, the last world of the tour. Triton goes round its planet \
+    backward. Voyager 2 caught dark plumes rising some 8 km and drifting downwind for over \
+    100 km, drawn here as Hili and Mahilani."""
+
+# On the day of the flyby, while the longitudes are known. geomag/neptune_br.fieldmap, the O8
+# model [CON91] at the surface; its dipole alone would give 0.28 gauss at most.
+[[events]]
+name = "Neptune's patchy field at its surface (false color)"
+magnetic_map = "surface"
+hide_orbits = true
+time_tdb = "1989-08-25 11:06"
+focus = "Neptune"
+frame = "Neptune equator"
+from_body = "Sun"
+elevation_deg = -12.0
+distance_km = 1.3e5
+warp = 400.0
+# [CON91], [NLS]
+caption = """\
+    The field near the surface, as Voyager 2 left it to be worked out from one pass: red \
+    leaving the planet, blue entering it. Instead of two even halves there are patches of \
+    both colors at the same latitudes. The strongest, about 0.9 gauss, is three times what \
+    the dipole alone would give, on the side its off-center field lies nearest."""
+
+# The clock is the observation time less the light time (tests/appearance_tests.cpp); the
+# camera is where the Earth is at that moment, seen from Neptune: the scene has no Earth.
+[[events]]
+name = "Neptune's first infrared aurora (false color, 2023)"
+aurora_infrared = true
+time_tdb = "2023-06-22 09:55"
+focus = "Neptune"
+observer = "Neptune"
+observer_offset_km = [-149804.5, 5103.2, 5705.9]
+aim_offset_km = [0.0, 0.0, 0.0]
+warp = 900.0
+# [MEL25N]
+caption = """\
+    Ground-based telescopes searched for H3+ at Neptune for thirty years; Webb found it \
+    in 2023. One broad patch in the south, here in false color, shines about twice as \
+    bright as its surroundings; nothing like it was reported elsewhere on the disk. The \
+    upper atmosphere is half as hot as Voyager 2 measured in 1989."""

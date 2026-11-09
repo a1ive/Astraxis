@@ -4,21 +4,6 @@
 # 3I/ATLAS, and the Pioneer, Voyager and New Horizons probes, 1972 onward.
 #
 # Sources
-# [LAM25]  Lamy et al. 2025, Nature Astronomy 9, doi:10.1038/s41550-025-02492-z: Uranus's rotation
-#        period 17.247864 +/- 0.000010 h (W rate from the kernels in Zenodo 16085710).
-# [MEL25]  Melin et al. 2025, GRL 52, e2025GL118301: Uranus's H3+ map from JWST, January 2023.
-# [TIR26]  Tiranti et al. 2026, GRL 53, e2025GL119304: its vertical profiles from JWST, January 2025.
-# [MEL25N] Melin et al. 2025, Nature Astronomy 9, 666: Neptune's H3+ from JWST, June 2023.
-# [HER09]  Herbert 2009, JGR 114, A11206: Uranus's field model AH5, in the Uranian longitude
-#        system (ULS, its north is the IAU's south); assets/geomag/SOURCES.md.
-# [CON91]  Connerney, Acuna & Ness 1991, JGR 96, 19023: Neptune's field model O8, in the Neptune
-#        longitude system (NLS, west longitude, about 16.11 h): dipole tilted 47 deg, quadrupole
-#        as large as the dipole at the surface.
-# [NLS]  W = 253.18 + 536.3128492 d: IAU's Neptune before the 2009 report, with the same -0.48
-#        sin N as [PCK]; it puts Voyager 2 at the NLS longitude of the PDS catalog (167.7 deg
-#        at 1989-08-25 03:56 UTC, tests/appearance_tests.cpp). The phase today is unknown.
-# [JAS24]  Jasinski et al. 2024, Nature Astronomy, doi:10.1038/s41550-024-02389-3: Voyager 2 saw
-#        Uranus's magnetosphere in a compressed state.
 # [MDL]  NASA 3D Resources, github.com/nasa/NASA-3D-Resources ("Voyager Probe (B)"), converted by
 #        tools/shapes/make_spacecraft.py (assets/shapes/SOURCES.md).
 # [MDLN] NASA Visualization Technology Applications and Development, "New Horizons 3D Model",
@@ -71,10 +56,7 @@
 #        Mercury, Venus and Mars, and outside the baked span for the others.
 # [ELEM] JPL SSD, Planetary Satellite Mean Elements (https://ssd.jpl.nasa.gov/sats/elem/),
 #        epoch 2000-01-01.5 TDB; ephemerides as noted at each moon.
-# [PROT] Proteus: Stooke 1994, The Surfaces of Larissa and Proteus (EMP 65, 31-54),
-#        PDS shape model (https://sbn.psi.edu/pds/resource/stkshape.html); supplied OBJ
-#        converted without scaling (assets/shapes/SOURCES.md). Uniform illustrative color.
-#        Orbit: JPL NEP098 SPK, 1972-2100, fitted by tools/bake/proteus_bake.py;
+# [PROT] Proteus' orbit: JPL NEP098 SPK, 1972-2100, fitted by tools/bake/proteus_bake.py;
 #        10 km tolerance, endpoint-rate extrapolation outside the table. Neptune-centered
 #        states are attached to the scene's Neptune system barycenter. Synchronous spin
 #        omits physical libration. See assets/ephem/SOURCES.md.
@@ -116,31 +98,6 @@
 #        states that these values were used in that shape model.
 # [BELT] JPL Small-Body Database Query API (https://ssd-api.jpl.nasa.gov/sbdb_query.api),
 #        osculating elements moved to the common epoch JD 2461200.5 TDB (2026-06-09).
-# [PDSU] PDS Ring-Moon Systems Node, "Vital Statistics for Uranus's Rings and Inner
-#        Satellites" (https://pds-rings.seti.org/uranus/uranus_tables.html), from French
-#        et al. 1991 (in Uranus, Univ. of Arizona Press, 327-409).
-# [FR24] French, Hedman, Nicholson, Longaretti & McGhee-French 2024, "The Uranus System
-#        from Occultation Observations (1977-2006)" (arXiv:2401.04634), Table 5: keplerian
-#        elements of the ring edges (IER, OER) and centerlines (COR), epoch TDB 1986 Jan 19
-#        12:00. Longitudes from the ascending node of Uranus' equator on the J2000 equator,
-#        about the pole of positive angular momentum (opposite to the IAU north pole).
-# [PDSN] PDS Ring-Moon Systems Node, "Vital Statistics for Neptune's Rings and Inner
-#        Satellites" (https://pds-rings.seti.org/neptune/neptune_tables.html).
-# [ARCS] Adams ring arcs at 1989 Aug 18 12:00 UT (at Neptune), longitudes: Fraternite
-#        247-257, Egalite 1 261-264, Egalite 2 265-266, Liberte 276-280, Courage
-#        284.5-285.5 deg, as compiled in Wikipedia's "Rings of Neptune" from Porco 1991
-#        (Science 253, 995) and Miner et al. 2007 (Planetary Ring Systems); the original
-#        tables were not at hand. Fraternite's middle agrees with 251.88 deg (Porco et
-#        al. 1995, quoted in [SOU22]); the extents with the ~10, 4, 4 and 1-2 deg of
-#        arXiv:2006.10939 and the 9.6 deg of Fraternite in [NRV].
-# [SOU22] Souami et al. 2022, A&A 657, A134 (arXiv:2110.12669), Sect. 3.2: the arcs'
-#        mean motion, 820.11178 +- 0.00003 deg/day, from Fraternite at 251.88 deg in 1989
-#        and 217.43 +- 0.30 deg on 2016 Aug 23 (light leaving Neptune 4.01 h before the
-#        05:33:52 UT frame of Table 1). Longitudes in the ring plane from the J2000.0
-#        ascending node of Neptune's equator.
-# [NRV]  de Pater et al. 2018, "The rings of Neptune" (Planetary Ring Systems,
-#        arXiv:1906.11728): Table 1, arcs 15 km wide with normal optical depth 0.1;
-#        Sect. 2.1, Liberte and Courage had essentially disappeared by 2009.
 # [QRNG] Pereira et al. 2023, A&A (arXiv:2304.09237), Table 2 and Sect. 5:
 #        Quaoar's two rings and the Q1R pole, RA 17h19m16.8s, Dec +53 27' (ICRS).
 #        Table 7: Q1R's dense part at egress (2022 Aug 9; CFHT, Gemini z', r'): radius
@@ -157,24 +114,13 @@
 #          phase in their Table 4 (peak 15, at 45 km 37; Henyey-Greenstein gives 15 at
 #          g = 0.44, 37 at 0.56). Albedo and the blue color (Angstrom exponent 2)
 #          illustrative. N2 Rayleigh scattering is negligible.
-#        Triton: thin haze as summarized by Ohno et al. 2021 (ApJ, doi:10.3847/1538-4357/
-#          abee82, arXiv:2012.11932, Sect. 1 and Table 2), citing Voyager 2 results: seen
-#          to ~30 km (Smith et al. 1989; the shell goes to 60 km, 5.5 scale heights); scale
-#          height 11.0 +- 0.6 km (Rages & Pollack 1992); scattering optical depth ~0.003
-#          (Pollack et al. 1990), 0.001-0.01 and nearly proportional to lambda^-2;
-#          single-scattering albedo near unity (Hillier et al. 1990, 1991). g illustrative
-#          (forward scattering, 0.17 um particles). The discrete clouds below 4 km and the
-#          geyser plumes are not drawn.
+#        Triton: [ATM] in bodies/triton.toml.
 # [PLM]  Plumes, always erupting (single scattering; optical depths, colors and phase
 #        functions are illustrative, chosen to be visible; real plumes are faint).
 #        Vent coordinates: IAU Gazetteer of Planetary Nomenclature (planetographic,
 #        used as planetocentric; Io's and Enceladus' longitudes there are west-positive).
 #        Io, Enceladus: [PLM] in bodies/io.toml, enceladus.toml.
-#        Triton: Hili (57 S 35 E) and Mahilani (50.5 S 359.5 E), dark columns rising to
-#          ~8 km with radii of tens of meters to a kilometer, whose clouds drift downwind
-#          over 100 km (Soderblom et al. 1990, Science 250, 410), toward the west: winds
-#          above 8 km blow west (Hansen et al. 1990, Science 250, 421). The tail's
-#          e-folding length is 50 km.
+#        Triton: [PLM] in bodies/triton.toml.
 # [CAP]  Event captions (retrieved 2026-10-07):
 #        [P10] NASA, science.nasa.gov/mission/pioneer-10/ ("first spacecraft to fly through
 #          the main asteroid belt", "first spacecraft to fly past Jupiter", about 500
@@ -826,30 +772,9 @@ laplace_pole_ra_dec_deg = [288.7, 78.9]
 [[bodies]]
 name = "Uranus"
 parent = "Sun"
-radii_km = [25559.0, 24973.0]
+template = "bodies/uranus.toml"
 gm_km3_s2 = 5794556.4                      # system [GM]
-body_gm_km3_s2 = 5793951.3                 # [SPHY] (URA111)
-pole_ra_dec_deg = [257.311, -15.175]
-prime_meridian_deg = [203.81, -500.9315936164617]  # [LAM25], valid since 1986; IAU's rate is -501.1600928
-nut_prec_angles = [[115.75, 54991.87], [141.69, 41887.66], [135.03, 29927.35], [61.77, 25733.59],
-                   [249.32, 24471.46], [43.86, 22278.41], [77.66, 20289.42], [157.36, 16652.76],
-                   [101.81, 12872.63], [138.64, 8061.81], [102.23, -2024.22], [316.41, 2863.96],
-                   [304.01, -51.94], [308.71, -93.17], [340.82, -75.32], [259.14, -504.81],
-                   [204.46, -4048.44], [632.82, 5727.92]]  # [PCK] BODY7 (U1..U16, 2 U11, 2 U12), for the moons
-texture = "textures/uranus.jpg"            # Hubble OPAL zonal profile, assets/textures/SOURCES.md
-texture_left_lon_deg = 0.0
-color = "#a9d8e0"
 orbit_color = "#9fcbd4"
-[bodies.aurora]                            # [MEL25], assets/geomag/SOURCES.md
-uranus_map = "geomag/uranus_h3p.txt"
-[bodies.magnetic_field]                    # [HER09], assets/geomag/SOURCES.md
-coefficients = "geomag/field_uranus_ah5.txt"
-reference_radius_km = 25600.0
-flip_pole = true                           # ULS north = IAU south
-longitude_offset_deg = -50.6               # IAU new east = ULS west - 50.6 [MEL25]
-[bodies.magnetic_map]                      # AH5 on the surface, in these axes; geomag/SOURCES.md
-surface = "geomag/uranus_br.fieldmap"
-
 [bodies.orbit]                             # [HZN] Uranus barycenter
 type = "ephemeris"
 file = "ephem/uranus.eph"
@@ -866,144 +791,12 @@ c = -0.97731848
 s = 0.17689245
 f = 7.67025000
 
-# Rings: edges and their eccentricities, apses and nodes [FR24]; normal optical
-# depths [PDSU] (where given as a range, its middle; bounds as given), taken as the
-# mean over the ring (epsilon: the mean that gives [PDSU]'s range at its narrowest
-# and widest). Each edge is an ellipse with Uranus at a focus (inner_km,
-# outer_km: semi-major axes; *_ae_km: a e); both share the centerline's apse, node
-# and precession rates, since the rings precess rigidly (the fitted edge rates
-# agree within their errors). So the epsilon ring is 20 km wide at periapsis and
-# 97 km at apoapsis, 800 km farther out; rings 6, 5, 4, alpha and beta are tilted
-# by up to 45 km. [FR24] held e or i fixed at 0 where left out. The normal modes
-# (gamma's radial oscillation of 5 km, delta's m = 2 mode of 3 km, ...) are not
-# drawn. The two faint dusty rings found by Hubble (tau ~ 1e-5) are left out: next
-# to the main rings they would be invisible, and they would spread the profile
-# over 3 times the radius. The particles are very dark (albedo ~0.05); the gain is
-# artistic, the backscattering phase function illustrative.
-[bodies.rings]
-color = "#3f3f3f"
-gain = 30.0
-phase_g = -0.2
-epoch_jd_tdb = 2446450.0                   # TDB 1986 Jan 19 12:00 [FR24]
-
-[[bodies.rings.bands]]
-name = "6"
-inner_km = 41835.920
-outer_km = 41838.237
-optical_depth = 0.3
-inner_ae_km = 42.068
-outer_ae_km = 42.930
-peri_deg = 181.657
-peri_rate_deg_per_day = 2.7619579
-a_sin_i_km = 44.643
-node_deg = 89.727
-node_rate_deg_per_day = -2.7565287
-
-[[bodies.rings.bands]]
-name = "5"
-inner_km = 42233.577
-outer_km = 42236.261
-optical_depth = 0.5
-inner_ae_km = 80.052
-outer_ae_km = 80.463
-peri_deg = 176.819
-peri_rate_deg_per_day = 2.6715756
-a_sin_i_km = 40.951
-node_deg = 296.068
-node_rate_deg_per_day = -2.6663516
-
-[[bodies.rings.bands]]
-name = "4"
-inner_km = 42569.511
-outer_km = 42572.743
-optical_depth = 0.3
-inner_ae_km = 44.931
-outer_ae_km = 45.742
-peri_deg = 255.880
-peri_rate_deg_per_day = 2.5980293
-a_sin_i_km = 23.413
-node_deg = 336.828
-node_rate_deg_per_day = -2.5932795
-
-[[bodies.rings.bands]]
-name = "Alpha"
-inner_km = 44714.884
-outer_km = 44722.161
-optical_depth = 0.4
-inner_ae_km = 32.512
-outer_ae_km = 35.335
-peri_deg = 206.074
-peri_rate_deg_per_day = 2.1855003
-a_sin_i_km = 12.005
-node_deg = 203.837
-node_rate_deg_per_day = -2.1813455
-
-[[bodies.rings.bands]]
-name = "Beta"
-inner_km = 45656.770
-outer_km = 45665.286
-optical_depth = 0.3
-inner_ae_km = 18.573
-outer_ae_km = 21.745
-peri_deg = 317.925
-peri_rate_deg_per_day = 2.0308229
-a_sin_i_km = 4.004
-node_deg = 232.878
-node_rate_deg_per_day = -2.0279790
-
-[[bodies.rings.bands]]
-name = "Eta"
-inner_km = 47174.853
-outer_km = 47177.080
-optical_depth = 0.4                        # <= 0.4
-
-[[bodies.rings.bands]]
-name = "Gamma"
-inner_km = 47624.606
-outer_km = 47627.865
-optical_depth = 0.3                        # >= 0.3; fit with the m = 3 mode
-inner_ae_km = 5.016
-outer_ae_km = 5.470
-peri_deg = 48.720
-peri_rate_deg_per_day = 1.7514650
-
-[[bodies.rings.bands]]
-name = "Delta"
-inner_km = 48297.775
-outer_km = 48302.752
-optical_depth = 0.5
-
-[[bodies.rings.bands]]
-name = "Lambda"
-inner_km = 50025.557
-outer_km = 50027.557
-optical_depth = 0.1                        # [FR24] only gives a: width [PDSU]
-
-[[bodies.rings.bands]]
-name = "Epsilon"
-inner_km = 51120.014
-outer_km = 51178.588
-optical_depth = 0.80                       # [PDSU] tau 0.5-2.3 at widths 96-20 km: tau x width ~47 km
-inner_ae_km = 386.530
-outer_ae_km = 425.242
-peri_deg = 307.076
-peri_rate_deg_per_day = 1.3632575
-
 
 [[bodies]]
 name = "Miranda"
 parent = "Uranus"
-radii_km = [240.4, 234.2, 232.9]           # [PCK]
-body_gm_km3_s2 = 4.3                       # [SPHY] (URA111)
-pole_ra_dec_deg = [257.43, -15.08]         # [PCK]
-prime_meridian_deg = [30.70, -254.6906892]
-nut_prec_ra = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 4.41, 0.0, 0.0, 0.0, 0.0, 0.0, -0.04]
-nut_prec_dec = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 4.25, 0.0, 0.0, 0.0, 0.0, 0.0, -0.02]
-nut_prec_pm = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.15, -1.27, 0.0, 0.0, 0.0, 0.0, -0.09, 0.15]
-color = "#b5b3ae"
+template = "bodies/miranda.toml"
 orbit_color = "#c4c8cc"
-texture = "textures/miranda.jpg"
-texture_left_lon_deg = -180.0
 [bodies.orbit]                             # [ELEM]
 type = "mean_elements"
 a_km = 129846.0
@@ -1020,17 +813,8 @@ laplace_pole_ra_dec_deg = [77.311, 15.175]
 [[bodies]]
 name = "Ariel"
 parent = "Uranus"
-radii_km = [581.1, 577.9, 577.7]           # [PCK]
-body_gm_km3_s2 = 83.5                      # [SPHY] (URA111)
-pole_ra_dec_deg = [257.43, -15.10]         # [PCK]
-prime_meridian_deg = [156.22, -142.8356681]
-nut_prec_ra = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.29]
-nut_prec_dec = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.28]
-nut_prec_pm = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.05, 0.08]
-color = "#c9c5bd"
+template = "bodies/ariel.toml"
 orbit_color = "#d2d6dc"
-texture = "textures/ariel.jpg"
-texture_left_lon_deg = -180.0
 [bodies.orbit]                             # [ELEM]
 type = "mean_elements"
 a_km = 190929.0
@@ -1046,17 +830,8 @@ laplace_pole_ra_dec_deg = [77.311, 15.175]
 [[bodies]]
 name = "Umbriel"
 parent = "Uranus"
-radii_km = [584.7]                         # [PCK]
-body_gm_km3_s2 = 85.1                      # [SPHY] (URA111)
-pole_ra_dec_deg = [257.43, -15.10]         # [PCK]
-prime_meridian_deg = [108.05, -86.8688923]
-nut_prec_ra = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.21]
-nut_prec_dec = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.2]
-nut_prec_pm = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.09, 0.0, 0.06]
-color = "#6f6c68"
+template = "bodies/umbriel.toml"
 orbit_color = "#9a9ca2"
-texture = "textures/umbriel.jpg"
-texture_left_lon_deg = -180.0
 [bodies.orbit]                             # [ELEM]
 type = "mean_elements"
 a_km = 265986.0
@@ -1073,17 +848,8 @@ laplace_pole_ra_dec_deg = [77.311, 15.175]
 [[bodies]]
 name = "Titania"
 parent = "Uranus"
-radii_km = [788.9]                         # [PCK]
-body_gm_km3_s2 = 226.9                     # [SPHY] (URA111)
-pole_ra_dec_deg = [257.43, -15.10]         # [PCK]
-prime_meridian_deg = [77.74, -41.3514316]
-nut_prec_ra = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.29]
-nut_prec_dec = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.28]
-nut_prec_pm = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.08]
-color = "#b3a89c"
+template = "bodies/titania.toml"
 orbit_color = "#c8beb2"
-texture = "textures/titania.jpg"
-texture_left_lon_deg = -180.0
 [bodies.orbit]                             # [ELEM]
 type = "mean_elements"
 a_km = 436298.0
@@ -1100,17 +866,8 @@ laplace_pole_ra_dec_deg = [77.311, 15.175]
 [[bodies]]
 name = "Oberon"
 parent = "Uranus"
-radii_km = [761.4]                         # [PCK]
-body_gm_km3_s2 = 205.3                     # [SPHY] (URA111)
-pole_ra_dec_deg = [257.43, -15.10]         # [PCK]
-prime_meridian_deg = [6.77, -26.7394932]
-nut_prec_ra = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.16]
-nut_prec_dec = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.16]
-nut_prec_pm = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.04]
-color = "#9a8d82"
+template = "bodies/oberon.toml"
 orbit_color = "#b6aaa0"
-texture = "textures/oberon.jpg"
-texture_left_lon_deg = -180.0
 [bodies.orbit]                             # [ELEM]
 type = "mean_elements"
 a_km = 583511.0
@@ -1129,32 +886,9 @@ laplace_pole_ra_dec_deg = [77.311, 15.175]
 [[bodies]]
 name = "Neptune"
 parent = "Sun"
-radii_km = [24764.0, 24341.0]
+template = "bodies/neptune.toml"
 gm_km3_s2 = 6836527.10058                  # system [GM]
-body_gm_km3_s2 = 6835099.97                # [SPHY] (NEP097)
-pole_ra_dec_deg = [299.36, 43.46]
-prime_meridian_deg = [249.978, 541.1397757]
-nut_prec_angles = [[357.85, 52.316], [323.92, 62606.6], [220.51, 55064.2], [354.27, 46564.5],
-                   [75.31, 26109.4], [35.36, 14325.4], [142.61, 2824.6], [177.85, 52.316],
-                   [647.84, 125213.2], [355.7, 104.632], [533.55, 156.948], [711.4, 209.264],
-                   [889.25, 261.58], [1067.1, 313.896], [1244.95, 366.212], [1422.8, 418.528],
-                   [1600.65, 470.844]]  # [PCK] BODY8 (N, N1..N7, 2 N1, 2..9 N7)
-nut_prec_ra = [0.70]
-nut_prec_dec = [-0.51]
-nut_prec_pm = [-0.48]
-texture = "textures/neptune.jpg"           # Hubble OPAL zonal profile, assets/textures/SOURCES.md
-texture_left_lon_deg = 0.0
-color = "#5b7fd6"
 orbit_color = "#7b98e0"
-[bodies.aurora]                            # [MEL25N], assets/geomag/SOURCES.md
-neptune_map = "geomag/neptune_h3p.txt"
-[bodies.magnetic_field]                    # [CON91], assets/geomag/SOURCES.md
-coefficients = "geomag/field_neptune_o8.txt"
-reference_radius_km = 24765.0
-prime_meridian_deg = [253.18, 536.3128492] # [NLS]
-[bodies.magnetic_map]                      # O8 on the surface, in NLS (it turns against these axes)
-surface = "geomag/neptune_br.fieldmap"
-
 [bodies.orbit]                             # [HZN] Neptune barycenter
 type = "ephemeris"
 file = "ephem/neptune.eph"
@@ -1171,102 +905,12 @@ c = 0.68346318
 s = -0.10162547
 f = 7.67025000
 
-# Rings [PDSN]: Galle, Le Verrier, Lassell and Adams (Arago, a brightening at
-# Lassell's outer edge, has no width or optical depth in the table), Le Verrier at
-# its upper width bound (< 100 km). The Adams arcs [ARCS] lie on the Adams ring, 15
-# km wide with tau 0.1 [NRV], and move together at [SOU22]'s mean motion; their ends
-# are softened over 15% of their length. Liberte and Courage fade out linearly from
-# Voyager's flyby to 2009 [NRV] (in between, Liberte was almost gone by 2003 and
-# Courage flared in 1998 and jumped 8 deg ahead; Fraternite shortened by a quarter:
-# not drawn). The rings are dusty, so they scatter forward (g = 0.5, illustrative);
-# their dark, reddish tint and the gain are artistic (gain x tau x albedo about
-# twice that of Jupiter's main ring in jupiter.toml, so that the narrow Le Verrier
-# and Adams rings show; Galle and Lassell stay 100 times fainter).
-[bodies.rings]
-color = "#4c4440"
-gain = 400.0
-phase_g = 0.5
-epoch = "1989-08-18 12:00"                 # [ARCS] (UT at Neptune)
-
-[[bodies.rings.bands]]
-name = "Galle"
-inner_km = 41000.00
-outer_km = 43000.00
-optical_depth = 0.0001
-
-[[bodies.rings.bands]]
-name = "Le Verrier"
-inner_km = 53150.00
-outer_km = 53250.00
-optical_depth = 0.01                       # width < 100 km
-
-[[bodies.rings.bands]]
-name = "Lassell"
-inner_km = 53200.00
-outer_km = 57200.00
-optical_depth = 0.0001
-
-[[bodies.rings.bands]]
-name = "Adams"
-inner_km = 62925.50
-outer_km = 62940.50
-optical_depth = 0.01                       # between the arcs (0.01 to 0.1 with them)
-
-[[bodies.rings.bands]]
-name = "Fraternite"
-inner_km = 62925.50
-outer_km = 62940.50
-optical_depth = 0.1                        # [NRV]
-arc_center_deg = 251.88                    # [SOU22] (Porco et al. 1995)
-arc_length_deg = 10.0
-arc_rate_deg_per_day = 820.11178           # [SOU22]
-
-[[bodies.rings.bands]]
-name = "Egalite 1"
-inner_km = 62925.50
-outer_km = 62940.50
-optical_depth = 0.1                        # [NRV]
-arc_center_deg = 262.5                     # [ARCS]
-arc_length_deg = 3.0
-arc_rate_deg_per_day = 820.11178           # [SOU22]
-
-[[bodies.rings.bands]]
-name = "Egalite 2"
-inner_km = 62925.50
-outer_km = 62940.50
-optical_depth = 0.1                        # [NRV]
-arc_center_deg = 265.5                     # [ARCS]
-arc_length_deg = 1.0
-arc_rate_deg_per_day = 820.11178           # [SOU22]
-
-[[bodies.rings.bands]]
-name = "Liberte"
-inner_km = 62925.50
-outer_km = 62940.50
-optical_depth = 0.1                        # [NRV]
-arc_center_deg = 278.0                     # [ARCS]
-arc_length_deg = 4.0
-arc_rate_deg_per_day = 820.11178           # [SOU22]
-fade_out = ["1989-08-18 12:00", "2009-01-01"] # [NRV]
-
-[[bodies.rings.bands]]
-name = "Courage"
-inner_km = 62925.50
-outer_km = 62940.50
-optical_depth = 0.1                        # [NRV]
-arc_center_deg = 285.0                     # [ARCS]
-arc_length_deg = 1.0
-arc_rate_deg_per_day = 820.11178           # [SOU22]
-fade_out = ["1989-08-18 12:00", "2009-01-01"] # [NRV]
-
 
 [[bodies]]
 name = "Proteus"
 parent = "Neptune"
-radii_km = [218.0, 208.0, 201.0]            # [PCK]
-shape = "shapes/proteus.mesh"
+template = "bodies/proteus.toml"
 synchronous = true
-color = "#777777"                         # illustrative gray; no surface albedo map
 orbit_color = "#9ca6b3"
 [bodies.orbit]                             # [PROT] 808 relative to 899, ICRF
 type = "element_table"
@@ -1284,46 +928,8 @@ file = "ephem/proteus_nep.elm"
 [[bodies]]
 name = "Triton"
 parent = "Neptune"
-radii_km = [1352.6]                        # [PCK]
-body_gm_km3_s2 = 1428.49546                # [SPHY] (NEP097)
-pole_ra_dec_deg = [299.36, 41.17]          # [PCK]
-prime_meridian_deg = [296.53, -61.2572637]
-nut_prec_ra = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -32.35, 0.0, -6.28, -2.08, -0.74, -0.28, -0.11, -0.07, -0.02, -0.01]
-nut_prec_dec = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 22.55, 0.0, 2.1, 0.55, 0.16, 0.05, 0.02, 0.01]
-nut_prec_pm = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 22.25, 0.0, 6.73, 2.05, 0.74, 0.28, 0.11, 0.05, 0.02, 0.01]
-color = "#d9c8be"
+template = "bodies/triton.toml"
 orbit_color = "#c8d4e0"
-texture = "textures/triton.jpg"
-texture_left_lon_deg = -180.0
-[bodies.atmosphere]                        # [ATM]
-height_km = 60.0
-haze_depth = 0.003
-haze_angstrom = 2.0
-haze_scale_height_km = 11.0
-haze_albedo = 1.0
-haze_g = 0.6
-[[bodies.plumes]]                          # [PLM]
-name = "Hili"
-type = "geyser"
-lat_lon_deg = [-57.0, 35.0]
-height_km = 8.0
-radius_km = 0.5
-tail_km = 50.0
-tail_azimuth_deg = 270.0
-optical_depth = 0.5
-albedo = 0.1
-g = 0.5
-[[bodies.plumes]]                          # [PLM]
-name = "Mahilani"
-type = "geyser"
-lat_lon_deg = [-50.5, 359.5]
-height_km = 8.0
-radius_km = 0.5
-tail_km = 50.0
-tail_azimuth_deg = 270.0
-optical_depth = 0.5
-albedo = 0.1
-g = 0.5
 [bodies.orbit]                             # [ELEM] + plane precession and phase fitted to [HZN]
 type = "mean_elements"
 a_km = 354759.0
@@ -1826,19 +1432,6 @@ name = "Neptune-centered"
 type = "inertial"
 origin = "Neptune"
 
-# With the north pole up, for the maps of the field.
-[[frames]]
-name = "Uranus equator"
-type = "inertial"
-origin = "Uranus"
-up = "Uranus"
-
-[[frames]]
-name = "Neptune equator"
-type = "inertial"
-origin = "Neptune"
-up = "Neptune"
-
 # Around the Pluto-Charon barycenter rather than Pluto itself: Pluto circles it
 # (2,100 km, 6.4 days), which would put a wiggle on New Horizons' straight path.
 [[frames]]
@@ -2001,46 +1594,6 @@ caption = """\
     here."""
 
 [[events]]
-name = "Uranus's lopsided magnetic field (1986-01-24)"
-magnetic_lines = true
-focus_orbits_only = true
-trails = [{ body = "Voyager 2", trail_history_days = 10.0 }]
-time_tdb = "1986-01-24 18:00"
-focus = "Uranus"
-frame = "Uranus-centered"
-from_body = "Sun"
-phase_deg = 40.0
-distance_km = 6.0e5
-warp = 1800.0
-# [HER09], [JAS24], [LAM25]
-caption = """\
-    Voyager 2 found a field tilted 59 degrees from the spin axis, with its center a third \
-    of a radius off the planet's. Each 17.2-hour turn swings the lines from side to side. \
-    Drawn from a model of what the planet itself makes, without the solar wind that shapes \
-    them farther out. Voyager arrived while a gust had squeezed the whole magnetosphere."""
-
-# The strongest field is on the side the off-center dipole sits nearest, in the hemisphere
-# that faces the Sun in the 2020s. The numbers are geomag/uranus_br.fieldmap, the AH5 model
-# [HER09] at the surface; its dipole alone would give 0.46 gauss at most.
-[[events]]
-name = "Uranus's lopsided field at its surface (false color)"
-magnetic_map = "surface"
-hide_orbits = true
-time_tdb = "2025-01-19 02:32"
-focus = "Uranus"
-frame = "Uranus equator"
-from_body = "Sun"
-elevation_deg = 12.0
-distance_km = 1.3e5
-warp = 400.0
-# [HER09], [LAM25]
-caption = """\
-    The field at the cloud tops, in false color, red leaving the planet and blue entering \
-    it. A centered magnet would give two even halves. Here the blue north reaches about 1.5 \
-    gauss, three times what the dipole alone would give, because the field's center sits a \
-    third of a radius off toward it. The red side stays under half that. All from one pass."""
-
-[[events]]
 name = "Voyager 2 at Neptune (CA 1989-08-25 04:03, 33,661 km)"
 time_tdb = "1989-08-24 16:03"
 focus = "Neptune"
@@ -2054,45 +1607,6 @@ caption = """\
     km above Neptune's north pole. Voyager 2 also passed Triton, and found dark plumes \
     rising some 8 km and drifting downwind, drawn here as Hili and Mahilani. Neptune's \
     gravity then sent it diving south of the planets' plane."""
-
-[[events]]
-name = "Neptune's off-center magnetic field (1989-08-25)"
-magnetic_lines = true
-focus_orbits_only = true
-trails = [{ body = "Voyager 2", trail_history_days = 10.0 }]
-time_tdb = "1989-08-25 04:05"
-focus = "Neptune"
-frame = "Neptune-centered"
-from_body = "Sun"
-phase_deg = 35.0
-distance_km = 6.0e5
-warp = 1800.0
-# [CON91], [NLS]
-caption = """\
-    Like Uranus, and unlike the planets before it: the field is tilted 47 degrees and \
-    centered about half a radius from the middle of the planet, and near the surface its \
-    four-lobed part is as strong as the dipole. One pass by Voyager 2 is all we have, so \
-    where the lines lie today is unknown. Drawn from a model, without the solar wind."""
-
-# On the day of the flyby, while the longitudes are known. geomag/neptune_br.fieldmap, the O8
-# model [CON91] at the surface; its dipole alone would give 0.28 gauss at most.
-[[events]]
-name = "Neptune's patchy field at its surface (false color)"
-magnetic_map = "surface"
-hide_orbits = true
-time_tdb = "1989-08-25 11:06"
-focus = "Neptune"
-frame = "Neptune equator"
-from_body = "Sun"
-elevation_deg = -12.0
-distance_km = 1.3e5
-warp = 400.0
-# [CON91], [NLS]
-caption = """\
-    The field near the surface, as Voyager 2 left it to be worked out from one pass: red \
-    leaving the planet, blue entering it. Instead of two even halves there are patches of \
-    both colors at the same latitudes. The strongest, about 0.9 gauss, is three times what \
-    the dipole alone would give, on the side its off-center field lies nearest."""
 
 [[events]]
 name = "New Horizons launch (2006-01-19)"
@@ -2316,38 +1830,6 @@ caption = """\
     from the Sun at 68 km/s, just inside the orbit of Mars. Telescopes on the Earth \
     cannot follow it here. Four weeks before, it had passed Mars, where Tianwen-1 \
     photographed it from 0.2 au, and from 40 degrees out of the plane of its path."""
-
-# The ice giants' H3+ ionospheres, in the infrared: seen from the Earth, as JWST saw them.
-# The clocks are the observation times less the light time (tests/appearance_tests.cpp).
-[[events]]
-name = "Uranus's infrared ionosphere (false color, 2023)"
-aurora_infrared = true
-time_tdb = "2023-01-08 12:51"
-focus = "Uranus"
-from_body = "Earth"
-distance_km = 150000.0
-warp = 900.0
-# [MEL25], [TIR26], [LAM25]
-caption = """\
-    The whole sunlit disk glows in the infrared lines of the ion H3+, shown here in \
-    false color. Uranus's magnetic field is tilted 59 degrees, so its aurorae lie at low \
-    and middle latitudes, not the poles. Webb found both, up to twice as radiant as their \
-    surroundings but hardly warmer, and a dark chevron across the pole."""
-
-[[events]]
-name = "Neptune's first infrared aurora (false color, 2023)"
-aurora_infrared = true
-time_tdb = "2023-06-22 09:55"
-focus = "Neptune"
-from_body = "Earth"
-distance_km = 150000.0
-warp = 900.0
-# [MEL25N]
-caption = """\
-    Ground-based telescopes searched for H3+ at Neptune for thirty years; Webb found it \
-    in 2023. One broad patch in the south, here in false color, shines about twice as \
-    bright as its surroundings; nothing like it was reported elsewhere on the disk. The \
-    upper atmosphere is half as hot as Voyager 2 measured in 1989."""
 
 [[events]]
 name = "Voyager 1, up close"
