@@ -240,7 +240,11 @@ relative_to = "Mercury"
 name = "BepiColombo"
 parent = "Sun"
 kind = "spacecraft"
-radii_km = [0.015]                         # tens of meters across its solar arrays (drawn as a marker)
+radii_km = [0.015]                         # 30 m cruise wingspan
+shape = "shapes/bepi_mcs.mesh"             # ESA SciFleet (assets/shapes/SOURCES.md)
+texture = "textures/bepi_mcs.png"
+point_at = "Sun"                           # illustrative attitude
+fill_light = 0.2                           # illustrative
 color = "#9fe7ff"
 orbit_color = "#6fc8ff"
 trail = "history"
@@ -252,6 +256,10 @@ file = "ephem/bepi_helio.eph"
 type = "ephemeris"
 file = "ephem/bepi_merc.eph"
 relative_to = "Mercury"
+[bodies.shape_after]                       # MTM separation signal received at 15:49 CEST
+# https://www.esa.int/ESA_Multimedia/Images/2026/09/MTM_separation_signal_confirmation
+time = "2026-09-03 13:49"
+shape = "shapes/bepi_mpo.mesh"            # MPO alone, in the same atlas
 
 [[frames]]
 name = "Mercury-centered"

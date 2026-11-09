@@ -18,8 +18,8 @@
 # [MDLC] NASA/Brian E. Kumanchik, "Cassini-Huygens (A)" (without Huygens), NASA 3D Resources,
 #        science.nasa.gov/3d-resources/cassini-huygens-a/, converted by
 #        tools/shapes/make_spacecraft.py (assets/shapes/SOURCES.md).
-# [MDLH] The same model's "without Cassini" file: Huygens as it was released, heat shield and back
-#        cover, scaled to the 2.7 m shield (assets/shapes/SOURCES.md).
+# [MDLH] ESA SciFleet, Huygens entry assembly, scaled to the 2.7 m heat shield
+#        (assets/shapes/SOURCES.md).
 
 # [CLK]  NASA, "Cassini Launch" press kit (jpl.nasa.gov/news/press_kits/cassini.pdf) and
 #        science.nasa.gov/mission/cassini/quick-facts/ (retrieved 2026-11-07): 6.7 m high and

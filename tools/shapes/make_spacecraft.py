@@ -1,8 +1,8 @@
-"""Convert spacecraft models (NASA's GLB and STL, Gaia Sky's OBJ, this project's Orion) to AXMESH2
-meshes with a texture atlas.
+"""Convert spacecraft models to AXMESH2 meshes with a texture atlas.
 
 Run (the decoder and images need packages; the models are not checked in, the argument is
-ref/ with a clone of github.com/nasa/NASA-3D-Resources and the models in probes/):
+ref/ with a clone of github.com/nasa/NASA-3D-Resources, the other models in probes/, esa/,
+and the project-built models in their own directories):
     python -m venv --system-site-packages <venv>
     <venv>/Scripts/python -m pip install DracoPy      (Apache-2.0; only this tool uses it)
     <venv>/Scripts/python -E -P tools/shapes/make_spacecraft.py ref [name ...]
@@ -30,7 +30,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))  # -P leaves the script's directory out
 from axmesh import write_mesh
@@ -380,18 +380,135 @@ CRAFT = {
         'atlas_width': 64,
         'format': 'png',
     },
-    # The entry assembly, heat shield and back cover. 2.615 m across in the model, and 2.7 m (the
-    # scene's). The shield's nose is on the model's +x. The scene points it at Titan, not the Sun, so
-    # nothing is baked.
+    # ESA SciFleet entry assembly. The heat shield faces +y and spans 105.74 units (2.7 m).
+    # Its center is offset in the GLB. Huygens points at Titan, so leave the sunlight unbaked.
     'huygens': {
-        'file': 'probes/Cassini-Huygens (A) (without Cassini).glb',
-        'origin_m': (0.0, 0.0, 0.0),
-        'scale': 2.7 / 2.615,
-        'body_z': (1, 0, 0),
-        'body_x': (0, 1, 0),
-        'image_scale': {'tex_01_': 0.5},
+        'file': 'esa/huygens.glb',
+        'origin_m': (-44.012, 13.5, 43.979),
+        'scale': 2.7 / 105.74,
+        'body_z': (0, 1, 0),
+        'body_x': (1, 0, 0),
+        'image_default_scale': 0.25,
         'bake_sun': False,
-        'atlas_width': 530,
+        'atlas_width': 1032,
+        'format': 'jpg',
+    },
+    # ESA SciFleet BepiColombo cruise stack. The MTM array is 30 m across, with cells facing +y.
+    'bepi_mcs': {
+        'file': 'esa/bepi_mcs.glb',
+        'origin_m': (0, 360, 40),
+        'scale': 30.0 / 2998.45,
+        'body_z': (0, 1, 0),
+        'body_x': (1, 0, 0),
+        'image_default_scale': 0.25,
+        'merge_m': 0.008,
+        'merge_uv': 512,
+        'atlas_width': 2064,
+        'format': 'png',
+    },
+    # Giotto's 2.848 m overall height. The solar cells wrap around the spin axis (+y),
+    # which goes on body +y so that the Sun lights the side of the drum.
+    'giotto': {
+        'file': 'esa/giotto.glb',
+        'origin_m': (-2.0757, -15, 42.968),
+        'scale': 2.848 / 62.946,
+        'body_z': (0, 0, 1),
+        'body_x': (1, 0, 0),
+        'bake_sun': False,
+        'image_default_scale': 0.25,
+        # Remove the ESA decal from the white dish, then from the textured bus and the
+        # small UV islands onto which parts of the decal were projected.
+        'erase_px': {'Giotto_dishwhite_AlbedoTransparency2': [(3644, 2760, 3846, 3003)]},
+        'erase_yellow_px': {'Giotto_dishwhite_AlbedoTransparency2': [
+            (1548, 3215, 1790, 3400),
+            (72, 575, 184, 710), (1320, 155, 1480, 246), (3750, 86, 3910, 195),
+            (3970, 290, 4096, 425), (3840, 550, 4040, 728), (3410, 1310, 3650, 1535),
+            (1690, 2390, 1915, 2675), (540, 2245, 752, 2405), (3090, 3470, 3250, 3610),
+        ]},
+        'atlas_width': 1032,
+        'format': 'jpg',
+    },
+    # Herschel's 7.5 m height and the photovoltaic face of its sunshield on -z.
+    'herschel': {
+        'file': 'esa/herschel.glb',
+        'origin_m': (0, 0, -0.68),
+        'scale': 7.5 / 7.575,
+        'body_z': (0, 0, -1),
+        'body_x': (-1, 0, 0),
+        'image_default_scale': 0.25,
+        'image_scale': {'herschelpanel1': 0.5},
+        'atlas_width': 1032,
+        'format': 'jpg',
+    },
+    # Early Juice publicity model. Its solar wings run along z and span 27.1 m.
+    'juice': {
+        'file': 'esa/juice.glb',
+        'origin_m': (-445, 119, -10.6),
+        'scale': 27.1 / 1199.38,
+        'body_z': (-1, 0, 0),
+        'body_x': (0, 0, 1),
+        'image_default_scale': 0.25,
+        'atlas_width': 1032,
+        'format': 'jpg',
+    },
+    # The MARSIS booms are the long z extent. The solar wings span 12 m along x, facing +y.
+    'mars_express': {
+        'file': 'esa/mars_express.glb',
+        'origin_m': (72.4, -540, -78),
+        'scale': 12.0 / 1226.48,
+        'body_z': (0, 1, 0),
+        'body_x': (1, 0, 0),
+        'image_default_scale': 0.25,
+        'atlas_width': 1032,
+        'format': 'jpg',
+    },
+    # Philae's box is roughly 1 m wide (99 units across its two z faces).
+    # The feet face -y. No solar bake since +z points down toward 67P in the scene.
+    'philae': {
+        'file': 'esa/philae.glb',
+        'origin_m': (-39, 0, 0),
+        'scale': 1.0 / 98.5,
+        'body_z': (0, -1, 0),
+        'body_x': (1, 0, 0),
+        'bake_sun': False,
+        'image_default_scale': 0.25,
+        'atlas_width': 1032,
+        'format': 'jpg',
+    },
+    # Planck's 4.22 m-wide base is its solar array, facing -y.
+    'planck': {
+        'file': 'esa/planck.glb',
+        'origin_m': (0, 0, 0),
+        'scale': 4.22 / 4.2,
+        'body_z': (0, -1, 0),
+        'body_x': (1, 0, 0),
+        'image_default_scale': 0.25,
+        'atlas_width': 1032,
+        'format': 'jpg',
+    },
+    # Solar Orbiter's wings span 18 m along z. The heat shield and cells face +x.
+    'solar_orbiter': {
+        'file': 'esa/solar_orbiter.glb',
+        'origin_m': (175, 320, -60.5),
+        'scale': 18.0 / 1790.8,
+        'body_z': (1, 0, 0),
+        'body_x': (0, 0, 1),
+        'image_default_scale': 0.5,
+        'uv_wrap_tolerance': 0.01,  # small UV overshoots around individual details
+        'atlas_width': 2032,
+        'format': 'jpg',
+    },
+    # Venus Express spans 8 m along x. The dark cell faces are on -z.
+    'venus_express': {
+        'file': 'esa/venus_express.glb',
+        'origin_m': (0, 0, 0),
+        'scale': 8.0 / 283.07,
+        'body_z': (0, 0, -1),
+        'body_x': (-1, 0, 0),
+        'image_default_scale': 0.25,
+        'merge_m': 0.005,
+        'merge_uv': 512,
+        'atlas_width': 1032,
         'format': 'jpg',
     },
     # Gaia Sky's models (OBJ with MTL). Gaia: the sunshield is 1 unit across in the model and 10.2 m
@@ -633,6 +750,9 @@ CRAFT['orion_crew_module'] = dict(CRAFT['orion'], texture='orion',
                                   keep_glb_node=('artemis_orion/artemis_orion.glb', 'Orion_Return_Capsule'))
 CRAFT['tianwen1_orbiter'] = dict(CRAFT['tianwen1'], texture='tianwen1', skip_objects=[
     'Entry_capsule', 'Capsule_service_port', 'Capsule_external_patch'])
+# The MPO alone uses the same atlas. Its own solar wing is almost perpendicular to the MTM's.
+CRAFT['bepi_mpo'] = dict(CRAFT['bepi_mcs'], texture='bepi_mcs', mesh_materials=['bepi_mpo_4k'],
+                        origin_m=(0, 365, 32), body_z=(1, 0, 0), body_x=(0, 1, 0))
 
 
 def linear_to_srgb(c):
@@ -1143,6 +1263,20 @@ def glb_node_meshes(path, node_name):
     return names
 
 
+def erase_yellow_marking(pixels):
+    """Fill yellow decal strokes from neighboring texels on the same row."""
+    red, green, blue = pixels.astype(np.int16).transpose(2, 0, 1)
+    yellow = (green - blue > 2) & (green - blue > red - green) & (red >= green)
+    # Include the antialiased outline around the lettering.
+    mask = np.asarray(Image.fromarray(yellow.astype(np.uint8)).filter(ImageFilter.MaxFilter(5))) != 0
+    for row, marked in zip(pixels, mask):
+        replace = np.flatnonzero(marked)
+        clean = np.flatnonzero(~marked)
+        if replace.size and clean.size:
+            for channel in row.T:
+                channel[replace] = np.rint(np.interp(replace, clean, channel[clean]))
+
+
 def build(name, spec, models):
     path = models / spec['file']
     glb = Stl(path, spec) if path.suffix == '.stl' or 'assembly' in spec else Obj(path) if path.suffix == '.obj' else Glb(path)
@@ -1162,6 +1296,9 @@ def build(name, spec, models):
     if spec.get('skip_objects') or keep_objects is not None:
         mesh_prims = [q for q in glb.primitives(spec.get('skip_objects', ()), keep_objects)
                       if q[0] is None or glb.json['materials'][q[0]].get('name') not in skip]
+    if 'mesh_materials' in spec:
+        mesh_prims = [p for p in mesh_prims if p[0] is not None
+                      and glb.json['materials'][p[0]].get('name') in spec['mesh_materials']]
 
     atlas = Atlas(spec['atlas_width'])
     copies = {}    # a file can store the same image several times (Hubble's three of one)
@@ -1176,6 +1313,8 @@ def build(name, spec, models):
             frame = np.concatenate([pixels[y0 - 3:y0, x0:x1].reshape(-1, 3), pixels[y1:y1 + 3, x0:x1].reshape(-1, 3),
                                     pixels[y0:y1, x0 - 3:x0].reshape(-1, 3), pixels[y0:y1, x1:x1 + 3].reshape(-1, 3)])
             pixels[y0:y1, x0:x1] = np.median(frame, axis=0)
+        for x0, y0, x1, y1 in spec.get('erase_yellow_px', {}).get(info.get('name'), []):
+            erase_yellow_marking(pixels[y0:y1, x0:x1])
         if info.get('name') in spec.get('erase_polygon', {}):
             canvas = Image.fromarray(pixels)
             ImageDraw.Draw(canvas).polygon(spec['erase_polygon'][info['name']], fill=(130, 138, 152))
@@ -1208,6 +1347,7 @@ def build(name, spec, models):
     all_positions, all_uv, all_triangles = [], [], []
     count = 0
     wrapped = 0
+    uv_wrap_tolerance = spec.get('uv_wrap_tolerance', 1e-4)
     grid_km = spec.get('merge_m', 0.0) / 1000.0
     for material, world, normals, uv, faces in mesh_prims:
         positions = (world - origin) @ to_body.T * spec['scale'] / 1000.0
@@ -1220,7 +1360,7 @@ def build(name, spec, models):
             # Triangles reaching outside 0..1 get their own vertices, moved by whole tiles.
             uv = uv.copy()
             corners = uv[faces]
-            out = ((corners < -1e-4) | (corners > 1 + 1e-4)).any(axis=(1, 2))
+            out = ((corners < -uv_wrap_tolerance) | (corners > 1 + uv_wrap_tolerance)).any(axis=(1, 2))
             if out.any():
                 wrapped += int(out.sum())
                 ids = faces[out]

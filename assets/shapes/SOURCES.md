@@ -262,12 +262,36 @@ NASA 3D Resources（<https://github.com/nasa/NASA-3D-Resources>，提交 `11ebb4
 | `tgo.mesh`、`../textures/tgo.jpg` | `TGO.glb`（2023-09-09 的版本，不在仓库里） | NASA Visualization Technology Applications and Development (VTAD)，<https://science.nasa.gov/resource/trace-gas-orbiter-3d-model/> | `8d65a22cdbf29b9192506a7c31eafbdc25676db163849251e30683b45aaf536f` |
 | `clipper.mesh`、`../textures/clipper.jpg` | `clipper_spacecraft.glb`（2023-09-09 的版本，不在仓库里） | NASA Visualization Technology Applications and Development (VTAD)，<https://science.nasa.gov/resource/europa-clipper-3d-model/> | `a3f5e4533b31bf4bb25f4332f6879055dfd744f3ff9add23bfa9bdfbefd4f7fe` |
 | `dart.mesh`、`../textures/dart.png` | `3D Printing/Double Asteroid Redirection Test (DART)/…(DART).stl`（打印用，没有颜色） | 页面没写署名，<https://science.nasa.gov/3d-resources/double-asteroid-redirection-test-dart/> | `324725ab0595f0d69b4921e2d9521c42cceb0655b157a77b53813b9830d3eaf3` |
-| `huygens.mesh`、`../textures/huygens.jpg` | `Cassini-Huygens (A) (without Cassini).glb` | NASA/Brian E. Kumanchik，<https://science.nasa.gov/3d-resources/cassini-huygens-a/> | `d2cb317244d4a64eca408bcaf1c908f77c3c25124df2b4d083ec23f5eee14aca` |
 | `isee3.mesh`、`../textures/isee3.png` | `probes/isee3/` 下打印用的零件（2025-04-25 上传，没有颜色）：`Core 2.stl`、`Exboom1.stl`、`Exboom2.stl`、`Inertia boom.stl`、`Rad antenna.stl` | 页面没写署名，<https://science.nasa.gov/3d-resources/international-sun-earth-explorer-3/> | `04a9f9c0f6ecd9359a4b48640ec1fad03451ad2f265f8d1b28486a1ae1cdb3a6`、`b30c38e63363dd8e5b33cd4df68a4d84bea0244f64258994743783ac3950fa6b`、`4e49b9251c444fa3609acfa34748313c2aeefd9cded371fb430c1094bf3b4e66`、`75e70795cad2c1fa55affa04ed663ab53cc7f793df9355fdcbe804d7d1e2c811`、`2138bbf5ef241014d2a3a345204201476ef121e48788c1fd31897f7a4942fd73` |
 
 - **许可**：仓库 README 写“free and without copyright”，并指向 NASA 媒体使用指南（<https://www.nasa.gov/nasa-brand-center/images-and-media/>）：渲染 3D 模型用的纹理和多边形数据在美国一般不受版权保护，但 NASA 的徽标和标识不在其内，也不能暗示 NASA 背书。这些页面（2026-11-07 查看）都没写单独的许可，也没有列第三方权利人。别的模型入库前要同样看一下页面上的署名：仓库的贡献者名单里有 Ball Aerospace、DigitalSpace 等外部机构。`Hubble Space Telescope (A)` 的页面署名就是 DigitalSpace Corporation（一家公司，版权归属不清楚），所以没有用；`(B)` 没有署名也没有材质，82 万个三角形，还有零件飘在外面。用的是 NASA 网站上 VTAD 署名的那个。
 - **徽标**：Voyager 的纹理里有一个 NASA 徽标（像素矩形 828,440–882,480，贴在一块奶油色的板上），工具用周围的颜色涂掉。Hubble 的纹理里有一条横幅，印着 NASA 和 ESA 的徽标，只有 `NASA_logo` 这个贴花用它：工具跳过这个材质（`skip_materials`），并把横幅涂成灰色（`erase_polygon`），徽标不留在发布的图集里。Odyssey 的 `tex_01` 有 HEND 仪器的徽标和标签，`tex_boom` 是 Voyager 那张带 NASA 徽标的贴图，都涂掉。纯色的模型（JWST、Galileo、Roman、Spitzer、TESS、WMAP、LADEE、DART）没有纹理，其余的纹理里没有徽标（MESSENGER 的美国国旗也是真实的，留着；New Horizons 的美国国旗是探测器上真实的，留着；`tex_02` 里还有一小张没用到的探测器结构图，没有文字）。
 - **处理**：仓库里的文件用 Draco 压缩，工具用 DracoPy（Apache-2.0，只在这个工具里用，不进程序）解码，Pillow 读图；New Horizons 没有压缩。去掉 Blender 导出时留下的占位方块（`_root`），按配置转到本体系（+z 是指向的轴）。Voyager 按 NASA 的 3.7 m 天线缩放（模型里 3.81 m），New Horizons 按 APL 的 2.1 m 天线缩放（模型里 1.888 m），Galileo 按 NASA 的 5.3 m 总高缩放（模型里 146.7 个单位，单位没写），Hubble 按 NASA 的 4.3 m 宽度缩放（模型里 4.52 m，镜筒也就是 13 m），Roman 按 NASA 的 12.7 m 长度（411.9 个单位），TESS 按 Horizons 说明里 3.9 m 的跨度（37.1 个单位），WMAP 按 Bennett 2003 的 5.1 m 圆盘（278.3 个单位），LADEE 按 NSSDCA 的 1.85 m 直径（机身 28.3 个单位），其余的尺寸不改。为控制文件大小，`merge_m` 把小于这个尺寸、法线相近的顶点合并（JWST、Chandra、Roman、Spitzer、TESS、WMAP、MAVEN、LADEE）。Hubble 的文件把同一张图存了三份，工具只放一份进图集。它的电池片（深色）朝模型的 −z，转到本体系里就是朝太阳的 +z；背面（浅色）是白色的散热器（ESA 和 NASA 都这样写）。New Horizons 的金箔在文件里是金属（近乎纯黄），这里只有漫反射，改成 sRGB (186, 140, 58)。Galileo 文件里的颜色是假的（叫 `bus:black` 的是亮紫色），改成深色和金色，半透明的金网画成不透明。Juno 有几个完全透明的材质，面和可见的面重合，跳过。JWST 用 2 cm 的网格合并顶点（法线相近的才合并），99,239 个三角形减到约 39,000 个（再加上薄片的背面）。
+
+### ESA SciFleet 的模型
+
+模型及原始纹理由欧洲空间局（ESA）提供，来源为 [ESA SciFleet](https://scifleet.esa.int/model-downloads)。采用 [CC BY](https://creativecommons.org/cc-licenses/)。发布的是 `tools/shapes/make_spacecraft.py` 转换后的网格和颜色图集。转换包含重定位、旋转、缩放、顶点合并和图集重采样，材质只保留底色，太阳定向的模型烘焙顶点自阴影。
+
+| 输入文件 | 模型与标定尺寸 | 输入 SHA-256 |
+|---|---|---|
+| `bepi_mcs.glb` | BepiColombo，[30 m（MTM 翼展）](https://www.esa.int/Science_Exploration/Space_Science/BepiColombo/BepiColombo_factsheet) | `eaa9e016169c2d3a8ac0504b78f5d4d6122133fe81c0522440572295d3d6ab7a` |
+| `giotto.glb` | Giotto，[2.848 m（总高）](https://www.esa.int/esapub/achievements/Sc72s4.pdf) | `842624dd18d57a4bd498755229800e67c7f0454642bc4e1d502458a120b2d984` |
+| `herschel.glb` | Herschel，[7.5 m（总高）](https://www.esa.int/Science_Exploration/Space_Science/Herschel/Vital_stats) | `17d416a79dbc8fddd495e974cee13b6d9f2babb72c43e9e880a014c2c885c929` |
+| `huygens.glb` | Huygens，[2.7 m（防热罩直径）](https://www.esa.int/Science_Exploration/Space_Science/Cassini-Huygens/Huygens_spacecraft) | `913879d43c0743c5becb6bd9150108f9231c81c2b88d9d0b4649b8a62e54e16d` |
+| `juice.glb` | Juice，[27.1 m（翼展）](https://www.esa.int/articles/about-us/directorates/science/juice/juice-spacecraft-specs) | `367a7ea534f23d23894c12cd4ec38a71d1f33e205dddaabb683e25f7e9ce24b1` |
+| `mars_express.glb` | Mars Express，[12 m（翼展）](https://www.esa.int/esaSC/SEMTV8374OD_0_spk.html) | `8d5901bf2ae337ab9fc55e26f11bd910467210a724d99483c2da39d63cc1c38e` |
+| `philae.glb` | Philae，[约 1 m（着陆器机身宽度）](https://www.esa.int/About_Us/ESAC/Philae_found) | `30c4f3c2842a306eb6c4db53d606f0d709643b82bf638a5ac1785046bb3dc40d` |
+| `planck.glb` | Planck，[4.22 m（底部宽度）](https://www.esa.int/Science_Exploration/Space_Science/Planck/Vital_stats) | `aabac98019a12c4514b0b843a08b19bbe8eced6ebdf39b23f54b14d39c65af18` |
+| `solar_orbiter.glb` | Solar Orbiter，[18 m（翼展）](https://www.esa.int/Science_Exploration/Space_Science/Solar_Orbiter/Solar_Orbiter_factsheet) | `c542189e24a5190ffcc451a589845cb89db4ece55445fff3977c3c082d728bc7` |
+| `venus_express.glb` | Venus Express，[8 m（翼展）](https://www.esa.int/Science_Exploration/Space_Science/Venus_Express/The_spacecraft) | `5734b72c9007a8cbfb99838728d5cec12643c70310a11d548adefd00e7bc2f0c` |
+
+运行以下命令可重建这批资源。网格与图集同名，BepiColombo 的巡航组合体和单独的 MPO 共用 `bepi_mcs.png`。
+
+Giotto 的图集去掉了天线反射面和机身上的 ESA 标志及其在小零件上的投影残片。
+
+```powershell
+python -E -P tools/shapes/make_spacecraft.py ref bepi_mcs bepi_mpo giotto herschel huygens juice mars_express philae planck solar_orbiter venus_express
+```
 
 ### Gaia Sky 的模型
 

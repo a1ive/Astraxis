@@ -201,8 +201,7 @@ orbit_color = "#c8c4bc"
 type = "ephemeris"
 file = "ephem/moon.eph"
 
-# The telescopes [HZN]. Sizes from Horizons' notes where they give them; drawn as markers,
-# except JWST.
+# The telescopes [HZN]. Sizes from the mission sources or Horizons' notes.
 [[bodies]]
 name = "JWST"
 parent = "Earth"
@@ -326,7 +325,11 @@ file = "ephem/spitzer_geo.eph"
 name = "Herschel"
 parent = "Earth"
 kind = "spacecraft"
-radii_km = [0.00375]                      # 7.5 m tall [HZN]
+radii_km = [0.00375]                       # 7.5 m tall
+shape = "shapes/herschel.mesh"             # ESA SciFleet (assets/shapes/SOURCES.md)
+texture = "textures/herschel.jpg"
+point_at = "Sun"                           # illustrative attitude
+fill_light = 0.2                           # illustrative
 color = "#f4e3a6"
 orbit_color = "#e6ce85"
 trail = "history"
@@ -339,7 +342,11 @@ file = "ephem/herschel_geo.eph"
 name = "Planck"
 parent = "Earth"
 kind = "spacecraft"
-radii_km = [0.00225]                      # 4.5 m wide [HZN]
+radii_km = [0.00211]                       # 4.22 m wide
+shape = "shapes/planck.mesh"               # ESA SciFleet (assets/shapes/SOURCES.md)
+texture = "textures/planck.jpg"
+point_at = "Sun"                           # illustrative attitude
+fill_light = 0.2                           # illustrative
 color = "#8edddc"
 orbit_color = "#68c9c7"
 trail = "history"
