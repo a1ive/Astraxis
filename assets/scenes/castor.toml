@@ -33,6 +33,17 @@
 #        0.6191 R_sun, T_eff = 3820 K for both. Sect. 4.1.2: circular orbit; about
 #        78% of each star's light blocked at minimum. Sect. 1: Adams & Joy found it double in
 #        1916, van Gent the eclipses in 1926.
+#        Table 4: starspot solutions for two light curves, latitude +45 deg and
+#        T_spot / T_phot = 0.90 fixed (Hatzes' Doppler imaging, Sect. 4.1.1).
+#        LS78 (Leung & Schneider 1978, Kitt Peak, January 1971): spot 1 meridian
+#        at phase 0.733, radius 20.1 deg, on the primary; spot 2 at 0.587, 21.0 deg,
+#        secondary; spot 3 at 0.250, 9.0 deg, primary. Kron 1952 (Lick, February
+#        to April 1948): spot 1 at 0.516, 25.5 deg, spot 2 at 0.836, 35.0 deg, both
+#        on the secondary; its wave approaches 0.1 mag (Sect. 4.2). The primary is
+#        the star eclipsed at phase 0 (Ca), the secondary the more massive (Cb).
+#        Longitude here, from the star's axis toward its companion, in the sense
+#        of the rotation: -360 phase on Ca, 180 - 360 phase on Cb.
+#        Sect. 5, table 5: both turn with the orbit (v sin i 37 km/s, 38.5 expected).
 # [TESS] Primary minima in the TESS light curves (sectors 20, 46, 60, 72; 2019-2023),
 #        measured by tools/castor/yy_gem_ephemeris.py: BJD_TDB 2459690.57515,
 #        P = 0.81428247 d, rms 0.7 min over 93 minima. [TR02]'s linear ephemeris
@@ -279,6 +290,18 @@ radii_km = [430708.0]          # 0.6191 R_sun [TR02]
 temperature_k = 3820.0
 luminosity_solar = 0.0735
 orbit_color = "#ffb890"
+synchronous = true             # [TR02]
+[bodies.starspots]             # [TR02 Table 4]; the 1960 switch between them is arbitrary
+temperature_ratio = 0.90
+surface_scale = 0.2            # the usual surface saturates: spots would hardly show
+[[bodies.starspots.epochs]]    # Kron 1948: none on this star
+spots = []
+[[bodies.starspots.epochs]]    # LS78, January 1971
+from_year = 1960.0
+spots = [
+    { longitude_deg = 96.12, latitude_deg = 45.0, radius_deg = 20.1 },
+    { longitude_deg = 270.0, latitude_deg = 45.0, radius_deg = 9.0 },
+]
 [bodies.orbit]
 scale = -0.501418558           # -M_Cb / M_C
 type = "transit_orbit"
@@ -299,6 +322,20 @@ radii_km = [430708.0]          # 0.6191 R_sun [TR02]
 temperature_k = 3820.0
 luminosity_solar = 0.0735
 orbit_color = "#ff9a70"
+synchronous = true             # [TR02]
+[bodies.starspots]             # [TR02 Table 4]
+temperature_ratio = 0.90
+surface_scale = 0.2
+[[bodies.starspots.epochs]]    # Kron 1948
+spots = [
+    { longitude_deg = 354.24, latitude_deg = 45.0, radius_deg = 25.5 },
+    { longitude_deg = 239.04, latitude_deg = 45.0, radius_deg = 35.0 },
+]
+[[bodies.starspots.epochs]]    # LS78, January 1971
+from_year = 1960.0
+spots = [
+    { longitude_deg = 328.68, latitude_deg = 45.0, radius_deg = 21.0 },
+]
 [bodies.orbit]
 scale = 0.498581442            # M_Ca / M_C
 type = "transit_orbit"
@@ -418,6 +455,38 @@ caption = """\
     while that of the tighter pair in Castor B is circular."""
 
 [[events]]
+name = "1948: dark regions on YY Geminorum"
+focus_orbits_only = true
+time = "1948-03-01"
+focus = "Castor C"
+frame = "Castor C-centered"
+from_body = "Sun"
+distance_km = 1.1e7
+warp = 1800.0                  # 30 minutes per second: one orbit in 39 s
+# [TR02 Table 4, Sect. 4.2]
+caption = """\
+    Gerald Kron measured this light curve at Lick Observatory in 1948, and it \
+    wanders between the eclipses by almost 0.1 magnitude. As the stars turn, dark \
+    regions cross the side facing us. The fit shown places two large spots on one \
+    star, 400 K cooler than the surface. Other arrangements would fit as well."""
+
+[[events]]
+name = "1971: the spots have moved"
+focus_orbits_only = true
+time = "1971-01-15"
+focus = "Castor C"
+frame = "Castor C-centered"
+from_body = "Sun"
+distance_km = 1.1e7
+warp = 1800.0
+# [TR02 Sect. 2, 4.1.1, Table 4]
+caption = """\
+    Twenty-three years later the light curve from Kitt Peak has a smaller wave at \
+    different phases. The fit needs three smaller spots, on both stars. Two of \
+    them lie close to where flares were seen in the same months. No fit is \
+    unique: the light alone cannot say which star a spot is on."""
+
+[[events]]
 name = "Castor A from above the wide orbit: 92 degrees"
 focus_orbits_only = true
 time = "2026-11-10"
@@ -497,7 +566,7 @@ warp = 1800.0                  # 30 minutes per second: one orbit in 39 s
 caption = """\
     Each star has 0.60 solar masses and a radius of 0.62 Suns, and they sit only \
     6 radii apart. The eclipses let their sizes be measured to one percent. Both \
-    are active flare stars with starspots, which are not drawn here."""
+    are active flare stars. The spots are the 1971 pattern, kept for lack of a later fit."""
 
 [[events]]
 name = "All six: C on its ~14,500-year orbit"

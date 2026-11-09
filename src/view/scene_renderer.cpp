@@ -1194,6 +1194,21 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
             }
             item.color *= static_cast<float>(observed_star_display_gain(
                 scene.observed_light_curve, static_cast<int>(i), sim.clock().t_tdb));
+            if (body.starspots.enabled()) {
+                const float surface_scale = static_cast<float>(body.starspots.surface_scale);
+                item.color *= surface_scale;
+                if (const StarSpotEpoch* epoch = body.starspots.at(sim.clock().t_tdb)) {
+                    const double spot_k = body.temperature_k * body.starspots.temperature_ratio;
+                    item.spot_color = glm::vec3(blackbody_linear_srgb(spot_k)) * kStarSurface * surface_scale *
+                                      static_cast<float>(planck_shape(spot_k, kStarSurfaceWavelengthNm) /
+                                                         planck_shape(body.temperature_k, kStarSurfaceWavelengthNm));
+                    item.spot_count = static_cast<int>(epoch->spots.size());
+                    for (int k = 0; k < item.spot_count; ++k) {
+                        const StarSpot& spot = epoch->spots[static_cast<size_t>(k)];
+                        item.spots[k] = glm::vec4(glm::vec3(spot.direction), static_cast<float>(spot.radius_rad));
+                    }
+                }
+            }
             item.texture = nullptr;
             emit(item);
             continue;

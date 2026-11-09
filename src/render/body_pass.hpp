@@ -62,6 +62,10 @@ struct BodyDrawItem {
     // it is drawn from both sides (many of its parts are open sheets).
     bool atlas = false;
     float fill_light = 0.0f; // illustrative light on the unlit side (Body::fill_light)
+    // A star's dark spots: direction in the body's axes, angular radius (rad), and their radiance.
+    int spot_count = 0;
+    glm::vec4 spots[4] = {};
+    glm::vec3 spot_color{0.0f};
 };
 
 struct SunLight {

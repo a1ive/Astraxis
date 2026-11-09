@@ -22,6 +22,9 @@ constexpr int kRings = 128;
 // Disks in front of one disk that are taken into account (a ring's covered
 // arcs are merged from at most this many).
 constexpr int kMaxOccluders = 8;
+// Each star spot is summed over this many rings, and points on each ring.
+constexpr int kSpotRings = 24;
+constexpr int kSpotRingPoints = 48;
 // Directions a Roche surface is seen from to find where it is brightest:
 // circles of latitude about its x axis (both poles included), points on each.
 constexpr int kBrightestLatitudes = 9;
@@ -234,6 +237,33 @@ double roche_brightest(const RocheSurface& surface, double wavelength_nm, double
     return brightest;
 }
 
+// What the star's spots take from the disk's light, in units of km^2, before
+// the factor of the photosphere's radiance: they turn with the star, seen
+// limb-darkened, and those behind a disk in front are lost anyway.
+double spot_deficit(const StarDisk& star, const glm::dvec3& toward, const glm::dvec3& e1, const glm::dvec3& e2,
+                    double wavelength_nm, double limb_darkening, std::span<const Occluder> in_front)
+{
+    const double contrast =
+        1.0 - planck_shape(star.spot_temperature_k, wavelength_nm) / planck_shape(star.temperature_k, wavelength_nm);
+    double sum = 0.0;
+    for (const StarSpotFacet& f : star.spots->facets) {
+        const glm::dvec3 n = star.axes * f.normal;
+        const double mu = glm::dot(n, toward);
+        if (mu <= 0.0) {
+            continue;
+        }
+        const double x = star.radius_km * glm::dot(n, e1);
+        const double y = star.radius_km * glm::dot(n, e2);
+        const auto hides = [&](const Occluder& o) {
+            return (x - o.x) * (x - o.x) + (y - o.y) * (y - o.y) < o.radius * o.radius;
+        };
+        if (std::none_of(in_front.begin(), in_front.end(), hides)) {
+            sum += f.area * mu * (1.0 - limb_darkening * (1.0 - mu));
+        }
+    }
+    return sum * star.radius_km * star.radius_km * contrast;
+}
+
 // Light of disk `index`, hiding what the disks in front cover (none if `hide` is false).
 double disk_flux(std::span<const StarDisk> disks, size_t index, const glm::dvec3& toward, const glm::dvec3& e1,
                  const glm::dvec3& e2, double wavelength_nm, double limb_darkening, bool hide)
@@ -279,10 +309,35 @@ double disk_flux(std::span<const StarDisk> disks, size_t index, const glm::dvec3
         const bool covered = count > 0 || !outlines.empty();
         sum += covered ? ring * (1.0 - covered_fraction(r, in_front, outlines, crossings, arcs)) : ring;
     }
+    if (hide && disk.spots) {
+        sum -= spot_deficit(disk, toward, e1, e2, wavelength_nm, limb_darkening, in_front);
+    }
     return sum * planck_shape(disk.temperature_k, wavelength_nm);
 }
 
 } // namespace
+
+void build_star_spot_facets(StarSpotEpoch& epoch)
+{
+    epoch.facets.clear();
+    epoch.facets.reserve(epoch.spots.size() * kSpotRings * kSpotRingPoints);
+    for (const StarSpot& spot : epoch.spots) {
+        const glm::dvec3 helper = std::abs(spot.direction.z) < 0.9 ? glm::dvec3(0.0, 0.0, 1.0) : glm::dvec3(1.0, 0.0, 0.0);
+        const glm::dvec3 u = glm::normalize(glm::cross(helper, spot.direction));
+        const glm::dvec3 v = glm::cross(spot.direction, u);
+        const double d_theta = spot.radius_rad / kSpotRings;
+        for (int i = 0; i < kSpotRings; ++i) {
+            const double theta = (i + 0.5) * d_theta;
+            const double area = (std::cos(i * d_theta) - std::cos((i + 1) * d_theta)) * kTwoPi / kSpotRingPoints;
+            for (int j = 0; j < kSpotRingPoints; ++j) {
+                const double phi = kTwoPi * (j + 0.5) / kSpotRingPoints;
+                const glm::dvec3 n = spot.direction * std::cos(theta) +
+                                     (u * std::cos(phi) + v * std::sin(phi)) * std::sin(theta);
+                epoch.facets.push_back({n, area});
+            }
+        }
+    }
+}
 
 double planck_shape(double temperature_k, double wavelength_nm)
 {
@@ -344,7 +399,13 @@ StarDisk star_disk_at(const Scene& scene, int star, double t_tdb)
         return {position, body.equatorial_radius_km, body.temperature_k, body.roche.get(),
                 scene.body_to_icrf(body, t_tdb)};
     }
-    return {position, body.equatorial_radius_km, body.temperature_k};
+    StarDisk disk{position, body.equatorial_radius_km, body.temperature_k};
+    if (const StarSpotEpoch* epoch = body.starspots.at(t_tdb); epoch && !epoch->spots.empty()) {
+        disk.axes = scene.body_to_icrf(body, t_tdb);
+        disk.spots = epoch;
+        disk.spot_temperature_k = body.temperature_k * body.starspots.temperature_ratio;
+    }
+    return disk;
 }
 
 void set_light_curve_reference(Scene& scene)

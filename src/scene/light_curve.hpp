@@ -20,7 +20,13 @@ struct StarDisk {
     double temperature_k = 5772.0;
     const RocheSurface* roche = nullptr;
     glm::dmat3 axes{1.0};
+    // Dark spots, turning with `axes` (a sphere only; null: none).
+    const StarSpotEpoch* spots = nullptr;
+    double spot_temperature_k = 0.0;
 };
+
+// Divides the epoch's spots into facets for the light curve (the loader calls it).
+void build_star_spot_facets(StarSpotEpoch& epoch);
 
 // Planck's spectral radiance at `wavelength_nm` up to a constant factor
 // (1 / (exp(hc / lambda k T) - 1)).

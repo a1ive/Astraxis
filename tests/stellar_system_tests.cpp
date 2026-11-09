@@ -998,6 +998,39 @@ double find_light_maximum(const Scene& scene, double t_guess, double window)
     return 0.5 * (lo + hi);
 }
 
+// A star spot's share of a star's light, against the closed form for a cap at
+// the center of the disk; nothing on the far side, nothing behind a disk in front.
+void test_star_spot_light()
+{
+    StarSpotEpoch epoch;
+    epoch.spots.push_back({glm::dvec3(0.0, 0.0, 1.0), 0.3});
+    build_star_spot_facets(epoch);
+    const double u = 0.6;
+    const double wavelength = 550.0;
+    StarDisk plain{glm::dvec3(0.0), 1000.0, 3820.0};
+    StarDisk spotted = plain;
+    spotted.spots = &epoch;
+    spotted.spot_temperature_k = 0.9 * 3820.0;
+    const glm::dvec3 toward(0.0, 0.0, 1.0);
+    const double contrast = 1.0 - planck_shape(0.9 * 3820.0, wavelength) / planck_shape(3820.0, wavelength);
+    const double s = std::sin(0.3);
+    const double c = std::cos(0.3);
+    const double cap = kPi * s * s * (1.0 - u) + kTwoPi * u / 3.0 * (1.0 - c * c * c);
+    const double expected = contrast * cap / (kPi * (1.0 - u / 3.0));
+    const double base = disks_flux(std::span(&plain, 1), toward, wavelength, u);
+    const double drop = 1.0 - disks_flux(std::span(&spotted, 1), toward, wavelength, u) / base;
+    check(std::abs(drop / expected - 1.0) < 0.005, "star spot's share of the light", drop / expected);
+    check(disks_flux(std::span(&spotted, 1), -toward, wavelength, u) / base > 1.0 - 1e-9, "star spot on the far side");
+    check(disks_full_flux(std::span(&spotted, 1), wavelength, u) / base > 1.0 - 1e-9, "reference flux has no spots");
+
+    StarDisk screen{glm::dvec3(0.0, 0.0, 1.0e4), 500.0, 3000.0};
+    StarDisk with_spot[2] = {spotted, screen};
+    StarDisk without[2] = {plain, screen};
+    const double hidden = disks_flux(std::span(with_spot), toward, wavelength, u);
+    check(std::abs(hidden / disks_flux(std::span(without), toward, wavelength, u) - 1.0) < 1e-9,
+          "a spot behind a disk in front costs no light");
+}
+
 // Castor [Torres et al. 2022, Torres & Ribas 2002]: Ab and Bb stand where CHARA
 // saw them (Table 2, at the barycentric times), A and B are as far along the
 // line of sight as the table's light-time corrections say (which fixes the
@@ -1126,6 +1159,62 @@ void test_castor_scene()
     check(std::abs(found - t_min) < 10.0, "YY Gem primary minimum on the TESS ephemeris (s)", found - t_min);
     check(glm::dot(relative(cb, ca, t_min).position, away) < 0.0, "YY Gem: Cb in front at primary minimum");
     check(scene.light_curve.enabled() && scene.light_curve.stars.size() == 2, "Castor's curve is YY Gem's");
+
+    // Starspots [TR02 Table 4]: each spot crosses the meridian at its phase and the
+    // wave of 1948 is the larger one, approaching 0.1 mag. Then without them, the eclipses.
+    test_star_spot_light();
+    struct PublishedSpot {
+        int star;
+        double phase;
+        size_t index;
+        double year;
+    };
+    const PublishedSpot published[] = {{ca, 0.733, 0, 2026.0}, {ca, 0.250, 1, 2026.0}, {cb, 0.587, 0, 2026.0},
+                                       {cb, 0.516, 0, 1948.2}, {cb, 0.836, 1, 1948.2}};
+    const glm::dvec3 to_earth = -away;
+    double worst_meridian = 0.0;
+    for (const PublishedSpot& p : published) {
+        const Body& star = scene.bodies[static_cast<size_t>(p.star)];
+        const double year_tdb = tdb_from_julian_year(p.year);
+        const double cycles = std::floor((year_tdb - t_min) / period_s);
+        const double t = t_min + (cycles + p.phase) * period_s;
+        const StarSpotEpoch* epoch = star.starspots.at(t);
+        if (!epoch || p.index >= epoch->spots.size()) {
+            check(false, "YY Gem spot exists in its epoch");
+            continue;
+        }
+        const glm::dmat3 axes = scene.body_to_icrf(star, t);
+        const glm::dvec3 spot = axes * epoch->spots[p.index].direction;
+        const glm::dvec3 pole = axes[2];
+        const glm::dvec3 a1 = glm::normalize(spot - pole * glm::dot(spot, pole));
+        const glm::dvec3 a2 = glm::normalize(to_earth - pole * glm::dot(to_earth, pole));
+        worst_meridian = std::max(worst_meridian, angle_deg(a1, a2));
+    }
+    check(worst_meridian < 0.2, "YY Gem spots cross the meridian at their phases (deg)", worst_meridian);
+    check(scene.bodies[static_cast<size_t>(ca)].starspots.at(tdb_from_julian_year(1948.2))->spots.empty(),
+          "YY Gem: no spot on Ca in 1948");
+    auto wave_mag = [&](double year) {
+        const double cycles = std::floor((tdb_from_julian_year(year) - t_min) / period_s);
+        double low = 1e9, high = -1e9;
+        for (int i = 0; i < 200; ++i) {
+            const double phase = (i + 0.5) / 200.0;
+            if (std::abs(phase - 0.5) < 0.09 || phase < 0.09 || phase > 0.91) {
+                continue;
+            }
+            const double m = light_curve_magnitude(scene, t_min + (cycles + phase) * period_s);
+            low = std::min(low, m);
+            high = std::max(high, m);
+        }
+        return high - low;
+    };
+    const double wave_1948 = wave_mag(1948.2);
+    const double wave_1971 = wave_mag(1971.05);
+    std::printf("info: YY Gem wave between the eclipses: 1948 %.3f mag, 1971 %.3f mag\n", wave_1948, wave_1971);
+    check(wave_1948 > 0.05 && wave_1948 < 0.11, "YY Gem wave of 1948 approaches 0.1 mag", wave_1948);
+    check(wave_1971 < wave_1948, "YY Gem wave larger in 1948 than in 1971", wave_1971);
+    scene.bodies[static_cast<size_t>(ca)].starspots = {};
+    scene.bodies[static_cast<size_t>(cb)].starspots = {};
+
     const double primary = light_curve_magnitude(scene, t_min);
     const double secondary = light_curve_magnitude(scene, t_min + 0.5 * period_s);
     const double out_of_eclipse = light_curve_magnitude(scene, t_min + 0.25 * period_s);

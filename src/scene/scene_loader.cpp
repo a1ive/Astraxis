@@ -1305,6 +1305,55 @@ void Loader::parse(const toml::table& root, Scene& out)
             m_roche_stars.push_back(spec);
         }
 
+        // [bodies.starspots]: dark spots fixed on a star (see StarSpots).
+        if (const toml::table* s = (*t)["starspots"].as_table()) {
+            const std::string sctx = ctx + " starspots";
+            if (body.kind != BodyKind::Star || (*t)["pulsation"].as_table() || t->contains("roche")) {
+                fail(ctx, "only a spherical star that does not pulsate can have starspots");
+            }
+            body.starspots.temperature_ratio = get_double(*s, "temperature_ratio", sctx);
+            body.starspots.surface_scale = get_double_or(*s, "surface_scale", 1.0);
+            const toml::array* epochs = (*s)["epochs"].as_array();
+            if (!epochs || epochs->empty() || body.starspots.temperature_ratio <= 0.0 ||
+                body.starspots.temperature_ratio >= 1.0 || body.starspots.surface_scale <= 0.0) {
+                fail(sctx, "needs [[epochs]], 0 < temperature_ratio < 1 and surface_scale > 0");
+            }
+            for (const toml::node& epoch_node : *epochs) {
+                const toml::table* e = epoch_node.as_table();
+                const toml::array* spots = e ? (*e)["spots"].as_array() : nullptr;
+                if (!spots || spots->size() > static_cast<size_t>(kMaxStarSpots)) {
+                    fail(sctx, "each epoch needs spots = [...], at most 4");
+                }
+                StarSpotEpoch epoch;
+                if (e->contains("from_year")) {
+                    epoch.from_tdb = tdb_from_julian_year(get_double(*e, "from_year", sctx));
+                }
+                if (!body.starspots.epochs.empty() && epoch.from_tdb <= body.starspots.epochs.back().from_tdb) {
+                    fail(sctx, "epochs must be in order of from_year");
+                }
+                for (const toml::node& spot_node : *spots) {
+                    const toml::table* spot = spot_node.as_table();
+                    if (!spot) {
+                        fail(sctx, "spots must be tables");
+                    }
+                    // Longitude from the x axis, in the sense of the rotation.
+                    const double lon = get_double(*spot, "longitude_deg", sctx) * kDegToRad;
+                    const double lat = get_double(*spot, "latitude_deg", sctx) * kDegToRad;
+                    const StarSpot added{
+                        glm::dvec3(std::cos(lat) * std::cos(lon), std::cos(lat) * std::sin(lon), std::sin(lat)),
+                        get_double(*spot, "radius_deg", sctx) * kDegToRad};
+                    for (const StarSpot& other : epoch.spots) { // the facets would count the overlap twice
+                        if (std::acos(glm::dot(added.direction, other.direction)) < added.radius_rad + other.radius_rad) {
+                            fail(sctx, "the spots of one epoch must not overlap");
+                        }
+                    }
+                    epoch.spots.push_back(added);
+                }
+                build_star_spot_facets(epoch);
+                body.starspots.epochs.push_back(std::move(epoch));
+            }
+        }
+
         // [bodies.pulsation]: a Cepheid's cycle (see Pulsation).
         if (const toml::table* p = (*t)["pulsation"].as_table()) {
             const std::string pctx = ctx + " pulsation";

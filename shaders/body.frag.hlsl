@@ -41,7 +41,26 @@ cbuffer Uniforms : register(b0, space3)
                                        // z = 1 if the map is of the strength instead of Br
     float4 u_craft;                    // x = 1 if the vertex albedo is baked sunlight (a spacecraft's mesh),
                                        // y = illustrative fill light on the unlit side
+    float4 u_spots[4];                 // a star's dark spots: xyz = direction in the body's axes, w = angular radius
+    float4 u_spot_color;               // rgb = their linear radiance, a = how many
 };
+
+// How much of a star's surface at unit vector p (body axes) is dark spot. The soft,
+// uneven edge is only for the look: real spots are not circles. The light curve
+// takes the circles (their area is about the same).
+float star_spot_cover(float3 p)
+{
+    int count = (int)u_spot_color.a;
+    // A wobble of the edge that changes smoothly over the sphere.
+    float wobble = sin(9.1 * p.x + 1.3) * sin(7.7 * p.y + 0.4) + 0.6 * sin(17.3 * p.z + 2.1) * sin(13.9 * p.y + 5.2);
+    float cover = 0.0;
+    for (int i = 0; i < count; ++i) {
+        float angle = acos(clamp(dot(p, u_spots[i].xyz), -1.0, 1.0));
+        float x = angle / u_spots[i].w + 0.14 * wobble;
+        cover = max(cover, 1.0 - smoothstep(0.78, 1.22, x));
+    }
+    return cover;
+}
 
 // A strength map's false color: viridis, dark where the field is weak (sRGB).
 static const float3 kFieldWeak = float3(0.267, 0.005, 0.329);
@@ -293,7 +312,11 @@ float4 main(PSInput input, bool front_face : SV_IsFrontFace) : SV_Target0
         // Linear limb darkening, as for the sun sprite; a Roche-lobe star's
         // mesh carries its gravity darkening and irradiation in the albedo.
         float mu = saturate(dot(n, V));
-        return float4(u_color.rgb * input.albedo * (1.0 - 0.6 * (1.0 - mu)), 1.0);
+        float3 surface = u_color.rgb * input.albedo;
+        if (u_spot_color.a > 0.5) {
+            surface = lerp(surface, u_spot_color.rgb, star_spot_cover(normalize(input.local)));
+        }
+        return float4(surface * (1.0 - 0.6 * (1.0 - mu)), 1.0);
     }
 
     bool gas_giant = (int)u_color.a == STYLE_GAS_GIANT;

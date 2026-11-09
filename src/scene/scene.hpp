@@ -47,6 +47,41 @@ enum class BodyKind {
     Ghost,
 };
 
+// Dark spots fixed on a star's surface ([bodies.starspots]), in epochs, since
+// they come and go: the last epoch whose from_tdb has passed is shown. Circular
+// spots of one temperature, as light-curve solutions describe them.
+inline constexpr int kMaxStarSpots = 4;
+struct StarSpot {
+    glm::dvec3 direction{1.0, 0.0, 0.0}; // unit, in the body's axes
+    double radius_rad = 0.0;             // angular radius, seen from the star's center
+};
+struct StarSpotFacet { // a patch of a spot on the unit sphere, for the light curve
+    glm::dvec3 normal{1.0, 0.0, 0.0};
+    double area = 0.0;
+};
+struct StarSpotEpoch {
+    double from_tdb = -std::numeric_limits<double>::infinity();
+    std::vector<StarSpot> spots;
+    std::vector<StarSpotFacet> facets;
+};
+struct StarSpots {
+    double temperature_ratio = 1.0; // of the spots to the photosphere
+    double surface_scale = 1.0;     // of the drawn surface: the usual one saturates, hiding them
+    std::vector<StarSpotEpoch> epochs; // ascending from_tdb
+
+    bool enabled() const { return !epochs.empty(); }
+    const StarSpotEpoch* at(double t_tdb) const
+    {
+        const StarSpotEpoch* found = nullptr;
+        for (const StarSpotEpoch& e : epochs) {
+            if (e.from_tdb <= t_tdb) {
+                found = &e;
+            }
+        }
+        return found;
+    }
+};
+
 enum class TrailMode {
     None,
     Orbit,   // osculating orbit around the parent (closed ellipse)
@@ -363,6 +398,7 @@ struct Body {
         std::shared_ptr<const ShapeModel> shape; // null: none
         double t_tdb = 0.0;
     } shape_after;
+    StarSpots starspots; // none unless enabled()
     // A star filling its Roche lobe around `synchronous_with` (Algol B): its
     // surface, also drawn as `shape`; the radii are then the distances from its
     // center to L1, the sides and the poles.

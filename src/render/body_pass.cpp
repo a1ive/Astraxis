@@ -44,6 +44,8 @@ struct FragmentUniforms {
     glm::vec4 night;
     glm::vec4 surface; // x = scale of the reflected light
     glm::vec4 craft;   // x = 1 if the vertex albedo is baked sunlight, y = fill light
+    glm::vec4 spots[4]; // a star's dark spots: xyz = direction in the body's axes, w = angular radius
+    glm::vec4 spot_color; // rgb = their linear radiance, a = how many
 };
 
 struct BodyVertex {
@@ -322,6 +324,10 @@ void BodyPass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const Ca
         }
         fu.surface = glm::vec4(item.surface_gain, item.field_map ? 1.0f : 0.0f, item.field_map_strength ? 1.0f : 0.0f, item.field_map_u);
         fu.craft = glm::vec4(item.atlas ? 1.0f : 0.0f, item.fill_light, 0.0f, 0.0f);
+        for (int k = 0; k < item.spot_count && k < 4; ++k) {
+            fu.spots[k] = item.spots[k];
+        }
+        fu.spot_color = glm::vec4(item.spot_color, static_cast<float>(item.spot_count));
         SDL_PushGPUFragmentUniformData(cmd, 0, &fu, sizeof(fu));
 
         SDL_GPUTextureSamplerBinding tex[4] = {
