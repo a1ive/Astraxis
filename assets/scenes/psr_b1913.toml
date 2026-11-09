@@ -93,6 +93,7 @@ body_gm_km3_s2 = 3.7531078044e11 # 1.438 + 1.390 M_sun [WH16]
 name = "PSR B1913+16"
 parent = "PSR B1913+16 system"
 kind = "star"
+neutron_star = true
 radii_km = [12.0]              # assumed
 temperature_k = 100000.0       # assumed
 luminosity_solar = 2.7e-5
@@ -125,6 +126,7 @@ sky_ra_dec_deg = [288.86666425, 16.10760744]
 name = "B1913+16 companion"
 parent = "PSR B1913+16 system"
 kind = "star"
+neutron_star = true
 radii_km = [12.0]              # assumed
 temperature_k = 100000.0       # assumed
 luminosity_solar = 2.7e-5
@@ -264,3 +266,18 @@ caption = """\
     second, the pulses fade as the beam turns away. Disappearance around 2025 was \
     a prediction; the circular beam drawn here is illustrative, and its width \
     sets the date. The spin is slowed down."""
+
+[[events]]
+name = "Light bends around the neutron star"
+time_tdb = "2026-01-01 00:00"
+focus = "PSR B1913+16"
+from_body = "B1913+16 companion"
+phase_deg = -33.9              # look along the Milky Way, near the pulsar's spin equator
+elevation_deg = 20.3
+distance_km = 144.0
+warp = 1.0
+caption = """\
+    At a distance of 144 km from the centre, light bending brings about 72% of \
+    the surface into view. The two bright magnetic caps are illustrative and \
+    rotate with the slowed-down pulsar. Background starlight bends around the \
+    opaque surface."""

@@ -535,6 +535,7 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
     };
     static const TemplateFields fields = {
         {"kind", text}, {"radii_km", list}, {"body_gm_km3_s2", number}, {"gravity_radius_km", number},
+        {"neutron_star", boolean},
         {"zonal_harmonics", list}, {"spin", number}, {"temperature_k", number}, {"luminosity_solar", number},
         {"pole_ra_dec_deg", list}, {"prime_meridian_deg", list}, {"pole_rate_deg_per_century", list},
         {"nut_prec_angles", list}, {"nut_prec_ra", list}, {"nut_prec_dec", list}, {"nut_prec_pm", list},
@@ -1115,6 +1116,7 @@ void Loader::parse(const toml::table& root, Scene& out)
         }
         body.spin = get_double_or(*t, "spin", 0.0);
         body.temperature_k = get_double_or(*t, "temperature_k", body.temperature_k);
+        body.neutron_star = (*t)["neutron_star"].value<bool>().value_or(false);
         body.disk_inner_m = get_double_or(*t, "disk_inner_m", 0.0);
         body.disk_outer_m = get_double_or(*t, "disk_outer_m", 0.0);
         const std::string disk_profile = get_string_or(*t, "disk_profile", "thin");
@@ -1979,6 +1981,16 @@ void Loader::parse(const toml::table& root, Scene& out)
             }
         } else if (body.parent >= 0) {
             fail(ctx, "bodies with a parent need an [orbit]");
+        }
+
+        if (body.neutron_star) {
+            const double m = body.body_gm_km3_s2 / (kSpeedOfLightKmS * kSpeedOfLightKmS);
+            const double r = body.equatorial_radius_km;
+            if (body.kind != BodyKind::Star || !(m > 0.0 && r > 3.0 * m && std::isfinite(r)) ||
+                r != body.equatorial_radius_b_km || r != body.polar_radius_km ||
+                body.pulsation || t->contains("roche") || body.shape) {
+                fail(ctx, "neutron_star needs a spherical star with known mass and radius outside 3 GM/c^2");
+            }
         }
 
         if (!body.nut_prec_ra.empty() || !body.nut_prec_dec.empty() || !body.nut_prec_pm.empty()) {

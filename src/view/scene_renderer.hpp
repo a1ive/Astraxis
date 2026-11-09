@@ -71,8 +71,10 @@ private:
     // Traces the (first visible) black hole off-screen; composited in the scene pass.
     void trace_black_hole(SDL_GPUCommandBuffer* cmd, uint32_t width, uint32_t height, float star_brightness,
                           const Simulation& sim, const OutputView& view, BlackHoleTargets& targets);
+    void draw_neutron_star(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const Simulation& sim,
+                           const CameraView& view, int index, float blend, float star_brightness);
 
-    void build_body_items(const Simulation& sim, const OutputView& view, const ViewOptions& options);
+    void build_body_items(const Simulation& sim, const OutputView& view, const ViewOptions& options, int neutron_star);
     void build_orbit_lines(const Simulation& sim, const OutputView& view, const ViewOptions& options);
     void build_magnetic_lines(const Simulation& sim, const OutputView& view, const ViewOptions& options);
     void build_belt_items(const Simulation& sim, const OutputView& view, const ViewOptions& options);
@@ -90,7 +92,8 @@ private:
     void add_aurora_items(const Simulation& sim, const OutputView& view, size_t index, const BodyDrawItem& lit,
                           bool ultraviolet);
     // Star sprites and pulsar beams (fills m_beam_items).
-    void draw_stars(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const Simulation& sim, const OutputView& view);
+    void draw_stars(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const Simulation& sim, const OutputView& view,
+                    int neutron_star, float neutron_star_blend);
 
     const GpuDevice* m_device = nullptr;
     std::filesystem::path m_asset_dir;

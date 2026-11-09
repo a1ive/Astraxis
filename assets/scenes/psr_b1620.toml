@@ -124,6 +124,7 @@ sky_ra_dec_deg = [245.9092575, -26.5316025]
 name = "PSR B1620-26 A"
 parent = "PSR B1620-26 AB"
 kind = "star"
+neutron_star = true
 radii_km = [12.0]              # assumed
 temperature_k = 100000.0       # assumed
 luminosity_solar = 2.7e-5

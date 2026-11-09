@@ -79,6 +79,7 @@ body_gm_km3_s2 = 3.03867692589e11 # 2.28967 M_sun [VK20]
 name = "PSR J1141-6545"
 parent = "PSR J1141-6545 system"
 kind = "star"
+neutron_star = true
 radii_km = [12.0]              # assumed
 temperature_k = 500000.0       # assumed
 luminosity_solar = 0.0168

@@ -12,6 +12,7 @@
 #include "ephem/kerr_null.hpp"
 #include "ephem/kerr_orbit.hpp"
 #include "ephem/post_keplerian.hpp"
+#include "ephem/schwarzschild_light.hpp"
 #include "ephem/visual_orbit.hpp"
 
 #include <glm/glm.hpp>
@@ -477,6 +478,28 @@ void test_psr_j1141_scene()
     check(split < 1e-3, "PSR J1141-6545 ghost starts on the real orbit (km)", split);
     check(std::abs(scene.bodies[static_cast<size_t>(wd)].body_gm_km3_s2 / kSunGmKm3S2 - 1.02) < 1e-6,
           "J1141-6545 white dwarf mass");
+}
+
+void test_schwarzschild_star_light()
+{
+    const SchwarzschildStarLight flat{0.0, 12.0, 144.0};
+    check(std::abs(flat.limb_angle() - std::asin(12.0 / 144.0)) < 1e-12, "flat star limb");
+    check(std::abs(flat.surface_angle(0.0) - std::acos(12.0 / 144.0)) < 1e-7, "flat star limb surface point");
+    for (double angle : {flat.limb_angle(), 0.3, 0.5 * kPi, 2.0, kPi}) {
+        check(std::abs(flat.sky_deflection(angle)) < 1e-7, "flat exterior ray stays straight", angle);
+    }
+
+    const SchwarzschildStarLight light{1.438 * kSunGmKm3S2 / (kSpeedOfLightKmS * kSpeedOfLightKmS), 12.0, 144.0};
+    // Independent high-resolution quadrature of the radial integral,
+    // regularized with t = sqrt(1 - r / r'), for the B1913+16 close view.
+    check(std::abs(light.limb_angle() - 0.102311809) < 1e-8, "B1913+16 apparent limb");
+    check(std::abs(light.surface_angle(0.0) - 2.025222767) < 1e-7, "B1913+16 far side visible at limb");
+    check(std::abs(light.surface_angle(0.5) - 1.251830223) < 1e-7, "B1913+16 surface ray inside limb");
+    check(std::abs(light.sky_deflection(light.limb_angle()) - 1.115020751) < 1e-7,
+          "B1913+16 sky ray grazing limb");
+    check(std::abs(light.sky_deflection(0.5 * kPi) - 0.030365823) < 1e-7, "B1913+16 tangential observer ray");
+    check(std::abs(light.sky_deflection(0.5 * kPi - 1e-5) - light.sky_deflection(0.5 * kPi + 1e-5)) < 1e-6,
+          "B1913+16 sky map is continuous across the observer tangent");
 }
 
 void test_kerr_null_geodesics()
@@ -1433,6 +1456,7 @@ void run_relativity_tests()
     test_post_keplerian();
     test_psr_b1913_scene();
     test_psr_j1141_scene();
+    test_schwarzschild_star_light();
     test_kerr_null_geodesics();
     test_observer_frame();
     test_sgr_a_scene();

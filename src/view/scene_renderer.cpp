@@ -4,6 +4,7 @@
 #include "core/math.hpp"
 #include "core/time.hpp"
 #include "ephem/kerr_null.hpp"
+#include "ephem/schwarzschild_light.hpp"
 #include "render/render_output.hpp"
 #include "render/texture.hpp"
 #include "scene/lensing.hpp"
@@ -124,6 +125,10 @@ static_assert(kJovianOvalSamples == JovianAurora::kSamples);
 static_assert(kAuroraTableVectors * 4 == kAuroraTableSize);
 // Surface radiance of star spheres (linear HDR, times the blackbody color).
 constexpr float kStarSurface = 6.0f;
+// The nearby surface replaces the resolved star mesh (which starts at 3 px).
+// Fade in bending and the illustrative hot spots as its image grows.
+constexpr double kNeutronStarMinRadiusPx = 3.0;
+constexpr double kNeutronStarFullRadiusPx = 12.0;
 // Wavelength at which relative star surfaces (SceneView::relative_star_surfaces) are compared.
 constexpr double kStarSurfaceWavelengthNm = 550.0;
 // A flare's patch on a star: the display cannot show its real radiance (hundreds of
@@ -919,7 +924,7 @@ void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, u
     m_starfield.set_milky_way(m_milky_way, m_milky_way_width, static_cast<float>(scene.sky.milky_way_brightness));
 
     for (const Body& body : scene.bodies) {
-        if (body.kind == BodyKind::BlackHole) {
+        if (body.kind == BodyKind::BlackHole || body.neutron_star) {
             update_sky_cube(output_height, options.star_brightness); // the sky differs per scene (Milky Way or not)
             break;
         }
@@ -1051,6 +1056,51 @@ void SceneRenderer::trace_black_hole(SDL_GPUCommandBuffer* cmd, uint32_t width, 
     }
 }
 
+void SceneRenderer::draw_neutron_star(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const Simulation& sim,
+                                     const CameraView& view, int index, float blend, float star_brightness)
+{
+    const Scene& scene = sim.scene();
+    const Body& body = scene.bodies[static_cast<size_t>(index)];
+    const glm::dvec3 offset = view.position - body.world_position;
+    const double distance = glm::length(offset);
+    const double radius = body.equatorial_radius_km;
+    const double mass = body.body_gm_km3_s2 / (kSpeedOfLightKmS * kSpeedOfLightKmS);
+    const SchwarzschildStarLight light{mass * blend, radius, distance};
+    const double limb = light.limb_angle();
+    const float sy = 1.0f / view.focal_y;
+    const float sx = sy * view.viewport.x / view.viewport.y;
+    const float pixel_angle = 2.0f * sy / view.viewport.y;
+
+    NeutronStarUniforms u{};
+    u.right = glm::vec4(sx * glm::vec3(view.view[0][0], view.view[1][0], view.view[2][0]), 0.0f);
+    u.up = glm::vec4(sy * glm::vec3(view.view[0][1], view.view[1][1], view.view[2][1]), 0.0f);
+    u.forward = glm::vec4(-view.view[0][2], -view.view[1][2], -view.view[2][2], 0.0f);
+    u.to_sky = glm::mat4(glm::mat3(scene.current_transform().axes));
+    u.observer = glm::vec4(glm::vec3(offset / distance), static_cast<float>(distance / radius));
+    u.geometry = glm::vec4(static_cast<float>(limb), static_cast<float>(view.proj[3][2] / radius),
+                           static_cast<float>(std::sin(limb)), 4.0f * sx * sy / (view.viewport.x * view.viewport.y));
+    const float surface_gain = std::lerp(kStarSurface, 1.0f, blend); // exposure for the close view
+    u.surface = glm::vec4(glm::vec3(blackbody_linear_srgb(body.temperature_k)) * surface_gain, blend);
+    glm::dvec3 beams[2];
+    if (pulsar_beams(scene, body, sim.clock().t_tdb, sim.animation_time(), beams)) {
+        u.hot_spot = glm::vec4(glm::vec3(beams[0]), blend);
+    } else {
+        u.hot_spot = glm::vec4(0.0f);
+    }
+    u.stars = glm::vec4(static_cast<float>(StarfieldPass::kSkyGrid), star_brightness,
+                        m_starfield.milky_way() ? m_starfield.milky_way_brightness() : 0.0f,
+                        static_cast<float>(sim.sky_visibility()));
+    u.sky_params = glm::vec4(0.5f * m_starfield.max_star_size(), kMaxStarMagnification, pixel_angle, 0.0f);
+    const double sky_range = std::log(kPi / limb);
+    for (int i = 0; i < NeutronStarUniforms::kSamples; ++i) {
+        const double s = static_cast<double>(i) / (NeutronStarUniforms::kSamples - 1);
+        const double angle = limb * std::exp(sky_range * s * s);
+        u.bending[static_cast<size_t>(i)] = glm::vec4(static_cast<float>(light.surface_angle(s)),
+                                                    static_cast<float>(light.sky_deflection(angle)), 0.0f, 0.0f);
+    }
+    m_black_hole.draw_neutron_star(cmd, pass, u);
+}
+
 void SceneRenderer::release_body_textures()
 {
     for (auto* textures : {&m_body_textures, &m_ring_textures, &m_night_textures, &m_aurora_textures,
@@ -1088,7 +1138,8 @@ BodyDrawItem lensed_item(const BodyDrawItem& item, const LensedView& image)
 
 } // namespace
 
-void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& output_view, const ViewOptions& options)
+void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& output_view, const ViewOptions& options,
+                                     int neutron_star)
 {
     const Scene& scene = sim.scene();
     const CameraView& view = output_view.camera;
@@ -1138,7 +1189,7 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
         const Body& body = scene.bodies[i];
         const bool drawable = body.kind == BodyKind::Planet || body.kind == BodyKind::Star ||
                               body.kind == BodyKind::BlackHole || (body.kind == BodyKind::Spacecraft && body.shape);
-        if (!body.visible || !drawable) {
+        if (!body.visible || !drawable || static_cast<int>(i) == neutron_star) {
             continue;
         }
         // An atmosphere with an opaque deck shows the deck (in the body's
@@ -1998,7 +2049,7 @@ void SceneRenderer::build_magnetic_lines(const Simulation& sim, const OutputView
 }
 
 void SceneRenderer::draw_stars(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const Simulation& sim,
-                               const OutputView& output_view)
+                               const OutputView& output_view, int neutron_star, float neutron_star_blend)
 {
     // Stars: sprites at their real positions (depth-tested against bodies).
     // Without a star body, the sun is drawn as a direction at infinity.
@@ -2019,6 +2070,7 @@ void SceneRenderer::draw_stars(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pas
         }
         any_star = true;
         const size_t index = static_cast<size_t>(&body - scene.bodies.data());
+        const bool bent_surface = static_cast<int>(index) == neutron_star;
         // A star bent around a black hole shows at each image, brightened or dimmed by the
         // image's magnification (a point's light; a resolved disk keeps its surface brightness).
         const BodyLens* lens =
@@ -2035,6 +2087,10 @@ void SceneRenderer::draw_stars(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pas
         s.display_gain = static_cast<float>(observed_star_display_gain(
             observed, static_cast<int>(&body - scene.bodies.data()), sim.clock().t_tdb));
         s.draw_disk = s.angular_radius * viewport_half < 3.0f; // otherwise the sphere shows it
+        if (bent_surface) {
+            s.draw_disk = false;
+            s.glow_gain *= std::lerp(1.0f, 0.15f, neutron_star_blend);
+        }
         if (!body.flares.empty()) { // compressed as magnitudes are (observed_star_display_gain)
             s.display_gain *= static_cast<float>(std::pow(body_flare_factor(body, sim.clock().t_tdb), 0.56));
         }
@@ -2227,7 +2283,28 @@ void SceneRenderer::render(const Frame& frame, const Simulation& sim, const Outp
     const CameraView& view = output_view.camera;
     const float time = static_cast<float>(sim.animation_time());
 
-    build_body_items(sim, output_view, options);
+    int neutron_star = -1;
+    double largest_radius_px = kNeutronStarMinRadiusPx;
+    if (m_black_hole.ready()) {
+        const Scene& scene = sim.scene();
+        for (size_t i = 0; i < scene.bodies.size(); ++i) {
+            const Body& body = scene.bodies[i];
+            if (!body.neutron_star || !body.visible) {
+                continue;
+            }
+            const double distance = glm::length(view.position - body.world_position);
+            if (distance > body.equatorial_radius_km) {
+                const double radius_px = 0.5 * view.viewport.y * view.focal_y * body.equatorial_radius_km / distance;
+                if (radius_px > largest_radius_px) {
+                    largest_radius_px = radius_px;
+                    neutron_star = static_cast<int>(i);
+                }
+            }
+        }
+    }
+    const float neutron_star_blend = static_cast<float>(
+        glm::smoothstep(kNeutronStarMinRadiusPx, kNeutronStarFullRadiusPx, largest_radius_px));
+    build_body_items(sim, output_view, options, neutron_star);
     build_orbit_lines(sim, output_view, options);
     build_magnetic_lines(sim, output_view, options); // in the same pass, after the orbits
     build_comet_items(sim, output_view, options);
@@ -2274,7 +2351,10 @@ void SceneRenderer::render(const Frame& frame, const Simulation& sim, const Outp
     m_nebula.composite(pass, targets.nebula);
     m_disk.composite(frame.cmd, pass, targets.disk);
     m_black_hole.composite(frame.cmd, pass, targets.black_hole);
-    draw_stars(frame.cmd, pass, sim, output_view);
+    if (neutron_star >= 0) {
+        draw_neutron_star(frame.cmd, pass, sim, view, neutron_star, neutron_star_blend, options.star_brightness);
+    }
+    draw_stars(frame.cmd, pass, sim, output_view, neutron_star, neutron_star_blend);
     m_beams.draw(frame.cmd, pass, view, m_beam_items);
     m_orbits.draw(frame.cmd, pass, view, options.line_width);
     SDL_EndGPURenderPass(pass);

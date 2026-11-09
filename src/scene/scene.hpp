@@ -372,6 +372,7 @@ struct Body {
     // Stars: effective temperature (color) and luminosity (apparent brightness).
     double temperature_k = 5772.0;
     double luminosity_solar = 1.0;
+    bool neutron_star = false; // opaque spherical surface with relativistic light bending in close views
     // A pulsating star: Scene::update sets the radii, temperature and
     // luminosity from it (the radii given in the file are the mean).
     std::shared_ptr<const Pulsation> pulsation;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "render/black_hole_uniforms.hpp"
+#include "render/neutron_star_uniforms.hpp"
 #include "render/scene_targets.hpp"
 
 #include <SDL3/SDL_gpu.h>
@@ -40,6 +41,8 @@ public:
                BlackHoleTargets& targets);
     // Inside the scene pass; draws the last trace (no-op if none this frame).
     void composite(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, BlackHoleTargets& targets);
+    // Spherical star with an opaque surface, reusing the sky resources.
+    void draw_neutron_star(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const NeutronStarUniforms& u);
 
 private:
     bool create_pipelines(const SceneTargetFormat& format);
@@ -49,6 +52,7 @@ private:
     SDL_GPUDevice* m_device = nullptr;
     SDL_GPUGraphicsPipeline* m_trace_pipeline = nullptr;
     SDL_GPUGraphicsPipeline* m_composite_pipeline = nullptr;
+    SDL_GPUGraphicsPipeline* m_neutron_star_pipeline = nullptr;
     SDL_GPUSampler* m_linear = nullptr;
     SDL_GPUSampler* m_point = nullptr;
     SDL_GPUSampler* m_sky_sampler = nullptr;       // trilinear, anisotropic

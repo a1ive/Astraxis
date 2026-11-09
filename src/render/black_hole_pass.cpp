@@ -7,6 +7,7 @@
 #include <shaders/black_hole.frag.h>
 #include <shaders/black_hole_composite.frag.h>
 #include <shaders/fullscreen.vert.h>
+#include <shaders/neutron_star.frag.h>
 
 #include <SDL3/SDL_log.h>
 
@@ -39,6 +40,36 @@ SDL_GPUSampler* create_sampler(SDL_GPUDevice* device, SDL_GPUFilter filter)
     info.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
     info.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
     return SDL_CreateGPUSampler(device, &info);
+}
+
+// Premultiplied sky at depth zero; opaque hits at the depth of the lens.
+SDL_GPUGraphicsPipeline* create_composite_pipeline(SDL_GPUDevice* device, const SceneTargetFormat& format,
+                                                   SDL_GPUShader* vs, SDL_GPUShader* fs)
+{
+    SDL_GPUColorTargetDescription color = {};
+    color.format = format.color;
+    color.blend_state.enable_blend = true;
+    color.blend_state.src_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
+    color.blend_state.dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
+    color.blend_state.color_blend_op = SDL_GPU_BLENDOP_ADD;
+    color.blend_state.src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
+    color.blend_state.dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
+    color.blend_state.alpha_blend_op = SDL_GPU_BLENDOP_ADD;
+
+    SDL_GPUGraphicsPipelineCreateInfo info = {};
+    info.vertex_shader = vs;
+    info.fragment_shader = fs;
+    info.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
+    info.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_NONE;
+    info.multisample_state.sample_count = format.samples;
+    info.depth_stencil_state.enable_depth_test = true;
+    info.depth_stencil_state.enable_depth_write = true;
+    info.depth_stencil_state.compare_op = SDL_GPU_COMPAREOP_GREATER_OR_EQUAL;
+    info.target_info.color_target_descriptions = &color;
+    info.target_info.num_color_targets = 1;
+    info.target_info.has_depth_stencil_target = true;
+    info.target_info.depth_stencil_format = format.depth;
+    return SDL_CreateGPUGraphicsPipeline(device, &info);
 }
 
 } // namespace
@@ -90,6 +121,8 @@ bool BlackHolePass::set_format(const SceneTargetFormat& format)
     m_trace_pipeline = nullptr;
     SDL_ReleaseGPUGraphicsPipeline(m_device, m_composite_pipeline);
     m_composite_pipeline = nullptr;
+    SDL_ReleaseGPUGraphicsPipeline(m_device, m_neutron_star_pipeline);
+    m_neutron_star_pipeline = nullptr;
     return create_pipelines(format);
 }
 
@@ -109,10 +142,17 @@ bool BlackHolePass::create_pipelines(const SceneTargetFormat& format)
                                                          .num_samplers = 5,
                                                          .num_storage_buffers = 2,
                                                          .num_uniform_buffers = 1});
-    if (!vs || !trace_fs || !composite_fs) {
+    SDL_GPUShader* neutron_star_fs = create_shader(device, {.dxil = kNeutronStarFragDxil,
+                                                            .spirv = kNeutronStarFragSpirv,
+                                                            .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
+                                                            .num_samplers = 2,
+                                                            .num_storage_buffers = 2,
+                                                            .num_uniform_buffers = 1});
+    if (!vs || !trace_fs || !composite_fs || !neutron_star_fs) {
         SDL_ReleaseGPUShader(device, vs);
         SDL_ReleaseGPUShader(device, trace_fs);
         SDL_ReleaseGPUShader(device, composite_fs);
+        SDL_ReleaseGPUShader(device, neutron_star_fs);
         return false;
     }
 
@@ -132,41 +172,15 @@ bool BlackHolePass::create_pipelines(const SceneTargetFormat& format)
         m_trace_pipeline = SDL_CreateGPUGraphicsPipeline(device, &info);
     }
 
-    // Composite: premultiplied color over the scene; SV_Depth from the trace, so the
-    // shadow and disk occlude what lies behind the hole while the lensed sky (depth 0)
-    // only replaces empty background. Runs per pixel, not per MSAA sample.
-    {
-        SDL_GPUColorTargetDescription color = {};
-        color.format = format.color;
-        color.blend_state.enable_blend = true;
-        color.blend_state.src_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
-        color.blend_state.dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
-        color.blend_state.color_blend_op = SDL_GPU_BLENDOP_ADD;
-        color.blend_state.src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
-        color.blend_state.dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
-        color.blend_state.alpha_blend_op = SDL_GPU_BLENDOP_ADD;
-
-        SDL_GPUGraphicsPipelineCreateInfo info = {};
-        info.vertex_shader = vs;
-        info.fragment_shader = composite_fs;
-        info.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
-        info.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_NONE;
-        info.multisample_state.sample_count = format.samples;
-        info.depth_stencil_state.enable_depth_test = true;
-        info.depth_stencil_state.enable_depth_write = true;
-        info.depth_stencil_state.compare_op = SDL_GPU_COMPAREOP_GREATER_OR_EQUAL;
-        info.target_info.color_target_descriptions = &color;
-        info.target_info.num_color_targets = 1;
-        info.target_info.has_depth_stencil_target = true;
-        info.target_info.depth_stencil_format = format.depth;
-        m_composite_pipeline = SDL_CreateGPUGraphicsPipeline(device, &info);
-    }
+    m_composite_pipeline = create_composite_pipeline(device, format, vs, composite_fs);
+    m_neutron_star_pipeline = create_composite_pipeline(device, format, vs, neutron_star_fs);
 
     SDL_ReleaseGPUShader(device, vs);
     SDL_ReleaseGPUShader(device, trace_fs);
     SDL_ReleaseGPUShader(device, composite_fs);
-    if (!m_trace_pipeline || !m_composite_pipeline) {
-        SDL_LogError(SDL_LOG_CATEGORY_GPU, "Black hole pipeline creation failed: %s", SDL_GetError());
+    SDL_ReleaseGPUShader(device, neutron_star_fs);
+    if (!m_trace_pipeline || !m_composite_pipeline || !m_neutron_star_pipeline) {
+        SDL_LogError(SDL_LOG_CATEGORY_GPU, "Gravitational lens pipeline creation failed: %s", SDL_GetError());
         return false;
     }
     return true;
@@ -179,6 +193,7 @@ void BlackHolePass::shutdown()
     }
     SDL_ReleaseGPUGraphicsPipeline(m_device, m_trace_pipeline);
     SDL_ReleaseGPUGraphicsPipeline(m_device, m_composite_pipeline);
+    SDL_ReleaseGPUGraphicsPipeline(m_device, m_neutron_star_pipeline);
     SDL_ReleaseGPUSampler(m_device, m_linear);
     SDL_ReleaseGPUSampler(m_device, m_point);
     SDL_ReleaseGPUSampler(m_device, m_sky_sampler);
@@ -186,6 +201,7 @@ void BlackHolePass::shutdown()
     SDL_ReleaseGPUTexture(m_device, m_blackbody);
     m_trace_pipeline = nullptr;
     m_composite_pipeline = nullptr;
+    m_neutron_star_pipeline = nullptr;
     m_linear = nullptr;
     m_point = nullptr;
     m_sky_sampler = nullptr;
@@ -283,6 +299,20 @@ void BlackHolePass::composite(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass
     SDL_PushGPUFragmentUniformData(cmd, 0, &targets.uniforms, sizeof(targets.uniforms));
     SDL_DrawGPUPrimitives(pass, 3, 1, 0, 0);
     targets.traced = false; // one composite per trace
+}
+
+void BlackHolePass::draw_neutron_star(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const NeutronStarUniforms& u)
+{
+    SDL_BindGPUGraphicsPipeline(pass, m_neutron_star_pipeline);
+    const SDL_GPUTextureSamplerBinding bindings[2] = {
+        {.texture = m_sky, .sampler = m_sky_sampler},
+        {.texture = m_milky_way ? m_milky_way : m_blackbody, .sampler = m_milky_way_sampler},
+    };
+    SDL_BindGPUFragmentSamplers(pass, 0, bindings, 2);
+    SDL_GPUBuffer* const storage[2] = {m_stars, m_cells};
+    SDL_BindGPUFragmentStorageBuffers(pass, 0, storage, 2);
+    SDL_PushGPUFragmentUniformData(cmd, 0, &u, sizeof(u));
+    SDL_DrawGPUPrimitives(pass, 3, 1, 0, 0);
 }
 
 } // namespace astraxis
