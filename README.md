@@ -13,40 +13,40 @@ Astraxis is an astronomy background app with planets, spacecraft and stars anima
 
 | Scene | Highlights |
 |---|---|
-| Solar System (default) | Planets, moons (including Proteus with its Voyager-based shape), dwarf planets, asteroids and interstellar objects |
-| Jupiter | Rings and moons, Galileo and Juno orbits, Cassini flyby; the 21 fragments of comet Shoemaker-Levy 9 from breakup to impact, with their dust tails, flashes, plumes, rings and dark scars; northern and southern UV aurora overlays with modeled Io, Europa and Ganymede footprints |
-| Space Telescopes | Hubble in low Earth orbit, Chandra on a high elliptical orbit, TESS in step with the Moon, WMAP, Herschel, Planck, Gaia, JWST, Euclid and Roman around L2, Spitzer and Kepler drifting behind Earth |
-| Earth-Moon | Artemis missions, CAPSTONE and other lunar spacecraft; the Earth's city lights and aurora (from the Kp record since 1932) |
-| Saturn | Rings, major moons, retrograde Phoebe, the co-orbital Janus and Epimetheus trading orbits, Cassini's tour and Huygens' descent; northern and southern UV aurora overlays |
-| Uranus | The planet on its side, its eccentric rings and five large moons, Voyager 2's flyby; its lopsided magnetic field, and Webb's infrared H3+ glow with a model of its seasons |
-| Neptune | The Great Dark Spot of 1989 and NDS-2018; rings with the Adams arcs and the new arc Sincerite, Triton's plumes, Voyager 2's closest pass; its off-center magnetic field and Webb's first infrared aurora |
+| Solar System (default) | Planets, moons, dwarf planets, asteroids and interstellar visitors |
+| Jupiter | Galileo and Juno, Shoemaker–Levy 9's breakup and impacts, and UV auroras with moon footprints |
+| Space Telescopes | Observatories in Earth orbit, near L2 and trailing Earth |
+| Earth-Moon | Artemis and CAPSTONE, city lights and auroras from historical Kp records |
+| Saturn | Rings, Janus and Epimetheus swapping orbits, Cassini, Huygens and polar auroras |
+| Uranus | Eccentric rings, Voyager 2's flyby, a tilted magnetic field and seasonal infrared glow |
+| Neptune | Voyager 2, dark spots, Adams ring arcs, Triton's plumes and infrared aurora |
 | Mercury: MESSENGER & BepiColombo | Gravity assists and orbits around Mercury |
 | Venus | Venus Express, Akatsuki, Zoozve and spacecraft flybys |
-| Mars | Phobos, Deimos, eight orbiters, comet Siding Spring and interstellar comet 3I/ATLAS |
-| Rosetta & 67P | Journey to comet 67P, Rosetta's orbits and Philae's landing |
-| DART & Didymos | DART's impact on the asteroid moon Dimorphos, LICIACube's flyby, and the orbit Dimorphos would have kept without the impact |
+| Mars | Phobos and Deimos, Mars orbiters, and comets Siding Spring and 3I/ATLAS |
+| Rosetta & 67P | Rosetta's comet rendezvous and Philae's landing |
+| DART & Didymos | DART's impact, LICIACube's flyby and Dimorphos's orbit without the impact |
 | ISEE-3 / ICE | L1 halo orbit, lunar flybys and comet encounters |
-| Parker Solar Probe | Venus gravity assists, close passes of the Sun and an enhanced white-light view from inside the corona |
-| Solar eclipses | The 2017 and 2024 eclipses above Earth, plus Earth eclipsing the Sun from near the Moon in 2022: white-light corona and a refracted red atmospheric rim |
-| Alpha Centauri | A, B and Proxima in an N-body simulation, and Proxima's naked-eye superflare of 2016 |
-| Beta Pictoris | The first debris disk ever imaged, edge-on: its second, tilted disk, planets b and c, the planetesimal belt in millimeter light, CO clumps colored by their motion, the "cat's tail" JWST found in the mid-infrared, and comets crossing the star on TESS's dates |
+| Parker Solar Probe | Venus flybys, close solar passes and an enhanced white-light corona |
+| Solar eclipses | 2017 and 2024 eclipses above Earth, and Earth's red rim from near the Moon in 2022 |
+| Alpha Centauri | Three-star dynamics and Proxima's 2016 superflare |
+| Beta Pictoris | Edge-on debris disks, two planets, Webb's cat's tail and modeled comet transits |
 | Sgr A* | Ray-traced Galactic Centre black hole and orbiting S-stars |
-| Gargantua (Interstellar) | The film's fictional black hole, and a tribute model of the ship Endurance with its turning ring |
-| Kerbol System (Kerbal Space Program) | A tribute to the game's fictional solar system, on its own orbits, clock and calendar |
-| PDS 70 | A young star with two planets still growing inside the gap of an opaque disk, the glow of their accretion, a disk around planet c in millimeter light, its gas in the CO line colored by the disk's rotation, and a third candidate |
-| HD 206893 | A debris belt split by a gap, seen by ALMA, with the reddest substellar companion known and a planet near the deuterium-burning limit inside it, and a candidate moon |
+| Gargantua (Interstellar) | The film's black hole and Endurance with its rotating ring |
+| Kerbol System (Kerbal Space Program) | The game's planetary system, orbits and calendar |
+| PDS 70 | Two growing planets in a disk gap, with a moon-forming disk around c |
+| HD 206893 | A gapped debris belt, two substellar companions and a candidate moon |
 | TRAPPIST-1 | Seven Earth-sized planets in a resonant chain |
 | Kepler-223 | Four sub-Neptunes in a 3:4:6:8 resonant chain |
 | Kepler-47 | Three planets orbiting an eclipsing binary |
 | Kepler-64 / PH1 | A planet in a four-star system |
 | TIC 168789840 | Six stars in three eclipsing binaries |
-| Castor | Six stars: two close pairs on a 459-year orbit, their own orbits almost at right angles to it, and the eclipsing, spotted red dwarfs of YY Geminorum with their light curve and flares |
-| Algol | The "demon star": an eclipsing triple, with its light curve as seen from Earth |
-| Delta Cephei | The prototype Cepheid pulsating every 5.37 days, and its eccentric companion |
-| Polaris | The North Star: a Cepheid with a barely-there 3.97-day pulse, its 29-year companion and the distant Polaris B |
-| WR 104 | The "pinwheel": a Wolf-Rayet binary's dust spiral turning once every 241.5 days, and a third star |
-| WR 140 | A Wolf-Rayet binary on an eccentric orbit that makes a dust shell at every periastron, nested as JWST saw them |
-| Eta Carinae | The Homunculus, the dusty lobes of the 1840s Great Eruption, expanding from a 3D model since 1847 (also in the infrared: its warm and cool dust layers), the Little Homunculus of 1890 inside it, the massive binary on its 5.54-year orbit with the fossil wind shells each periastron leaves, and the light curve recorded since the 1820s, which the stars and nebulae follow |
+| Castor | A six-star system with nearly perpendicular orbits, YY Gem eclipses and flares |
+| Algol | An eclipsing triple with its light curve as seen from Earth |
+| Delta Cephei | The prototype Cepheid, with a 5.37-day pulse and an eccentric companion orbit |
+| Polaris | The North Star's 3.97-day pulse and two companions |
+| WR 104 | A Wolf-Rayet binary with a rotating dust pinwheel |
+| WR 140 | Nested dust shells from successive close passes of a Wolf-Rayet binary |
+| Eta Carinae | The expanding Homunculus, fossil wind shells and a light curve dating to the 1820s |
 | PSR B1620-26 | A pulsar, white dwarf and planet in the M4 cluster |
 | PSR B1913+16 (Hulse-Taylor) | Binary neutron stars with relativistic orbital precession |
 | PSR J1141-6545 | A pulsar and white dwarf with relativistic orbital precession |
