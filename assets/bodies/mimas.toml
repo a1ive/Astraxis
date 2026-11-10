@@ -19,3 +19,6 @@ nut_prec_pm = [0.0, 0.0, -13.48, 0.0, -44.85]
 color = "#b8b4ae"
 texture = "textures/mimas.jpg"
 texture_left_lon_deg = -180.0
+
+[relief]
+texture = "textures/mimas_relief.jpg"

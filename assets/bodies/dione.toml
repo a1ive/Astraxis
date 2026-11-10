@@ -13,3 +13,6 @@ pole_rate_deg_per_century = [-0.036, -0.004]
 color = "#cfccc6"
 texture = "textures/dione.jpg"
 texture_left_lon_deg = -180.0
+
+[relief]
+texture = "textures/dione_relief.jpg"

@@ -116,6 +116,10 @@ OPAL 每年观测两次左右完整自转，每次自转每个滤镜一张简单
 | `mercury_relief.jpg` | Becker et al.，USGS [MESSENGER MDIS 全球 DEM v2，665 m](https://astrogeology.usgs.gov/search/map/mercury_messenger_global_dem_665m)。GeoTIFF 从 0°E 开始，每计数为 0.5 m，烘焙后左缘移到 180°W | PDS 存档，请引用作者 |
 | `venus_relief.jpg` | Ford、Pettengill、Liu、Quigley，USGS [Magellan GTDR v2，4641 m](https://astrogeology.usgs.gov/search/map/venus_magellan_global_topography_4641m)。GeoTIFF 从 180°W 开始，单位为米 | 公有领域，请引用作者 |
 | `enceladus_relief.jpg` | Schenk & McKinnon 2024，USGS [Cassini ISS 全球 DEM，200 m](https://astrogeology.usgs.gov/search/map/enceladus-cassini-global-dem-200m-schenk)。GeoTIFF 从 0°E 开始，高度是相对三轴椭球的公里数 | PDS 存档，请引用作者 |
+| `mimas_relief.jpg` | Weirich、Gaskell、Palmer、Domingue 2025，[Cassini SPC 全球形状模型](https://doi.org/10.26033/y8wv-r303)，`data/mimas_radius_g.tif` | PDS 存档，请引用作者 |
+| `tethys_relief.jpg` | Weirich 等 2025，[Cassini SPC 全球形状模型](https://doi.org/10.26033/hpv0-eh61)，`data/global/tethys_{eq,np,sp}radius_g.tif` | PDS 存档，请引用作者 |
+| `dione_relief.jpg` | Weirich 等 2025，[Cassini SPC 全球形状模型](https://doi.org/10.26033/bxx6-g543)，`data/global/dione_{eq,np,sp}radius_g.tif` | PDS 存档，请引用作者 |
+| `rhea_relief.jpg` | Weirich 等 2025，[Cassini SPC 全球形状模型](https://doi.org/10.26033/tqxb-q714)，`data/rhea_radius_g.tif` | PDS 存档，请引用作者 |
 
 ```
 python -E -P tools/textures/make_relief.py moon  ldem_16.img      assets/textures/moon_relief.jpg
@@ -132,6 +136,15 @@ python -E -P tools/textures/make_relief.py enceladus Enceladus_Cassini_DEM_globa
 - 地球的水面不能用“低于海平面”：Qattara 洼地是干的，五大湖又不在海平面。海面和湖面的坡度置零，海底地形不用
 - ETOPO5 和 Natural Earth 是大地纬度，这里和 `earth.jpg` 一样当作行星中心纬度（最多差 0.19°，约 1 像素），两张图互相对得上
 - GeoTIFF 烘焙需要 `tifffile`。高度平均和极区滤波按有效像元加权，坡度乘以差分所用格子的最小有效面积份额。金星约 8.3% 的原始像元缺测，主要在高纬度和窄条带。水星、金星和土卫二的坡度中位数分别为 0.98°、0.22° 和 5.38°，土卫二的坡度按场景半径 252.1 km 计算。
+
+SPC GeoTIFF 存的是从天体中心量起的半径，单位为米。`make_spc_relief.py` 按 GeoTIFF 坐标把它采样到左缘为 180°W 的 2048×1024 栅格，再扣除 [Thomas 2010 表 1](https://ciclops.org/media/sp/2011/6794_16344_0.pdf) 的三轴参考椭球半径。土卫三和土卫四用赤道图和南北极立体投影图，在约 ±55° 的交界处混合。土卫一和土卫五的全球栅格实际覆盖约 359.15° 经度，首末列之间按实际间距插值。
+
+```
+python -E -P tools/textures/make_spc_relief.py mimas <bundle>/data assets/textures/mimas_relief.jpg
+python -E -P tools/textures/make_spc_relief.py tethys <bundle>/data/global assets/textures/tethys_relief.jpg
+python -E -P tools/textures/make_spc_relief.py dione <bundle>/data/global assets/textures/dione_relief.jpg
+python -E -P tools/textures/make_spc_relief.py rhea <bundle>/data assets/textures/rhea_relief.jpg
+```
 
 ## Kerbol 系统（程序生成）
 

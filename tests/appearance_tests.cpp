@@ -677,9 +677,8 @@ void test_relief()
         const Body& b = solar.bodies[static_cast<size_t>(solar.find(name))];
         check(!b.relief.texture.empty() && b.relief.exaggeration == 1.0 && b.sea.wind_m_s < 0.0, name);
     }
-    auto check_dem = [&](const char* name, const char* scene_file, double left_lon) {
+    auto check_dem = [&](const char* name, const Scene& system, double left_lon) {
         const Body& b = solar.bodies[static_cast<size_t>(solar.find(name))];
-        const Scene system = load_scene_or_die(scene_file);
         const Body& other = system.bodies[static_cast<size_t>(system.find(name))];
         check(!b.relief.texture.empty() && b.relief.texture == other.relief.texture &&
                   b.relief.exaggeration == 1.0 && b.sea.wind_m_s < 0.0 &&
@@ -691,9 +690,14 @@ void test_relief()
               (b.name + ": the relief map matches the albedo map").c_str());
         return relief;
     };
-    const TestImage mercury = check_dem("Mercury", "mercury.toml", -180.0);
-    const TestImage venus = check_dem("Venus", "venus.toml", -180.0);
-    const TestImage enceladus = check_dem("Enceladus", "saturn.toml", 0.0);
+    const TestImage mercury = check_dem("Mercury", load_scene_or_die("mercury.toml"), -180.0);
+    const TestImage venus = check_dem("Venus", load_scene_or_die("venus.toml"), -180.0);
+    const Scene saturn = load_scene_or_die("saturn.toml");
+    const TestImage enceladus = check_dem("Enceladus", saturn, 0.0);
+    const TestImage mimas = check_dem("Mimas", saturn, -180.0);
+    const TestImage tethys = check_dem("Tethys", saturn, -180.0);
+    const TestImage dione = check_dem("Dione", saturn, -180.0);
+    const TestImage rhea = check_dem("Rhea", saturn, -180.0);
     const Scene earth_moon = load_scene_or_die("earth_moon.toml");
     check(earth_moon.bodies[static_cast<size_t>(earth_moon.find("Moon"))].relief.texture ==
                   solar.bodies[static_cast<size_t>(solar.find("Moon"))].relief.texture &&
@@ -741,6 +745,24 @@ void test_relief()
         // TestImage takes longitude relative to a 180 W left edge. Enceladus starts at 0 E.
         check(slope(enceladus, 56.8, 345.5 - 180.0, 0) < -0.1 && slope(enceladus, 56.8, 348.5 - 180.0, 0) > 0.1,
               "the trough on the east side of Ali Baba slopes toward its floor");
+    }
+    if (mimas.width > 0) {
+        // Herschel (1.7 N, 111.8 W). The central peak lies between these inner walls.
+        check(slope(mimas, 1.7, -130.8, 0) < -0.3 && slope(mimas, 1.7, -100.8, 0) > 0.25,
+              "Herschel's inner walls face the crater floor");
+    }
+    if (tethys.width > 0) {
+        check(slope(tethys, 32.8, -154.9, 0) < -0.1 && slope(tethys, 32.8, -106.9, 0) > 0.05,
+              "the west and east inner slopes of Odysseus face the basin");
+    }
+    if (dione.width > 0) {
+        // Evander lies south of the equatorial radius tile.
+        check(slope(dione, -57.0, -145.0, 0) < -0.18 && slope(dione, -57.0, -141.0, 0) > 0.05,
+              "opposing slopes near Evander are present in the south polar tile");
+    }
+    if (rhea.width > 0) {
+        check(slope(rhea, 34.2, -154.7, 0) < -0.1 && slope(rhea, 34.2, -148.7, 0) > 0.06,
+              "the floor of Tirawa lies between opposing slopes");
     }
     // Moon: Tycho (43.3 S, 11.2 W; 85 km across, 4.7 km deep), its inner walls face the center.
     const TestImage moon = load_test_image("textures/moon_relief.jpg");
