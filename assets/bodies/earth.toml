@@ -35,6 +35,12 @@
 #        (Cox & Munk 1954, J. Opt. Soc. Am. 44, 838) under one wind everywhere, 7 m/s, a
 #        round figure for the open ocean (assumption); the refractive index is pure
 #        water's at 589 nm (seawater's is about half a percent more). No clouds, no foam.
+# [CLOUDS] NASA Earth Observatory, Blue Marble (2002) cloud layer, textures/earth_clouds.jpg
+#        (textures/SOURCES.md): a composite of two days of visible-light images and a third
+#        day of thermal infrared over the poles: one still picture that turns with the ground. Its gray value is taken as the
+#        cover; the albedo is chosen by eye (thick clouds reflect 0.6-0.9 of sunlight).
+#        The picture is set drifting for the look of it, west in the trades and east in
+#        the westerlies; the two rates are illustrative (about 6 and 9 m/s) and no weather.
 
 radii_km = [6378.1366, 6356.7519]          # [PCK]
 body_gm_km3_s2 = 398600.435507             # [GM]
@@ -64,6 +70,11 @@ texture = "textures/earth_relief.jpg"
 [sea]                                      # [RELIEF]
 wind_m_s = 7.0
 refractive_index = 1.333
+[clouds]                                   # [CLOUDS]
+texture = "textures/earth_clouds.jpg"
+albedo = 0.8
+tropical_drift_deg_per_day = -5.0
+midlatitude_drift_deg_per_day = 10.0
 [aurora]                                   # [NIGHT]
 kp = "geomag/kp.bin"
 # IGRF-14 at 2025.0, whatever the date; without the solar wind, which shapes the lines

@@ -59,6 +59,13 @@ struct BodyDrawItem {
     float relief_slope = 0.0f;
     float sea_slope_variance = 0.0f;
     float sea_reflectance = 0.0f;
+    // Clouds: a gray map of their cover in the texture's projection (linear; null: none) and
+    // their albedo.
+    SDL_GPUTexture* clouds = nullptr;
+    float cloud_albedo = 0.0f;
+    // Their drift (scene/relief.hpp): x = place in the cycle (0..1), y = the cycle in days,
+    // z, w = degrees of longitude per day in the tropics and the middle latitudes.
+    glm::vec4 cloud_flow{0.0f};
     float surface_gain = 1.0f; // scale of the reflected light (a view in another band)
     // False color map of the magnetic field, in the texture's projection (linear; null: none):
     // of the radial field, or of its strength.

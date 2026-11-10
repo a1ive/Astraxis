@@ -118,6 +118,9 @@ public:
     // keep float precision.
     double disk_time() const { return m_disk_time; }
     double animation_time() const { return m_animation_time; }
+    // Where the drifting clouds (CloudLayer) are in their cycle, in [0, 1): it follows the
+    // clock, but no faster than kCloudMaxDaysPerSecond of drift per second of real time.
+    double cloud_phase() const { return m_cloud_phase; }
     // Turns of a body's rotor (Body::Rotor) in [0, 1): its own period at low warp,
     // capped at kRotorMaxTurnsPerSecond.
     double rotor_turns(int body) const;
@@ -204,6 +207,7 @@ private:
     double m_disk_time = 0.0;
     double m_animation_time = 0.0;
     std::vector<double> m_rotor_turns; // per body
+    double m_cloud_phase = 0.0;
     double m_aurora_kp = 0.0;
     double m_aurora_time = 0.0;
     int m_io = -1;                // the body with Io's aurora

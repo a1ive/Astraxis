@@ -495,6 +495,9 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
     static const TemplateFields night_lights = {{"texture", text}, {"color", text}, {"gain", number}};
     static const TemplateFields relief = {{"texture", text}, {"exaggeration", number}};
     static const TemplateFields sea = {{"wind_m_s", number}, {"refractive_index", number}};
+    static const TemplateFields clouds = {{"texture", text}, {"albedo", number},
+                                          {"tropical_drift_deg_per_day", number},
+                                          {"midlatitude_drift_deg_per_day", number}};
     static const TemplateFields aurora = {{"kp", text}, {"jovian_oval", text}, {"footprints", text}, {"flux_tubes", text},
                                           {"saturn_oval", boolean}, {"ganymede_map", text}, {"uranus_map", text},
                                           {"neptune_map", text}, {"europa_visible", boolean},
@@ -547,6 +550,7 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
         {"free_precession", {{Type::table}, &free_precession}}, {"atmosphere", {{Type::table}, &atmosphere}},
         {"night_lights", {{Type::table}, &night_lights}}, {"aurora", {{Type::table}, &aurora}},
         {"relief", {{Type::table}, &relief}}, {"sea", {{Type::table}, &sea}},
+        {"clouds", {{Type::table}, &clouds}},
         {"magnetic_field", {{Type::table}, &magnetic_field}}, {"magnetic_map", {{Type::table}, &magnetic_map}},
         {"rotor", {{Type::table}, &rotor}}, {"shape_after", {{Type::table}, &shape_after}},
         {"rings", {{Type::table}, &rings}},
@@ -1659,6 +1663,24 @@ void Loader::parse(const toml::table& root, Scene& out)
             body.relief.exaggeration = get_double_or(*relief, "exaggeration", 1.0);
             if (!(body.relief.exaggeration > 0.0) || !std::isfinite(body.relief.exaggeration)) {
                 fail(rctx, "exaggeration must be positive");
+            }
+        }
+        if (const toml::table* clouds = (*t)["clouds"].as_table()) {
+            const std::string cctx = ctx + " clouds";
+            if (body.kind != BodyKind::Planet || body.shape || body.texture.empty()) {
+                fail(ctx, "only ellipsoidal planets and moons with a texture can have clouds");
+            }
+            body.clouds.texture = get_string(*clouds, "texture", cctx);
+            body.clouds.albedo = get_double(*clouds, "albedo", cctx);
+            if (!(body.clouds.albedo > 0.0) || !(body.clouds.albedo <= 1.0)) {
+                fail(cctx, "albedo must be above 0 and at most 1");
+            }
+            body.clouds.tropical_drift_deg_per_day = get_double_or(*clouds, "tropical_drift_deg_per_day", 0.0);
+            body.clouds.midlatitude_drift_deg_per_day = get_double_or(*clouds, "midlatitude_drift_deg_per_day", 0.0);
+            // More than this and the two copies of the picture are sheared out of recognition.
+            if (!(std::abs(body.clouds.tropical_drift_deg_per_day) <= 30.0) ||
+                !(std::abs(body.clouds.midlatitude_drift_deg_per_day) <= 30.0)) {
+                fail(cctx, "the drifts must be within 30 degrees per day");
             }
         }
         if (const toml::table* sea = (*t)["sea"].as_table()) {

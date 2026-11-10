@@ -246,6 +246,13 @@ void Simulation::update(double real_dt)
         }
     }
 
+    // Clouds drift with the clock, slowly on screen whatever the warp.
+    if (!m_clock.paused) {
+        const double days = real_dt * std::min(m_clock.warp / 86400.0, kCloudMaxDaysPerSecond);
+        const double phase = m_cloud_phase + (m_clock.reverse ? -days : days) / kCloudCycleDays;
+        m_cloud_phase = phase - std::floor(phase);
+    }
+
     // The aurora: Kp over a window that grows with the warp, and its animation clock.
     bool has_aurora = false;
     for (const Body& body : m_scene.bodies) {

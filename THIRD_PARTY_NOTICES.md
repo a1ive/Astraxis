@@ -88,6 +88,7 @@ Per-file details, original download URLs and processing steps are in each direct
 | `assets/shapes/arrokoth.mesh` | NASA New Horizons project, Porter et al. 2024 Arrokoth shape model (PDS Small Bodies Node, doi:10.26007/97r3-1e19) | Public domain (PDS data) |
 | `assets/rings/saturn_rss.ring` | NASA PDS Ring-Moon Systems Node, Cassini Radio Science ring occultation (CORSS_8001, Marouf et al.) | Public domain |
 | `assets/textures/earth.jpg` | NASA Earth Observatory, Blue Marble Next Generation (Reto Stöckli) | Public domain; credit: NASA Earth Observatory |
+| `assets/textures/earth_clouds.jpg` | NASA Earth Observatory, Blue Marble (2002) cloud layer `cloud_combined_2048.jpg` (image by Reto Stöckli, NASA Goddard Space Flight Center), converted to one channel by `tools/textures/prepare_textures.py` | Public domain; credit: NASA Earth Observatory |
 | `assets/textures/earth_night.jpg` | NASA Earth Observatory, Earth at Night (Black Marble) 2016 grayscale map (Suomi NPP VIIRS), downscaled by `tools/textures/prepare_textures.py` | Public domain; credit: NASA Earth Observatory |
 | `assets/textures/moon_relief.jpg` | LRO LOLA gridded topography `LDEM_16` (Smith et al. 2010), NASA PDS Geosciences Node; slopes baked by `tools/textures/make_relief.py` | Public domain (PDS data); cite the LOLA team |
 | `assets/textures/mars_relief.jpg` | MGS MOLA Mission Experiment Gridded Data Record `megt90n000eb` (Smith et al. 2001), NASA PDS Geosciences Node; slopes baked by `tools/textures/make_relief.py` | Public domain (PDS data); cite the MOLA team |

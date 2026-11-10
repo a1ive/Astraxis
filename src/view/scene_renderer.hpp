@@ -133,6 +133,7 @@ private:
     std::vector<SDL_GPUTexture*> m_ring_textures; // per body: ring profile, may be null
     std::vector<SDL_GPUTexture*> m_night_textures; // per body: night lights, may be null
     std::vector<SDL_GPUTexture*> m_relief_textures; // per body: slopes and water, may be null
+    std::vector<SDL_GPUTexture*> m_cloud_textures;  // per body: cloud cover, may be null
     std::vector<SDL_GPUTexture*> m_field_map_textures;      // per body: radial field at the surface, may be null
     std::vector<SDL_GPUTexture*> m_deep_field_map_textures; // per body: the same deeper down, may be null
     std::vector<SDL_GPUTexture*> m_crust_field_map_textures; // per body: of the crust alone, may be null

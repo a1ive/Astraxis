@@ -784,8 +784,122 @@ void test_relief()
         check(rough / land > 0.02 && rough / land < 0.2, "Kerbin's land has slopes of a few degrees", rough / land);
     }
 
+    // Clouds: the Earth's, wherever it appears; nobody else's. The map against the weather's
+    // broad pattern: a clear Sahara, a cloudy Southern Ocean.
+    check(!earth.clouds.texture.empty() && earth.clouds.albedo > 0.5 && earth.clouds.albedo <= 0.9,
+          "the Earth has clouds", earth.clouds.albedo);
+    check(earth_moon.bodies[static_cast<size_t>(earth_moon.find("Earth"))].clouds.texture == earth.clouds.texture,
+          "in the Earth-Moon scene too");
+    check(solar.bodies[static_cast<size_t>(solar.find("Mars"))].clouds.texture.empty() &&
+              kerbol.bodies[static_cast<size_t>(kerbol.find("Kerbin"))].clouds.texture.empty(),
+          "Mars and Kerbin have no cloud map");
+    const TestImage cloud_map = load_test_image(earth.clouds.texture.c_str());
+    check(cloud_map.width == globe.width && cloud_map.height == globe.height && cloud_map.width > 0,
+          "the cloud map matches the Earth's other maps");
+    if (cloud_map.width > 0) {
+        auto mean_cover = [&](double lat0, double lat1, double lon0, double lon1) {
+            double sum = 0.0;
+            int count = 0;
+            for (double lat = lat0; lat <= lat1; lat += 0.5) {
+                for (double lon = lon0; lon <= lon1; lon += 0.5) {
+                    sum += cloud_map.at(lat, lon, 0);
+                    ++count;
+                }
+            }
+            return sum / count;
+        };
+        const double sahara = mean_cover(18.0, 28.0, 0.0, 25.0);
+        const double southern_ocean = mean_cover(-60.0, -50.0, -179.5, 179.5);
+        check(sahara < 0.03, "the Sahara is clear", sahara);
+        check(southern_ocean > 0.3 && southern_ocean < 0.6, "the Southern Ocean is cloudy", southern_ocean);
+    }
+    check(cloud_glint_share(0.0) == 1.0 && cloud_glint_share(1.0) == 0.0 && cloud_lights_share(1.0) == 0.0 &&
+              std::abs(cloud_glint_share(0.5) - 0.25) < 1e-15 && cloud_lights_share(0.5) == 0.5,
+          "half a cloud cover leaves a quarter of the glint and half of the city lights");
+
+    // The drift: west in the tropics, east in the middle latitudes, none at the poles; the two
+    // copies of the picture always add up to one, and each is unseen when it starts over.
+    check(earth.clouds.tropical_drift_deg_per_day < 0.0 && earth.clouds.midlatitude_drift_deg_per_day > 0.0,
+          "the Earth's clouds drift");
+    check(cloud_drift_deg_per_day(earth.clouds, 0.0) == earth.clouds.tropical_drift_deg_per_day &&
+              std::abs(cloud_drift_deg_per_day(earth.clouds, glm::radians(45.0)) -
+                       (earth.clouds.midlatitude_drift_deg_per_day + earth.clouds.tropical_drift_deg_per_day / 8.0)) < 1e-12 &&
+              std::abs(cloud_drift_deg_per_day(earth.clouds, glm::radians(90.0))) < 1e-12 &&
+              cloud_drift_deg_per_day(earth.clouds, glm::radians(-45.0)) == cloud_drift_deg_per_day(earth.clouds, glm::radians(45.0)),
+          "the drift by latitude");
+    double largest_shift = 0.0;
+    bool weights_ok = true;
+    for (int k = 0; k <= 200; ++k) {
+        const double phase = k / 200.0;
+        const CloudCopy a = cloud_copy(earth.clouds, glm::radians(45.0), phase, 0);
+        const CloudCopy b = cloud_copy(earth.clouds, glm::radians(45.0), phase, 1);
+        weights_ok = weights_ok && std::abs(a.weight + b.weight - 1.0) < 1e-12 && a.weight >= 0.0 && b.weight >= 0.0;
+        largest_shift = std::max({largest_shift, std::abs(a.shift_deg), std::abs(b.shift_deg)});
+    }
+    check(weights_ok, "the two copies of the clouds add up to one");
+    check(cloud_copy(earth.clouds, 0.7, 0.0, 0).weight == 0.0 && cloud_copy(earth.clouds, 0.7, 0.5, 1).weight == 0.0 &&
+              cloud_copy(earth.clouds, 0.7, 0.5, 0).weight == 1.0 && cloud_copy(earth.clouds, 0.7, 0.5, 0).shift_deg == 0.0,
+          "a copy starts over unseen, and is the still picture at its fullest");
+    check(largest_shift < 20.0, "no copy is sheared far from the picture", largest_shift);
+    // A copy moves at the drift's rate.
+    const CloudCopy early = cloud_copy(earth.clouds, glm::radians(45.0), 0.4, 0);
+    const CloudCopy late = cloud_copy(earth.clouds, glm::radians(45.0), 0.6, 0);
+    check(std::abs((late.shift_deg - early.shift_deg) / (0.2 * kCloudCycleDays) -
+                   cloud_drift_deg_per_day(earth.clouds, glm::radians(45.0))) < 1e-9,
+          "a copy moves at the drift's rate");
+    {
+        // The cycle follows the clock, but slowly on screen whatever the warp; not while paused,
+        // and backward when time runs backward.
+        Simulation sim;
+        std::string load_error;
+        check(sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/earth_moon.toml", &load_error), "the Earth-Moon scene loads");
+        sim.clock().paused = false;
+        sim.clock().reverse = false;
+        sim.clock().warp = 3600.0;
+        const double start = sim.cloud_phase();
+        for (int k = 0; k < 10; ++k) {
+            sim.update(0.1);
+        }
+        const double slow = sim.cloud_phase() - start;
+        check(std::abs(slow - 3600.0 / 86400.0 / kCloudCycleDays) < 1e-9, "an hour of drift per second at an hour per second", slow);
+        sim.clock().warp = 1e7;
+        const double before = sim.cloud_phase();
+        for (int k = 0; k < 10; ++k) {
+            sim.update(0.1);
+        }
+        const double fast = sim.cloud_phase() - before;
+        check(std::abs(fast - kCloudMaxDaysPerSecond / kCloudCycleDays) < 1e-9, "capped at high warp", fast);
+        sim.clock().reverse = true;
+        const double turned = sim.cloud_phase();
+        sim.update(0.1);
+        check(sim.cloud_phase() < turned, "backward when time runs backward");
+        sim.clock().paused = true;
+        const double paused = sim.cloud_phase();
+        sim.update(0.1);
+        check(sim.cloud_phase() == paused, "still while paused");
+    }
+
     std::string err;
     Scene bad;
+    const char* cloudy = "name = 'x'\n[[bodies]]\nname = 'P'\nradii_km = [1.0]\ntexture = 'a.jpg'\n";
+    const char* air = "[bodies.atmosphere]\nheight_km = 0.01\nrayleigh_depth = 0.1\nrayleigh_scale_height_km = 0.001\n";
+    check(!load_scene_string("name = 'x'\n[[bodies]]\nname = 'P'\nradii_km = [1.0]\n"
+                             "[bodies.clouds]\ntexture = 'c.jpg'\nalbedo = 0.8\n",
+                             "bad_clouds", bad, &err),
+          "clouds need the body's texture");
+    check(!load_scene_string((std::string(cloudy) + air + "[bodies.clouds]\ntexture = 'c.jpg'\nalbedo = 1.5\n").c_str(),
+                             "bad_cloud_albedo", bad, &err),
+          "rejects a cloud albedo above 1");
+    check(load_scene_string((std::string(cloudy) + air + "[bodies.clouds]\ntexture = 'c.jpg'\nalbedo = 0.7\n").c_str(),
+                            "good_clouds", bad, &err) &&
+              bad.bodies[0].clouds.albedo == 0.7,
+          "reads a cloud layer");
+    check(bad.bodies[0].clouds.tropical_drift_deg_per_day == 0.0 && bad.bodies[0].clouds.midlatitude_drift_deg_per_day == 0.0,
+          "which stays still unless told to drift");
+    check(!load_scene_string((std::string(cloudy) + "[bodies.clouds]\ntexture = 'c.jpg'\nalbedo = 0.7\n"
+                                                    "midlatitude_drift_deg_per_day = 90.0\n").c_str(),
+                             "bad_cloud_drift", bad, &err),
+          "rejects a drift that would tear the picture apart");
     check(!load_scene_string("name = 'x'\n[[bodies]]\nname = 'P'\nradii_km = [1.0]\n"
                              "[bodies.relief]\ntexture = 'a.jpg'\n",
                              "bad_relief", bad, &err),

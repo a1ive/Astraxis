@@ -5,7 +5,8 @@
 // battle station. Under an atmosphere, sunlight is reddened by the column it
 // crosses (the twilight band at the terminator). City lights come on at dusk
 // and shine up through the atmosphere. A relief map tilts the normal by the
-// surface's slopes, and its water mirrors the sun (scene/relief.hpp).
+// surface's slopes, and its water mirrors the sun; a cloud map lays a smooth white
+// layer over all of it (scene/relief.hpp).
 
 #include "atmosphere.hlsli"
 #include "common.hlsli"
@@ -24,6 +25,7 @@ FRAGMENT_TEXTURE(Texture2D, u_ring_profile, u_ring_sampler, 1); // r = ring norm
 FRAGMENT_TEXTURE(Texture2D, u_night_lights, u_night_sampler, 2); // sRGB gray map of emitted light
 FRAGMENT_TEXTURE(Texture2D, u_field_map, u_field_sampler, 3); // r: radial magnetic field, 0.5 = none, compressed
 FRAGMENT_TEXTURE(Texture2D, u_relief_map, u_relief_sampler, 4); // rg: slopes east and north, compressed; b: water
+FRAGMENT_TEXTURE(Texture2D, u_cloud_map, u_cloud_sampler, 5); // r: cloud cover
 
 cbuffer Uniforms : register(b0, space3)
 {
@@ -50,7 +52,10 @@ cbuffer Uniforms : register(b0, space3)
     float4 u_spot_tints[4];            // a planet's dark spots (their places in u_spots, how many in u_spot_color.a):
                                        // rgb = relative change of the albedo at the center
     float4 u_relief;                   // x = slope of a full channel (0 = no map), y = the sea's mean square slope
-                                       // (0 = no glint), z = its reflectance at normal incidence
+                                       // (0 = no glint), z = its reflectance at normal incidence,
+                                       // w = the albedo of the clouds (0 = none)
+    float4 u_cloud_flow;               // the clouds' drift: x = place in the cycle (0..1), y = the cycle (days),
+                                       // z, w = deg of longitude per day in the tropics and the middle latitudes
 };
 
 // A wobble of an edge on a star's surface that changes smoothly over the sphere.
@@ -214,6 +219,30 @@ float star_visibility(float3 p, float3 L, float light_radius)
     float ring_t = ring_u >= 0.0 && ring_u <= 1.0 ? exp(-ring_tau / max(abs(dot(L, u_ring_normal.xyz)), 1e-3)) : 1.0;
 
     return eclipse_factor(p, L, light_radius) * ring_t;
+}
+
+// The cloud cover at a place of the map. The picture drifts along the parallels: two copies
+// half a cycle apart, each sheared by the drift and faded out before it starts over;
+// cloud_copy in scene/relief.hpp is the same.
+float cloud_cover(float2 uv)
+{
+    float lat = (0.5 - uv.y) * kPi;
+    float c = cos(lat);
+    float s2 = sin(2.0 * lat);
+    float c2 = c * c;
+    float turns = (u_cloud_flow.w * s2 * s2 + u_cloud_flow.z * c2 * c2 * c2) * u_cloud_flow.y / 360.0;
+    if (u_params.w > 0.5) {
+        turns = -turns; // the map's east is to the left
+    }
+    float p0 = frac(u_cloud_flow.x);
+    float p1 = frac(u_cloud_flow.x + 0.5);
+    // The picture moves east: the cloud now here was to the west. One set of derivatives for
+    // both lookups (frac jumps, and the two differ only by a smooth shift).
+    float2 dx = ddx(uv);
+    float2 dy = ddy(uv);
+    float a = u_cloud_map.SampleGrad(u_cloud_sampler, float2(uv.x - turns * (p0 - 0.5), uv.y), dx, dy).r;
+    float b = u_cloud_map.SampleGrad(u_cloud_sampler, float2(uv.x - turns * (p1 - 0.5), uv.y), dx, dy).r;
+    return lerp(b, a, 1.0 - abs(2.0 * p0 - 1.0));
 }
 
 // Lambert light on a surface whose normal is n, tilted by the relief from the smooth
@@ -431,6 +460,15 @@ float4 main(PSInput input, bool front_face : SV_IsFrontFace) : SV_Target0
         }
     }
 
+    // Clouds: a smooth white layer in place of the surface, as much as they cover it.
+    float cover = cloud_cover(uv);
+    if (u_relief.w > 0.0) {
+        albedo = lerp(albedo, u_relief.w, cover);
+        nr = normalize(lerp(nr, n, cover));
+    } else {
+        cover = 0.0;
+    }
+
     float3 sun_reach = star_visibility(input.rel_pos, L, u_sun.w) * atmosphere_transmission(dot(n, L));
     float3 lit = lambert(nr, n, L) * sun_reach;
     float3 glint = 0.0;
@@ -452,13 +490,15 @@ float4 main(PSInput input, bool front_face : SV_IsFrontFace) : SV_Target0
     float ambient = u_params.y + u_craft.y * (0.35 + 0.65 * saturate(dot(n, V)));
     float3 color = albedo * (lit * limb + ambient) * u_surface.x;
     // The mirrored sunlight keeps the sun's color, and leaves through the atmosphere.
-    color += glint * (relief.b * baked_sunlight * u_surface.x) * atmosphere_transmission(saturate(dot(n, V)));
+    // It crosses the clouds twice.
+    color += glint * (relief.b * (1.0 - cover) * (1.0 - cover) * baked_sunlight * u_surface.x) *
+             atmosphere_transmission(saturate(dot(n, V)));
     if (u_night.w > 0.0) {
         // Lights come on between sunset and the sun 6 deg below the horizon,
         // and reach the viewer through the atmosphere.
         float dusk = 1.0 - smoothstep(-0.1045, 0.0, dot(n, L));
         float lights = u_night_lights.Sample(u_night_sampler, uv).r;
-        color += srgb_to_linear(u_night.rgb) * (u_night.w * lights * dusk) *
+        color += srgb_to_linear(u_night.rgb) * (u_night.w * lights * dusk * (1.0 - cover)) *
                  atmosphere_transmission(saturate(dot(n, V)));
     }
     if (u_surface.y > 0.5) {

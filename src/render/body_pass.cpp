@@ -50,7 +50,8 @@ struct FragmentUniforms {
     glm::vec4 flare_color; // rgb = its linear radiance
     glm::vec4 spot_tints[4]; // a planet's dark spots: rgb = relative change of the albedo at the center
     glm::vec4 relief; // x = slope of a full channel (0: no map), y = the sea's mean square slope (0: no glint),
-                      // z = its reflectance at normal incidence
+                      // z = its reflectance at normal incidence, w = the albedo of the clouds (0: none)
+    glm::vec4 cloud_flow; // BodyDrawItem::cloud_flow
 };
 
 struct BodyVertex {
@@ -150,7 +151,7 @@ bool BodyPass::create_pipelines(const SceneTargetFormat& format)
     SDL_GPUShader* fs = create_shader(device, {.dxil = kBodyFragDxil,
                                                .spirv = kBodyFragSpirv,
                                                .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
-                                               .num_samplers = 5,
+                                               .num_samplers = 6,
                                                .num_uniform_buffers = 1});
     if (!vs || !fs) {
         SDL_ReleaseGPUShader(device, vs);
@@ -339,16 +340,19 @@ void BodyPass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const Ca
         if (item.relief) {
             fu.relief = glm::vec4(item.relief_slope, item.sea_slope_variance, item.sea_reflectance, 0.0f);
         }
+        fu.relief.w = item.clouds ? item.cloud_albedo : 0.0f;
+        fu.cloud_flow = item.cloud_flow;
         SDL_PushGPUFragmentUniformData(cmd, 0, &fu, sizeof(fu));
 
-        SDL_GPUTextureSamplerBinding tex[5] = {
+        SDL_GPUTextureSamplerBinding tex[6] = {
             {.texture = item.texture ? item.texture : m_white, .sampler = m_sampler},
             {.texture = item.ring_profile ? item.ring_profile : m_no_rings, .sampler = m_profile_sampler},
             {.texture = item.night_lights ? item.night_lights : m_white, .sampler = m_sampler},
             {.texture = item.field_map ? item.field_map : m_white, .sampler = m_sampler},
             {.texture = item.relief ? item.relief : m_white, .sampler = m_sampler},
+            {.texture = item.clouds ? item.clouds : m_white, .sampler = m_sampler},
         };
-        SDL_BindGPUFragmentSamplers(pass, 0, tex, 5);
+        SDL_BindGPUFragmentSamplers(pass, 0, tex, 6);
 
         SDL_DrawGPUIndexedPrimitives(pass, mesh->index_count, 1, 0, 0, 0);
     }

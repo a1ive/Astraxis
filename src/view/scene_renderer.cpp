@@ -828,6 +828,7 @@ void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, u
     m_ring_textures.assign(scene.bodies.size(), nullptr);
     m_night_textures.assign(scene.bodies.size(), nullptr);
     m_relief_textures.assign(scene.bodies.size(), nullptr);
+    m_cloud_textures.assign(scene.bodies.size(), nullptr);
     m_field_map_textures.assign(scene.bodies.size(), nullptr);
     m_deep_field_map_textures.assign(scene.bodies.size(), nullptr);
     m_crust_field_map_textures.assign(scene.bodies.size(), nullptr);
@@ -897,6 +898,13 @@ void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, u
             m_relief_textures[i] = load_texture_linear(m_device->device(), m_asset_dir / body.relief.texture, &error);
             if (!m_relief_textures[i]) {
                 SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Relief map for %s unavailable: %s", body.name.c_str(),
+                            error.c_str());
+            }
+        }
+        if (!body.clouds.texture.empty()) {
+            m_cloud_textures[i] = load_texture_linear(m_device->device(), m_asset_dir / body.clouds.texture, &error);
+            if (!m_cloud_textures[i]) {
+                SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Clouds for %s unavailable: %s", body.name.c_str(),
                             error.c_str());
             }
         }
@@ -1111,7 +1119,7 @@ void SceneRenderer::draw_neutron_star(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPa
 
 void SceneRenderer::release_body_textures()
 {
-    for (auto* textures : {&m_body_textures, &m_ring_textures, &m_night_textures, &m_relief_textures, &m_aurora_textures,
+    for (auto* textures : {&m_body_textures, &m_ring_textures, &m_night_textures, &m_relief_textures, &m_cloud_textures, &m_aurora_textures,
                            &m_field_map_textures, &m_deep_field_map_textures, &m_crust_field_map_textures}) {
         for (SDL_GPUTexture* texture : *textures) {
             if (texture) {
@@ -1387,6 +1395,14 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
             item.night_lights = m_night_textures[i];
             item.night_lights_color = body.night_lights.color;
             item.night_lights_gain = static_cast<float>(body.night_lights.gain);
+        }
+        // The clouds go with the atmospheres.
+        if (i < m_cloud_textures.size() && m_cloud_textures[i] && item.texture && show_atmosphere) {
+            item.clouds = m_cloud_textures[i];
+            item.cloud_albedo = static_cast<float>(body.clouds.albedo);
+            item.cloud_flow = glm::vec4(static_cast<float>(sim.cloud_phase()), static_cast<float>(kCloudCycleDays),
+                                        static_cast<float>(body.clouds.tropical_drift_deg_per_day),
+                                        static_cast<float>(body.clouds.midlatitude_drift_deg_per_day));
         }
         if (i < m_relief_textures.size() && m_relief_textures[i] && item.texture) {
             item.relief = m_relief_textures[i];

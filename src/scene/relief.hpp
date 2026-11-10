@@ -26,6 +26,64 @@ struct SeaSurface {
     double refractive_index = 1.0;
 };
 
+// Clouds over the surface (`[bodies.clouds]`): a gray map of their cover in the projection
+// of the albedo map, drawn with the atmosphere (not at all on a body without one). Where
+// they are, the surface gives way to a smooth white layer of this albedo, which also hides
+// the sea's glint and the city lights.
+// No shadows, no height. The picture is a still one, set flowing along the parallels for
+// the look of it: westward in the tropics and eastward in the middle latitudes, at the two
+// rates below (degrees of longitude per day, east positive; both 0: the picture stays
+// still on the ground).
+struct CloudLayer {
+    std::string texture; // empty: none
+    double albedo = 0.0;
+    double tropical_drift_deg_per_day = 0.0;
+    double midlatitude_drift_deg_per_day = 0.0;
+};
+
+// The flow would wind a still picture up without end, so it runs in cycles of this many
+// days of drift: two copies of the picture half a cycle apart, each sheared from half a
+// cycle back to half a cycle ahead and faded in and out so that it is unseen when it starts
+// over. Simulation::cloud_phase() is the place in the cycle; it follows the clock, but no
+// faster on screen than kCloudMaxDaysPerSecond of drift per second.
+inline constexpr double kCloudCycleDays = 3.0;
+inline constexpr double kCloudMaxDaysPerSecond = 1.0 / 12.0;
+
+// The drift's rate at a latitude, degrees of longitude per day: the tropical rate at the
+// equator, the mid-latitude one at 45 degrees, none at the poles. As in body.frag.hlsl.
+inline double cloud_drift_deg_per_day(const CloudLayer& clouds, double lat_rad)
+{
+    const double c = std::cos(lat_rad);
+    const double s2 = std::sin(2.0 * lat_rad);
+    const double c2 = c * c;
+    return clouds.midlatitude_drift_deg_per_day * s2 * s2 + clouds.tropical_drift_deg_per_day * c2 * c2 * c2;
+}
+
+// One of the two copies (0 or 1) at a place in the cycle (0..1): how far east its picture
+// has moved at this latitude (degrees) and its weight. The weights of the two add up to 1.
+struct CloudCopy {
+    double shift_deg = 0.0;
+    double weight = 0.0;
+};
+inline CloudCopy cloud_copy(const CloudLayer& clouds, double lat_rad, double phase, int copy)
+{
+    double p = phase + 0.5 * copy;
+    p -= std::floor(p);
+    return {cloud_drift_deg_per_day(clouds, lat_rad) * kCloudCycleDays * (p - 0.5), 1.0 - std::abs(2.0 * p - 1.0)};
+}
+
+// What a cloud cover (0..1, the map's value) leaves of the sunlight mirrored by the sea
+// below it, which crosses the layer twice, and of the light of the cities, which crosses
+// it once. As in body.frag.hlsl.
+inline double cloud_glint_share(double cover)
+{
+    return (1.0 - cover) * (1.0 - cover);
+}
+inline double cloud_lights_share(double cover)
+{
+    return 1.0 - cover;
+}
+
 inline constexpr double kReliefMaxSlope = 1.0;
 
 // The slope from a channel of the relief map (0..1).

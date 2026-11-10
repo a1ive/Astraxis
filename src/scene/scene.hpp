@@ -491,6 +491,7 @@ struct Body {
     } night_lights;
     SurfaceRelief relief; // scene/relief.hpp
     SeaSurface sea;       // needs the relief map, which has the water
+    CloudLayer clouds;
     BodyAurora aurora; // scene/aurora_model.hpp
     BodyMagneticField magnetic_field; // scene/magnetic_field.hpp
     BodyMagneticMap magnetic_map;

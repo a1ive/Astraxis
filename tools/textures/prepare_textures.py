@@ -8,6 +8,7 @@ originals there first, then:
 Expected file names in <source_dir> (the default is 2048 px wide):
     PIA07782.jpg  -> jupiter.jpg
     world.200407.3x5400x2700.jpg -> earth.jpg
+    cloud_combined_2048.jpg      -> earth_clouds.jpg (gray)
     lroc_color_poles_2k.tif      -> moon.jpg
     io.tif        -> io.jpg
     europa.tif    -> europa.jpg
@@ -93,6 +94,11 @@ MAPS = [
 # Maps of emitted light: (source, output, width).
 LIGHT_MAPS = [
     ('BlackMarble_2016_3km_gray.jpg', 'earth_night.jpg', 4096),
+]
+
+# Gray maps that are not light (cloud cover): (source, output, width). Averaged as stored.
+GRAY_MAPS = [
+    ('cloud_combined_2048.jpg', 'earth_clouds.jpg', 2048),
 ]
 
 
@@ -248,6 +254,17 @@ def prepare_lights(src, dst, width):
     print(f'  -> {dst} ({os.path.getsize(dst) // 1024} KB)')
 
 
+def prepare_gray(src, dst, width):
+    """A gray map of a quantity that is not light: one channel, averaged as stored."""
+    with Image.open(src) as img:
+        print(f'{os.path.basename(src)}: {img.size[0]}x{img.size[1]} {img.mode}')
+        gray = img.convert('L')
+        if gray.size != (width, width // 2):
+            gray = gray.resize((width, width // 2), Image.Resampling.BOX)
+        gray.save(dst, 'JPEG', quality=90, optimize=True)
+    print(f'  -> {dst} ({os.path.getsize(dst) // 1024} KB)')
+
+
 def main():
     if len(sys.argv) not in (3, 4):
         sys.exit(__doc__)
@@ -266,6 +283,12 @@ def main():
             print(f'skip {src_name} (not found)')
             continue
         prepare_lights(src, os.path.join(out_dir, dst_name), light_width)
+    for src_name, dst_name, gray_width in GRAY_MAPS:
+        src = os.path.join(src_dir, src_name)
+        if not os.path.exists(src):
+            print(f'skip {src_name} (not found)')
+            continue
+        prepare_gray(src, os.path.join(out_dir, dst_name), gray_width)
 
 
 if __name__ == '__main__':
