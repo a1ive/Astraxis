@@ -33,6 +33,11 @@ enum class MagnetosphereModel {
     // the pressure; polar flattening and a dawn-dusk asymmetry included. For use within
     // 250 radii down the tail (the bow shock: 100).
     Joy2002,
+    // Fits of spacecraft crossings to Shue's shape: standoff = standoff_at_1npa
+    // P^(-1 / compressibility) and flaring + flaring_slope P (Saturn: Kanani et al. 2010;
+    // Mercury: Winslow et al. 2013), or a fixed standoff_radii where the pressure's part is
+    // not known (Neptune). The shock may have its own power law (Saturn: Went et al. 2011).
+    PowerLaw,
     // The Sun's own: the heliopause, where the solar wind meets the interstellar gas, in
     // the shape of Parker 1961 (ApJ 134, 20) for incompressible flow from a point source in
     // a uniform stream, r = R / cos(theta / 2), with the nose toward the interstellar wind;
@@ -54,7 +59,18 @@ struct BodyMagnetosphere {
     double flaring = 0.6;
     // Where the tail stops widening and goes on as a cylinder (0: it keeps flaring).
     double flare_end_radii = 0.0;
-    // Heliosphere: the nose's distance, and its direction in ICRF (a unit vector).
+    // PowerLaw (0: unused). The shock's own law replaces shock_standoff_ratio.
+    double standoff_at_1npa = 0.0;
+    double flaring_slope = 0.0;
+    double shock_at_1npa = 0.0;
+    double shock_compressibility = 0.0;
+    // The shock's focus, this far up the axis from the center (Mercury).
+    double shock_focus_radii = 0.0;
+    // The center of both surfaces from the body's, in the axes below (Mercury's dipole is
+    // north of the planet's center).
+    glm::dvec3 center_offset_radii{0.0};
+    // Heliosphere, and PowerLaw without a pressure law: the nose's distance. Heliosphere:
+    // its direction in ICRF (a unit vector).
     double standoff_radii = 0.0;
     glm::dvec3 nose_icrf{1.0, 0.0, 0.0};
     // The bow shock of the first two models: a conic of revolution with its focus at the
@@ -84,12 +100,14 @@ struct BoundarySurface {
     enum class Shape { Flared, Conic, Quadric };
     Shape shape = Shape::Flared;
     // Flared: r = standoff (2 / (1 + cos theta))^flaring, a cylinder of tail_radius beyond
-    // x = -flare_end (if set). Conic: r = standoff (1 + e) / (1 + e cos theta).
+    // x = -flare_end (if set). Conic: r' = (standoff - focus) (1 + e) / (1 + e cos theta')
+    // about a focus at x = focus; standoff is still the nose's distance from the center.
     double standoff = 1.0;
     double flaring = 0.6;
     double flare_end = 0.0;
     double tail_radius = 0.0;
     double eccentricity = 1.0;
+    double focus = 0.0;
     // Quadric: z^2 = A + B x + C x^2 + D y + E y^2 + F x y, in units of `scale` radii.
     double coefficients[6]{};
     double scale = 1.0;

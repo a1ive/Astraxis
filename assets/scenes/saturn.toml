@@ -14,6 +14,11 @@
 #        terms (Mimas 13.5, Tethys 9.6, Rhea 3.1 deg) move the pole.
 # [PLM]  Enceladus' plumes (always erupting): sources and choices in bodies/enceladus.toml.
 # [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
+# [KAN10] Kanani et al. 2010, JGR 115, A06207: the magnetopause from Cassini's crossings,
+#        standoff 10.3 P^-0.2 Saturn radii (P in nPa), flaring 0.73 + 0.4 P.
+# [WENT11] Went et al. 2011, JGR 116, A07202: the bow shock, a conic of eccentricity 0.84 with
+#        its nose 15 P^(-1/5.4) radii out (its Table 1). Both in bodies/saturn.toml;
+#        assets/geomag/SOURCES.md.
 # [APX]  E. M. Standish, Approximate Positions of the Planets, Tables 2a + 2b.
 # [MDLC] NASA/Brian E. Kumanchik, "Cassini-Huygens (A)" (without Huygens), NASA 3D Resources,
 #        science.nasa.gov/3d-resources/cassini-huygens-a/, converted by
@@ -906,6 +911,28 @@ caption = """\
     0.007 degrees of Saturn's spin axis, so these lines look the same however the planet \
     turns, and it sits 2,820 km north of the center. A dynamo cannot sustain a perfectly \
     symmetric field, so this remains a puzzle. Drawn from a model, without the solar wind."""
+
+# Seen from the north, the Sun to the left; the date puts Titan on the day side.
+[[events]]
+name = "Titan at the edge of Saturn's magnetosphere"
+magnetosphere = [{ body = "Saturn", tail_radii = 40.0 },
+                 { body = "Saturn", pressure_npa = 0.05, tail_radii = 40.0, faint = true }]
+trails = [{ body = "Titan", trail = "orbit" }]
+focus_orbits_only = true
+time_tdb = "2013-12-01 00:00"
+focus = "Saturn"
+from_body = "Sun"
+phase_deg = 90.0
+elevation_deg = 75.0
+distance_km = 1.3e7
+warp = 3600.0
+# [KAN10], [WENT11]
+caption = """\
+    Titan circles Saturn 20.3 Saturn radii out. Under a typical solar wind the planet's \
+    magnetic field holds the wind off to about 22 radii on the day side (blue), so Titan \
+    stays inside. The faint surface is the edge under a wind 2.5 times as strong: it falls \
+    inside Titan's orbit, and a moon caught on the day side is left out in the flow. \
+    Orange: the shock ahead. Average surfaces fitted to Cassini's crossings."""
 
 # Small-moon views: dates select the viewing geometry, not spacecraft encounters.
 [[events]]

@@ -37,6 +37,21 @@ coefficients = "geomag/field_saturn_cassini11.txt"
 reference_radius_km = 60268.0
 l_shells = [2.5, 4.0, 6.0]
 
+# The magnetopause of Kanani et al. 2010 (JGR 115, A06207) and the bow shock of Went et al.
+# 2011 (JGR 116, A07202), both fits of Cassini's crossings that move with the solar wind's
+# dynamic pressure; 0.02 nPa is a round typical value here. geomag/SOURCES.md.
+[magnetosphere]
+model = "power_law"
+radius_km = 60268.0
+standoff_at_1npa = 10.3
+compressibility = 5.0
+flaring = 0.73
+flaring_slope = 0.4
+shock_at_1npa = 15.0
+shock_compressibility = 5.4
+shock_eccentricity = 0.84
+pressure_npa = 0.02
+tail_radii = 80.0
 [rings]                                    # [RSS]
 profile = "rings/saturn_rss.ring"
 color = "#d6c3a0"

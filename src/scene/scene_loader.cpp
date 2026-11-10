@@ -286,7 +286,7 @@ SolarWind parse_solar_wind(const toml::table& t, const BodyMagnetosphere& model,
     if (const auto v = t["bz_nt"].value<double>()) wind.bz_nt = *v;
     if (const auto v = t["wind_speed_km_s"].value<double>()) wind.speed_km_s = *v;
     if (const auto radii = t["standoff_radii"].value<double>()) {
-        if (model.model == MagnetosphereModel::Heliosphere && *radii > 0.0) {
+        if ((model.model == MagnetosphereModel::Heliosphere || model.model == MagnetosphereModel::PowerLaw) && *radii > 0.0) {
             wind.standoff_radii = *radii;
         } else if (model.model != MagnetosphereModel::PressureBalance || t.contains("pressure_npa") || !(*radii > 1.0)) {
             fail(ctx, "standoff_radii (above 1) is for the pressure_balance model, instead of pressure_npa, "
@@ -296,8 +296,9 @@ SolarWind parse_solar_wind(const toml::table& t, const BodyMagnetosphere& model,
         }
     }
     if (const auto radii = t["shock_radii"].value<double>()) {
-        if (model.model != MagnetosphereModel::Heliosphere || !(*radii > 0.0)) {
-            fail(ctx, "shock_radii is for the heliosphere");
+        if ((model.model != MagnetosphereModel::Heliosphere && model.model != MagnetosphereModel::PowerLaw) ||
+            !(*radii > 0.0)) {
+            fail(ctx, "shock_radii is for the heliosphere and power_law models");
         }
         wind.shock_radii = *radii;
     }
@@ -547,6 +548,8 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
         {"surface_field_nt", number}, {"compressibility", number}, {"flaring", number},
         {"flare_end_radii", number}, {"shock_standoff_ratio", number}, {"shock_eccentricity", number},
         {"color", text}, {"shock_color", text}, {"nose_ecliptic_deg", list},
+        {"standoff_at_1npa", number}, {"flaring_slope", number}, {"shock_at_1npa", number},
+        {"shock_compressibility", number}, {"shock_focus_radii", number}, {"center_offset_radii", list},
     };
     static const TemplateFields rotor = {{"shape", text}, {"period_s", number}};
     static const TemplateFields shape_after = {{"shape", text}, {"time", text}, {"time_tdb", text}};
@@ -1868,6 +1871,34 @@ void Loader::parse(const toml::table& root, Scene& out)
                 m.model = MagnetosphereModel::Joy2002;
             } else if (model == "pressure_balance") {
                 m.model = MagnetosphereModel::PressureBalance;
+            } else if (model == "power_law") {
+                m.model = MagnetosphereModel::PowerLaw;
+                m.flaring = get_double_or(*sphere, "flaring", m.flaring);
+                m.flaring_slope = get_double_or(*sphere, "flaring_slope", 0.0);
+                m.shock_focus_radii = get_double_or(*sphere, "shock_focus_radii", 0.0);
+                if (sphere->contains("standoff_at_1npa")) {
+                    m.standoff_at_1npa = get_double(*sphere, "standoff_at_1npa", mctx);
+                    m.compressibility = get_double(*sphere, "compressibility", mctx);
+                    if (sphere->contains("standoff_radii")) {
+                        fail(mctx, "takes standoff_at_1npa with compressibility, or standoff_radii, not both");
+                    }
+                } else {
+                    m.standoff_radii = get_double(*sphere, "standoff_radii", mctx);
+                }
+                if (sphere->contains("shock_at_1npa")) {
+                    m.shock_at_1npa = get_double(*sphere, "shock_at_1npa", mctx);
+                    m.shock_compressibility = get_double(*sphere, "shock_compressibility", mctx);
+                }
+                if (sphere->contains("center_offset_radii")) {
+                    double offset[3];
+                    get_array(*sphere, "center_offset_radii", mctx, offset, 3, 3);
+                    m.center_offset_radii = glm::dvec3(offset[0], offset[1], offset[2]);
+                }
+                if (!(m.flaring > 0.0) || !(m.standoff_at_1npa > 0.0 ? m.compressibility > 1.0 : m.standoff_radii > 0.0) ||
+                    (m.shock_at_1npa > 0.0 && !(m.shock_compressibility > 1.0)) || m.shock_at_1npa < 0.0 ||
+                    m.shock_focus_radii < 0.0) {
+                    fail(mctx, "needs a positive flaring and standoff, and compressibilities above 1");
+                }
             } else if (model == "heliosphere") {
                 m.model = MagnetosphereModel::Heliosphere;
                 double nose[2];
@@ -1885,7 +1916,7 @@ void Loader::parse(const toml::table& root, Scene& out)
                     fail(mctx, "standoff_radii must be positive");
                 }
             } else {
-                fail(mctx, "model must be \"shue1998\", \"joy2002\", \"pressure_balance\" or \"heliosphere\"");
+                fail(mctx, "model must be \"shue1998\", \"joy2002\", \"pressure_balance\", \"power_law\" or \"heliosphere\"");
             }
             m.radius_km = get_double_or(*sphere, "radius_km", body.equatorial_radius_km);
             m.aberration = (*sphere)["aberration"].value<bool>().value_or(false);

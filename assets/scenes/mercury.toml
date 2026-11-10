@@ -14,6 +14,9 @@
 #        offset 484 km north along the spin axis, tilted less than 2.5 deg. Winslow et al. 2013,
 #        JGR Space Physics 118, 2213: mean subsolar magnetopause at 1.45 radii. The ratio of
 #        the fields at the poles is computed from the model; assets/geomag/SOURCES.md.
+# [MSPH] Winslow et al. 2013 again: the magnetopause 1.45 radii out with flaring 0.5 at a mean
+#        ram pressure of 14.3 nPa, 1.55 to 1.35 radii for 8.8 to 21.6 nPa; the bow shock a
+#        hyperboloid 1.96 radii out, eccentricity 1.02 (Table 2). bodies/mercury.toml.
 # [MDLS] The spacecraft's model, from NASA 3D Resources (github.com/nasa/NASA-3D-Resources), converted
 #        by tools/shapes/make_spacecraft.py; which model and whose: assets/shapes/SOURCES.md.
 
@@ -399,6 +402,29 @@ caption = """\
     it is more than three times as strong as at the south. On the day side the solar wind \
     holds it back to about 1.45 radii, leaving little room: only the lines inside are \
     drawn here, from a model of what the planet itself makes."""
+
+# Seen from the side, the Sun to the left. MESSENGER's 8-hour orbit takes it out through
+# both surfaces and back on every turn (tests/appearance_tests.cpp).
+[[events]]
+name = "Mercury's small magnetosphere (2013)"
+magnetosphere = [{ body = "Mercury" }]
+focus_orbits_only = true
+trails = [{ body = "MESSENGER", trail_history_days = 0.5 }]
+time_tdb = "2013-01-01 12:00"
+focus = "Mercury"
+frame = "Mercury-centered"
+from_body = "Sun"
+phase_deg = 80.0
+elevation_deg = 15.0
+distance_km = 3.6e4
+warp = 600.0
+# [MMAG], [MSPH]
+caption = """\
+    Mercury's field is weak and the solar wind this near the Sun is strong, so the wind \
+    stops the field only 1.45 radii from its center: about 1,100 km above the ground. \
+    Blue: that edge. Orange: the shock ahead of it, 1.96 radii out. Both are centered on \
+    the field, 484 km north of the planet's center. MESSENGER flew out through them and \
+    back on every orbit. Average surfaces from its crossings."""
 
 # Impact: the mean surface is reached at ~2015-04-30 19:27:55 TDB.
 [[events]]

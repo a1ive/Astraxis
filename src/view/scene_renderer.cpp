@@ -2136,7 +2136,7 @@ void SceneRenderer::build_magnetospheres(const Simulation& sim, const OutputView
             for (const std::vector<glm::dvec4>& line : m_magnetosphere_lines) {
                 m_line_points.clear();
                 for (const glm::dvec4& p : line) {
-                    m_line_points.emplace_back(to_render(body.world_position + axes * glm::dvec3(p), view.position),
+                    m_line_points.emplace_back(to_render(body.world_position + axes * (sphere.center_offset_radii + glm::dvec3(p)), view.position),
                                                static_cast<float>(p.w));
                 }
                 m_orbits.add_line(m_line_points, glm::vec4(color, static_cast<float>(opacity * gain)), 0.25f);

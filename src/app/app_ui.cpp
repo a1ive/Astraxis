@@ -386,7 +386,8 @@ void App::build_control_panel()
         ImGui::Combo("Magnetosphere", &m_view_options.magnetosphere_view, "Event setting\0Always\0Never\0");
         ImGui::SetItemTooltip("Where the solar wind stops the planet's field (the magnetopause, blue) and the\n"
                              "shock upstream of it (orange), as wire surfaces from empirical models:\n"
-                             "Shue 1998 for the Earth, Joy 2002 for Jupiter, a pressure balance for Uranus.\n"
+                             "Shue 1998 for the Earth, Joy 2002 for Jupiter, a pressure balance for Uranus,\n"
+                             "fits of spacecraft crossings for Mercury, Saturn and Neptune.\n"
                              "The Sun: the heliopause, where its wind ends, and the termination shock inside it.\n"
                              "Always: under typical solar wind. Event setting: under the event's own wind,\n"
                              "with a fainter surface for comparison. Averages: the real edges ripple and flap.");

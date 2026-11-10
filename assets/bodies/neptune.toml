@@ -66,6 +66,18 @@ neptune_map = "geomag/neptune_h3p.txt"
 coefficients = "geomag/field_neptune_o8.txt"
 reference_radius_km = 24765.0
 prime_meridian_deg = [253.18, 536.3128492] # [NLS]
+# Where Voyager 2 met them in 1989: the magnetopause 26.5 radii out and the bow shock 34.9,
+# near the line to the Sun (Ness et al. 1989, Science 246, 1473). The shock a parabola, as
+# Cairns et al. 1991 (JGR 96, 19153) fitted; the magnetopause's flaring is assumed. No
+# dependence on the solar wind: one pass. geomag/SOURCES.md.
+[magnetosphere]
+model = "power_law"
+radius_km = 24765.0
+standoff_radii = 26.5
+flaring = 0.6
+shock_standoff_ratio = 1.317               # 34.9 / 26.5
+shock_eccentricity = 1.0
+tail_radii = 80.0
 [magnetic_map]                      # O8 on the surface, in NLS (it turns against these axes)
 surface = "geomag/neptune_br.fieldmap"
 

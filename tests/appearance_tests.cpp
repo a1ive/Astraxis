@@ -2996,8 +2996,8 @@ void test_magnetospheres()
         scene.update(t);
         const int p = scene.find(planet);
         const glm::dvec3 offset = scene.icrf_state_at(scene.find(craft), t).position - scene.icrf_state_at(p, t).position;
-        return glm::transpose(scene.magnetosphere_axes(p, t, wind)) * offset /
-               scene.bodies[static_cast<size_t>(p)].magnetosphere.radius_km;
+        const BodyMagnetosphere& sphere = scene.bodies[static_cast<size_t>(p)].magnetosphere;
+        return glm::transpose(scene.magnetosphere_axes(p, t, wind)) * offset / sphere.radius_km - sphere.center_offset_radii;
     };
 
     // --- The Earth: Shue et al. 1998 -------------------------------------------------------
@@ -3235,6 +3235,139 @@ void test_magnetospheres()
         check(shown, "the Uranus scene compares the squeezed magnetopause with the mean one");
     }
 
+    // --- Saturn: Kanani et al. 2010 and Went et al. 2011 -----------------------------------
+    Scene saturn_scene = load_scene_or_die("saturn.toml");
+    const BodyMagnetosphere& saturn = saturn_scene.bodies[static_cast<size_t>(saturn_scene.find("Saturn"))].magnetosphere;
+    {
+        check(saturn.model == MagnetosphereModel::PowerLaw, "Saturn uses a power law");
+        SolarWind wind;
+        wind.pressure_npa = 0.04;
+        const BoundarySurface shock = bow_shock(saturn, wind);
+        const BoundarySurface pause = magnetopause(saturn, wind);
+        std::printf("Saturn at 0.04 nPa: magnetopause %.2f Rs (flaring %.3f), bow shock %.2f Rs; typical %.2f and %.2f Rs\n",
+                    pause.nose(), pause.flaring, shock.nose(), magnetopause(saturn, saturn.typical).nose(),
+                    bow_shock(saturn, saturn.typical).nose());
+        // A subsolar shock 27 radii out for about 0.04 nPa (Sulaiman et al. 2016 on Went's model).
+        check(std::abs(shock.nose() - 27.0) < 0.5, "Went's bow shock is 27 Rs out at 0.04 nPa", shock.nose());
+        check(std::abs(shock.radius({0.0, 1.0, 0.0}) / shock.nose() - 1.84) < 1e-9, "with eccentricity 0.84");
+        check(std::abs(pause.nose() - 10.3 * std::pow(0.04, -0.2)) < 1e-9, "Kanani's standoff is 10.3 P^-0.2");
+        check(std::abs(pause.flaring - (0.73 + 0.4 * 0.04)) < 1e-12, "and the flaring 0.73 + 0.4 P");
+        // The event: Titan, 20.3 radii out, inside the typical magnetopause and outside the
+        // one for 2.5 times the pressure when it is on the day side.
+        const SceneEvent* event = nullptr;
+        for (const SceneEvent& e : saturn_scene.events) {
+            if (e.magnetosphere.size() == 2) event = &e;
+        }
+        check(event != nullptr, "the Saturn scene has a magnetosphere event");
+        if (event) {
+            const glm::dvec3 titan = in_axes(saturn_scene, "Saturn", "Titan", event->t_tdb, saturn.typical);
+            const double from_noon = std::acos(titan.x / glm::length(titan)) / kDegToRad;
+            std::printf("Titan at the event: %.2f Rs out, %.1f deg from the Sun's direction\n", glm::length(titan), from_noon);
+            check(std::abs(glm::length(titan) - 20.3) < 0.7, "Titan is about 20.3 Rs out", glm::length(titan));
+            check(from_noon < 40.0, "and on the day side at the event", from_noon);
+            check(magnetopause(saturn, event->magnetosphere[0].wind).contains(titan), "inside the typical magnetopause");
+            check(!magnetopause(saturn, event->magnetosphere[1].wind).contains(titan) && event->magnetosphere[1].faint,
+                  "outside the one for 2.5 times the pressure");
+            check(bow_shock(saturn, event->magnetosphere[1].wind).contains(titan), "but still behind the shock");
+        }
+    }
+
+    // --- Mercury: Winslow et al. 2013 ------------------------------------------------------
+    Scene mercury_scene = load_scene_or_die("mercury.toml");
+    const BodyMagnetosphere& mercury = mercury_scene.bodies[static_cast<size_t>(mercury_scene.find("Mercury"))].magnetosphere;
+    {
+        check(mercury.model == MagnetosphereModel::PowerLaw, "Mercury uses a power law");
+        // The abstract's standoffs: 1.45 radii at 14.3 nPa, 1.55 to 1.35 for 8.8 to 21.6 nPa.
+        const double table[3][2] = {{14.3, 1.45}, {8.8, 1.55}, {21.6, 1.35}};
+        for (const auto& row : table) {
+            SolarWind wind;
+            wind.pressure_npa = row[0];
+            check(std::abs(magnetopause(mercury, wind).nose() - row[1]) < 0.02, "Winslow's magnetopause standoff", magnetopause(mercury, wind).nose());
+        }
+        const BoundarySurface pause = magnetopause(mercury, mercury.typical);
+        const BoundarySurface shock = bow_shock(mercury, mercury.typical);
+        check(std::abs(shock.nose() - 1.96) < 0.005, "the bow shock is 1.96 radii out", shock.nose());
+        // Winslow's equation 3 with the fit corrected for the Mach number (Table 2): focus 0.5
+        // radii up the axis, p = 2.90 radii, e = 1.02, so |q| (1 + e cos) = p e about the focus.
+        {
+            const glm::dvec3 d = glm::normalize(glm::dvec3(-0.4, 0.7, 0.3));
+            const glm::dvec3 q = shock.radius(d) * d - glm::dvec3(0.5, 0.0, 0.0);
+            check(std::abs(glm::length(q) + 1.02 * q.x - 2.90 * 1.02) < 0.005, "the shock is Winslow's conic about its focus",
+                  glm::length(q) + 1.02 * q.x);
+            check(shock.radius({0.0, 1.0, 0.0}) > pause.radius({0.0, 1.0, 0.0}), "outside the magnetopause abeam");
+        }
+        check(std::abs(mercury.center_offset_radii.z - 0.196) < 1e-9, "centered 0.196 radii north (Winslow's Zd)");
+        // About 7 deg of aberration on average, 3.5 to 10.2 over the orbit and the wind's speeds.
+        {
+            const int m = mercury_scene.find("Mercury");
+            double low = 90.0;
+            double high = 0.0;
+            for (int day = 0; day < 88; day += 4) {
+                const double t = utc("2013-01-01 00:00") + 86400.0 * day;
+                mercury_scene.update(t);
+                const glm::dvec3 to_sun = glm::normalize(mercury_scene.sun_icrf_state_at(t).position - mercury_scene.icrf_state_at(m, t).position);
+                const double lean = std::acos(std::min(1.0, glm::dot(mercury_scene.magnetosphere_axes(m, t, mercury.typical)[0], to_sun))) / kDegToRad;
+                low = std::min(low, lean);
+                high = std::max(high, lean);
+            }
+            std::printf("Mercury's aberration over an orbit: %.1f to %.1f deg\n", low, high);
+            check(low > 5.0 && high < 9.0 && 0.5 * (low + high) > 6.0 && 0.5 * (low + high) < 8.0, "Mercury's aberration is about 7 deg", 0.5 * (low + high));
+        }
+        check(pause.nose() - 1.0 + mercury.center_offset_radii.z < 0.7, "the magnetopause is under 0.7 radii above the ground at noon");
+        // MESSENGER over the event's day: inside the magnetopause at its lowest, beyond the shock at its highest.
+        const SceneEvent* event = nullptr;
+        for (const SceneEvent& e : mercury_scene.events) {
+            if (!e.magnetosphere.empty()) event = &e;
+        }
+        check(event != nullptr, "the Mercury scene has a magnetosphere event");
+        if (event) {
+            int pause_crossings = 0;
+            int shock_crossings = 0;
+            bool was_in_pause = false;
+            bool was_in_shock = false;
+            for (int i = 0; i <= 24 * 60; ++i) {
+                const glm::dvec3 p = in_axes(mercury_scene, "Mercury", "MESSENGER", event->t_tdb + 60.0 * i, mercury.typical);
+                const bool in_pause = pause.contains(p);
+                const bool in_shock = shock.contains(p);
+                pause_crossings += i > 0 && in_pause != was_in_pause ? 1 : 0;
+                shock_crossings += i > 0 && in_shock != was_in_shock ? 1 : 0;
+                was_in_pause = in_pause;
+                was_in_shock = in_shock;
+            }
+            std::printf("MESSENGER over a day: %d magnetopause and %d bow shock crossings of the average surfaces\n",
+                        pause_crossings, shock_crossings);
+            check(pause_crossings >= 4 && shock_crossings >= 4, "MESSENGER crosses both surfaces on every orbit", shock_crossings);
+        }
+    }
+
+    // --- Neptune: Voyager 2's crossings ----------------------------------------------------
+    Scene neptune_scene = load_scene_or_die("neptune.toml");
+    const BodyMagnetosphere& neptune = neptune_scene.bodies[static_cast<size_t>(neptune_scene.find("Neptune"))].magnetosphere;
+    {
+        check(neptune.model == MagnetosphereModel::PowerLaw, "Neptune's surfaces are of a given size");
+        const BoundarySurface pause = magnetopause(neptune, neptune.typical);
+        const BoundarySurface shock = bow_shock(neptune, neptune.typical);
+        check(std::abs(pause.nose() - 26.5) < 1e-9 && std::abs(shock.nose() - 34.9) < 0.01, "26.5 and 34.9 radii out", shock.nose());
+        SolarWind gust;
+        gust.pressure_npa = 10.0 * neptune.typical.pressure_npa;
+        check(magnetopause(neptune, gust).nose() == pause.nose(), "whatever the pressure");
+        // Bow shock 14:38 UT, magnetopause 18:00 UT (Lepping et al. 1992), 34.9 and 26.5 radii
+        // out, near the line to the Sun (Ness et al. 1989).
+        const glm::dvec3 at_shock = in_axes(neptune_scene, "Neptune", "Voyager 2", utc("1989-08-24 14:38"), neptune.typical);
+        const glm::dvec3 at_pause = in_axes(neptune_scene, "Neptune", "Voyager 2", utc("1989-08-24 18:00"), neptune.typical);
+        std::printf("Voyager 2 at Neptune: shock %.2f Rn out, %.1f deg from the Sun's line (model %.2f); magnetopause %.2f Rn, %.1f deg (model %.2f)\n",
+                    glm::length(at_shock), std::acos(at_shock.x / glm::length(at_shock)) / kDegToRad, shock.radius(glm::normalize(at_shock)),
+                    glm::length(at_pause), std::acos(at_pause.x / glm::length(at_pause)) / kDegToRad, pause.radius(glm::normalize(at_pause)));
+        check(std::abs(glm::length(at_shock) - 34.9) < 0.4, "Voyager 2 met Neptune's shock 34.9 radii out", glm::length(at_shock));
+        check(std::abs(glm::length(at_pause) - 26.5) < 0.4, "and the magnetopause 26.5 radii out", glm::length(at_pause));
+        check(std::acos(at_pause.x / glm::length(at_pause)) / kDegToRad < 30.0, "near the line to the Sun");
+        check(std::abs(shock.radius(glm::normalize(at_shock)) / glm::length(at_shock) - 1.0) < 0.05, "the model's shock is there", shock.radius(glm::normalize(at_shock)));
+        check(std::abs(pause.radius(glm::normalize(at_pause)) / glm::length(at_pause) - 1.0) < 0.05, "and its magnetopause", pause.radius(glm::normalize(at_pause)));
+        bool shown = false;
+        for (const SceneEvent& e : neptune_scene.events) shown = shown || !e.magnetosphere.empty();
+        check(shown, "the Neptune scene has a magnetosphere event");
+    }
+
     // --- The Sun: the heliopause and the termination shock ---------------------------------
     {
         Scene solar = load_scene_or_die("solar_system.toml");
@@ -3303,7 +3436,7 @@ void test_magnetospheres()
     }
 
     // --- The wire surfaces -----------------------------------------------------------------
-    for (const BodyMagnetosphere* sphere : {&earth, &jupiter, &uranus}) {
+    for (const BodyMagnetosphere* sphere : {&earth, &jupiter, &uranus, &saturn, &mercury, &neptune}) {
         for (int which = 0; which < 2; ++which) {
             const BoundarySurface surface = which == 0 ? magnetopause(*sphere, sphere->typical) : bow_shock(*sphere, sphere->typical);
             std::vector<std::vector<glm::dvec4>> lines;

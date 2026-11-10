@@ -38,6 +38,13 @@
 #
 # Colors are sRGB and illustrative where no surface map is used.
 
+# [NESS89] Ness et al. 1989, Science 246, 1473: Voyager 2 met the bow shock 34.9 radii out and
+#        (tentatively) the magnetopause 26.5 radii out, near the planet-Sun line.
+# [LEP92]  Lepping et al. 1992, Adv. Space Res. 12 (8), 73: the bow shock at 14:38 UT and the
+#        magnetopause at 18:00 UT on 1989-08-24; this scene's Voyager 2 is then 34.89 and
+#        26.45 radii out (tests/appearance_tests.cpp).
+# [CAI91]  Cairns et al. 1991, JGR 96, 19153: the shock as a paraboloid.
+
 name = "Neptune"
 
 [view]
@@ -252,6 +259,28 @@ caption = """\
     The last planet of the tour, and the closest pass of the whole mission: about 4,950 \
     km above the north pole. Neptune's gravity then sent Voyager 2 diving south of the \
     plane of the planets, and it has not come back."""
+
+# Seen from the side, the Sun to the left. The bow shock at 14:38 and the magnetopause at
+# 18:00 UT [LEP92], where the two surfaces are drawn [NESS89].
+[[events]]
+name = "Voyager 2 enters Neptune's magnetosphere (1989-08-24)"
+magnetosphere = [{ body = "Neptune", tail_radii = 40.0 }]
+focus_orbits_only = true
+trails = [{ body = "Voyager 2", trail_history_days = 10.0 }]
+time_tdb = "1989-08-24 13:30"
+focus = "Neptune"
+from_body = "Sun"
+phase_deg = 80.0
+elevation_deg = 12.0
+distance_km = 7.0e6
+warp = 1800.0
+# [NESS89], [LEP92], [CAI91]
+caption = """\
+    Ten hours before its closest approach, Voyager 2 met the shock that stands ahead of \
+    Neptune in the solar wind, 34.9 radii out (orange), and some three hours later the \
+    edge of the planet's magnetic field, 26.5 radii out (blue), both close to the line \
+    to the Sun. One pass on one day is all we have: the surfaces are drawn through those \
+    two crossings, and their shapes farther back are assumed."""
 
 [[events]]
 name = "Neptune's off-center magnetic field (1989-08-25)"

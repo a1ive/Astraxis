@@ -73,8 +73,30 @@ double BoundarySurface::radius(const glm::dvec3& d) const
         return r;
     }
     case Shape::Conic: {
-        const double denominator = 1.0 + eccentricity * d.x;
-        return denominator > 1e-12 ? standoff * (1.0 + eccentricity) / denominator : kInfinity;
+        if (focus == 0.0) {
+            const double denominator = 1.0 + eccentricity * d.x;
+            return denominator > 1e-12 ? standoff * (1.0 + eccentricity) / denominator : kInfinity;
+        }
+        // |q| + e q.x = l with q = r d - (focus, 0, 0): a quadratic in r.
+        const double l = (standoff - focus) * (1.0 + eccentricity);
+        const double m = l + eccentricity * focus;
+        const double a = 1.0 - eccentricity * eccentricity * d.x * d.x;
+        const double b = 2.0 * d.x * (m * eccentricity - focus);
+        const double c = focus * focus - m * m; // negative: the center is inside
+        if (std::abs(a) < 1e-12) {
+            return b > 1e-12 ? -c / b : kInfinity;
+        }
+        const double discriminant = b * b - 4.0 * a * c;
+        if (discriminant < 0.0) {
+            return kInfinity;
+        }
+        // The root on the branch around the focus: l - e q.x >= 0.
+        for (const double r : {(-b + std::sqrt(discriminant)) / (2.0 * a), (-b - std::sqrt(discriminant)) / (2.0 * a)}) {
+            if (r > 0.0 && m - eccentricity * r * d.x >= 0.0) {
+                return r;
+            }
+        }
+        return kInfinity;
     }
     case Shape::Quadric: {
         // a r^2 + b r + A = 0 along the direction, with A > 0: the positive root nearest the planet.
@@ -122,6 +144,12 @@ BoundarySurface magnetopause(const BodyMagnetosphere& body, const SolarWind& win
         s.standoff = (10.22 + 1.29 * std::tanh(0.184 * (wind.bz_nt + 8.14))) * std::pow(pressure, -1.0 / 6.6);
         s.flaring = (0.58 - 0.007 * wind.bz_nt) * (1.0 + 0.024 * std::log(pressure));
         break;
+    case MagnetosphereModel::PowerLaw:
+        s.standoff = wind.standoff_radii > 0.0    ? wind.standoff_radii
+                     : body.standoff_at_1npa > 0.0 ? body.standoff_at_1npa * std::pow(pressure, -1.0 / body.compressibility)
+                                                   : body.standoff_radii;
+        s.flaring = body.flaring + body.flaring_slope * pressure;
+        break;
     case MagnetosphereModel::Heliosphere:
         s.standoff = wind.standoff_radii > 0.0 ? wind.standoff_radii : body.standoff_radii;
         s.flaring = 0.5; // 1 / cos(theta / 2) = (2 / (1 + cos theta))^(1/2)
@@ -147,10 +175,16 @@ BoundarySurface bow_shock(const BodyMagnetosphere& body, const SolarWind& wind)
     }
     BoundarySurface s;
     s.shape = BoundarySurface::Shape::Conic;
-    s.standoff = body.model == MagnetosphereModel::Heliosphere && wind.shock_radii > 0.0
-                     ? wind.shock_radii
-                     : body.shock_standoff_ratio * magnetopause(body, wind).standoff;
+    const bool given = body.model == MagnetosphereModel::Heliosphere || body.model == MagnetosphereModel::PowerLaw;
+    if (given && wind.shock_radii > 0.0) {
+        s.standoff = wind.shock_radii;
+    } else if (body.model == MagnetosphereModel::PowerLaw && body.shock_at_1npa > 0.0) {
+        s.standoff = body.shock_at_1npa * std::pow(std::max(wind.pressure_npa, 1e-6), -1.0 / body.shock_compressibility);
+    } else {
+        s.standoff = body.shock_standoff_ratio * magnetopause(body, wind).standoff;
+    }
     s.eccentricity = body.shock_eccentricity;
+    s.focus = body.shock_focus_radii;
     return s;
 }
 

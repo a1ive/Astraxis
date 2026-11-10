@@ -21,3 +21,24 @@ coefficients = "geomag/field_mercury_anderson2012.txt"
 reference_radius_km = 2440.0
 l_shells = [1.1, 1.25, 1.4]
 max_radius = 1.7
+
+# The magnetopause and bow shock MESSENGER found (Winslow et al. 2013, JGR Space Physics 118,
+# 2213): Shue's shape, 1.45 radii out with flaring 0.5 at the mean 14.3 nPa, the standoff
+# (2.15 +/- 0.10) P^(-1/6.75) radii; the shock a conic about a focus 0.5 radii up the axis,
+# focal parameter 2.90 radii and eccentricity 1.02 (their fit corrected for the Mach number,
+# Table 2), so 1.96 radii out. Both about the dipole's center, 0.196 radii north, and the
+# wind's aberrated direction (about 7 deg). geomag/SOURCES.md.
+[magnetosphere]
+model = "power_law"
+radius_km = 2440.0
+standoff_at_1npa = 2.15
+compressibility = 6.75
+flaring = 0.5
+pressure_npa = 14.3
+wind_speed_km_s = 400.0
+aberration = true
+tail_radii = 6.0
+center_offset_radii = [0.0, 0.0, 0.196]
+shock_standoff_ratio = 1.355               # (0.5 + 2.90 * 1.02 / 2.02) / 1.45
+shock_eccentricity = 1.02
+shock_focus_radii = 0.5
