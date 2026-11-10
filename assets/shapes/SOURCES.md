@@ -382,6 +382,12 @@ Gaia Sky 的探测器仓库（<https://gaia.ari.uni-heidelberg.de/gaiasky/reposi
 
 OBJ 使用米制。LCROSS 和 CAPSTONE 的电池面在 OBJ +y，Akatsuki 的在 OBJ +z。转换把这些面转到本体 +z，按场景的朝日方向烘焙自阴影。两艘 Pioneer 的圆筒轴从 OBJ +z 转到本体 +y，和 `point_at` 给出的朝日方向垂直，顶点的自阴影系数统一取 1。
 
+### Hera（本项目自建）
+
+`python -E -P tools/shapes/make_spacecraft.py ref hera` 生成 `hera.mesh` 和 `textures/hera.png`。几何和材质采用 GPL-3.0-or-later。OBJ 和 MTL 的 SHA-256 分别为 `1c958af729f1c9aa9dd99debe609350c2617bd4d65245332392e94a175729e77`、`436d7d20585af09a85ce5e221b57f3498d99b1301d8849d68ab32c142b78515e`。
+
+11.5 m 翼展和 1.13 m 天线口径取自 [ESA Hera 发射手册](https://esamultimedia.esa.int/docs/HERA_Launch_Kit.pdf)，主要仪器和翼根位置取自 [ESA SPICE 结构核](https://spiftp.esac.esa.int/data/SPICE/HERA/kernels/spk/hera_struct_v02.bsp)。转换后的 +z 指向观测甲板，+x 指向高增益天线。太阳翼固定在一个展开角度。火星和 Didymos 场景分别让甲板朝 Deimos 和 Didymos，因此顶点的自阴影系数统一取 1。模型有 46,156 个三角形。
+
 ### ISEE-3 的组装
 
 NASA 的 ISEE-3 是给 3D 打印的散件（英寸，鼓 69.6 英寸宽 = 1.77 m），每根吊杆在自己的文件里、从原点沿 +z 伸出，没有装配图。`make_spacecraft.py` 的 `assembly` 按 JHU/APL 的飞行构型图（eoPortal “ISEE-3 / ICE” 图 3）和 NASA 计划文件（spacecollege.org/?p=245，2026-11-07 查看）装起来：鼓的轴（模型 y）是自转轴；四根刚性吊杆和四根导线天线都从鼓中间那条带（y 27.9–30.2 英寸）伸出，实验吊杆（`Exboom1` 是搜索线圈，`Exboom2` 是磁强计，标称 302 cm）装在鼓上有铰链座的两侧（模型 ±z，座的中心偏 7.15 英寸），惯性吊杆（`Inertia boom`，114 cm）装在与之垂直的两侧，导线天线（`Rad antenna` 拉伸到 49 m）在它们之间的 45° 方向，轴向天线（同一个零件拉伸到 701 cm）沿自转轴上下各一根。文件自己的 `Rad antenna` 是 55 m。`Exboom (empty).stl` 是没有探头的空吊杆，`Thruster.stl` 是一个装不到鼓上任何推力器座的散件，都不用。鼓是打印用的空筒，两端补上 16 边形的盖。太阳能电池覆盖侧面，除了中间那条带和上下两道环（按面的三个顶点所在的高度分，大的侧面三角形跨过中间的带，所以带只在少数面上看得到）。颜色都是示意的。它每 3 秒转一圈，所以不烘焙阳光。

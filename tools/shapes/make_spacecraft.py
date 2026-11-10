@@ -712,6 +712,17 @@ CRAFT = {
         'atlas_width': 64,
         'format': 'png',
     },
+    # Hera points its asteroid deck at the target. The Sun direction varies.
+    'hera': {
+        'file': 'hera/hera.obj',
+        'origin_m': (0.0, 0.0, 0.0),
+        'scale': 1.0,
+        'body_z': (0, 0, 1),
+        'body_x': (-1, 0, 0),
+        'bake_sun': False,
+        'atlas_width': 64,
+        'format': 'png',
+    },
     # Akatsuki: the solar cells and the flat antennas face OBJ +z.
     'akatsuki': {
         'file': 'akatsuki/akatsuki.obj',

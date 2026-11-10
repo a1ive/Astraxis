@@ -50,6 +50,8 @@
 #          with its arrays out. Hera: "2025-Mar : Mars flyby (~6000 km from Mars, ~1000 km
 #          from Deimos)", Didymos in late 2026, to assess the crater DART left on Dimorphos;
 #          a 1.6 m box with two 5 m solar panel arms.
+# [MDLR] Hera's deployed model follows the ESA launch kit and spacecraft frame
+#        (assets/shapes/SOURCES.md). The deck tracks Deimos here.
 #        - Comet C/2013 A1 (Siding Spring): JPL solution c2013a1_s105_merged (Horizons
 #          1003228), 2014-08-01 .. 2014-12-31, relative to Mars (the [APX] Mars would
 #          misplace a heliocentric comet by thousands of km).
@@ -526,7 +528,11 @@ file = "ephem/clipper_mars.eph"
 name = "Hera"
 parent = "Mars"
 kind = "spacecraft"
-radii_km = [0.006]                         # two 5 m solar panel arms (Horizons notes)
+radii_km = [0.0058]                        # 11.5 m across its deployed wings [MDLR]
+shape = "shapes/hera.mesh"                 # [MDLR]
+texture = "textures/hera.png"
+point_at = "Deimos"                        # the asteroid deck, illustrative
+fill_light = 0.45                          # illustrative, to show the deck in shadow
 color = "#f5c8ff"
 orbit_color = "#d79cf0"
 trail = "history"
@@ -1192,3 +1198,19 @@ caption = """\
     dinner table, and it relays data from landers on the surface. It really keeps its \
     camera on the ground while its panels turn to follow the Sun. Here the panels face \
     the Sun, and the roll and the light on the shaded side are illustrative."""
+
+[[events]]
+name = "Hera, up close at Deimos (2025-03-12)"
+time_tdb = "2025-03-12 12:08"
+focus = "Hera"
+from_body = "Deimos"
+phase_deg = 52.0
+distance_km = 0.024
+warp = 1.0
+hide_orbits = true
+# [HERA], [MDLR]
+caption = """\
+    Hera's 11.5-meter solar wings are already deployed. Its asteroid deck carries two \
+    framing cameras, a thermal imager and a spectrometer. The flyby let the team use \
+    these instruments on Mars and Deimos before reaching Didymos. The deck points at \
+    Deimos in this view, with an illustrative roll and solar wing angle."""

@@ -865,7 +865,9 @@ void test_spacecraft_models()
                           {"space_telescopes.toml", "Euclid", "Sun", tdb_from_julian_year(2026.4)},
                           {"mars.toml", "TGO", "Sun", tdb_from_julian_year(2025.3)},
                           {"mars.toml", "Europa Clipper", "Sun", tdb_from_julian_year(2025.165)},
+                          {"mars.toml", "Hera", "Deimos", tdb_from_jd_tdb(jd_from_calendar({2025, 3, 12, 12, 8, 0})), false},
                           {"didymos.toml", "DART", "Sun", tdb_from_julian_year(2022.6)},
+                          {"didymos.toml", "Hera", "Didymos", tdb_from_jd_tdb(jd_from_calendar({2026, 11, 5, 4, 37, 0})), false},
                           {"rosetta.toml", "Rosetta", "Sun", tdb_from_julian_year(2015.6)},
                           {"solar_system.toml", "Pioneer 11", "Earth", tdb_from_julian_year(1979.6)},
                           {"saturn.toml", "Cassini", "Sun", tdb_from_julian_year(2007.3)},
@@ -1349,6 +1351,23 @@ void test_spacecraft_models()
         check(glm::dot(axes[2], sun) > 1.0 - 1e-12, (name + " turns a side to the Sun").c_str());
         check(glm::dot(axes[1], ecliptic_pole_icrf()) > 0.99, (name + "'s spin axis points to the ecliptic north").c_str(),
               glm::dot(axes[1], ecliptic_pole_icrf()));
+    }
+
+    const int hera_index = mars_scene.find("Hera");
+    if (hera_index >= 0 && mars_scene.bodies[static_cast<size_t>(hera_index)].shape) {
+        const ShapeModel& hera = *mars_scene.bodies[static_cast<size_t>(hera_index)].shape;
+        glm::dvec3 low(1e9), high(-1e9);
+        double dish_radius = 0.0;
+        for (const glm::vec3& q : hera.positions) {
+            const glm::dvec3 m = glm::dvec3(q) * 1000.0;
+            low = glm::min(low, m);
+            high = glm::max(high, m);
+            if (m.x > 1.10 && m.z < 0.15) {
+                dish_radius = std::max(dish_radius, std::hypot(m.y, m.z + 0.448));
+            }
+        }
+        check(std::abs(high.y - low.y - 11.5) < 0.01, "Hera's wings span 11.5 m", high.y - low.y);
+        check(std::abs(2.0 * dish_radius - 1.13) < 0.01, "Hera's 1.13 m dish faces +x", 2.0 * dish_radius);
     }
 
     // Hope [MDLH]: 7.9 m across its wings, the 1.85 m dish on the sunward side (+z) with the cells,

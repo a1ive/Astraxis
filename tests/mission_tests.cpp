@@ -2675,6 +2675,25 @@ void test_didymos_scene()
         check(std::abs(best - 57.7) < 0.2, "LICIACube's closest approach to Dimorphos (km)", best);
         check(std::abs(best_t - expected_t) < 2.0, "LICIACube's closest approach time (s off)", best_t - expected_t);
     }
+
+    const int hera = scene.find("Hera");
+    check(hera > 0, "didymos.toml has Hera");
+    if (hera > 0) {
+        scene.update(impact);
+        check(!scene.bodies[static_cast<size_t>(hera)].visible, "Hera is absent at DART's impact");
+        scene.update(tdb_from_jd_tdb(jd_from_calendar({2025, 1, 1, 0, 0, 0})));
+        check(!scene.bodies[static_cast<size_t>(didymos)].visible, "Didymos is hidden in the gap between the arcs");
+
+        const double approach = tdb_from_jd_tdb(jd_from_calendar({2026, 11, 5, 4, 37, 0}));
+        scene.update(approach);
+        check(scene.bodies[static_cast<size_t>(hera)].visible &&
+                  scene.bodies[static_cast<size_t>(dimorphos)].visible,
+              "Hera and both asteroids are visible during the approach");
+        const double hera_range = glm::length(rel(hera, didymos, approach));
+        const double moon_range = glm::length(rel(dimorphos, didymos, approach));
+        check(std::abs(hera_range - 27.803) < 0.01, "Hera's ESA approach range (km)", hera_range);
+        check(moon_range > 1.0 && moon_range < 1.3, "Dimorphos' orbital radius during Hera's approach (km)", moon_range);
+    }
 }
 
 } // namespace
