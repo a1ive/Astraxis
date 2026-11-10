@@ -9,6 +9,7 @@
 #include "scene/impact.hpp"
 #include "scene/nebula.hpp"
 #include "scene/refraction.hpp"
+#include "scene/relief.hpp"
 #include "scene/pinwheel.hpp"
 #include "scene/roche.hpp"
 #include "scene/shape_model.hpp"
@@ -488,6 +489,8 @@ struct Body {
         glm::vec3 color{1.0f};
         double gain = 0.0;
     } night_lights;
+    SurfaceRelief relief; // scene/relief.hpp
+    SeaSurface sea;       // needs the relief map, which has the water
     BodyAurora aurora; // scene/aurora_model.hpp
     BodyMagneticField magnetic_field; // scene/magnetic_field.hpp
     BodyMagneticMap magnetic_map;

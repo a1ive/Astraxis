@@ -827,6 +827,7 @@ void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, u
     m_body_textures.assign(scene.bodies.size(), nullptr);
     m_ring_textures.assign(scene.bodies.size(), nullptr);
     m_night_textures.assign(scene.bodies.size(), nullptr);
+    m_relief_textures.assign(scene.bodies.size(), nullptr);
     m_field_map_textures.assign(scene.bodies.size(), nullptr);
     m_deep_field_map_textures.assign(scene.bodies.size(), nullptr);
     m_crust_field_map_textures.assign(scene.bodies.size(), nullptr);
@@ -890,6 +891,13 @@ void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, u
             if (!m_night_textures[i]) {
                 SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Night lights for %s unavailable: %s",
                             body.name.c_str(), error.c_str());
+            }
+        }
+        if (!body.relief.texture.empty()) {
+            m_relief_textures[i] = load_texture_linear(m_device->device(), m_asset_dir / body.relief.texture, &error);
+            if (!m_relief_textures[i]) {
+                SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Relief map for %s unavailable: %s", body.name.c_str(),
+                            error.c_str());
             }
         }
     }
@@ -1103,7 +1111,7 @@ void SceneRenderer::draw_neutron_star(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPa
 
 void SceneRenderer::release_body_textures()
 {
-    for (auto* textures : {&m_body_textures, &m_ring_textures, &m_night_textures, &m_aurora_textures,
+    for (auto* textures : {&m_body_textures, &m_ring_textures, &m_night_textures, &m_relief_textures, &m_aurora_textures,
                            &m_field_map_textures, &m_deep_field_map_textures, &m_crust_field_map_textures}) {
         for (SDL_GPUTexture* texture : *textures) {
             if (texture) {
@@ -1379,6 +1387,14 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
             item.night_lights = m_night_textures[i];
             item.night_lights_color = body.night_lights.color;
             item.night_lights_gain = static_cast<float>(body.night_lights.gain);
+        }
+        if (i < m_relief_textures.size() && m_relief_textures[i] && item.texture) {
+            item.relief = m_relief_textures[i];
+            item.relief_slope = static_cast<float>(kReliefMaxSlope * body.relief.exaggeration);
+            if (body.sea.wind_m_s >= 0.0) {
+                item.sea_slope_variance = static_cast<float>(sea_slope_variance(body.sea.wind_m_s));
+                item.sea_reflectance = static_cast<float>(fresnel_normal_reflectance(body.sea.refractive_index));
+            }
         }
         // The deep or crustal map where the view asks for it and the body has one, else the surface's.
         const FieldMapView map_view = options.magnetic_map_view == 3   ? FieldMapView::None

@@ -52,6 +52,13 @@ struct BodyDrawItem {
     SDL_GPUTexture* night_lights = nullptr;
     glm::vec3 night_lights_color{1.0f};
     float night_lights_gain = 0.0f;
+    // Relief: the slopes of the surface and its water, in the texture's projection (linear,
+    // scene/relief.hpp; null: none), the slope of a full channel, and the sea's mean square
+    // slope (0: no glint) and reflectance at normal incidence.
+    SDL_GPUTexture* relief = nullptr;
+    float relief_slope = 0.0f;
+    float sea_slope_variance = 0.0f;
+    float sea_reflectance = 0.0f;
     float surface_gain = 1.0f; // scale of the reflected light (a view in another band)
     // False color map of the magnetic field, in the texture's projection (linear; null: none):
     // of the radial field, or of its strength.

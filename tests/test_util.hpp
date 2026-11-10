@@ -7,6 +7,8 @@
 
 #include <glm/vec3.hpp>
 
+#include <vector>
+
 // Records and prints a failure unless ok.
 void check(bool ok, const char* what, double value = 0.0);
 int failure_count();
@@ -24,6 +26,18 @@ glm::dvec3 unit_toward(double ra_deg, double dec_deg);
 // its map and stars exist, the map's brightness comes from the stars file, and
 // the viewer sits opposite the scene's "Sun" body, if it has one.
 void check_model_sky(const astraxis::Scene& scene, const char* what);
+
+// An image of the assets (JPEG or PNG) as 8-bit RGB, row after row from the top; empty if
+// it cannot be read.
+struct TestImage {
+    int width = 0;
+    int height = 0;
+    std::vector<unsigned char> rgb;
+    // Channel c (0..2) at east longitude and latitude on a 2:1 map whose left edge is 180 W,
+    // as 0..1.
+    double at(double lat_deg, double east_lon_deg, int c) const;
+};
+TestImage load_test_image(const char* asset_path);
 
 void run_settings_tests();
 void run_core_tests();

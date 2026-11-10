@@ -4,7 +4,8 @@
 // procedural gas-giant bands (Jupiter-like, Saturn-like) and a procedural
 // battle station. Under an atmosphere, sunlight is reddened by the column it
 // crosses (the twilight band at the terminator). City lights come on at dusk
-// and shine up through the atmosphere.
+// and shine up through the atmosphere. A relief map tilts the normal by the
+// surface's slopes, and its water mirrors the sun (scene/relief.hpp).
 
 #include "atmosphere.hlsli"
 #include "common.hlsli"
@@ -22,6 +23,7 @@ FRAGMENT_TEXTURE(Texture2D, u_albedo, u_sampler, 0); // sRGB texture: samples ar
 FRAGMENT_TEXTURE(Texture2D, u_ring_profile, u_ring_sampler, 1); // r = ring normal optical depth
 FRAGMENT_TEXTURE(Texture2D, u_night_lights, u_night_sampler, 2); // sRGB gray map of emitted light
 FRAGMENT_TEXTURE(Texture2D, u_field_map, u_field_sampler, 3); // r: radial magnetic field, 0.5 = none, compressed
+FRAGMENT_TEXTURE(Texture2D, u_relief_map, u_relief_sampler, 4); // rg: slopes east and north, compressed; b: water
 
 cbuffer Uniforms : register(b0, space3)
 {
@@ -47,6 +49,8 @@ cbuffer Uniforms : register(b0, space3)
     float4 u_flare_color;              // rgb = its linear radiance
     float4 u_spot_tints[4];            // a planet's dark spots (their places in u_spots, how many in u_spot_color.a):
                                        // rgb = relative change of the albedo at the center
+    float4 u_relief;                   // x = slope of a full channel (0 = no map), y = the sea's mean square slope
+                                       // (0 = no glint), z = its reflectance at normal incidence
 };
 
 // A wobble of an edge on a star's surface that changes smoothly over the sphere.
@@ -199,9 +203,9 @@ float ring_profile_u(float3 p, float3 L)
     return t > 0.0 ? (r - u_ring_radii.x) / (u_ring_radii.y - u_ring_radii.x) : -1.0;
 }
 
-// Lambert light from a star in direction L (angular radius light_radius),
-// through eclipses by other bodies and the planet's own rings.
-float star_light(float3 p, float3 n, float3 L, float light_radius)
+// How much of the light of a star in direction L (angular radius light_radius) reaches p:
+// eclipses by other bodies and the planet's own rings.
+float star_visibility(float3 p, float3 L, float light_radius)
 {
     // Starlight through the rings (mip level from the footprint on the profile).
     float ring_u = u_ring_center.w > 0.5 ? ring_profile_u(p, L) : -1.0;
@@ -209,9 +213,41 @@ float star_light(float3 p, float3 n, float3 L, float light_radius)
     float ring_tau = u_ring_profile.SampleLevel(u_ring_sampler, float2(ring_u, 0.5), ring_lod).r;
     float ring_t = ring_u >= 0.0 && ring_u <= 1.0 ? exp(-ring_tau / max(abs(dot(L, u_ring_normal.xyz)), 1e-3)) : 1.0;
 
-    float ndl = dot(n, L);
-    float diffuse = saturate(ndl) * smoothstep(-0.05, 0.05, ndl);
-    return diffuse * eclipse_factor(p, L, light_radius) * ring_t;
+    return eclipse_factor(p, L, light_radius) * ring_t;
+}
+
+// Lambert light on a surface whose normal is n, tilted by the relief from the smooth
+// surface's n0: the smooth surface's horizon still hides the star (there are no cast
+// shadows, so a slope facing a star that has set would otherwise stay lit).
+float lambert(float3 n, float3 n0, float3 L)
+{
+    return saturate(dot(n, L)) * smoothstep(-0.05, 0.05, dot(n0, L));
+}
+
+// Smith's shadowing of Gaussian slopes (the fit of Walter et al. 2007); sea_shadowing in
+// scene/relief.hpp.
+float sea_shadowing(float mu, float variance)
+{
+    float a = mu / max(sqrt(variance * max(1.0 - mu * mu, 0.0)), 1e-9);
+    return a < 1.6 ? (3.535 * a + 2.181 * a * a) / (1.0 + 2.276 * a + 2.577 * a * a) : 1.0;
+}
+
+// The glint of a star off the sea, in the units of albedo x Lambert light; sea_glint in
+// scene/relief.hpp is the same.
+float sea_glint(float3 n, float3 L, float3 V)
+{
+    float mu_sun = dot(n, L);
+    float mu_view = dot(n, V);
+    if (mu_sun <= 0.0 || mu_view <= 0.0) {
+        return 0.0;
+    }
+    float variance = u_relief.y;
+    float3 h = normalize(L + V);
+    float c = max(dot(n, h), 1e-4);
+    float c2 = c * c;
+    float facets = exp(-(1.0 - c2) / (c2 * variance)) / (variance * c2 * c2);
+    float fresnel = u_relief.z + (1.0 - u_relief.z) * pow(1.0 - min(dot(V, h), 1.0), 5.0);
+    return fresnel * facets * sea_shadowing(mu_sun, variance) * sea_shadowing(mu_view, variance) / (4.0 * mu_view);
 }
 
 // Fraction of sunlight (per channel) that reaches the surface through the
@@ -377,16 +413,46 @@ float4 main(PSInput input, bool front_face : SV_IsFrontFace) : SV_Target0
     }
     float limb = gas_giant || saturn ? lerp(0.65, 1.0, pow(saturate(dot(n, V)), 0.4)) : 1.0;
 
-    float3 lit = star_light(input.rel_pos, n, L, u_sun.w) * atmosphere_transmission(dot(n, L));
+    // The relief tilts the normal that the sunlight falls on; horizons, the atmosphere and the
+    // sea keep the smooth surface's.
+    float3 relief = u_relief_map.Sample(u_relief_sampler, uv).rgb;
+    float3 nr = n;
+    if (u_relief.x > 0.0) {
+        float2 s = 2.0 * relief.rg - 1.0;
+        s *= abs(s) * u_relief.x;
+        if (u_params.w > 0.5) {
+            s.x = -s.x; // the map's east is to the left
+        }
+        float3 east = cross(input.axis_z, n);
+        float len = length(east);
+        if (len > 1e-4) {
+            east /= len;
+            nr = normalize(n - s.x * east - s.y * cross(n, east));
+        }
+    }
+
+    float3 sun_reach = star_visibility(input.rel_pos, L, u_sun.w) * atmosphere_transmission(dot(n, L));
+    float3 lit = lambert(nr, n, L) * sun_reach;
+    float3 glint = 0.0;
+    bool sea = u_relief.x > 0.0 && u_relief.y > 0.0;
+    if (sea) {
+        glint = sea_glint(n, L, V) * sun_reach;
+    }
     if (any(u_light2_color.rgb > 0.0)) {
-        lit += u_light2_color.rgb * star_light(input.rel_pos, n, u_light2.xyz, u_light2.w) *
-               atmosphere_transmission(dot(n, u_light2.xyz));
+        float3 reach2 = u_light2_color.rgb * star_visibility(input.rel_pos, u_light2.xyz, u_light2.w) *
+                        atmosphere_transmission(dot(n, u_light2.xyz));
+        lit += lambert(nr, n, u_light2.xyz) * reach2;
+        if (sea) {
+            glint += sea_glint(n, u_light2.xyz, V) * reach2;
+        }
     }
 
     lit *= baked_sunlight;
     // The fill comes from about the viewer's side, so the unlit side still shows its shape.
     float ambient = u_params.y + u_craft.y * (0.35 + 0.65 * saturate(dot(n, V)));
     float3 color = albedo * (lit * limb + ambient) * u_surface.x;
+    // The mirrored sunlight keeps the sun's color, and leaves through the atmosphere.
+    color += glint * (relief.b * baked_sunlight * u_surface.x) * atmosphere_transmission(saturate(dot(n, V)));
     if (u_night.w > 0.0) {
         // Lights come on between sunset and the sun 6 deg below the horizon,
         // and reach the viewer through the atmosphere.

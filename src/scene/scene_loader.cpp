@@ -493,6 +493,8 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
         {"refractivity", number}, {"refraction_gain", number},
     };
     static const TemplateFields night_lights = {{"texture", text}, {"color", text}, {"gain", number}};
+    static const TemplateFields relief = {{"texture", text}, {"exaggeration", number}};
+    static const TemplateFields sea = {{"wind_m_s", number}, {"refractive_index", number}};
     static const TemplateFields aurora = {{"kp", text}, {"jovian_oval", text}, {"footprints", text}, {"flux_tubes", text},
                                           {"saturn_oval", boolean}, {"ganymede_map", text}, {"uranus_map", text},
                                           {"neptune_map", text}, {"europa_visible", boolean},
@@ -544,6 +546,7 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
         {"texture_left_lon_deg", number}, {"texture_lon_direction", text},
         {"free_precession", {{Type::table}, &free_precession}}, {"atmosphere", {{Type::table}, &atmosphere}},
         {"night_lights", {{Type::table}, &night_lights}}, {"aurora", {{Type::table}, &aurora}},
+        {"relief", {{Type::table}, &relief}}, {"sea", {{Type::table}, &sea}},
         {"magnetic_field", {{Type::table}, &magnetic_field}}, {"magnetic_map", {{Type::table}, &magnetic_map}},
         {"rotor", {{Type::table}, &rotor}}, {"shape_after", {{Type::table}, &shape_after}},
         {"rings", {{Type::table}, &rings}},
@@ -1645,6 +1648,29 @@ void Loader::parse(const toml::table& root, Scene& out)
             body.night_lights.gain = get_double(*lights, "gain", lctx);
             if (!(body.night_lights.gain > 0.0)) {
                 fail(lctx, "gain must be positive");
+            }
+        }
+        if (const toml::table* relief = (*t)["relief"].as_table()) {
+            const std::string rctx = ctx + " relief";
+            if (body.kind != BodyKind::Planet || body.shape || body.texture.empty()) {
+                fail(ctx, "only ellipsoidal planets and moons with a texture can have a relief map");
+            }
+            body.relief.texture = get_string(*relief, "texture", rctx);
+            body.relief.exaggeration = get_double_or(*relief, "exaggeration", 1.0);
+            if (!(body.relief.exaggeration > 0.0) || !std::isfinite(body.relief.exaggeration)) {
+                fail(rctx, "exaggeration must be positive");
+            }
+        }
+        if (const toml::table* sea = (*t)["sea"].as_table()) {
+            const std::string sctx = ctx + " sea";
+            if (body.relief.texture.empty()) {
+                fail(ctx, "a sea needs the relief map, which says where the water is");
+            }
+            body.sea.wind_m_s = get_double(*sea, "wind_m_s", sctx);
+            body.sea.refractive_index = get_double(*sea, "refractive_index", sctx);
+            if (!(body.sea.wind_m_s >= 0.0) || !std::isfinite(body.sea.wind_m_s) ||
+                !(body.sea.refractive_index > 1.0) || !std::isfinite(body.sea.refractive_index)) {
+                fail(sctx, "wind_m_s must not be negative and refractive_index must be above 1");
             }
         }
         if (const toml::table* aurora = (*t)["aurora"].as_table()) {

@@ -29,6 +29,12 @@
 #          366); emission peaks at 115 km (green, blue: Whiter et al. 2023, Ann. Geophys.
 #          41, 1) and 221 km (red: Mathieu et al., Fig. 7). The arcs and rays in the oval
 #          are illustrative; the brightness is boosted 2.5e6 times, as in a long exposure.
+# [RELIEF] Slopes of the land from ETOPO5 and the open water from Natural Earth, baked
+#        into textures/earth_relief.jpg (textures/SOURCES.md). The sea mirrors the sun
+#        from the facets of its waves: Gaussian slopes of mean square 0.003 + 0.00512 U
+#        (Cox & Munk 1954, J. Opt. Soc. Am. 44, 838) under one wind everywhere, 7 m/s, a
+#        round figure for the open ocean (assumption); the refractive index is pure
+#        water's at 589 nm (seawater's is about half a percent more). No clouds, no foam.
 
 radii_km = [6378.1366, 6356.7519]          # [PCK]
 body_gm_km3_s2 = 398600.435507             # [GM]
@@ -53,6 +59,11 @@ refractivity = 0.0002778376354
 texture = "textures/earth_night.jpg"
 color = "#ffb46b"
 gain = 0.6
+[relief]                                   # [RELIEF]
+texture = "textures/earth_relief.jpg"
+[sea]                                      # [RELIEF]
+wind_m_s = 7.0
+refractive_index = 1.333
 [aurora]                                   # [NIGHT]
 kp = "geomag/kp.bin"
 # IGRF-14 at 2025.0, whatever the date; without the solar wind, which shapes the lines

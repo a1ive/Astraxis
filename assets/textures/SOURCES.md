@@ -103,10 +103,33 @@ OPAL 每年观测两次左右完整自转，每次自转每个滤镜一张简单
 
 下载：每个周期的页面（如 <https://archive.stsci.edu/hlsp/opal/opal-uranus-cycle-33>）列出文件，FITS 和 README 都在 `https://archive.stsci.edu/missions/hlsp/opal/cycle<N>/<planet>/` 下（周期 22–33，约 140 MB）。把各年的 `*_f467m_v1_globalmap.fits`、`*_f547m_*`、`*_f657n_*` 和 `*_all_v*_readme.txt` 放进同一个目录，再运行 `python make_ice_giant_textures.py <目录> <输出目录>`。
 
+## 起伏图（`*_relief.jpg`）
+
+天体的 `[relief]` 用的图：和反照率图同一投影（2:1 简单圆柱，左缘 180°W，北在上），由高度图烘焙。红、绿通道是朝东、朝北的坡度（升高 / 水平距离），按 `0.5 + 0.5 sign(s) sqrt(|s| / 1.0)` 编码（平方根让占绝大多数的缓坡避开 JPEG 的误差，`scene/relief.hpp` 的 `relief_decode` 是反过来的公式）；蓝通道是像素里开阔水面的份额。存坡度而不存高度：8 位的高度图差分后是一级级台阶。高度先平均到 2048×1024，再沿每一行按纬度做低通（越靠近两极列越密，不滤的话东西向的坡度来自远小于图分辨率的差分），中心差分求坡度。JPEG 质量 92，不做色度抽样（三个通道是不相干的量）。`tools/textures/relief_map.py` 是公用的编码，`make_relief.py` 烘月球、火星和地球，Kerbol 的由 `make_kerbol_textures.py` 一起生成。
+
+| 文件 | 来源 | 许可 |
+|---|---|---|
+| `moon_relief.jpg` | LRO LOLA 网格数据 `LDEM_16`（每度 16 像素，相对 1737.4 km 的高度，0.5 m 一级），PDS Geosciences Node，LRO-L-LOLA-4-GDR-V1.0，<https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/data/lola_gdr/cylindrical/img/ldem_16.img>（33 MB，标签是同名的 `.lbl`） | PDS 存档数据，公有领域（请引用 LOLA 团队：Smith et al. 2010） |
+| `mars_relief.jpg` | MGS MOLA MEGDR `megt90n000eb.img`（每度 16 像素，相对大地水准面的地形，米，行星中心纬度、东经），PDS Geosciences Node，MGS-M-MOLA-5-MEGDR-L3-V1.0，<https://pds-geosciences.wustl.edu/mgs/mgs-m-mola-5-megdr-l3-v1/mgsl_300x/meg016/megt90n000eb.img>（33 MB） | PDS 存档数据，公有领域（请引用 MOLA 团队：Smith et al. 2001） |
+| `earth_relief.jpg` | 陆地高度：NOAA NGDC 的 ETOPO5（5 角分，1988），<https://www.ngdc.noaa.gov/mgg/global/relief/ETOPO5/TOPO/ETOPO5/ETOPO5.DAT>（18 MB，说明在同目录的 `ETOPO5.txt`）。水面：Natural Earth 1:50m 的 `ne_50m_land`、`ne_50m_lakes`、`ne_50m_antarctic_ice_shelves_polys`（<https://naciscdn.org/naturalearth/50m/physical/> 下的同名 zip），再去掉 `earth.jpg` 里亮的地方（2004 年 7 月的海冰） | ETOPO5：美国政府作品，公有领域；Natural Earth：公有领域 |
+
+```
+python -E -P tools/textures/make_relief.py moon  ldem_16.img      assets/textures/moon_relief.jpg
+python -E -P tools/textures/make_relief.py mars  megt90n000eb.img assets/textures/mars_relief.jpg
+python -E -P tools/textures/make_relief.py earth ETOPO5.DAT ne_50m_land.zip ne_50m_lakes.zip \
+    ne_50m_antarctic_ice_shelves_polys.zip assets/textures/earth.jpg assets/textures/earth_relief.jpg
+```
+
+- 工具在烘焙前打印几个已知的高度作核对：Tycho 底部 −2.87 km、东缘 +0.92 km，远月面高地 +10.6 km；Olympus Mons 最高 21.17 km，Hellas 最低 −8.18 km；珠穆朗玛峰所在的 5′ 格 6.10 km，马里亚纳海沟 −8.95 km。烘出的图在 `appearance_tests.cpp` 的 `test_relief` 里再对照地点（Tycho 四面坑壁的朝向、Olympus Mons 的山坡、Valles Marineris 的北壁、喜马拉雅的南坡、几个湖和冰架）
+- 2048 像素宽的图在赤道上每像素 5.3 km（月球）、10.4 km（火星）、19.6 km（地球），坡度是这个尺度上的平均：月球的中位数 2.4°、99% 分位 15°，火星 0.3° 和 5.7°，地球陆地更平（99% 分位 1.4°）。ETOPO5 在亚洲、南美、非洲的部分地区实际只有 1° 的分辨率
+- 地球的水面不能用“低于海平面”：Qattara 洼地是干的，五大湖又不在海平面。海面和湖面的坡度置零，海底地形不用
+- ETOPO5 和 Natural Earth 是大地纬度，这里和 `earth.jpg` 一样当作行星中心纬度（最多差 0.19°，约 1 像素），两张图互相对得上
+
 ## Kerbol 系统（程序生成）
 
 Kerbol 场景 16 个天体的纹理（`kerbin.jpg`、`mun.jpg`、`minmus.jpg`、`moho.jpg`、`eve.jpg`、`gilly.jpg`、`duna.jpg`、`ike.jpg`、`dres.jpg`、`jool.jpg`、`laythe.jpg`、`vall.jpg`、`tylo.jpg`、`bop.jpg`、`pol.jpg`、`eeloo.jpg`）是虚构表面，由 `tools/textures/make_kerbol_textures.py` 生成，不含《坎巴拉太空计划》的任何游戏文件，也不模仿游戏里的具体地形；属于本项目的产物（GPL-3.0-or-later）。每个天体只保留辨识度最高的一两个特征：Kerbin 的海洋（约占 64% 面积）、绿色陆地、沙漠、雪山和冰盖，Mun 的灰色陨石坑，Minmus 的薄荷绿和边缘清晰的浅色平原，Moho 的深棕色坑，Eve 的紫色陆地和暗色海，Duna 的锈红色平原、暗色高地和极冠，Ike 的深灰坑，Dres 的灰色坑和几条暗色峡谷，Jool 的绿色条带和几个风暴卵形斑，Laythe 的海洋（约占 86%）和沙色群岛，Vall 的浅蓝冰面裂纹，Tylo 的大片明暗斑块，Eeloo 的白冰和棕色裂纹，Gilly、Bop、Pol 的棕灰、深棕和黄褐色。
 
+- 除 Jool 外每个天体还有 `<名称>_relief.jpg`（上一节的起伏图），和颜色一样是虚构的：大陆的高度来自定海岸线的同一个分形场（Kerbin 最高 6 km、Eve 7 km、Laythe 4 km，海面水平并标成水，Kerbin 冰盖下的海不算水面），陨石坑和反照率里画的是同一批（直径 12 km 以下是深 0.15 倍直径的碗，更大的平底、相对更浅，坑缘隆起），裂纹和峡谷是沟，其余是低幅的起伏。高度只求在这些半径的天体上看着合理，不是游戏的地形
 - 裂纹和峡谷是扭曲噪声的零等值线，按 |n| / |∇n| 估计到等值线的距离，线宽在各处一致
 
 - 每个像素对应单位球面上的一点，噪声是在球面上采样的三维梯度噪声，所以 180° 经线处没有接缝，两极也不会被拉扯；倍频程只加到波长约 2 像素为止

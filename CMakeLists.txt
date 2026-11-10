@@ -63,6 +63,7 @@ add_library(astraxis_sim STATIC
     src/ephem/motion.hpp
     src/scene/refraction.cpp
     src/scene/refraction.hpp
+    src/scene/relief.hpp
     src/scene/corona.cpp
     src/scene/corona.hpp
     src/scene/disk.cpp
@@ -348,7 +349,8 @@ add_executable(astraxis_tests
     tests/shape_tests.cpp
     tests/stellar_system_tests.cpp
 )
-target_link_libraries(astraxis_tests PRIVATE astraxis_sim astraxis_settings)
+# stb: the tests read the baked relief maps.
+target_link_libraries(astraxis_tests PRIVATE astraxis_sim astraxis_settings stb)
 target_compile_definitions(astraxis_tests PRIVATE ASTRAXIS_ASSET_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets")
 astraxis_set_warnings(astraxis_tests)
 add_test(NAME astraxis_tests COMMAND astraxis_tests)

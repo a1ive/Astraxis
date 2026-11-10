@@ -14,5 +14,8 @@ pole_rate_deg_per_century = [0.0031, 0.0130] # [PCK]
 color = "#a8a49c"
 texture = "textures/moon.jpg"              # NASA SVS CGI Moon Kit (textures/SOURCES.md)
 texture_left_lon_deg = -180.0
+# Slopes of the surface from LOLA LDEM_16 (textures/SOURCES.md): the relief at the terminator.
+[relief]
+texture = "textures/moon_relief.jpg"
 [magnetic_map]                             # Tsunakawa 2015, 30 km up; geomag/SOURCES.md
 surface = "geomag/moon_br.fieldmap"

@@ -75,8 +75,10 @@ SDL_GPUTexture* create_and_upload(SDL_GPUDevice* device, const uint8_t* rgba, ui
 
 } // namespace
 
-SDL_GPUTexture* load_texture_srgb(SDL_GPUDevice* device, const std::filesystem::path& path, std::string* error,
-                                  uint32_t* width)
+namespace {
+
+SDL_GPUTexture* load_texture(SDL_GPUDevice* device, const std::filesystem::path& path, std::string* error,
+                             uint32_t* width, bool srgb)
 {
     std::ifstream file(path, std::ios::binary);
     if (!file) {
@@ -100,7 +102,7 @@ SDL_GPUTexture* load_texture_srgb(SDL_GPUDevice* device, const std::filesystem::
     }
 
     SDL_GPUTexture* texture =
-        create_and_upload(device, pixels, static_cast<uint32_t>(w), static_cast<uint32_t>(h), true);
+        create_and_upload(device, pixels, static_cast<uint32_t>(w), static_cast<uint32_t>(h), true, srgb);
     stbi_image_free(pixels);
     if (!texture && error) {
         *error = path.string() + ": GPU upload failed";
@@ -109,6 +111,19 @@ SDL_GPUTexture* load_texture_srgb(SDL_GPUDevice* device, const std::filesystem::
         *width = static_cast<uint32_t>(w);
     }
     return texture;
+}
+
+} // namespace
+
+SDL_GPUTexture* load_texture_srgb(SDL_GPUDevice* device, const std::filesystem::path& path, std::string* error,
+                                  uint32_t* width)
+{
+    return load_texture(device, path, error, width, true);
+}
+
+SDL_GPUTexture* load_texture_linear(SDL_GPUDevice* device, const std::filesystem::path& path, std::string* error)
+{
+    return load_texture(device, path, error, nullptr, false);
 }
 
 SDL_GPUTexture* create_texture_rgba8(SDL_GPUDevice* device, const uint8_t* rgba, uint32_t width, uint32_t height,

@@ -5,7 +5,8 @@
 Writes <name>.jpg (2:1 simple cylindrical, east longitude increasing to the right
 from -180 deg at the left edge, as the scene's texture lookup expects) for every
 world of the scene (see MAKERS), or only the names given; --width overrides the
-map widths (2048, or 1024 for the smallest moons).
+map widths (2048, or 1024 for the smallest moons). Every world but Jool also gets
+<name>_relief.jpg, the slopes of its invented terrain and its seas (relief_map.py).
 
 These are invented surfaces, not the game's: they keep a few traits that make
 each world recognizable (Kerbin's blue seas, green land and ice caps; the Mun's
@@ -19,8 +20,10 @@ output does not depend on the numpy version.
 Method: every pixel is a point on the unit sphere and all noise is 3-D gradient
 noise sampled there, so the maps have no seam at 180 deg and no pinching at the
 poles. Octaves stop where their wavelength reaches about two pixels. Colors are
-mixed in linear light and written as sRGB. The scene shades without normal maps,
-so craters are drawn in albedo only (darker floors, bright rims and ejecta).
+mixed in linear light and written as sRGB. Craters are drawn in the albedo (darker
+floors, bright rims and ejecta), as on an airbrushed map, and the same craters are
+dug into the height map that the relief comes from. The heights are as invented as
+the colors: sizes that look right on worlds of these radii, not the game's terrain.
 
 Requires numpy and Pillow.
 """
@@ -31,6 +34,9 @@ import sys
 
 import numpy as np
 from PIL import Image
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import relief_map  # noqa: E402
 
 U32 = np.uint32
 
@@ -153,7 +159,7 @@ def ramp(stops, x):
 
 
 # ---------------------------------------------------------------------------
-# Craters (albedo only)
+# Craters
 
 class Rng:
     """Deterministic stream of uniforms in [0, 1) from the same hash."""
@@ -168,10 +174,14 @@ class Rng:
         return _hash(idx, idx * 0 + 7, idx * 0 + 13, self.seed).astype(np.float64) / 4294967296.0
 
 
-def add_craters(albedo, p, lat, rng, count, r_min_deg, r_max_deg, slope, floor, rim, ejecta, rays=0):
+def add_craters(albedo, p, lat, rng, count, r_min_deg, r_max_deg, slope, floor, rim, ejecta, rays=0,
+                terrain=None, radius_km=0.0):
     """Multiplies albedo by crater patterns. Radii follow a power law (cumulative
     N(>r) ~ r^-slope); each crater gets a random age that fades its contrast.
-    The `rays` largest young craters also get bright rays."""
+    The `rays` largest young craters also get bright rays. With `terrain` (km, on
+    a world of radius_km) the same craters are dug into it: bowls 0.15 diameters
+    deep up to 12 km across, wider ones flat-floored and shallower for their size,
+    with a raised rim that falls off outside; old craters are worn down."""
     height, width = lat.shape
     u = rng.uniform(count * 4)
     z = 2.0 * u[0::4] - 1.0
@@ -221,6 +231,14 @@ def add_craters(albedo, p, lat, rng, count, r_min_deg, r_max_deg, slope, floor, 
                 streak = np.maximum(0.0, np.cos(k * az + 10.0 * age) * np.cos(2.3 * k * az + 3.0)) ** 2
                 f *= 1.0 + 0.25 * streak * smoothstep(1.0, 1.3, x) * np.exp(-(x - 1.0) / 1.8)
             albedo[rows, cs] *= f[..., None]
+            if terrain is not None:
+                diameter = 2.0 * r * radius_km
+                bowl = diameter < 12.0
+                deep = 0.15 * diameter if bowl else 1.8 * (diameter / 12.0) ** 0.3
+                lip = 0.22 * deep
+                inside = -deep + (deep + lip) * x ** (2 if bowl else 4)
+                outside = lip * np.maximum(x, 1.0) ** -3 * smoothstep(2.5, 1.8, x)
+                terrain[rows, cs] += (0.4 + 0.6 * fresh) * np.where(x < 1.0, inside, outside)
 
 
 # ---------------------------------------------------------------------------
@@ -240,6 +258,11 @@ def continents(p, lat, seed, ocean_fraction, width):
     elev = np.clip((h - sea) / (top - sea), 0.0, 1.0)
     depth = np.clip((sea - h) / (sea - np.percentile(h[~land], 1.0)), 0.0, 1.0)
     return land, elev, depth
+
+
+def rolling(p, seed, amplitude_km, width, base=2.0):
+    """Gentle fractal terrain (km) under the craters."""
+    return amplitude_km * fbm(p, seed, base, min(octaves_for(base, width), 7), gain=0.45)
 
 
 def mottled(p, seed, dark, light, width, base=1.4, edges=(-0.15, 0.25), detail=0.1):
@@ -288,7 +311,8 @@ def make_kerbin(width):
     cap = smoothstep(cap_edge - 1.5, cap_edge + 1.5, alat)
     white = color((232, 238, 244))
     albedo = mix(albedo, white, np.maximum(snow, cap) * (1.0 - 0.08 * fbm(p, 10, 16.0, 3)))
-    return albedo
+    # The polar caps cover the sea too: ice, not open water.
+    return albedo, np.where(land, 6.0 * elev ** 1.3, 0.0), np.where(land, 0.0, 1.0 - cap)
 
 
 def make_mun(width):
@@ -297,9 +321,10 @@ def make_mun(width):
     tone = smoothstep(-0.15, 0.25, fbm(p, 21, 1.4, 5))
     albedo = mix(color((136, 136, 135)), color((164, 164, 162)), tone)
     albedo *= (1.0 + 0.1 * fbm(p, 22, 6.0, oct_fine - 1))[..., None]
+    height = rolling(p, 524, 1.5, width)
     add_craters(albedo, p, lat, Rng(23), count=4500, r_min_deg=0.3, r_max_deg=25.0, slope=1.5,
-                floor=0.16, rim=0.28, ejecta=0.14, rays=2)
-    return albedo
+                floor=0.16, rim=0.28, ejecta=0.14, rays=2, terrain=height, radius_km=200.0)
+    return albedo, height, None
 
 
 def make_duna(width):
@@ -311,12 +336,13 @@ def make_duna(width):
     albedo = mix(color((196, 108, 72)), color((128, 60, 42)), highland)
     albedo = mix(albedo, color((214, 136, 96)), smoothstep(0.1, 0.5, fbm(p, 35, 3.0, 5)) * (1.0 - highland) * 0.5)
     albedo *= (1.0 + 0.1 * fbm(p, 36, 12.0, max(1, oct_fine - 3)))[..., None]
+    height = 3.0 * h
     add_craters(albedo, p, lat, Rng(37), count=700, r_min_deg=0.4, r_max_deg=12.0, slope=1.6,
-                floor=0.08, rim=0.08, ejecta=0.04)
+                floor=0.08, rim=0.08, ejecta=0.04, terrain=height, radius_km=320.0)
     alat = np.abs(np.degrees(lat))
     cap_edge = 79.0 + 6.0 * fbm(p, 38, 2.5, 6)
     cap = smoothstep(cap_edge - 1.0, cap_edge + 1.0, alat)
-    return mix(albedo, color((232, 224, 216)), cap)
+    return mix(albedo, color((232, 224, 216)), cap), height, None
 
 
 def make_jool(width):
@@ -345,16 +371,17 @@ def make_jool(width):
         spot = np.exp(-r2 ** 2)
         albedo = mix(albedo, color((210, 228, 170)) if u[3] > 0.5 else color((52, 96, 50)), 0.7 * spot)
     polar = smoothstep(60.0, 85.0, np.abs(np.degrees(lat)))
-    return albedo * (1.0 - 0.25 * polar)[..., None]
+    return albedo * (1.0 - 0.25 * polar)[..., None], None, None
 
 
 def make_moho(width):
     """Dark brown, heavily cratered."""
     p, lat, _ = sphere_grid(width)
     albedo = mottled(p, 61, (88, 70, 58), (132, 108, 90), width)
+    height = rolling(p, 564, 2.0, width)
     add_craters(albedo, p, lat, Rng(63), count=4000, r_min_deg=0.3, r_max_deg=20.0, slope=1.5,
-                floor=0.14, rim=0.24, ejecta=0.12, rays=2)
-    return albedo
+                floor=0.14, rim=0.24, ejecta=0.12, rays=2, terrain=height, radius_km=250.0)
+    return albedo, height, None
 
 
 def make_eve(width):
@@ -365,16 +392,17 @@ def make_eve(width):
     ground = ramp([(0.0, color((92, 58, 112))), (0.35, color((112, 76, 136))), (0.7, color((140, 106, 160))),
                    (1.0, color((178, 156, 192)))], elev)
     ground *= (1.0 + 0.12 * fbm(p, 75, 12.0, octaves_for(12.0, width)))[..., None]
-    return np.where(land[..., None], ground, sea)
+    return np.where(land[..., None], ground, sea), np.where(land, 7.0 * elev ** 1.2, 0.0), np.where(land, 0.0, 1.0)
 
 
 def make_gilly(width):
     """A small brown-grey rock."""
     p, lat, _ = sphere_grid(width)
     albedo = mottled(p, 81, (98, 84, 72), (138, 120, 102), width, base=2.0, detail=0.15)
+    height = rolling(p, 584, 0.7, width, base=1.5)
     add_craters(albedo, p, lat, Rng(83), count=250, r_min_deg=1.5, r_max_deg=20.0, slope=1.4,
-                floor=0.1, rim=0.12, ejecta=0.05)
-    return albedo
+                floor=0.1, rim=0.12, ejecta=0.05, terrain=height, radius_km=13.0)
+    return albedo, height, None
 
 
 def make_minmus(width):
@@ -385,29 +413,33 @@ def make_minmus(width):
     flat_level = weighted_quantile(f, lat, 0.22)
     flats = smoothstep(flat_level + 0.01, flat_level - 0.01, f)
     albedo = mix(albedo, color((198, 234, 218)), flats)
+    # The plains are level; the hills rise from their shores.
+    height = (2.5 * np.maximum(f - flat_level, 0.0) + rolling(p, 598, 0.4, width)) * (1.0 - flats)
     add_craters(albedo, p, lat, Rng(97), count=180, r_min_deg=0.8, r_max_deg=8.0, slope=1.5,
-                floor=0.05, rim=0.06, ejecta=0.02)
-    return albedo
+                floor=0.05, rim=0.06, ejecta=0.02, terrain=height, radius_km=60.0)
+    return albedo, height, None
 
 
 def make_ike(width):
     """Dark grey, cratered."""
     p, lat, _ = sphere_grid(width)
     albedo = mottled(p, 101, (80, 80, 84), (116, 116, 120), width)
+    height = rolling(p, 604, 1.5, width)
     add_craters(albedo, p, lat, Rng(103), count=2500, r_min_deg=0.35, r_max_deg=18.0, slope=1.5,
-                floor=0.14, rim=0.24, ejecta=0.1, rays=1)
-    return albedo
+                floor=0.14, rim=0.24, ejecta=0.1, rays=1, terrain=height, radius_km=130.0)
+    return albedo, height, None
 
 
 def make_dres(width):
     """Grey, cratered, cut by a few long dark canyons."""
     p, lat, _ = sphere_grid(width)
     albedo = mottled(p, 111, (110, 104, 98), (150, 144, 138), width)
+    height = rolling(p, 614, 1.2, width)
     add_craters(albedo, p, lat, Rng(113), count=2200, r_min_deg=0.35, r_max_deg=15.0, slope=1.5,
-                floor=0.12, rim=0.2, ejecta=0.08)
+                floor=0.12, rim=0.2, ejecta=0.08, terrain=height, radius_km=138.0)
     canyons = lines(p, lat, 115, 0.9, 4, 0.6, warp=0.2)
     canyons = canyons * smoothstep(0.1, 0.4, fbm(p, 119, 1.2, 4))  # segments, not a global net
-    return albedo * (1.0 - 0.55 * canyons)[..., None]
+    return albedo * (1.0 - 0.55 * canyons)[..., None], height - 2.5 * canyons, None
 
 
 def make_laythe(width):
@@ -419,7 +451,7 @@ def make_laythe(width):
     ground = ramp([(0.0, color((184, 168, 128))), (0.3, color((160, 146, 114))), (0.7, color((128, 120, 108))),
                    (1.0, color((150, 146, 140)))], elev)
     ground *= (1.0 + 0.1 * fbm(p, 125, 16.0, octaves_for(16.0, width)))[..., None]
-    return np.where(land[..., None], ground, ocean)
+    return np.where(land[..., None], ground, ocean), np.where(land, 4.0 * elev, 0.0), np.where(land, 0.0, 1.0)
 
 
 def make_vall(width):
@@ -428,27 +460,30 @@ def make_vall(width):
     albedo = mottled(p, 131, (168, 188, 204), (206, 222, 232), width)
     cracks = np.maximum(lines(p, lat, 133, 1.5, 4, 0.35, warp=0.25), 0.6 * lines(p, lat, 137, 3.0, 3, 0.2, warp=0.2))
     albedo = mix(albedo, color((112, 134, 156)), 0.75 * cracks)
+    height = rolling(p, 634, 1.2, width) - 0.8 * cracks
     add_craters(albedo, p, lat, Rng(139), count=400, r_min_deg=0.4, r_max_deg=10.0, slope=1.6,
-                floor=0.06, rim=0.1, ejecta=0.06)
-    return albedo
+                floor=0.06, rim=0.1, ejecta=0.06, terrain=height, radius_km=300.0)
+    return albedo, height, None
 
 
 def make_tylo(width):
     """Light grey with large dark patches, cratered."""
     p, lat, _ = sphere_grid(width)
     albedo = mottled(p, 141, (118, 114, 110), (206, 200, 194), width, base=0.9, edges=(-0.08, 0.08))
+    height = rolling(p, 644, 3.0, width)
     add_craters(albedo, p, lat, Rng(143), count=2000, r_min_deg=0.3, r_max_deg=16.0, slope=1.5,
-                floor=0.12, rim=0.2, ejecta=0.1, rays=2)
-    return albedo
+                floor=0.12, rim=0.2, ejecta=0.1, rays=2, terrain=height, radius_km=600.0)
+    return albedo, height, None
 
 
 def make_bop(width):
     """Rough dark brown."""
     p, lat, _ = sphere_grid(width)
     albedo = mottled(p, 151, (88, 62, 48), (128, 94, 72), width, base=2.0, detail=0.2)
+    height = rolling(p, 654, 3.5, width, base=1.5)
     add_craters(albedo, p, lat, Rng(153), count=500, r_min_deg=1.0, r_max_deg=18.0, slope=1.4,
-                floor=0.12, rim=0.16, ejecta=0.06)
-    return albedo
+                floor=0.12, rim=0.16, ejecta=0.06, terrain=height, radius_km=65.0)
+    return albedo, height, None
 
 
 def make_pol(width):
@@ -456,9 +491,10 @@ def make_pol(width):
     p, lat, _ = sphere_grid(width)
     albedo = mottled(p, 161, (186, 160, 92), (222, 204, 140), width, base=2.4, detail=0.18)
     albedo *= (1.0 - 0.18 * smoothstep(0.2, 0.6, fbm(p, 163, 5.0, 5)))[..., None]
+    height = rolling(p, 664, 1.5, width, base=2.4)
     add_craters(albedo, p, lat, Rng(165), count=150, r_min_deg=1.0, r_max_deg=12.0, slope=1.4,
-                floor=0.06, rim=0.08, ejecta=0.03)
-    return albedo
+                floor=0.06, rim=0.08, ejecta=0.03, terrain=height, radius_km=44.0)
+    return albedo, height, None
 
 
 def make_eeloo(width):
@@ -468,18 +504,21 @@ def make_eeloo(width):
     albedo = mix(albedo, color((150, 140, 130)), 0.35 * smoothstep(0.35, 0.7, fbm(p, 173, 1.6, 5)))
     cracks = np.maximum(lines(p, lat, 175, 1.2, 4, 0.4), 0.7 * lines(p, lat, 179, 2.6, 3, 0.25))
     albedo = mix(albedo, color((118, 98, 84)), 0.8 * cracks)
+    height = rolling(p, 684, 0.8, width) - 0.6 * cracks
     add_craters(albedo, p, lat, Rng(181), count=300, r_min_deg=0.4, r_max_deg=8.0, slope=1.6,
-                floor=0.05, rim=0.08, ejecta=0.05)
-    return albedo
+                floor=0.05, rim=0.08, ejecta=0.05, terrain=height, radius_km=210.0)
+    return albedo, height, None
 
 
-# Name -> (maker, default width). The smallest moons get 1024-pixel maps.
-MAKERS = {"kerbin": (make_kerbin, 2048), "mun": (make_mun, 2048), "duna": (make_duna, 2048),
-          "jool": (make_jool, 2048), "moho": (make_moho, 2048), "eve": (make_eve, 2048),
-          "gilly": (make_gilly, 1024), "minmus": (make_minmus, 2048), "ike": (make_ike, 2048),
-          "dres": (make_dres, 2048), "laythe": (make_laythe, 2048), "vall": (make_vall, 2048),
-          "tylo": (make_tylo, 2048), "bop": (make_bop, 1024), "pol": (make_pol, 1024),
-          "eeloo": (make_eeloo, 2048)}
+# Name -> (maker, default width, radius in km as in the scene). The smallest moons
+# get 1024-pixel maps. A maker returns (albedo, height in km or None, share of open
+# water or None).
+MAKERS = {"kerbin": (make_kerbin, 2048, 600.0), "mun": (make_mun, 2048, 200.0), "duna": (make_duna, 2048, 320.0),
+          "jool": (make_jool, 2048, 6000.0), "moho": (make_moho, 2048, 250.0), "eve": (make_eve, 2048, 700.0),
+          "gilly": (make_gilly, 1024, 13.0), "minmus": (make_minmus, 2048, 60.0), "ike": (make_ike, 2048, 130.0),
+          "dres": (make_dres, 2048, 138.0), "laythe": (make_laythe, 2048, 500.0), "vall": (make_vall, 2048, 300.0),
+          "tylo": (make_tylo, 2048, 600.0), "bop": (make_bop, 1024, 65.0), "pol": (make_pol, 1024, 44.0),
+          "eeloo": (make_eeloo, 2048, 210.0)}
 
 
 def main():
@@ -494,11 +533,13 @@ def main():
         sys.exit(1)
     out_dir, names = args[0], args[1:] or list(MAKERS)
     for name in names:
-        maker, default_width = MAKERS[name]
-        albedo = maker(width or default_width)
+        maker, default_width, radius_km = MAKERS[name]
+        albedo, height, water = maker(width or default_width)
         path = os.path.join(out_dir, name + ".jpg")
         Image.fromarray(linear_to_srgb8(albedo), "RGB").save(path, "JPEG", quality=90, optimize=True)
         print(path)
+        if height is not None:
+            relief_map.write(os.path.join(out_dir, name + "_relief.jpg"), height, radius_km, water)
 
 
 if __name__ == "__main__":

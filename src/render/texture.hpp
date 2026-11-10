@@ -16,6 +16,10 @@ namespace astraxis {
 SDL_GPUTexture* load_texture_srgb(SDL_GPUDevice* device, const std::filesystem::path& path, std::string* error,
                                   uint32_t* width = nullptr);
 
+// Loads a JPEG/PNG whose channels are plain numbers, not colors (a relief map): RGBA8 with a
+// full mip chain, sampled as stored.
+SDL_GPUTexture* load_texture_linear(SDL_GPUDevice* device, const std::filesystem::path& path, std::string* error);
+
 // RGBA8 texture with optional mipmaps; `srgb` selects the sRGB format (sampling
 // decodes to linear), otherwise values are used as they are.
 SDL_GPUTexture* create_texture_rgba8(SDL_GPUDevice* device, const uint8_t* rgba, uint32_t width, uint32_t height,

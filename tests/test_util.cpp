@@ -2,6 +2,11 @@
 
 #include "test_util.hpp"
 
+#define STB_IMAGE_IMPLEMENTATION
+#define STBI_ONLY_JPEG
+#define STBI_ONLY_PNG
+#include <stb_image.h>
+
 #include "core/math.hpp"
 #include "core/time.hpp"
 #include "scene/scene_loader.hpp"
@@ -22,6 +27,28 @@ namespace {
 int g_failures = 0;
 
 } // namespace
+
+double TestImage::at(double lat_deg, double east_lon_deg, int c) const
+{
+    const double u = (east_lon_deg + 180.0) / 360.0;
+    const int x = static_cast<int>((u - std::floor(u)) * width) % width;
+    const int y = std::clamp(static_cast<int>((90.0 - lat_deg) / 180.0 * height), 0, height - 1);
+    return rgb[(static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x)) * 3 +
+               static_cast<size_t>(c)] / 255.0;
+}
+
+TestImage load_test_image(const char* asset_path)
+{
+    TestImage image;
+    int channels = 0;
+    const std::string path = (std::filesystem::path(ASTRAXIS_ASSET_DIR) / asset_path).string();
+    stbi_uc* pixels = stbi_load(path.c_str(), &image.width, &image.height, &channels, 3);
+    if (pixels) {
+        image.rgb.assign(pixels, pixels + static_cast<size_t>(image.width) * static_cast<size_t>(image.height) * 3);
+        stbi_image_free(pixels);
+    }
+    return image;
+}
 
 void check(bool ok, const char* what, double value)
 {

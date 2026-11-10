@@ -13,6 +13,7 @@
 #include "scene/magnetic_field.hpp"
 #include "scene/comet.hpp"
 #include "scene/corona.hpp"
+#include "scene/relief.hpp"
 #include "scene/scene_loader.hpp"
 #include "scene/simulation.hpp"
 
@@ -587,6 +588,227 @@ void test_night_and_aurora()
                              "[bodies.aurora]\nkp = 'geomag/missing.bin'\n",
                              "bad_aurora", bad, &err),
           "rejects a missing Kp record");
+}
+
+// Relief maps and the sea's glint (scene/relief.hpp, tools/textures/relief_map.py).
+void test_relief()
+{
+    // The encoding: zero at mid-scale, odd, the square of the offset.
+    check(relief_decode(0.5) == 0.0 && relief_decode(1.0) == kReliefMaxSlope && relief_decode(0.0) == -kReliefMaxSlope,
+          "relief encoding: its ends and middle");
+    check(std::abs(relief_decode(0.75) - 0.25 * kReliefMaxSlope) < 1e-12 &&
+              std::abs(relief_decode(0.25) + 0.25 * kReliefMaxSlope) < 1e-12,
+          "relief encoding: the square of the offset");
+
+    // Ground that rises toward the east faces west, by the angle of the slope.
+    const glm::dvec3 pole(0.0, 0.0, 1.0);
+    const glm::dvec3 n = glm::normalize(glm::dvec3(1.0, 0.3, 0.4));
+    const glm::dvec3 east = glm::normalize(glm::cross(pole, n));
+    const glm::dvec3 north = glm::cross(n, east);
+    const glm::dvec3 tilted = relief_normal(n, pole, 0.2, 0.0);
+    check(std::abs(glm::dot(tilted, east) + std::sin(std::atan(0.2))) < 1e-12 && std::abs(glm::dot(tilted, north)) < 1e-12,
+          "a slope up to the east tilts the normal west", glm::dot(tilted, east));
+    const glm::dvec3 tilted_north = relief_normal(n, pole, 0.0, -0.5);
+    check(std::abs(glm::dot(tilted_north, north) - std::sin(std::atan(0.5))) < 1e-12,
+          "a slope down to the north tilts it north", glm::dot(tilted_north, north));
+    check(glm::length(relief_normal(n, pole, 0.0, 0.0) - n) < 1e-15 && relief_normal(pole, pole, 0.3, 0.3) == pole,
+          "level ground and the pole keep the smooth normal");
+    // Near the terminator a slope of a few degrees is most of the light: the sun 3 deg up in
+    // the east, a wall of 10 deg facing it and one facing away.
+    const glm::dvec3 sun = glm::normalize(std::sin(glm::radians(3.0)) * n + std::cos(glm::radians(3.0)) * east);
+    const double flat = glm::dot(n, sun);
+    const double toward = glm::dot(relief_normal(n, pole, -std::tan(glm::radians(10.0)), 0.0), sun);
+    const double away = glm::dot(relief_normal(n, pole, std::tan(glm::radians(10.0)), 0.0), sun);
+    check(std::abs(toward / flat - std::sin(glm::radians(13.0)) / std::sin(glm::radians(3.0))) < 1e-9 && away < 0.0,
+          "a 10 deg wall facing the low sun is 4 times brighter, the far one is dark", toward / flat);
+
+    // The sea. Cox & Munk: 0.003 + 0.00512 U; water reflects 2% head-on.
+    check(std::abs(sea_slope_variance(10.0) - 0.0542) < 1e-12 && sea_slope_variance(0.0) == 0.003,
+          "Cox-Munk mean square slope");
+    const double f0 = fresnel_normal_reflectance(1.333);
+    check(std::abs(f0 - 0.02037) < 2e-5, "water's reflectance at normal incidence", f0);
+    const double variance = sea_slope_variance(7.0);
+    const glm::dvec3 up(0.0, 0.0, 1.0);
+    // Sun overhead, seen from overhead: every facet that is level mirrors it, F / (4 variance).
+    const double peak = sea_glint(up, up, up, variance, f0);
+    check(std::abs(peak - f0 / (4.0 * variance)) < 1e-9 * peak, "the glint's peak with the sun overhead", peak);
+    check(peak > 0.1 && peak < 0.2, "comparable to the sea's own albedo", peak);
+    // What the sea reflects in all, with the sun 30 deg from the zenith: sum of
+    // f mu_view over the sky = glint / (pi mu_sun) mu_view. It is the Fresnel reflectance
+    // there, a little over the 2% of normal incidence: no light made or lost.
+    const glm::dvec3 sun30(std::sin(glm::radians(30.0)), 0.0, std::cos(glm::radians(30.0)));
+    double reflected = 0.0;
+    double brightest = 0.0;
+    double brightest_zenith_deg = 0.0;
+    const int steps = 400;
+    for (int i = 0; i < steps; ++i) {
+        const double mu = (i + 0.5) / steps;
+        const double sine = std::sqrt(1.0 - mu * mu);
+        for (int j = 0; j < steps; ++j) {
+            const double phi = kTwoPi * (j + 0.5) / steps;
+            const glm::dvec3 v(sine * std::cos(phi), sine * std::sin(phi), mu);
+            const double g = sea_glint(up, sun30, v, variance, f0);
+            reflected += g / (kPi * sun30.z) * mu * (kTwoPi / steps / steps);
+            if (g > brightest) {
+                brightest = g;
+                brightest_zenith_deg = glm::degrees(std::atan2(v.x, v.z));
+            }
+        }
+    }
+    check(reflected > f0 && reflected < 1.15 * f0, "the sea reflects its Fresnel share of the sunlight", reflected / f0);
+    check(std::abs(brightest_zenith_deg + 30.0) < 4.0, "brightest near the mirror direction", brightest_zenith_deg);
+    // Reciprocity of the reflectance (the glint is pi f mu_sun), and nothing from below.
+    const glm::dvec3 v60(-std::sin(glm::radians(60.0)) * 0.8, std::sin(glm::radians(60.0)) * 0.6, std::cos(glm::radians(60.0)));
+    check(std::abs(sea_glint(up, sun30, v60, variance, f0) / sun30.z - sea_glint(up, v60, sun30, variance, f0) / v60.z) <
+              1e-12,
+          "the sea's reflectance is reciprocal");
+    check(sea_glint(up, -sun30, v60, variance, f0) == 0.0 && sea_glint(up, sun30, -v60, variance, f0) == 0.0,
+          "no glint with the sun or the viewer below the horizon");
+    // A calmer sea: a smaller, brighter glint.
+    check(sea_glint(up, up, up, sea_slope_variance(2.0), f0) > 2.5 * peak, "a calm sea's glint is brighter at its center");
+
+    // Scenes: the Earth's relief and sea, the Moon's and Mars' relief, wherever they appear.
+    const Scene solar = load_scene_or_die("solar_system.toml");
+    const Body& earth = solar.bodies[static_cast<size_t>(solar.find("Earth"))];
+    check(!earth.relief.texture.empty() && earth.relief.exaggeration == 1.0 && earth.sea.wind_m_s == 7.0 &&
+              earth.sea.refractive_index == 1.333,
+          "the Earth has relief and a sea");
+    for (const char* name : {"Moon", "Mars"}) {
+        const Body& b = solar.bodies[static_cast<size_t>(solar.find(name))];
+        check(!b.relief.texture.empty() && b.relief.exaggeration == 1.0 && b.sea.wind_m_s < 0.0, name);
+    }
+    check(solar.bodies[static_cast<size_t>(solar.find("Venus"))].relief.texture.empty(), "Venus has no relief map");
+    const Scene earth_moon = load_scene_or_die("earth_moon.toml");
+    check(earth_moon.bodies[static_cast<size_t>(earth_moon.find("Moon"))].relief.texture ==
+                  solar.bodies[static_cast<size_t>(solar.find("Moon"))].relief.texture &&
+              earth_moon.bodies[static_cast<size_t>(earth_moon.find("Earth"))].sea.wind_m_s == earth.sea.wind_m_s,
+          "the Earth-Moon scene has the same relief and sea");
+    check(!load_scene_or_die("mars.toml").bodies[0].relief.texture.empty(), "the Mars scene has its relief");
+    const Scene kerbol = load_scene_or_die("kerbol.toml");
+    int with_relief = 0;
+    int with_sea = 0;
+    for (const Body& b : kerbol.bodies) {
+        if (b.relief.texture.empty()) {
+            continue;
+        }
+        ++with_relief;
+        const TestImage map = load_test_image(b.relief.texture.c_str());
+        const TestImage albedo = load_test_image(b.texture.c_str());
+        check(map.width > 0 && map.width == albedo.width && map.height == albedo.height,
+              (b.name + ": the relief map matches the albedo map").c_str());
+        if (b.sea.wind_m_s >= 0.0) {
+            ++with_sea;
+        }
+    }
+    check(with_relief == 15 && with_sea == 3, "every Kerbol world but Jool has relief; Kerbin, Eve and Laythe have seas",
+          with_relief);
+    check(kerbol.bodies[static_cast<size_t>(kerbol.find("Jool"))].relief.texture.empty() &&
+              kerbol.bodies[static_cast<size_t>(kerbol.find("Kerbin"))].sea.wind_m_s >= 0.0 &&
+              kerbol.bodies[static_cast<size_t>(kerbol.find("Mun"))].sea.wind_m_s < 0.0,
+          "Jool has none, Kerbin a sea, the Mun none");
+
+    // The baked maps against known places. Slopes in the map's sense: red up to the east,
+    // green up to the north.
+    auto slope = [](const TestImage& map, double lat, double lon, int c) { return relief_decode(map.at(lat, lon, c)); };
+    // Moon: Tycho (43.3 S, 11.2 W; 85 km across, 4.7 km deep), its inner walls face the center.
+    const TestImage moon = load_test_image("textures/moon_relief.jpg");
+    check(moon.width == 2048 && moon.height == 1024, "the Moon's relief map");
+    if (moon.width > 0) {
+        check(slope(moon, -43.3, -10.0, 0) > 0.1 && slope(moon, -43.3, -12.4, 0) < -0.1,
+              "Tycho's east wall rises to the east, its west wall to the west", slope(moon, -43.3, -10.0, 0));
+        check(slope(moon, -42.2, -11.2, 1) > 0.1 && slope(moon, -44.4, -11.2, 1) < -0.1,
+              "its north wall rises to the north, its south wall to the south", slope(moon, -42.2, -11.2, 1));
+        // Mare Imbrium is nearly level.
+        check(std::abs(slope(moon, 35.0, -17.0, 0)) < 0.02 && std::abs(slope(moon, 35.0, -17.0, 1)) < 0.02,
+              "Mare Imbrium is level", slope(moon, 35.0, -17.0, 0));
+        check(moon.at(-43.3, -11.2, 2) < 0.02, "no water on the Moon");
+    }
+    // Mars: Olympus Mons (18.65 N, 226.2 E), 600 km across: its flanks rise toward the summit;
+    // the north wall of Valles Marineris at Melas (9 S, 287 E) drops to the south; Hellas'
+    // floor is level.
+    const TestImage mars = load_test_image("textures/mars_relief.jpg");
+    check(mars.width == 2048 && mars.height == 1024, "Mars' relief map");
+    if (mars.width > 0) {
+        check(slope(mars, 18.65, 223.5, 0) > 0.03 && slope(mars, 18.65, 229.0, 0) < -0.03,
+              "Olympus Mons' flanks rise toward the summit, east and west", slope(mars, 18.65, 223.5, 0));
+        check(slope(mars, 16.0, 226.2, 1) > 0.03 && slope(mars, 20.0, 226.2, 1) < -0.03,
+              "and north and south", slope(mars, 16.0, 226.2, 1));
+        check(std::abs(slope(mars, -42.4, 70.5, 0)) < 0.01, "Hellas' floor is level", slope(mars, -42.4, 70.5, 0));
+        double steepest = 0.0;
+        for (double lat = -8.0; lat >= -10.0; lat -= 0.1) {
+            steepest = std::max(steepest, slope(mars, lat, 287.0, 1));
+        }
+        check(steepest > 0.08, "the north wall of Valles Marineris rises to the north", steepest);
+    }
+    // Earth: water where the sea and the great lakes are, not below-sea-level land, ice
+    // shelves or sea ice; the Himalaya's front rises to the north.
+    const TestImage globe = load_test_image("textures/earth_relief.jpg");
+    check(globe.width == 2048 && globe.height == 1024, "the Earth's relief map");
+    if (globe.width > 0) {
+        check(globe.at(0.0, -150.0, 2) > 0.98 && globe.at(40.0, -40.0, 2) > 0.98 && globe.at(-40.0, 80.0, 2) > 0.98,
+              "the open oceans are water");
+        check(globe.at(23.0, 10.0, 2) < 0.02 && globe.at(50.0, 90.0, 2) < 0.02 && globe.at(-25.0, 135.0, 2) < 0.02,
+              "the Sahara, Siberia and Australia are not");
+        check(globe.at(47.7, -87.5, 2) > 0.9 && globe.at(42.0, 51.0, 2) > 0.9 && globe.at(-1.0, 33.0, 2) > 0.9,
+              "Lake Superior, the Caspian Sea and Lake Victoria are water", globe.at(47.7, -87.5, 2));
+        check(globe.at(29.9, 27.4, 2) < 0.05, "the Qattara depression, below sea level, is dry", globe.at(29.9, 27.4, 2));
+        check(globe.at(-81.0, -175.0, 2) < 0.05 && globe.at(-78.0, -50.0, 2) < 0.05,
+              "the Ross and Ronne ice shelves are not open water", globe.at(-81.0, -175.0, 2));
+        check(globe.at(0.0, -150.0, 0) == globe.at(40.0, -40.0, 0) && std::abs(slope(globe, 0.0, -150.0, 0)) < 1e-4,
+              "the sea is level");
+        double steepest = 0.0;
+        for (double lat = 26.5; lat <= 28.5; lat += 0.1) {
+            steepest = std::max(steepest, slope(globe, lat, 86.0, 1));
+        }
+        check(steepest > 0.02, "the Himalaya's front rises to the north", steepest);
+        check(std::abs(slope(globe, 33.0, 88.0, 1)) < 0.02, "Tibet is a plateau", slope(globe, 33.0, 88.0, 1));
+    }
+    // Kerbin: the invented sea covers about two thirds, and is level; the land is not.
+    const TestImage kerbin = load_test_image("textures/kerbin_relief.jpg");
+    if (kerbin.width > 0) {
+        double water = 0.0, weight = 0.0, rough = 0.0, land = 0.0;
+        for (int row = 0; row < 180; ++row) {
+            const double lat = 89.5 - row;
+            const double w = std::cos(glm::radians(lat));
+            for (int col = 0; col < 360; ++col) {
+                const double share = kerbin.at(lat, col - 179.5, 2);
+                water += w * share;
+                weight += w;
+                if (share < 0.02) {
+                    rough += w * std::hypot(slope(kerbin, lat, col - 179.5, 0), slope(kerbin, lat, col - 179.5, 1));
+                    land += w;
+                }
+            }
+        }
+        check(water / weight > 0.55 && water / weight < 0.68, "Kerbin's open water", water / weight);
+        check(rough / land > 0.02 && rough / land < 0.2, "Kerbin's land has slopes of a few degrees", rough / land);
+    }
+
+    std::string err;
+    Scene bad;
+    check(!load_scene_string("name = 'x'\n[[bodies]]\nname = 'P'\nradii_km = [1.0]\n"
+                             "[bodies.relief]\ntexture = 'a.jpg'\n",
+                             "bad_relief", bad, &err),
+          "a relief map needs the body's texture");
+    check(!load_scene_string("name = 'x'\n[[bodies]]\nname = 'P'\nradii_km = [1.0]\ntexture = 'a.jpg'\n"
+                             "[bodies.sea]\nwind_m_s = 7.0\nrefractive_index = 1.333\n",
+                             "bad_sea", bad, &err),
+          "a sea needs the relief map");
+    check(!load_scene_string("name = 'x'\n[[bodies]]\nname = 'P'\nradii_km = [1.0]\ntexture = 'a.jpg'\n"
+                             "[bodies.relief]\ntexture = 'b.jpg'\n"
+                             "[bodies.sea]\nwind_m_s = -1.0\nrefractive_index = 1.333\n",
+                             "bad_wind", bad, &err),
+          "rejects a negative wind");
+    check(!load_scene_string("name = 'x'\n[[bodies]]\nname = 'P'\nradii_km = [1.0]\ntexture = 'a.jpg'\n"
+                             "[bodies.relief]\ntexture = 'b.jpg'\nexaggeration = 0.0\n",
+                             "bad_exaggeration", bad, &err),
+          "rejects a zero exaggeration");
+    check(load_scene_string("name = 'x'\n[[bodies]]\nname = 'P'\nradii_km = [1.0]\ntexture = 'a.jpg'\n"
+                            "[bodies.relief]\ntexture = 'b.jpg'\nexaggeration = 2.0\n"
+                            "[bodies.sea]\nwind_m_s = 3.0\nrefractive_index = 1.3\n",
+                            "good_relief", bad, &err) &&
+              bad.bodies[0].relief.exaggeration == 2.0 && bad.bodies[0].sea.wind_m_s == 3.0,
+          "reads a relief map and a sea");
 }
 
 void test_refraction()
@@ -3467,6 +3689,7 @@ void test_bound_dust_tail()
 void run_appearance_tests()
 {
     test_impact_sites();
+    test_relief();
     test_bound_dust_tail();
     test_comet_tails();
     test_dust_tail();

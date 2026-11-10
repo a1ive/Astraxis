@@ -29,6 +29,11 @@
 #        its inner side; it enters the Mun's SOI 5.02 h later and at the lowest point of the
 #        pass, 30 km up (Year 1, Day 2, 2:40:33), burns 261.6 m/s retrograde into a circular
 #        prograde orbit. Table: assets/ephem/kerbol_mun_transfer.eph (see its SOURCES.md).
+# [SURF] Relief and seas (scene/relief.hpp). The relief maps come with the surface maps from
+#        tools/textures/make_kerbol_textures.py and are as invented (textures/SOURCES.md).
+#        The seas mirror the sun as the Earth's do in bodies/earth.toml [RELIEF]: waves
+#        with Cox & Munk's slopes under a wind of 7 m/s, and water's refractive index, all
+#        assumed (the game says nothing of Kerbin's winds, and Eve's sea is not water).
 #
 # Frame and time. KSP's reference direction (the solar prime vector, from which it
 # counts longitudes of nodes and rotation angles) is the scene's x axis and the
@@ -48,7 +53,8 @@
 #   tools/textures/make_kerbol_textures.py, invented terrain that keeps only each world's
 #   look (Kerbin's seas and ice caps, grey craters, Duna's rust plains and polar caps,
 #   Jool's green bands, Eve's purple land, Minmus' flats, Laythe's islands, cracked ice
-#   on Vall and Eeloo...).
+#   on Vall and Eeloo...). The same tool makes their relief (slopes that shade the
+#   terminator; no cast shadows) and marks the seas that mirror the sun [SURF].
 # - Atmospheres: tops, surface pressures, temperatures and molar masses [KSP]. The
 #   Rayleigh depth scales the Earth's [ATM] by the column of molecules,
 #   p0 / (g M), with air's cross-section per molecule (KSP gives no composition); the
@@ -87,6 +93,8 @@ prime_meridian_deg = [190.0, 25.70578512396694]
 color = "#8a6c58"
 texture = "textures/moho.jpg"
 orbit_color = "#c89a78"
+[bodies.relief]
+texture = "textures/moho_relief.jpg"
 [bodies.orbit]
 type = "mean_elements"
 a_km = 5263138.304
@@ -115,6 +123,11 @@ haze_depth = 0.4           # illustrative
 haze_scale_height_km = 13.05
 haze_albedo = [0.85, 0.65, 0.95]
 haze_g = 0.6
+[bodies.relief]
+texture = "textures/eve_relief.jpg"
+[bodies.sea]               # [SURF]
+wind_m_s = 7.0
+refractive_index = 1.333
 [bodies.orbit]
 type = "mean_elements"
 a_km = 9832684.544
@@ -135,6 +148,8 @@ prime_meridian_deg = [5.0, 1100.8317112015573]
 color = "#8a7666"
 texture = "textures/gilly.jpg"
 orbit_color = "#c0a490"
+[bodies.relief]
+texture = "textures/gilly_relief.jpg"
 [bodies.orbit]
 type = "mean_elements"
 a_km = 31500.0
@@ -163,6 +178,11 @@ haze_depth = 0.005328
 haze_scale_height_km = 1.2
 haze_albedo = 0.9
 haze_g = 0.8
+[bodies.relief]
+texture = "textures/kerbin_relief.jpg"
+[bodies.sea]               # [SURF]
+wind_m_s = 7.0
+refractive_index = 1.333
 [bodies.orbit]
 type = "mean_elements"
 a_km = 13599840.256
@@ -183,6 +203,8 @@ prime_meridian_deg = [230.0, 223.7949384428303]
 color = "#9a9a9a"
 texture = "textures/mun.jpg"
 orbit_color = "#c8c8c8"
+[bodies.relief]
+texture = "textures/mun_relief.jpg"
 [bodies.orbit]
 type = "mean_elements"
 a_km = 12000.0
@@ -203,6 +225,8 @@ prime_meridian_deg = [230.0, 769.9009900990098]
 color = "#a6dcc8"
 texture = "textures/minmus.jpg"
 orbit_color = "#a0f0d0"
+[bodies.relief]
+texture = "textures/minmus_relief.jpg"
 [bodies.orbit]
 type = "mean_elements"
 a_km = 47000.0
@@ -245,6 +269,8 @@ haze_depth = 0.3           # illustrative dust, colored like the Martian dust in
 haze_scale_height_km = 8.5
 haze_albedo = [0.97, 0.93, 0.75]
 haze_g = 0.63
+[bodies.relief]
+texture = "textures/duna_relief.jpg"
 [bodies.orbit]
 type = "mean_elements"
 a_km = 20726155.264
@@ -265,6 +291,8 @@ prime_meridian_deg = [0.0, 474.74076513670576]
 color = "#7c7c80"
 texture = "textures/ike.jpg"
 orbit_color = "#b0b0b8"
+[bodies.relief]
+texture = "textures/ike_relief.jpg"
 [bodies.orbit]
 type = "mean_elements"
 a_km = 3200.0
@@ -285,6 +313,8 @@ prime_meridian_deg = [25.0, 893.7931034482758]
 color = "#8e8984"
 texture = "textures/dres.jpg"
 orbit_color = "#c8c0b8"
+[bodies.relief]
+texture = "textures/dres_relief.jpg"
 [bodies.orbit]
 type = "mean_elements"
 a_km = 40839348.203
@@ -340,6 +370,11 @@ haze_depth = 0.004         # the Earth's aerosols x 0.75
 haze_scale_height_km = 1.2
 haze_albedo = 0.9
 haze_g = 0.8
+[bodies.relief]
+texture = "textures/laythe_relief.jpg"
+[bodies.sea]               # [SURF]
+wind_m_s = 7.0
+refractive_index = 1.333
 [bodies.orbit]
 type = "mean_elements"
 a_km = 27184.0
@@ -360,6 +395,8 @@ prime_meridian_deg = [0.0, 293.5389470392325]
 color = "#a8c2d2"
 texture = "textures/vall.jpg"
 orbit_color = "#a0d0f0"
+[bodies.relief]
+texture = "textures/vall_relief.jpg"
 [bodies.orbit]
 type = "mean_elements"
 a_km = 43152.0
@@ -380,6 +417,8 @@ prime_meridian_deg = [0.0, 146.76796360028098]
 color = "#c6c0b8"
 texture = "textures/tylo.jpg"
 orbit_color = "#e0d8c8"
+[bodies.relief]
+texture = "textures/tylo_relief.jpg"
 [bodies.orbit]
 type = "mean_elements"
 a_km = 68500.0
@@ -400,6 +439,8 @@ prime_meridian_deg = [230.0, 57.12318762066012]
 color = "#7a6450"
 texture = "textures/bop.jpg"
 orbit_color = "#c09a78"
+[bodies.relief]
+texture = "textures/bop_relief.jpg"
 [bodies.orbit]
 type = "mean_elements"
 a_km = 128500.0
@@ -420,6 +461,8 @@ prime_meridian_deg = [25.0, 34.48709338289771]
 color = "#d6c07a"
 texture = "textures/pol.jpg"
 orbit_color = "#f0d890"
+[bodies.relief]
+texture = "textures/pol_relief.jpg"
 [bodies.orbit]
 type = "mean_elements"
 a_km = 179890.0
@@ -440,6 +483,8 @@ prime_meridian_deg = [25.0, 1598.355601233299]
 color = "#e4e6e8"
 texture = "textures/eeloo.jpg"
 orbit_color = "#d0e0ff"
+[bodies.relief]
+texture = "textures/eeloo_relief.jpg"
 [bodies.orbit]
 type = "mean_elements"
 a_km = 90118820.0
