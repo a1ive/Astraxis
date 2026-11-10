@@ -44,6 +44,16 @@ reference_radius_km = 71492.0
 l_shells = [2.0, 3.5, 5.9]
 max_radius = 10.0
 
+# The magnetopause and bow shock of Joy et al. 2002 (JGR 107, 1309), which depend on the
+# solar wind's dynamic pressure alone; 0.071 nPa is the median at Jupiter (Rutala et al.
+# 2025, arXiv:2502.09186). Joy's own most probable magnetopauses are a compressed one, 63
+# radii out (0.306 nPa), and an expanded one, 92 radii (0.039 nPa). The fits hold within
+# 250 radii down the tail. geomag/SOURCES.md.
+[magnetosphere]
+model = "joy2002"
+pressure_npa = 0.071
+tail_radii = 200.0
+
 # The radial field of JRM33 at the 1-bar surface and at 0.81 radii. geomag/SOURCES.md.
 [magnetic_map]
 surface = "geomag/jupiter_br.fieldmap"

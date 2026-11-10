@@ -382,6 +382,16 @@ void App::build_control_panel()
     }
 
     if (std::any_of(scene.bodies.begin(), scene.bodies.end(),
+                    [](const Body& b) { return b.magnetosphere.enabled(); })) {
+        ImGui::Combo("Magnetosphere", &m_view_options.magnetosphere_view, "Event setting\0Always\0Never\0");
+        ImGui::SetItemTooltip("Where the solar wind stops the planet's field (the magnetopause, blue) and the\n"
+                             "shock upstream of it (orange), as wire surfaces from empirical models:\n"
+                             "Shue 1998 for the Earth, Joy 2002 for Jupiter, a pressure balance for Uranus.\n"
+                             "Always: under typical solar wind. Event setting: under the event's own wind,\n"
+                             "with a fainter surface for comparison. Averages: the real edges ripple and flap.");
+    }
+
+    if (std::any_of(scene.bodies.begin(), scene.bodies.end(),
                     [](const Body& b) { return b.magnetic_map.surface != nullptr; })) {
         ImGui::Combo("Field map", &m_view_options.magnetic_map_view, "Event setting\0Surface\0Deep\0Never\0Crust\0");
         ImGui::SetItemTooltip("False color map of the magnetic field (G). Radial field, red out of the planet, blue into it:\n"

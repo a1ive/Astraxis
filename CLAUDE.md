@@ -51,6 +51,7 @@ ctest --test-dir build/linux -C Release --output-on-failure --no-tests=error
 - 把 `<name>.<vert|frag|comp>.hlsl` 加到 [CMakeLists.txt](CMakeLists.txt) 的 `astraxis_add_shaders`。包含生成的 `<shaders/<name>.<stage>.h>`，把 DXIL 和 SPIR-V 一起交给 `create_shader`。
 - 按 SDL_GPU 的 `register`/`space` 约定绑定资源。片元纹理用 `FRAGMENT_TEXTURE` 配对纹理和采样器，输入和输出按 `TEXCOORD0`、`TEXCOORD1` 等顺序声明，系统语义照常使用。读存储缓冲区用 `ByteAddressBuffer`，与 D3D12 的 RAW SRV 对齐。SDL 的 Vulkan 后端每个 uniform 绑定限 4 KiB。用 `static_assert` 检查大小，大表用纹理或存储缓冲区。
 - D3D12 的 ImGui 后端需要 DXBC，创建设备时声明 `DXIL | DXBC`。各宿主都调用 `ImGui_ImplSDLGPU3_NewFrame()` 以初始化后端资源。全局快捷键用 `WantTextInput` 判断是否正在输入文本。
+- 磁层顶、弓激波等线框曲面走轨道线的 pass（`OrbitLinePass::add_line`），每帧由 `boundary_wireframe` 生成。
 - 表面叠加图按 `body.vert.hlsl` 的行星中心纬度采样。光线和小天体的垂距用叉积求，避免两个大平方数相减。极薄的壳层先裁剪射线再积分，大面积加性光斑先画到半分辨率单采样目标再合成。
 - `SceneRenderer::render` 在检查黑洞 pass 的 `ready()` 之前更新星表资源。透镜雅可比用有限差分求，轨道线使用几何位置。修改黑洞合成时同时检查屏幕追踪、星表和立方体天空回退。
 
@@ -72,12 +73,12 @@ ctest --test-dir build/linux -C Release --output-on-failure --no-tests=error
 
 ### 数据核对备注
 
-- 提取 PDF 表格时用 `pdftotext -raw`，并与原页核对列和负号。老文章的 ADS PDF 地址若只返回第一页，在浏览器打开 `ui.adsabs.harvard.edu/scan/manifest/<bibcode>` 查看扫描件。需要单页时，可用页面的 `/v1/accounts/bootstrap` 返回的访问令牌请求 `/v1/scan/image/iiif/2/bitmaps-~seri-~<刊>-~<卷>-~600-~<页>.000/full/1600,/0/default.jpg`。
+- 提取 PDF 表格时用 `pdftotext -raw`，并与原页核对列和负号。Wiley、Nature、ADS 拒绝脚本抓取时，Nature 的开放获取文章可在浏览器里读正文，作者主页的 PDF 可下载后转文本。系数印在图里时 `pdftotext` 取不到，用 PyMuPDF 把那一页渲染成图再读。老文章的 ADS PDF 地址若只返回第一页，在浏览器打开 `ui.adsabs.harvard.edu/scan/manifest/<bibcode>` 查看扫描件。需要单页时，可用页面的 `/v1/accounts/bootstrap` 返回的访问令牌请求 `/v1/scan/image/iiif/2/bitmaps-~seri-~<刊>-~<卷>-~600-~<页>.000/full/1600,/0/default.jpg`。
 - Tiranti 2026 的 FITS 中 `INTENSITY_PROFILES` 约为 `3e-12`，按同温度和密度换算的总发射约 `4e-14 W m⁻³ sr⁻¹`。与 Melin 2025 的柱亮度差约 70 倍，因此仅用剖面形状，定标见 [冰巨星红外资料](assets/geomag/SOURCES.md)。
 
 ## 待办
 
-- 为少量事件加入磁层边界，接入随年份变化的地球 IGRF。卫星足点补二级亮斑，改善 Europa、Ganymede 的等离子体片模型，并衔接 Ganymede 自身磁层。
+- 磁层顶和弓激波接入逐小时的太阳风序列，补土星、水星和海王星的模型。接入随年份变化的地球 IGRF。卫星足点补二级亮斑，改善 Europa、Ganymede 的等离子体片模型，并衔接 Ganymede 自身磁层。
 - 定期刷新 Roman、TESS、Euclid、JWST、Chandra 的预报段。随 ESA 新核更新 Hera 抵近弧和两颗小行星的位置，补 Milani、Juventas 分离后的模型和轨迹，以及撞击后的 Dimorphos 形状。
 - 按 Dyudina 2015 的旋转周期试做土星可见光亮弧，先核对 Leicester 相位表许可。等待 Callisto 空间分辨观测、Io 的 SO₂ 食中时序、Europa 更多食中图像、火星新绿线观测与高度剖面。冰巨星待补夜侧、地方时和垂直剖面的约束。
 - 补海王星暗斑伴云、GDS 形变及其他暗斑，核对 NDS-2018 的后期消退。待正式资料更新 Sincérité 的长度、光学深度和 Égalité 的演化。

@@ -604,6 +604,22 @@ double magnetic_map_turn_deg(const Body& body, double t_tdb)
     return field.pm_w0_deg - body.pm_w0_deg + (field.pm_rate_deg_per_day - body.pm_rate_deg_per_day) * t_tdb / kSecondsPerDay;
 }
 
+glm::dmat3 Scene::magnetosphere_axes(int body, double t_tdb, const SolarWind& wind) const
+{
+    const State planet = icrf_state_at(body, t_tdb);
+    const State sun = sun_icrf_state_at(t_tdb);
+    const Body& b = bodies[static_cast<size_t>(body)];
+    glm::dmat3 axes = solar_wind_axes(planet.position - sun.position, planet.velocity - sun.velocity,
+                                      b.magnetosphere.aberration ? wind.speed_km_s : 0.0);
+    if (b.magnetosphere.model == MagnetosphereModel::Joy2002) {
+        // Joy et al. 2002: z along the spin axis (as near as x allows), not the orbit's normal.
+        const glm::dvec3 spin = body_to_icrf(b, t_tdb)[2];
+        axes[1] = glm::normalize(glm::cross(spin, axes[0]));
+        axes[2] = glm::cross(axes[0], axes[1]);
+    }
+    return axes;
+}
+
 double magnetic_rotation_deg_per_day(const Body& body)
 {
     const BodyMagneticField& field = body.magnetic_field;

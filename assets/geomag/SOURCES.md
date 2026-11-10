@@ -405,6 +405,26 @@ unzip -o build/field_map/crust.zip -d build/field_map
 python -E -P tools/geomag/field_map_bake.py build/field_map/Morschhauser2014.txt build/field_map/T2015_449.sh.gz build/field_map/Spherical_HarmonicModel_GRL.txt assets/geomag
 ```
 
+## 磁层顶与弓激波
+
+`src/scene/magnetosphere.cpp` 用经验模型把磁层顶（蓝）和弓激波（橙）画成线框曲面，没有数据文件，系数都是论文里的数值。面板的 `Magnetosphere` 选 `Always` 时按模板里的典型太阳风画；`Event setting` 下由事件的 `magnetosphere` 列表给出各自的太阳风，`faint = true` 的一项是用来对比的淡色面（不画激波）。坐标轴：x 指向太阳（地球另加光行差），z 是轨道面北（木星按 Joy 取自转轴），y 指向昏侧。
+
+| 天体 | 磁层顶 | 弓激波 | 典型太阳风 |
+|---|---|---|---|
+| 地球 | Shue et al. 1998, JGR 103, 17691, doi:10.1029/98JA01103：`r0 = (10.22 + 1.29 tanh[0.184 (Bz + 8.14)]) Dp^(−1/6.6)`，`α = (0.58 − 0.007 Bz)(1 + 0.024 ln Dp)`，`r = r0 (2 / (1 + cos θ))^α`，半径 6371.2 km | Fairfield 1971（JGR 76, 6700）的平均二次曲线，取 SPEDAS `bshock_2`、`mpause_2` 的系数：鼻点 14.33、磁层顶 10.78 RE，晨昏线处 27.2、−22.9 RE。这里取对称的、焦点在地心的圆锥曲线：鼻点为磁层顶的 1.33 倍，偏心率 0.75（晨昏线半径 25.1 RE） | 2 nPa、Bz = 0，得 10.25 RE |
+| 木星 | Joy et al. 2002, JGR 107, 1309, doi:10.1029/2001JA009146：`z² = A + B x + C x² + D y + E y² + F x y`，长度以 120 RJ 为单位，A、B、C 为 `c0 + c1 P^(−1/4)`，D、E、F 为 `c0 + c1 P`，z 沿自转轴 | 同一篇的另一组系数 | 0.071 nPa（Rutala et al. 2025 的中位数），得 83 RJ |
+| 天王星 | Jasinski et al. 2024, Nature Astronomy 9, 66, doi:10.1038/s41550-024-02389-3（CC BY 4.0）的方法：`R = (B0² / (2 μ0 P))^(1/5.7)`，B0 = 23,000 nT，形状同 Shue、张开参数 0.6（Cao & Paty 的 MHD 模拟给 0.45–0.75），半径 25,559 km | 抛物线（偏心率 1，假设），鼻点为磁层顶的 1.275 倍（Farris & Russell 1994 的 `1 + 1.1 (γ − 1)/(γ + 1)`，高马赫数极限，γ = 5/3） | 平均 22.2 RU |
+
+**核对**（`test_magnetospheres`）：
+
+- **Joy 的系数**是原文图 3 上印的 24 个数（式 2，长度以 RJ/120 为单位），2026-11-10 逐个对过；Rutala et al. 2025（arXiv:2502.09186）的公开代码 [JovianBoundaries](https://github.com/mjrutala/JovianBoundaries) 的 `JoyBoundaryCoords.py` 里是同一组数。原文的两个最可能的磁层顶是 63 RJ（0.306 nPa）和 92 RJ（0.039 nPa），这里得 63.1、92.0；激波平均 84 RJ（σ = 16），中位压强 0.258 nPa 的面在 78.2 RJ。Rutala 的表给出 Joy 模型在 0.02、0.071、0.22 nPa 的日下点距离 101、83、68 RJ（磁层顶）和 132、108、82 RJ（激波），这里得 101.7、83.4、67.6 和 131.8、107.8、82.1。原文说拟合只用到反日方向 250 RJ 以内（激波在行星后约 100 RJ 就出了模拟区），事件的磁尾画到 250 RJ，激波到 87.5 RJ。Kurth et al. 2002（Nature 415, 991）说 Cassini 在 2000-12-28 04:19 于 140.2 RJ 第一次遇到激波，紧挨 Joy 的 0.02 nPa 激波面：场景里那一刻 Cassini 距木星 140.2 RJ，是该面距离的 0.93。Kurth 写的 0.02 nPa 来自付印前的稿子，正式发表的表 2 里“10%”激波面是 0.063 nPa。坐标按原文：x 指向太阳，z 沿自转轴（取垂直于 x 的分量），y 指向昏侧；Kurth 图 1 的 z 垂直于轨道面，差 3°。
+- **Cassini 与 Galileo（2001-01-10）**：Kurth 2002 给出两者离开磁层的时刻 20:35、20:52（探测器时间），x 相差 100 RJ 以上；Galileo 的穿越点在 Joy 的“25%”面上，Cassini 的在“10%”面之外，没有一个稳态面能同时通过两点，所以磁层正在收缩，压强锋面从 Galileo 到 Cassini 约 5 小时。场景里两点是 (40.7, 93.6, 1.1) 和 (−69.1, 192.4, −2.3) RJ；让 Joy 的面通过它们的压强是 0.0452、0.0097 nPa（日下点 89.9、112.2 RJ），事件就画这两个面，后者为淡色。Joy 表 2 的“25%”“10%”面分别是 0.048、0.030 nPa，和 Kurth 的说法一致：Galileo 的 0.0452 nPa 在 25% 面上（日下点差 1 RJ），Cassini 的在 10% 面之外。这是两个稳态面，论文图 1 中连接它们的弯折没有画，面也不随时间移动。
+- **天王星**：论文的三组压强和日下点距离（0.0184 nPa → 17.3 RU，0.031 → 15.8，0.00043 → 33.5）都能复现。论文给出旅行者 2 号 10:07 UT 穿越磁层顶的位置 (15.784, 8.684, −0.632) RU，场景的轨迹在那一刻是 (15.818, 8.695, −0.633)，是 17.3 RU 模型面距离的 1.005。激波在 07:28（Treumann & Jaroschek 2008, arXiv:0808.1701 引 23.5 RU），场景里探测器距行星 23.67 RU，假设的抛物线在该方向是 23.15 RU。事件把 17.3 RU（飞掠时，出现的时间不到 5%）和 22.2 RU（平均）画在一起；论文估计一周前约 28 RU。
+- **地球磁尾**：Slavin et al. 1985（JGR 90, 10875，摘要）用 ISEE-3 的 756 次磁层顶穿越得出 |X| = 130–225 RE 处磁尾直径 60 ± 5 RE，约 120 ± 10 RE 以外不再张开。Shue 的公式在那里没有约束，会一直张开，所以模板用 `flare_end_radii = 120`：更远处是半径等于该处 Shue 值（29.6 RE）的圆柱。轴线按地球公转速度和 430 km/s 的太阳风偏转约 4°（Fairfield 1971 的假设）。ISEE-3 在 1982-10 至 1983-12 位于 60 RE 以外尾向的时间里，约 55% 在这个平均面内，最远 236.2 RE 处离轴 16 RE；Hones et al. 1984（GRL 11, 5，摘要）说它在尾内时约三分之一在等离子体片里，磁尾摆动的幅度和自身宽度相当。
+- **2024-05-11**：太阳风取 [OMNIWeb](https://omniweb.gsfc.nasa.gov/) 的小时值（OMNI2，NASA GSFC SPDF，2026-11-10 取得）：02–03 UT 的流压 48.76 nPa、Bz（GSM）−20.5 nT、速度 738 km/s，Shue 给出 4.97 RE，在地球同步轨道（6.6 RE）以内。Fu et al. 2025（GRL 52, e2024GL114040）由地面磁强计、THEMIS-A 和 GOES-16/18 得出 5 月 10 日压缩到 5.12–5.20 RE，可作旁证。事件只用这一个小时的值，面不随时间变化；激波按磁层顶等比例缩小，没有计入风暴时较低的马赫数。
+
+线框：12 条经线加若干圈，磁尾画到 `tail_radii`，激波只画到它的 0.35 倍。这些都是平均位置：真实边界随太阳风起伏，磁层顶上还有波动和重联，激波的形状也随马赫数变。Joy 的面来自 MHD 模拟（IMF 为零的几次），鼻部权重大，磁尾远处会闭合，不能当真。
+
 ## Mars visible diffuse aurora
 
 Enable with `[aurora] mars_visible = true` in the Mars body template. The Mars

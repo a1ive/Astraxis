@@ -837,6 +837,14 @@ caption = """\
 
 # The aurora: the Earth's night side from above the north, as the oval swells in the
 # storm (Kp from the GFZ record, [NIGHT]).
+# [OMNI]  NASA GSFC SPDF OMNIWeb, hourly OMNI2 (omniweb.gsfc.nasa.gov; King & Papitashvili
+#         2005, JGR 110, A02104): 2024-05-11 02-03 UT, flow pressure 48.76 nPa, Bz (GSM)
+#         -20.5 nT, speed 738 km/s, Dst -406 nT.
+# [SHUE]  Shue et al. 1998, JGR 103, 17691: the magnetopause from the pressure and Bz
+#         (bodies/earth.toml, assets/geomag/SOURCES.md). With [OMNI] it stands 5.0 Earth
+#         radii out, inside the geosynchronous orbit at 6.6; 10.3 radii under a typical wind.
+# [FU25]  Fu et al. 2025, GRL 52, e2024GL114040: magnetopause down to 5.12-5.20 radii on
+#         2024-05-10, from ground magnetometers, THEMIS-A, GOES-16 and GOES-18.
 [[events]]
 name = "Geomagnetic storm: Kp 9 (2024-05-11)"
 aurora_visible = true
@@ -854,6 +862,28 @@ caption = """\
     The auroral oval, which follows Kp here, swells toward the equator on the night \
     side. Its place and brightness come from the index; the arcs within it are \
     illustrative."""
+
+# Seen from the side, the Sun to the left.
+[[events]]
+name = "Geomagnetic storm: the magnetosphere squeezed (2024-05-11)"
+magnetosphere = [{ body = "Earth", pressure_npa = 48.76, bz_nt = -20.5, wind_speed_km_s = 738.0, tail_radii = 25.0 },
+                 { body = "Earth", faint = true, tail_radii = 25.0 }]
+aurora_visible = true
+hide_orbits = true
+time_tdb = "2024-05-11 02:00"
+focus = "Earth"
+from_body = "Sun"
+phase_deg = 80.0
+elevation_deg = 15.0
+distance_km = 4.2e5
+warp = 120.0
+# [OMNI], [SHUE], [FU25], [KP]
+caption = """\
+    The solar wind normally stops the Earth's field about 10 Earth radii up, the faint blue \
+    surface. In this hour it blows 25 times harder, with its own field pointing south, and \
+    the edge stands near 5 radii: inside the orbit where geostationary satellites fly, 6.6 \
+    radii out, leaving them in the solar wind. Orange: the shock ahead of it. Surfaces from \
+    a model fed with the measured wind; the shock's is an average shape, scaled."""
 
 # [SAA]   NASA, "NASA Researchers Track Slowly Splitting 'Dent' in Earth's Magnetic Field" (2020):
 #         the weak region, energetic particles reach lower, satellites shut down systems in it.

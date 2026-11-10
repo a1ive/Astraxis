@@ -105,6 +105,10 @@ CoronaUniforms corona_uniforms(const Scene& scene, const CameraView& view)
 constexpr int kTrailPoints = 2048;
 constexpr float kOrbitOpacity = 0.55f;
 constexpr double kMagneticLineOpacity = 0.38;
+// Wire surfaces of magnetopauses; the bow shock and a surface shown for comparison are fainter.
+constexpr double kMagnetosphereOpacity = 0.42;
+constexpr double kBowShockOpacity = 0.6;
+constexpr double kMagnetosphereFaint = 0.3;
 // The lines to the moons' footprints: the field line through the moon now, and, brighter, the
 // wave on its way down, which ends at the spot.
 constexpr double kFieldLineToMoonOpacity = 0.3;
@@ -2079,6 +2083,68 @@ void SceneRenderer::build_magnetic_lines(const Simulation& sim, const OutputView
     }
 }
 
+void SceneRenderer::build_magnetospheres(const Simulation& sim, const OutputView& output_view,
+                                         const ViewOptions& options)
+{
+    const Scene& scene = sim.scene();
+    if (options.magnetosphere_view == 2) {
+        return;
+    }
+    // Always: every body's, under its typical wind. Otherwise the active event's list.
+    m_magnetosphere_states.clear();
+    if (options.magnetosphere_view == 1) {
+        for (size_t i = 0; i < scene.bodies.size(); ++i) {
+            if (scene.bodies[i].magnetosphere.enabled()) {
+                MagnetosphereState state;
+                state.body = static_cast<int>(i);
+                state.wind = scene.bodies[i].magnetosphere.typical;
+                m_magnetosphere_states.push_back(state);
+            }
+        }
+    } else if (const int event = scene.active_event(); event >= 0) {
+        m_magnetosphere_states = scene.events[static_cast<size_t>(event)].magnetosphere;
+    }
+    const CameraView& view = output_view.camera;
+    const double t = sim.clock().t_tdb;
+    const glm::dmat3 to_display = glm::transpose(scene.current_transform().axes);
+    for (const MagnetosphereState& state : m_magnetosphere_states) {
+        const size_t index = static_cast<size_t>(state.body);
+        const Body& body = scene.bodies[index];
+        const BodyMagnetosphere& sphere = body.magnetosphere;
+        if (!body.visible) {
+            continue;
+        }
+        const BoundarySurface pause = magnetopause(sphere, state.wind);
+        const double distance = glm::length(body.world_position - view.position);
+        const double pixels = 0.5 * view.viewport.y * view.focal_y * pause.nose() * sphere.radius_km / std::max(distance, 1.0);
+        // Not output_view.body_fades: a magnetosphere is far larger than its planet's dot.
+        const double opacity = kMagnetosphereOpacity * (state.faint ? kMagnetosphereFaint : 1.0) *
+                               field_line_size_fade(0.25 * pixels);
+        if (opacity <= 0.0) {
+            continue;
+        }
+        const glm::dmat3 axes = to_display * scene.magnetosphere_axes(state.body, t, state.wind) * sphere.radius_km;
+        const double tail = state.tail_radii > 0.0 ? state.tail_radii : sphere.tail_radii;
+        const BoundarySurface shock = bow_shock(sphere, state.wind);
+        // A surface shown for comparison goes without its shock.
+        for (int which = 0; which < (state.faint ? 1 : 2); ++which) {
+            // The shock is drawn less far back: it only widens.
+            boundary_wireframe(which == 0 ? pause : shock, which == 0 ? tail : 0.35 * tail, which == 0 && !state.faint ? 12 : 8,
+                               m_magnetosphere_lines);
+            const glm::vec3 color = which == 0 ? sphere.color : sphere.shock_color;
+            const double gain = which == 0 ? 1.0 : kBowShockOpacity;
+            for (const std::vector<glm::dvec4>& line : m_magnetosphere_lines) {
+                m_line_points.clear();
+                for (const glm::dvec4& p : line) {
+                    m_line_points.emplace_back(to_render(body.world_position + axes * glm::dvec3(p), view.position),
+                                               static_cast<float>(p.w));
+                }
+                m_orbits.add_line(m_line_points, glm::vec4(color, static_cast<float>(opacity * gain)), 0.25f);
+            }
+        }
+    }
+}
+
 void SceneRenderer::draw_stars(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const Simulation& sim,
                                const OutputView& output_view, int neutron_star, float neutron_star_blend)
 {
@@ -2339,6 +2405,7 @@ void SceneRenderer::render(const Frame& frame, const Simulation& sim, const Outp
     build_body_items(sim, output_view, options, neutron_star);
     build_orbit_lines(sim, output_view, options);
     build_magnetic_lines(sim, output_view, options); // in the same pass, after the orbits
+    build_magnetospheres(sim, output_view, options);
     build_comet_items(sim, output_view, options);
 
     // Uploads (copy passes) must precede the render passes.

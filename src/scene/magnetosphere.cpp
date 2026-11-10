@@ -1,0 +1,273 @@
+#include "scene/magnetosphere.hpp"
+
+#include "core/math.hpp"
+
+#include <glm/glm.hpp>
+
+#include <algorithm>
+#include <cmath>
+
+namespace astraxis {
+
+namespace {
+
+constexpr double kInfinity = std::numeric_limits<double>::infinity();
+// B^2 / (2 mu0) in nPa for B in nT.
+constexpr double kMagneticPressureNpaPerNt2 = 1e-9 / (2.0 * 1.25663706212e-6);
+
+// Joy et al. 2002, Figure 3: each coefficient of their equation 2 is c0 + c1 P^(-1/4) for
+// A, B, C and c0 + c1 P for D, E, F, with P in nPa and lengths in units of 120 Jupiter radii.
+constexpr double kJoyScale = 120.0;
+constexpr double kJoyMagnetopause[6][2] = {{-0.134, 0.488},  {-0.581, -0.225}, {-0.186, -0.016},
+                                           {-0.014, 0.096},  {-0.814, -0.811}, {-0.050, 0.168}};
+constexpr double kJoyBowShock[6][2] = {{-1.107, 1.591}, {-0.566, -0.812}, {0.048, -0.059},
+                                       {0.077, -0.038}, {-0.874, -0.299}, {-0.055, 0.124}};
+
+BoundarySurface joy_surface(const double table[6][2], double pressure_npa)
+{
+    BoundarySurface s;
+    s.shape = BoundarySurface::Shape::Quadric;
+    s.scale = kJoyScale;
+    const double p = std::max(pressure_npa, 1e-4);
+    const double root = std::pow(p, -0.25);
+    for (int i = 0; i < 6; ++i) {
+        s.coefficients[i] = table[i][0] + table[i][1] * (i < 3 ? root : p);
+    }
+    return s;
+}
+
+// Half-width of a flared surface at x = -downtail, without the cylinder.
+double flared_half_width(double standoff, double flaring, double downtail)
+{
+    // x(theta) falls monotonically from the nose; look for it between 90 deg and 180.
+    double low = 0.5 * kPi;
+    double high = kPi - 1e-9;
+    for (int i = 0; i < 80; ++i) {
+        const double mid = 0.5 * (low + high);
+        const double r = standoff * std::pow(2.0 / (1.0 + std::cos(mid)), flaring);
+        (r * std::cos(mid) > -downtail ? low : high) = mid;
+    }
+    const double r = standoff * std::pow(2.0 / (1.0 + std::cos(low)), flaring);
+    return r * std::sin(low);
+}
+
+} // namespace
+
+double BodyMagnetosphere::pressure_for_standoff(double radii) const
+{
+    return surface_field_nt * surface_field_nt * kMagneticPressureNpaPerNt2 / std::pow(radii, compressibility);
+}
+
+double BoundarySurface::radius(const glm::dvec3& d) const
+{
+    switch (shape) {
+    case Shape::Flared: {
+        if (!(1.0 + d.x > 1e-12)) {
+            return kInfinity;
+        }
+        const double r = standoff * std::pow(2.0 / (1.0 + d.x), flaring);
+        if (flare_end > 0.0 && r * d.x < -flare_end) {
+            const double s = std::sqrt(std::max(1.0 - d.x * d.x, 0.0));
+            return s > 1e-12 ? tail_radius / s : kInfinity;
+        }
+        return r;
+    }
+    case Shape::Conic: {
+        const double denominator = 1.0 + eccentricity * d.x;
+        return denominator > 1e-12 ? standoff * (1.0 + eccentricity) / denominator : kInfinity;
+    }
+    case Shape::Quadric: {
+        // a r^2 + b r + A = 0 along the direction, with A > 0: the positive root nearest the planet.
+        const double* c = coefficients;
+        const double a = c[2] * d.x * d.x + c[4] * d.y * d.y + c[5] * d.x * d.y - d.z * d.z;
+        const double b = c[1] * d.x + c[3] * d.y;
+        const double discriminant = b * b - 4.0 * a * c[0];
+        if (!(c[0] > 0.0) || discriminant < 0.0) {
+            return kInfinity;
+        }
+        const double denominator = -b + std::sqrt(discriminant);
+        return denominator > 1e-12 ? scale * 2.0 * c[0] / denominator : kInfinity;
+    }
+    }
+    return kInfinity;
+}
+
+bool BoundarySurface::contains(const glm::dvec3& point) const
+{
+    const double r = glm::length(point);
+    return r == 0.0 || r < radius(point / r);
+}
+
+double BoundarySurface::tail_half_width(double downtail) const
+{
+    double low = 0.5 * kPi;
+    double high = kPi - 1e-9;
+    for (int i = 0; i < 80; ++i) {
+        const double mid = 0.5 * (low + high);
+        const double r = radius({std::cos(mid), std::sin(mid), 0.0});
+        (r * std::cos(mid) > -downtail ? low : high) = mid;
+    }
+    return radius({std::cos(low), std::sin(low), 0.0}) * std::sin(low);
+}
+
+BoundarySurface magnetopause(const BodyMagnetosphere& body, const SolarWind& wind)
+{
+    const double pressure = std::max(wind.pressure_npa, 1e-6);
+    BoundarySurface s;
+    switch (body.model) {
+    case MagnetosphereModel::Joy2002:
+        return joy_surface(kJoyMagnetopause, pressure);
+    case MagnetosphereModel::Shue1998:
+        // Shue et al. 1998, equations 10 and 11.
+        s.standoff = (10.22 + 1.29 * std::tanh(0.184 * (wind.bz_nt + 8.14))) * std::pow(pressure, -1.0 / 6.6);
+        s.flaring = (0.58 - 0.007 * wind.bz_nt) * (1.0 + 0.024 * std::log(pressure));
+        break;
+    case MagnetosphereModel::PressureBalance:
+    case MagnetosphereModel::None:
+        s.standoff = std::pow(body.surface_field_nt * body.surface_field_nt * kMagneticPressureNpaPerNt2 / pressure,
+                              1.0 / body.compressibility);
+        s.flaring = body.flaring;
+        break;
+    }
+    if (body.flare_end_radii > 0.0) {
+        s.flare_end = body.flare_end_radii;
+        s.tail_radius = flared_half_width(s.standoff, s.flaring, s.flare_end);
+    }
+    return s;
+}
+
+BoundarySurface bow_shock(const BodyMagnetosphere& body, const SolarWind& wind)
+{
+    if (body.model == MagnetosphereModel::Joy2002) {
+        return joy_surface(kJoyBowShock, wind.pressure_npa);
+    }
+    BoundarySurface s;
+    s.shape = BoundarySurface::Shape::Conic;
+    s.standoff = body.shock_standoff_ratio * magnetopause(body, wind).standoff;
+    s.eccentricity = body.shock_eccentricity;
+    return s;
+}
+
+glm::dmat3 solar_wind_axes(const glm::dvec3& from_sun, const glm::dvec3& velocity, double wind_speed_km_s)
+{
+    const glm::dvec3 outward = glm::normalize(from_sun);
+    glm::dvec3 north = glm::cross(from_sun, velocity);
+    if (!(glm::length(north) > 0.0)) {
+        north = glm::cross(outward, std::abs(outward.z) < 0.9 ? glm::dvec3(0.0, 0.0, 1.0) : glm::dvec3(1.0, 0.0, 0.0));
+    }
+    north = glm::normalize(north);
+    // The wind as the planet sees it.
+    const glm::dvec3 flow = wind_speed_km_s > 0.0 ? wind_speed_km_s * outward - velocity : outward;
+    const glm::dvec3 x = -glm::normalize(flow);
+    const glm::dvec3 y = glm::normalize(glm::cross(north, x));
+    return glm::dmat3(x, y, glm::cross(x, y));
+}
+
+void boundary_wireframe(const BoundarySurface& surface, double tail, int meridians,
+                        std::vector<std::vector<glm::dvec4>>& lines)
+{
+    lines.clear();
+    const double nose = surface.nose();
+    if (!(nose > 0.0) || !std::isfinite(nose) || meridians < 3 || !(tail > 0.0)) {
+        return;
+    }
+    const auto direction = [](double theta, double phi) {
+        return glm::dvec3(std::cos(theta), std::sin(theta) * std::cos(phi), std::sin(theta) * std::sin(phi));
+    };
+    // Angles from the axis, in even steps of length along the dusk meridian, and a few
+    // more toward the tail for the meridians that reach the cut later.
+    constexpr int kSteps = 56;
+    constexpr int kRingEvery = 8;
+    const double step = (2.0 * nose + tail) / kSteps;
+    std::vector<double> thetas{0.0};
+    for (int i = 0; i < 4 * kSteps; ++i) {
+        const double theta = thetas.back();
+        const double r = surface.radius(direction(theta, 0.0));
+        if (!std::isfinite(r) || r * std::cos(theta) < -tail) {
+            break;
+        }
+        const double ahead = surface.radius(direction(std::min(theta + 1e-4, kPi - 1e-9), 0.0));
+        const double slope = std::isfinite(ahead) ? (ahead - r) / 1e-4 : 1e12;
+        const double next = theta + std::clamp(step / std::sqrt(r * r + slope * slope), 1e-5, 6.0 * kDegToRad);
+        if (next >= kPi - 1e-6) {
+            break;
+        }
+        thetas.push_back(next);
+    }
+    for (int i = 0; i < 6; ++i) {
+        thetas.push_back(thetas.back() + 0.5 * (kPi - thetas.back()));
+    }
+
+    const int ring_points = std::max(48, 4 * meridians);
+    std::vector<glm::dvec4> ring;
+    const auto fade = [&](double x) { return std::clamp(-x / tail, 0.0, 1.0); };
+    // The point of a ring's azimuth at one angle from the axis; false beyond the cut.
+    const auto point_at = [&](double theta, double phi, glm::dvec4& out) {
+        const glm::dvec3 d = direction(theta, phi);
+        const double r = surface.radius(d);
+        if (!std::isfinite(r) || r * d.x < -tail) {
+            return false;
+        }
+        out = glm::dvec4(r * d, fade(r * d.x));
+        return true;
+    };
+    // The angle at which an azimuth meets the cut, between an angle inside and one beyond.
+    const auto cut_at = [&](double inside, double beyond, double phi) {
+        for (int i = 0; i < 50; ++i) {
+            const double mid = 0.5 * (inside + beyond);
+            glm::dvec4 unused;
+            (point_at(mid, phi, unused) ? inside : beyond) = mid;
+        }
+        glm::dvec4 p;
+        point_at(inside, phi, p);
+        return p;
+    };
+    const auto trace = [&](double phi, size_t count, std::vector<glm::dvec4>& line) {
+        line.clear();
+        for (size_t i = 0; i < count; ++i) {
+            glm::dvec4 p;
+            if (!point_at(thetas[i], phi, p)) {
+                if (i > 0) {
+                    line.push_back(cut_at(thetas[i - 1], thetas[i], phi));
+                }
+                return false;
+            }
+            line.push_back(p);
+        }
+        return true;
+    };
+
+    for (int m = 0; m < meridians; ++m) {
+        std::vector<glm::dvec4> line;
+        trace(kTwoPi * m / meridians, thetas.size(), line);
+        if (line.size() >= 2) {
+            lines.push_back(std::move(line));
+        }
+    }
+    // Rings at even steps, as long as the whole ring is short of the cut, then the cut itself.
+    std::vector<glm::dvec4> scratch;
+    for (size_t i = kRingEvery / 2; i < thetas.size(); i += kRingEvery) {
+        ring.clear();
+        bool whole = true;
+        for (int k = 0; k <= ring_points && whole; ++k) {
+            glm::dvec4 p;
+            whole = point_at(thetas[i], kTwoPi * k / ring_points, p);
+            ring.push_back(p);
+        }
+        if (!whole) {
+            break;
+        }
+        lines.push_back(ring);
+    }
+    ring.clear();
+    for (int k = 0; k <= ring_points; ++k) {
+        if (!trace(kTwoPi * (k % ring_points) / ring_points, thetas.size(), scratch) && !scratch.empty()) {
+            ring.push_back(scratch.back());
+        }
+    }
+    if (ring.size() == static_cast<size_t>(ring_points) + 1) {
+        lines.push_back(ring);
+    }
+}
+
+} // namespace astraxis

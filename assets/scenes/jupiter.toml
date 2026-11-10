@@ -103,6 +103,18 @@
 #          cloud tops; Galileo still in orbit, near-simultaneous measurements from two
 #          spacecraft, the first two-point measurement of the boundary of Jupiter's magnetic
 #          bubble, which was contracting under higher solar wind pressure; some 26,000 images.
+#        [KUR02] Kurth et al. 2002, Nature 415, 991, "The dusk flank of Jupiter's
+#          magnetosphere": on 2001-01-10 Cassini left the magnetosphere at 20:35 and Galileo
+#          at 20:52 (spacecraft time), over 100 Rj apart in x. Galileo's crossing lies on
+#          the "25%" magnetopause of [JOY02], Cassini's beyond the "10%" one: no steady
+#          surface holds both, so the magnetosphere was shrinking under a rise in solar wind
+#          pressure, which took about five hours from Galileo to Cassini. Cassini first met
+#          the bow shock on 2000-12-28 04:19, 140.2 Rj out.
+#        [JOY02] Joy et al. 2002, JGR 107, 1309: the magnetopause and bow shock as functions
+#          of the wind's pressure (bodies/jupiter.toml, assets/geomag/SOURCES.md). The two
+#          pressures of the event are those whose surfaces pass through the two crossings
+#          (tests/appearance_tests.cpp). Its Table 2: the magnetopause is inside the surface
+#          for 0.048 nPa 25% of the time and inside that for 0.030 nPa 10% of the time.
 #        Orbits as drawn: [HZN].
 # Precession signs: [ELEM] lists apsidal/nodal periods as magnitudes. Nodes regress.
 # Io's and Europa's apsides are locked to the Laplace resonance and regress; Ganymede's
@@ -879,6 +891,29 @@ caption = """\
     9.7 million km out, redirected by Jupiter's gravity. With one craft inside \
     Jupiter's magnetic bubble and one outside, they caught its edge shrinking \
     under a gust of solar wind. Cassini took some 26,000 images in six months."""
+
+# Both leave the magnetosphere eight and a half hours in. Seen from the north: the Sun to
+# the left, dusk toward the bottom.
+[[events]]
+name = "Jupiter's magnetosphere caught shrinking (2001-01-10)"
+magnetosphere = [{ body = "Jupiter", pressure_npa = 0.0452, tail_radii = 250.0 },
+                 { body = "Jupiter", pressure_npa = 0.0097, tail_radii = 250.0, faint = true }]
+trails = [{ body = "Cassini", trail_history_days = 30.0 }, { body = "Galileo", trail_history_days = 30.0 }]
+focus_orbits_only = true
+time_tdb = "2001-01-10 12:00"
+focus = "Jupiter"
+from_body = "Sun"
+phase_deg = 90.0
+elevation_deg = 89.0
+distance_km = 7.5e7
+warp = 1800.0
+# [KUR02], [JOY02], [HZN]
+caption = """\
+    On this day Cassini and Galileo left Jupiter's magnetic bubble 17 minutes apart, though \
+    over 100 Jupiter radii from each other. No steady edge fits both. The faint surface is \
+    the large bubble that reaches Cassini, the bright one a smaller bubble through Galileo: \
+    a gust of solar wind was pressing it in, sweeping from Galileo to Cassini in about five \
+    hours. The orange surface is the bow shock. Average shapes from a model."""
 
 [[events]]
 name = "Galileo at Callisto (2001-05-25, 129 km)"

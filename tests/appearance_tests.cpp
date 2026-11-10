@@ -11,6 +11,7 @@
 #include "scene/saturn_aurora.hpp"
 #include "scene/mars_aurora.hpp"
 #include "scene/magnetic_field.hpp"
+#include "scene/magnetosphere.hpp"
 #include "scene/comet.hpp"
 #include "scene/corona.hpp"
 #include "scene/relief.hpp"
@@ -2982,6 +2983,287 @@ void test_magnetic_field()
     check(!loads(good + "l_shells = [0.5]\n"), "and shells outside the planet");
 }
 
+// Magnetopauses and bow shocks (scene/magnetosphere.hpp; assets/geomag/SOURCES.md).
+void test_magnetospheres()
+{
+    const auto utc = [](const char* text) {
+        double t = 0.0;
+        check(parse_utc(text, &t), "a time parses");
+        return t;
+    };
+    // A body in another's magnetosphere axes, in the model's radii.
+    const auto in_axes = [](Scene& scene, const char* planet, const char* craft, double t, const SolarWind& wind) {
+        scene.update(t);
+        const int p = scene.find(planet);
+        const glm::dvec3 offset = scene.icrf_state_at(scene.find(craft), t).position - scene.icrf_state_at(p, t).position;
+        return glm::transpose(scene.magnetosphere_axes(p, t, wind)) * offset /
+               scene.bodies[static_cast<size_t>(p)].magnetosphere.radius_km;
+    };
+
+    // --- The Earth: Shue et al. 1998 -------------------------------------------------------
+    Scene earth_scene = load_scene_or_die("earth_moon.toml");
+    const BodyMagnetosphere& earth = earth_scene.bodies[static_cast<size_t>(earth_scene.find("Earth"))].magnetosphere;
+    check(earth.model == MagnetosphereModel::Shue1998, "the Earth uses Shue 1998");
+    const BoundarySurface quiet = magnetopause(earth, earth.typical);
+    std::printf("Earth: quiet standoff %.2f Re, flaring %.3f, shock nose %.2f Re\n", quiet.standoff, quiet.flaring,
+                bow_shock(earth, earth.typical).nose());
+    check(std::abs(quiet.standoff - 10.25) < 0.05, "a 2 nPa wind stands off at 10.25 radii", quiet.standoff);
+    check(std::abs(quiet.radius({0.0, 1.0, 0.0}) - quiet.standoff * std::pow(2.0, quiet.flaring)) < 1e-9,
+          "the terminator is 2^alpha standoffs out");
+    // Slavin et al. 1985: the tail is 60 +/- 5 radii across at 130-225 radii, no longer flaring.
+    for (double x : {130.0, 180.0, 225.0}) {
+        const double half = quiet.tail_half_width(x);
+        check(std::abs(half - 30.0) < 2.5, "the far tail is 60 +/- 5 radii across (Slavin 1985)", half);
+    }
+    check(std::abs(quiet.tail_half_width(20.0) / quiet.tail_half_width(120.0) - 1.0 / 1.3) < 0.2,
+          "it widens by about 30 percent from 20 to 120 radii (Slavin 1983)",
+          quiet.tail_half_width(120.0) / quiet.tail_half_width(20.0));
+    // OMNI, 2024-05-11 02-03 UT: 48.76 nPa, Bz -20.5 nT. Inside geosynchronous orbit.
+    const SceneEvent* storm = nullptr;
+    for (const SceneEvent& e : earth_scene.events) {
+        if (!e.magnetosphere.empty()) storm = &e;
+    }
+    check(storm != nullptr, "the Earth-Moon scene has a magnetosphere event");
+    if (storm) {
+        const BoundarySurface squeezed = magnetopause(earth, storm->magnetosphere.front().wind);
+        std::printf("Earth: storm standoff %.2f Re, flaring %.3f\n", squeezed.standoff, squeezed.flaring);
+        check(squeezed.standoff < 6.6 && squeezed.standoff > 4.0, "the storm's magnetopause is inside geosynchronous orbit",
+              squeezed.standoff);
+        check(squeezed.flaring > quiet.flaring, "and a southward field flares the tail", squeezed.flaring);
+        check(storm->magnetosphere.size() == 2 && storm->magnetosphere.back().faint,
+              "with the quiet one for comparison");
+    }
+    // The axis leans into the Earth's motion: about 4 degrees at 430 km/s (Fairfield 1971).
+    {
+        const double t = utc("1983-02-08 00:00");
+        earth_scene.update(t);
+        const int e = earth_scene.find("Earth");
+        const glm::dmat3 axes = earth_scene.magnetosphere_axes(e, t, earth.typical);
+        const glm::dvec3 to_sun = glm::normalize(earth_scene.sun_icrf_state_at(t).position - earth_scene.icrf_state_at(e, t).position);
+        const glm::dvec3 velocity = earth_scene.icrf_state_at(e, t).velocity - earth_scene.sun_icrf_state_at(t).velocity;
+        const double lean = std::acos(glm::dot(axes[0], to_sun)) / kDegToRad;
+        check(std::abs(lean - 4.0) < 0.4, "the Earth's tail is aberrated by about 4 deg", lean);
+        check(glm::dot(axes[0], velocity) > 0.0, "upstream leans toward the Earth's motion");
+        check(glm::dot(axes[1], velocity) < 0.0, "y points to dusk, against the motion");
+    }
+
+    // ISEE-3 in the deep tail: where it is in the average tail on its two long passes.
+    {
+        Scene isee = load_scene_or_die("isee3.toml");
+        const BodyMagnetosphere& sphere = isee.bodies[static_cast<size_t>(isee.find("Earth"))].magnetosphere;
+        const BoundarySurface pause = magnetopause(sphere, sphere.typical);
+        int inside = 0;
+        int count = 0;
+        double farthest = 0.0;
+        double farthest_off_axis = 0.0;
+        for (double t = utc("1982-10-15 00:00"); t < utc("1983-12-20 00:00"); t += 6.0 * 3600.0) {
+            const glm::dvec3 p = in_axes(isee, "Earth", "ISEE-3", t, sphere.typical);
+            if (p.x > -60.0) continue;
+            ++count;
+            inside += pause.contains(p) ? 1 : 0;
+            if (-p.x > farthest) {
+                farthest = -p.x;
+                farthest_off_axis = std::hypot(p.y, p.z);
+            }
+        }
+        std::printf("ISEE-3 beyond 60 Re downtail: %d of %d six-hour samples inside the average tail; farthest %.1f Re, %.1f Re off the axis\n",
+                    inside, count, farthest, farthest_off_axis);
+        check(farthest > 215.0 && farthest < 240.0, "ISEE-3 went about 220-237 radii down the tail", farthest);
+        check(count > 0 && inside > 0.4 * count && inside < 0.75 * count, "and was inside the average tail about half of that time", count > 0 ? double(inside) / count : 0.0);
+        bool shown = false;
+        for (const SceneEvent& e : isee.events) {
+            for (const MagnetosphereState& s : e.magnetosphere) shown = shown || s.tail_radii >= 236.0;
+        }
+        check(shown, "an ISEE-3 event draws the tail as far as it went");
+    }
+
+    // --- Jupiter: Joy et al. 2002 ----------------------------------------------------------
+    Scene jupiter_scene = load_jupiter();
+    const BodyMagnetosphere& jupiter = jupiter_scene.bodies[static_cast<size_t>(jupiter_scene.find("Jupiter"))].magnetosphere;
+    check(jupiter.model == MagnetosphereModel::Joy2002, "Jupiter uses Joy 2002");
+    // Rutala et al. 2025, Table: Joy's standoffs at the 10th, 50th and 90th percentile pressures.
+    const double joy_table[3][3] = {{0.02, 101.0, 132.0}, {0.071, 83.0, 108.0}, {0.22, 68.0, 82.0}};
+    for (const auto& row : joy_table) {
+        SolarWind wind;
+        wind.pressure_npa = row[0];
+        const double pause = magnetopause(jupiter, wind).nose();
+        const double shock = bow_shock(jupiter, wind).nose();
+        std::printf("Joy at %.3f nPa: magnetopause %.1f, bow shock %.1f Rj\n", row[0], pause, shock);
+        check(std::abs(pause - row[1]) < 0.8, "Joy's magnetopause standoff", pause);
+        check(std::abs(shock - row[2]) < 0.6, "Joy's bow shock standoff", shock);
+    }
+    // Joy's two most probable magnetopauses, 63 and 92 radii out, and the pressures the paper
+    // gives for them; the mean bow shock, 84 radii, is at its median pressure (Table 2).
+    {
+        SolarWind wind;
+        wind.pressure_npa = 0.306;
+        const double compressed = magnetopause(jupiter, wind).nose();
+        wind.pressure_npa = 0.039;
+        const double expanded = magnetopause(jupiter, wind).nose();
+        wind.pressure_npa = 0.258;
+        const double shock = bow_shock(jupiter, wind).nose();
+        std::printf("Joy: compressed %.1f, expanded %.1f Rj; median bow shock %.1f Rj\n", compressed, expanded, shock);
+        check(std::abs(compressed - 63.0) < 1.0, "Joy's compressed magnetopause is 63 Rj out", compressed);
+        check(std::abs(expanded - 92.0) < 1.0, "the expanded one 92 Rj", expanded);
+        check(std::abs(shock - 84.0) < 8.0, "the bow shock about 84 Rj at its median pressure", shock);
+    }
+    {
+        const BoundarySurface pause = magnetopause(jupiter, jupiter.typical);
+        const double dusk = pause.radius({0.0, 1.0, 0.0});
+        const double dawn = pause.radius({0.0, -1.0, 0.0});
+        const double pole = pause.radius({0.0, 0.0, 1.0});
+        std::printf("Joy typical: nose %.1f, dusk %.1f, dawn %.1f, pole %.1f Rj\n", pause.nose(), dusk, dawn, pole);
+        check(pole < 0.95 * 0.5 * (dusk + dawn), "Jupiter's magnetopause is flattened at the poles", pole / dusk);
+        // The surface satisfies Joy's equation where radius() puts it.
+        const glm::dvec3 d = glm::normalize(glm::dvec3(-0.3, 0.6, 0.5));
+        const glm::dvec3 p = pause.radius(d) * d / pause.scale;
+        const double* c = pause.coefficients;
+        check(std::abs(p.z * p.z - (c[0] + c[1] * p.x + c[2] * p.x * p.x + c[3] * p.y + c[4] * p.y * p.y + c[5] * p.x * p.y)) < 1e-12,
+              "radius() solves Joy's quadric");
+    }
+    // Kurth et al. 2002: on 2001-01-10 Cassini left the magnetosphere at 20:35 and Galileo at
+    // 20:52 (at the spacecraft), over 100 Rj apart in x. Galileo's crossing is on Joy's "25
+    // percent" surface, Cassini's beyond the "10 percent" one: no one surface holds both.
+    {
+        const auto pressure_through = [&](const glm::dvec3& p) {
+            double low = 1e-4;  // large
+            double high = 2.0;  // small
+            for (int i = 0; i < 60; ++i) {
+                SolarWind wind;
+                wind.pressure_npa = std::sqrt(low * high);
+                (magnetopause(jupiter, wind).contains(p) ? low : high) = wind.pressure_npa;
+            }
+            return std::sqrt(low * high);
+        };
+        const glm::dvec3 cassini = in_axes(jupiter_scene, "Jupiter", "Cassini", utc("2001-01-10 20:35"), jupiter.typical);
+        const glm::dvec3 galileo = in_axes(jupiter_scene, "Jupiter", "Galileo", utc("2001-01-10 20:52"), jupiter.typical);
+        const double p_cassini = pressure_through(cassini);
+        const double p_galileo = pressure_through(galileo);
+        SolarWind wind;
+        wind.pressure_npa = p_cassini;
+        const double nose_cassini = magnetopause(jupiter, wind).nose();
+        wind.pressure_npa = p_galileo;
+        const double nose_galileo = magnetopause(jupiter, wind).nose();
+        std::printf("Cassini at (%.1f, %.1f, %.1f) Rj: Joy pressure %.4f nPa, nose %.1f Rj\n", cassini.x, cassini.y, cassini.z,
+                    p_cassini, nose_cassini);
+        std::printf("Galileo at (%.1f, %.1f, %.1f) Rj: Joy pressure %.4f nPa, nose %.1f Rj\n", galileo.x, galileo.y, galileo.z,
+                    p_galileo, nose_galileo);
+        check(galileo.x - cassini.x > 100.0, "Galileo was over 100 Rj sunward of Cassini (Kurth 2002)", galileo.x - cassini.x);
+        check(cassini.y > 0.0 && galileo.y > 0.0, "both on the dusk side");
+        check(p_cassini < p_galileo, "Cassini's crossing needs a larger magnetosphere than Galileo's", p_cassini / p_galileo);
+        // Joy's Table 2: 0.048 nPa for the 25 percent surface, 0.030 nPa for the 10 percent one.
+        check(std::abs(p_galileo / 0.048 - 1.0) < 0.15, "Galileo's crossing is on Joy's 25 percent surface (Kurth 2002)", p_galileo);
+        check(p_cassini < 0.030, "Cassini's is beyond the 10 percent one", p_cassini);
+        // z of the axes is toward Jupiter's spin axis.
+        {
+            const double t = utc("2001-01-10 20:52");
+            const int j = jupiter_scene.find("Jupiter");
+            const glm::dmat3 axes = jupiter_scene.magnetosphere_axes(j, t, jupiter.typical);
+            const glm::dvec3 spin = jupiter_scene.body_to_icrf(jupiter_scene.bodies[static_cast<size_t>(j)], t)[2];
+            check(std::abs(glm::dot(axes[1], spin)) < 1e-12 && glm::dot(axes[2], spin) > 0.99, "Joy's z is toward the spin axis",
+                  glm::dot(axes[2], spin));
+        }
+        const SceneEvent* event = nullptr;
+        for (const SceneEvent& e : jupiter_scene.events) {
+            if (e.magnetosphere.size() == 2) event = &e;
+        }
+        check(event != nullptr, "the Jupiter scene shows the two magnetopauses");
+        if (event) {
+            const double p_now = event->magnetosphere[0].wind.pressure_npa;
+            const double p_before = event->magnetosphere[1].wind.pressure_npa;
+            check(std::abs(p_now / p_galileo - 1.0) < 0.03, "one passes through Galileo's crossing", p_now);
+            check(std::abs(p_before / p_cassini - 1.0) < 0.03, "the other, faint, through Cassini's", p_before);
+            check(event->magnetosphere[1].faint && !event->magnetosphere[0].faint, "the earlier one is the faint one");
+        }
+    }
+    // Cassini first met the bow shock on 2000-12-28 at 04:19, close to Joy's surface for
+    // 0.02 nPa; the wind's pressure from the plasma frequency then was 0.018 nPa (Kurth 2002).
+    {
+        const glm::dvec3 cassini = in_axes(jupiter_scene, "Jupiter", "Cassini", utc("2000-12-28 04:19"), jupiter.typical);
+        SolarWind wind;
+        wind.pressure_npa = 0.02;
+        const BoundarySurface shock = bow_shock(jupiter, wind);
+        const double miss = glm::length(cassini) / shock.radius(glm::normalize(cassini));
+        std::printf("Cassini's first bow shock: %.1f Rj out at (%.1f, %.1f, %.1f), %.3f of Joy's 0.02 nPa shock\n",
+                    glm::length(cassini), cassini.x, cassini.y, cassini.z, miss);
+        check(std::abs(glm::length(cassini) - 140.2) < 1.5, "Cassini met the shock 140.2 Rj out (Kurth 2002, Fig. 2)", glm::length(cassini));
+        check(std::abs(miss - 1.0) < 0.1, "close to Joy's bow shock for 0.02 nPa", miss);
+    }
+
+    // --- Uranus: Jasinski et al. 2024 ------------------------------------------------------
+    Scene uranus_scene = load_scene_or_die("uranus.toml");
+    const BodyMagnetosphere& uranus = uranus_scene.bodies[static_cast<size_t>(uranus_scene.find("Uranus"))].magnetosphere;
+    check(uranus.model == MagnetosphereModel::PressureBalance, "Uranus uses a pressure balance");
+    check(std::abs(magnetopause(uranus, uranus.typical).standoff - 22.2) < 1e-6, "its mean standoff is 22.2 radii");
+    {
+        // Their pressures and standoffs: 0.0184 nPa at the flyby, 0.031 and 0.00043 nPa the extremes.
+        const double table[3][2] = {{0.0184, 17.3}, {0.031, 15.8}, {0.00043, 33.5}};
+        for (const auto& row : table) {
+            SolarWind wind;
+            wind.pressure_npa = row[0];
+            const double standoff = magnetopause(uranus, wind).standoff;
+            check(std::abs(standoff - row[1]) < 0.1, "Jasinski's standoff for a pressure", standoff);
+            check(std::abs(uranus.pressure_for_standoff(row[1]) / row[0] - 1.0) < 0.04, "and back");
+        }
+        // Voyager 2 crossed the magnetopause at 10:07 at (15.784, 8.684, -0.632) radii, 29 deg
+        // from the nose, which their shape puts 17.3 radii out.
+        SolarWind flyby;
+        flyby.pressure_npa = uranus.pressure_for_standoff(17.3);
+        const glm::dvec3 voyager = in_axes(uranus_scene, "Uranus", "Voyager 2", utc("1986-01-24 10:07"), flyby);
+        const BoundarySurface pause = magnetopause(uranus, flyby);
+        const double ratio = glm::length(voyager) / pause.radius(glm::normalize(voyager));
+        std::printf("Voyager 2 at the magnetopause: (%.3f, %.3f, %.3f) Ru, %.4f of the model's distance\n", voyager.x, voyager.y,
+                    voyager.z, ratio);
+        check(glm::length(voyager - glm::dvec3(15.784, 8.684, -0.632)) < 0.15, "Voyager 2 where Jasinski has it at 10:07",
+              glm::length(voyager - glm::dvec3(15.784, 8.684, -0.632)));
+        check(std::abs(ratio - 1.0) < 0.01, "on the 17.3-radii magnetopause", ratio);
+        check(magnetopause(uranus, uranus.typical).contains(voyager), "and well inside the mean one");
+        // The bow shock at 07:28, 23.5 radii out (Bagenal et al. 1987 as quoted by Treumann &
+        // Jaroschek 2008): the assumed parabola 1.275 standoffs out is within a radius of it.
+        const glm::dvec3 at_shock = in_axes(uranus_scene, "Uranus", "Voyager 2", utc("1986-01-24 07:28"), flyby);
+        const double shock = bow_shock(uranus, flyby).radius(glm::normalize(at_shock));
+        std::printf("Voyager 2 at the bow shock: %.2f Ru out, the model's shock %.2f Ru\n", glm::length(at_shock), shock);
+        check(std::abs(glm::length(at_shock) - 23.5) < 0.3, "Voyager 2 met the shock 23.5 radii out", glm::length(at_shock));
+        check(std::abs(shock - glm::length(at_shock)) < 1.0, "where the model's shock is", shock);
+        bool shown = false;
+        for (const SceneEvent& e : uranus_scene.events) {
+            if (e.magnetosphere.size() == 2) {
+                shown = std::abs(magnetopause(uranus, e.magnetosphere[0].wind).standoff - 17.3) < 1e-6 &&
+                        std::abs(magnetopause(uranus, e.magnetosphere[1].wind).standoff - 22.2) < 1e-6 && e.magnetosphere[1].faint;
+            }
+        }
+        check(shown, "the Uranus scene compares the squeezed magnetopause with the mean one");
+    }
+
+    // --- The wire surfaces -----------------------------------------------------------------
+    for (const BodyMagnetosphere* sphere : {&earth, &jupiter, &uranus}) {
+        for (int which = 0; which < 2; ++which) {
+            const BoundarySurface surface = which == 0 ? magnetopause(*sphere, sphere->typical) : bow_shock(*sphere, sphere->typical);
+            std::vector<std::vector<glm::dvec4>> lines;
+            boundary_wireframe(surface, sphere->tail_radii, 12, lines);
+            check(lines.size() > 14, "a wire surface has meridians and rings", static_cast<double>(lines.size()));
+            double worst = 0.0;
+            double longest = 0.0;
+            double deepest = 0.0;
+            size_t points = 0;
+            for (const auto& line : lines) {
+                points += line.size();
+                for (size_t i = 0; i < line.size(); ++i) {
+                    const glm::dvec3 p(line[i]);
+                    worst = std::max(worst, std::abs(glm::length(p) / surface.radius(glm::normalize(p)) - 1.0));
+                    deepest = std::max(deepest, -p.x);
+                    check(line[i].w >= 0.0 && line[i].w <= 1.0, "fades are within 0..1");
+                    if (i > 0) longest = std::max(longest, glm::length(p - glm::dvec3(line[i - 1])));
+                }
+            }
+            check(worst < 1e-6, "its points are on the surface", worst);
+            check(std::abs(deepest / sphere->tail_radii - 1.0) < 1e-3, "it reaches the cut and no farther", deepest);
+            check(longest < 0.2 * (2.0 * surface.nose() + sphere->tail_radii), "without long chords", longest);
+            check(points < 4000, "and not too many points", static_cast<double>(points));
+        }
+    }
+}
+
 void test_flux_tubes()
 {
     Scene scene = load_scene_or_die("jupiter.toml");
@@ -3885,6 +4167,7 @@ void run_appearance_tests()
     test_dark_spots();
     test_magnetic_field();
     test_flux_tubes();
+    test_magnetospheres();
     test_magnetic_maps();
     test_ganymede_aurora();
     test_europa_aurora();

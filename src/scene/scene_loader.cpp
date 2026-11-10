@@ -275,6 +275,28 @@ Plume parse_plume(const toml::table& t, const std::string& ctx)
     return p;
 }
 
+// The solar wind of a body's [magnetosphere] table or of one entry of an event's list:
+// what the table sets, the rest from `fallback`. standoff_radii stands for the pressure
+// where the model is a pressure balance.
+SolarWind parse_solar_wind(const toml::table& t, const BodyMagnetosphere& model, SolarWind fallback,
+                           const std::string& ctx)
+{
+    SolarWind wind = fallback;
+    if (const auto v = t["pressure_npa"].value<double>()) wind.pressure_npa = *v;
+    if (const auto v = t["bz_nt"].value<double>()) wind.bz_nt = *v;
+    if (const auto v = t["wind_speed_km_s"].value<double>()) wind.speed_km_s = *v;
+    if (const auto radii = t["standoff_radii"].value<double>()) {
+        if (model.model != MagnetosphereModel::PressureBalance || t.contains("pressure_npa") || !(*radii > 1.0)) {
+            fail(ctx, "standoff_radii (above 1) is for the pressure_balance model, instead of pressure_npa");
+        }
+        wind.pressure_npa = model.pressure_for_standoff(*radii);
+    }
+    if (!(wind.pressure_npa > 0.0) || !(wind.speed_km_s > 0.0) || !std::isfinite(wind.bz_nt)) {
+        fail(ctx, "pressure_npa and wind_speed_km_s must be positive");
+    }
+    return wind;
+}
+
 glm::vec3 parse_color(const toml::table& t, std::string_view key, const std::string& ctx, glm::vec3 fallback)
 {
     const auto v = t[key].value<std::string>();
@@ -509,6 +531,13 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
         {"lines_per_shell", integer}, {"max_radius", number}, {"color", text},
     };
     static const TemplateFields magnetic_map = {{"surface", text}, {"deep", text}, {"crust", text}};
+    static const TemplateFields magnetosphere = {
+        {"model", text}, {"radius_km", number}, {"pressure_npa", number}, {"bz_nt", number},
+        {"wind_speed_km_s", number}, {"standoff_radii", number}, {"aberration", boolean}, {"tail_radii", number},
+        {"surface_field_nt", number}, {"compressibility", number}, {"flaring", number},
+        {"flare_end_radii", number}, {"shock_standoff_ratio", number}, {"shock_eccentricity", number},
+        {"color", text}, {"shock_color", text},
+    };
     static const TemplateFields rotor = {{"shape", text}, {"period_s", number}};
     static const TemplateFields shape_after = {{"shape", text}, {"time", text}, {"time_tdb", text}};
     static const TemplateFields ring_band = {
@@ -552,6 +581,7 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
         {"relief", {{Type::table}, &relief}}, {"sea", {{Type::table}, &sea}},
         {"clouds", {{Type::table}, &clouds}},
         {"magnetic_field", {{Type::table}, &magnetic_field}}, {"magnetic_map", {{Type::table}, &magnetic_map}},
+        {"magnetosphere", {{Type::table}, &magnetosphere}},
         {"rotor", {{Type::table}, &rotor}}, {"shape_after", {{Type::table}, &shape_after}},
         {"rings", {{Type::table}, &rings}},
         {"plumes", {{Type::array}, &plume}}, {"impacts", {{Type::array}, &impact}},
@@ -1818,6 +1848,41 @@ void Loader::parse(const toml::table& root, Scene& out)
             m.lines = trace_field_lines(*model, settings);
             m.model = model;
         }
+        if (const toml::table* sphere = (*t)["magnetosphere"].as_table()) {
+            const std::string mctx = ctx + " magnetosphere";
+            BodyMagnetosphere& m = body.magnetosphere;
+            const std::string model = get_string(*sphere, "model", mctx);
+            if (model == "shue1998") {
+                m.model = MagnetosphereModel::Shue1998;
+            } else if (model == "joy2002") {
+                m.model = MagnetosphereModel::Joy2002;
+            } else if (model == "pressure_balance") {
+                m.model = MagnetosphereModel::PressureBalance;
+            } else {
+                fail(mctx, "model must be \"shue1998\", \"joy2002\" or \"pressure_balance\"");
+            }
+            m.radius_km = get_double_or(*sphere, "radius_km", body.equatorial_radius_km);
+            m.aberration = (*sphere)["aberration"].value<bool>().value_or(false);
+            m.tail_radii = get_double_or(*sphere, "tail_radii", m.tail_radii);
+            m.flare_end_radii = get_double_or(*sphere, "flare_end_radii", 0.0);
+            m.shock_standoff_ratio = get_double_or(*sphere, "shock_standoff_ratio", m.shock_standoff_ratio);
+            m.shock_eccentricity = get_double_or(*sphere, "shock_eccentricity", m.shock_eccentricity);
+            m.color = parse_color(*sphere, "color", mctx, m.color);
+            m.shock_color = parse_color(*sphere, "shock_color", mctx, m.shock_color);
+            if (m.model == MagnetosphereModel::PressureBalance) {
+                m.surface_field_nt = get_double(*sphere, "surface_field_nt", mctx);
+                m.compressibility = get_double_or(*sphere, "compressibility", m.compressibility);
+                m.flaring = get_double_or(*sphere, "flaring", m.flaring);
+                if (!(m.surface_field_nt > 0.0) || !(m.compressibility > 1.0) || !(m.flaring > 0.0)) {
+                    fail(mctx, "needs a positive surface_field_nt and flaring, and compressibility above 1");
+                }
+            }
+            if (!(m.radius_km > 0.0) || !(m.tail_radii > 0.0) || m.flare_end_radii < 0.0 ||
+                !(m.shock_standoff_ratio > 1.0) || m.shock_eccentricity < 0.0) {
+                fail(mctx, "radius_km and tail_radii must be positive, shock_standoff_ratio above 1");
+            }
+            m.typical = parse_solar_wind(*sphere, m, m.typical, mctx);
+        }
         if (const toml::table* maps = (*t)["magnetic_map"].as_table()) {
             const std::string mctx = ctx + " magnetic_map";
             if (body.kind != BodyKind::Planet || body.shape) {
@@ -2283,6 +2348,32 @@ void Loader::parse(const toml::table& root, Scene& out)
             e.aurora_infrared = (*t)["aurora_infrared"].value<bool>().value_or(false);
             e.magnetic_lines = (*t)["magnetic_lines"].value<bool>().value_or(false);
             e.flux_tubes = (*t)["flux_tubes"].value<bool>().value_or(false);
+            if (const toml::node* spheres = t->get("magnetosphere")) {
+                const toml::array* list = spheres->as_array();
+                if (!list) {
+                    fail(ctx, "magnetosphere must be an array of tables");
+                }
+                for (const auto& sphere_node : *list) {
+                    const toml::table* st = sphere_node.as_table();
+                    if (!st) {
+                        fail(ctx, "magnetosphere must be an array of tables");
+                    }
+                    MagnetosphereState state;
+                    state.body = body_ref(out, *st, "body", ctx, false);
+                    const Body& body = out.bodies[static_cast<size_t>(state.body)];
+                    const std::string sctx = ctx + ", magnetosphere of '" + body.name + "'";
+                    if (!body.magnetosphere.enabled()) {
+                        fail(sctx, "the body has no magnetosphere model");
+                    }
+                    state.wind = parse_solar_wind(*st, body.magnetosphere, body.magnetosphere.typical, sctx);
+                    state.faint = (*st)["faint"].value<bool>().value_or(false);
+                    state.tail_radii = get_double_or(*st, "tail_radii", 0.0);
+                    if (state.tail_radii < 0.0) {
+                        fail(sctx, "tail_radii must not be negative");
+                    }
+                    e.magnetosphere.push_back(state);
+                }
+            }
             e.focus_orbits_only = (*t)["focus_orbits_only"].value<bool>().value_or(false);
             e.light_curve_span_days = get_double_or(*t, "light_curve_span_days", 0.0);
             e.hide_orbits = (*t)["hide_orbits"].value<bool>().value_or(false);

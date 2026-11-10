@@ -87,3 +87,18 @@ max_radius = 8.0
 [magnetic_map]                             # The strength of IGRF-14 at 2025.0; geomag/SOURCES.md
 surface = "geomag/earth_b.fieldmap"
 crust = "geomag/earth_crust_br.fieldmap"   # Thebault 2021, degrees 16-1050
+# The magnetopause of Shue et al. 1998 (JGR 103, 17691) under a typical 2 nPa wind with no
+# north-south field; an event gives its own. The tail stops widening at 120 radii (Slavin et
+# al. 1985, JGR 90, 10875) and leans by the Earth's own motion. Bow shock: Fairfield's 1971
+# average as a conic about the same axis. geomag/SOURCES.md.
+[magnetosphere]
+model = "shue1998"
+radius_km = 6371.2
+pressure_npa = 2.0
+bz_nt = 0.0
+wind_speed_km_s = 430.0
+aberration = true
+tail_radii = 60.0
+flare_end_radii = 120.0
+shock_standoff_ratio = 1.33                # 14.33 / 10.78 radii
+shock_eccentricity = 0.75

@@ -32,8 +32,15 @@
 # [MOO19]  Moore et al. 2019, as quoted in assets/geomag/SOURCES.md: the sunlit H3+ lasts about
 #        an hour, so it follows the sunlight.
 # [HER09]  Herbert 2009, JGR 114, A11206: the field model AH5.
-# [JAS24]  Jasinski et al. 2024, Nature Astronomy, doi:10.1038/s41550-024-02389-3: Voyager 2 saw
-#        Uranus's magnetosphere in a compressed state.
+# [JAS24]  Jasinski et al. 2024, Nature Astronomy 9, 66, doi:10.1038/s41550-024-02389-3 (CC BY 4.0):
+#        Voyager 2 saw Uranus's magnetosphere in a compressed state. The solar wind's dynamic
+#        pressure rose about 20 times in the days before; the subsolar magnetopause went from
+#        about 28 radii (day 16) to 17.3 (0.0184 nPa, day 24), where it is less than 5% of the
+#        time; mean 22.2 radii. Magnetopause crossing 10:07 UT at (15.784, 8.684, -0.632) radii
+#        of 25,559 km in sun-orbit axes. Model and checks: bodies/uranus.toml,
+#        assets/geomag/SOURCES.md, tests/appearance_tests.cpp.
+# [TJ08]  Treumann & Jaroschek 2008, "Planetary Bow Shocks", arXiv:0808.1701: inbound shock
+#        crossing 07:28 spacecraft time, 23.5 radii out.
 # [V2]   NASA, science.nasa.gov/mission/voyager/voyager-2/ (first to fly past Uranus; 10 new
 #        moons and two new rings there).
 # [UFS]  NASA NSSDCA Uranus Fact Sheet: obliquity 97.77 deg; orbital period 84 years.
@@ -305,6 +312,28 @@ caption = """\
     of a radius off the planet's. Each 17.2-hour turn swings the lines from side to side. \
     Drawn from a model of what the planet itself makes, without the solar wind that shapes \
     them farther out. Voyager arrived while a gust had squeezed the whole magnetosphere."""
+
+# Seen from the side, the Sun below (the pole, up here, points away from it). Voyager 2 meets the bow shock at 07:28 and the
+# magnetopause at 10:07, on the squeezed surface, well inside the mean one.
+[[events]]
+name = "A squeezed magnetosphere (1986-01-24)"
+magnetosphere = [{ body = "Uranus", standoff_radii = 17.3, tail_radii = 35.0 },
+                 { body = "Uranus", faint = true, tail_radii = 35.0 }]
+focus_orbits_only = true
+trails = [{ body = "Voyager 2", trail_history_days = 10.0 }]
+time_tdb = "1986-01-24 05:30"
+focus = "Uranus"
+from_body = "Sun"
+phase_deg = 80.0
+elevation_deg = 12.0
+distance_km = 4.2e6
+warp = 1800.0
+# [JAS24], [TJ08]
+caption = """\
+    The solar wind stops Uranus's field at the blue surface; the orange one is the shock \
+    ahead of it. Voyager 2 crossed them 23.5 and 18 radii out. But the wind had grown some \
+    twenty times stronger in the days before: the edge is this close less than 5 percent of \
+    the time. The fainter surface is where it stands on average. Shapes from simple models."""
 
 # Seen across the equator: the sunlit hemisphere above, the night below.
 [[events]]

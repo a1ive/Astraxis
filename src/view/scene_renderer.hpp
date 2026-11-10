@@ -77,6 +77,7 @@ private:
     void build_body_items(const Simulation& sim, const OutputView& view, const ViewOptions& options, int neutron_star);
     void build_orbit_lines(const Simulation& sim, const OutputView& view, const ViewOptions& options);
     void build_magnetic_lines(const Simulation& sim, const OutputView& view, const ViewOptions& options);
+    void build_magnetospheres(const Simulation& sim, const OutputView& view, const ViewOptions& options);
     void build_belt_items(const Simulation& sim, const OutputView& view, const ViewOptions& options);
     void build_comet_items(const Simulation& sim, const OutputView& view, const ViewOptions& options);
     // A colliding-wind binary's dust spiral: its grains (once per scene) and this frame's look.
@@ -138,6 +139,8 @@ private:
     std::vector<SDL_GPUTexture*> m_deep_field_map_textures; // per body: the same deeper down, may be null
     std::vector<SDL_GPUTexture*> m_crust_field_map_textures; // per body: of the crust alone, may be null
     std::vector<glm::dvec3> m_tube_line; // scratch for the lines to the moons' footprints
+    std::vector<MagnetosphereState> m_magnetosphere_states; // scratch: what build_magnetospheres draws
+    std::vector<std::vector<glm::dvec4>> m_magnetosphere_lines;
     std::vector<SDL_GPUTexture*> m_aurora_textures; // per body: Ganymede UV map
     std::vector<int> m_comet_meshes;              // per body: nucleus occlusion BVH
     std::vector<int> m_body_meshes;               // per body: BodyPass mesh index (-1: ellipsoid)

@@ -37,6 +37,19 @@ flip_pole = true                           # ULS north = IAU south
 longitude_offset_deg = -50.6               # IAU new east = ULS west - 50.6 [MEL25]
 [magnetic_map]                      # AH5 on the surface, in these axes; geomag/SOURCES.md
 surface = "geomag/uranus_br.fieldmap"
+# The magnetopause as Jasinski et al. 2024 (Nature Astronomy 9, 66) estimate it: standoff
+# from a pressure balance, here at their mean of 22.2 radii, and Shue's shape with their
+# flaring. The bow shock is a parabola (assumed) 1.275 standoffs out (Farris & Russell 1994
+# at high Mach number). geomag/SOURCES.md.
+[magnetosphere]
+model = "pressure_balance"
+surface_field_nt = 23000.0
+compressibility = 5.7
+flaring = 0.6
+standoff_radii = 22.2
+tail_radii = 60.0
+shock_standoff_ratio = 1.275
+shock_eccentricity = 1.0
 
 # Rings: edges and their eccentricities, apses and nodes [FR24]; normal optical
 # depths [PDSU] (where given as a range, its middle; bounds as given), taken as the

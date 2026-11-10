@@ -104,6 +104,10 @@
 # [SLV]  J. A. Slavin et al. 1986, GRL 13, 1085 (abstract): on 1985-09-11 the H2O+ ion tail of
 #        Giacobini-Zinner was 1.2e4 km across (Lick slit spectrum, 0.5 h after ICE's pass), the
 #        magnetotail ICE crossed 9.6e3 km; CFHT saw a central ion tail ~2e4 km long.
+# [SLV85] J. A. Slavin et al. 1985, JGR 90, 10875 (abstract): from 756 ISEE-3 magnetopause crossings the
+#        tail is 60 +/- 5 Earth radii across at 130-225 radii down it; it stops flaring at 120 +/- 10.
+# [HON84] E. W. Hones et al. 1984, GRL 11, 5 (abstract): at 220 radii the tail waves about through
+#        distances comparable to its own width.
 # [ESO]  ESO press release eso8607 (1986-03-06): Halley's ion tail at least 22 million km long
 #        on 1986-02-22, at least 50 million km on 02-27. Its width is illustrative.
 # [L]    Sun / Earth-Moon barycenter mass ratio 403503.235625 / (1.32712440041279419e11 +
@@ -613,18 +617,23 @@ caption = """\
     After four years at L1, ISEE-3 leaves for a new job: diving into the Earth's \
     magnetic tail, which streams away on the night side, out toward L2."""
 
+# The tail as drawn: Shue et al. 1998 under a typical wind, a cylinder beyond 120 Earth radii
+# [SLV85], leaning 4 deg into the Earth's motion (bodies/earth.toml). The real tail flaps
+# about by its own width [HON84].
 [[events]]
 name = "Geotail passes and lunar flybys (1982-1983)"
+magnetosphere = [{ body = "Earth", tail_radii = 240.0 }]
 time = "1982-09-01 00:00"
 focus = "Earth"
 frame = "Sun-Earth rotating"
 distance_km = 5.0e6
 warp = 172800.0
-# [ISEE], [REC]
+# [ISEE], [REC], [SLV85], [HON84]
 caption = """\
     Repeated lunar flybys send ISEE-3 through the Earth's magnetic tail on looping \
-    paths, making the first deep survey of the tail. It found a huge plasmoid, a \
-    cloud of electrified gas cast off down the tail."""
+    paths, making the first deep survey of the tail, as far as 236 Earth radii. It \
+    found the tail still 60 radii across out there, and a huge plasmoid, a cloud of \
+    electrified gas cast off down it. Blue: the tail's average edge; the real one flaps."""
 
 [[events]]
 name = "Lunar flyby 4 (1983-10-21)"

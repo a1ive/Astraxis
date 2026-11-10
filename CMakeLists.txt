@@ -88,6 +88,8 @@ add_library(astraxis_sim STATIC
     src/scene/lensing.hpp
     src/scene/magnetic_field.cpp
     src/scene/magnetic_field.hpp
+    src/scene/magnetosphere.cpp
+    src/scene/magnetosphere.hpp
     src/scene/pulsar.cpp
     src/scene/pulsar.hpp
     src/scene/light_curve.cpp

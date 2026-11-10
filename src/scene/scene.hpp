@@ -4,6 +4,7 @@
 #include "ephem/motion.hpp"
 #include "scene/aurora_model.hpp"
 #include "scene/magnetic_field.hpp"
+#include "scene/magnetosphere.hpp"
 #include "scene/corona.hpp"
 #include "scene/disk.hpp"
 #include "scene/impact.hpp"
@@ -495,6 +496,7 @@ struct Body {
     BodyAurora aurora; // scene/aurora_model.hpp
     BodyMagneticField magnetic_field; // scene/magnetic_field.hpp
     BodyMagneticMap magnetic_map;
+    BodyMagnetosphere magnetosphere; // scene/magnetosphere.hpp
     // Io N/S, Europa N/S, Ganymede N/S; zero means absent/outside the table.
     std::array<glm::dvec3, 6> jovian_footprints{};
     // Io, Europa, Ganymede in the body's axes (km); zero means absent.
@@ -712,6 +714,9 @@ struct SceneEvent {
     bool aurora_infrared = false; // IR false-color overlay on the visible planet
     bool magnetic_lines = false; // the field lines of bodies with a magnetic_field
     bool flux_tubes = false; // the lines from Jupiter's moons to their footprints
+    // Magnetopauses and bow shocks drawn while the event is active, each under its own
+    // solar wind (several of one body: to compare them).
+    std::vector<MagnetosphereState> magnetosphere;
     FieldMapView magnetic_map = FieldMapView::None; // "surface", "deep" or "crust" in the file
     // Only the orbits of the focus' natural satellites and of the bodies in `trails`
     // are drawn, so that a close view is not crossed by those of distant bodies.
@@ -915,6 +920,10 @@ public:
     State icrf_state_at(int body, double t_tdb) const;
     // State of the sun relative to the scene origin (ICRF).
     State sun_icrf_state_at(double t_tdb) const;
+    // The axes of a body's magnetosphere in ICRF (solar_wind_axes): x toward the sun, or
+    // where the wind comes from if the body's model has the aberration. Jupiter's model
+    // has z toward the spin axis instead of the orbit's normal.
+    glm::dmat3 magnetosphere_axes(int body, double t_tdb, const SolarWind& wind) const;
     // GM of the sun: the Star body's, or the Sun's in a scene centered on a planet.
     double sun_gm() const;
 
