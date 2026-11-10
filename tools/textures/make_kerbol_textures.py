@@ -1,12 +1,14 @@
 """Make the procedural surfaces of the Kerbol scene (assets/scenes/kerbol.toml).
 
     python -E -P make_kerbol_textures.py <output_dir> [name ...] [--width N]
+    python -E -P make_kerbol_textures.py <output_dir> [kerbin eve laythe] --clouds
 
 Writes <name>.jpg (2:1 simple cylindrical, east longitude increasing to the right
 from -180 deg at the left edge, as the scene's texture lookup expects) for every
 world of the scene (see MAKERS), or only the names given; --width overrides the
 map widths (2048, or 1024 for the smallest moons). Every world but Jool also gets
 <name>_relief.jpg, the slopes of its invented terrain and its seas (relief_map.py).
+With --clouds, write only the grayscale <name>_clouds.jpg coverage maps.
 
 These are invented surfaces, not the game's: they keep a few traits that make
 each world recognizable (Kerbin's blue seas, green land and ice caps; the Mun's
@@ -521,8 +523,36 @@ MAKERS = {"kerbin": (make_kerbin, 2048, 600.0), "mun": (make_mun, 2048, 200.0), 
           "eeloo": (make_eeloo, 2048, 210.0)}
 
 
+# Seed, zonal stretch, frontal latitude (degrees), belt strength, clear edge, opaque edge.
+CLOUDS = {
+    "kerbin": (710, 3.0, 42.0, 0.25, -0.07, 0.46),
+    "eve": (820, 4.0, 28.0, 0.19, -0.25, 0.43),
+    "laythe": (930, 4.5, 48.0, 0.31, -0.03, 0.49),
+}
+
+
+def make_clouds(name, width):
+    seed, stretch, front_lat, belt, clear, opaque = CLOUDS[name]
+    p, lat, _ = sphere_grid(width)
+    weather = fbm(p, seed, 2.4, 4)
+    # The large weather systems bend the narrow cloud filaments and shift the
+    # storm belts in latitude. All sampling stays continuous around the sphere.
+    warped = p * np.array([1.0, 1.0, stretch])
+    warped[..., 2] += 0.42 * weather
+    fronts = fbm(warped, seed + 1, 3.4, octaves_for(3.4 * stretch, width), gain=0.68)
+    turbulence = fbm(p, seed + 2, 16.0, octaves_for(16.0, width), gain=0.72)
+    latitude = np.abs(np.degrees(lat) + 14.0 * weather)
+    storm_track = np.exp(-((latitude - front_lat) / 15.0) ** 2)
+    tropical = 0.4 * np.exp(-(latitude / 13.0) ** 2)
+    density = 0.58 * weather + fronts + 0.35 * turbulence + belt * (storm_track + tropical)
+    return smoothstep(clear, opaque, density)
+
+
 def main():
     args = sys.argv[1:]
+    clouds = "--clouds" in args
+    if clouds:
+        args.remove("--clouds")
     width = None
     if "--width" in args:
         i = args.index("--width")
@@ -531,6 +561,16 @@ def main():
     if not args:
         print(__doc__)
         sys.exit(1)
+    if clouds:
+        out_dir, names = args[0], args[1:] or list(CLOUDS)
+        for name in names:
+            if name not in CLOUDS:
+                sys.exit("no procedural clouds for " + name)
+            cover = make_clouds(name, width or MAKERS[name][1])
+            path = os.path.join(out_dir, name + "_clouds.jpg")
+            Image.fromarray(np.round(255.0 * cover).astype(np.uint8)).save(path, "JPEG", quality=92, optimize=True)
+            print(path)
+        return
     out_dir, names = args[0], args[1:] or list(MAKERS)
     for name in names:
         maker, default_width, radius_km = MAKERS[name]

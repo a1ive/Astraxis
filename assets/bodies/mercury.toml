@@ -11,6 +11,9 @@ color = "#9c958e"
 texture = "textures/mercury.jpg"           # assets/textures/SOURCES.md
 texture_left_lon_deg = -180.0
 
+[relief]
+texture = "textures/mercury_relief.jpg"
+
 # Anderson et al. 2012, axisymmetric. The dayside magnetopause is near 1.45 radii (Winslow
 # et al. 2013), so only the lines inside it are drawn. geomag/SOURCES.md.
 [magnetic_field]

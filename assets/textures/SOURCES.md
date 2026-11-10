@@ -106,25 +106,32 @@ OPAL 每年观测两次左右完整自转，每次自转每个滤镜一张简单
 
 ## 起伏图（`*_relief.jpg`）
 
-天体的 `[relief]` 用的图：和反照率图同一投影（2:1 简单圆柱，左缘 180°W，北在上），由高度图烘焙。红、绿通道是朝东、朝北的坡度（升高 / 水平距离），按 `0.5 + 0.5 sign(s) sqrt(|s| / 1.0)` 编码（平方根让占绝大多数的缓坡避开 JPEG 的误差，`scene/relief.hpp` 的 `relief_decode` 是反过来的公式）；蓝通道是像素里开阔水面的份额。存坡度而不存高度：8 位的高度图差分后是一级级台阶。高度先平均到 2048×1024，再沿每一行按纬度做低通（越靠近两极列越密，不滤的话东西向的坡度来自远小于图分辨率的差分），中心差分求坡度。JPEG 质量 92，不做色度抽样（三个通道是不相干的量）。`tools/textures/relief_map.py` 是公用的编码，`make_relief.py` 烘月球、火星和地球，Kerbol 的由 `make_kerbol_textures.py` 一起生成。
+天体的 `[relief]` 图由高度图烘焙，和反照率图共用 2:1 简单圆柱投影，北在上，左缘经度见各底图的约定。红、绿通道是朝东、朝北的坡度（升高 / 水平距离），按 `0.5 + 0.5 sign(s) sqrt(|s| / 1.0)` 编码。平方根保留缓坡，`scene/relief.hpp` 的 `relief_decode` 负责解码。蓝通道是像素里开阔水面的份额。高度先平均到反照率图的尺寸，再沿每一行按纬度做低通，最后用中心差分求坡度。极区的经线间距小，低通能减轻东西向的差分噪声。三个通道各有用途，JPEG 质量设为 92，关闭色度抽样。`make_relief.py` 烘焙观测高程，`make_kerbol_textures.py` 生成 Kerbol 地形，两者共用 `relief_map.py`。
 
 | 文件 | 来源 | 许可 |
 |---|---|---|
 | `moon_relief.jpg` | LRO LOLA 网格数据 `LDEM_16`（每度 16 像素，相对 1737.4 km 的高度，0.5 m 一级），PDS Geosciences Node，LRO-L-LOLA-4-GDR-V1.0，<https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/data/lola_gdr/cylindrical/img/ldem_16.img>（33 MB，标签是同名的 `.lbl`） | PDS 存档数据，公有领域（请引用 LOLA 团队：Smith et al. 2010） |
 | `mars_relief.jpg` | MGS MOLA MEGDR `megt90n000eb.img`（每度 16 像素，相对大地水准面的地形，米，行星中心纬度、东经），PDS Geosciences Node，MGS-M-MOLA-5-MEGDR-L3-V1.0，<https://pds-geosciences.wustl.edu/mgs/mgs-m-mola-5-megdr-l3-v1/mgsl_300x/meg016/megt90n000eb.img>（33 MB） | PDS 存档数据，公有领域（请引用 MOLA 团队：Smith et al. 2001） |
 | `earth_relief.jpg` | 陆地高度：NOAA NGDC 的 ETOPO5（5 角分，1988），<https://www.ngdc.noaa.gov/mgg/global/relief/ETOPO5/TOPO/ETOPO5/ETOPO5.DAT>（18 MB，说明在同目录的 `ETOPO5.txt`）。水面：Natural Earth 1:50m 的 `ne_50m_land`、`ne_50m_lakes`、`ne_50m_antarctic_ice_shelves_polys`（<https://naciscdn.org/naturalearth/50m/physical/> 下的同名 zip），再去掉 `earth.jpg` 里亮的地方（2004 年 7 月的海冰） | ETOPO5：美国政府作品，公有领域；Natural Earth：公有领域 |
+| `mercury_relief.jpg` | Becker et al.，USGS [MESSENGER MDIS 全球 DEM v2，665 m](https://astrogeology.usgs.gov/search/map/mercury_messenger_global_dem_665m)。GeoTIFF 从 0°E 开始，每计数为 0.5 m，烘焙后左缘移到 180°W | PDS 存档，请引用作者 |
+| `venus_relief.jpg` | Ford、Pettengill、Liu、Quigley，USGS [Magellan GTDR v2，4641 m](https://astrogeology.usgs.gov/search/map/venus_magellan_global_topography_4641m)。GeoTIFF 从 180°W 开始，单位为米 | 公有领域，请引用作者 |
+| `enceladus_relief.jpg` | Schenk & McKinnon 2024，USGS [Cassini ISS 全球 DEM，200 m](https://astrogeology.usgs.gov/search/map/enceladus-cassini-global-dem-200m-schenk)。GeoTIFF 从 0°E 开始，高度是相对三轴椭球的公里数 | PDS 存档，请引用作者 |
 
 ```
 python -E -P tools/textures/make_relief.py moon  ldem_16.img      assets/textures/moon_relief.jpg
 python -E -P tools/textures/make_relief.py mars  megt90n000eb.img assets/textures/mars_relief.jpg
 python -E -P tools/textures/make_relief.py earth ETOPO5.DAT ne_50m_land.zip ne_50m_lakes.zip \
     ne_50m_antarctic_ice_shelves_polys.zip assets/textures/earth.jpg assets/textures/earth_relief.jpg
+python -E -P tools/textures/make_relief.py mercury Mercury_Messenger_USGS_DEM_Global_665m_v2.tif assets/textures/mercury_relief.jpg
+python -E -P tools/textures/make_relief.py venus Venus_Magellan_Topography_Global_4641m_v02.tif assets/textures/venus_relief.jpg
+python -E -P tools/textures/make_relief.py enceladus Enceladus_Cassini_DEM_global_200m_schenk2024.tif assets/textures/enceladus_relief.jpg
 ```
 
 - 工具在烘焙前打印几个已知的高度作核对：Tycho 底部 −2.87 km、东缘 +0.92 km，远月面高地 +10.6 km；Olympus Mons 最高 21.17 km，Hellas 最低 −8.18 km；珠穆朗玛峰所在的 5′ 格 6.10 km，马里亚纳海沟 −8.95 km。烘出的图在 `appearance_tests.cpp` 的 `test_relief` 里再对照地点（Tycho 四面坑壁的朝向、Olympus Mons 的山坡、Valles Marineris 的北壁、喜马拉雅的南坡、几个湖和冰架）
 - 2048 像素宽的图在赤道上每像素 5.3 km（月球）、10.4 km（火星）、19.6 km（地球），坡度是这个尺度上的平均：月球的中位数 2.4°、99% 分位 15°，火星 0.3° 和 5.7°，地球陆地更平（99% 分位 1.4°）。ETOPO5 在亚洲、南美、非洲的部分地区实际只有 1° 的分辨率
 - 地球的水面不能用“低于海平面”：Qattara 洼地是干的，五大湖又不在海平面。海面和湖面的坡度置零，海底地形不用
 - ETOPO5 和 Natural Earth 是大地纬度，这里和 `earth.jpg` 一样当作行星中心纬度（最多差 0.19°，约 1 像素），两张图互相对得上
+- GeoTIFF 烘焙需要 `tifffile`。高度平均和极区滤波按有效像元加权，坡度乘以差分所用格子的最小有效面积份额。金星约 8.3% 的原始像元缺测，主要在高纬度和窄条带。水星、金星和土卫二的坡度中位数分别为 0.98°、0.22° 和 5.38°，土卫二的坡度按场景半径 252.1 km 计算。
 
 ## Kerbol 系统（程序生成）
 
@@ -135,7 +142,7 @@ Kerbol 场景 16 个天体的纹理（`kerbin.jpg`、`mun.jpg`、`minmus.jpg`、
 
 - 每个像素对应单位球面上的一点，噪声是在球面上采样的三维梯度噪声，所以 180° 经线处没有接缝，两极也不会被拉扯；倍频程只加到波长约 2 像素为止
 - 噪声用自带的整数哈希，不用 numpy 的随机数生成器：种子固定在工具里，换 numpy 版本重新生成结果不变
-- 场景的天体着色没有法线贴图，陨石坑只体现在反照率上（坑底略暗、坑缘和溅射物偏亮，年轻的大坑带辐射纹）
+- Kerbin、Eve、Laythe 的 `*_clouds.jpg` 是固定种子的球面噪声云量图。三颗天体各有不同的云带纬度和覆盖率，低频天气系统弯折云带，细尺度噪声打散云边。灰度直接存线性云量，分辨率为 2048×1024。单独生成云图用 `python -E -P tools/textures/make_kerbol_textures.py assets/textures --clouds`。
 - 颜色在线性空间混合，存为 sRGB JPEG（质量 90），2048×1024（Gilly、Bop、Pol 1024×512）；亮度参照地球（海洋很暗）和月球（平均约 150）的纹理
 
 重新生成：`python -E -P tools/textures/make_kerbol_textures.py assets/textures [名称 ...]`（需要 numpy 和 Pillow，全部约 10 分钟）。

@@ -36,18 +36,31 @@ def smooth_rows(height):
     return np.fft.irfft(np.fft.rfft(height, axis=1) * window, n=width, axis=1)
 
 
-def slopes(height_km, radius_km):
-    """(east, north) slopes of a height map (km, rows north to south) on a sphere."""
+def slopes(height_km, radius_km, coverage=None):
+    """East and north slopes on a sphere, with optional valid area per cell."""
     rows, width = height_km.shape
-    h = smooth_rows(height_km)
+    if coverage is None:
+        h = smooth_rows(height_km)
+    else:
+        # Missing cells cannot pull the polar low-pass toward a fictitious height.
+        weights = smooth_rows(coverage)
+        weighted = smooth_rows(height_km * coverage)
+        h = np.divide(weighted, weights, out=np.zeros_like(weighted), where=weights > 1e-6)
     lat = (0.5 - (np.arange(rows) + 0.5) / rows) * math.pi
     step = math.pi / rows  # radians per pixel, both ways
     east = (np.roll(h, -1, axis=1) - np.roll(h, 1, axis=1)) / (2.0 * step * radius_km)
     east /= np.maximum(np.cos(lat), 1e-3)[:, None]
     north = np.empty_like(h)
     north[1:-1] = (h[:-2] - h[2:]) / (2.0 * step * radius_km)
+    if coverage is not None:
+        # Fade the difference by the least observed cell in its stencil.
+        east *= np.minimum(coverage, np.minimum(np.roll(coverage, 1, axis=1), np.roll(coverage, -1, axis=1)))
+        north[1:-1] *= np.minimum(coverage[1:-1], np.minimum(coverage[:-2], coverage[2:]))
     north[0] = north[1]
     north[-1] = north[-2]
+    if coverage is not None:
+        north[0] *= coverage[0]
+        north[-1] *= coverage[-1]
     return east, north
 
 
@@ -56,10 +69,10 @@ def encode(slope):
     return np.round(255.0 * (0.5 + 0.5 * np.sign(s) * np.sqrt(np.abs(s)))).astype(np.uint8)
 
 
-def write(path, height_km, radius_km, water=None):
+def write(path, height_km, radius_km, water=None, coverage=None):
     """Writes the relief map of a height map; `water` is the share of each pixel
     that is open water (its surface is level whatever the heights say)."""
-    east, north = slopes(np.asarray(height_km, dtype=np.float64), radius_km)
+    east, north = slopes(np.asarray(height_km, dtype=np.float64), radius_km, coverage)
     if water is None:
         water = np.zeros(east.shape)
     water = np.clip(np.asarray(water, dtype=np.float64), 0.0, 1.0)

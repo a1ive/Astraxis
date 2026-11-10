@@ -25,6 +25,8 @@ pole_rate_deg_per_century = [-0.036, -0.004]
 color = "#f2f2f0"
 texture = "textures/enceladus.jpg"
 texture_left_lon_deg = 0.0
+[relief]
+texture = "textures/enceladus_relief.jpg"
 [[plumes]]                                 # [PLM]
 name = "Alexandria Sulcus"
 type = "jets"

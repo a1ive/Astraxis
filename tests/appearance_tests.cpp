@@ -667,7 +667,7 @@ void test_relief()
     // A calmer sea: a smaller, brighter glint.
     check(sea_glint(up, up, up, sea_slope_variance(2.0), f0) > 2.5 * peak, "a calm sea's glint is brighter at its center");
 
-    // Scenes: the Earth's relief and sea, the Moon's and Mars' relief, wherever they appear.
+    // Scenes: the Earth's relief and sea, and the airless or exposed terrain maps.
     const Scene solar = load_scene_or_die("solar_system.toml");
     const Body& earth = solar.bodies[static_cast<size_t>(solar.find("Earth"))];
     check(!earth.relief.texture.empty() && earth.relief.exaggeration == 1.0 && earth.sea.wind_m_s == 7.0 &&
@@ -677,7 +677,23 @@ void test_relief()
         const Body& b = solar.bodies[static_cast<size_t>(solar.find(name))];
         check(!b.relief.texture.empty() && b.relief.exaggeration == 1.0 && b.sea.wind_m_s < 0.0, name);
     }
-    check(solar.bodies[static_cast<size_t>(solar.find("Venus"))].relief.texture.empty(), "Venus has no relief map");
+    auto check_dem = [&](const char* name, const char* scene_file, double left_lon) {
+        const Body& b = solar.bodies[static_cast<size_t>(solar.find(name))];
+        const Scene system = load_scene_or_die(scene_file);
+        const Body& other = system.bodies[static_cast<size_t>(system.find(name))];
+        check(!b.relief.texture.empty() && b.relief.texture == other.relief.texture &&
+                  b.relief.exaggeration == 1.0 && b.sea.wind_m_s < 0.0 &&
+                  b.texture_left_lon_deg == left_lon && !b.texture_west_positive,
+              (b.name + ": relief follows its template and albedo coordinates").c_str());
+        const TestImage relief = load_test_image(b.relief.texture.c_str());
+        const TestImage albedo = load_test_image(b.texture.c_str());
+        check(relief.width > 0 && relief.width == albedo.width && relief.height == albedo.height,
+              (b.name + ": the relief map matches the albedo map").c_str());
+        return relief;
+    };
+    const TestImage mercury = check_dem("Mercury", "mercury.toml", -180.0);
+    const TestImage venus = check_dem("Venus", "venus.toml", -180.0);
+    const TestImage enceladus = check_dem("Enceladus", "saturn.toml", 0.0);
     const Scene earth_moon = load_scene_or_die("earth_moon.toml");
     check(earth_moon.bodies[static_cast<size_t>(earth_moon.find("Moon"))].relief.texture ==
                   solar.bodies[static_cast<size_t>(solar.find("Moon"))].relief.texture &&
@@ -710,6 +726,22 @@ void test_relief()
     // The baked maps against known places. Slopes in the map's sense: red up to the east,
     // green up to the north.
     auto slope = [](const TestImage& map, double lat, double lon, int c) { return relief_decode(map.at(lat, lon, c)); };
+    if (mercury.width > 0) {
+        // Debussy (34.0 S, 347.5 E): the east-west profile crosses both inner walls.
+        check(slope(mercury, -33.9, 347.27, 0) < -0.02 && slope(mercury, -33.9, 347.93, 0) > 0.02,
+              "Debussy's inner walls face the crater floor");
+    }
+    if (venus.width > 0) {
+        check(slope(venus, 65.0, 0.5, 0) > 0.06 && slope(venus, 65.0, 5.5, 0) < -0.02,
+              "Maxwell Montes rises from Lakshmi Planum and drops to the east");
+        check(std::abs(slope(venus, 89.0, 0.0, 0)) < 0.001 && std::abs(slope(venus, 89.0, 0.0, 1)) < 0.001,
+              "the missing Venus polar data leaves the surface normal smooth");
+    }
+    if (enceladus.width > 0) {
+        // TestImage takes longitude relative to a 180 W left edge. Enceladus starts at 0 E.
+        check(slope(enceladus, 56.8, 345.5 - 180.0, 0) < -0.1 && slope(enceladus, 56.8, 348.5 - 180.0, 0) > 0.1,
+              "the trough on the east side of Ali Baba slopes toward its floor");
+    }
     // Moon: Tycho (43.3 S, 11.2 W; 85 km across, 4.7 km deep), its inner walls face the center.
     const TestImage moon = load_test_image("textures/moon_relief.jpg");
     check(moon.width == 2048 && moon.height == 1024, "the Moon's relief map");
@@ -784,15 +816,29 @@ void test_relief()
         check(rough / land > 0.02 && rough / land < 0.2, "Kerbin's land has slopes of a few degrees", rough / land);
     }
 
-    // Clouds: the Earth's, wherever it appears; nobody else's. The map against the weather's
-    // broad pattern: a clear Sahara, a cloudy Southern Ocean.
+    // The Earth map shows a clear Sahara and a cloudy Southern Ocean.
     check(!earth.clouds.texture.empty() && earth.clouds.albedo > 0.5 && earth.clouds.albedo <= 0.9,
           "the Earth has clouds", earth.clouds.albedo);
     check(earth_moon.bodies[static_cast<size_t>(earth_moon.find("Earth"))].clouds.texture == earth.clouds.texture,
           "in the Earth-Moon scene too");
-    check(solar.bodies[static_cast<size_t>(solar.find("Mars"))].clouds.texture.empty() &&
-              kerbol.bodies[static_cast<size_t>(kerbol.find("Kerbin"))].clouds.texture.empty(),
-          "Mars and Kerbin have no cloud map");
+    check(solar.bodies[static_cast<size_t>(solar.find("Mars"))].clouds.texture.empty(), "Mars has no cloud map");
+    for (const Body& b : kerbol.bodies) {
+        const bool cloudy = b.name == "Kerbin" || b.name == "Eve" || b.name == "Laythe";
+        check(cloudy == !b.clouds.texture.empty(), (b.name + ": procedural cloud assignment").c_str());
+        if (!cloudy) {
+            continue;
+        }
+        const TestImage clouds = load_test_image(b.clouds.texture.c_str());
+        const TestImage albedo = load_test_image(b.texture.c_str());
+        check(b.atmosphere.enabled && b.atmosphere.deck_altitude_km == 0.0 && b.clouds.albedo > 0.0 &&
+                  b.clouds.tropical_drift_deg_per_day != 0.0,
+              (b.name + ": clouds use the transparent atmosphere and drift").c_str());
+        check(clouds.width > 0 && clouds.width == albedo.width && clouds.height == albedo.height,
+              (b.name + ": the cloud map matches the albedo map").c_str());
+        const auto [clear, overcast] = std::minmax_element(clouds.rgb.begin(), clouds.rgb.end());
+        check(clear != clouds.rgb.end() && *clear < 32 && *overcast > 223,
+              (b.name + ": the map contains clear sky and thick cloud").c_str());
+    }
     const TestImage cloud_map = load_test_image(earth.clouds.texture.c_str());
     check(cloud_map.width == globe.width && cloud_map.height == globe.height && cloud_map.width > 0,
           "the cloud map matches the Earth's other maps");

@@ -17,6 +17,8 @@ prime_meridian_deg = [160.20, -1.4813688]
 color = "#e8d6ae"
 texture = "textures/venus.jpg"             # Magellan radar, shown without the atmosphere
 texture_left_lon_deg = -180.0
+[relief]
+texture = "textures/venus_relief.jpg"
 [atmosphere]                               # [ATM]
 deck_altitude_km = 74.0
 height_km = 30.0

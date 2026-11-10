@@ -1,13 +1,14 @@
-"""Bake the relief maps of the Moon, Mars and the Earth (assets/textures/*_relief.jpg).
+"""Bake the observed relief maps (assets/textures/*_relief.jpg).
 
     python -E -P make_relief.py moon  <ldem_16.img>      <out.jpg>
     python -E -P make_relief.py mars  <megt90n000eb.img> <out.jpg>
     python -E -P make_relief.py earth <ETOPO5.DAT> <ne_50m_land.zip> <ne_50m_lakes.zip>
                                       <ne_50m_antarctic_ice_shelves_polys.zip> <earth.jpg> <out.jpg>
+    python -E -P make_relief.py mercury|venus|enceladus <source.tif> <out.jpg>
 
-The height maps are averaged down to the 2048 x 1024 of the albedo maps (left edge at
-180 W) and turned into slopes and a water mask by relief_map.py. Downloads, licenses
-and what is checked are in assets/textures/SOURCES.md.
+The height maps are averaged down to the 2048 x 1024 of the albedo maps and turned
+into slopes and a water mask by relief_map.py. Downloads and licenses are in
+assets/textures/SOURCES.md.
 
     Moon   LOLA LDEM_16: 16 pixels per degree, 16-bit little-endian, 0.5 m per count
            above a 1737.4 km sphere, from 0 E eastward.
@@ -22,7 +23,7 @@ and what is checked are in assets/textures/SOURCES.md.
 
 Prints a few known heights from each source before baking.
 
-Requires numpy and Pillow.
+Requires numpy and Pillow, plus tifffile for the GeoTIFF sources.
 """
 
 import io
@@ -38,6 +39,14 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import relief_map  # noqa: E402
 
 WIDTH = 2048
+
+# Shape (rows, columns), scale in km per stored count, radius in km, and whether
+# to shift the source by half a turn to match the albedo map.
+DEM_SOURCES = {
+    "mercury": ((11520, 23040), 0.5e-3, 2439.4, True),
+    "venus": ((4096, 8192), 1e-3, 6051.8, False),
+    "enceladus": ((4025, 8049), 1.0, 252.1, False),
+}
 
 
 def read_grid(path, dtype, rows, cols):
@@ -59,6 +68,32 @@ def to_map(grid):
     grid = np.roll(grid, grid.shape[1] // 2, axis=1)
     image = Image.fromarray(grid.astype(np.float32), "F").resize((WIDTH, WIDTH // 2), Image.BOX)
     return np.asarray(image, dtype=np.float64)
+
+
+def bake_dem(name, path, out):
+    import tifffile
+
+    shape, km_per_count, radius_km, shift = DEM_SOURCES[name]
+    with tifffile.TiffFile(path) as tif:
+        page = tif.pages[0]
+        if page.shape != shape:
+            sys.exit(f"{path}: expected DEM shape {shape}, got {page.shape}")
+        grid = page.asarray()
+        nodata = float(page.tags["GDAL_NODATA"].value)
+
+    def average(values):
+        image = Image.fromarray(values).resize((WIDTH, WIDTH // 2), Image.Resampling.BOX)
+        reduced = np.asarray(image, dtype=np.float64)
+        return np.roll(reduced, WIDTH // 2, axis=1) if shift else reduced
+
+    valid = np.isfinite(grid) & (grid != np.asarray(nodata, dtype=grid.dtype))
+    heights = average(np.where(valid, grid, 0).astype(np.float32)) * km_per_count
+    coverage = None
+    if not valid.all():
+        coverage = average(valid.astype(np.float32))
+        np.divide(heights, coverage, out=heights, where=coverage > 0.0)
+    print(f"{name}: {valid.mean():.2%} valid source cells")
+    relief_map.write(out, heights, radius_km, coverage=coverage)
 
 
 def shapefile_rings(zip_path):
@@ -110,7 +145,9 @@ def earth_water(land_zip, lakes_zip, shelves_zip, albedo_path):
 
 def main():
     args = sys.argv[1:]
-    if len(args) == 3 and args[0] == "moon":
+    if len(args) == 3 and args[0] in DEM_SOURCES:
+        bake_dem(*args)
+    elif len(args) == 3 and args[0] == "moon":
         grid = read_grid(args[1], "<i2", 2880, 5760) * 0.5e-3
         print("Tycho's floor %.2f km, its rim to the east %.2f km; Mare Imbrium %.2f km; far-side highlands %.2f km" %
               (at(grid, -43.3, -11.2), at(grid, -43.3, -9.4), at(grid, 35.0, -17.0), at(grid, 5.4, 201.4)))

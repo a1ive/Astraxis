@@ -123,6 +123,11 @@ haze_depth = 0.4           # illustrative
 haze_scale_height_km = 13.05
 haze_albedo = [0.85, 0.65, 0.95]
 haze_g = 0.6
+[bodies.clouds]
+texture = "textures/eve_clouds.jpg"
+albedo = 0.62
+tropical_drift_deg_per_day = -14.0
+midlatitude_drift_deg_per_day = -8.0
 [bodies.relief]
 texture = "textures/eve_relief.jpg"
 [bodies.sea]               # [SURF]
@@ -178,6 +183,11 @@ haze_depth = 0.005328
 haze_scale_height_km = 1.2
 haze_albedo = 0.9
 haze_g = 0.8
+[bodies.clouds]
+texture = "textures/kerbin_clouds.jpg"
+albedo = 0.8
+tropical_drift_deg_per_day = -6.0
+midlatitude_drift_deg_per_day = 12.0
 [bodies.relief]
 texture = "textures/kerbin_relief.jpg"
 [bodies.sea]               # [SURF]
@@ -370,6 +380,11 @@ haze_depth = 0.004         # the Earth's aerosols x 0.75
 haze_scale_height_km = 1.2
 haze_albedo = 0.9
 haze_g = 0.8
+[bodies.clouds]
+texture = "textures/laythe_clouds.jpg"
+albedo = 0.76
+tropical_drift_deg_per_day = -4.0
+midlatitude_drift_deg_per_day = 16.0
 [bodies.relief]
 texture = "textures/laythe_relief.jpg"
 [bodies.sea]               # [SURF]
