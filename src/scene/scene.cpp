@@ -606,9 +606,15 @@ double magnetic_map_turn_deg(const Body& body, double t_tdb)
 
 glm::dmat3 Scene::magnetosphere_axes(int body, double t_tdb, const SolarWind& wind) const
 {
+    const Body& b = bodies[static_cast<size_t>(body)];
+    if (b.magnetosphere.model == MagnetosphereModel::Heliosphere) {
+        // x toward the interstellar wind, z toward the north of the ecliptic.
+        const glm::dvec3 x = b.magnetosphere.nose_icrf;
+        const glm::dvec3 y = glm::normalize(glm::cross(ecliptic_pole_icrf(), x));
+        return glm::dmat3(x, y, glm::cross(x, y));
+    }
     const State planet = icrf_state_at(body, t_tdb);
     const State sun = sun_icrf_state_at(t_tdb);
-    const Body& b = bodies[static_cast<size_t>(body)];
     glm::dmat3 axes = solar_wind_axes(planet.position - sun.position, planet.velocity - sun.velocity,
                                       b.magnetosphere.aberration ? wind.speed_km_s : 0.0);
     if (b.magnetosphere.model == MagnetosphereModel::Joy2002) {

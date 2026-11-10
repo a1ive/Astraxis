@@ -3235,6 +3235,73 @@ void test_magnetospheres()
         check(shown, "the Uranus scene compares the squeezed magnetopause with the mean one");
     }
 
+    // --- The Sun: the heliopause and the termination shock ---------------------------------
+    {
+        Scene solar = load_scene_or_die("solar_system.toml");
+        const int sun = solar.find("Sun");
+        const BodyMagnetosphere& helio = solar.bodies[static_cast<size_t>(sun)].magnetosphere;
+        check(helio.model == MagnetosphereModel::Heliosphere, "the Sun has a heliosphere");
+        const double au = helio.radius_km;
+        check(std::abs(au - kAuKm) < 1.0, "in au");
+        // The nose: ecliptic longitude 255.7, latitude 5.1 (McComas et al. 2015), i.e.
+        // opposite to where the interstellar helium flows, 75.7 and -5.1.
+        const glm::dmat3 axes = solar.magnetosphere_axes(sun, 0.0, helio.typical);
+        const glm::dvec3 pole = ecliptic_pole_icrf();
+        const double nose_lat = std::asin(glm::dot(axes[0], pole)) / kDegToRad;
+        const glm::dvec3 in_plane = axes[0] - glm::dot(axes[0], pole) * pole;
+        const double nose_lon = wrap_two_pi(std::atan2(glm::dot(in_plane, glm::cross(pole, glm::dvec3(1.0, 0.0, 0.0))), in_plane.x)) / kDegToRad;
+        check(std::abs(nose_lat - 5.1) < 1e-6 && std::abs(nose_lon - 255.7) < 1e-6, "the nose is toward 255.7, +5.1 deg", nose_lon);
+        check(glm::dot(axes[2], pole) > 0.99, "z is toward the ecliptic's north");
+        // Parker's shape: r = R / cos(theta / 2); twice the nose's distance wide far down the tail.
+        const BoundarySurface typical = magnetopause(helio, helio.typical);
+        check(std::abs(typical.radius({0.0, 1.0, 0.0}) - 120.0 * std::sqrt(2.0)) < 1e-9, "Parker's heliopause is sqrt 2 noses out abeam");
+        check(std::abs(typical.tail_half_width(1e5) / 240.0 - 1.0) < 0.01, "and two noses wide far downstream", typical.tail_half_width(1e5));
+        check(bow_shock(helio, helio.typical).nose() < typical.nose(), "the termination shock is inside the heliopause");
+
+        // Where the Voyagers were at their crossings, against the published distances:
+        // termination shock 94.0 au (V1, 2004-12-16; Stone et al. 2005) and 83.7 au (V2,
+        // 2007-08-30; Stone et al. 2008); heliopause 121.6 au (V1, 2012-08-25; Stone et al.
+        // 2013) and 119.0 au (V2, 2018-11-05; Stone et al. 2019).
+        struct Crossing {
+            const char* craft;
+            const char* shock_date;
+            double shock_au;
+            const char* pause_date;
+            double pause_au;
+        };
+        const Crossing crossings[2] = {{"Voyager 1", "2004-12-16 00:00", 94.0, "2012-08-25 00:00", 121.6},
+                                       {"Voyager 2", "2007-08-30 00:00", 83.7, "2018-11-05 00:00", 119.0}};
+        double noses[2] = {0.0, 0.0};
+        for (int i = 0; i < 2; ++i) {
+            const Crossing& c = crossings[i];
+            const glm::dvec3 at_shock = in_axes(solar, "Sun", c.craft, utc(c.shock_date), helio.typical);
+            const glm::dvec3 at_pause = in_axes(solar, "Sun", c.craft, utc(c.pause_date), helio.typical);
+            const double theta = std::acos(at_pause.x / glm::length(at_pause));
+            noses[i] = glm::length(at_pause) * std::cos(0.5 * theta);
+            std::printf("%s: termination shock %.2f au, heliopause %.2f au, %.1f deg from the nose (%.1f deg north); Parker nose %.2f au\n",
+                        c.craft, glm::length(at_shock), glm::length(at_pause), theta / kDegToRad,
+                        std::asin(at_pause.z / glm::length(at_pause)) / kDegToRad, noses[i]);
+            check(std::abs(glm::length(at_shock) - c.shock_au) < 0.3, "a Voyager at its termination shock crossing", glm::length(at_shock));
+            check(std::abs(glm::length(at_pause) - c.pause_au) < 0.3, "a Voyager at its heliopause crossing", glm::length(at_pause));
+            // The event draws the heliopause through the craft and the shock where it met it.
+            const SceneEvent* event = nullptr;
+            for (const SceneEvent& e : solar.events) {
+                if (!e.magnetosphere.empty() && e.name.find(c.craft) != std::string::npos) event = &e;
+            }
+            check(event != nullptr, "a Voyager's heliopause event draws the heliosphere");
+            if (!event) continue;
+            const glm::dvec3 then = in_axes(solar, "Sun", c.craft, event->t_tdb, helio.typical);
+            const SolarWind& wind = event->magnetosphere.front().wind;
+            const double miss = glm::length(then) / magnetopause(helio, wind).radius(glm::normalize(then));
+            check(std::abs(miss - 1.0) < 0.003, "its heliopause passes through the craft", miss);
+            check(std::abs(bow_shock(helio, wind).nose() - c.shock_au) < 1e-9, "its termination shock is where the craft met it");
+            check(std::abs(event->t_tdb - utc(c.pause_date)) < 86400.0, "it opens on the day of the crossing");
+        }
+        // One Parker surface cannot hold both: Voyager 2, farther from the nose, was nearer.
+        std::printf("Voyager 2's crossing is at %.3f of the surface through Voyager 1's\n", noses[1] / noses[0]);
+        check(noses[1] < noses[0], "Voyager 2's heliopause is the smaller of the two", noses[1] / noses[0]);
+    }
+
     // --- The wire surfaces -----------------------------------------------------------------
     for (const BodyMagnetosphere* sphere : {&earth, &jupiter, &uranus}) {
         for (int which = 0; which < 2; ++which) {

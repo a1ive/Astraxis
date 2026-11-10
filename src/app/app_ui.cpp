@@ -387,6 +387,7 @@ void App::build_control_panel()
         ImGui::SetItemTooltip("Where the solar wind stops the planet's field (the magnetopause, blue) and the\n"
                              "shock upstream of it (orange), as wire surfaces from empirical models:\n"
                              "Shue 1998 for the Earth, Joy 2002 for Jupiter, a pressure balance for Uranus.\n"
+                             "The Sun: the heliopause, where its wind ends, and the termination shock inside it.\n"
                              "Always: under typical solar wind. Event setting: under the event's own wind,\n"
                              "with a fainter surface for comparison. Averages: the real edges ripple and flap.");
     }

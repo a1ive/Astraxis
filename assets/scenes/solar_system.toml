@@ -162,6 +162,21 @@
 #          heliopause on 5 November 2018 at 119 au.
 #        [RI19] Richardson et al. 2019, Nature Astronomy 3, 1019: Voyager 2's plasma
 #          instrument saw the crossing; it took about a day.
+#        [TS]  The termination shock, where the solar wind turns subsonic: Voyager 1 on
+#          2004-12-16 at 94.0 au (Stone et al. 2005, Science 309, 2017), Voyager 2 on
+#          2007-08-30 at 83.7 au (Stone et al. 2008, Nature 454, 71). The heliopause
+#          distances are 121.6 and 119.0 au; this scene's Voyagers are within 0.03 au of
+#          all four on those days (tests/appearance_tests.cpp).
+#        [MC15] McComas et al. 2015, ApJS 220, 22 (IBEX): interstellar helium flows at
+#          25.4 km/s toward ecliptic longitude 75.7, latitude -5.1 deg ("working values"),
+#          so the heliosphere's nose is toward 255.7, +5.1.
+#        [HELIO] The heliopause as drawn: Parker 1961 (ApJ 134, 20), incompressible flow
+#          from a point source in a uniform stream, r = R / cos(theta / 2) from the nose,
+#          through the spacecraft at its crossing (R = 117.5 au for Voyager 1, 29.9 deg from
+#          the nose; 106.7 au for Voyager 2, 52.6 deg). The termination shock is a sphere at
+#          the distance where that spacecraft met it. The real shapes are not known: the
+#          two crossings do not fit one such surface, the boundaries breathe with the solar
+#          cycle, and the tail may be long or short. assets/geomag/SOURCES.md.
 #        [MK20] McKinnon et al. 2020, Science 367, eaay6620: Arrokoth is a contact binary
 #          from a gentle, low-speed merger in the early solar system.
 #        [REN] X. Ren, W. Yan, R. Zhao et al., "Interstellar Object 3I/ATLAS Observed from
@@ -246,6 +261,14 @@ gm_km3_s2 = 1.32712440041279419e11         # [GM]
 pole_ra_dec_deg = [286.13, 63.87]          # [PCK]
 prime_meridian_deg = [84.176, 14.1844]
 color = "#fff4e0"
+# The heliosphere [HELIO]: lengths in au, the nose toward where the interstellar wind comes
+# from [MC15]. Without an event: a round 120 au, between the two crossings.
+[bodies.magnetosphere]
+model = "heliosphere"
+radius_km = 149597870.7
+nose_ecliptic_deg = [255.7, 5.1]
+standoff_radii = 120.0
+tail_radii = 250.0
 
 [[bodies]]
 name = "Mercury"
@@ -1636,20 +1659,23 @@ caption = """\
     it also watched Io erupt; the plume of Tvashtar, 330 km high in its images, is drawn \
     on Io here."""
 
+# Seen from the side, 600 au out in the plane of the ecliptic, at right angles to the nose.
 [[events]]
 name = "Voyager 1 crosses the heliopause (2012-08-25)"
+magnetosphere = [{ body = "Sun", standoff_radii = 117.5, shock_radii = 94.0 }]
 time = "2012-08-25"
 focus = "Voyager 1"
-distance_km = 5.0e9
+observer = "Sun"
+observer_offset_km = [8.72e10, -2.04e10, -0.88e10]
 warp = 2629800.0
-# [ST13], [GU13]
+# [ST13], [GU13], [TS], [MC15], [HELIO]
 caption = """\
-    The boundary crossed here is invisible, so the view has no marker for it. On \
-    this day, 122 au from the Sun, Voyager 1 measured a sudden drop in solar \
-    particles and a rise in cosmic rays from the Galaxy. Its plasma instrument had \
-    failed in 1980, so confirmation came in April 2013, when plasma waves revealed \
-    a density forty times that expected inside. Voyager 1 had entered interstellar \
-    space."""
+    On this day, 122 au from the Sun, Voyager 1 measured a sudden drop in solar \
+    particles and a rise in cosmic rays from the Galaxy: it had entered interstellar \
+    space. Plasma waves confirmed it in 2013, with a density forty times that expected \
+    inside. Blue: the edge of the Sun's wind, drawn through the crossing in a textbook \
+    shape; the real shape is unknown. Orange: where the wind turns subsonic, passed at \
+    94 au in 2004."""
 
 [[events]]
 name = "New Horizons at Pluto (CA 2015-07-14 11:50, 13,676 km)"
@@ -1723,18 +1749,23 @@ caption = """\
     thick, wobbling as it tumbles instead of turning steadily about one axis. That \
     model is shown here with a speculative reddish tint."""
 
+# The same view as Voyager 1's crossing. Voyager 1's surface is not drawn again: by 2018 it
+# was six years old, and the edge moves with the solar cycle.
 [[events]]
 name = "Voyager 2 crosses the heliopause (2018-11-05)"
+magnetosphere = [{ body = "Sun", standoff_radii = 106.7, shock_radii = 83.7 }]
 time = "2018-11-05"                # [ST19]
 focus = "Voyager 2"
-distance_km = 5.0e9
+observer = "Sun"
+observer_offset_km = [8.72e10, -2.04e10, -0.88e10]
 warp = 2629800.0
-# [ST19], [RI19], [GU13]
+# [ST19], [RI19], [GU13], [TS], [MC15], [HELIO]
 caption = """\
     Six years after its twin, Voyager 2 crossed into interstellar space, 119 au from the \
-    Sun. Unlike Voyager 1, it still had a working plasma instrument, and could watch the \
-    hot, thin wind from the Sun give way to the colder, denser interstellar plasma \
-    directly. The crossing took about a day."""
+    Sun. Its plasma instrument still worked, and watched the hot, thin solar wind give \
+    way to colder, denser interstellar plasma in about a day. It crossed farther from \
+    the nose than Voyager 1 and yet no farther out, so the blue edge drawn through it is \
+    smaller. The real edge is lopsided and moves; this shape is a textbook one."""
 
 [[events]]
 name = "New Horizons at Arrokoth (CA 2019-01-01 05:35, 3,538 km)"

@@ -286,10 +286,20 @@ SolarWind parse_solar_wind(const toml::table& t, const BodyMagnetosphere& model,
     if (const auto v = t["bz_nt"].value<double>()) wind.bz_nt = *v;
     if (const auto v = t["wind_speed_km_s"].value<double>()) wind.speed_km_s = *v;
     if (const auto radii = t["standoff_radii"].value<double>()) {
-        if (model.model != MagnetosphereModel::PressureBalance || t.contains("pressure_npa") || !(*radii > 1.0)) {
-            fail(ctx, "standoff_radii (above 1) is for the pressure_balance model, instead of pressure_npa");
+        if (model.model == MagnetosphereModel::Heliosphere && *radii > 0.0) {
+            wind.standoff_radii = *radii;
+        } else if (model.model != MagnetosphereModel::PressureBalance || t.contains("pressure_npa") || !(*radii > 1.0)) {
+            fail(ctx, "standoff_radii (above 1) is for the pressure_balance model, instead of pressure_npa, "
+                      "or for the heliosphere");
+        } else {
+            wind.pressure_npa = model.pressure_for_standoff(*radii);
         }
-        wind.pressure_npa = model.pressure_for_standoff(*radii);
+    }
+    if (const auto radii = t["shock_radii"].value<double>()) {
+        if (model.model != MagnetosphereModel::Heliosphere || !(*radii > 0.0)) {
+            fail(ctx, "shock_radii is for the heliosphere");
+        }
+        wind.shock_radii = *radii;
     }
     if (!(wind.pressure_npa > 0.0) || !(wind.speed_km_s > 0.0) || !std::isfinite(wind.bz_nt)) {
         fail(ctx, "pressure_npa and wind_speed_km_s must be positive");
@@ -536,7 +546,7 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
         {"wind_speed_km_s", number}, {"standoff_radii", number}, {"aberration", boolean}, {"tail_radii", number},
         {"surface_field_nt", number}, {"compressibility", number}, {"flaring", number},
         {"flare_end_radii", number}, {"shock_standoff_ratio", number}, {"shock_eccentricity", number},
-        {"color", text}, {"shock_color", text},
+        {"color", text}, {"shock_color", text}, {"nose_ecliptic_deg", list},
     };
     static const TemplateFields rotor = {{"shape", text}, {"period_s", number}};
     static const TemplateFields shape_after = {{"shape", text}, {"time", text}, {"time_tdb", text}};
@@ -1858,8 +1868,24 @@ void Loader::parse(const toml::table& root, Scene& out)
                 m.model = MagnetosphereModel::Joy2002;
             } else if (model == "pressure_balance") {
                 m.model = MagnetosphereModel::PressureBalance;
+            } else if (model == "heliosphere") {
+                m.model = MagnetosphereModel::Heliosphere;
+                double nose[2];
+                get_array(*sphere, "nose_ecliptic_deg", mctx, nose, 2, 2);
+                const double lon = nose[0] * kDegToRad;
+                const double lat = nose[1] * kDegToRad;
+                // The ecliptic's x axis is ICRF's; its pole is ecliptic_pole_icrf().
+                const glm::dvec3 north = ecliptic_pole_icrf();
+                const glm::dvec3 x(1.0, 0.0, 0.0);
+                m.nose_icrf = std::cos(lat) * (std::cos(lon) * x + std::sin(lon) * glm::cross(north, x)) + std::sin(lat) * north;
+                m.standoff_radii = get_double(*sphere, "standoff_radii", mctx);
+                m.shock_standoff_ratio = 0.75;
+                m.shock_eccentricity = 0.0;
+                if (!(m.standoff_radii > 0.0)) {
+                    fail(mctx, "standoff_radii must be positive");
+                }
             } else {
-                fail(mctx, "model must be \"shue1998\", \"joy2002\" or \"pressure_balance\"");
+                fail(mctx, "model must be \"shue1998\", \"joy2002\", \"pressure_balance\" or \"heliosphere\"");
             }
             m.radius_km = get_double_or(*sphere, "radius_km", body.equatorial_radius_km);
             m.aberration = (*sphere)["aberration"].value<bool>().value_or(false);
@@ -1877,9 +1903,12 @@ void Loader::parse(const toml::table& root, Scene& out)
                     fail(mctx, "needs a positive surface_field_nt and flaring, and compressibility above 1");
                 }
             }
+            const bool heliosphere = m.model == MagnetosphereModel::Heliosphere;
             if (!(m.radius_km > 0.0) || !(m.tail_radii > 0.0) || m.flare_end_radii < 0.0 ||
-                !(m.shock_standoff_ratio > 1.0) || m.shock_eccentricity < 0.0) {
-                fail(mctx, "radius_km and tail_radii must be positive, shock_standoff_ratio above 1");
+                !(m.shock_standoff_ratio > 0.0) || (m.shock_standoff_ratio > 1.0) == heliosphere ||
+                m.shock_eccentricity < 0.0) {
+                fail(mctx, "radius_km and tail_radii must be positive, shock_standoff_ratio above 1 "
+                           "(below 1 for the heliosphere's termination shock)");
             }
             m.typical = parse_solar_wind(*sphere, m, m.typical, mctx);
         }

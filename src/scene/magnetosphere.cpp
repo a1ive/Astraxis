@@ -122,6 +122,10 @@ BoundarySurface magnetopause(const BodyMagnetosphere& body, const SolarWind& win
         s.standoff = (10.22 + 1.29 * std::tanh(0.184 * (wind.bz_nt + 8.14))) * std::pow(pressure, -1.0 / 6.6);
         s.flaring = (0.58 - 0.007 * wind.bz_nt) * (1.0 + 0.024 * std::log(pressure));
         break;
+    case MagnetosphereModel::Heliosphere:
+        s.standoff = wind.standoff_radii > 0.0 ? wind.standoff_radii : body.standoff_radii;
+        s.flaring = 0.5; // 1 / cos(theta / 2) = (2 / (1 + cos theta))^(1/2)
+        break;
     case MagnetosphereModel::PressureBalance:
     case MagnetosphereModel::None:
         s.standoff = std::pow(body.surface_field_nt * body.surface_field_nt * kMagneticPressureNpaPerNt2 / pressure,
@@ -143,7 +147,9 @@ BoundarySurface bow_shock(const BodyMagnetosphere& body, const SolarWind& wind)
     }
     BoundarySurface s;
     s.shape = BoundarySurface::Shape::Conic;
-    s.standoff = body.shock_standoff_ratio * magnetopause(body, wind).standoff;
+    s.standoff = body.model == MagnetosphereModel::Heliosphere && wind.shock_radii > 0.0
+                     ? wind.shock_radii
+                     : body.shock_standoff_ratio * magnetopause(body, wind).standoff;
     s.eccentricity = body.shock_eccentricity;
     return s;
 }
