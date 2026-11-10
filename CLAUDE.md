@@ -224,6 +224,7 @@ CMake 目标：
 - 大面积重叠的加性光斑不要直接画进 MSAA 的 HDR 目标：每个样本都要混合，填充率按采样数翻倍（WR 104 的尘埃在 Arc A380、1280×720、4x MSAA 下只有 8 FPS）。光斑总数不影响这个开销（数量多了每个就小），起作用的是总覆盖面积、重叠系数和分辨率：画进半分辨率、单采样的离屏纹理再合成（`PinwheelPass`，60 FPS）
 - 体渲染的每个样本里不要算哈希值噪声：三维值噪声一次 8 个哈希，极光每像素 48 个样本、每个样本 5 次，近看铺满屏幕时只有 45 FPS；改查一张平铺的噪声纹理（`SampleLevel`，循环里不能用导数）后到 60 FPS
 - SDL 的 Vulkan 后端给每个 uniform 缓冲区的绑定范围固定是 4 KiB（`MAX_UBO_SECTION_SIZE`），D3D12 没有这个限制：超出的部分是未定义行为，有的驱动碰巧读得到，没有报错也看不出来（极光的 uniform 曾有 5 KB）。大的 uniform 结构要写 `static_assert(sizeof(...) <= 4096)`，放不下的表用纹理或存储缓冲区
+- 切换场景可能重建星表缓冲区。`SceneRenderer::render` 在选中子星和生成黑洞的绘制项之前调用 `BlackHolePass::set_stars`，让两处的 `ready()` 检查本帧的资源。
 - 多输出时每个输出都要等自己的交换链（`SDL_WaitAndAcquireGPUSwapchainTexture`）
 - 不要让 SDL 包装别的进程窗口下的子窗口（屏保 `/p` 预览）：对话框在第二块屏上时 SDL 会按顶层窗口的逻辑移动并放大它，预览区只剩黑底。预览窗口现在用 GDI 画
 - 视点超过星表的完整距离（`max_viewer_pc`，约 30 pc）时场景加载失败，要用模型星空（`milky_way`、`stars`，`make_galaxy_sky.py render`），即使只有 41 pc：HD 206893

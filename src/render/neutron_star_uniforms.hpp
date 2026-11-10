@@ -23,5 +23,6 @@ struct NeutronStarUniforms {
     // log(angle / limb) / log(pi / limb) (denser sampling near the surface).
     std::array<glm::vec4, kSamples> bending;
 };
+static_assert(sizeof(NeutronStarUniforms) <= 4096, "the Vulkan backend binds 4 KiB of a uniform buffer");
 
 } // namespace astraxis

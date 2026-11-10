@@ -997,7 +997,6 @@ void SceneRenderer::create_sky_cube()
 void SceneRenderer::trace_black_hole(SDL_GPUCommandBuffer* cmd, uint32_t width, uint32_t height, float star_brightness,
                                      const Simulation& sim, const OutputView& output_view, BlackHoleTargets& targets)
 {
-    m_black_hole.set_stars(m_starfield.sky_stars(), m_starfield.sky_cells(), m_starfield.milky_way());
     if (!m_black_hole.ready()) {
         return;
     }
@@ -2315,6 +2314,7 @@ void SceneRenderer::render(const Frame& frame, const Simulation& sim, const Outp
     const CameraView& view = output_view.camera;
     const float time = static_cast<float>(sim.animation_time());
 
+    m_black_hole.set_stars(m_starfield.sky_stars(), m_starfield.sky_cells(), m_starfield.milky_way());
     int neutron_star = -1;
     double largest_radius_px = kNeutronStarMinRadiusPx;
     if (m_black_hole.ready()) {
