@@ -3025,13 +3025,81 @@ void test_magnetospheres()
     }
     check(storm != nullptr, "the Earth-Moon scene has a magnetosphere event");
     if (storm) {
-        const BoundarySurface squeezed = magnetopause(earth, storm->magnetosphere.front().wind);
+        // The event follows the hourly record of the wind.
+        const MagnetosphereState& live = storm->magnetosphere.front();
+        check(live.recorded && earth.record != nullptr, "the storm's magnetopause follows the record of the wind");
+        if (!live.recorded || !earth.record) return;
+        // The middle of an hour is that hour's mean (to the record's steps: 0.01 nPa, 0.5 nT, 8 km/s).
+        const SolarWind peak = earth_scene.magnetosphere_wind(live, utc("2024-05-11 02:30"), 1.0);
+        check(std::abs(peak.pressure_npa - 48.76) < 0.006 && std::abs(peak.bz_nt + 20.5) < 0.26 && std::abs(peak.speed_km_s - 738.0) < 4.1,
+              "OMNI's hour of 2024-05-11 02 UT: 48.76 nPa, Bz -20.5 nT, 738 km/s", peak.pressure_npa);
+        // Between two hours' middles, on the line between them (03 UT: 23.68 nPa, -22.8 nT).
+        const SolarWind between = earth_scene.magnetosphere_wind(live, utc("2024-05-11 03:00"), 1.0);
+        check(std::abs(between.pressure_npa - 0.5 * (48.76 + 23.68)) < 0.006 && std::abs(between.bz_nt + 0.5 * (20.5 + 22.8)) < 0.26,
+              "and half way to the next hour's", between.pressure_npa);
+        const BoundarySurface squeezed = magnetopause(earth, peak);
         std::printf("Earth: storm standoff %.2f Re, flaring %.3f\n", squeezed.standoff, squeezed.flaring);
         check(squeezed.standoff < 6.6 && squeezed.standoff > 4.0, "the storm's magnetopause is inside geosynchronous orbit",
               squeezed.standoff);
         check(squeezed.flaring > quiet.flaring, "and a southward field flares the tail", squeezed.flaring);
-        check(storm->magnetosphere.size() == 2 && storm->magnetosphere.back().faint,
+        check(storm->magnetosphere.size() == 2 && storm->magnetosphere.back().faint && !storm->magnetosphere.back().recorded,
               "with the quiet one for comparison");
+        // The event opens before the shock arrives (17 UT on the 10th) and sees the edge come in.
+        const double opening = magnetopause(earth, earth_scene.magnetosphere_wind(live, storm->t_tdb, storm->warp)).standoff;
+        double least = 1e9, least_hours = 0.0, inside_hours = 0.0;
+        for (double hours = 0.0; hours <= 36.0; hours += 0.25) {
+            const double standoff = magnetopause(earth, earth_scene.magnetosphere_wind(live, storm->t_tdb + 3600.0 * hours, storm->warp)).standoff;
+            inside_hours += standoff < 6.6 ? 0.25 : 0.0;
+            if (standoff < least) {
+                least = standoff;
+                least_hours = hours;
+            }
+        }
+        std::printf("Earth: the storm event opens at %.2f Re; least %.2f Re %.2f h in; inside 6.6 Re for %.2f h of 36\n", opening,
+                    least, least_hours, inside_hours);
+        check(opening > 9.0 && storm->t_tdb < utc("2024-05-10 17:00"), "it opens on a quiet magnetosphere", opening);
+        check(least < 5.5 && inside_hours > 8.0, "which is then squeezed inside geosynchronous orbit for hours", least);
+        // Hours without a measurement, and times outside the record, are the typical wind's.
+        const SolarWindRecord& record = *earth.record;
+        const double gap = utc("1983-10-27 04:30");
+        check(record.coverage(gap - 1800.0, gap + 1800.0) == 0.0, "OMNI has nothing for 1983-10-27");
+        const SolarWind in_gap = earth_scene.magnetosphere_wind(live, gap, 1.0);
+        check(in_gap.pressure_npa == earth.typical.pressure_npa && in_gap.bz_nt == earth.typical.bz_nt &&
+                  in_gap.speed_km_s == earth.typical.speed_km_s,
+              "a gap is filled with the typical wind", in_gap.pressure_npa);
+        check(utc("1963-01-01 00:00") == record.start_tdb() && record.end_tdb() > utc("2026-10-01 00:00"), "the record runs from 1963 to 2026");
+        for (double t : {record.start_tdb() - 86400.0, record.end_tdb() + 86400.0, utc("2060-01-01 00:00")}) {
+            check(earth_scene.magnetosphere_wind(live, t, 1.0).pressure_npa == earth.typical.pressure_npa, "outside the record: the typical wind");
+        }
+        // Coverage: about a third of the hours of the 1960s, nearly all since 2000.
+        const double early = record.coverage(utc("1964-01-01 00:00"), utc("1970-01-01 00:00"));
+        const double late = record.coverage(utc("2010-01-01 00:00"), utc("2020-01-01 00:00"));
+        std::printf("Earth: the wind is measured in %.1f%% of 1964-69 and %.1f%% of 2010-19\n", 100.0 * early, 100.0 * late);
+        check(early > 0.3 && early < 0.6 && late > 0.98, "the record's coverage", late);
+        // At a high warp the window is long: the storm is averaged away, a year is near the median.
+        const SolarWind blurred = earth_scene.magnetosphere_wind(live, utc("2024-05-11 02:30"), 86400.0 * 20.0);
+        check(blurred.pressure_npa > 1.2 && blurred.pressure_npa < 4.0, "a month's window averages the storm away", blurred.pressure_npa);
+        // A state of its own wind is not touched, nor is the quiet one.
+        const MagnetosphereState& faint = storm->magnetosphere.back();
+        check(earth_scene.magnetosphere_wind(faint, utc("2024-05-11 02:30"), 1.0).pressure_npa == earth.typical.pressure_npa,
+              "the comparison stays at the typical wind");
+
+        Scene bad;
+        std::string error;
+        const std::string head = "name = 'x'\n[[bodies]]\nname = 'P'\nradii_km = [6378.0]\n[bodies.magnetosphere]\nmodel = 'shue1998'\n";
+        const std::string event = "[[events]]\nname = 'e'\ntime_tdb = '2024-05-11 02:00'\nfocus = 'P'\ndistance_km = 1e5\n";
+        check(!load_scene_string((head + event + "magnetosphere = [{ body = 'P', recorded = true }]\n").c_str(), "no_record", bad, &error,
+                                 ASTRAXIS_ASSET_DIR),
+              "recorded needs a record");
+        check(!load_scene_string((head + "solar_wind = 'geomag/solar_wind.bin'\n" + event +
+                                  "magnetosphere = [{ body = 'P', recorded = true, pressure_npa = 3.0 }]\n").c_str(),
+                                 "both_winds", bad, &error, ASTRAXIS_ASSET_DIR),
+              "recorded excludes a wind of the event's own");
+        check(load_scene_string((head + "solar_wind = 'geomag/solar_wind.bin'\n" + event + "magnetosphere = [{ body = 'P', recorded = true }]\n").c_str(),
+                                "recorded", bad, &error, ASTRAXIS_ASSET_DIR),
+              "a recorded wind loads");
+        check(!load_scene_string((head + "solar_wind = 'geomag/kp.bin'\n").c_str(), "not_a_record", bad, &error, ASTRAXIS_ASSET_DIR),
+              "another file is not a solar wind record");
     }
     // The axis leans into the Earth's motion: about 4 degrees at 430 km/s (Fairfield 1971).
     {
@@ -3366,6 +3434,66 @@ void test_magnetospheres()
         bool shown = false;
         for (const SceneEvent& e : neptune_scene.events) shown = shown || !e.magnetosphere.empty();
         check(shown, "the Neptune scene has a magnetosphere event");
+
+        // The shock follows the planet's turn (Mejnertsen et al. 2016, Figure 4, read by
+        // tools/geomag/neptune_boundaries_fig4.py: on the axis 32.75 radii pole-on and 31.25
+        // Earth-like in both planes): its nose is 1.5 radii farther with the dipole toward the Sun
+        // than half a turn later, and 34.9 radii out at the phase Voyager 2 met it. The
+        // magnetopause stays.
+        const int n = neptune_scene.find("Neptune");
+        const Body& planet = neptune_scene.bodies[static_cast<size_t>(n)];
+        MagnetosphereState state;
+        state.body = n;
+        state.wind = neptune.typical;
+        const auto nose_at = [&](double t, double warp) {
+            neptune_scene.update(t);
+            const SolarWind wind = neptune_scene.magnetosphere_wind(state, t, warp);
+            check(magnetopause(neptune, wind).nose() == pause.nose(), "the magnetopause does not move");
+            return bow_shock(neptune, wind).nose();
+        };
+        const auto alignment = [&](double nose) { return (nose - shock.nose()) / neptune.shock_dipole_radii + neptune.shock_dipole_reference; };
+        const double t_shock = utc("1989-08-24 14:38");
+        const double t_pause = utc("1989-08-24 18:00");
+        const double t_closest = utc("1989-08-25 03:56");
+        const double turn = 360.0 / magnetic_rotation_deg_per_day(planet) * 86400.0;
+        double low = 1e9, high = 0.0, mean = 0.0;
+        int high_phase = 0;
+        constexpr int kPhases = 480;
+        for (int k = 0; k < kPhases; ++k) {
+            const double nose = nose_at(t_shock + turn * k / kPhases, 1.0);
+            low = std::min(low, nose);
+            mean += nose / kPhases;
+            if (nose > high) {
+                high = nose;
+                high_phase = k;
+            }
+        }
+        // Earth-like: half a turn from pole-on, the dipole then nearest the orbit's pole.
+        const double earth_like = nose_at(t_shock + turn * (high_phase + kPhases / 2) / kPhases, 1.0);
+        std::printf("Neptune's shock over a turn (%.2f h): %.2f .. %.2f Rn, mean %.2f, %.2f half a turn from pole-on; cos^2 of the "
+                    "dipole to the Sun %.3f .. %.3f, %.3f half a turn from pole-on; %.3f at the shock crossing, %.3f at the "
+                    "magnetopause's, %.3f at closest approach\n",
+                    turn / 3600.0, low, high, mean, earth_like, alignment(low), alignment(high), alignment(earth_like),
+                    alignment(nose_at(t_shock, 1.0)), alignment(nose_at(t_pause, 1.0)), alignment(nose_at(t_closest, 1.0)));
+        check(std::abs(nose_at(t_shock, 1.0) - 34.9) < 0.02, "the shock is 34.9 radii out when Voyager 2 met it", nose_at(t_shock, 1.0));
+        check(std::abs(high - earth_like - (32.75 - 31.25)) < 0.03, "pole-on, its nose is 1.5 radii farther than Earth-like", high - earth_like);
+        // Voyager 2 met the shock with the dipole across the Sun's line, where it is nearest. (Before
+        // that Cairns et al. 1991 saw its nose move between 38.5 and 34.2 radii: more than this.)
+        check(nose_at(t_shock, 1.0) < low + 0.05 && high > 36.5 && high < 37.0, "from 34.9 radii out to 36.7", high);
+        // Voyager 2 entered through the cusp, near pole-on, and passed closest in the Earth-like
+        // configuration (Mejnertsen et al. 2016, section 3.5).
+        check(alignment(nose_at(t_pause, 1.0)) > 0.6, "Voyager 2 crossed the magnetopause near pole-on", alignment(nose_at(t_pause, 1.0)));
+        check(alignment(nose_at(t_closest, 1.0)) < 0.25, "and passed closest in the Earth-like configuration",
+              alignment(nose_at(t_closest, 1.0)));
+        // Turning too fast to follow: the mean over a turn, from the tilt and the season.
+        check(std::abs(nose_at(t_shock, 3.0e5) - mean) < 0.02, "at a high warp the shock stays at its mean", nose_at(t_shock, 3.0e5));
+        check(std::abs(mean_dipole_alignment(0.0, 0.3) - std::pow(std::cos(0.3), 2.0)) < 1e-12 &&
+                  std::abs(mean_dipole_alignment(0.5 * kPi, 0.5 * kPi) - 0.5) < 1e-12,
+              "the mean alignment of an aligned dipole and of one turning in the plane of the wind");
+        // A shock given by an event is left alone.
+        MagnetosphereState given = state;
+        given.wind.shock_radii = 38.5;
+        check(bow_shock(neptune, neptune_scene.magnetosphere_wind(given, t_pause, 1.0)).nose() == 38.5, "a given shock stays where it is given");
     }
 
     // --- The Sun: the heliopause and the termination shock ---------------------------------
@@ -3749,6 +3877,95 @@ void test_magnetic_maps()
           "weakest over the South Atlantic, about 22,000 nT", weakest);
     check(strength_map.scale_nt > 2.9 * weakest, "a third of the strongest field", strength_map.scale_nt / weakest);
 
+    // The field of other years (IGRF-14, 1900 to 2030): the model, its lines and this map follow
+    // the clock by whole years.
+    {
+        Body& body = earth_scene.bodies[static_cast<size_t>(earth_scene.find("Earth"))];
+        const BodyMagneticField& field = body.magnetic_field;
+        check(field.series != nullptr && field.model_year == 2025.0, "the Earth's field is a series, at 2025 until the clock says otherwise");
+        if (!field.series) return;
+        check(field.series->first_year() == 1900.0 && field.series->last_epoch() == 2025.0 && field.series->last_year() == 2030.0,
+              "IGRF-14 spans 1900 to 2025, with rates to 2030");
+        const std::vector<signed char> baked = strength_map.cells;
+        const double baked_low = strength_map.min_nt, baked_high = strength_map.scale_nt;
+        const std::vector<glm::dvec4> line_2025 = field.lines.front();
+        // Where the field is weakest, from the model itself (the map's bytes are 193 nT apart).
+        const auto weakest_of = [&](double& latitude, double& east) {
+            double least = 1e30;
+            for (int row = 0; row < 180; ++row) {
+                const double beta = (89.5 - row) * kDegToRad;
+                const double r = 1.0 / std::hypot(std::cos(beta) / 6378.1366, std::sin(beta) / 6356.7519) / 6371.2;
+                for (int column = 0; column < 360; ++column) {
+                    const double lambda = (column - 179.5) * kDegToRad;
+                    const double b = glm::length(field.model->field_nt(
+                        r * glm::dvec3(std::cos(beta) * std::cos(lambda), std::cos(beta) * std::sin(lambda), std::sin(beta))));
+                    if (b < least) {
+                        least = b;
+                        latitude = beta / kDegToRad;
+                        east = lambda / kDegToRad;
+                    }
+                }
+            }
+            return least;
+        };
+        check(!follow_magnetic_field_year(body, tdb_from_julian_year(2025.3)), "nothing changes within the year");
+        double latitude_2025 = 0.0, east_2025 = 0.0;
+        const double weakest_2025 = weakest_of(latitude_2025, east_2025);
+
+        // The same year from another: the map comes back to the baked bytes.
+        check(follow_magnetic_field_year(body, tdb_from_julian_year(1900.0)) && field.model_year == 1900.0, "1900 is another field");
+        check(field.model->g(1, 0) == -31543.0 && field.model->h(1, 1) == 5922.0 && field.model->degree() == 13,
+              "with the coefficients of its epoch", field.model->g(1, 0));
+        double latitude_1900 = 0.0, east_1900 = 0.0;
+        const double weakest_1900 = weakest_of(latitude_1900, east_1900);
+        const FieldMap& map_1900 = *body.magnetic_map.surface;
+        check(map_1900.magnitude && map_1900.cells != baked && map_1900.min_nt == baked_low && map_1900.scale_nt == baked_high,
+              "the map is redrawn in the same range");
+        check(std::abs(map_1900.value_nt(east_1900 * kDegToRad, latitude_1900 * kDegToRad) - weakest_1900) < byte_nt,
+              "and holds the model's weakest field", weakest_1900);
+        std::printf("  info: weakest field %.0f nT at %.1f, %.1f E in 1900; %.0f nT at %.1f, %.1f E in 2025\n", weakest_1900,
+                    latitude_1900, east_1900, weakest_2025, latitude_2025, east_2025);
+        // The anomaly has deepened and drifted west (about 0.2 deg a year).
+        check(weakest_1900 > 25000.0 && weakest_1900 < 26000.0 && weakest_1900 > 1.13 * weakest_2025,
+              "the South Atlantic Anomaly was a seventh stronger in 1900", weakest_1900 / weakest_2025);
+        const double drift = angle_difference_deg(east_1900, east_2025);
+        check(drift > 18.0 && drift < 28.0 && latitude_1900 > latitude_2025, "and some 23 deg farther east and nearer the equator", drift);
+        check(glm::length(glm::dvec3(field.lines.front().front()) - glm::dvec3(line_2025.front())) > 0.01,
+              "the lines are traced again", glm::length(glm::dvec3(field.lines.front().front()) - glm::dvec3(line_2025.front())));
+        // The dipole of each year is the aurora's (its own table of the same terms).
+        double worst_pole = 0.0;
+        for (double year : {1900.0, 1933.0, 1962.0, 1987.0, 2004.0, 2023.0, 2028.0, 2030.0}) {
+            follow_magnetic_field_year(body, tdb_from_julian_year(year));
+            const glm::dvec3 pole = geomagnetic_north_pole(tdb_from_julian_year(year));
+            worst_pole = std::max(worst_pole, std::acos(std::clamp(glm::dot(pole, -field.model->dipole_axis()), -1.0, 1.0)) / kDegToRad);
+        }
+        check(worst_pole < 1e-6, "between the epochs and past the last, the dipole is the aurora's geomagnetic pole", worst_pole);
+        check(std::abs(field.model->g(1, 0) - (-29350.0 + 5.0 * 12.6)) < 1e-9, "2030 is 2025 with five years of its rates", field.model->g(1, 0));
+        // Held beyond both ends.
+        follow_magnetic_field_year(body, tdb_from_julian_year(2300.0));
+        check(field.model_year == 2030.0, "later years keep the field of 2030", field.model_year);
+        follow_magnetic_field_year(body, tdb_from_julian_year(1700.0));
+        check(field.model_year == 1900.0, "earlier ones that of 1900", field.model_year);
+        // Scene::update does it, and 2025 gives the baked map back byte for byte.
+        earth_scene.update(tdb_from_julian_year(2025.2));
+        check(field.model_year == 2025.0 && body.magnetic_map.surface->cells == baked,
+              "the map of 2025 is the baked one, cell for cell");
+        check(field.lines.front().size() == line_2025.size() &&
+                  glm::length(glm::dvec3(field.lines.front().front()) - glm::dvec3(line_2025.front())) < 1e-12,
+              "and its lines those of the loaded scene");
+
+        Scene bad;
+        std::string error;
+        const std::string head = "name = 'x'\n[[bodies]]\nname = 'P'\nradii_km = [6378.0]\n[bodies.magnetic_field]\nreference_radius_km = 6371.2\n";
+        check(load_scene_string((head + "coefficients_by_year = 'geomag/field_earth_igrf14.txt'\n").c_str(), "by_year", bad, &error, ASTRAXIS_ASSET_DIR),
+              "a field by year loads");
+        check(!load_scene_string((head + "coefficients_by_year = 'geomag/field_earth_igrf14.txt'\ncoefficients = 'geomag/field_neptune_o8.txt'\n").c_str(),
+                                 "both", bad, &error, ASTRAXIS_ASSET_DIR),
+              "coefficients and coefficients_by_year exclude each other");
+        check(!load_scene_string((head + "coefficients_by_year = 'geomag/field_neptune_o8.txt'\n").c_str(), "not_series", bad, &error, ASTRAXIS_ASSET_DIR),
+              "a single model is not a series");
+    }
+
     // The Earth's crust: its own map, at most a tenth of the main field and usually far less.
     check(earth.magnetic_map.crust != nullptr, "the Earth has a map of its crust");
     check(!moon.magnetic_map.crust && !jupiter.magnetic_map.crust, "and nothing else does");
@@ -3866,12 +4083,13 @@ void test_magnetic_maps()
         return std::atan2(to_sun.y, to_sun.x) / kDegToRad;
     };
     // Uranus turns the other way in longitude: the Sun comes to a feature from its west.
-    const struct { Scene* scene; const Body* body; double opening_east; FieldMapView view; } expected[] = {
+    // The Earth's strength map has two events: 2025 and 1900, the anomaly then 23 deg farther east.
+    const struct { Scene* scene; const Body* body; double opening_east; FieldMapView view; int events = 1; } expected[] = {
         {&mars_scene, &mars, 215.0, FieldMapView::Surface},
         {&jupiter_scene, &jupiter, 315.5, FieldMapView::Surface},
         {&jupiter_scene, &jupiter, 316.5, FieldMapView::Deep},
         {&earth_scene, &moon, 270.0, FieldMapView::Surface},
-        {&earth_scene, &earth, 325.5, FieldMapView::Surface},
+        {&earth_scene, &earth, 325.5, FieldMapView::Surface, 2},
         {&earth_scene, &earth, 50.0, FieldMapView::Crust},
         {&uranus_scene, &uranus_scene.bodies[static_cast<size_t>(uranus_scene.find("Uranus"))], 155.5, FieldMapView::Surface},
         {&neptune_scene, &neptune_scene.bodies[static_cast<size_t>(neptune_scene.find("Neptune"))], 117.5, FieldMapView::Surface},
@@ -3888,7 +4106,7 @@ void test_magnetic_maps()
             std::printf("  info: %s: sub-solar longitude %+.1f deg from where it should open\n", event.name.c_str(), offset);
             check(std::abs(offset) < 5.0, "and opens with the feature coming round", offset);
         }
-        check(found == 1, "the body has its map event", static_cast<double>(found));
+        check(found == e.events, "the body has its map event", static_cast<double>(found));
     }
 
     // The texture holds a value's sign about the middle, for interpolation.

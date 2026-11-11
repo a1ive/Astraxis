@@ -51,18 +51,26 @@ def library_model(path, degree):
     return rows
 
 
-def igrf_model(path, epoch):
+def igrf_series(path):
+    """The epochs, the year the secular variation runs to, and rows (g|h, n, m, values, rate)."""
     rows = []
-    column = None
+    epochs = None
     for line in path.read_text(encoding="ascii").splitlines():
         parts = line.split()
         if parts[:3] == ["g/h", "n", "m"]:
-            column = parts.index(epoch)
-        elif column is not None and len(parts) > column and parts[0] in ("g", "h"):
-            rows.append((parts[0], int(parts[1]), int(parts[2]), parts[column]))
-    if column is None:
-        sys.exit(f"{path}: no {epoch} column")
-    return rows
+            # "1900.0 .. 2025.0", then the secular variation as "2025-30".
+            epochs = parts[3:-1]
+            first, last = parts[-1].split("-")
+            until = float(first[:2] + last)
+            if float(epochs[-1]) != float(first) or not until > float(first):
+                sys.exit(f"{path}: unexpected secular variation column {parts[-1]}")
+        elif epochs is not None and parts and parts[0] in ("g", "h"):
+            if len(parts) != len(epochs) + 4:
+                sys.exit(f"{path}: bad row {line}")
+            rows.append((parts[0], int(parts[1]), int(parts[2]), parts[3:-1], parts[-1]))
+    if epochs is None or not rows:
+        sys.exit(f"{path}: no coefficients")
+    return epochs, until, rows
 
 
 def write(path, note, rows):
@@ -77,10 +85,17 @@ def main():
     source, out = Path(sys.argv[1]), Path(sys.argv[2])
     for stem, name, degree, note in MODELS:
         write(out / name, note, library_model(source / f"{stem}.dat", degree))
-    write(out / "field_earth_igrf14.txt",
-          "Earth IGRF-14, epoch 2025.0, IAGA Working Group V-MOD "
-          "(https://www.ngdc.noaa.gov/IAGA/vmod/coeffs/igrf14coeffs.txt). Radius 6,371.2 km; geocentric.",
-          igrf_model(source / "igrf14coeffs.txt", "2025.0"))
+    epochs, until, rows = igrf_series(source / "igrf14coeffs.txt")
+    path = out / "field_earth_igrf14.txt"
+    text = ("# Earth IGRF-14, IAGA Working Group V-MOD "
+            "(https://www.ngdc.noaa.gov/IAGA/vmod/coeffs/igrf14coeffs.txt). Radius 6,371.2 km; geocentric.\n"
+            "# Schmidt quasi-normalized internal Gauss coefficients in nT at each epoch (linear between\n"
+            "# them), then their rate in nT per year from the last epoch until rate_until; model frame\n"
+            "# right-handed (longitude positive east). Written by tools/geomag/field_coeffs.py; see SOURCES.md.\n"
+            f"epochs {' '.join(epochs)}\nrate_until {until:.1f}\n"
+            + "".join(f"{c} {n} {m} {' '.join(v)} {rate}\n" for c, n, m, v, rate in rows))
+    path.write_text(text, encoding="ascii", newline="\n")
+    print(f"{path}: {len(rows)} coefficients at {len(epochs)} epochs, {epochs[0]} .. {epochs[-1]}, rates until {until:.1f}")
 
 
 if __name__ == "__main__":

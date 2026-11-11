@@ -604,6 +604,54 @@ double magnetic_map_turn_deg(const Body& body, double t_tdb)
     return field.pm_w0_deg - body.pm_w0_deg + (field.pm_rate_deg_per_day - body.pm_rate_deg_per_day) * t_tdb / kSecondsPerDay;
 }
 
+bool follow_magnetic_field_year(Body& body, double t_tdb)
+{
+    BodyMagneticField& field = body.magnetic_field;
+    if (!field.series) {
+        return false;
+    }
+    // By whole years: the field moves little in one, and the lines are traced again each time.
+    const double year = std::clamp(std::round(2000.0 + t_tdb / (kDaysPerJulianYear * kSecondsPerDay)),
+                                   std::ceil(field.series->first_year()), std::floor(field.series->last_year()));
+    if (year == field.model_year) {
+        return false;
+    }
+    const auto model = std::make_shared<MagneticField>(field.series->at(year));
+    field.model = model;
+    field.model_year = year;
+    field.lines = trace_field_lines(*model, field.line_settings);
+    if (const FieldMap* map = body.magnetic_map.surface.get(); map && map->magnitude) {
+        body.magnetic_map.surface = std::make_shared<FieldMap>(
+            field_strength_map(*model, map->width, map->height, field.line_settings.surface_equatorial,
+                               field.line_settings.surface_polar, map->min_nt, map->scale_nt));
+    }
+    return true;
+}
+
+SolarWind Scene::magnetosphere_wind(const MagnetosphereState& state, double t_tdb, double warp) const
+{
+    const Body& b = bodies[static_cast<size_t>(state.body)];
+    const BodyMagnetosphere& sphere = b.magnetosphere;
+    SolarWind wind = state.wind;
+    if (state.recorded && sphere.record) {
+        const double window = std::max(3600.0, std::abs(warp) * kSolarWindWindowSeconds);
+        wind = sphere.record->mean(t_tdb - 0.5 * window, t_tdb + 0.5 * window, wind);
+    }
+    if (sphere.shock_dipole_radii != 0.0 && wind.shock_radii == 0.0 && b.magnetic_field.model) {
+        const glm::dmat3 to_icrf = body_to_icrf(b, t_tdb);
+        const glm::dvec3 upstream = magnetosphere_axes(state.body, t_tdb, wind)[0];
+        const glm::dvec3 dipole = to_icrf * magnetic_model_to_body(b, t_tdb) * b.magnetic_field.model->dipole_axis();
+        const double now = std::pow(glm::dot(dipole, upstream), 2.0);
+        const double mean = mean_dipole_alignment(b.magnetic_field.model->dipole_tilt_deg() * kDegToRad,
+                                                  std::acos(std::clamp(glm::dot(to_icrf[2], upstream), -1.0, 1.0)));
+        // Too fast to follow, the shock stays at its mean over a turn.
+        const double follow = field_line_visibility(magnetic_rotation_deg_per_day(b), warp);
+        wind.shock_radii = bow_shock(sphere, wind).standoff +
+                           sphere.shock_dipole_radii * (glm::mix(mean, now, follow) - sphere.shock_dipole_reference);
+    }
+    return wind;
+}
+
 glm::dmat3 Scene::magnetosphere_axes(int body, double t_tdb, const SolarWind& wind) const
 {
     const Body& b = bodies[static_cast<size_t>(body)];
@@ -668,6 +716,7 @@ void Scene::update(double t_tdb)
 
     double extent = 0.0;
     for (Body& body : bodies) {
+        follow_magnetic_field_year(body, t_tdb);
         glm::dvec3 pos(0.0);
         glm::dvec3 vel(0.0);
         bool visible = true;

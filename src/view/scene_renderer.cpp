@@ -834,6 +834,7 @@ void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, u
     m_relief_textures.assign(scene.bodies.size(), nullptr);
     m_cloud_textures.assign(scene.bodies.size(), nullptr);
     m_field_map_textures.assign(scene.bodies.size(), nullptr);
+    m_field_map_years.assign(scene.bodies.size(), 0.0);
     m_deep_field_map_textures.assign(scene.bodies.size(), nullptr);
     m_crust_field_map_textures.assign(scene.bodies.size(), nullptr);
     m_aurora_textures.assign(scene.bodies.size(), nullptr);
@@ -879,6 +880,7 @@ void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, u
                                         static_cast<uint32_t>(map->height), false, true);
         };
         m_field_map_textures[i] = field_map_texture(body.magnetic_map.surface.get());
+        m_field_map_years[i] = body.magnetic_field.model_year;
         m_deep_field_map_textures[i] = field_map_texture(body.magnetic_map.deep.get());
         m_crust_field_map_textures[i] = field_map_texture(body.magnetic_map.crust.get());
         if (body.texture.empty()) {
@@ -1423,6 +1425,17 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
                                       : event_settings                 ? event_settings->magnetic_map
                                                                        : FieldMapView::None;
         if (map_view != FieldMapView::None && i < m_field_map_textures.size()) {
+            // A field that changes over the years has a new map (Scene::update).
+            if (body.magnetic_field.series && body.magnetic_map.surface && m_field_map_years[i] != body.magnetic_field.model_year) {
+                if (m_field_map_textures[i]) {
+                    SDL_ReleaseGPUTexture(m_device->device(), m_field_map_textures[i]);
+                }
+                const FieldMap& map = *body.magnetic_map.surface;
+                const auto pixels = map.texture_rgba();
+                m_field_map_textures[i] = create_texture_rgba8(m_device->device(), pixels.data(), static_cast<uint32_t>(map.width),
+                                                               static_cast<uint32_t>(map.height), false, true);
+                m_field_map_years[i] = body.magnetic_field.model_year;
+            }
             SDL_GPUTexture* other = map_view == FieldMapView::Deep    ? m_deep_field_map_textures[i]
                                     : map_view == FieldMapView::Crust ? m_crust_field_map_textures[i]
                                                                       : nullptr;
@@ -2098,6 +2111,7 @@ void SceneRenderer::build_magnetospheres(const Simulation& sim, const OutputView
                 MagnetosphereState state;
                 state.body = static_cast<int>(i);
                 state.wind = scene.bodies[i].magnetosphere.typical;
+                state.recorded = true;
                 m_magnetosphere_states.push_back(state);
             }
         }
@@ -2114,7 +2128,8 @@ void SceneRenderer::build_magnetospheres(const Simulation& sim, const OutputView
         if (!body.visible) {
             continue;
         }
-        const BoundarySurface pause = magnetopause(sphere, state.wind);
+        const SolarWind wind = scene.magnetosphere_wind(state, t, sim.clock().warp);
+        const BoundarySurface pause = magnetopause(sphere, wind);
         const double distance = glm::length(body.world_position - view.position);
         const double pixels = 0.5 * view.viewport.y * view.focal_y * pause.nose() * sphere.radius_km / std::max(distance, 1.0);
         // Not output_view.body_fades: a magnetosphere is far larger than its planet's dot.
@@ -2123,9 +2138,9 @@ void SceneRenderer::build_magnetospheres(const Simulation& sim, const OutputView
         if (opacity <= 0.0) {
             continue;
         }
-        const glm::dmat3 axes = to_display * scene.magnetosphere_axes(state.body, t, state.wind) * sphere.radius_km;
+        const glm::dmat3 axes = to_display * scene.magnetosphere_axes(state.body, t, wind) * sphere.radius_km;
         const double tail = state.tail_radii > 0.0 ? state.tail_radii : sphere.tail_radii;
-        const BoundarySurface shock = bow_shock(sphere, state.wind);
+        const BoundarySurface shock = bow_shock(sphere, wind);
         // A surface shown for comparison goes without its shock.
         for (int which = 0; which < (state.faint ? 1 : 2); ++which) {
             // The shock is drawn less far back: it only widens.

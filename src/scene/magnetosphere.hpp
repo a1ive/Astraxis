@@ -4,7 +4,11 @@
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 
+#include <cstdint>
+#include <filesystem>
 #include <limits>
+#include <memory>
+#include <string>
 #include <vector>
 
 namespace astraxis {
@@ -18,6 +22,36 @@ struct SolarWind {
     // heliosphere has no formula for them here, only these.
     double standoff_radii = 0.0;
     double shock_radii = 0.0;
+};
+
+// The solar wind at the Earth hour by hour (NASA's OMNI2: King & Papitashvili 2005, JGR 110,
+// A02104), shifted to the bow shock's nose, as baked by tools/geomag/solar_wind_bake.py into
+// assets/geomag/solar_wind.bin. Many hours have no measurement, most of those before 1995.
+class SolarWindRecord {
+public:
+    bool load(const std::filesystem::path& file, std::string* error);
+
+    // Simulation times of the first hour's start and the last one's end.
+    double start_tdb() const;
+    double end_tdb() const;
+    // The pressure, Bz and speed averaged over [t0, t1], each hour weighted by its overlap;
+    // an hour without a measurement, or outside the record, counts as `fallback`'s. The
+    // rest of the result is `fallback`'s.
+    SolarWind mean(double t0_tdb, double t1_tdb, const SolarWind& fallback) const;
+    // The share of [t0, t1] with a measured pressure.
+    double coverage(double t0_tdb, double t1_tdb) const;
+
+private:
+    struct Hour {
+        uint16_t pressure; // 0.01 nPa
+        int8_t bz;         // 0.5 nT
+        uint8_t speed;     // 150 + 8 n km/s
+    };
+    // Hours since the record's start (fractional) at a simulation time.
+    double hour(double t_tdb) const;
+
+    double m_start_jd_utc = 0.0;
+    std::vector<Hour> m_hours;
 };
 
 // Empirical models of where the solar wind stops a planet's field (the magnetopause) and of
@@ -51,6 +85,8 @@ struct BodyMagnetosphere {
     MagnetosphereModel model = MagnetosphereModel::None;
     double radius_km = 1.0;
     SolarWind typical;              // what is drawn without an event's own
+    // The wind hour by hour (the Earth), for a state that follows it; null: none.
+    std::shared_ptr<const SolarWindRecord> record;
     bool aberration = false;        // the axis leans into the planet's motion (Earth: about 4 deg)
     double tail_radii = 60.0;       // drawn this far down the tail
     // PressureBalance.
@@ -66,6 +102,13 @@ struct BodyMagnetosphere {
     double shock_compressibility = 0.0;
     // The shock's focus, this far up the axis from the center (Mercury).
     double shock_focus_radii = 0.0;
+    // The shock's nose moves with the planet's turn where the dipole is far from the spin
+    // axis (Neptune): out by this times (c^2 - shock_dipole_reference), c the cosine of the
+    // angle between the dipole's axis and the wind's (1: pole-on). Mejnertsen et al. 2016
+    // (JGR Space Physics 121, 7497, Figure 4): 1.5 radii farther pole-on than Earth-like. The nose
+    // is as given where c^2 is the reference. Needs the body's magnetic_field.
+    double shock_dipole_radii = 0.0;
+    double shock_dipole_reference = 0.0;
     // The center of both surfaces from the body's, in the axes below (Mercury's dipole is
     // north of the planet's center).
     glm::dvec3 center_offset_radii{0.0};
@@ -90,6 +133,7 @@ struct BodyMagnetosphere {
 struct MagnetosphereState {
     int body = -1;
     SolarWind wind;
+    bool recorded = false;    // the body's record of the wind at the time; `wind` where it has none
     bool faint = false;       // for comparison with the others
     double tail_radii = 0.0;  // 0: the body's
 };
@@ -122,6 +166,10 @@ struct BoundarySurface {
 
 BoundarySurface magnetopause(const BodyMagnetosphere& body, const SolarWind& wind);
 BoundarySurface bow_shock(const BodyMagnetosphere& body, const SolarWind& wind);
+
+// The mean of cos^2 of the angle between a dipole's axis and the wind's over a turn of the
+// planet: the dipole `tilt` from the spin axis, the wind's axis `wind_angle` from it (radians).
+double mean_dipole_alignment(double tilt, double wind_angle);
 
 // The axes above (columns) in the frame of `from_sun` (the planet from the Sun) and
 // `velocity` (its heliocentric velocity, km/s). wind_speed_km_s > 0: x is where the wind

@@ -77,23 +77,25 @@ tropical_drift_deg_per_day = -5.0
 midlatitude_drift_deg_per_day = 10.0
 [aurora]                                   # [NIGHT]
 kp = "geomag/kp.bin"
-# IGRF-14 at 2025.0, whatever the date; without the solar wind, which shapes the lines
-# from about 5 radii out, so they end at 8. geomag/SOURCES.md.
+# IGRF-14 at the year of the clock (1900 to 2030, held beyond); without the solar wind,
+# which shapes the lines from about 5 radii out, so they end at 8. geomag/SOURCES.md.
 [magnetic_field]
-coefficients = "geomag/field_earth_igrf14.txt"
+coefficients_by_year = "geomag/field_earth_igrf14.txt"
 reference_radius_km = 6371.2
 l_shells = [1.5, 2.5, 4.0]
 max_radius = 8.0
-[magnetic_map]                             # The strength of IGRF-14 at 2025.0; geomag/SOURCES.md
+[magnetic_map]                             # The strength of IGRF-14, redrawn for the year; geomag/SOURCES.md
 surface = "geomag/earth_b.fieldmap"
 crust = "geomag/earth_crust_br.fieldmap"   # Thebault 2021, degrees 16-1050
 # The magnetopause of Shue et al. 1998 (JGR 103, 17691) under a typical 2 nPa wind with no
-# north-south field; an event gives its own. The tail stops widening at 120 radii (Slavin et
+# north-south field; an event gives its own, or follows the hourly record of the wind (OMNI2,
+# 1963 on, with gaps: the typical wind fills them). The tail stops widening at 120 radii (Slavin et
 # al. 1985, JGR 90, 10875) and leans by the Earth's own motion. Bow shock: Fairfield's 1971
 # average as a conic about the same axis. geomag/SOURCES.md.
 [magnetosphere]
 model = "shue1998"
 radius_km = 6371.2
+solar_wind = "geomag/solar_wind.bin"
 pressure_npa = 2.0
 bz_nt = 0.0
 wind_speed_km_s = 430.0

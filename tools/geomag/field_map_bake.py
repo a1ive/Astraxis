@@ -43,6 +43,32 @@ def load_gauss(path):
     return g, h
 
 
+def load_gauss_series(path):
+    """[(year, g, h)] from field_coeffs.py's file of a model by epochs: each epoch, then the
+    year its rates run to."""
+    epochs, until, rows = None, None, []
+    for line in Path(path).read_text(encoding="ascii").splitlines():
+        parts = line.split()
+        if not parts or parts[0].startswith("#"):
+            continue
+        if parts[0] == "epochs":
+            epochs = [float(v) for v in parts[1:]]
+        elif parts[0] == "rate_until":
+            until = float(parts[1])
+        else:
+            rows.append((parts[0], int(parts[1]), int(parts[2]), [float(v) for v in parts[3:]]))
+    degree = max(r[1] for r in rows)
+    out = []
+    for k, year in enumerate(epochs + [until]):
+        g = np.zeros((degree + 1, degree + 1))
+        h = np.zeros((degree + 1, degree + 1))
+        for kind, n, m, values in rows:
+            value = values[k] if k < len(epochs) else values[len(epochs) - 1] + values[-1] * (until - epochs[-1])
+            (g if kind == "g" else h)[n, m] = value
+        out.append((year, g, h))
+    return out
+
+
 def load_pyshtools(path, nmax):
     """g, h in nT from a gzipped pyshtools file ("radius, degree" then "n m c s" in tesla)."""
     g = np.zeros((nmax + 1, nmax + 1))
@@ -161,13 +187,15 @@ def write_map(path, br, ceiling=None):
     print(f"{path}: {width} x {height}, Br {br.min():.0f} .. {br.max():.0f} nT, scale {scale:.0f}, rms {np.sqrt(np.mean(br ** 2)):.0f}")
 
 
-def write_magnitude_map(path, b):
-    low, high = float(b.min()), float(b.max())
+def write_magnitude_map(path, b, low=None, high=None):
+    """low, high (nT): the range of the bytes, where it has to hold more than this map."""
+    low = float(b.min()) if low is None else low
+    high = float(b.max()) if high is None else high
     encoded = np.rint(127.0 * (2.0 * (b - low) / (high - low) - 1.0)).astype(np.int8)
     height, width = b.shape
     path.write_bytes(f"AXFIELDMAG1 {width} {height} {low:.3f} {high:.3f}\n".encode("ascii") + encoded.tobytes())
     i, j = np.unravel_index(np.argmin(b), b.shape)
-    print(f"{path}: {width} x {height}, |B| {low:.0f} .. {high:.0f} nT, weakest at latitude "
+    print(f"{path}: {width} x {height}, |B| {b.min():.0f} .. {b.max():.0f} nT in {low:.0f} .. {high:.0f}, weakest at latitude "
           f"{90.0 - (i + 0.5) * 180.0 / height:+.1f}, east longitude {(-180.0 + (j + 0.5) * 360.0 / width) % 360:.1f}")
 
 
@@ -234,9 +262,17 @@ def main():
     report_peak(moon, "Moon")
 
     # The Earth: the strength, not Br, which only shows the dipole's two halves.
-    g, h = load_gauss(out / "field_earth_igrf14.txt")
+    # The file is IGRF at 2025.0; the program redraws it for other years from the same
+    # coefficients (scene/magnetic_field.cpp, field_strength_map), so the bytes span every epoch.
     cos_t, sin_t, radius = ellipsoid_rows(180, 6378.1366, 6356.7519, 0.0, 6371.2)
-    write_magnitude_map(out / "earth_b.fieldmap", total_field(g, h, cos_t, sin_t, radius, 360))
+    maps = {year: total_field(g, h, cos_t, sin_t, radius, 360) for year, g, h in load_gauss_series(out / "field_earth_igrf14.txt")}
+    low = 1000.0 * np.floor(min(b.min() for b in maps.values()) / 1000.0)
+    high = 1000.0 * np.ceil(max(b.max() for b in maps.values()) / 1000.0)
+    for year, b in maps.items():
+        i, j = np.unravel_index(np.argmin(b), b.shape)
+        print(f"  Earth {year:.0f}: |B| {b.min():.0f} .. {b.max():.0f} nT, weakest at latitude "
+              f"{90.0 - (i + 0.5):+.1f}, east longitude {(-180.0 + (j + 0.5)) % 360:.1f}")
+    write_magnitude_map(out / "earth_b.fieldmap", maps[2025.0], low, high)
 
     # Uranus in the body's own frame: magnetic_model_to_body is Rz(turn) Rx(180), so the model's
     # latitude is minus the body's and its east longitude is turn minus the body's.

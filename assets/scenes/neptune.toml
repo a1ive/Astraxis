@@ -43,7 +43,14 @@
 # [LEP92]  Lepping et al. 1992, Adv. Space Res. 12 (8), 73: the bow shock at 14:38 UT and the
 #        magnetopause at 18:00 UT on 1989-08-24; this scene's Voyager 2 is then 34.89 and
 #        26.45 radii out (tests/appearance_tests.cpp).
-# [CAI91]  Cairns et al. 1991, JGR 96, 19153: the shock as a paraboloid.
+# [CAI91]  Cairns et al. 1991, JGR 96, 19153: the shock as a paraboloid; its nose moved between
+#        38.5 and 34.2 radii before the crossing.
+# [MEJ16]  Mejnertsen et al. 2016, JGR Space Physics 121, 7497 (CC BY): an MHD simulation of the
+#        flyby. In its Figure 4 the shock's nose is 1.5 radii farther with the dipole toward the
+#        Sun ("pole-on") than half a turn later ("Earth-like"); Voyager 2 entered the
+#        magnetosphere near pole-on and passed closest in the Earth-like configuration. Here
+#        the shock is 34.9 radii out when Voyager 2 met it and 36.3 at the magnetopause
+#        crossing; over a turn, 34.9 to 36.7 (bodies/neptune.toml, tests/appearance_tests.cpp).
 
 name = "Neptune"
 
@@ -274,13 +281,14 @@ phase_deg = 80.0
 elevation_deg = 12.0
 distance_km = 7.0e6
 warp = 1800.0
-# [NESS89], [LEP92], [CAI91]
+# [NESS89], [LEP92], [CAI91], [MEJ16]
 caption = """\
-    Ten hours before its closest approach, Voyager 2 met the shock that stands ahead of \
-    Neptune in the solar wind, 34.9 radii out (orange), and some three hours later the \
-    edge of the planet's magnetic field, 26.5 radii out (blue), both close to the line \
-    to the Sun. One pass on one day is all we have: the surfaces are drawn through those \
-    two crossings, and their shapes farther back are assumed."""
+    Ten hours before its closest approach, Voyager 2 met the shock ahead of Neptune, 34.9 \
+    radii out (orange), and three hours later the edge of the planet's magnetic field, 26.5 \
+    radii out (blue). The surfaces are drawn through those two crossings; their shapes \
+    farther back are assumed. Neptune's magnetic axis, tilted 47 degrees, swings toward \
+    the Sun and away every 16 hours, and the shock moves out and back with it, as a \
+    simulation of the flyby suggests."""
 
 [[events]]
 name = "Neptune's off-center magnetic field (1989-08-25)"

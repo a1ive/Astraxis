@@ -152,6 +152,78 @@ bool MagneticField::load(const std::filesystem::path& file, std::string* error)
     return true;
 }
 
+bool MagneticFieldSeries::load(const std::filesystem::path& file, std::string* error)
+{
+    const auto failed = [&](const std::string& what) {
+        if (error) {
+            *error = file.string() + ": " + what;
+        }
+        return false;
+    };
+    std::ifstream in(file);
+    if (!in) {
+        return failed("cannot open");
+    }
+    m_epochs.clear();
+    m_rows.clear();
+    m_rate_until = 0.0;
+    std::string line;
+    while (std::getline(in, line)) {
+        if (line.empty() || line[0] == '#') {
+            continue;
+        }
+        std::istringstream row(line);
+        row.imbue(std::locale::classic());
+        std::string kind;
+        row >> kind;
+        if (kind == "epochs") {
+            for (double year = 0.0; row >> year;) {
+                if (!m_epochs.empty() && !(year > m_epochs.back())) {
+                    return failed("epochs must increase");
+                }
+                m_epochs.push_back(year);
+            }
+        } else if (kind == "rate_until") {
+            row >> m_rate_until;
+        } else {
+            Row r;
+            r.is_h = kind == "h";
+            r.values.resize(m_epochs.size());
+            row >> r.degree >> r.order;
+            for (double& value : r.values) {
+                row >> value;
+            }
+            if (!(row >> r.rate) || (kind != "g" && kind != "h") || m_epochs.empty() || r.degree < 1 ||
+                r.degree > MagneticField::kMaxDegree || r.order < 0 || r.order > r.degree) {
+                return failed("bad line: " + line.substr(0, 40));
+            }
+            m_rows.push_back(std::move(r));
+        }
+    }
+    if (m_epochs.size() < 2 || m_rows.empty() || !(m_rate_until >= m_epochs.back())) {
+        return failed("needs epochs, rate_until at or after the last, and coefficients");
+    }
+    if (at(m_epochs.back()).dipole_nt() <= 0.0) {
+        return failed("no dipole");
+    }
+    return true;
+}
+
+MagneticField MagneticFieldSeries::at(double year) const
+{
+    year = std::clamp(year, m_epochs.front(), m_rate_until);
+    // The pair of epochs around the year; past the last, the last with its rate.
+    const size_t after = static_cast<size_t>(std::upper_bound(m_epochs.begin(), m_epochs.end(), year) - m_epochs.begin());
+    const size_t k = std::min(std::max<size_t>(after, 1) - 1, m_epochs.size() - 2);
+    const double f = std::min((year - m_epochs[k]) / (m_epochs[k + 1] - m_epochs[k]), 1.0);
+    const double beyond = std::max(year - m_epochs.back(), 0.0);
+    MagneticField field;
+    for (const Row& r : m_rows) {
+        field.set_coefficient(r.is_h, r.degree, r.order, r.values[k] + f * (r.values[k + 1] - r.values[k]) + beyond * r.rate);
+    }
+    return field;
+}
+
 void MagneticField::set_coefficient(bool is_h, int degree, int order, double value)
 {
     m_degree = std::max(m_degree, degree);
@@ -337,6 +409,30 @@ double FieldMap::value_nt(double east_longitude, double latitude) const
         return min_nt + 0.5 * (value + 1.0) * (scale_nt - min_nt);
     }
     return (value < 0.0 ? -1.0 : 1.0) * value * value * scale_nt;
+}
+
+FieldMap field_strength_map(const MagneticField& field, int width, int height, double surface_equatorial,
+                            double surface_polar, double min_nt, double max_nt)
+{
+    FieldMap map;
+    map.width = width;
+    map.height = height;
+    map.magnitude = true;
+    map.min_nt = min_nt;
+    map.scale_nt = max_nt;
+    map.cells.resize(static_cast<size_t>(width) * static_cast<size_t>(height));
+    for (int row = 0; row < height; ++row) {
+        const double latitude = (0.5 - (row + 0.5) / height) * kPi;
+        const double radius = 1.0 / std::hypot(std::cos(latitude) / surface_equatorial, std::sin(latitude) / surface_polar);
+        for (int column = 0; column < width; ++column) {
+            const double east = ((column + 0.5) / width - 0.5) * kTwoPi;
+            const glm::dvec3 direction(std::cos(latitude) * std::cos(east), std::cos(latitude) * std::sin(east), std::sin(latitude));
+            const double t = (glm::length(field.field_nt(radius * direction)) - min_nt) / (max_nt - min_nt);
+            map.cells[static_cast<size_t>(row) * static_cast<size_t>(width) + static_cast<size_t>(column)] =
+                static_cast<signed char>(std::lround(127.0 * (2.0 * std::clamp(t, 0.0, 1.0) - 1.0)));
+        }
+    }
+    return map;
 }
 
 std::vector<unsigned char> FieldMap::texture_rgba() const

@@ -838,11 +838,14 @@ caption = """\
 # The aurora: the Earth's night side from above the north, as the oval swells in the
 # storm (Kp from the GFZ record, [NIGHT]).
 # [OMNI]  NASA GSFC SPDF OMNIWeb, hourly OMNI2 (omniweb.gsfc.nasa.gov; King & Papitashvili
-#         2005, JGR 110, A02104): 2024-05-11 02-03 UT, flow pressure 48.76 nPa, Bz (GSM)
-#         -20.5 nT, speed 738 km/s, Dst -406 nT.
+#         2005, JGR 110, A02104), geomag/solar_wind.bin: the flow pressure rises from 1 nPa
+#         to 17.75 nPa in the hour of 2024-05-10 17 UT and peaks at 55.89 nPa (20 UT) and
+#         48.76 nPa (05-11 02 UT, with Bz (GSM) -20.5 nT, speed 738 km/s, Dst -406 nT).
 # [SHUE]  Shue et al. 1998, JGR 103, 17691: the magnetopause from the pressure and Bz
-#         (bodies/earth.toml, assets/geomag/SOURCES.md). With [OMNI] it stands 5.0 Earth
-#         radii out, inside the geosynchronous orbit at 6.6; 10.3 radii under a typical wind.
+#         (bodies/earth.toml, assets/geomag/SOURCES.md). With [OMNI] it stands 11.3 Earth
+#         radii out as the event opens, 4.9 at the least (05-10 20:30 UT) and inside the
+#         geosynchronous orbit at 6.6 for 19 of the next 36 hours (tests/appearance_tests.cpp);
+#         10.3 radii under a typical wind.
 # [FU25]  Fu et al. 2025, GRL 52, e2024GL114040: magnetopause down to 5.12-5.20 radii on
 #         2024-05-10, from ground magnetometers, THEMIS-A, GOES-16 and GOES-18.
 [[events]]
@@ -865,29 +868,32 @@ caption = """\
 
 # Seen from the side, the Sun to the left.
 [[events]]
-name = "Geomagnetic storm: the magnetosphere squeezed (2024-05-11)"
-magnetosphere = [{ body = "Earth", pressure_npa = 48.76, bz_nt = -20.5, wind_speed_km_s = 738.0, tail_radii = 25.0 },
+name = "Geomagnetic storm: the magnetosphere squeezed (2024-05-10)"
+magnetosphere = [{ body = "Earth", recorded = true, tail_radii = 25.0 },
                  { body = "Earth", faint = true, tail_radii = 25.0 }]
 aurora_visible = true
 hide_orbits = true
-time_tdb = "2024-05-11 02:00"
+time_tdb = "2024-05-10 13:00"
 focus = "Earth"
 from_body = "Sun"
 phase_deg = 80.0
 elevation_deg = 15.0
 distance_km = 4.2e5
-warp = 120.0
+warp = 900.0
 # [OMNI], [SHUE], [FU25], [KP]
 caption = """\
     The solar wind normally stops the Earth's field about 10 Earth radii up, the faint blue \
-    surface. In this hour it blows 25 times harder, with its own field pointing south, and \
-    the edge stands near 5 radii: inside the orbit where geostationary satellites fly, 6.6 \
-    radii out, leaving them in the solar wind. Orange: the shock ahead of it. Surfaces from \
-    a model fed with the measured wind; the shock's is an average shape, scaled."""
+    surface. At 17 UT the first of several clouds thrown off by the Sun arrives: the wind \
+    blows up to 25 times harder, and for much of the next day the edge stands 5 to 6 radii \
+    up, inside the orbit of geostationary satellites, 6.6 radii out. Orange: the shock \
+    ahead. Surfaces from a model fed with the wind measured hour by hour."""
 
 # [SAA]   NASA, "NASA Researchers Track Slowly Splitting 'Dent' in Earth's Magnetic Field" (2020):
 #         the weak region, energetic particles reach lower, satellites shut down systems in it.
-#         The numbers are the strength of IGRF-14 at 2025.0, geomag/earth_b.fieldmap.
+#         The numbers are the strength of IGRF-14 at the year of the event (geomag/earth_b.fieldmap
+#         is 2025.0; other years are redrawn from geomag/field_earth_igrf14.txt): weakest
+#         22,073 nT at 26.5 S, 59.5 W in 2025; 25,423 nT at 21.5 S, 36.5 W in 1900
+#         (tests/appearance_tests.cpp).
 [[events]]
 name = "The South Atlantic Anomaly (false color)"
 magnetic_map = "surface"
@@ -904,6 +910,24 @@ caption = """\
     is weak. Over South America and the South Atlantic it falls to about 22,000 nT, a third \
     of its strength south of Australia. Energetic particles reach lower here, and many \
     satellites shut down sensitive systems as they cross it."""
+
+# The same view in the first year of the field model.
+[[events]]
+name = "The South Atlantic Anomaly in 1900 (false color)"
+magnetic_map = "surface"
+hide_orbits = true
+time_tdb = "1900-01-01 14:22"
+focus = "Earth"
+from_body = "Sun"
+elevation_deg = -20.0
+distance_km = 3.2e4
+warp = 300.0
+# [SAA]
+caption = """\
+    The same map a century and a quarter earlier, in the same colors. The weak patch lay \
+    some 23 degrees farther east, off the coast of Brazil, and was shallower: 25,400 nT at \
+    its weakest, against 22,100 nT now. It has drifted west by about a fifth of a degree a \
+    year since, while the Earth's dipole lost 8 percent of its strength."""
 
 # [CRUST] Thebault, Hulot, Langlais & Vigneron 2021, GRL 48, e2021GL095147, degrees 16-1050,
 #         Zenodo 5546528; geomag/SOURCES.md. Peak -6,830 nT at 50.5 N, 37 E, in the Kursk

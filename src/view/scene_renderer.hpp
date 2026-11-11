@@ -136,6 +136,7 @@ private:
     std::vector<SDL_GPUTexture*> m_relief_textures; // per body: slopes and water, may be null
     std::vector<SDL_GPUTexture*> m_cloud_textures;  // per body: cloud cover, may be null
     std::vector<SDL_GPUTexture*> m_field_map_textures;      // per body: radial field at the surface, may be null
+    std::vector<double> m_field_map_years;                  // per body: BodyMagneticField::model_year of that texture
     std::vector<SDL_GPUTexture*> m_deep_field_map_textures; // per body: the same deeper down, may be null
     std::vector<SDL_GPUTexture*> m_crust_field_map_textures; // per body: of the crust alone, may be null
     std::vector<glm::dvec3> m_tube_line; // scratch for the lines to the moons' footprints

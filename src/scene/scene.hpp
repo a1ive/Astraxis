@@ -581,6 +581,10 @@ double magnetic_rotation_deg_per_day(const Body& body);
 // East longitude (deg) of a field map's zero in the body's axes: nonzero where the map is
 // in a model frame that turns against the body (Neptune's NLS).
 double magnetic_map_turn_deg(const Body& body, double t_tdb);
+// A field model that changes over the years (BodyMagneticField::series): brings the model,
+// its lines and the body's strength map to the year of t_tdb. True if they changed.
+// Scene::update does this.
+bool follow_magnetic_field_year(Body& body, double t_tdb);
 
 // Rate of the prime meridian (deg/day, negative if retrograde) at t_tdb: the
 // spin table's, else the IAU model's secular rate (without periodic terms).
@@ -924,6 +928,13 @@ public:
     // where the wind comes from if the body's model has the aberration. Jupiter's model
     // has z toward the spin axis instead of the orbit's normal.
     glm::dmat3 magnetosphere_axes(int body, double t_tdb, const SolarWind& wind) const;
+    // The wind a state is drawn under at a time: its own, or the body's record of the hour
+    // (averaged over kSolarWindWindowSeconds of screen time at the clock's `warp`, an hour
+    // at least, so that the surfaces swell and shrink rather than flicker). Where the shock
+    // follows the planet's turn (shock_dipole_radii) and the state gives no shock, its nose
+    // is in shock_radii; turning too fast to follow, at its mean over a turn.
+    static constexpr double kSolarWindWindowSeconds = 1.5;
+    SolarWind magnetosphere_wind(const MagnetosphereState& state, double t_tdb, double warp) const;
     // GM of the sun: the Star body's, or the Sun's in a scene centered on a planet.
     double sun_gm() const;
 

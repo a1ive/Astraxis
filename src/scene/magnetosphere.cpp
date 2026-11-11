@@ -1,11 +1,15 @@
 #include "scene/magnetosphere.hpp"
 
 #include "core/math.hpp"
+#include "core/time.hpp"
 
 #include <glm/glm.hpp>
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
+#include <fstream>
+#include <iterator>
 
 namespace astraxis {
 
@@ -52,6 +56,111 @@ double flared_half_width(double standoff, double flaring, double downtail)
 }
 
 } // namespace
+
+bool SolarWindRecord::load(const std::filesystem::path& file, std::string* error)
+{
+    const auto failed = [&](const std::string& what) {
+        if (error) {
+            *error = file.string() + ": " + what;
+        }
+        return false;
+    };
+    std::ifstream in(file, std::ios::binary);
+    if (!in) {
+        return failed("cannot open");
+    }
+    const std::vector<char> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    uint16_t version = 0;
+    uint16_t first_year = 0;
+    uint32_t count = 0;
+    if (bytes.size() < 12 || std::memcmp(bytes.data(), "AXSW", 4) != 0) {
+        return failed("not a solar wind record (AXSW)");
+    }
+    std::memcpy(&version, bytes.data() + 4, 2);
+    std::memcpy(&first_year, bytes.data() + 6, 2);
+    std::memcpy(&count, bytes.data() + 8, 4);
+    static_assert(sizeof(Hour) == 4);
+    if (version != 1 || count == 0 || bytes.size() != 12 + sizeof(Hour) * static_cast<size_t>(count)) {
+        return failed("unsupported version or wrong size");
+    }
+    m_hours.resize(count);
+    std::memcpy(m_hours.data(), bytes.data() + 12, sizeof(Hour) * m_hours.size());
+    // January 1 of the first year, 00:00 UTC (Gregorian: days before it since
+    // JD 1721425.5, 0001-01-01).
+    const double y = first_year - 1.0;
+    m_start_jd_utc = 1721425.5 + 365.0 * y + std::floor(y / 4.0) - std::floor(y / 100.0) + std::floor(y / 400.0);
+    return true;
+}
+
+double SolarWindRecord::hour(double t_tdb) const
+{
+    return (utc_jd_from_tdb(t_tdb) - m_start_jd_utc) * 24.0;
+}
+
+double SolarWindRecord::start_tdb() const
+{
+    return tdb_from_utc_jd(m_start_jd_utc);
+}
+
+double SolarWindRecord::end_tdb() const
+{
+    return tdb_from_utc_jd(m_start_jd_utc + static_cast<double>(m_hours.size()) / 24.0);
+}
+
+SolarWind SolarWindRecord::mean(double t0_tdb, double t1_tdb, const SolarWind& fallback) const
+{
+    if (t1_tdb < t0_tdb) {
+        std::swap(t0_tdb, t1_tdb);
+    }
+    const double x0 = hour(t0_tdb);
+    const double x1 = std::max(hour(t1_tdb), x0 + 1e-6);
+    const double n = static_cast<double>(m_hours.size());
+    // Sums over the measured hours within the span, and how much of it they are.
+    double sum[3]{}, measured[3]{};
+    const size_t last = static_cast<size_t>(std::clamp(std::ceil(x1), 0.0, n));
+    for (size_t k = static_cast<size_t>(std::clamp(std::floor(x0), 0.0, n)); k < last; ++k) {
+        const double weight = std::min(x1, k + 1.0) - std::max(x0, static_cast<double>(k));
+        const Hour& h = m_hours[k];
+        if (h.pressure != 0xffff) {
+            sum[0] += weight * h.pressure * 0.01;
+            measured[0] += weight;
+        }
+        if (h.bz != -128) {
+            sum[1] += weight * h.bz * 0.5;
+            measured[1] += weight;
+        }
+        if (h.speed != 0xff) {
+            sum[2] += weight * (150.0 + 8.0 * h.speed);
+            measured[2] += weight;
+        }
+    }
+    const double span = x1 - x0;
+    SolarWind wind = fallback;
+    // Never zero, which would put the boundary at infinity: the record has hours of 0.00 nPa
+    // (in 1979).
+    wind.pressure_npa = std::max((sum[0] + (span - measured[0]) * fallback.pressure_npa) / span, 0.02);
+    wind.bz_nt = (sum[1] + (span - measured[1]) * fallback.bz_nt) / span;
+    wind.speed_km_s = (sum[2] + (span - measured[2]) * fallback.speed_km_s) / span;
+    return wind;
+}
+
+double SolarWindRecord::coverage(double t0_tdb, double t1_tdb) const
+{
+    if (t1_tdb < t0_tdb) {
+        std::swap(t0_tdb, t1_tdb);
+    }
+    const double x0 = hour(t0_tdb);
+    const double x1 = std::max(hour(t1_tdb), x0 + 1e-6);
+    const double n = static_cast<double>(m_hours.size());
+    double measured = 0.0;
+    const size_t last = static_cast<size_t>(std::clamp(std::ceil(x1), 0.0, n));
+    for (size_t k = static_cast<size_t>(std::clamp(std::floor(x0), 0.0, n)); k < last; ++k) {
+        if (m_hours[k].pressure != 0xffff) {
+            measured += std::min(x1, k + 1.0) - std::max(x0, static_cast<double>(k));
+        }
+    }
+    return measured / (x1 - x0);
+}
 
 double BodyMagnetosphere::pressure_for_standoff(double radii) const
 {
@@ -186,6 +295,14 @@ BoundarySurface bow_shock(const BodyMagnetosphere& body, const SolarWind& wind)
     s.eccentricity = body.shock_eccentricity;
     s.focus = body.shock_focus_radii;
     return s;
+}
+
+double mean_dipole_alignment(double tilt, double wind_angle)
+{
+    // c = cos tilt cos beta + sin tilt sin beta cos(phase), averaged over the phase.
+    const double along = std::cos(tilt) * std::cos(wind_angle);
+    const double across = std::sin(tilt) * std::sin(wind_angle);
+    return along * along + 0.5 * across * across;
 }
 
 glm::dmat3 solar_wind_axes(const glm::dvec3& from_sun, const glm::dvec3& velocity, double wind_speed_km_s)

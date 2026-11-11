@@ -537,7 +537,7 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
                                           {"io_visible", boolean}, {"callisto_visible", boolean}, {"mars_visible", boolean}};
     static const TemplateField integer{{Type::integer}, nullptr};
     static const TemplateFields magnetic_field = {
-        {"coefficients", text}, {"reference_radius_km", number}, {"flip_pole", boolean},
+        {"coefficients", text}, {"coefficients_by_year", text}, {"reference_radius_km", number}, {"flip_pole", boolean},
         {"longitude_offset_deg", number}, {"prime_meridian_deg", list}, {"l_shells", list},
         {"lines_per_shell", integer}, {"max_radius", number}, {"color", text},
     };
@@ -550,6 +550,7 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
         {"color", text}, {"shock_color", text}, {"nose_ecliptic_deg", list},
         {"standoff_at_1npa", number}, {"flaring_slope", number}, {"shock_at_1npa", number},
         {"shock_compressibility", number}, {"shock_focus_radii", number}, {"center_offset_radii", list},
+        {"solar_wind", text}, {"shock_dipole_radii", number}, {"shock_dipole_reference", number},
     };
     static const TemplateFields rotor = {{"shape", text}, {"period_s", number}};
     static const TemplateFields shape_after = {{"shape", text}, {"time", text}, {"time_tdb", text}};
@@ -1819,10 +1820,22 @@ void Loader::parse(const toml::table& root, Scene& out)
             }
             auto model = std::make_shared<MagneticField>();
             std::string error;
-            if (!model->load(m_asset_root / get_string(*field, "coefficients", mctx), &error)) {
+            BodyMagneticField& m = body.magnetic_field;
+            if (field->contains("coefficients_by_year")) {
+                if (field->contains("coefficients")) {
+                    fail(mctx, "takes coefficients or coefficients_by_year, not both");
+                }
+                auto series = std::make_shared<MagneticFieldSeries>();
+                if (!series->load(m_asset_root / get_string(*field, "coefficients_by_year", mctx), &error)) {
+                    fail(mctx, error);
+                }
+                // Until the scene's first update: the last epoch, which the maps are baked at.
+                m.model_year = series->last_epoch();
+                *model = series->at(m.model_year);
+                m.series = series;
+            } else if (!model->load(m_asset_root / get_string(*field, "coefficients", mctx), &error)) {
                 fail(mctx, error);
             }
-            BodyMagneticField& m = body.magnetic_field;
             m.reference_radius_km = get_double(*field, "reference_radius_km", mctx);
             if (!(m.reference_radius_km > 0.0)) {
                 fail(mctx, "reference_radius_km must be positive");
@@ -1859,6 +1872,7 @@ void Loader::parse(const toml::table& root, Scene& out)
             settings.surface_equatorial = body.equatorial_radius_km / m.reference_radius_km;
             settings.surface_polar = body.polar_radius_km / m.reference_radius_km;
             m.lines = trace_field_lines(*model, settings);
+            m.line_settings = settings;
             m.model = model;
         }
         if (const toml::table* sphere = (*t)["magnetosphere"].as_table()) {
@@ -1893,6 +1907,13 @@ void Loader::parse(const toml::table& root, Scene& out)
                     double offset[3];
                     get_array(*sphere, "center_offset_radii", mctx, offset, 3, 3);
                     m.center_offset_radii = glm::dvec3(offset[0], offset[1], offset[2]);
+                }
+                if (sphere->contains("shock_dipole_radii")) {
+                    m.shock_dipole_radii = get_double(*sphere, "shock_dipole_radii", mctx);
+                    m.shock_dipole_reference = get_double(*sphere, "shock_dipole_reference", mctx);
+                    if (!body.magnetic_field.model || m.shock_dipole_reference < 0.0 || m.shock_dipole_reference > 1.0) {
+                        fail(mctx, "shock_dipole_radii needs the body's magnetic_field and shock_dipole_reference within 0..1");
+                    }
                 }
                 if (!(m.flaring > 0.0) || !(m.standoff_at_1npa > 0.0 ? m.compressibility > 1.0 : m.standoff_radii > 0.0) ||
                     (m.shock_at_1npa > 0.0 && !(m.shock_compressibility > 1.0)) || m.shock_at_1npa < 0.0 ||
@@ -1942,6 +1963,14 @@ void Loader::parse(const toml::table& root, Scene& out)
                            "(below 1 for the heliosphere's termination shock)");
             }
             m.typical = parse_solar_wind(*sphere, m, m.typical, mctx);
+            if (sphere->contains("solar_wind")) {
+                auto record = std::make_shared<SolarWindRecord>();
+                std::string error;
+                if (!record->load(m_asset_root / get_string(*sphere, "solar_wind", mctx), &error)) {
+                    fail(mctx, error);
+                }
+                m.record = record;
+            }
         }
         if (const toml::table* maps = (*t)["magnetic_map"].as_table()) {
             const std::string mctx = ctx + " magnetic_map";
@@ -2426,6 +2455,11 @@ void Loader::parse(const toml::table& root, Scene& out)
                         fail(sctx, "the body has no magnetosphere model");
                     }
                     state.wind = parse_solar_wind(*st, body.magnetosphere, body.magnetosphere.typical, sctx);
+                    state.recorded = (*st)["recorded"].value<bool>().value_or(false);
+                    if (state.recorded && (!body.magnetosphere.record || st->contains("pressure_npa") || st->contains("bz_nt") ||
+                                           st->contains("wind_speed_km_s"))) {
+                        fail(sctx, "recorded is for a body with a solar_wind record, instead of a wind of the event's own");
+                    }
                     state.faint = (*st)["faint"].value<bool>().value_or(false);
                     state.tail_radii = get_double_or(*st, "tail_radii", 0.0);
                     if (state.tail_radii < 0.0) {

@@ -46,6 +46,32 @@ private:
     std::vector<double> m_g, m_h;
 };
 
+// A field model given at epochs (the Earth's IGRF: every 5 years): linear between them,
+// then at its rates until `last_year`, held beyond either end. The file has a line
+// "epochs y1 y2 ..", a line "rate_until year", and lines "g|h n m v1 v2 .. rate" (nT, and
+// nT per year after the last epoch); # starts a comment.
+class MagneticFieldSeries {
+public:
+    bool load(const std::filesystem::path& file, std::string* error = nullptr);
+
+    double first_year() const { return m_epochs.front(); }
+    double last_epoch() const { return m_epochs.back(); }
+    double last_year() const { return m_rate_until; }
+    MagneticField at(double year) const;
+
+private:
+    struct Row {
+        bool is_h = false;
+        int degree = 0;
+        int order = 0;
+        std::vector<double> values; // one per epoch
+        double rate = 0.0;
+    };
+    std::vector<double> m_epochs;
+    double m_rate_until = 0.0;
+    std::vector<Row> m_rows;
+};
+
 // Where to start lines and where they end, in radii of the field's model.
 struct FieldLineSettings {
     std::vector<double> l_shells{2.0, 3.5, 6.0}; // rings around the eccentric dipole, in its equator
@@ -66,6 +92,12 @@ std::vector<std::vector<glm::dvec4>> trace_field_lines(const MagneticField& fiel
 struct BodyMagneticField {
     std::shared_ptr<const MagneticField> model; // null: none
     std::vector<std::vector<glm::dvec4>> lines; // in the model's frame and radii
+    // A model that changes over the years: `model` and `lines` are then those of
+    // `model_year`, which Scene::update keeps at the whole year nearest the clock (within
+    // the series; its last epoch after loading).
+    std::shared_ptr<const MagneticFieldSeries> series;
+    double model_year = 0.0;
+    FieldLineSettings line_settings; // what `lines` were traced with
     double reference_radius_km = 1.0;
     glm::vec3 color{1.0f}; // sRGB
 
@@ -99,6 +131,12 @@ struct FieldMap {
     // Red channel: 0 .. 255 for value -1 .. 1, so that it interpolates through zero.
     std::vector<unsigned char> texture_rgba() const;
 };
+
+// A strength map of a model's field on a spheroid (radii of the model, z along its pole), in
+// the same cells and range as tools/geomag/field_map_bake.py's: |B| where the planetocentric
+// direction of each cell's middle meets the surface.
+FieldMap field_strength_map(const MagneticField& field, int width, int height, double surface_equatorial,
+                            double surface_polar, double min_nt, double max_nt);
 
 // Which map a view shows.
 enum class FieldMapView { None, Surface, Deep, Crust };
