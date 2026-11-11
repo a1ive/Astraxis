@@ -1,15 +1,17 @@
-# Sagittarius A*: the Galactic Centre black hole and the star S2, whose orbit
-# shows the Schwarzschild precession (~12 arcmin per orbit) measured by GRAVITY.
+# Sagittarius A*: the Galactic Centre black hole, S2 and S301. S2 precesses by
+# about 12 arcmin per orbit. S301's tighter orbit precesses by about 2 degrees.
 #
-# Orbits are integrated as timelike geodesics of the Kerr metric
-# (src/ephem/kerr_geodesic.cpp, ported from the reference project) - not
-# Keplerian ellipses.
+# S2, S301 and the Death Star follow timelike geodesics (src/ephem/kerr_orbit.cpp).
 #
 # [GR20] GRAVITY Collaboration 2020, A&A 636, L5 (arXiv:2004.07187), Table E.1:
 #        M = 4.261e6 M_sun, R0 = 8246.7 pc; S2: a = 125.058 mas, e = 0.884649,
 #        i = 134.567 deg, omega = 66.263 deg, Omega = 228.171 deg, P = 16.0455 yr,
 #        t_peri = 2018.37900 (Julian year). The elements are osculating at the epoch
 #        of the last apocentre (2010), so the integration starts there.
+# [GR26] Abd El Dayem et al. 2026 (arXiv:2607.12664), Extended Data Table 2, first
+#        solution. Astrometry admits two 3D orientations pending radial velocities.
+#        As for S2, initialize the geodesic at the preceding apocentre using this
+#        scene's mass and distance. The paper fits a 1PN orbit with light-time delay.
 # [RB04] Reid & Brunthaler 2004, ApJ 616, 872: Sgr A* at RA 17h45m40.0400s,
 #        Dec -29d00m28.138s (ICRS) - orients the orbit on the sky.
 # [HA17] Habibi et al. 2017, ApJ 847, 120: S-stars incl. S2 have T_eff 21,000-28,500 K
@@ -99,6 +101,30 @@ i_deg = 134.567
 node_deg = 228.171
 arg_peri_deg = 66.263
 t_peri_year = 2018.37900
+sky_ra_dec_deg = [266.41683333, -29.00781611]   # [RB04]
+
+[[bodies]]
+name = "S301"
+parent = "Sgr A*"
+kind = "star"
+radii_km = [1043550.0]         # 1.5 R_sun, midpoint of [GR26]'s estimated range
+temperature_k = 7200.0        # inferred from the adopted radius and luminosity
+luminosity_solar = 5.5         # [GR26] photometric estimate
+orbit_color = "#81e1b9"
+trail_history_days = 3200.0    # one orbit (~8.7 yr)
+[bodies.orbit]
+type = "kerr_geodesic"
+elements_epoch = "previous_apocentre"
+span_years = [1850.0, 2200.0]
+step_eta = 0.0015
+[bodies.orbit.elements]        # [GR26] first orientation, with the scene's R0
+a_mas = 83.0
+distance_pc = 8246.7
+e = 0.9832
+i_deg = 124.09
+node_deg = 73.8
+arg_peri_deg = 293.4
+t_peri_year = 2023.126
 sky_ra_dec_deg = [266.41683333, -29.00781611]   # [RB04]
 
 [[bodies]]
@@ -729,3 +755,40 @@ caption = """\
     At closest approach the imaginary body moves at a fifth of the speed of light, \
     lit only by the accretion disk. Its path soon diverges from the grey Newtonian \
     ellipse. Its size is exaggerated thirty-thousand-fold so that it can be seen."""
+
+[[events]]
+name = "S301 orbit and precession"
+time = "2025-08-06"
+focus = "Sgr A*"
+distance_km = 5.3e11
+warp = 2629800.0
+from_orbit_normal = "S301"
+# [GR26]
+caption = """\
+    S301 takes 8.7 years to orbit Sgr A*. In this face-on view, successive laps of \
+    the green track fan apart by about two degrees because of Schwarzschild precession. \
+    S2's orbit turns by about 12 arcminutes per lap."""
+[[events.trails]]
+body = "S301"
+trail_history_days = 8000.0
+
+[[events]]
+name = "S301 pericentre (2023-02-16, 11.4 au)"
+time = "2023-02-16 13:00"      # about six hours before closest approach
+focus = "S301"
+distance_km = 5.8e9
+warp = 3600.0
+from_orbit_normal = "S301"
+focus_orbits_only = true
+# [GR26]
+caption = """\
+    S301 sweeps within about 11.5 au of the black hole at 25,500 km/s. This close pass \
+    makes its orbit sensitive to frame dragging. The scene uses a non-spinning \
+    black hole, so the precession shown here comes from the Schwarzschild geometry."""
+[[events.trails]]
+body = "S301"
+trail_history_days = 1.5
+[[events.trails]]
+body = "Death Star"
+trail = "none"
+trail_history_days = 1.0       # less than one orbit, so there are no apsis lines

@@ -724,6 +724,42 @@ void test_sgr_a_scene()
     check(std::abs(best_r / kAuKm - 119.0) < 3.0, "S2 pericentre distance (au)", best_r / kAuKm);
     std::printf("info: S2 pericentre %.4f at %.1f au\n", best_t, best_r / kAuKm);
 
+    const int s301 = scene.find("S301");
+    check(s301 > 0, "S301 body");
+    if (s301 > 0) {
+        const std::vector<double> peri = scene.periapsis_times(s301, tdb_from_julian_year(2023.0),
+                                                               tdb_from_julian_year(2032.0));
+        check(peri.size() == 2, "S301 has two successive pericentres from 2023 to 2032");
+        if (peri.size() == 2) {
+            // [GR26] Extended Data Table 2 and Results (first orientation).
+            const State first = scene.icrf_state_at(s301, peri[0]);
+            const State second = scene.icrf_state_at(s301, peri[1]);
+            const double epoch = 2000.0 + peri[0] / (365.25 * kSecondsPerDay);
+            const double period = (peri[1] - peri[0]) / (365.25 * kSecondsPerDay);
+            const double radius = glm::length(first.position) / kAuKm;
+            const double speed = glm::length(first.velocity);
+            const double advance = std::acos(glm::dot(glm::normalize(first.position),
+                                                      glm::normalize(second.position))) / kDegToRad;
+            check(std::abs(epoch - 2023.126) < 0.010, "S301 pericentre epoch", epoch);
+            check(std::abs(period - 8.68) < 0.11, "S301 radial period (yr)", period);
+            check(std::abs(radius - 11.5) < 0.8, "S301 pericentre distance (au)", radius);
+            check(std::abs(speed - 25600.0) < 1000.0, "S301 pericentre speed (km/s)", speed);
+            check(std::abs(advance - 2.0) < 0.1, "S301 apsidal advance (deg)", advance);
+            std::printf("info: S301 pericentre %.6f at %.2f au, %.0f km/s, period %.3f yr, advance %.2f deg\n",
+                        epoch, radius, speed, period, advance);
+        }
+
+        // [GR26] places the April 2023 detection about 15 mas northwest of Sgr A*.
+        const glm::dvec3 position = scene.icrf_state_at(s301, tdb_from_julian_year(2023.2604)).position;
+        const glm::dvec3 east = unit_toward(266.41683333 + 90.0, 0.0);
+        const glm::dvec3 north = glm::cross(glm::normalize(scene.sky.viewer_pc), east);
+        const double km_per_mas = glm::length(scene.sky.viewer_pc) * kAuKm / 1000.0;
+        const double ra_mas = glm::dot(position, east) / km_per_mas;
+        const double dec_mas = glm::dot(position, north) / km_per_mas;
+        check(ra_mas < 0.0 && dec_mas > 0.0 && std::abs(std::hypot(ra_mas, dec_mas) - 15.0) < 3.0,
+              "S301 sky position at discovery (mas)", std::hypot(ra_mas, dec_mas));
+    }
+
     // The Death Star's rolling window follows the clock, including big jumps.
     const int hyp = scene.find("Death Star");
     check(hyp >= 0 && scene.bodies[static_cast<size_t>(hyp)].style == SurfaceStyle::DeathStar &&
@@ -817,7 +853,7 @@ void test_death_star_precession()
             check(next.size() == 1, "periapsis event is 0-3 h before a periapsis",
                   next.empty() ? -1.0 : (next[0] - e.t_tdb) / 3600.0);
         }
-        if (e.from_orbit_normal >= 0) {
+        if (e.name == "Death Star: apsidal advance (top-down)") {
             check(e.from_orbit_normal == ds, "face-on event looks along the Death Star's orbit normal");
         }
     }
