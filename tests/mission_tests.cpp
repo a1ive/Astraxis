@@ -1669,6 +1669,30 @@ void test_isee3_scene()
     const int gz = scene.find("Giacobini-Zinner");
     const int halley = scene.find("Halley");
     check(sun >= 0 && earth > 0 && moon > 0 && craft > 0 && gz > 0 && halley > 0, "isee3.toml bodies");
+    const Body& spacecraft = scene.bodies[static_cast<size_t>(craft)];
+    check(spacecraft.shape && !spacecraft.rotor.shape &&
+              std::abs(spacecraft.rotor.period_s - 60.0 / 19.75) < 1e-8,
+          "the whole ISEE-3 mesh spins at 19.75 rpm");
+
+    Simulation sim;
+    std::string error;
+    check(sim.load_scene(ASTRAXIS_ASSET_DIR "/scenes/isee3.toml", &error), "load ISEE-3 for the rotor display");
+    sim.clock().warp = 1.0;
+    sim.update(0.1);
+    const double nominal_turns = 0.1 * 19.75 / 60.0;
+    check(std::abs(sim.rotor_turns(craft) - nominal_turns) < 1e-9, "ISEE-3 spins at the nominal rate at 1x");
+    sim.clock().warp = 100.0;
+    sim.update(0.1);
+    const double fast_turns = nominal_turns + 0.1 * Simulation::kBodyRotorMaxTurnsPerSecond;
+    check(std::abs(sim.rotor_turns(craft) - fast_turns) < 1e-9, "ISEE-3 slows its displayed spin at high warp");
+    sim.clock().paused = true;
+    sim.update(0.1);
+    check(std::abs(sim.rotor_turns(craft) - fast_turns) < 1e-9, "ISEE-3 stops spinning when paused");
+    sim.clock().paused = false;
+    sim.clock().reverse = true;
+    sim.update(0.1);
+    check(std::abs(sim.rotor_turns(craft) - nominal_turns) < 1e-9, "ISEE-3 spins backwards during reverse playback");
+
     auto at = [&](int body, double t) { return scene.icrf_state_at(body, t).position; };
     auto utc = [](const CalendarDateTime& c) { return tdb_from_utc_jd(jd_from_calendar(c)); };
     auto closest = [&](int a, int b, double t0, double half, double step) {

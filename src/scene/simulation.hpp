@@ -50,9 +50,9 @@ struct OutputView {
 // while the shot lasts.
 class Simulation {
 public:
-    // Fastest a rotor (Body::Rotor) turns on screen, whatever the warp: one turn in
-    // 4 s, slow enough not to strobe at low frame rates.
+    // Caps for a separate rotor mesh and for an entire spacecraft, in turns per second.
     static constexpr double kRotorMaxTurnsPerSecond = 0.25;
+    static constexpr double kBodyRotorMaxTurnsPerSecond = 0.5;
     static constexpr double kAuroraKpWindowSeconds = 3.0;
     static constexpr double kAuroraMaxWarp = 30.0;
 
@@ -121,8 +121,7 @@ public:
     // Where the drifting clouds (CloudLayer) are in their cycle, in [0, 1): it follows the
     // clock, but no faster than kCloudMaxDaysPerSecond of drift per second of real time.
     double cloud_phase() const { return m_cloud_phase; }
-    // Turns of a body's rotor (Body::Rotor) in [0, 1): its own period at low warp,
-    // capped at kRotorMaxTurnsPerSecond.
+    // Display phase of a rotor (Body::Rotor) in [0, 1), slowed down at high warp.
     double rotor_turns(int body) const;
     // The aurora's Kp (Body::aurora): averaged over kAuroraKpWindowSeconds of
     // real time at the current warp (at least one 3-hour interval), so that it

@@ -448,12 +448,11 @@ struct Body {
     // Optional shape model (irregular bodies), drawn instead of the ellipsoid;
     // the radii still serve as its overall size (shadows, camera distances).
     std::shared_ptr<const ShapeModel> shape;
-    // A second shape model turning about the body z axis (a spacecraft's rotating
-    // ring), once every period_s of simulated time; on screen at most
-    // Simulation::kRotorMaxTurnsPerSecond, so that it does not strobe at high warp.
+    // A visible mesh turning about the body's +z axis. The renderer uses a
+    // capped display phase so fast rotations stay legible during time warp.
     struct Rotor {
-        std::shared_ptr<const ShapeModel> shape; // null: none
-        double period_s = 0.0;
+        std::shared_ptr<const ShapeModel> shape; // null: rotate the body's own mesh
+        double period_s = 0.0;                 // 0: disabled
     } rotor;
     // A shape model drawn instead of `shape` from a time on (a spacecraft after it
     // let go of a lander), with the same texture atlas.

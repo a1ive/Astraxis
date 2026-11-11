@@ -1250,7 +1250,11 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
             item.mesh = m_shape_after_meshes[i];
         }
         const glm::vec3 scale = item.mesh >= 0 ? glm::vec3(1.0f) : radii;
-        item.rotation = glm::mat4(glm::mat3(body.orientation));
+        glm::dmat3 mesh_orientation = body.orientation;
+        if (item.mesh >= 0 && body.rotor.period_s > 0.0 && !body.rotor.shape) {
+            mesh_orientation *= rotation_z(kTwoPi * sim.rotor_turns(static_cast<int>(i)));
+        }
+        item.rotation = glm::mat4(glm::mat3(mesh_orientation));
         item.model = glm::translate(glm::mat4(1.0f), to_render(body.world_position, cam)) * item.rotation *
                      glm::scale(glm::mat4(1.0f), scale);
         item.inv_scale = 1.0f / scale;
@@ -1514,8 +1518,7 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
         // The rotor: the same body turned about its z axis.
         if (const int rotor = i < m_rotor_meshes.size() ? m_rotor_meshes[i] : -1; rotor >= 0) {
             const double angle = kTwoPi * sim.rotor_turns(static_cast<int>(i));
-            const glm::dmat3 turn(glm::dvec3(std::cos(angle), std::sin(angle), 0.0),
-                                  glm::dvec3(-std::sin(angle), std::cos(angle), 0.0), glm::dvec3(0.0, 0.0, 1.0));
+            const glm::dmat3 turn = rotation_z(angle);
             item.mesh = rotor;
             item.rotation = glm::mat4(glm::mat3(body.orientation * turn));
             item.model = glm::translate(glm::mat4(1.0f), to_render(body.world_position, cam)) * item.rotation;

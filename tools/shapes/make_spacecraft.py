@@ -567,16 +567,16 @@ CRAFT = {
     # experiment booms (search coil and magnetometer, 302 cm) where the drum has hinge brackets
     # (model +-z), the inertia booms (114 cm) at right angles, the wires (49 m) between them, and
     # the axial antennas (701 cm) along the spin axis. Thruster.stl, a loose part that fits none of
-    # the drum's pods, is left out. The solar array covers the side except the
-    # band and two rings. The spin axis is kept perpendicular to the ecliptic, pointing north: the
-    # body's +y, with +z (a side) to the Sun. It spins every 3 s, so nothing is baked; the colors
-    # are illustrative.
+    # the drum's pods, is left out. The solar array covers the side except for the middle band
+    # and two rings. The drum's +y becomes the body's +z spin axis. Sunlight is calculated at
+    # runtime as the spacecraft rotates. The colors are illustrative.
     'isee3': {
         'file': 'probes/isee3',
         'assembly': [
             {'file': 'Core 2.stl', 'material': 'structure',
-             'bands': [(lo, hi, 33.0, 34.9, 'cells') for lo, hi in ((-0.01, 15.14), (19.85, 42.21), (47.3, 62.07))]
-                      + [(27.87, 30.25, 33.0, 34.9, 'structure')],
+             'band_radius': (33.0, 34.9),
+             'bands': [(lo, hi, 'cells') for lo, hi in ((-0.01, 15.14), (19.85, 27.87),
+                                                       (30.25, 42.21), (47.3, 62.07))],
              'caps': [(0.0, 34.79, 16, 'structure'), (62.06, 34.79, 16, 'structure')]},   # printed open
             {'file': 'Exboom1.stl', 'material': 'boom', 'at': (7.15, 29.06, 34.5), 'toward': (0, 0, 1)},
             {'file': 'Exboom2.stl', 'material': 'boom', 'at': (-7.15, 29.06, -34.5), 'toward': (0, 0, -1)},
@@ -591,8 +591,8 @@ CRAFT = {
         ],
         'origin_m': (0.0, 31.03, 0.0),
         'scale': 0.0254,
-        'body_z': (1, 0, 0),
-        'body_x': (0, 0, -1),   # the spin axis (model +y) is the body's +y
+        'body_z': (0, 1, 0),
+        'body_x': (0, 0, -1),
         'colors': {'cells': (38, 42, 78), 'structure': (178, 178, 172), 'boom': (205, 205, 200),
                    'wire': (160, 150, 120)},
         'merge_m': 0.01,
@@ -932,9 +932,8 @@ class Stl:
         `assembly`, the part's +z (along a boom) turned to `toward` with its +y as near `up` as it
         goes, scaled along +z to `length` (model units) and its origin moved to `at`; without `at`
         the part is already in place.
-        `bands` gives the side faces of a part with all three corners in a y range and a range of
-        radius from the y axis another material (a drum's solar array), in order, later ones winning;
-        `caps` closes an open drum with flat polygons (y, circumradius, sides, material). One material name per triangle."""
+        `bands` colors strips of a drum side by y after clipping its faces at strip edges.
+        `caps` closes an open drum with flat polygons (y, circumradius, sides, material)."""
         corners, names = [], []
         for entry in spec['assembly']:
             raw = np.fromfile(folder / entry['file'], dtype=cls.RECORD, offset=84)['corners'].astype(np.float64)
@@ -948,15 +947,11 @@ class Stl:
                 y /= np.linalg.norm(y)
                 x = np.cross(y, z)
                 raw = raw @ np.array([x, y, z]) + np.array(entry['at'], dtype=np.float64)
-            material = np.full(len(raw), entry['material'], dtype=object)
-            radius = np.hypot(raw[:, :, 0], raw[:, :, 2])
-            normal = np.cross(raw[:, 1] - raw[:, 0], raw[:, 2] - raw[:, 0])
-            side = np.abs(normal[:, 1]) < 0.5 * np.linalg.norm(normal, axis=1)
-            for low, high, min_radius, max_radius, name in entry.get('bands', []):
-                inside = (raw[:, :, 1] >= low) & (raw[:, :, 1] <= high) & (radius >= min_radius) & (radius <= max_radius)
-                material[inside.all(axis=1) & side] = name
+            material = [entry['material']] * len(raw)
+            if 'bands' in entry:
+                raw, material = cls.color_bands(raw, entry)
             corners.append(raw)
-            names.extend(material.tolist())
+            names.extend(material)
             for y, radius, sides, name in entry.get('caps', []):
                 angle = np.radians(360.0 / sides) * np.arange(sides + 1)
                 rim = np.stack([radius * np.cos(angle), np.full(sides + 1, y), radius * np.sin(angle)], axis=1)
@@ -964,6 +959,47 @@ class Stl:
                 corners.append(fan)
                 names.extend([name] * sides)
         return np.concatenate(corners), names
+
+    @staticmethod
+    def color_bands(raw, entry):
+        min_radius, max_radius = entry['band_radius']
+        radius = np.hypot(raw[:, :, 0], raw[:, :, 2])
+        normal = np.cross(raw[:, 1] - raw[:, 0], raw[:, 2] - raw[:, 0])
+        side = (np.abs(normal[:, 1]) < 0.5 * np.linalg.norm(normal, axis=1)) & (
+            (radius >= min_radius) & (radius <= max_radius)).all(axis=1)
+        bands = entry['bands']
+        edges = sorted({y for low, high, _ in bands for y in (low, high)})
+        triangles = list(raw[~side])
+        default = entry['material']
+        materials = [default] * len(triangles)
+        for face in raw[side]:
+            low_y, high_y = face[:, 1].min(), face[:, 1].max()
+            polygon = list(face)
+            strips = []
+            for y in edges:
+                if not low_y < y < high_y:
+                    continue
+                lower, upper = [], []
+                for a, b in zip(polygon, polygon[1:] + polygon[:1]):
+                    if a[1] <= y:
+                        lower.append(a)
+                    if a[1] >= y:
+                        upper.append(a)
+                    if min(a[1], b[1]) < y < max(a[1], b[1]):
+                        intersection = a + (b - a) * ((y - a[1]) / (b[1] - a[1]))
+                        intersection[1] = y
+                        lower.append(intersection)
+                        upper.append(intersection)
+                strips.append(lower)
+                polygon = upper
+            strips.append(polygon)
+            for strip in strips:
+                mid = sum(p[1] for p in strip) / len(strip)
+                material = next((name for lo, hi, name in bands if lo <= mid <= hi), default)
+                for k in range(1, len(strip) - 1):
+                    triangles.append((strip[0], strip[k], strip[k + 1]))
+                    materials.append(material)
+        return np.array(triangles), materials
 
     def connected_pieces(self):
         parent = list(range(len(self.positions)))

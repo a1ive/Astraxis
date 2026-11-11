@@ -1213,9 +1213,8 @@ void test_spacecraft_models()
         }
     }
 
-    // ISEE-3 [MDLI]: the drum 1.58 m tall (the origin halfway up; thruster pods hang below it) about the spin axis (the body's y, toward the ecliptic north
-    // [SPIN]), the four wires 49 m beyond it in the plane across, the axial antennas 7.01 m; a side to
-    // the Sun; nothing baked, as it spins.
+    // ISEE-3 [MDLI]: the drum is centered on the body z spin axis. The four 49 m
+    // wires extend radially and the 7.01 m antennas extend along the spin axis.
     Scene isee3_scene = load_scene_or_die("isee3.toml");
     const int isee3_index = isee3_scene.find("ISEE-3");
     const Body& isee3 = isee3_scene.bodies[static_cast<size_t>(isee3_index)];
@@ -1225,13 +1224,13 @@ void test_spacecraft_models()
         bool isee3_unbaked = true;
         for (size_t k = 0; k < isee3.shape->positions.size(); ++k) {
             const glm::dvec3 m = glm::dvec3(isee3.shape->positions[k]) * 1000.0;
-            const double r = std::hypot(m.x, m.z);
+            const double r = std::hypot(m.x, m.y);
             if (r > 0.5 && r < 0.9) {
-                drum_high = std::max(drum_high, m.y);
+                drum_high = std::max(drum_high, m.z);
                 drum_radius = std::max(drum_radius, r);
             }
             wire_reach = std::max(wire_reach, r);
-            axial_reach = std::max(axial_reach, std::abs(m.y));
+            axial_reach = std::max(axial_reach, std::abs(m.z));
             isee3_unbaked = isee3_unbaked && isee3.shape->albedo[k] == 1.0f;
         }
         check(std::abs(2.0 * drum_high - 1.58) < 0.03, "the ISEE-3 drum is 1.58 m tall", 2.0 * drum_high);
@@ -1243,9 +1242,8 @@ void test_spacecraft_models()
         const glm::dmat3 axes = isee3_scene.body_to_icrf(isee3, t_isee3);
         const glm::dvec3 self = isee3_scene.icrf_state_at(isee3_index, t_isee3).position;
         const glm::dvec3 sun = glm::normalize(isee3_scene.sun_icrf_state_at(t_isee3).position - self);
-        check(glm::dot(axes[2], sun) > 1.0 - 1e-12, "ISEE-3 turns a side to the Sun");
-        check(glm::dot(axes[1], ecliptic_pole_icrf()) > 0.999, "ISEE-3's spin axis points to the ecliptic north",
-              glm::dot(axes[1], ecliptic_pole_icrf()));
+        check(std::abs(glm::dot(axes[2], sun)) < 0.01, "the Sun illuminates the side of the ISEE-3 drum");
+        check(glm::length(axes[2] - ecliptic_pole_icrf()) < 1e-7, "ISEE-3's spin axis points to ecliptic north");
     }
 
     // LICIACube [MDLL]: 0.72 m across its wings, a bus about 30 cm long with the cameras at its +z end,

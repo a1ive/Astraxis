@@ -48,12 +48,11 @@
 #        ICE", fig. 3) and NASA's program document (spacecollege.org/?p=245, retrieved 2026-11-07):
 #        16-sided drum 174 cm across, 161 cm tall; booms and four 49 m wire antennas from the
 #        midsection, the experiment booms 302 cm, the inertia booms 114 cm, the axial antennas
-#        701 cm. Not spinning here (19.75 rpm), and the colors are illustrative.
-# [SPIN] Spin axis perpendicular to the ecliptic: Wikipedia, "International Cometary Explorer"
-#        (retrieved 2026-11-07: 19.76 rpm "about an axis perpendicular to the ecliptic"); for the
-#        ISEE spacecraft "maintained nominally within 1 degree of perpendicular to the ecliptic
-#        plane, pointing north" (SPENVIS, ISEE model page). Spin rate 19.75 +- 0.2 rpm specified,
-#        19.76 rpm after the 2014 spin-up (ISEE-3 Reboot Project, spacecollege.org/?p=298).
+#        701 cm. Colors are illustrative.
+# [SPIN] The model uses ecliptic north as its spin pole and the nominal rate of 19.75 rpm
+#        throughout the mission. The 2014 spin-up restored that rate from 19.16 rpm
+#        (Dunham et al., "The 2014 Earth return of the ISEE-3/ICE spacecraft",
+#        doi:10.1016/j.actaastro.2015.01.002).
 # [MDLP] Suisei (Planet-A): modeled for this project from ISAS's mission pages (a drum 1.4 m across,
 #        0.7 m tall, a 0.8 m elliptical dish; isas.jaxa.jp), ISAS News 55 (1985) and pictures, the
 #        rest estimated. Converted by tools/shapes/make_spacecraft.py (assets/shapes/SOURCES.md).
@@ -372,13 +371,15 @@ kind = "spacecraft"
 radii_km = [0.0009]                        # drum 1.74 m x 1.61 m (TDA PR 42-84), without the booms and wires
 shape = "shapes/isee3.mesh"                # [MDLI]
 texture = "textures/isee3.png"
-point_at = "Sun"                           # a side to the Sun, the spin axis toward ecliptic north [SPIN]
+pole_ra_dec_deg = [270.0, 66.560719]        # J2000 ecliptic north [SPIN]
 fill_light = 0.2                           # illustrative
 color = "#ffd27f"
 orbit_color = "#ffb347"
 trail = "history"
 trail_history_days = 13300.0               # the whole mission (frames cut it shorter)
 trail_linger_days = 365.0
+[bodies.rotor]                             # the whole spacecraft, about +z
+period_s = 3.037974683544304               # 60 / 19.75 [SPIN]
 [bodies.orbit]                             # [HZN] -111, 2014
 type = "ephemeris"
 file = "ephem/isee3_2014.eph"

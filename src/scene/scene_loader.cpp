@@ -1543,16 +1543,18 @@ void Loader::parse(const toml::table& root, Scene& out)
                 fail(ctx, "this shape model's atlas needs a texture");
             }
         }
-        // [bodies.rotor]: a part turning about the body z axis (Body::Rotor).
+        // [bodies.rotor]: a mesh turning about the body z axis (Body::Rotor).
         if (const toml::table* r = (*t)["rotor"].as_table()) {
             const std::string rctx = ctx + " rotor";
             if (!body.shape) {
                 fail(ctx, "a rotor needs the body's own shape model");
             }
-            body.rotor.shape = load_shape(get_string(*r, "shape", rctx), rctx);
+            if (r->contains("shape")) {
+                body.rotor.shape = load_shape(get_string(*r, "shape", rctx), rctx);
+            }
             body.rotor.period_s = get_double(*r, "period_s", rctx);
-            if (body.rotor.period_s <= 0.0) {
-                fail(rctx, "period_s must be positive");
+            if (!std::isfinite(body.rotor.period_s) || body.rotor.period_s <= 0.0) {
+                fail(rctx, "period_s must be finite and positive");
             }
         }
         // [bodies.shape_after]: another shape model from a time on (Body::ShapeAfter), in the

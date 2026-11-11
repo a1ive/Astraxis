@@ -82,11 +82,10 @@
 #        high-gain dish, six main and eight attitude thrusters, the EXI, EMIRS and EMUS instruments
 #        on one deck) and a picture; the 7.9 m span and the rest estimated. Converted by
 #        tools/shapes/make_spacecraft.py (assets/shapes/SOURCES.md).
-# [MDLT] Tianwen-1: modeled for this project from a picture of the spacecraft (the sizes estimated:
-#        a bus of about 2.65 x 2.25 x 1.35 m, the entry capsule 3.3 m across, two wings 14.1 m tip
-#        to tip, the high-gain dish on the side), the orbiter with the entry capsule until it let
-#        go of it and the orbiter alone after [SEP]. Converted by tools/shapes/make_spacecraft.py
-#        (assets/shapes/SOURCES.md).
+# [MDLT] Tianwen-1: the entry module is 3.4 m across and 2.6 m tall (Li et al. 2022, Fig. 4,
+#        doi:10.34133/2022/9753286). The orbiter bus (2.65 x 2.25 x 1.35 m) and 14.1 m wingspan
+#        are estimated from its appearance. The orbiter carries the entry module until [SEP].
+#        Converted by tools/shapes/make_spacecraft.py (assets/shapes/SOURCES.md).
 # [SEP]  People's Daily / Xinhua, "China succeeds in first Mars landing" (2021-05-15, reprinted at
 #        globalsecurity.org/space/library/news/2021/space-210515-pdo01.htm): "the entry capsule
 #        enclosing the lander and rover separated from the orbiter at about 4 a.m." Beijing time

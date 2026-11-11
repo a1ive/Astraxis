@@ -420,6 +420,7 @@
 - **BepiColombo**在 2026-09-03 从巡航组合体直接换成 MPO，中间仍带 Mio 和遮阳罩的构型未单独绘制。
 - **DART 与 LICIACube**的外观为近似。DART 使用打印模型的抛物面天线，飞行器用平板 RLSA，电池片和材质色为示意。DART 阵列朝太阳，省略撞击前的 DRACO 指向。LICIACube 的相机一直朝 Dimorphos，电池面朝黄道北，省略释放后的巡航姿态。
 - **Orion**以公开的乘员舱尺寸和翼展重建，服务舱细节、翼面排布与平面防热罩为近似。两次 Artemis 任务共用展开构型，分离时直接切到乘员舱，省略分离动画和防热罩朝前的再入姿态。
-- **ISEE-3、Suisei、Sakigake、Pioneer Venus Orbiter、Pioneer 7**用固定自旋相位和朝黄道北的自旋轴。ISEE-3 用打印散件按图装配，49 m 导线天线画成直杆。Sakigake 共用 Suisei 网格，因此载荷不同，天线也未做反自旋。Pioneer Venus Orbiter 的高增益天线角度是示意。
+- **ISEE-3**用打印散件按图装配，49 m 导线天线画成直杆。整船绕黄道北转动，采用 19.75 rpm 标称转速，起始相位为示意。快进时每秒最多转半圈。
+- **Suisei、Sakigake、Pioneer Venus Orbiter、Pioneer 7**用固定自旋相位和朝黄道北的自旋轴。Sakigake 共用 Suisei 网格，因此载荷不同，天线也未做反自旋。Pioneer Venus Orbiter 的高增益天线角度是示意。
 - **嫦娥五号 T1、天问一号、希望号和 MOM**按公开资料和图像重建。主要尺寸按可取得的资料，安装位置和背面细节多为估计。嫦娥五号 T1 只画分离后的服务舱，天问一号在 2021-05-14 20:00 UTC 直接换成无进入舱的轨道器。四者均采用电池面朝太阳的示意姿态，省略实际通信指向。Europa Clipper 也以阵列朝太阳构图，阵列额外提亮。
 - **LCROSS、CAPSTONE、Akatsuki、Hera**使用固定展开构型。前面三艘电池面朝太阳，省略实际姿态变化和 Akatsuki 主发动机损伤。Hera 的立方星释放器关闭，甲板在火星场景朝 Deimos、在 Didymos 场景朝 Didymos。滚转和背光补光为示意。
