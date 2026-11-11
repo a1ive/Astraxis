@@ -4102,7 +4102,9 @@ void test_magnetic_maps()
         for (double year : {1900.0, 1933.0, 1962.0, 1987.0, 2004.0, 2023.0, 2028.0, 2030.0}) {
             follow_magnetic_field_year(body, tdb_from_julian_year(year));
             const glm::dvec3 pole = geomagnetic_north_pole(tdb_from_julian_year(year));
-            worst_pole = std::max(worst_pole, std::acos(std::clamp(glm::dot(pole, -field.model->dipole_axis()), -1.0, 1.0)) / kDegToRad);
+            // By the cross product: the arc cosine of a dot product within a rounding error of 1
+            // is anywhere up to 1e-6 deg, whatever the vectors.
+            worst_pole = std::max(worst_pole, std::asin(std::min(glm::length(glm::cross(pole, -field.model->dipole_axis())), 1.0)) / kDegToRad);
         }
         check(worst_pole < 1e-6, "between the epochs and past the last, the dipole is the aurora's geomagnetic pole", worst_pole);
         check(std::abs(field.model->g(1, 0) - (-29350.0 + 5.0 * 12.6)) < 1e-9, "2030 is 2025 with five years of its rates", field.model->g(1, 0));
