@@ -134,5 +134,10 @@ double aurora_map_pattern(const AuroraProfile& profile, const AuroraMap& map, do
 // low-contrast glow covers the whole disk: on the visible planet it would vanish.
 double aurora_surface_gain(AuroraModel model, bool infrared);
 inline constexpr std::array<double, 3> kJovianFootprintGains{6.0, 2.0, 4.0};
+// The secondary spots relative to the main one: illustrative. The electron-beam spot is usually
+// the fainter (0.7 GW of Io's against a few; Bonfond et al. 2008), though at some longitudes as
+// bright as the main spot (Bonfond et al. 2009); the reflected one fainter still.
+inline constexpr double kJovianBeamSpotGain = 0.3;
+inline constexpr double kJovianReflectedSpotGain = 0.2;
 
 } // namespace astraxis

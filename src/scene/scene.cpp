@@ -767,6 +767,7 @@ void Scene::update(double t_tdb)
     for (Body& body : bodies) {
         if (!body.aurora.jovian) continue;
         body.jovian_footprints = {};
+        body.jovian_secondary_spots = {};
         body.jovian_moons = {};
         const glm::dmat3 to_body = glm::transpose(body_to_icrf(body, t_tdb));
         for (int moon = 0; moon < 3; ++moon) {
@@ -778,8 +779,37 @@ void Scene::update(double t_tdb)
             body.jovian_moons[static_cast<size_t>(moon)] = p;
             for (int h = 0; h < 2; ++h) {
                 body.aurora.jovian->footprint(moon, h != 0, p, body.jovian_footprints[static_cast<size_t>(2*moon+h)]);
+                body.aurora.jovian->footprint(moon, h != 0, p, body.jovian_secondary_spots[static_cast<size_t>(2*moon+h)],
+                                              JovianAurora::Spot::Beam);
+                if (moon == 0) {
+                    body.aurora.jovian->footprint(moon, h != 0, p, body.jovian_secondary_spots[static_cast<size_t>(6+h)],
+                                                  JovianAurora::Spot::Reflected);
+                }
             }
         }
+    }
+    // A moon's own field in its parent's (Ganymede): after the parent's place is known.
+    for (Body& body : bodies) {
+        BodyMagneticField& field = body.magnetic_field;
+        if (!field.ambient_from_parent || !field.model || body.parent < 0 || !field.lines_in_view) continue;
+        field.lines_in_view = false;
+        const Body& parent = bodies[static_cast<size_t>(body.parent)];
+        const auto moon = std::find(JovianAurora::kMoons.begin(), JovianAurora::kMoons.end(), body.name);
+        glm::dvec3 ambient;
+        if (!parent.aurora.jovian || moon == JovianAurora::kMoons.end() ||
+            !parent.aurora.jovian->field_at_moon(static_cast<int>(moon - JovianAurora::kMoons.begin()),
+                                                 glm::transpose(body_to_icrf(parent, t_tdb)) * (body.icrf_position - parent.icrf_position),
+                                                 ambient)) {
+            continue;
+        }
+        const glm::dmat3 model_to_icrf = body_to_icrf(body, t_tdb) * magnetic_model_to_body(body, t_tdb);
+        ambient = glm::transpose(model_to_icrf) * (body_to_icrf(parent, t_tdb) * ambient);
+        if (glm::length(ambient - field.ambient_nt) <= BodyMagneticField::kAmbientStep * glm::length(ambient)) continue;
+        const auto model = std::make_shared<MagneticField>(*field.model);
+        model->set_ambient_nt(ambient);
+        field.model = model;
+        field.ambient_nt = ambient;
+        field.lines = trace_field_lines(*model, field.line_settings);
     }
     // A pinwheel's dust: its bright inner turns (the rest fade out).
     if (pinwheel.enabled()) {

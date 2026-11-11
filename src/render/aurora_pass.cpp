@@ -48,7 +48,7 @@ struct FragmentUniforms {
     glm::vec4 south_center;
     glm::vec4 south_east;
     glm::vec4 jovian_oval[kJovianOvalPairs];
-    glm::vec4 footprints[6];
+    glm::vec4 footprints[kJovianSpots];
     glm::vec4 table[kAuroraTableVectors];
     glm::vec4 ring_radii;
     glm::vec4 map_sun;

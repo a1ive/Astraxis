@@ -10,12 +10,15 @@ integral of ds / r, so denser near the planet). The points are turned by minus t
 longitude, so that lines interpolate without cutting the corner, and each has w, the fraction
 of the Alfven wave's travel time spent by then.
 
-The travel time goes as the integral of sqrt(rho) / B: a plasma sheet, Gaussian along the line
-about its farthest point from the spin axis (the centrifugal equator). The scale height of each
-moon is the one that best gives the longitude dependence of Hue 2023's lead angles.
+The travel time goes as the integral of sqrt(rho) / B through the plasma sheet of Bagenal &
+Delamere 2011 (JGR 116, A05209): electrons n0(rho) exp(-(z / H(rho))^2) around the centrifugal
+equator (z as scene/jovian_plasma_sheet.hpp has it, after Phipps & Bagenal 2021), rho the
+distance from the spin axis. Two numbers are fitted to Hue 2023's lead angles: one factor on H
+for the three moons together, and the mass per electron of each moon.
 
-Output: a line "AXFLUXTUBE1 72 40", then little-endian float32 x, y, z (in 71492 km), w by
-moon, longitude, hemisphere (north, south) and point.
+Output: a line "AXFLUXTUBE2 72 40", then by moon: little-endian float32 x, y, z (in 71492 km),
+w by longitude, hemisphere (north, south) and point; then the field at the moon's nominal place
+at each longitude, float32 x, y, z in nT, turned like the points.
 """
 
 import hashlib
@@ -35,6 +38,8 @@ AXES = np.array(((A + HEIGHT) / A, (A + HEIGHT) / A, (B + HEIGHT) / A))
 SYNODIC_HOURS = (12.89, 11.22, 10.53)
 MU0 = 4e-7 * np.pi
 AMU = 1.66053907e-27
+# VIP4's dipole longitude, as scene/jovian_plasma_sheet.hpp.
+DIPOLE_EAST = np.radians(159.2)
 
 
 # How far the moons go from the nominal radius (fraction) and the equatorial plane (deg): their
@@ -104,14 +109,53 @@ def arc_lengths(line):
     return np.concatenate(((0.0,), np.cumsum(np.linalg.norm(np.diff(line, axis=0), axis=1))))
 
 
-def travel_integrals(line, strength, seed, height):
-    """Integral of exp(-d^2 / 2 H^2) / B ds (m / T), in RJ along the line, from the seed to each
-    point, for each hemisphere; d is along the line from the centrifugal equator."""
+def centrifugal_height(points):
+    """Height above the centrifugal equator in RJ: centrifugal_equator_height_rj of
+    scene/jovian_plasma_sheet.hpp (the tangent approximation after Phipps & Bagenal 2021)."""
+    r = np.linalg.norm(points, axis=1)
+    east = np.arctan2(points[:, 1], points[:, 0])
+    offset = np.radians((1.66 * np.tanh(0.131 * r - 1.62) + 7.76) * np.cos(east - DIPOLE_EAST))
+    return r * np.tan(np.arcsin(np.clip(points[:, 2] / r, -1.0, 1.0)) + offset)
+
+
+def sheet_electrons(rho):
+    """Electrons per cm3 on the centrifugal equator, Bagenal & Delamere 2011 (rho in RJ)."""
+    x = rho / 6.0
+    return 1987.0 * x ** -8.2 + 14.0 * x ** -3.2 + 0.05 * x ** -0.65
+
+
+def sheet_scale_height(rho):
+    """Their scale height H in RJ, of n = n0 exp(-(z / H)^2): 0.74 at Io, 1.7 at Europa, 2.8 at
+    Ganymede."""
+    x = np.log10(rho / 6.0)
+    return 10.0 ** (-0.116 + 2.14 * x - 2.05 * x ** 2 + 0.491 * x ** 3 + 0.126 * x ** 4)
+
+
+def travel_integrals(line, strength, seed, thickness):
+    """Integral of sqrt(n) / B ds (sqrt(cm^-3) m / T) from the seed to each point; n the sheet's
+    electrons with its scale height times `thickness`."""
     s = arc_lengths(line)
-    center = s[int(np.argmax(np.hypot(line[:, 0], line[:, 1])))]
-    rate = np.exp(-0.5 * ((s - center) / height) ** 2) / (strength * 1e-9)
+    rho = np.maximum(np.hypot(line[:, 0], line[:, 1]), 1.0)
+    z = centrifugal_height(line)
+    rate = np.sqrt(sheet_electrons(rho)) * np.exp(-0.5 * (z / (thickness * sheet_scale_height(rho))) ** 2) / (strength * 1e-9)
     total = np.concatenate(((0.0,), np.cumsum(0.5 * (rate[1:] + rate[:-1]) * np.diff(s) * A * 1e3)))
     return total - total[seed]
+
+
+def lead_fit(moon, lines, thickness):
+    """Hue's lead angles at the lines' longitudes (north, then south), the model's with the mass
+    per electron that fits them best, and that mass in amu."""
+    west = -(np.arange(LONGITUDES) * 360.0 / LONGITUDES) % 360.0
+    lead = np.concatenate((hue_lead_deg(moon, False, west), hue_lead_deg(moon, True, west)))
+    integrals = np.empty(2 * LONGITUDES)
+    for k, (line, strength, seed) in enumerate(lines):
+        total = travel_integrals(line, strength, seed, thickness)
+        integrals[k] = -total[0]
+        integrals[LONGITUDES + k] = total[-1]
+    scale = np.dot(lead, integrals) / np.dot(integrals, integrals)
+    # lead / 360 * P_syn = sqrt(mu0 m n) * integral, n per cm3.
+    mass = (scale * SYNODIC_HOURS[moon] * 3600.0 / 360.0) ** 2 / MU0 / AMU * 1e-6
+    return lead, scale * integrals, mass
 
 
 def hemisphere_points(line, integral, seed, south):
@@ -173,42 +217,56 @@ def main():
     jm.Internal.Config(Model="jrm33", Degree=13)
     jm.Con2020.Config(**CON)
     lons = np.arange(LONGITUDES) * 360.0 / LONGITUDES
-    payload = [f"AXFLUXTUBE1 {LONGITUDES} {POINTS}\n".encode("ascii")]
+    payload = [f"AXFLUXTUBE2 {LONGITUDES} {POINTS}\n".encode("ascii")]
     rng = np.random.default_rng(20261105)
-    for moon, (name, nominal) in enumerate(zip(MOONS, RADII)):
-        lines = trace(np.full(LONGITUDES, nominal), 0.0, lons)
+    traced = [trace(np.full(LONGITUDES, nominal), 0.0, lons) for nominal in RADII]
 
-        # The scale height that gives the shape of the lead angles against longitude.
-        west = -lons % 360.0
-        lead = np.concatenate((hue_lead_deg(moon, False, west), hue_lead_deg(moon, True, west)))
-        best = None
-        for height in np.arange(0.3, 8.01, 0.1):
-            integrals = np.empty(2 * LONGITUDES)
-            for k, (line, strength, seed) in enumerate(lines):
-                total = travel_integrals(line, strength, seed, height)
-                integrals[k] = -total[0]
-                integrals[LONGITUDES + k] = total[-1]
-            scale = np.dot(lead, integrals) / np.dot(integrals, integrals)
-            miss = np.sqrt(np.mean((scale * integrals - lead) ** 2))
-            if best is None or miss < best[0]:
-                best = (miss, height, scale, integrals)
-        miss, height, scale, integrals = best
-        # lead / 360 * P_syn = sqrt(mu0 rho) * integral
-        rho = (scale * SYNODIC_HOURS[moon] * 3600.0 / 360.0) ** 2 / MU0
-        modelled = scale * integrals
-        print(f"{name}: H = {height:.1f} RJ, lead angle rms miss {miss:.2f} deg, correlation "
+    # One thickness for the three moons: the least sum of their squared relative misses.
+    def cost(thickness):
+        total = 0.0
+        for moon in range(3):
+            lead, modelled, _ = lead_fit(moon, traced[moon], thickness)
+            total += np.mean((modelled - lead) ** 2) / np.mean(lead) ** 2
+        return total
+    candidates = np.arange(0.8, 2.51, 0.05)
+    thickness = float(candidates[int(np.argmin([cost(c) for c in candidates]))])
+    print(f"scale heights of Bagenal & Delamere 2011 times {thickness:.2f}", flush=True)
+
+    for moon, (name, nominal) in enumerate(zip(MOONS, RADII)):
+        lines = traced[moon]
+        lead, modelled, mass = lead_fit(moon, lines, thickness)
+        _, unscaled, unscaled_mass = lead_fit(moon, lines, 1.0)
+        print(f"{name}: lead angle rms miss {np.sqrt(np.mean((modelled - lead) ** 2)):.2f} deg, correlation "
               f"{np.corrcoef(lead, modelled)[0, 1]:.2f}, Hue {lead.min():.1f} .. {lead.max():.1f} deg, modelled "
-              f"{modelled.min():.1f} .. {modelled.max():.1f} deg; peak rho {rho / AMU * 1e-6:.3g} amu/cm3", flush=True)
+              f"{modelled.min():.1f} .. {modelled.max():.1f} deg; {mass:.1f} amu per electron, {sheet_electrons(nominal):.3g} "
+              f"electrons/cm3 and H = {thickness * sheet_scale_height(nominal):.2f} RJ at the moon "
+              f"(with their H unchanged: rms {np.sqrt(np.mean((unscaled - lead) ** 2)):.2f} deg, {unscaled_mass:.1f} amu)", flush=True)
 
         table = np.empty((LONGITUDES, 2, POINTS, 4))
         for k, (line, strength, seed) in enumerate(lines):
-            total = travel_integrals(line, strength, seed, height)
+            total = travel_integrals(line, strength, seed, thickness)
             turn = rotation(-np.radians(lons[k]))
             for south in (False, True):
                 points, _ = hemisphere_points(line, total, seed, south)
                 points[:, :3] = points[:, :3] @ turn.T
                 table[k, int(south)] = points
         payload.append(table.astype("<f4").tobytes())
+
+        # The field the moon sits in (nT), for its own field's surroundings (Ganymede).
+        seeds = nominal * np.column_stack((np.cos(np.radians(lons)), np.sin(np.radians(lons)), np.zeros(LONGITUDES)))
+        field = np.column_stack(jm.Internal.Field(seeds[:, 0], seeds[:, 1], seeds[:, 2])) + \
+            np.column_stack(jm.Con2020.Field(seeds[:, 0], seeds[:, 1], seeds[:, 2]))
+        strength = np.linalg.norm(field, axis=1)
+        radial = np.sum(field * seeds, axis=1) / nominal
+        print(f"  field at the moon: {strength.min():.1f} .. {strength.max():.1f} nT, Bz {field[:, 2].min():.1f} .. "
+              f"{field[:, 2].max():.1f}, radial {radial.min():.1f} .. {radial.max():.1f}", flush=True)
+        # Along the traced line at the seed, as it must be.
+        for k, (line, _, seed) in enumerate(lines):
+            along = line[seed + 1] - line[seed - 1]
+            cosine = abs(np.dot(along, field[k])) / (np.linalg.norm(along) * strength[k])
+            if cosine < 0.9999:
+                raise RuntimeError(f"field at the seed is off the traced line: {cosine}")
+        payload.append(np.stack([field[k] @ rotation(-np.radians(lons[k])).T for k in range(LONGITUDES)]).astype("<f4").tobytes())
 
         # Withheld moons where the orbit takes them, against a direct trace.
         r = nominal * (1.0 + rng.uniform(-1.0, 1.0, 60) * ORBIT_RANGE[moon][0])

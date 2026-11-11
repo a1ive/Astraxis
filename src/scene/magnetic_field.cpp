@@ -275,9 +275,9 @@ glm::dvec3 MagneticField::field_nt(const glm::dvec3& x) const
             cos_m = next_cos;
         }
     }
-    return {radial * sin_theta * cos_phi + polar * cos_theta * cos_phi - azimuthal * sin_phi,
-            radial * sin_theta * sin_phi + polar * cos_theta * sin_phi + azimuthal * cos_phi,
-            radial * cos_theta - polar * sin_theta};
+    return m_ambient + glm::dvec3(radial * sin_theta * cos_phi + polar * cos_theta * cos_phi - azimuthal * sin_phi,
+                                  radial * sin_theta * sin_phi + polar * cos_theta * sin_phi + azimuthal * cos_phi,
+                                  radial * cos_theta - polar * sin_theta);
 }
 
 double MagneticField::dipole_nt() const
@@ -348,7 +348,29 @@ std::vector<std::vector<glm::dvec4>> trace_field_lines(const MagneticField& fiel
             if (surface_level(seed, s) <= 0.0 || glm::length(seed) >= s.max_radius) {
                 continue;
             }
-            lines.push_back(trace_field_line(field, seed, s));
+            std::vector<glm::dvec4> line = trace_field_line(field, seed, s);
+            // In an ambient field a ring may lie beyond the last closed line: those lines
+            // pass the body by, and the ones that leave it are started below.
+            const auto on_surface = [&](const glm::dvec4& p) { return surface_level(glm::dvec3(p), s) < 1e-2; };
+            if (!s.open_latitudes_deg.empty() && !(on_surface(line.front()) && on_surface(line.back()))) {
+                continue;
+            }
+            lines.push_back(std::move(line));
+        }
+    }
+    for (size_t ring = 0; ring < s.open_latitudes_deg.size(); ++ring) {
+        const double latitude = s.open_latitudes_deg[ring] * kDegToRad;
+        for (int hemisphere = 0; hemisphere < 2; ++hemisphere) {
+            for (int k = 0; k < s.lines_per_shell; ++k) {
+                const double angle = kTwoPi * (k + (ring % 2 == 1 ? 0.5 : 0.0)) / s.lines_per_shell;
+                const glm::dvec3 direction = (hemisphere == 0 ? 1.0 : -1.0) * std::sin(latitude) * axis +
+                                             std::cos(latitude) * (std::cos(angle) * e1 + std::sin(angle) * e2);
+                // Just above the spheroid along that direction.
+                const double radius = 1.0 / std::sqrt((direction.x * direction.x + direction.y * direction.y) /
+                                                          (s.surface_equatorial * s.surface_equatorial) +
+                                                      direction.z * direction.z / (s.surface_polar * s.surface_polar));
+                lines.push_back(trace_field_line(field, 1.002 * radius * direction, s));
+            }
         }
     }
     return lines;

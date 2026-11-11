@@ -2044,7 +2044,11 @@ void SceneRenderer::build_magnetic_lines(const Simulation& sim, const OutputView
     for (size_t i = 0; i < scene.bodies.size(); ++i) {
         const Body& body = scene.bodies[i];
         const BodyMagneticField& field = body.magnetic_field;
-        if (!field.model || !body.visible || (only >= 0 && static_cast<int>(i) != only)) {
+        // With a moon in focus, its parent still draws the lines that reach that moon: the
+        // moon's own open lines (Ganymede's) run on into them.
+        const bool focused = only < 0 || static_cast<int>(i) == only;
+        const bool parent_of_focus = !focused && scene.bodies[static_cast<size_t>(only)].parent == static_cast<int>(i);
+        if (!field.model || !body.visible || !(focused || (parent_of_focus && show_tubes && body.aurora.jovian))) {
             continue;
         }
         const double distance = glm::length(body.world_position - cam);
@@ -2058,7 +2062,8 @@ void SceneRenderer::build_magnetic_lines(const Simulation& sim, const OutputView
         }
         // The model's axes in the display frame, scaled from radii to km.
         const glm::dmat3 axes = body.orientation * magnetic_model_to_body(body, t) * field.reference_radius_km;
-        if (show_lines) {
+        if (show_lines && focused) {
+            field.lines_in_view = true;
             for (const std::vector<glm::dvec4>& line : field.lines) {
                 m_line_points.clear();
                 for (const glm::dvec4& p : line) {
@@ -2074,7 +2079,7 @@ void SceneRenderer::build_magnetic_lines(const Simulation& sim, const OutputView
         const double fade = opacity / kMagneticLineOpacity;
         for (int moon = 0; moon < 3; ++moon) {
             const glm::dvec3& p = body.jovian_moons[static_cast<size_t>(moon)];
-            if (p == glm::dvec3(0.0)) {
+            if (p == glm::dvec3(0.0) || (parent_of_focus && scene.bodies[static_cast<size_t>(only)].name != JovianAurora::kMoons[static_cast<size_t>(moon)])) {
                 continue;
             }
             for (int wing = 0; wing < 2; ++wing) {
@@ -2351,6 +2356,13 @@ void SceneRenderer::add_aurora_items(const Simulation& sim, const OutputView& ou
             const bool active = glm::dot(p, p) > 0.5;
             spots.footprints[k] = glm::vec4(glm::vec3(p), active ? static_cast<float>(kJovianFootprintGains[k / 2]) : 0.0f);
             any = any || active;
+        }
+        // The beam spots of the three moons, then Io's reflected spots.
+        for (size_t k = 0; k < body.jovian_secondary_spots.size(); ++k) {
+            const glm::dvec3& p = body.jovian_secondary_spots[k];
+            const double gain = k < 6 ? kJovianBeamSpotGain * kJovianFootprintGains[k / 2]
+                                      : kJovianReflectedSpotGain * kJovianFootprintGains[0];
+            spots.footprints[6 + k] = glm::vec4(glm::vec3(p), glm::dot(p, p) > 0.5 ? static_cast<float>(gain) : 0.0f);
         }
         if (any) {
             m_aurora_items.push_back(a);

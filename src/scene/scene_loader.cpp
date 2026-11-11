@@ -539,6 +539,7 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
     static const TemplateFields magnetic_field = {
         {"coefficients", text}, {"coefficients_by_year", text}, {"reference_radius_km", number}, {"flip_pole", boolean},
         {"longitude_offset_deg", number}, {"prime_meridian_deg", list}, {"l_shells", list},
+        {"open_latitudes_deg", list}, {"parent_field", boolean},
         {"lines_per_shell", integer}, {"max_radius", number}, {"color", text},
     };
     static const TemplateFields magnetic_map = {{"surface", text}, {"deep", text}, {"crust", text}};
@@ -1864,6 +1865,20 @@ void Loader::parse(const toml::table& root, Scene& out)
                     }
                     settings.l_shells.push_back(*value);
                 }
+            }
+            if (const toml::array* latitudes = (*field)["open_latitudes_deg"].as_array()) {
+                for (const toml::node& latitude : *latitudes) {
+                    const auto value = latitude.value<double>();
+                    if (!value || !(*value > 0.0 && *value < 90.0)) {
+                        fail(mctx, "open_latitudes_deg must be numbers between 0 and 90");
+                    }
+                    settings.open_latitudes_deg.push_back(*value);
+                }
+            }
+            m.ambient_from_parent = (*field)["parent_field"].value<bool>().value_or(false);
+            if (m.ambient_from_parent != !settings.open_latitudes_deg.empty() || (m.ambient_from_parent && m.series)) {
+                fail(mctx, "parent_field goes with open_latitudes_deg (the lines that leave for the parent), and not with "
+                           "coefficients_by_year");
             }
             settings.lines_per_shell = (*field)["lines_per_shell"].value<int>().value_or(settings.lines_per_shell);
             if (settings.lines_per_shell < 1 || !(settings.max_radius > 1.0)) {

@@ -56,7 +56,7 @@ cbuffer Uniforms : register(b0, space3)
     float4 u_south_center;
     float4 u_south_east;
     float4 u_jovian_oval[128]; // two samples each: xy, zw = north, south planetocentric angular radius
-    float4 u_footprints[6]; // physical unit direction, illustrative display gain
+    float4 u_footprints[14]; // physical unit direction, illustrative display gain: 6 main spots, 6 beam spots, Io's 2 reflected
     float4 u_table[4]; // AuroraProfile::table, four per vector
     float4 u_ring_radii; // inner/outer km (zero disables ring attenuation)
     float4 u_map_sun; // AuroraProfile::map_sun
@@ -142,7 +142,7 @@ float footprints_pattern(float3 n, float footprint_km)
     if (abs(n.z) < 0.65) return 0.0;
     float variance = u_params.w * u_params.w + footprint_km * footprint_km / 12.0;
     float spots = 0.0;
-    for (int k = 0; k < 6; ++k) {
+    for (int k = 0; k < 14; ++k) {
         float4 spot = u_footprints[k];
         if (spot.w <= 0.0 || dot(n, spot.xyz) < 0.5) continue;
         float3 d = cross(n, spot.xyz) * u_pole.w;

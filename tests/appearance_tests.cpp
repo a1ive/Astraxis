@@ -2878,9 +2878,88 @@ void test_magnetic_field()
         check(glm::dot(axes[0], glm::normalize(away)) > 0.99, "the body's x axis faces Jupiter", glm::dot(axes[0], glm::normalize(away)));
         check(glm::dot(axes[1], glm::normalize(velocity)) < -0.99, "and its y axis the trailing side", glm::dot(axes[1], glm::normalize(velocity)));
     }
-    // The aurora lies at the edge of the closed lines (Duling 2022), but Jupiter's plasma moves
-    // that edge: the leading side's crescents are far nearer the equator (Marzok 2022). The
-    // dipole's outer shell can only match the trailing side's, and lies poleward of the leading's.
+    // Ganymede stands in Jupiter's field: the scene adds it, uniform, to the dipole. The lines
+    // near the equator close; the rest leave along Jupiter's field, where the line from the moon
+    // to its footprint goes on.
+    // The scene follows Jupiter's field only while someone draws the lines.
+    const auto follow_field = [&](double t) {
+        ganymede.magnetic_field.lines_in_view = true;
+        jupiter_scene.update(t);
+    };
+    {
+        const BodyMagneticField& field = ganymede.magnetic_field;
+        const Body& planet = jupiter_scene.bodies[static_cast<size_t>(jupiter_scene.find("Jupiter"))];
+        const double t = tdb_from_julian_year(2021.5);
+        check(field.ambient_nt == glm::dvec3(0.0) && field.lines.size() == 72, "with its lines off, Ganymede's field is left alone");
+        follow_field(t);
+        check(!field.lines_in_view, "the request lasts one update");
+        check(field.ambient_from_parent && glm::length(field.ambient_nt) > 60.0 && field.model->ambient_nt() == field.ambient_nt,
+              "Ganymede's model has Jupiter's field around it", glm::length(field.ambient_nt));
+        // The same vector as Jupiter's table gives, turned into the moon's axes.
+        glm::dvec3 table_field;
+        check(planet.aurora.jovian->field_at_moon(2, planet.jovian_moons[2], table_field), "Jupiter's table has the field at Ganymede");
+        const glm::dvec3 expected = glm::transpose(jupiter_scene.body_to_icrf(ganymede, t)) * (jupiter_scene.body_to_icrf(planet, t) * table_field);
+        check(glm::length(expected - field.ambient_nt) < 1e-9 * glm::length(expected), "it is the field of Jupiter's table there");
+        check(field.ambient_nt.z < -60.0, "mostly southward, against the dipole's field at the equator", field.ambient_nt.z);
+        // Closed lines end on the moon at both ends; open ones at max_radius, along the ambient field.
+        const auto on_surface = [](const glm::dvec4& p) { return glm::length(glm::dvec3(p)) < 1.01; };
+        int closed = 0, open = 0;
+        double farthest_closed = 0.0, worst_parallel = 1.0;
+        const glm::dvec3 ambient = glm::normalize(field.ambient_nt);
+        for (const auto& line : field.lines) {
+            if (on_surface(line.front()) && on_surface(line.back())) {
+                ++closed;
+                for (const glm::dvec4& p : line) farthest_closed = std::max(farthest_closed, glm::length(glm::dvec3(p)));
+            } else {
+                ++open;
+                const bool starts_out = !on_surface(line.front());
+                check(on_surface(line.front()) != on_surface(line.back()), "an open line has one foot on the moon");
+                const glm::dvec3 end = glm::normalize(starts_out ? glm::dvec3(line[0]) - glm::dvec3(line[1])
+                                                                  : glm::dvec3(line.back()) - glm::dvec3(line[line.size() - 2]));
+                worst_parallel = std::min(worst_parallel, std::abs(glm::dot(end, ambient)));
+            }
+        }
+        std::printf("  info: Ganymede in %.0f nT: %d closed lines out to %.2f radii, %d open ones, within %.1f deg of Jupiter's field "
+                    "at their ends\n", glm::length(field.ambient_nt), closed, farthest_closed, open,
+                    std::acos(std::min(worst_parallel, 1.0)) / kDegToRad);
+        check(open == 48 && closed >= 16 && closed <= 24, "the polar lines leave, the equatorial ones close", closed);
+        check(farthest_closed > 1.5 && farthest_closed < 2.3, "the closed lines stay within about 2 radii", farthest_closed);
+        check(worst_parallel > std::cos(12.0 * kDegToRad), "the open lines leave along Jupiter's field", worst_parallel);
+        // Jupiter's own line through the moon (the flux tube's) goes the same way.
+        std::vector<glm::dvec3> tube;
+        check(planet.aurora.jovian->flux_tube(2, false, planet.jovian_moons[2], false, tube), "Jupiter's line through Ganymede");
+        if (tube.size() > 1) {
+            const glm::dvec3 along = glm::transpose(jupiter_scene.body_to_icrf(ganymede, t)) *
+                                     (jupiter_scene.body_to_icrf(planet, t) * glm::normalize(tube[1] - tube[0]));
+            check(std::abs(glm::dot(along, ambient)) > std::cos(4.0 * kDegToRad), "runs on from the moon's open lines", glm::dot(along, ambient));
+        }
+        // The field swings as Jupiter turns: traced again after an hour, not after ten seconds.
+        const auto before = field.model;
+        follow_field(t + 10.0);
+        check(field.model == before, "ten seconds on, the same lines");
+        follow_field(t + 3600.0);
+        check(field.model != before && glm::length(field.ambient_nt - before->ambient_nt()) > 5.0, "an hour on, Jupiter's field has swung",
+              glm::length(field.ambient_nt - before->ambient_nt()));
+        // Over a turn of Jupiter the closed shells stay: none blinks out.
+        int fewest_closed = 100;
+        for (int step = 0; step < 42; ++step) {
+            follow_field(t + step * 900.0);
+            int count = 0;
+            for (const auto& line : field.lines) count += on_surface(line.front()) && on_surface(line.back()) ? 1 : 0;
+            fewest_closed = std::min(fewest_closed, count);
+        }
+        check(fewest_closed == 24, "the three closed shells are closed all the way round Jupiter's turn", fewest_closed);
+        // Tracing them again is cheap: it happens every few minutes of the moon's time.
+        const auto started = std::chrono::steady_clock::now();
+        size_t points = 0;
+        for (int i = 0; i < 20; ++i) points += trace_field_lines(*field.model, field.line_settings).size();
+        const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count() / 20.0;
+        std::printf("  info: tracing Ganymede's %zu lines takes %.2f ms\n", points / 20, ms);
+        follow_field(t);
+    }
+    // The aurora lies at the edge of the closed lines (Duling 2022), which Jupiter's plasma pushes
+    // toward the poles upstream (the trailing side) and toward the equator downstream (Marzok
+    // 2022). Without plasma the edge is the same on both sides: between the two crescents.
     if (ganymede.aurora.map) {
         const auto crescent = [&](double east_deg, int sign) {
             double best = -1.0, at = 0.0;
@@ -2893,25 +2972,45 @@ void test_magnetic_field()
             }
             return at;
         };
-        for (int sign : {-1, 1}) {
-            double foot_latitude = 0.0;
-            for (const auto& line : ganymede.magnetic_field.lines) {
-                for (const glm::dvec4& p : {line.front(), line.back()}) {
-                    foot_latitude = std::max(foot_latitude, std::asin(p.z / glm::length(glm::dvec3(p))) / kDegToRad * sign);
-                }
+        // The latitude where lines stop closing, on a meridian of the moon (body axes are the model's).
+        FieldLineSettings settings = ganymede.magnetic_field.line_settings;
+        const auto edge = [&](double east_deg, int sign) {
+            double low = 5.0, high = 85.0;
+            for (int i = 0; i < 30; ++i) {
+                const double mid = 0.5 * (low + high);
+                const double latitude = sign * mid * kDegToRad;
+                const glm::dvec3 seed = 1.002 * glm::dvec3(std::cos(latitude) * std::cos(east_deg * kDegToRad),
+                                                           std::cos(latitude) * std::sin(east_deg * kDegToRad), std::sin(latitude));
+                const auto line = trace_field_line(*ganymede.magnetic_field.model, seed, settings);
+                const bool closes = glm::length(glm::dvec3(line.front())) < 1.01 && glm::length(glm::dvec3(line.back())) < 1.01;
+                (closes ? low : high) = mid;
             }
+            return low;
+        };
+        for (int sign : {-1, 1}) {
             const double trailing = crescent(90.0, sign);
             const double leading = crescent(-90.0, sign);
-            std::printf("  info: Ganymede %s: the lines' outermost feet at %.1f deg, the aurora's crescents at %.1f (trailing), %.1f (leading)\n",
-                        sign > 0 ? "north" : "south", foot_latitude, trailing, leading);
-            check(std::abs(foot_latitude - trailing) < 15.0, "the outer lines land near the trailing crescent", foot_latitude - trailing);
-            check(foot_latitude > leading + 10.0, "and poleward of the leading one", foot_latitude - leading);
+            // Averaged over Jupiter's turn, as the map is over years.
+            double trailing_edge = 0.0, leading_edge = 0.0;
+            constexpr int kPhases = 21;
+            for (int step = 0; step < kPhases; ++step) {
+                follow_field(tdb_from_julian_year(2021.5) + step * 1800.0);
+                trailing_edge += edge(90.0, sign) / kPhases;
+                leading_edge += edge(-90.0, sign) / kPhases;
+            }
+            std::printf("  info: Ganymede %s: lines stop closing at %.1f deg (trailing), %.1f (leading); the aurora's crescents at %.1f, %.1f\n",
+                        sign > 0 ? "north" : "south", trailing_edge, leading_edge, trailing, leading);
+            for (double edge_latitude : {trailing_edge, leading_edge}) {
+                check(edge_latitude > leading - 2.0 && edge_latitude < trailing + 2.0,
+                      "the edge of the closed lines is between the leading and trailing crescents", edge_latitude);
+            }
         }
+        follow_field(tdb_from_julian_year(2021.5));
     }
 
     // The scene's lines: within their limits, cheap to draw and to make.
     const struct { const Body* body; double max_radius; } limits[] = {
-        {&uranus, 12.0}, {&neptune, 12.0}, {&saturn, 12.0}, {&earth, 8.0}, {&jupiter, 10.0}, {&mercury, 1.7}, {&ganymede, 2.5},
+        {&uranus, 12.0}, {&neptune, 12.0}, {&saturn, 12.0}, {&earth, 8.0}, {&jupiter, 10.0}, {&mercury, 1.7}, {&ganymede, 4.0},
     };
     for (const auto& limit : limits) {
         const BodyMagneticField& field = limit.body->magnetic_field;
@@ -2925,7 +3024,8 @@ void test_magnetic_field()
                 if (glm::length(glm::dvec3(p)) > limit.max_radius - 1e-6) fade_at_end = std::min(fade_at_end, p.w);
             }
         }
-        check(field.lines.size() == 24, "three shells of eight lines", static_cast<double>(field.lines.size()));
+        // Ganymede's also has the lines that leave: three latitudes in each hemisphere.
+        check(field.lines.size() == (limit.body == &ganymede ? 72u : 24u), "three shells of eight lines", static_cast<double>(field.lines.size()));
         check(points > 200 && points < 3000, "a line costs little", static_cast<double>(points));
         check(farthest <= limit.max_radius + 1e-6, "lines stop at max_radius", farthest);
         check(fade_at_end > 0.999, "where they have faded out", fade_at_end);
@@ -3686,6 +3786,39 @@ void test_flux_tubes()
     }
     check(largest_gap[2] > largest_gap[0], "Ganymede's gap is the largest", largest_gap[2] / largest_gap[0]);
 
+    // The field at the moons, from the same model (JRM33 + CON2020): along the table's lines
+    // where they start. Its strength at Ganymede, 72 to 117 nT of which 70 to 79 southward, is
+    // of the order Galileo found there (remembered from Kivelson et al. 2002, Icarus 157, 507,
+    // not checked against the paper); at Io about 2,000 nT.
+    for (int moon = 0; moon < 3; ++moon) {
+        double weakest = 1e30, strongest = 0.0, least_bz = 1e30, most_bz = -1e30, worst_alignment = 1.0;
+        for (double east = 0.0; east < 360.0; east += 2.5) {
+            const glm::dvec3 p = nominal[moon] * glm::dvec3(std::cos(east * kDegToRad), std::sin(east * kDegToRad), 0.0);
+            glm::dvec3 field;
+            check(model.field_at_moon(moon, p, field), "the table has the field at the moon");
+            weakest = std::min(weakest, glm::length(field));
+            strongest = std::max(strongest, glm::length(field));
+            least_bz = std::min(least_bz, field.z);
+            most_bz = std::max(most_bz, field.z);
+            // Jupiter's field points south at the equator: the northern line leaves against it.
+            if (model.flux_tube(moon, false, p, false, line)) {
+                worst_alignment = std::min(worst_alignment, glm::dot(glm::normalize(line[1] - line[0]), -glm::normalize(field)));
+            }
+        }
+        std::printf("  info: %s stands in %.0f .. %.0f nT, %.0f .. %.0f along the spin axis; lines leave within %.2f deg of it\n",
+                    JovianAurora::kMoons[static_cast<size_t>(moon)], weakest, strongest, least_bz, most_bz,
+                    std::acos(std::min(worst_alignment, 1.0)) / kDegToRad);
+        // By the end of the first step of the curve, a third of the way to the table's next point.
+        check(worst_alignment > std::cos(8.0 * kDegToRad), "the lines leave the moon along the field", worst_alignment);
+        if (moon == 0) check(weakest > 1700.0 && strongest < 2200.0, "Io stands in about 2,000 nT", strongest);
+        if (moon == 2) {
+            check(weakest > 60.0 && weakest < 80.0 && strongest > 105.0 && strongest < 125.0, "Ganymede in 70 to 115 nT", strongest);
+            check(least_bz > -90.0 && most_bz < -65.0, "of which 70 to 80 nT southward", least_bz);
+        }
+    }
+    glm::dvec3 none;
+    check(!model.field_at_moon(3, glm::dvec3(1.0e6, 0.0, 0.0), none) && none == glm::dvec3(0.0), "no field for another moon");
+
     // Outside the table, nothing: a trace is not extrapolated.
     const glm::dvec3 too_far(1.5 * nominal[0], 0.0, 0.0);
     check(!model.flux_tube(0, false, too_far, false, line), "no line outside the table's domain");
@@ -4236,6 +4369,97 @@ void test_jovian_footprints()
                             "[bodies.aurora]\nkp='geomag/kp.bin'\nfootprints='geomag/jupiter_footprints.txt'\n",
                             "bad_footprints", bad, &error, ASTRAXIS_ASSET_DIR),
           "terrestrial Kp cannot acquire Jovian footprints");
+    // --- The secondary spots (Bonfond et al. 2008, 2009, 2013) -------------------------------
+    using Spot = JovianAurora::Spot;
+    const auto lead_deg = [](int moon, bool south, double west_deg, Spot spot) {
+        return JovianAurora::spot_lead_angle(moon, south, west_deg * kDegToRad, spot) / kDegToRad;
+    };
+    // The beam spot is on the other hemisphere's main spot's field line, so the two hemispheres'
+    // gaps between main and beam spots are the same on the equator; the reflected wing crosses
+    // the other half of the sheet twice more.
+    bool mirrored = true;
+    double widest_gap = 0.0, farthest_reflected[2] = {0.0, 0.0};
+    for (double west = 0.0; west < 360.0; west += 1.0) {
+        for (int moon = 0; moon < 3; ++moon) {
+            const double north_gap = lead_deg(moon, false, west, Spot::Beam) - lead_deg(moon, false, west, Spot::Main);
+            const double south_gap = lead_deg(moon, true, west, Spot::Beam) - lead_deg(moon, true, west, Spot::Main);
+            mirrored = mirrored && std::abs(north_gap + south_gap) < 1e-12 &&
+                       lead_deg(moon, false, west, Spot::Beam) == lead_deg(moon, true, west, Spot::Main) &&
+                       std::abs(lead_deg(moon, false, west, Spot::Reflected) - lead_deg(moon, false, west, Spot::Main) -
+                                2.0 * lead_deg(moon, true, west, Spot::Main)) < 1e-12;
+            if (moon == 0) widest_gap = std::max(widest_gap, std::abs(north_gap));
+        }
+        for (int south = 0; south < 2; ++south) {
+            farthest_reflected[south] = std::max(farthest_reflected[south], lead_deg(0, south != 0, west, Spot::Reflected) -
+                                                                                lead_deg(0, south != 0, west, Spot::Main));
+        }
+    }
+    check(mirrored, "the beam spot's gap is equal and opposite in the two hemispheres");
+    std::printf("  info: Io's main and beam spots are up to %.2f deg apart on the equator; the reflected spot up to %.1f (north), "
+                "%.1f (south) behind the main one\n", widest_gap, farthest_reflected[0], farthest_reflected[1]);
+    // Bonfond 2008: the first two spots are at most about 4 deg apart, the third at most 12 deg
+    // behind the main one.
+    check(widest_gap > 3.5 && widest_gap < 5.5, "Io's first two spots are at most about 4 deg apart", widest_gap);
+    check(farthest_reflected[0] > 10.0 && farthest_reflected[0] < 15.0 && farthest_reflected[1] > 10.0 && farthest_reflected[1] < 15.0,
+          "its third spot at most about 12 deg behind the main one", farthest_reflected[0]);
+    // Bonfond 2008: a leading spot in the north with Io at System III longitudes 0 to 100 deg (Io
+    // south of the torus), in the south at 130 to 300 deg; elsewhere the beam spot trails.
+    bool leads_north = true, leads_south = true;
+    for (double west = 0.0; west <= 100.0; west += 5.0) {
+        leads_north = leads_north && lead_deg(0, false, west, Spot::Beam) < lead_deg(0, false, west, Spot::Main);
+    }
+    for (double west = 130.0; west <= 280.0; west += 5.0) {
+        leads_south = leads_south && lead_deg(0, true, west, Spot::Beam) < lead_deg(0, true, west, Spot::Main);
+    }
+    check(leads_north, "Io's northern beam spot leads the main one at longitudes 0 to 100 deg");
+    check(leads_south, "the southern one at 130 to 280 deg");
+    // Bonfond 2008, paragraph 10: on 2007-03-05 the southern leading spot was 3.1 deg ahead of
+    // the main one at 09:02 UT, the northern secondary spot 3.4 deg behind at 09:10.
+    // Io then, from JPL Horizons (501 from 599, ICRF, km; the scene's Io has no ephemeris for
+    // 2007): the light seen at 09:06 UT left 44.26 minutes earlier.
+    {
+        double t = 0.0;
+        check(parse_utc("2007-03-05 08:21:44", &t), "a time parses");
+        scene.update(t);
+        const Body& planet = scene.bodies[static_cast<size_t>(index)];
+        const glm::dvec3 io = glm::transpose(scene.body_to_icrf(planet, t)) * glm::dvec3(360617.0, -198069.0, -88436.0);
+        const double west = -std::atan2(io.y, io.x) / kDegToRad;
+        const double gap = lead_deg(0, false, west, Spot::Beam) - lead_deg(0, false, west, Spot::Main);
+        std::printf("  info: 2007-03-05 09:06 UT: Io at %.1f deg W; the northern beam spot %.2f deg behind the main one "
+                    "(Bonfond 2008: gaps of 3.1 and 3.4 deg)\n", wrap_two_pi(west * kDegToRad) / kDegToRad, gap);
+        // By the paper's own figure 2 the leading spot at this longitude is the northern one, as here;
+        // its example names the southern. Only the size of the gap is compared.
+        check(std::abs(gap) > 2.0 && std::abs(gap) < 5.5, "the spots of 2007-03-05 are about as far apart as observed", gap);
+        check(parse_utc("2021-06-07 18:00", &t), "a time parses");
+        scene.update(t);
+        // In the scene: unit vectors in their hemispheres, the beam spots apart from the main ones.
+        for (size_t k = 0; k < planet.jovian_secondary_spots.size(); ++k) {
+            const glm::dvec3& p = planet.jovian_secondary_spots[k];
+            check(std::abs(glm::length(p) - 1.0) < 1e-10 && (k % 2 == 0 ? p.z > 0.5 : p.z < -0.5), "the secondary spots are placed");
+        }
+        const double apart_km = std::acos(glm::dot(planet.jovian_secondary_spots[0], planet.jovian_footprints[0])) * 71492.0;
+        const double behind_km = std::acos(glm::dot(planet.jovian_secondary_spots[6], planet.jovian_footprints[0])) * 71492.0;
+        std::printf("  info: 2021-06-07 18:00: Io's northern beam spot %.0f km from the main one, the reflected one %.0f km\n", apart_km, behind_km);
+        check(apart_km < 5000.0 && behind_km > 1500.0 && behind_km < 12000.0, "Io's secondary spots are within a few thousand km of the main one", behind_km);
+    }
+    // Bonfond 2013: Ganymede's two spots are at most 4,300 km apart on the planet.
+    {
+        double widest_km = 0.0;
+        for (double east = 0.0; east < 360.0; east += 2.0) {
+            const glm::dvec3 moon = 1070400.0 * glm::dvec3(std::cos(east * kDegToRad), std::sin(east * kDegToRad), 0.0);
+            for (int south = 0; south < 2; ++south) {
+                glm::dvec3 main_spot, beam_spot;
+                check(model.footprint(2, south != 0, moon, main_spot) && model.footprint(2, south != 0, moon, beam_spot, Spot::Beam),
+                      "Ganymede's spots are in the table");
+                widest_km = std::max(widest_km, std::acos(std::min(glm::dot(main_spot, beam_spot), 1.0)) * (71492.0 + 900.0));
+            }
+        }
+        // Hue's two lead angles differ by up to 14 deg, more than the 10 deg Bonfond expected and
+        // twice what Hubble saw in 2007, over part of the longitudes.
+        std::printf("  info: Ganymede's main and beam spots are up to %.0f km apart (Bonfond 2013: 4,300 km seen)\n", widest_km);
+        check(widest_km > 4300.0 && widest_km < 9000.0, "Ganymede's two spots are thousands of km apart at most", widest_km);
+    }
+
     Scene alone;
     check(load_scene_string("name='x'\n[[bodies]]\nname='Jupiter'\ntemplate='bodies/jupiter.toml'\n",
                             "no_moons", alone, &error, ASTRAXIS_ASSET_DIR), "Jupiter template loads without satellites");
@@ -4243,6 +4467,8 @@ void test_jovian_footprints()
         alone.update(start);
         for (const auto& p : alone.bodies[0].jovian_footprints)
             check(p == glm::dvec3(0), "missing satellites leave no stale footprints");
+        for (const auto& p : alone.bodies[0].jovian_secondary_spots)
+            check(p == glm::dvec3(0), "nor secondary spots");
     }
 }
 

@@ -18,6 +18,9 @@ namespace astraxis {
 inline constexpr int kAuroraOvalSamples = 48; // AuroraEmission::kOvalSamples
 inline constexpr int kJovianOvalSamples = 256; // JovianAurora::kSamples
 inline constexpr int kJovianOvalPairs = kJovianOvalSamples / 2;
+// Spots at the moons' footprints: the main spots (Io, Europa, Ganymede; north, south), their
+// electron-beam spots in the same order, and Io's two reflected-wing spots.
+inline constexpr int kJovianSpots = 14;
 inline constexpr int kAuroraTableVectors = 4; // AuroraProfile::table
 
 struct AuroraDrawItem {
@@ -58,7 +61,7 @@ struct AuroraDrawItem {
     float pixel_angle = 0.0f;  // radians per pixel, for filtering the pattern
     std::array<glm::vec4, kAuroraOvalSamples> oval{}; // AuroraProfile::oval
     std::array<glm::vec4, kJovianOvalPairs> jovian_oval{}; // two samples each: xy, zw = north, south
-    std::array<glm::vec4, 6> footprints{}; // physical unit direction, display gain
+    std::array<glm::vec4, kJovianSpots> footprints{}; // physical unit direction, display gain
     std::array<glm::vec4, kAuroraTableVectors> table{}; // AuroraProfile::table, four per vector
     SDL_GPUTexture* map = nullptr; // BodyMap's brightness
     // Saturn is composited after the rings; each ray sample behind their

@@ -120,12 +120,37 @@ double JovianAurora::lead_angle(int moon, bool south, double west_longitude)
     return fit(x) * kDegToRad;
 }
 
-bool JovianAurora::footprint(int moon, bool south, const glm::dvec3& p, glm::dvec3& direction) const
+double JovianAurora::spot_lead_angle(int moon, bool south, double west_longitude, Spot spot)
+{
+    const double here = lead_angle(moon, south, west_longitude);
+    const double there = lead_angle(moon, !south, west_longitude);
+    return spot == Spot::Main ? here : spot == Spot::Beam ? there : here + 2.0 * there;
+}
+
+bool JovianAurora::footprint(int moon, bool south, const glm::dvec3& p, glm::dvec3& direction, Spot spot) const
 {
     // The co-rotating plasma overtakes the moon: the emitting tube leads
     // eastward, i.e. toward smaller System III WEST longitude.
     const double east = std::atan2(p.y, p.x);
-    return footprint_at(moon, south, p, east + lead_angle(moon, south, -east), direction);
+    return footprint_at(moon, south, p, east + spot_lead_angle(moon, south, -east, spot), direction);
+}
+
+bool JovianAurora::field_at_moon(int moon, const glm::dvec3& p, glm::dvec3& field_nt) const
+{
+    field_nt = glm::dvec3(0.0);
+    if (moon < 0 || moon >= 3 || moon_fields[static_cast<size_t>(moon)].empty()) return false;
+    const auto& table = moon_fields[static_cast<size_t>(moon)];
+    const double east = std::atan2(p.y, p.x);
+    const double turns = east / kTwoPi;
+    const double x = (turns - std::floor(turns)) * kTubeLongitudes;
+    const int i = static_cast<int>(std::floor(x)) % kTubeLongitudes;
+    const glm::dvec3 a(table[static_cast<size_t>(i)]);
+    const glm::dvec3 b(table[static_cast<size_t>((i + 1) % kTubeLongitudes)]);
+    // Interpolated in the moon's own frame, as the lines are.
+    const glm::dvec3 f = a + (x - std::floor(x)) * (b - a);
+    const double c = std::cos(east), s = std::sin(east);
+    field_nt = {c * f.x - s * f.y, s * f.x + c * f.y, f.z};
+    return true;
 }
 
 bool JovianAurora::instant_footprint(int moon, bool south, const glm::dvec3& p, glm::dvec3& direction) const
@@ -177,13 +202,15 @@ bool JovianAurora::load_flux_tubes(const std::filesystem::path& file, std::strin
     row.imbue(std::locale::classic());
     std::string magic;
     int longitudes = 0, points = 0;
-    if (!(row >> magic >> longitudes >> points) || magic != "AXFLUXTUBE1" || longitudes != kTubeLongitudes ||
+    if (!(row >> magic >> longitudes >> points) || magic != "AXFLUXTUBE2" || longitudes != kTubeLongitudes ||
         points != kTubePoints) {
         return failed("bad header");
     }
     std::array<std::vector<glm::vec4>, 3> tubes;
+    std::array<std::vector<glm::vec3>, 3> fields;
     const size_t count = static_cast<size_t>(kTubeLongitudes) * 2 * kTubePoints;
-    for (auto& tube : tubes) {
+    for (size_t moon = 0; moon < tubes.size(); ++moon) {
+        auto& tube = tubes[moon];
         tube.resize(count);
         const auto bytes = static_cast<std::streamsize>(count * sizeof(glm::vec4));
         input.read(reinterpret_cast<char*>(tube.data()), bytes);
@@ -194,9 +221,20 @@ bool JovianAurora::load_flux_tubes(const std::filesystem::path& file, std::strin
                 return failed("bad point");
             }
         }
+        auto& field = fields[moon];
+        field.resize(kTubeLongitudes);
+        const auto field_bytes = static_cast<std::streamsize>(field.size() * sizeof(glm::vec3));
+        input.read(reinterpret_cast<char*>(field.data()), field_bytes);
+        if (input.gcount() != field_bytes) return failed("too short");
+        for (const glm::vec3& b : field) {
+            if (!std::isfinite(b.x) || !std::isfinite(b.y) || !std::isfinite(b.z) || !(glm::length(b) > 1.0f)) {
+                return failed("bad field");
+            }
+        }
     }
     if (input.peek() != std::char_traits<char>::eof()) return failed("too long");
     flux_tubes = std::move(tubes);
+    moon_fields = std::move(fields);
     return true;
 }
 
@@ -255,10 +293,20 @@ bool JovianAurora::flux_tube(int moon, bool south, const glm::dvec3& p, bool alf
     // Far out the table's points are 2 radii apart: a Catmull-Rom curve through them, not corners.
     constexpr int kSubdivisions = 3;
     line.reserve((kTubePoints - 1) * kSubdivisions + 1);
+    // The curve leaves the moon along the field there (southward on the equator, so the
+    // northern line goes against it), not along the chord to the next point, which in the
+    // stretched field of the current sheet is up to 15 deg off: a moon's own open lines
+    // (Ganymede's) run on into it.
+    glm::dvec3 leaving(0.0);
+    if (glm::dvec3 field; field_at_moon(moon, p, field)) {
+        leaving = (south ? 1.0 : -1.0) * glm::normalize(field);
+    }
     for (size_t k = 0; k + 1 < knots.size(); ++k) {
         const glm::dvec3& a = knots[k];
         const glm::dvec3& b = knots[k + 1];
-        const glm::dvec3 before = k > 0 ? knots[k - 1] : 2.0 * a - b;
+        const glm::dvec3 before = k > 0                       ? knots[k - 1]
+                                  : leaving != glm::dvec3(0.0) ? b - 2.0 * glm::length(b - a) * leaving
+                                                               : 2.0 * a - b;
         const glm::dvec3 after = k + 2 < knots.size() ? knots[k + 2] : 2.0 * b - a;
         for (int i = 0; i < kSubdivisions; ++i) {
             const double t = static_cast<double>(i) / kSubdivisions;

@@ -30,6 +30,12 @@ public:
 
     glm::dvec3 field_nt(const glm::dvec3& position) const;
 
+    // A uniform field the body stands in (nT, in the model's frame), added to its own:
+    // Jupiter's around Ganymede. Lines near the poles then leave for good, and the closed
+    // ones stop where the two fields cancel.
+    void set_ambient_nt(const glm::dvec3& field) { m_ambient = field; }
+    const glm::dvec3& ambient_nt() const { return m_ambient; }
+
     // The dipole's strength at the equator of the reference sphere (nT), the
     // direction where its field leaves the planet, and its tilt from the model's
     // z axis (the acute angle). The offset is the center of the eccentric dipole
@@ -44,6 +50,7 @@ private:
 
     int m_degree = 0;
     std::vector<double> m_g, m_h;
+    glm::dvec3 m_ambient{0.0};
 };
 
 // A field model given at epochs (the Earth's IGRF: every 5 years): linear between them,
@@ -80,6 +87,10 @@ struct FieldLineSettings {
     double surface_equatorial = 1.0; // the spheroid they end on, z along the model's pole
     double surface_polar = 1.0;
     double tolerance = 0.003; // of the polyline
+    // Lines that leave: started on the surface at these magnetic latitudes (degrees from the
+    // dipole's equator, in both hemispheres), lines_per_shell around each. For a field with an
+    // ambient part; of the rings above only the lines that close on the body are then kept.
+    std::vector<double> open_latitudes_deg;
 };
 
 // One line through `seed`, from one end to the other: xyz in radii, w = fade
@@ -98,6 +109,17 @@ struct BodyMagneticField {
     std::shared_ptr<const MagneticFieldSeries> series;
     double model_year = 0.0;
     FieldLineSettings line_settings; // what `lines` were traced with
+    // The body stands in its parent's field (Ganymede in Jupiter's, from the parent's table of
+    // the field at its moons): Scene::update keeps the model's ambient field and the lines to
+    // it, tracing again when it has changed by kAmbientStep of its strength. ambient_nt is
+    // what the lines were traced with (model frame); zero until the first update.
+    static constexpr double kAmbientStep = 0.03;
+    bool ambient_from_parent = false;
+    glm::dvec3 ambient_nt{0.0};
+    // Set by whoever draws the lines; Scene::update follows the parent's field only for a
+    // body whose lines were drawn since the last update (a frame late when they first show),
+    // so that a scene with such a moon costs nothing while its lines are off.
+    mutable bool lines_in_view = false;
     double reference_radius_km = 1.0;
     glm::vec3 color{1.0f}; // sRGB
 

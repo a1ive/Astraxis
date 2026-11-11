@@ -499,6 +499,9 @@ struct Body {
     BodyMagnetosphere magnetosphere; // scene/magnetosphere.hpp
     // Io N/S, Europa N/S, Ganymede N/S; zero means absent/outside the table.
     std::array<glm::dvec3, 6> jovian_footprints{};
+    // Their secondary spots (JovianAurora::Spot): the electron-beam spots in the same order,
+    // then Io's reflected-wing spots N/S. Zero means absent.
+    std::array<glm::dvec3, 8> jovian_secondary_spots{};
     // Io, Europa, Ganymede in the body's axes (km); zero means absent.
     std::array<glm::dvec3, 3> jovian_moons{};
     // A moon with an aurora of its own, in its parent's axes (km): System III for Jupiter's

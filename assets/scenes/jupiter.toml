@@ -8,7 +8,16 @@
 #        Astronomy 3, 730, and Connerney et al. 2022, JGR Planets 127, e2021JE007055 (JRM33): it
 #        drifts eastward by a few cm/s, carried by zonal winds at depth; the dynamo's top near
 #        0.81 radii. The maps are JRM33 to degree 13; assets/geomag/SOURCES.md.
-# [GMAG] Weber et al. 2022, GRL 49, e2022GL098633: Ganymede's dipole from Galileo and Juno.
+# [GMAG] Weber et al. 2022, GRL 49, e2022GL098633: Ganymede's dipole from Galileo and Juno,
+#        here in Jupiter's field at the moon (72 to 117 nT in JRM33 + CON2020; bodies/ganymede.toml):
+#        closed lines out to about 2 radii, the rest joining Jupiter's field.
+# [SPOTS] Bonfond et al. 2008, GRL 35, L05107, and 2009, JGR 114, A07224: Io's footprint has
+#        up to three spots: the main one, one from electrons beamed across from the other
+#        hemisphere (ahead of the main spot in the north with Io at longitudes 0-100 deg, in
+#        the south at 130-300; at most about 4 deg from it), and one from the wave reflected
+#        at the torus' far edge (at most 12 deg behind). Bonfond et al. 2013, GRL 40, 4977: a
+#        second spot at Ganymede's too. Europa's is drawn by the same rule, not observed.
+#        geomag/SOURCES.md.
 #        Kivelson et al. 2002, Icarus 157, 507: the only moon with such a field. Duling et al.
 #        2022, GRL 49, e2022GL101688, and Greathouse et al. 2022: the aurora coincides with the
 #        boundary of closed and open field lines.
@@ -1080,9 +1089,11 @@ aurora_ultraviolet = true
 caption = """\
     Jupiter's northern aurora, shown in ultraviolet false color over the \
     visible-light clouds. The irregular oval follows the average measured \
-    by Juno-UVS over its first 54 close passes. Three moving spots mark the \
-    modeled footprints of Io, Europa and Ganymede. Their positions follow \
-    the moons and magnetic field; brightness and sizes are illustrative."""
+    by Juno-UVS over its first 54 close passes. Moving spots mark the modeled \
+    footprints of Io, Europa and Ganymede, each with a fainter companion made by \
+    electrons beamed across from the other hemisphere; Io's has a third. Their \
+    positions follow the moons and magnetic field; brightness and sizes are \
+    illustrative."""
 
 [[events]]
 name = "Jupiter's southern aurora (UV overlay)"
@@ -1192,6 +1203,7 @@ caption = """\
 [[events]]
 name = "Ganymede's own magnetic field (UV overlay)"
 magnetic_lines = true
+flux_tubes = true
 focus_orbits_only = true
 aurora_ultraviolet = true
 time_tdb = "2021-06-07 18:00"
@@ -1203,10 +1215,11 @@ distance_km = 16000.0
 warp = 30.0
 # [GMAG]
 caption = """\
-    The only moon known to make its own field holds a small magnetosphere inside Jupiter's, \
-    out to about two radii. These lines are its dipole alone, from Galileo and Juno. The \
-    aurora, in false color, marks where closed lines give way to ones that lead to Jupiter, \
-    an edge that Jupiter's plasma pushes off the simple shape drawn here."""
+    The only moon known to make its own field holds a small magnetosphere inside Jupiter's. \
+    Near the equator its lines close on the moon; from higher latitudes they leave along \
+    Jupiter's field, whose line through the moon is drawn in orange. The aurora, in false \
+    color, marks the edge between the two, which Jupiter's plasma pushes off the simple \
+    shape drawn here."""
 
 [[frames]]
 name = "Europa equator"
