@@ -119,14 +119,16 @@ def centrifugal_height(points):
 
 
 def sheet_electrons(rho):
-    """Electrons per cm3 on the centrifugal equator, Bagenal & Delamere 2011 (rho in RJ)."""
+    """Electrons per cm3 on the centrifugal equator, Bagenal & Delamere 2011, equation 1 and
+    table 1 (rho in RJ)."""
     x = rho / 6.0
     return 1987.0 * x ** -8.2 + 14.0 * x ** -3.2 + 0.05 * x ** -0.65
 
 
 def sheet_scale_height(rho):
-    """Their scale height H in RJ, of n = n0 exp(-(z / H)^2): 0.74 at Io, 1.7 at Europa, 2.8 at
-    Ganymede."""
+    """Their scale height H in RJ, of n = n0 exp(-(z / H)^2) (equations 4 and 6, table 1): 0.74
+    at Io, 1.7 at Europa, 2.8 at Ganymede. The paper prints r = log10(R) under equation 6; its
+    figure 5 (0.75 RJ at Io, 3.9 beyond 50 RJ) is of log10(R / 6)."""
     x = np.log10(rho / 6.0)
     return 10.0 ** (-0.116 + 2.14 * x - 2.05 * x ** 2 + 0.491 * x ** 3 + 0.126 * x ** 4)
 

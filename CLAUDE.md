@@ -79,7 +79,7 @@ ctest --test-dir build/linux -C Release --output-on-failure --no-tests=error
 
 ## 待办
 
-- 定期刷新地球的逐小时太阳风记录（OMNI2，现到 2026-10），评估用传播模型给外行星接入太阳风。按 Mejnertsen 2016 图 4 的两个截面给海王星磁层顶加极对日时的极尖凹陷，激波补偏轴处的变化（都需要非轴对称的面）。卫星足点补尾迹，核对 Bagenal & Delamere 2011 的密度剖面原文，给 Ganymede 的开闭边界加上下游不对称和阿尔文翼的后掠。
+- 定期刷新地球的逐小时太阳风记录（OMNI2，现到 2026-10），评估用传播模型给外行星接入太阳风。按 Mejnertsen 2016 图 4 的两个截面给海王星磁层顶加极对日时的极尖凹陷，激波补偏轴处的变化（都需要非轴对称的面）。卫星足点补尾迹，给 Ganymede 的开闭边界加上下游不对称和阿尔文翼的后掠。
 - 定期刷新 Roman、TESS、Euclid、JWST、Chandra 的预报段。随 ESA 新核更新 Hera 抵近弧和两颗小行星的位置，补 Milani、Juventas 分离后的模型和轨迹，以及撞击后的 Dimorphos 形状。
 - 按 Dyudina 2015 的旋转周期试做土星可见光亮弧，先核对 Leicester 相位表许可。等待 Callisto 空间分辨观测、Io 的 SO₂ 食中时序、Europa 更多食中图像、火星新绿线观测与高度剖面。冰巨星待补夜侧、地方时和垂直剖面的约束。
 - 补海王星暗斑伴云、GDS 形变及其他暗斑，核对 NDS-2018 的后期消退。待正式资料更新 Sincérité 的长度、光学深度和 Égalité 的演化。

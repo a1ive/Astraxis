@@ -3787,9 +3787,8 @@ void test_flux_tubes()
     check(largest_gap[2] > largest_gap[0], "Ganymede's gap is the largest", largest_gap[2] / largest_gap[0]);
 
     // The field at the moons, from the same model (JRM33 + CON2020): along the table's lines
-    // where they start. Its strength at Ganymede, 72 to 117 nT of which 70 to 79 southward, is
-    // of the order Galileo found there (remembered from Kivelson et al. 2002, Icarus 157, 507,
-    // not checked against the paper); at Io about 2,000 nT.
+    // where they start. Its strength at Ganymede is 72 to 117 nT, of which 70 to 79 southward
+    // (compared with Galileo's passes below); at Io about 2,000 nT.
     for (int moon = 0; moon < 3; ++moon) {
         double weakest = 1e30, strongest = 0.0, least_bz = 1e30, most_bz = -1e30, worst_alignment = 1.0;
         for (double east = 0.0; east < 360.0; east += 2.5) {
@@ -3816,8 +3815,41 @@ void test_flux_tubes()
             check(least_bz > -90.0 && most_bz < -65.0, "of which 70 to 80 nT southward", least_bz);
         }
     }
+    // Kivelson, Khurana & Volwerk 2002 (Icarus 157, 507), Table I: Jupiter's field around
+    // Ganymede at Galileo's six passes, from the data before and after each, in GphiO (X along
+    // the corotating flow, Y from Ganymede to Jupiter, Z along the spin axis; nT).
+    {
+        const struct { const char* pass; const char* utc; glm::dvec3 field; } passes[] = {
+            {"G1", "1996-06-27 06:29:07", {6.0, -79.0, -79.0}},  {"G2", "1996-09-06 18:59:34", {17.0, -73.0, -85.0}},
+            {"G7", "1997-04-05 07:09:58", {-3.0, 84.0, -76.0}},  {"G8", "1997-05-07 15:56:09", {-11.0, 11.0, -77.0}},
+            {"G28", "2000-05-20 10:10:10", {-7.0, 78.0, -76.0}}, {"G29", "2000-12-28 08:58:00", {-9.0, -83.0, -79.0}},
+        };
+        double worst = 0.0, sum = 0.0;
+        for (const auto& pass : passes) {
+            double t = 0.0;
+            check(parse_utc(pass.utc, &t), "a time parses");
+            scene.update(t);
+            const glm::dvec3& p = jupiter.jovian_moons[2];
+            glm::dvec3 field;
+            check(model.field_at_moon(2, p, field), "the table has the field at Ganymede");
+            const glm::dvec3 toward_jupiter = -glm::normalize(glm::dvec3(p.x, p.y, 0.0));
+            const glm::dvec3 spin(0.0, 0.0, 1.0);
+            const glm::dvec3 in_gphio(glm::dot(field, glm::cross(toward_jupiter, spin)), glm::dot(field, toward_jupiter), field.z);
+            const double miss = glm::length(in_gphio - pass.field);
+            std::printf("  info: %s: Ganymede at %.1f deg W, the model's field (%.0f, %.0f, %.0f) nT, Galileo's (%.0f, %.0f, %.0f): %.0f nT apart\n",
+                        pass.pass, wrap_two_pi(-std::atan2(p.y, p.x)) / kDegToRad, in_gphio.x, in_gphio.y, in_gphio.z, pass.field.x,
+                        pass.field.y, pass.field.z, miss);
+            worst = std::max(worst, miss);
+            sum += miss * miss;
+            check(in_gphio.y * pass.field.y > 0.0 || std::abs(pass.field.y) < 20.0, "the field leans toward or away from Jupiter as measured");
+        }
+        std::printf("  info: the model's field at Ganymede is within %.0f nT of Galileo's at the six passes, rms %.0f\n", worst,
+                    std::sqrt(sum / 6.0));
+        check(worst < 25.0, "Jupiter's field at Ganymede is as Galileo found it at its six passes", worst);
+        scene.update(wide->t_tdb);
+    }
     glm::dvec3 none;
-    check(!model.field_at_moon(3, glm::dvec3(1.0e6, 0.0, 0.0), none) && none == glm::dvec3(0.0), "no field for another moon");
+    check(!model.field_at_moon(3,glm::dvec3(1.0e6, 0.0, 0.0), none) && none == glm::dvec3(0.0), "no field for another moon");
 
     // Outside the table, nothing: a trace is not extrapolated.
     const glm::dvec3 too_far(1.5 * nominal[0], 0.0, 0.0);
