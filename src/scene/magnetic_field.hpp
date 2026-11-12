@@ -99,6 +99,21 @@ std::vector<glm::dvec4> trace_field_line(const MagneticField& field, const glm::
                                          const FieldLineSettings& settings);
 std::vector<std::vector<glm::dvec4>> trace_field_lines(const MagneticField& field, const FieldLineSettings& settings);
 
+// Geometric approximation to Ganymede's interaction with the corotating plasma. It maps
+// dipole-plus-background traces to a tilted open-closed boundary and swept Alfvén wings.
+class GanymedeInteraction {
+public:
+    // Nonzero ambient field (nT) and unit plasma flow direction, in the magnetic model's axes.
+    GanymedeInteraction(const glm::dvec3& ambient_nt, const glm::dvec3& downstream);
+    glm::dvec3 position(const glm::dvec3& point) const;
+
+private:
+    glm::dvec3 m_downstream;
+    glm::dvec3 m_field_axis;
+    glm::dvec3 m_perpendicular_mach;
+    double m_parallel_mach;
+};
+
 // A body's field and its lines ([bodies.magnetic_field] in a scene file).
 struct BodyMagneticField {
     std::shared_ptr<const MagneticField> model; // null: none

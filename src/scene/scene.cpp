@@ -815,7 +815,8 @@ void Scene::update(double t_tdb)
                                                  ambient)) {
             continue;
         }
-        const glm::dmat3 model_to_icrf = body_to_icrf(body, t_tdb) * magnetic_model_to_body(body, t_tdb);
+        const glm::dmat3 model_to_body = magnetic_model_to_body(body, t_tdb);
+        const glm::dmat3 model_to_icrf = body_to_icrf(body, t_tdb) * model_to_body;
         ambient = glm::transpose(model_to_icrf) * (body_to_icrf(parent, t_tdb) * ambient);
         if (glm::length(ambient - field.ambient_nt) <= BodyMagneticField::kAmbientStep * glm::length(ambient)) continue;
         const auto model = std::make_shared<MagneticField>(*field.model);
@@ -823,6 +824,16 @@ void Scene::update(double t_tdb)
         field.model = model;
         field.ambient_nt = ambient;
         field.lines = trace_field_lines(*model, field.line_settings);
+        if (body.name == "Ganymede") {
+            // Corotation overtakes the moon from its trailing side (+y in the body frame).
+            const glm::dvec3 downstream = -glm::transpose(model_to_body)[1];
+            const GanymedeInteraction interaction(ambient, downstream);
+            for (auto& line : field.lines) {
+                for (glm::dvec4& point : line) {
+                    point = glm::dvec4(interaction.position(glm::dvec3(point)), point.w);
+                }
+            }
+        }
     }
     // A pinwheel's dust: its bright inner turns (the rest fade out).
     if (pinwheel.enabled()) {

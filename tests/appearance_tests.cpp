@@ -2878,9 +2878,8 @@ void test_magnetic_field()
         check(glm::dot(axes[0], glm::normalize(away)) > 0.99, "the body's x axis faces Jupiter", glm::dot(axes[0], glm::normalize(away)));
         check(glm::dot(axes[1], glm::normalize(velocity)) < -0.99, "and its y axis the trailing side", glm::dot(axes[1], glm::normalize(velocity)));
     }
-    // Ganymede stands in Jupiter's field: the scene adds it, uniform, to the dipole. The lines
-    // near the equator close; the rest leave along Jupiter's field, where the line from the moon
-    // to its footprint goes on.
+    // The dipole-plus-background traces define the topology. The local plasma flow sweeps
+    // the open branches downstream in both hemispheres.
     // The scene follows Jupiter's field only while someone draws the lines.
     const auto follow_field = [&](double t) {
         ganymede.magnetic_field.lines_in_view = true;
@@ -2901,11 +2900,13 @@ void test_magnetic_field()
         const glm::dvec3 expected = glm::transpose(jupiter_scene.body_to_icrf(ganymede, t)) * (jupiter_scene.body_to_icrf(planet, t) * table_field);
         check(glm::length(expected - field.ambient_nt) < 1e-9 * glm::length(expected), "it is the field of Jupiter's table there");
         check(field.ambient_nt.z < -60.0, "mostly southward, against the dipole's field at the equator", field.ambient_nt.z);
-        // Closed lines end on the moon at both ends; open ones at max_radius, along the ambient field.
+        // Closed lines end on the moon at both ends. Open ones approach the two Alfvén characteristics.
         const auto on_surface = [](const glm::dvec4& p) { return glm::length(glm::dvec3(p)) < 1.01; };
         int closed = 0, open = 0;
-        double farthest_closed = 0.0, worst_parallel = 1.0;
+        double farthest_closed = 0.0, worst_parallel = 1.0, least_sweep = 1.0;
         const glm::dvec3 ambient = glm::normalize(field.ambient_nt);
+        const glm::dvec3 downstream(0.0, -1.0, 0.0);
+        const double alfven_speed = 2.189 * glm::length(field.ambient_nt); // km/s at 100 amu/cm^3
         for (const auto& line : field.lines) {
             if (on_surface(line.front()) && on_surface(line.back())) {
                 ++closed;
@@ -2916,22 +2917,26 @@ void test_magnetic_field()
                 check(on_surface(line.front()) != on_surface(line.back()), "an open line has one foot on the moon");
                 const glm::dvec3 end = glm::normalize(starts_out ? glm::dvec3(line[0]) - glm::dvec3(line[1])
                                                                   : glm::dvec3(line.back()) - glm::dvec3(line[line.size() - 2]));
-                worst_parallel = std::min(worst_parallel, std::abs(glm::dot(end, ambient)));
+                const double sign = glm::dot(end, ambient) < 0.0 ? -1.0 : 1.0;
+                const glm::dvec3 characteristic = glm::normalize(140.0 * downstream + sign * alfven_speed * ambient);
+                worst_parallel = std::min(worst_parallel, glm::dot(end, characteristic));
+                least_sweep = std::min(least_sweep, glm::dot(end - sign * ambient, downstream));
             }
         }
-        std::printf("  info: Ganymede in %.0f nT: %d closed lines out to %.2f radii, %d open ones, within %.1f deg of Jupiter's field "
+        std::printf("  info: Ganymede in %.0f nT: %d closed lines out to %.2f radii, %d open ones, within %.1f deg of the Alfven characteristics "
                     "at their ends\n", glm::length(field.ambient_nt), closed, farthest_closed, open,
                     std::acos(std::min(worst_parallel, 1.0)) / kDegToRad);
         check(open == 48 && closed >= 16 && closed <= 24, "the polar lines leave, the equatorial ones close", closed);
         check(farthest_closed > 1.5 && farthest_closed < 2.3, "the closed lines stay within about 2 radii", farthest_closed);
-        check(worst_parallel > std::cos(12.0 * kDegToRad), "the open lines leave along Jupiter's field", worst_parallel);
-        // Jupiter's own line through the moon (the flux tube's) goes the same way.
+        check(worst_parallel > std::cos(20.0 * kDegToRad) && least_sweep > 0.2,
+              "both wings bend downstream toward the Alfven characteristics", least_sweep);
+        // Jupiter's instantaneous flux tube follows the ambient field at the moon.
         std::vector<glm::dvec3> tube;
         check(planet.aurora.jovian->flux_tube(2, false, planet.jovian_moons[2], false, tube), "Jupiter's line through Ganymede");
         if (tube.size() > 1) {
             const glm::dvec3 along = glm::transpose(jupiter_scene.body_to_icrf(ganymede, t)) *
                                      (jupiter_scene.body_to_icrf(planet, t) * glm::normalize(tube[1] - tube[0]));
-            check(std::abs(glm::dot(along, ambient)) > std::cos(4.0 * kDegToRad), "runs on from the moon's open lines", glm::dot(along, ambient));
+            check(std::abs(glm::dot(along, ambient)) > std::cos(4.0 * kDegToRad), "it follows the ambient field", glm::dot(along, ambient));
         }
         // The field swings as Jupiter turns: traced again after an hour, not after ten seconds.
         const auto before = field.model;
@@ -2957,9 +2962,8 @@ void test_magnetic_field()
         std::printf("  info: tracing Ganymede's %zu lines takes %.2f ms\n", points / 20, ms);
         follow_field(t);
     }
-    // The aurora lies at the edge of the closed lines (Duling 2022), which Jupiter's plasma pushes
-    // toward the poles upstream (the trailing side) and toward the equator downstream (Marzok
-    // 2022). Without plasma the edge is the same on both sides: between the two crescents.
+    // Duling 2022 Table 1 gives separate latitude averages over the upstream and downstream
+    // 90-degree sectors. Its GPhiO background (-15, 24, -75) becomes (24, 15, -75) here.
     if (ganymede.aurora.map) {
         const auto crescent = [&](double east_deg, int sign) {
             double best = -1.0, at = 0.0;
@@ -2972,40 +2976,42 @@ void test_magnetic_field()
             }
             return at;
         };
-        // The latitude where lines stop closing, on a meridian of the moon (body axes are the model's).
-        FieldLineSettings settings = ganymede.magnetic_field.line_settings;
+        MagneticField flyby_field = *ganymede.magnetic_field.model;
+        flyby_field.set_ambient_nt({24.0, 15.0, -75.0});
+        const GanymedeInteraction interaction(flyby_field.ambient_nt(), {0.0, -1.0, 0.0});
+        const glm::dvec3 north = -glm::normalize(flyby_field.ambient_nt());
+        const glm::dvec3 wing = interaction.position(40.0 * north) - interaction.position(39.0 * north);
+        const double angle = std::atan2(-wing.y, wing.z) / kDegToRad;
+        check(std::abs(angle - 46.5) < 1.0, "the PJ34 northern characteristic projects to 46.5 degrees", angle);
+
+        const FieldLineSettings& settings = ganymede.magnetic_field.line_settings;
         const auto edge = [&](double east_deg, int sign) {
+            const double east = east_deg * kDegToRad;
+            const auto position = [&](double latitude) {
+                const double lat = sign * latitude * kDegToRad;
+                return 1.002 * glm::dvec3(std::cos(lat) * std::cos(east), std::cos(lat) * std::sin(east), std::sin(lat));
+            };
             double low = 5.0, high = 85.0;
-            for (int i = 0; i < 30; ++i) {
+            for (int i = 0; i < 16; ++i) {
                 const double mid = 0.5 * (low + high);
-                const double latitude = sign * mid * kDegToRad;
-                const glm::dvec3 seed = 1.002 * glm::dvec3(std::cos(latitude) * std::cos(east_deg * kDegToRad),
-                                                           std::cos(latitude) * std::sin(east_deg * kDegToRad), std::sin(latitude));
-                const auto line = trace_field_line(*ganymede.magnetic_field.model, seed, settings);
+                const auto line = trace_field_line(flyby_field, position(mid), settings);
                 const bool closes = glm::length(glm::dvec3(line.front())) < 1.01 && glm::length(glm::dvec3(line.back())) < 1.01;
                 (closes ? low : high) = mid;
             }
-            return low;
+            const glm::dvec3 p = interaction.position(position(low));
+            return std::atan2(std::abs(p.z), std::hypot(p.x, p.y)) / kDegToRad;
         };
         for (int sign : {-1, 1}) {
-            const double trailing = crescent(90.0, sign);
-            const double leading = crescent(-90.0, sign);
-            // Averaged over Jupiter's turn, as the map is over years.
-            double trailing_edge = 0.0, leading_edge = 0.0;
-            constexpr int kPhases = 21;
-            for (int step = 0; step < kPhases; ++step) {
-                follow_field(tdb_from_julian_year(2021.5) + step * 1800.0);
-                trailing_edge += edge(90.0, sign) / kPhases;
-                leading_edge += edge(-90.0, sign) / kPhases;
+            double upstream = 0.0, downstream = 0.0;
+            for (int east = 50; east <= 130; east += 10) {
+                upstream += edge(east, sign) / 9.0;
+                downstream += edge(-east, sign) / 9.0;
             }
-            std::printf("  info: Ganymede %s: lines stop closing at %.1f deg (trailing), %.1f (leading); the aurora's crescents at %.1f, %.1f\n",
-                        sign > 0 ? "north" : "south", trailing_edge, leading_edge, trailing, leading);
-            for (double edge_latitude : {trailing_edge, leading_edge}) {
-                check(edge_latitude > leading - 2.0 && edge_latitude < trailing + 2.0,
-                      "the edge of the closed lines is between the leading and trailing crescents", edge_latitude);
-            }
+            std::printf("  info: Ganymede PJ34 %s OCFB: %.1f deg upstream, %.1f downstream\n", sign > 0 ? "north" : "south", upstream, downstream);
+            check(std::abs(upstream - (sign > 0 ? 51.5 : 47.4)) < 3.0 && std::abs(downstream - (sign > 0 ? 21.2 : 24.4)) < 3.0,
+                  "the open-closed boundary follows the PJ34 upstream/downstream asymmetry", upstream - downstream);
+            check(crescent(90.0, sign) - crescent(-90.0, sign) > 20.0, "the HST crescents are farther poleward on the upstream side");
         }
-        follow_field(tdb_from_julian_year(2021.5));
     }
 
     // The scene's lines: within their limits, cheap to draw and to make.
@@ -4479,6 +4485,25 @@ void test_jovian_footprints()
             check(!model.footprint(m, h != 0, {1e7, 0, 0}, a) && a == glm::dvec3(0),
                   "out-of-domain radius suppresses footprint");
             check(!model.footprint(m, h != 0, {0, 0, radius}, a), "out-of-domain latitude suppresses footprint");
+
+            // Eastward corotation advects the wake across the System III seam.
+            const glm::dvec3 source = rotation_z(-0.01 * kDegToRad) * glm::dvec3(radius, 0.0, 0.0);
+            JovianAurora::Tail tail;
+            check(model.footprint_tail(m, h != 0, source, tail) && model.footprint(m, h != 0, source, a) &&
+                      glm::length(glm::dvec3(tail.front()) - a) < 1e-10,
+                  "the tail begins at its own main spot");
+            constexpr double kExtentDeg[] = {160.0, 56.0, 96.0};
+            const double turn = JovianAurora::lead_angle(m, h != 0, 0.01 * kDegToRad) + kExtentDeg[m] * kDegToRad;
+            check(model.instant_footprint(m, h != 0, rotation_z(turn) * source, b) &&
+                      glm::length(glm::dvec3(tail.back()) - b) < 1e-10,
+                  "the tail follows the magnetic map downstream");
+            check(tail.front().w > 0.0 && tail.back().w == 0.0, "the tail fades out at its far end");
+            for (size_t i = 1; i < tail.size(); ++i) {
+                check(tail[i].w < tail[i - 1].w && std::abs(glm::length(glm::dvec3(tail[i])) - 1.0) < 1e-10,
+                      "the tail decays along valid surface directions");
+            }
+            check(!model.footprint_tail(m, h != 0, {1e7, 0, 0}, tail) && tail.front().w == 0.0,
+                  "an absent footprint has no tail");
         }
     }
     check(std::abs(JovianAurora::lead_angle(0, false, kPi/2)/kDegToRad - 4.56) < 1e-12 &&

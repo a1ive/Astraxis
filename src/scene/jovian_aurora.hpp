@@ -2,6 +2,7 @@
 
 #include <glm/mat3x3.hpp>
 #include <glm/vec2.hpp>
+#include <glm/vec4.hpp>
 
 #include <array>
 #include <filesystem>
@@ -52,6 +53,12 @@ struct JovianAurora {
     bool footprint(int moon, bool south, const glm::dvec3& moon_body_km, glm::dvec3& direction, Spot spot = Spot::Main) const;
     // Where the field line through the moon lands now, with no lead: not the bright spot.
     bool instant_footprint(int moon, bool south, const glm::dvec3& moon_body_km, glm::dvec3& direction) const;
+
+    // The main spot and the downstream wake along its mapped track. Each point contains
+    // a unit direction and brightness relative to the main spot. False outside the table.
+    static constexpr int kTailPoints = 20;
+    using Tail = std::array<glm::dvec4, kTailPoints>;
+    bool footprint_tail(int moon, bool south, const glm::dvec3& moon_body_km, Tail& tail) const;
 
     // The lines from the moons to the 900 km spheroid, same field as the footprints, at the
     // moons' nominal radii: by moon, then longitude, hemisphere (north, south) and point. xyz

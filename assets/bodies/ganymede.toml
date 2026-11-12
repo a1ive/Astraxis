@@ -22,8 +22,9 @@ ganymede_map = "geomag/ganymede_aurora.txt"
 # The dipole of Weber et al. 2022 in Jupiter's field at the moon (JRM33 + CON2020, from
 # Jupiter's flux tube table: 72 to 117 nT, swinging toward and away from Jupiter as the
 # current sheet passes), added as a uniform field. The lines near the equator close, out to
-# where the two fields cancel near 2 radii; those from higher latitudes leave for Jupiter.
-# No plasma: the real edge is pushed in upstream and dragged out downstream. geomag/SOURCES.md.
+# where the two fields cancel near 2 radii. The drawn boundary rises on the trailing
+# side, and the open branches bend downstream. The geometry uses Duling et al. 2022,
+# Table 1 and the Alfvén characteristics. See geomag/SOURCES.md.
 [magnetic_field]
 coefficients = "geomag/field_ganymede_weber2022.txt"
 reference_radius_km = 2631.2

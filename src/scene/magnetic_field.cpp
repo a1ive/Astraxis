@@ -376,6 +376,40 @@ std::vector<std::vector<glm::dvec4>> trace_field_lines(const MagneticField& fiel
     return lines;
 }
 
+GanymedeInteraction::GanymedeInteraction(const glm::dvec3& ambient_nt, const glm::dvec3& downstream)
+    : m_downstream(downstream)
+{
+    // Duling et al. 2022, Table 1: 140 km/s and 100 amu/cm^3. v_A = |B| / sqrt(mu0 rho).
+    constexpr double kMu0 = 1.25663706212e-6;
+    constexpr double kMassDensity = 100.0 * 1.66053906660e-21; // kg/m^3
+    const double b = glm::length(ambient_nt);
+    const double alfven_speed_km_s = b * 1e-12 / std::sqrt(kMu0 * kMassDensity);
+    const glm::dvec3 mach = (140.0 / alfven_speed_km_s) * downstream;
+    m_field_axis = ambient_nt / b;
+    m_parallel_mach = glm::dot(mach, m_field_axis);
+    m_perpendicular_mach = mach - m_parallel_mach * m_field_axis;
+}
+
+glm::dvec3 GanymedeInteraction::position(const glm::dvec3& point) const
+{
+    const double r = glm::length(point);
+    glm::dvec3 p = point;
+    // Move a meridian toward the pole upstream and toward the equator downstream. The
+    // gains approximate the four sector means of the OCFB in Duling et al. 2022, Table 1.
+    const double latitude_gain = p.z >= 0.0 ? 0.74 : 0.69;
+    const double upstream = -glm::dot(p, m_downstream) / r;
+    p.z *= std::exp(latitude_gain * upstream * (1.0 - glm::smoothstep(1.0, 2.6, r)));
+    p *= r / glm::length(p);
+
+    // The shear approaches the characteristics u +/- v_A b outside the slab containing
+    // the surface. Project back to the trace radius to keep the same drawing extent.
+    const double along = glm::dot(p, m_field_axis);
+    const double height = std::max(std::abs(along) - 1.0, 0.0);
+    const double along_speed = std::max(1.0 + (along >= 0.0 ? m_parallel_mach : -m_parallel_mach), 0.1);
+    const glm::dvec3 swept = p + m_perpendicular_mach * (height * height / ((height + 0.25) * along_speed));
+    return r * glm::normalize(swept);
+}
+
 bool FieldMap::load(const std::filesystem::path& file, std::string* error)
 {
     const auto failed = [&](const std::string& what) {

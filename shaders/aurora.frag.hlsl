@@ -10,6 +10,8 @@
 
 static const int kSteps = 48;
 static const int kOvalSamples = 48;
+static const int kJovianTails = 6;
+static const int kTailPoints = 20; // JovianAurora::kTailPoints
 static const float kPi = 3.14159265;
 static const float kNoiseCells = 32.0; // lattice cells across the noise tile
 
@@ -55,7 +57,7 @@ cbuffer Uniforms : register(b0, space3)
     float4 u_oval[kOvalSamples]; // AuroraProfile::oval
     float4 u_south_center;
     float4 u_south_east;
-    float4 u_jovian_oval[128]; // two samples each: xy, zw = north, south planetocentric angular radius
+    float4 u_jovian_pattern[128]; // oval pairs or the bounds and samples of the six footprint tails
     float4 u_footprints[14]; // physical unit direction, illustrative display gain: 6 main spots, 6 beam spots, Io's 2 reflected
     float4 u_table[4]; // AuroraProfile::table, four per vector
     float4 u_ring_radii; // inner/outer km (zero disables ring attenuation)
@@ -96,7 +98,7 @@ float chapman(float h, float peak, float scale)
 // Sample i of 256 of the contours: north, south.
 float2 jovian_oval(int i)
 {
-    float4 pair = u_jovian_oval[i / 2];
+    float4 pair = u_jovian_pattern[i / 2];
     return (i & 1) != 0 ? pair.zw : pair.xy;
 }
 
@@ -135,7 +137,43 @@ float jovian_pattern(float3 n, float footprint_km)
     return band * (1.0 + local / 3.0) * detail;
 }
 
-// Spots at the moons' footprints.
+float footprint_tails(float3 n, float footprint_km)
+{
+    // A transverse Gaussian for all three wakes, based on Io's roughly 1000 km width.
+    const float sigma = 400.0;
+    float variance = sigma * sigma + footprint_km * footprint_km / 12.0;
+    float spread = 4.0 * sqrt(variance) / u_pole.w;
+    float tails = 0.0;
+    int hemisphere = n.z < 0.0 ? 1 : 0;
+    for (int k = hemisphere; k < kJovianTails; k += 2) {
+        float4 cap = u_jovian_pattern[k];
+        float3 delta = n - cap.xyz;
+        float radius = cap.w + spread;
+        if (cap.w <= 0.0 || dot(delta, delta) > radius * radius) continue;
+        int start = kJovianTails + k * kTailPoints;
+        float4 a = u_jovian_pattern[start];
+        float best = spread * spread;
+        float gain = 0.0;
+        [loop]
+        for (int i = 1; i < kTailPoints; ++i) {
+            float4 b = u_jovian_pattern[start + i];
+            float3 ab = b.xyz - a.xyz;
+            float3 offset = n - a.xyz;
+            float t = saturate(dot(offset, ab) / max(dot(ab, ab), 1e-12));
+            float3 d = offset - t * ab;
+            float distance2 = dot(d, d);
+            if (distance2 < best) {
+                best = distance2;
+                gain = lerp(a.w, b.w, t);
+            }
+            a = b;
+        }
+        tails += gain * exp(-0.5 * best * u_pole.w * u_pole.w / variance) * sigma * rsqrt(variance);
+    }
+    return tails;
+}
+
+// Spots and wakes at the moons' footprints.
 float footprints_pattern(float3 n, float footprint_km)
 {
     n = normalize(n * float3(1.0, 1.0, u_shell.z));
@@ -150,7 +188,7 @@ float footprints_pattern(float3 n, float footprint_km)
         spots += spot.w * exp(-0.5 * dot(d, d) / variance) *
                  (u_params.w * u_params.w / variance);
     }
-    return spots;
+    return spots + footprint_tails(n, footprint_km);
 }
 
 // Carbary 2012's statistical oval, in solar local time.

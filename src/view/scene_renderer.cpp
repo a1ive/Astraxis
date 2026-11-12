@@ -2348,17 +2348,30 @@ void SceneRenderer::add_aurora_items(const Simulation& sim, const OutputView& ou
         a.south_center = glm::vec3(south[2]);
         a.south_east = glm::vec3(south[0]);
         const auto& radii = body.aurora.jovian->radii;
-        for (size_t k = 0; k < a.jovian_oval.size(); ++k) {
-            a.jovian_oval[k] = glm::vec4(glm::vec2(radii[2 * k]), glm::vec2(radii[2 * k + 1]));
+        for (size_t k = 0; k < a.jovian_pattern.size(); ++k) {
+            a.jovian_pattern[k] = glm::vec4(glm::vec2(radii[2 * k]), glm::vec2(radii[2 * k + 1]));
         }
         AuroraDrawItem spots = a;
+        spots.jovian_pattern = {};
         set_profile(spots, jovian_footprint_profile());
         bool any = false;
         for (size_t k = 0; k < body.jovian_footprints.size(); ++k) {
             const glm::dvec3& p = body.jovian_footprints[k];
             const bool active = glm::dot(p, p) > 0.5;
-            spots.footprints[k] = glm::vec4(glm::vec3(p), active ? static_cast<float>(kJovianFootprintGains[k / 2]) : 0.0f);
+            const double gain = kJovianFootprintGains[k / 2];
+            spots.footprints[k] = glm::vec4(glm::vec3(p), active ? static_cast<float>(gain) : 0.0f);
             any = any || active;
+            JovianAurora::Tail tail;
+            if (!active || !body.aurora.jovian->footprint_tail(static_cast<int>(k / 2), k % 2 != 0,
+                                                             body.jovian_moons[k / 2], tail)) continue;
+            const glm::dvec3 center(tail[tail.size() / 2]);
+            double radius = 0.0;
+            for (size_t i = 0; i < tail.size(); ++i) {
+                const glm::dvec3 direction(tail[i]);
+                radius = std::max(radius, glm::length(direction - center));
+                spots.jovian_pattern[kJovianTails + k * tail.size() + i] = glm::vec4(glm::vec3(direction), static_cast<float>(gain * tail[i].w));
+            }
+            spots.jovian_pattern[k] = glm::vec4(glm::vec3(center), static_cast<float>(radius));
         }
         // The beam spots of the three moons, then Io's reflected spots.
         for (size_t k = 0; k < body.jovian_secondary_spots.size(); ++k) {

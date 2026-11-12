@@ -1,7 +1,9 @@
 #include "scene/jovian_aurora.hpp"
 
 #include "core/math.hpp"
+#include "scene/jovian_plasma_sheet.hpp"
 
+#include <glm/common.hpp>
 #include <glm/geometric.hpp>
 
 #include <algorithm>
@@ -156,6 +158,36 @@ bool JovianAurora::field_at_moon(int moon, const glm::dvec3& p, glm::dvec3& fiel
 bool JovianAurora::instant_footprint(int moon, bool south, const glm::dvec3& p, glm::dvec3& direction) const
 {
     return footprint_at(moon, south, p, std::atan2(p.y, p.x), direction);
+}
+
+bool JovianAurora::footprint_tail(int moon, bool south, const glm::dvec3& p, Tail& tail) const
+{
+    tail = {};
+    glm::dvec3 head;
+    if (!footprint(moon, south, p, head)) return false;
+
+    // Bonfond et al. 2017, sections 2 and 4.2. The Ganymede observation gives a lower
+    // bound on the visible extent. Use it as a nominal decay scale for the display.
+    constexpr double kDecayDeg[] = {40.0, 14.0, 24.0};
+    constexpr double kHeadGain[] = {0.32, 0.20, 0.22};
+    double gain = kHeadGain[moon];
+    if (moon != 0) {
+        const double x = std::log10(glm::length(p) / 71492.0);
+        // Bagenal & Delamere 2011, equation 6 and Table 1.
+        const double scale = std::pow(10.0, -0.116 + x * (2.14 + x * (-2.05 + x * (0.491 + 0.126 * x))));
+        gain *= plasma_sheet_density(centrifugal_equator_height_rj(p), scale);
+    }
+    const double east = std::atan2(p.y, p.x);
+    const double start = east + lead_angle(moon, south, -east);
+    tail.front() = glm::dvec4(head, gain);
+    for (int i = 1; i < kTailPoints; ++i) {
+        const double distance = 4.0 * i / (kTailPoints - 1);
+        glm::dvec3 direction;
+        footprint_at(moon, south, p, start + distance * kDecayDeg[moon] * kDegToRad, direction);
+        const double fade = 1.0 - glm::smoothstep(3.0, 4.0, distance);
+        tail[static_cast<size_t>(i)] = glm::dvec4(direction, gain * std::exp(-distance) * fade);
+    }
+    return true;
 }
 
 bool JovianAurora::footprint_at(int moon, bool south, const glm::dvec3& p, double east, glm::dvec3& direction) const
