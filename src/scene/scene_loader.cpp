@@ -551,7 +551,7 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
         {"color", text}, {"shock_color", text}, {"nose_ecliptic_deg", list},
         {"standoff_at_1npa", number}, {"flaring_slope", number}, {"shock_at_1npa", number},
         {"shock_compressibility", number}, {"shock_focus_radii", number}, {"center_offset_radii", list},
-        {"solar_wind", text}, {"shock_dipole_radii", number}, {"shock_dipole_reference", number},
+        {"solar_wind", text}, {"boundaries", text}, {"standoff_scale", number}, {"shock_scale", number},
     };
     static const TemplateFields rotor = {{"shape", text}, {"period_s", number}};
     static const TemplateFields shape_after = {{"shape", text}, {"time", text}, {"time_tdb", text}};
@@ -1925,17 +1925,23 @@ void Loader::parse(const toml::table& root, Scene& out)
                     get_array(*sphere, "center_offset_radii", mctx, offset, 3, 3);
                     m.center_offset_radii = glm::dvec3(offset[0], offset[1], offset[2]);
                 }
-                if (sphere->contains("shock_dipole_radii")) {
-                    m.shock_dipole_radii = get_double(*sphere, "shock_dipole_radii", mctx);
-                    m.shock_dipole_reference = get_double(*sphere, "shock_dipole_reference", mctx);
-                    if (!body.magnetic_field.model || m.shock_dipole_reference < 0.0 || m.shock_dipole_reference > 1.0) {
-                        fail(mctx, "shock_dipole_radii needs the body's magnetic_field and shock_dipole_reference within 0..1");
-                    }
-                }
                 if (!(m.flaring > 0.0) || !(m.standoff_at_1npa > 0.0 ? m.compressibility > 1.0 : m.standoff_radii > 0.0) ||
                     (m.shock_at_1npa > 0.0 && !(m.shock_compressibility > 1.0)) || m.shock_at_1npa < 0.0 ||
                     m.shock_focus_radii < 0.0) {
                     fail(mctx, "needs a positive flaring and standoff, and compressibilities above 1");
+                }
+            } else if (model == "tabulated") {
+                m.model = MagnetosphereModel::Tabulated;
+                auto table = std::make_shared<BoundaryTable>();
+                std::string error;
+                if (!table->load(m_asset_root / get_string(*sphere, "boundaries", mctx), &error)) {
+                    fail(mctx, error);
+                }
+                m.boundaries = table;
+                m.standoff_scale = get_double_or(*sphere, "standoff_scale", 1.0);
+                m.shock_scale = get_double_or(*sphere, "shock_scale", 1.0);
+                if (!body.magnetic_field.model || !(m.standoff_scale > 0.0) || !(m.shock_scale > 0.0)) {
+                    fail(mctx, "a tabulated model needs the body's magnetic_field (after it in the file) and positive scales");
                 }
             } else if (model == "heliosphere") {
                 m.model = MagnetosphereModel::Heliosphere;
@@ -1954,7 +1960,8 @@ void Loader::parse(const toml::table& root, Scene& out)
                     fail(mctx, "standoff_radii must be positive");
                 }
             } else {
-                fail(mctx, "model must be \"shue1998\", \"joy2002\", \"pressure_balance\", \"power_law\" or \"heliosphere\"");
+                fail(mctx, "model must be \"shue1998\", \"joy2002\", \"pressure_balance\", \"power_law\", \"tabulated\" or "
+                           "\"heliosphere\"");
             }
             m.radius_km = get_double_or(*sphere, "radius_km", body.equatorial_radius_km);
             m.aberration = (*sphere)["aberration"].value<bool>().value_or(false);

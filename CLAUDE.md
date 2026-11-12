@@ -52,6 +52,7 @@ ctest --test-dir build/linux -C Release --output-on-failure --no-tests=error
 - 按 SDL_GPU 的 `register`/`space` 约定绑定资源。片元纹理用 `FRAGMENT_TEXTURE` 配对纹理和采样器，输入和输出按 `TEXCOORD0`、`TEXCOORD1` 等顺序声明，系统语义照常使用。读存储缓冲区用 `ByteAddressBuffer`，与 D3D12 的 RAW SRV 对齐。SDL 的 Vulkan 后端每个 uniform 绑定限 4 KiB。用 `static_assert` 检查大小，大表用纹理或存储缓冲区。
 - D3D12 的 ImGui 后端需要 DXBC，创建设备时声明 `DXIL | DXBC`。各宿主都调用 `ImGui_ImplSDLGPU3_NewFrame()` 以初始化后端资源。全局快捷键用 `WantTextInput` 判断是否正在输入文本。
 - 随时间变的磁力线（Ganymede 叠加木星磁场）只在被画出时更新：绘制方设 `BodyMagneticField::lines_in_view`，`Scene::update` 下一帧才追踪，测试里要先设这个标志。
+- 查表的边界面（`BoundaryTable`，海王星）在四个方位的剖面之间用 `a + b cos φ + c sin φ + d cos 2φ` 相接；加新的表时四条剖面在日向上要取同一个值。
 - 磁层顶、弓激波等线框曲面走轨道线的 pass（`OrbitLinePass::add_line`），每帧由 `boundary_wireframe` 生成。画面用的太阳风经 `Scene::magnetosphere_wind` 取得，不直接读事件里的值。
 - 表面叠加图按 `body.vert.hlsl` 的行星中心纬度采样。光线和小天体的垂距用叉积求，避免两个大平方数相减。极薄的壳层先裁剪射线再积分，大面积加性光斑先画到半分辨率单采样目标再合成。
 - `SceneRenderer::render` 在检查黑洞 pass 的 `ready()` 之前更新星表资源。透镜雅可比用有限差分求，轨道线使用几何位置。修改黑洞合成时同时检查屏幕追踪、星表和立方体天空回退。
@@ -74,12 +75,12 @@ ctest --test-dir build/linux -C Release --output-on-failure --no-tests=error
 
 ### 数据核对备注
 
-- 提取 PDF 表格时用 `pdftotext -raw`，并与原页核对列和负号。Wiley、Nature、ADS 拒绝脚本抓取时，Nature 的开放获取文章可在浏览器里读正文，作者主页的 PDF 可下载后转文本，DSpace 机构仓库（如 Imperial Spiral）可从 `/server/api/core/items/<uuid>/bundles` 的 TEXT 包取全文文本（没有图）。系数印在图里时 `pdftotext` 取不到，用 PyMuPDF 把那一页渲染成图再读。曲线图先用 `page.get_drawings()` 看是不是矢量：是的话直接取路径坐标（描边常被转成填充的轮廓，颜色在 `fill` 里），例见 `tools/geomag/neptune_boundaries_fig4.py`。老文章的 ADS PDF 地址若只返回第一页，在浏览器打开 `ui.adsabs.harvard.edu/scan/manifest/<bibcode>` 查看扫描件。需要单页时，可用页面的 `/v1/accounts/bootstrap` 返回的访问令牌请求 `/v1/scan/image/iiif/2/bitmaps-~seri-~<刊>-~<卷>-~600-~<页>.000/full/1600,/0/default.jpg`。
+- 提取 PDF 表格时用 `pdftotext -raw`，并与原页核对列和负号。Wiley、Nature、ADS 拒绝脚本抓取时，Nature 的开放获取文章可在浏览器里读正文，作者主页的 PDF 可下载后转文本，DSpace 机构仓库（如 Imperial Spiral）可从 `/server/api/core/items/<uuid>/bundles` 的 TEXT 包取全文文本（没有图）。系数印在图里时 `pdftotext` 取不到，用 PyMuPDF 把那一页渲染成图再读。曲线图先用 `page.get_drawings()` 看是不是矢量：是的话直接取路径坐标（描边常被转成填充的轮廓，颜色在 `fill` 里），例见 `tools/geomag/neptune_boundaries_fig4.py`；路径里除了线段 `l` 还有贝塞尔段 `c`，两种都要沿线加密取点，只取端点会在平滑处留下大段空白。老文章的 ADS PDF 地址若只返回第一页，在浏览器打开 `ui.adsabs.harvard.edu/scan/manifest/<bibcode>` 查看扫描件。需要单页时，可用页面的 `/v1/accounts/bootstrap` 返回的访问令牌请求 `/v1/scan/image/iiif/2/bitmaps-~seri-~<刊>-~<卷>-~600-~<页>.000/full/1600,/0/default.jpg`。
 - Tiranti 2026 的 FITS 中 `INTENSITY_PROFILES` 约为 `3e-12`，按同温度和密度换算的总发射约 `4e-14 W m⁻³ sr⁻¹`。与 Melin 2025 的柱亮度差约 70 倍，因此仅用剖面形状，定标见 [冰巨星红外资料](assets/geomag/SOURCES.md)。
 
 ## 待办
 
-- 定期刷新地球的逐小时太阳风记录（OMNI2，现到 2026-10），评估用传播模型给外行星接入太阳风。按 Mejnertsen 2016 图 4 的两个截面给海王星磁层顶加极对日时的极尖凹陷，激波补偏轴处的变化（都需要非轴对称的面）。卫星足点补尾迹，给 Ganymede 的开闭边界加上下游不对称和阿尔文翼的后掠。
+- 定期刷新地球的逐小时太阳风记录（OMNI2，现到 2026-10），评估用传播模型给外行星接入太阳风。卫星足点补尾迹，给 Ganymede 的开闭边界加上下游不对称和阿尔文翼的后掠。
 - 定期刷新 Roman、TESS、Euclid、JWST、Chandra 的预报段。随 ESA 新核更新 Hera 抵近弧和两颗小行星的位置，补 Milani、Juventas 分离后的模型和轨迹，以及撞击后的 Dimorphos 形状。
 - 按 Dyudina 2015 的旋转周期试做土星可见光亮弧，先核对 Leicester 相位表许可。等待 Callisto 空间分辨观测、Io 的 SO₂ 食中时序、Europa 更多食中图像、火星新绿线观测与高度剖面。冰巨星待补夜侧、地方时和垂直剖面的约束。
 - 补海王星暗斑伴云、GDS 形变及其他暗斑，核对 NDS-2018 的后期消退。待正式资料更新 Sincérité 的长度、光学深度和 Égalité 的演化。

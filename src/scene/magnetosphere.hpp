@@ -1,6 +1,7 @@
 #pragma once
 
 #include <glm/mat3x3.hpp>
+#include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 
@@ -13,6 +14,13 @@
 
 namespace astraxis {
 
+// Azimuthal terms of a tabulated surface in solar wind axes.
+struct BoundaryAzimuth {
+    glm::dvec2 rotation{1.0, 0.0}; // cosine and sine of the turn about +x
+    double north_south = 1.0;      // +1 for the table's season, -1 for its reflection across z = 0
+    double strength = 1.0;        // 0 for the azimuthal mean at each angle from +x
+};
+
 // The solar wind upstream of a planet.
 struct SolarWind {
     double pressure_npa = 2.0;  // dynamic pressure
@@ -22,6 +30,36 @@ struct SolarWind {
     // heliosphere has no formula for them here, only these.
     double standoff_radii = 0.0;
     double shock_radii = 0.0;
+    // Tabulated: where the planet's turn has brought its dipole, 0 the table's first state
+    // (Neptune "Earth-like") .. 1 its second ("pole-on"); dipole_phase. Half: the middle of a turn.
+    double phase = 0.5;
+    BoundaryAzimuth azimuth;
+};
+
+// Surfaces known only as curves in two planes through the Sun's line, in two states of the
+// planet's turn (Neptune: Mejnertsen et al. 2016, JGR Space Physics 121, 7497, Figure 4, baked
+// by tools/geomag/neptune_boundaries_fig4.py). Each has four half profiles per state, the
+// distance against the angle from the Sun's line toward +y, +z, -y and -z; between them the
+// distance goes round as a + b cos(phi) + c sin(phi) + d cos(2 phi), the least that passes
+// through the four. Beyond the last angle a profile goes on as r (1 + cos theta)^flaring = const.
+class BoundaryTable {
+public:
+    enum Surface { Shock = 0, Magnetopause = 1 };
+
+    bool load(const std::filesystem::path& file, std::string* error);
+    // Distance to a surface along a unit direction (x toward the Sun), the two states blended.
+    double radius(Surface surface, double blend, const glm::dvec3& direction,
+                  const BoundaryAzimuth& azimuth = {}) const;
+
+private:
+    struct Profile {
+        double flaring = 0.6;
+        std::vector<double> radii; // at 0, step, 2 step ..
+    };
+    double at(const Profile& profile, double theta) const;
+
+    double m_step = 0.0;       // radians
+    Profile m_profiles[2][2][4]; // surface, state, azimuth
 };
 
 // The solar wind at the Earth hour by hour (NASA's OMNI2: King & Papitashvili 2005, JGR 110,
@@ -70,7 +108,7 @@ enum class MagnetosphereModel {
     // Fits of spacecraft crossings to Shue's shape: standoff = standoff_at_1npa
     // P^(-1 / compressibility) and flaring + flaring_slope P (Saturn: Kanani et al. 2010;
     // Mercury: Winslow et al. 2013), or a fixed standoff_radii where the pressure's part is
-    // not known (Neptune). The shock may have its own power law (Saturn: Went et al. 2011).
+    // not known. The shock may have its own power law (Saturn: Went et al. 2011).
     PowerLaw,
     // The Sun's own: the heliopause, where the solar wind meets the interstellar gas, in
     // the shape of Parker 1961 (ApJ 134, 20) for incompressible flow from a point source in
@@ -78,6 +116,10 @@ enum class MagnetosphereModel {
     // inside it the termination shock, a sphere. Sizes are given, not computed. Lengths are
     // usually in au.
     Heliosphere,
+    // Surfaces from a table (BoundaryTable), neither axisymmetric nor steady: they change with
+    // the planet's turn (Neptune, whose dipole swings toward the Sun and away every 16 hours).
+    // No dependence on the wind.
+    Tabulated,
 };
 
 // A planet's magnetosphere ([bodies.magnetosphere] in a scene file). Lengths in `radius_km`.
@@ -102,13 +144,11 @@ struct BodyMagnetosphere {
     double shock_compressibility = 0.0;
     // The shock's focus, this far up the axis from the center (Mercury).
     double shock_focus_radii = 0.0;
-    // The shock's nose moves with the planet's turn where the dipole is far from the spin
-    // axis (Neptune): out by this times (c^2 - shock_dipole_reference), c the cosine of the
-    // angle between the dipole's axis and the wind's (1: pole-on). Mejnertsen et al. 2016
-    // (JGR Space Physics 121, 7497, Figure 4): 1.5 radii farther pole-on than Earth-like. The nose
-    // is as given where c^2 is the reference. Needs the body's magnetic_field.
-    double shock_dipole_radii = 0.0;
-    double shock_dipole_reference = 0.0;
+    // Tabulated: the table, and what its distances are multiplied by (a simulation's surfaces
+    // brought to where a spacecraft met them). Needs the body's magnetic_field, for the phase.
+    std::shared_ptr<const BoundaryTable> boundaries;
+    double standoff_scale = 1.0;
+    double shock_scale = 1.0;
     // The center of both surfaces from the body's, in the axes below (Mercury's dipole is
     // north of the planet's center).
     glm::dvec3 center_offset_radii{0.0};
@@ -141,7 +181,7 @@ struct MagnetosphereState {
 // A boundary in the solar wind's axes: x upstream, z north of the orbit, y toward dusk.
 // Distances in planetary radii.
 struct BoundarySurface {
-    enum class Shape { Flared, Conic, Quadric };
+    enum class Shape { Flared, Conic, Quadric, Tabulated };
     Shape shape = Shape::Flared;
     // Flared: r = standoff (2 / (1 + cos theta))^flaring, a cylinder of tail_radius beyond
     // x = -flare_end (if set). Conic: r' = (standoff - focus) (1 + e) / (1 + e cos theta')
@@ -155,6 +195,11 @@ struct BoundarySurface {
     // Quadric: z^2 = A + B x + C x^2 + D y + E y^2 + F x y, in units of `scale` radii.
     double coefficients[6]{};
     double scale = 1.0;
+    // Tabulated: the two states and azimuthal terms of the table, times `scale`.
+    std::shared_ptr<const BoundaryTable> table;
+    BoundaryTable::Surface which = BoundaryTable::Magnetopause;
+    double blend = 0.5;
+    BoundaryAzimuth azimuth;
 
     // Distance to the surface along a unit direction; infinite where it is open.
     double radius(const glm::dvec3& direction) const;
@@ -167,9 +212,12 @@ struct BoundarySurface {
 BoundarySurface magnetopause(const BodyMagnetosphere& body, const SolarWind& wind);
 BoundarySurface bow_shock(const BodyMagnetosphere& body, const SolarWind& wind);
 
-// The mean of cos^2 of the angle between a dipole's axis and the wind's over a turn of the
-// planet: the dipole `tilt` from the spin axis, the wind's axis `wind_angle` from it (radians).
-double mean_dipole_alignment(double tilt, double wind_angle);
+// Where a planet's turn has brought its dipole, between the two phases at which the dipole
+// is in the plane of the spin axis and the wind: 1 where it is nearest the wind's line
+// (pole-on), 0 half a turn later. All unit vectors; the cosine of the angle between dipole
+// and wind goes evenly from one to the other. An aligned dipole does not turn: 1 if it is
+// nearer the wind's line than across it. The mean over a turn is one half.
+double dipole_phase(const glm::dvec3& dipole, const glm::dvec3& spin, const glm::dvec3& upstream);
 
 // The axes above (columns) in the frame of `from_sun` (the planet from the Sun) and
 // `velocity` (its heliocentric velocity, km/s). wind_speed_km_s > 0: x is where the wind

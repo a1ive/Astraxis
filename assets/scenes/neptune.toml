@@ -46,11 +46,13 @@
 # [CAI91]  Cairns et al. 1991, JGR 96, 19153: the shock as a paraboloid; its nose moved between
 #        38.5 and 34.2 radii before the crossing.
 # [MEJ16]  Mejnertsen et al. 2016, JGR Space Physics 121, 7497 (CC BY): an MHD simulation of the
-#        flyby. In its Figure 4 the shock's nose is 1.5 radii farther with the dipole toward the
-#        Sun ("pole-on") than half a turn later ("Earth-like"); Voyager 2 entered the
-#        magnetosphere near pole-on and passed closest in the Earth-like configuration. Here
-#        the shock is 34.9 radii out when Voyager 2 met it and 36.3 at the magnetopause
-#        crossing; over a turn, 34.9 to 36.7 (bodies/neptune.toml, tests/appearance_tests.cpp).
+#        flyby. Its Figure 4 has the shock and the magnetopause in two planes with the dipole
+#        toward the Sun ("pole-on") and half a turn later ("Earth-like"): pole-on the shock's
+#        nose is 1.5 radii farther and the magnetopause is dented by 3 radii on the Sun's line,
+#        the cusp. Voyager 2 entered the magnetosphere near pole-on and passed closest in the
+#        Earth-like configuration, as here (phases 0.92 and 0.01 of 0..1). The figure's curves
+#        set the shape, scaled by 1.088 and 1.007 to pass through the two crossings
+#        (bodies/neptune.toml, geomag/neptune_boundaries.txt, tests/appearance_tests.cpp).
 
 name = "Neptune"
 
@@ -285,10 +287,10 @@ warp = 1800.0
 caption = """\
     Ten hours before its closest approach, Voyager 2 met the shock ahead of Neptune, 34.9 \
     radii out (orange), and three hours later the edge of the planet's magnetic field, 26.5 \
-    radii out (blue). The surfaces are drawn through those two crossings; their shapes \
-    farther back are assumed. Neptune's magnetic axis, tilted 47 degrees, swings toward \
-    the Sun and away every 16 hours, and the shock moves out and back with it, as a \
-    simulation of the flyby suggests."""
+    radii out (blue). Neptune's magnetic axis, tilted 47 degrees, swings toward the Sun \
+    and away every 16 hours. The surfaces are those of a simulation of the flyby, drawn \
+    through the two crossings: with a magnetic pole toward the Sun the edge is dented \
+    there, and the shock stands farther."""
 
 [[events]]
 name = "Neptune's off-center magnetic field (1989-08-25)"

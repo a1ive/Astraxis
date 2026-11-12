@@ -10,6 +10,8 @@
 #include <cstring>
 #include <fstream>
 #include <iterator>
+#include <locale>
+#include <sstream>
 
 namespace astraxis {
 
@@ -162,6 +164,98 @@ double SolarWindRecord::coverage(double t0_tdb, double t1_tdb) const
     return measured / (x1 - x0);
 }
 
+bool BoundaryTable::load(const std::filesystem::path& file, std::string* error)
+{
+    const auto failed = [&](const std::string& what) {
+        if (error) {
+            *error = file.string() + ": " + what;
+        }
+        return false;
+    };
+    std::ifstream in(file);
+    if (!in) {
+        return failed("cannot open");
+    }
+    std::string line;
+    std::getline(in, line);
+    std::istringstream header(line);
+    header.imbue(std::locale::classic());
+    std::string magic;
+    double step_deg = 0.0;
+    if (!(header >> magic >> step_deg) || magic != "AXBOUNDARY1" || !(step_deg > 0.0 && step_deg <= 15.0)) {
+        return failed("not a boundary table (AXBOUNDARY1)");
+    }
+    m_step = step_deg * kDegToRad;
+    int found = 0;
+    while (std::getline(in, line)) {
+        if (line.empty() || line[0] == '#' || line[0] == '\r') {
+            continue;
+        }
+        std::istringstream row(line);
+        row.imbue(std::locale::classic());
+        std::string surface, state;
+        int azimuth = -1;
+        Profile profile;
+        if (!(row >> surface >> state >> azimuth >> profile.flaring) || (surface != "shock" && surface != "magnetopause") ||
+            (state != "earth_like" && state != "pole_on") || azimuth < 0 || azimuth > 270 || azimuth % 90 != 0 ||
+            !(profile.flaring > 0.0 && profile.flaring < 2.0)) {
+            return failed("bad line: " + line.substr(0, 40));
+        }
+        for (double r = 0.0; row >> r;) {
+            if (!(r > 0.0)) {
+                return failed("distances must be positive");
+            }
+            profile.radii.push_back(r);
+        }
+        Profile& slot = m_profiles[surface == "shock" ? Shock : Magnetopause][state == "pole_on" ? 1 : 0][azimuth / 90];
+        if (profile.radii.size() < 4 || !slot.radii.empty()) {
+            return failed("a profile is too short or given twice");
+        }
+        slot = std::move(profile);
+        ++found;
+    }
+    if (found != 16) {
+        return failed("needs the shock and the magnetopause in two states at four azimuths");
+    }
+    return true;
+}
+
+double BoundaryTable::at(const Profile& profile, double theta) const
+{
+    const double x = theta / m_step;
+    const size_t last = profile.radii.size() - 1;
+    if (x < static_cast<double>(last)) {
+        const size_t i = static_cast<size_t>(x);
+        return profile.radii[i] + (x - static_cast<double>(i)) * (profile.radii[i + 1] - profile.radii[i]);
+    }
+    const double facing = 1.0 + std::cos(theta);
+    if (!(facing > 1e-9)) {
+        return kInfinity;
+    }
+    return profile.radii[last] * std::pow((1.0 + std::cos(static_cast<double>(last) * m_step)) / facing, profile.flaring);
+}
+
+double BoundaryTable::radius(Surface surface, double blend, const glm::dvec3& d,
+                             const BoundaryAzimuth& azimuth) const
+{
+    const double theta = std::acos(std::clamp(d.x, -1.0, 1.0));
+    double r[4];
+    for (int k = 0; k < 4; ++k) {
+        r[k] = glm::mix(at(m_profiles[surface][0][k], theta), at(m_profiles[surface][1][k], theta), blend);
+    }
+    if (!std::isfinite(r[0] + r[1] + r[2] + r[3])) {
+        return kInfinity;
+    }
+    // Evaluate the harmonics at the azimuth before rotation, then reflect their north-south term.
+    const double across = std::hypot(d.y, d.z);
+    const double c = across > 1e-12 ? (azimuth.rotation.x * d.y + azimuth.rotation.y * d.z) / across : 1.0;
+    const double s = across > 1e-12 ? (azimuth.rotation.x * d.z - azimuth.rotation.y * d.y) / across : 0.0;
+    const double mean = 0.25 * (r[0] + r[1] + r[2] + r[3]);
+    const double variation = 0.5 * (r[0] - r[2]) * c + 0.5 * (r[1] - r[3]) * azimuth.north_south * s +
+                             0.25 * (r[0] - r[1] + r[2] - r[3]) * (c * c - s * s);
+    return mean + azimuth.strength * variation;
+}
+
 double BodyMagnetosphere::pressure_for_standoff(double radii) const
 {
     return surface_field_nt * surface_field_nt * kMagneticPressureNpaPerNt2 / std::pow(radii, compressibility);
@@ -207,6 +301,8 @@ double BoundarySurface::radius(const glm::dvec3& d) const
         }
         return kInfinity;
     }
+    case Shape::Tabulated:
+        return table ? scale * table->radius(which, blend, d, azimuth) : kInfinity;
     case Shape::Quadric: {
         // a r^2 + b r + A = 0 along the direction, with A > 0: the positive root nearest the planet.
         const double* c = coefficients;
@@ -248,6 +344,15 @@ BoundarySurface magnetopause(const BodyMagnetosphere& body, const SolarWind& win
     switch (body.model) {
     case MagnetosphereModel::Joy2002:
         return joy_surface(kJoyMagnetopause, pressure);
+    case MagnetosphereModel::Tabulated:
+        s.shape = BoundarySurface::Shape::Tabulated;
+        s.table = body.boundaries;
+        s.which = BoundaryTable::Magnetopause;
+        s.blend = wind.phase;
+        s.azimuth = wind.azimuth;
+        s.scale = body.standoff_scale;
+        s.standoff = s.nose();
+        return s;
     case MagnetosphereModel::Shue1998:
         // Shue et al. 1998, equations 10 and 11.
         s.standoff = (10.22 + 1.29 * std::tanh(0.184 * (wind.bz_nt + 8.14))) * std::pow(pressure, -1.0 / 6.6);
@@ -283,6 +388,17 @@ BoundarySurface bow_shock(const BodyMagnetosphere& body, const SolarWind& wind)
         return joy_surface(kJoyBowShock, wind.pressure_npa);
     }
     BoundarySurface s;
+    if (body.model == MagnetosphereModel::Tabulated) {
+        s.shape = BoundarySurface::Shape::Tabulated;
+        s.table = body.boundaries;
+        s.which = BoundaryTable::Shock;
+        s.blend = wind.phase;
+        // The simulated shock's flaring also reflects the IMF. Keep its azimuth in NSO.
+        s.azimuth.north_south = wind.azimuth.north_south;
+        s.scale = body.shock_scale;
+        s.standoff = s.nose();
+        return s;
+    }
     s.shape = BoundarySurface::Shape::Conic;
     const bool given = body.model == MagnetosphereModel::Heliosphere || body.model == MagnetosphereModel::PowerLaw;
     if (given && wind.shock_radii > 0.0) {
@@ -297,12 +413,17 @@ BoundarySurface bow_shock(const BodyMagnetosphere& body, const SolarWind& wind)
     return s;
 }
 
-double mean_dipole_alignment(double tilt, double wind_angle)
+double dipole_phase(const glm::dvec3& dipole, const glm::dvec3& spin, const glm::dvec3& upstream)
 {
-    // c = cos tilt cos beta + sin tilt sin beta cos(phase), averaged over the phase.
-    const double along = std::cos(tilt) * std::cos(wind_angle);
-    const double across = std::sin(tilt) * std::sin(wind_angle);
-    return along * along + 0.5 * across * across;
+    // The cosine between dipole and wind is `along` + `across` cos(turn): pole-on is the end
+    // of that range farther from zero.
+    const double along = glm::dot(dipole, spin) * glm::dot(upstream, spin);
+    const double across = std::sqrt(std::max((1.0 - std::pow(glm::dot(dipole, spin), 2.0)) * (1.0 - std::pow(glm::dot(upstream, spin), 2.0)), 0.0));
+    const double cosine = (along < 0.0 ? -1.0 : 1.0) * glm::dot(dipole, upstream);
+    if (across < 1e-9) {
+        return std::abs(cosine) > std::sqrt(0.5) ? 1.0 : 0.0;
+    }
+    return std::clamp((cosine - (std::abs(along) - across)) / (2.0 * across), 0.0, 1.0);
 }
 
 glm::dmat3 solar_wind_axes(const glm::dvec3& from_sun, const glm::dvec3& velocity, double wind_speed_km_s)

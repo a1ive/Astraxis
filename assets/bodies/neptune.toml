@@ -66,25 +66,20 @@ neptune_map = "geomag/neptune_h3p.txt"
 coefficients = "geomag/field_neptune_o8.txt"
 reference_radius_km = 24765.0
 prime_meridian_deg = [253.18, 536.3128492] # [NLS]
-# Where Voyager 2 met them in 1989: the magnetopause 26.5 radii out and the bow shock 34.9,
-# near the line to the Sun (Ness et al. 1989, Science 246, 1473). The shock a parabola, as
-# Cairns et al. 1991 (JGR 96, 19153) fitted; the magnetopause's flaring is assumed. No
-# dependence on the solar wind: one pass. The shock's nose follows the planet's turn
-# (Mejnertsen et al. 2016, JGR Space Physics 121, 7497, an MHD simulation; its Figure 4 has
-# the nose 32.75 radii out with the dipole toward the Sun, "pole-on", and 31.25 half a turn
-# later, "Earth-like": 1.5 radii, where the text says "roughly 4"):
-# 2.08 radii per unit of cos^2 of the angle between the dipole and the Sun's line, which was
-# 0.88 and 0.16 at those two phases in 1989 and 0.004 when Voyager 2 met the shock
-# (tests/appearance_tests.cpp). geomag/SOURCES.md.
+# The magnetopause and bow shock of an MHD simulation of Voyager 2's flyby (Mejnertsen et al.
+# 2016, JGR Space Physics 121, 7497, CC BY 4.0; its Figure 4, geomag/neptune_boundaries.txt):
+# their cuts in two planes with the dipole toward the Sun ("pole-on") and half a turn later
+# ("Earth-like"), joined round the Sun's line and blended by where the planet's turn has the
+# dipole. The magnetopause's dent turns with the dipole around the Sun's line. Both surfaces
+# reflect across the orbital plane in the opposite season. Each is scaled to pass through
+# where Voyager 2 met it (Ness et al. 1989, Science 246, 1473, at 34.9 and 26.5 radii).
+# The profiles use the weak solar wind of the flyby for all dates. See geomag/SOURCES.md.
 [magnetosphere]
-model = "power_law"
+model = "tabulated"
+boundaries = "geomag/neptune_boundaries.txt"
 radius_km = 24765.0
-standoff_radii = 26.5
-flaring = 0.6
-shock_standoff_ratio = 1.317               # 34.9 / 26.5
-shock_eccentricity = 1.0
-shock_dipole_radii = 2.08
-shock_dipole_reference = 0.004
+standoff_scale = 1.0074
+shock_scale = 1.0877
 tail_radii = 80.0
 [magnetic_map]                      # O8 on the surface, in NLS (it turns against these axes)
 surface = "geomag/neptune_br.fieldmap"

@@ -932,9 +932,9 @@ public:
     glm::dmat3 magnetosphere_axes(int body, double t_tdb, const SolarWind& wind) const;
     // The wind a state is drawn under at a time: its own, or the body's record of the hour
     // (averaged over kSolarWindWindowSeconds of screen time at the clock's `warp`, an hour
-    // at least, so that the surfaces swell and shrink rather than flicker). Where the shock
-    // follows the planet's turn (shock_dipole_radii) and the state gives no shock, its nose
-    // is in shock_radii; turning too fast to follow, at its mean over a turn.
+    // at least, so that the surfaces swell and shrink rather than flicker). Where the
+    // surfaces follow the planet's turn (a tabulated model), `phase` is where the dipole is
+    // now; turning too fast to follow, the middle of a turn.
     static constexpr double kSolarWindWindowSeconds = 1.5;
     SolarWind magnetosphere_wind(const MagnetosphereState& state, double t_tdb, double warp) const;
     // GM of the sun: the Star body's, or the Sun's in a scene centered on a planet.

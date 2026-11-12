@@ -3508,92 +3508,227 @@ void test_magnetospheres()
         }
     }
 
-    // --- Neptune: Voyager 2's crossings ----------------------------------------------------
+    // --- Neptune: Voyager 2's crossings and the surfaces of Mejnertsen et al. 2016 ---------
     Scene neptune_scene = load_scene_or_die("neptune.toml");
     const BodyMagnetosphere& neptune = neptune_scene.bodies[static_cast<size_t>(neptune_scene.find("Neptune"))].magnetosphere;
     {
-        check(neptune.model == MagnetosphereModel::PowerLaw, "Neptune's surfaces are of a given size");
+        check(neptune.model == MagnetosphereModel::Tabulated && neptune.boundaries != nullptr, "Neptune's surfaces are from a table");
+        if (!neptune.boundaries) return;
+        const BoundaryTable& table = *neptune.boundaries;
+        // The table is Figure 4 of the paper (tools/geomag/neptune_boundaries_fig4.py): on the
+        // Sun's line the shock at 31.25 radii Earth-like and 32.75 pole-on, the magnetopause at
+        // 26.3 and 23.3 to 23.5 (the cusp's dent), in both of its planes.
+        const glm::dvec3 sunward(1.0, 0.0, 0.0);
+        check(std::abs(table.radius(BoundaryTable::Shock, 0.0, sunward) - 31.25) < 0.15 &&
+                  std::abs(table.radius(BoundaryTable::Shock, 1.0, sunward) - 32.75) < 0.15,
+              "the simulated shock's nose: 31.25 radii Earth-like, 32.75 pole-on", table.radius(BoundaryTable::Shock, 1.0, sunward));
+        check(std::abs(table.radius(BoundaryTable::Magnetopause, 0.0, sunward) - 26.26) < 0.15 &&
+                  std::abs(table.radius(BoundaryTable::Magnetopause, 1.0, sunward) - 23.35) < 0.25,
+              "the magnetopause's: 26.3 radii Earth-like, 23.3 pole-on", table.radius(BoundaryTable::Magnetopause, 1.0, sunward));
+        // The figure's curves where they cross lines across the Sun's: x at +-10 and +-20 radii
+        // across, which the tool prints straight from the outlines (its `crossing`; the table's
+        // profiles are binned by angle, smoothed and joined round the Sun's line).
+        const BoundaryTable::Surface bs = BoundaryTable::Shock, mp = BoundaryTable::Magnetopause;
+        const struct { BoundaryTable::Surface surface; double state; bool along_z; double across; double x; } read[] = {
+            {bs, 0.0, false, -20.0, 27.96}, {bs, 0.0, false, -10.0, 30.61}, {bs, 0.0, false, 10.0, 29.97}, {bs, 0.0, false, 20.0, 26.49},
+            {bs, 0.0, true, -20.0, 27.11},  {bs, 0.0, true, -10.0, 30.50},  {bs, 0.0, true, 10.0, 29.30},  {bs, 0.0, true, 20.0, 24.84},
+            {bs, 1.0, false, -20.0, 30.50}, {bs, 1.0, false, -10.0, 32.43}, {bs, 1.0, false, 10.0, 32.19}, {bs, 1.0, false, 20.0, 30.22},
+            {bs, 1.0, true, -20.0, 30.79},  {bs, 1.0, true, -10.0, 32.52},  {bs, 1.0, true, 10.0, 32.17},  {bs, 1.0, true, 20.0, 29.96},
+            {mp, 0.0, false, -20.0, 21.46}, {mp, 0.0, false, 20.0, 21.06},  {mp, 0.0, true, -20.0, 18.58}, {mp, 0.0, true, -10.0, 24.81},
+            {mp, 0.0, true, 10.0, 22.70},   {mp, 1.0, false, -20.0, 18.62}, {mp, 1.0, false, -10.0, 21.65}, {mp, 1.0, false, 10.0, 24.74},
+            {mp, 1.0, false, 20.0, 24.45},  {mp, 1.0, true, -10.0, 22.70},  {mp, 1.0, true, 10.0, 26.76},  {mp, 1.0, true, 20.0, 21.19},
+        };
+        double worst_read = 0.0;
+        for (const auto& point : read) {
+            const glm::dvec3 p = point.along_z ? glm::dvec3(point.x, 0.0, point.across) : glm::dvec3(point.x, point.across, 0.0);
+            const double miss = table.radius(point.surface, point.state, glm::normalize(p)) - glm::length(p);
+            if (std::abs(miss) > 0.5) std::printf("  info: Neptune's table is %.2f Rn off the figure at (%.1f, %.1f)\n", miss, point.x, point.across);
+            worst_read = std::max(worst_read, std::abs(miss));
+        }
+        check(worst_read < 0.6, "the table has the figure's curves off the Sun's line too", worst_read);
+        // Pole-on, the magnetopause is dented on the Sun's line: farthest sunward 10 radii north.
+        {
+            double best_x = 0.0, best_z = 0.0;
+            for (double angle = -40.0; angle <= 40.0; angle += 0.5) {
+                const glm::dvec3 d(std::cos(angle * kDegToRad), 0.0, std::sin(angle * kDegToRad));
+                const double r = table.radius(BoundaryTable::Magnetopause, 1.0, d);
+                if (r * d.x > best_x) {
+                    best_x = r * d.x;
+                    best_z = r * d.z;
+                }
+            }
+            std::printf("  info: Neptune's pole-on magnetopause reaches farthest sunward at x = %.2f, z = %.2f (figure: 27.0, 9.9)\n", best_x, best_z);
+            check(std::abs(best_x - 27.0) < 0.6 && std::abs(best_z - 9.9) < 2.5, "pole-on, the magnetopause reaches farthest sunward 10 radii north", best_z);
+        }
+        // Between the four profiles the surface goes round smoothly, and through each of them.
+        {
+            double largest_step = 0.0;
+            for (double theta : {20.0, 50.0, 80.0, 110.0}) {
+                double before = 0.0;
+                for (int k = 0; k <= 360; ++k) {
+                    const double phi = k * kDegToRad;
+                    const glm::dvec3 d(std::cos(theta * kDegToRad), std::sin(theta * kDegToRad) * std::cos(phi),
+                                       std::sin(theta * kDegToRad) * std::sin(phi));
+                    const double r = table.radius(BoundaryTable::Magnetopause, 0.3, d);
+                    check(std::isfinite(r) && r > 15.0, "the tabulated surface is closed around the Sun's line");
+                    if (k > 0) largest_step = std::max(largest_step, std::abs(r - before));
+                    before = r;
+                }
+            }
+            check(largest_step < 0.5, "and smooth round it", largest_step);
+            check(!std::isfinite(table.radius(BoundaryTable::Shock, 0.5, {-1.0, 0.0, 0.0})), "and open down the tail");
+        }
+        // Whatever the wind: one simulation, under the wind Voyager 2 met.
         const BoundarySurface pause = magnetopause(neptune, neptune.typical);
-        const BoundarySurface shock = bow_shock(neptune, neptune.typical);
-        check(std::abs(pause.nose() - 26.5) < 1e-9 && std::abs(shock.nose() - 34.9) < 0.01, "26.5 and 34.9 radii out", shock.nose());
-        SolarWind gust;
+        SolarWind gust = neptune.typical;
         gust.pressure_npa = 10.0 * neptune.typical.pressure_npa;
         check(magnetopause(neptune, gust).nose() == pause.nose(), "whatever the pressure");
-        // Bow shock 14:38 UT, magnetopause 18:00 UT (Lepping et al. 1992), 34.9 and 26.5 radii
-        // out, near the line to the Sun (Ness et al. 1989).
-        const glm::dvec3 at_shock = in_axes(neptune_scene, "Neptune", "Voyager 2", utc("1989-08-24 14:38"), neptune.typical);
-        const glm::dvec3 at_pause = in_axes(neptune_scene, "Neptune", "Voyager 2", utc("1989-08-24 18:00"), neptune.typical);
-        std::printf("Voyager 2 at Neptune: shock %.2f Rn out, %.1f deg from the Sun's line (model %.2f); magnetopause %.2f Rn, %.1f deg (model %.2f)\n",
-                    glm::length(at_shock), std::acos(at_shock.x / glm::length(at_shock)) / kDegToRad, shock.radius(glm::normalize(at_shock)),
-                    glm::length(at_pause), std::acos(at_pause.x / glm::length(at_pause)) / kDegToRad, pause.radius(glm::normalize(at_pause)));
-        check(std::abs(glm::length(at_shock) - 34.9) < 0.4, "Voyager 2 met Neptune's shock 34.9 radii out", glm::length(at_shock));
-        check(std::abs(glm::length(at_pause) - 26.5) < 0.4, "and the magnetopause 26.5 radii out", glm::length(at_pause));
-        check(std::acos(at_pause.x / glm::length(at_pause)) / kDegToRad < 30.0, "near the line to the Sun");
-        check(std::abs(shock.radius(glm::normalize(at_shock)) / glm::length(at_shock) - 1.0) < 0.05, "the model's shock is there", shock.radius(glm::normalize(at_shock)));
-        check(std::abs(pause.radius(glm::normalize(at_pause)) / glm::length(at_pause) - 1.0) < 0.05, "and its magnetopause", pause.radius(glm::normalize(at_pause)));
-        bool shown = false;
-        for (const SceneEvent& e : neptune_scene.events) shown = shown || !e.magnetosphere.empty();
-        check(shown, "the Neptune scene has a magnetosphere event");
 
-        // The shock follows the planet's turn (Mejnertsen et al. 2016, Figure 4, read by
-        // tools/geomag/neptune_boundaries_fig4.py: on the axis 32.75 radii pole-on and 31.25
-        // Earth-like in both planes): its nose is 1.5 radii farther with the dipole toward the Sun
-        // than half a turn later, and 34.9 radii out at the phase Voyager 2 met it. The
-        // magnetopause stays.
+        // The dipole's phase: 1 with the dipole nearest the Sun's line, 0 half a turn later.
+        {
+            const glm::dvec3 spin(0.0, 0.0, 1.0);
+            const glm::dvec3 upstream = glm::normalize(glm::dvec3(1.0, 0.0, -0.4));
+            const double tilt = 47.0 * kDegToRad;
+            double mean = 0.0, least = 1.0, most = 0.0, most_cosine = 0.0;
+            constexpr int kSteps = 360;
+            for (int k = 0; k < kSteps; ++k) {
+                const double turn = kTwoPi * k / kSteps;
+                const glm::dvec3 dipole(std::sin(tilt) * std::cos(turn), std::sin(tilt) * std::sin(turn), -std::cos(tilt));
+                const double phase = dipole_phase(dipole, spin, upstream);
+                mean += phase / kSteps;
+                least = std::min(least, phase);
+                if (phase > most) {
+                    most = phase;
+                    most_cosine = glm::dot(dipole, upstream);
+                }
+            }
+            check(std::abs(mean - 0.5) < 1e-9 && least < 1e-9 && most > 1.0 - 1e-9, "the dipole's phase runs from 0 to 1 and back, a half on average", mean);
+            check(std::abs(most_cosine) > 0.9, "1 with the dipole toward the Sun", most_cosine);
+            check(dipole_phase(spin, spin, upstream) == 0.0 && dipole_phase(spin, spin, glm::normalize(glm::dvec3(0.2, 0.0, 1.0))) == 1.0,
+                  "an aligned dipole is pole-on only with the spin axis toward the Sun");
+        }
+
+        // In the scene: Voyager 2 met the shock at 14:38 UT and the magnetopause at 18:00 UT
+        // (Lepping et al. 1992), 34.9 and 26.5 radii out, near the line to the Sun (Ness et al.
+        // 1989). It entered the magnetosphere near pole-on, through the cusp, and passed closest
+        // in the Earth-like configuration (Mejnertsen et al. 2016, section 3.5).
         const int n = neptune_scene.find("Neptune");
         const Body& planet = neptune_scene.bodies[static_cast<size_t>(n)];
         MagnetosphereState state;
         state.body = n;
         state.wind = neptune.typical;
-        const auto nose_at = [&](double t, double warp) {
+        const auto wind_at = [&](double t, double warp) {
             neptune_scene.update(t);
-            const SolarWind wind = neptune_scene.magnetosphere_wind(state, t, warp);
-            check(magnetopause(neptune, wind).nose() == pause.nose(), "the magnetopause does not move");
-            return bow_shock(neptune, wind).nose();
+            return neptune_scene.magnetosphere_wind(state, t, warp);
         };
-        const auto alignment = [&](double nose) { return (nose - shock.nose()) / neptune.shock_dipole_radii + neptune.shock_dipole_reference; };
         const double t_shock = utc("1989-08-24 14:38");
         const double t_pause = utc("1989-08-24 18:00");
         const double t_closest = utc("1989-08-25 03:56");
-        const double turn = 360.0 / magnetic_rotation_deg_per_day(planet) * 86400.0;
-        double low = 1e9, high = 0.0, mean = 0.0;
-        int high_phase = 0;
-        constexpr int kPhases = 480;
-        for (int k = 0; k < kPhases; ++k) {
-            const double nose = nose_at(t_shock + turn * k / kPhases, 1.0);
-            low = std::min(low, nose);
-            mean += nose / kPhases;
-            if (nose > high) {
-                high = nose;
-                high_phase = k;
-            }
+        const glm::dvec3 at_shock = in_axes(neptune_scene, "Neptune", "Voyager 2", t_shock, neptune.typical);
+        const glm::dvec3 at_pause = in_axes(neptune_scene, "Neptune", "Voyager 2", t_pause, neptune.typical);
+        check(std::abs(glm::length(at_shock) - 34.9) < 0.4, "Voyager 2 met Neptune's shock 34.9 radii out", glm::length(at_shock));
+        check(std::abs(glm::length(at_pause) - 26.5) < 0.4, "and the magnetopause 26.5 radii out", glm::length(at_pause));
+        check(std::acos(at_pause.x / glm::length(at_pause)) / kDegToRad < 30.0, "near the line to the Sun");
+        const double phase_shock = wind_at(t_shock, 1.0).phase;
+        const double phase_pause = wind_at(t_pause, 1.0).phase;
+        const double phase_closest = wind_at(t_closest, 1.0).phase;
+        check(phase_pause > 0.8, "Voyager 2 crossed the magnetopause near pole-on", phase_pause);
+        check(phase_closest < 0.2, "and passed closest in the Earth-like configuration", phase_closest);
+        // Section 3.5 places the simulated magnetopause at the observed crossing and the shock
+        // some two radii inside. Evaluate the scene's interpolation before applying the scales.
+        const BoundarySurface shock_at_crossing = bow_shock(neptune, wind_at(t_shock, 1.0));
+        const BoundarySurface pause_at_crossing = magnetopause(neptune, wind_at(t_pause, 1.0));
+        const double drawn_shock = shock_at_crossing.radius(glm::normalize(at_shock));
+        const double drawn_pause = pause_at_crossing.radius(glm::normalize(at_pause));
+        const double sim_shock = drawn_shock / neptune.shock_scale;
+        const double sim_pause = drawn_pause / neptune.standoff_scale;
+        std::printf("Voyager 2 at Neptune: shock %.2f Rn out, %.1f deg from the Sun's line, phase %.3f, simulated %.2f (scale %.4f); "
+                    "magnetopause %.2f Rn, %.1f deg, phase %.3f, simulated %.2f (scale %.4f); phase %.3f at closest approach\n",
+                    glm::length(at_shock), std::acos(at_shock.x / glm::length(at_shock)) / kDegToRad, phase_shock, sim_shock,
+                    glm::length(at_shock) / sim_shock, glm::length(at_pause), std::acos(at_pause.x / glm::length(at_pause)) / kDegToRad,
+                    phase_pause, sim_pause, glm::length(at_pause) / sim_pause, phase_closest);
+        check(std::abs(sim_pause / glm::length(at_pause) - 1.0) < 0.06, "the simulated magnetopause is where Voyager 2 met it", sim_pause);
+        check(glm::length(at_shock) - sim_shock > 1.0 && glm::length(at_shock) - sim_shock < 4.0,
+              "the simulated shock some 2 radii inside where Voyager 2 met it", glm::length(at_shock) - sim_shock);
+        // Drawn, each surface is scaled to pass through its crossing.
+        check(std::abs(drawn_shock / glm::length(at_shock) - 1.0) < 0.003, "the drawn shock passes through Voyager 2 at 14:38", drawn_shock);
+        check(std::abs(drawn_pause / glm::length(at_pause) - 1.0) < 0.003, "the drawn magnetopause through it at 18:00", drawn_pause);
+
+        // Follow a sunward flank of the dent at two times bracketing the pole-on phase, and
+        // through the opposite season where the table's north and south profiles trade places.
+        const glm::dvec3 north(std::cos(20.0 * kDegToRad), 0.0, std::sin(20.0 * kDegToRad));
+        const auto roll_at = [&](double t, double season) {
+            const SolarWind wind = wind_at(t, 1.0);
+            const glm::dmat3 axes = glm::transpose(neptune_scene.magnetosphere_axes(n, t, wind));
+            const glm::dmat3 to_icrf = neptune_scene.body_to_icrf(planet, t);
+            const glm::dvec3 spin = axes * to_icrf[2];
+            const glm::dvec3 dipole = axes * to_icrf * magnetic_model_to_body(planet, t) * planet.magnetic_field.model->dipole_axis();
+            const double roll = wrap_pi(std::atan2(dipole.z, dipole.y) - std::atan2(spin.z, spin.y));
+            const glm::dvec3 mirrored(north.x, north.y, season * north.z);
+            const double expected = neptune.standoff_scale * table.radius(BoundaryTable::Magnetopause, wind.phase, mirrored);
+            const double actual = magnetopause(neptune, wind).radius(rotation_x(roll) * north);
+            check(std::abs(actual - expected) < 1e-8, "the cusp flank follows the dipole's azimuth and seasonal reflection", actual - expected);
+            check(std::abs(bow_shock(neptune, wind).radius(north) -
+                           neptune.shock_scale * table.radius(BoundaryTable::Shock, wind.phase, mirrored)) < 1e-8,
+                  "the shock's north-south asymmetry follows the season in NSO");
+            return roll;
+        };
+        const double before_pole_on = roll_at(t_pause, 1.0);
+        const double after_pole_on = roll_at(utc("1989-08-24 21:00"), 1.0);
+        check(after_pole_on - before_pole_on > 80.0 * kDegToRad, "the dent swings around the Sun's line over three hours");
+        roll_at(utc("2072-01-01 03:30"), -1.0);
+
+        // Find the equinox from the subsolar latitude. Both the day-side phase and the
+        // seasonal reflection must vary continuously through the switch between poles.
+        double t_south = utc("2040-01-01"), t_north = utc("2072-01-01");
+        while (t_north - t_south > 1.0) {
+            const double t = 0.5 * (t_south + t_north);
+            const glm::dvec3 spin = neptune_scene.body_to_icrf(planet, t)[2];
+            const glm::dvec3 upstream = neptune_scene.magnetosphere_axes(n, t, state.wind)[0];
+            (glm::dot(spin, upstream) < 0.0 ? t_south : t_north) = t;
         }
-        // Earth-like: half a turn from pole-on, the dipole then nearest the orbit's pole.
-        const double earth_like = nose_at(t_shock + turn * (high_phase + kPhases / 2) / kPhases, 1.0);
-        std::printf("Neptune's shock over a turn (%.2f h): %.2f .. %.2f Rn, mean %.2f, %.2f half a turn from pole-on; cos^2 of the "
-                    "dipole to the Sun %.3f .. %.3f, %.3f half a turn from pole-on; %.3f at the shock crossing, %.3f at the "
-                    "magnetopause's, %.3f at closest approach\n",
-                    turn / 3600.0, low, high, mean, earth_like, alignment(low), alignment(high), alignment(earth_like),
-                    alignment(nose_at(t_shock, 1.0)), alignment(nose_at(t_pause, 1.0)), alignment(nose_at(t_closest, 1.0)));
-        check(std::abs(nose_at(t_shock, 1.0) - 34.9) < 0.02, "the shock is 34.9 radii out when Voyager 2 met it", nose_at(t_shock, 1.0));
-        check(std::abs(high - earth_like - (32.75 - 31.25)) < 0.03, "pole-on, its nose is 1.5 radii farther than Earth-like", high - earth_like);
-        // Voyager 2 met the shock with the dipole across the Sun's line, where it is nearest. (Before
-        // that Cairns et al. 1991 saw its nose move between 38.5 and 34.2 radii: more than this.)
-        check(nose_at(t_shock, 1.0) < low + 0.05 && high > 36.5 && high < 37.0, "from 34.9 radii out to 36.7", high);
-        // Voyager 2 entered through the cusp, near pole-on, and passed closest in the Earth-like
-        // configuration (Mejnertsen et al. 2016, section 3.5).
-        check(alignment(nose_at(t_pause, 1.0)) > 0.6, "Voyager 2 crossed the magnetopause near pole-on", alignment(nose_at(t_pause, 1.0)));
-        check(alignment(nose_at(t_closest, 1.0)) < 0.25, "and passed closest in the Earth-like configuration",
-              alignment(nose_at(t_closest, 1.0)));
-        // Turning too fast to follow: the mean over a turn, from the tilt and the season.
-        check(std::abs(nose_at(t_shock, 3.0e5) - mean) < 0.02, "at a high warp the shock stays at its mean", nose_at(t_shock, 3.0e5));
-        check(std::abs(mean_dipole_alignment(0.0, 0.3) - std::pow(std::cos(0.3), 2.0)) < 1e-12 &&
-                  std::abs(mean_dipole_alignment(0.5 * kPi, 0.5 * kPi) - 0.5) < 1e-12,
-              "the mean alignment of an aligned dipole and of one turning in the plane of the wind");
-        // A shock given by an event is left alone.
-        MagnetosphereState given = state;
-        given.wind.shock_radii = 38.5;
-        check(bow_shock(neptune, neptune_scene.magnetosphere_wind(given, t_pause, 1.0)).nose() == 38.5, "a given shock stays where it is given");
+        const SolarWind before_equinox = wind_at(t_south, 1.0);
+        const SolarWind after_equinox = wind_at(t_north, 1.0);
+        check(std::abs(before_equinox.phase - 0.5) < 1e-6 && std::abs(after_equinox.phase - 0.5) < 1e-6 &&
+                  before_equinox.azimuth.north_south >= 0.0 && after_equinox.azimuth.north_south <= 0.0 &&
+                  std::abs(before_equinox.azimuth.north_south - after_equinox.azimuth.north_south) < 1e-6,
+              "the seasonal transition is continuous at equinox");
+
+        // Over a turn of the field (16.11 h) the two standoff distances vary with phase.
+        const double turn = 360.0 / magnetic_rotation_deg_per_day(planet) * 86400.0;
+        double shock_low = 1e9, shock_high = 0.0, pause_low = 1e9, pause_high = 0.0;
+        for (int k = 0; k < 240; ++k) {
+            const SolarWind wind = wind_at(t_shock + turn * k / 240, 1.0);
+            shock_low = std::min(shock_low, bow_shock(neptune, wind).nose());
+            shock_high = std::max(shock_high, bow_shock(neptune, wind).nose());
+            pause_low = std::min(pause_low, magnetopause(neptune, wind).nose());
+            pause_high = std::max(pause_high, magnetopause(neptune, wind).nose());
+        }
+        std::printf("Neptune over a turn (%.2f h): the shock's nose %.2f .. %.2f Rn, the magnetopause's %.2f .. %.2f Rn\n", turn / 3600.0,
+                    shock_low, shock_high, pause_low, pause_high);
+        check(std::abs(shock_high - shock_low - 1.5 * neptune.shock_scale) < 0.15, "the shock's nose moves 1.5 radii of the simulation's", shock_high - shock_low);
+        check(std::abs(pause_high - pause_low - 3.0 * neptune.standoff_scale) < 0.4, "the magnetopause's 3: the cusp's dent comes and goes", pause_high - pause_low);
+        const SolarWind fast = wind_at(t_pause, 3.0e5);
+        const BoundarySurface averaged = magnetopause(neptune, fast);
+        check(fast.phase == 0.5 && std::abs(averaged.radius(north) - averaged.radius(rotation_x(0.5 * kPi) * north)) < 1e-8,
+              "at a high warp the magnetopause uses the middle phase and the azimuthal mean");
+        bool shown = false;
+        for (const SceneEvent& e : neptune_scene.events) shown = shown || !e.magnetosphere.empty();
+        check(shown, "the Neptune scene has a magnetosphere event");
+
+        Scene bad;
+        std::string error;
+        const std::string head = "name = 'x'\n[[bodies]]\nname = 'P'\nradii_km = [24764.0]\n";
+        const std::string field = "[bodies.magnetic_field]\ncoefficients = 'geomag/field_neptune_o8.txt'\nreference_radius_km = 24765.0\n";
+        const std::string sphere = "[bodies.magnetosphere]\nmodel = 'tabulated'\n";
+        check(load_scene_string((head + field + sphere + "boundaries = 'geomag/neptune_boundaries.txt'\n").c_str(), "tabulated", bad, &error,
+                                ASTRAXIS_ASSET_DIR),
+              "a tabulated magnetosphere loads");
+        check(!load_scene_string((head + sphere + "boundaries = 'geomag/neptune_boundaries.txt'\n").c_str(), "no_field", bad, &error, ASTRAXIS_ASSET_DIR),
+              "it needs the body's field");
+        check(!load_scene_string((head + field + sphere).c_str(), "no_table", bad, &error, ASTRAXIS_ASSET_DIR), "and a table");
+        check(!load_scene_string((head + field + sphere + "boundaries = 'geomag/kp.bin'\n").c_str(), "not_a_table", bad, &error, ASTRAXIS_ASSET_DIR),
+              "which another file is not");
     }
 
     // --- The Sun: the heliopause and the termination shock ---------------------------------

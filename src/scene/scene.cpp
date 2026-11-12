@@ -637,17 +637,30 @@ SolarWind Scene::magnetosphere_wind(const MagnetosphereState& state, double t_td
         const double window = std::max(3600.0, std::abs(warp) * kSolarWindWindowSeconds);
         wind = sphere.record->mean(t_tdb - 0.5 * window, t_tdb + 0.5 * window, wind);
     }
-    if (sphere.shock_dipole_radii != 0.0 && wind.shock_radii == 0.0 && b.magnetic_field.model) {
+    if (sphere.model == MagnetosphereModel::Tabulated && b.magnetic_field.model) {
         const glm::dmat3 to_icrf = body_to_icrf(b, t_tdb);
-        const glm::dvec3 upstream = magnetosphere_axes(state.body, t_tdb, wind)[0];
-        const glm::dvec3 dipole = to_icrf * magnetic_model_to_body(b, t_tdb) * b.magnetic_field.model->dipole_axis();
-        const double now = std::pow(glm::dot(dipole, upstream), 2.0);
-        const double mean = mean_dipole_alignment(b.magnetic_field.model->dipole_tilt_deg() * kDegToRad,
-                                                  std::acos(std::clamp(glm::dot(to_icrf[2], upstream), -1.0, 1.0)));
-        // Too fast to follow, the shock stays at its mean over a turn.
+        const glm::dmat3 to_wind = glm::transpose(magnetosphere_axes(state.body, t_tdb, wind));
+        const glm::dvec3 spin = to_wind * to_icrf[2];
+        const glm::dvec3 dipole = to_wind * to_icrf * magnetic_model_to_body(b, t_tdb) * b.magnetic_field.model->dipole_axis();
         const double follow = field_line_visibility(magnetic_rotation_deg_per_day(b), warp);
-        wind.shock_radii = bow_shock(sphere, wind).standoff +
-                           sphere.shock_dipole_radii * (glm::mix(mean, now, follow) - sphere.shock_dipole_reference);
+        // The Voyager season had a southern subsolar latitude. Blend with its mirror near
+        // equinox, where the two poles take turns at the same minimum angle to the Sun.
+        constexpr double kEquinoxSinLatitude = 0.08715574274765817; // sin(5 degrees)
+        wind.azimuth.north_south = 1.0 - 2.0 * glm::smoothstep(-kEquinoxSinLatitude, kEquinoxSinLatitude, spin.x);
+        wind.phase = glm::mix(0.5, dipole_phase(dipole, spin, {1.0, 0.0, 0.0}), follow * std::abs(wind.azimuth.north_south));
+
+        // The table's two phases have the dipole in the Sun-spin plane. Use that plane as
+        // zero roll, and turn the magnetopause by the dipole's bearing relative to it.
+        const glm::dvec2 spin_yz(spin.y, spin.z);
+        const glm::dvec2 dipole_yz(dipole.y, dipole.z);
+        const glm::dvec2 roll(glm::dot(spin_yz, dipole_yz), spin.y * dipole.z - spin.z * dipole.y);
+        const double length = glm::length(roll);
+        if (length > 0.0) {
+            wind.azimuth.rotation = roll / length;
+        }
+        // Near axial alignment the bearing is poorly defined. At high warp use the
+        // azimuthal mean so the shape can also be viewed without rapid changes in roll.
+        wind.azimuth.strength = follow * glm::smoothstep(0.0, 0.1, length);
     }
     return wind;
 }
