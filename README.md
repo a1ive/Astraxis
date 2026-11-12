@@ -42,6 +42,7 @@ Astraxis is an astronomy background app with planets, spacecraft and stars anima
 | TIC 168789840 | Six stars in three eclipsing binaries |
 | Castor | A six-star system with nearly perpendicular orbits, YY Gem eclipses and flares |
 | Algol | An eclipsing triple with its light curve as seen from Earth |
+| Beta Lyrae A | A distorted donor star, an opaque accretion disk and two eclipses |
 | Delta Cephei | The prototype Cepheid, with a 5.37-day pulse and an eccentric companion orbit |
 | Polaris | The North Star's 3.97-day pulse and two companions |
 | WR 104 | A Wolf-Rayet binary with a rotating dust pinwheel |

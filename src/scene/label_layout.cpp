@@ -35,6 +35,44 @@ bool occluded(const glm::dvec3& target, const glm::dvec3& center, double radius)
     return glm::dot(perp, perp) < radius * radius;
 }
 
+// True if the segment from the camera (origin) to `target` crosses an opaque
+// accretion slab (a cylinder about the body's z axis) centered at `center`.
+bool occluded_by_slab(const glm::dvec3& target, const glm::dvec3& center, const glm::dmat3& orientation,
+                      const AccretionDisk& disk)
+{
+    const double dist = glm::length(target);
+    const glm::dmat3 to_local = glm::transpose(orientation);
+    const glm::dvec3 o = to_local * -center;
+    const glm::dvec3 d = to_local * (target / dist);
+    double t0 = 0.0;
+    double t1 = dist;
+    const double h = disk.half_height_km;
+    if (std::abs(d.z) > 0.0) {
+        const double a = (-h - o.z) / d.z;
+        const double b = (h - o.z) / d.z;
+        t0 = std::max(t0, std::min(a, b));
+        t1 = std::min(t1, std::max(a, b));
+    } else if (std::abs(o.z) > h) {
+        return false;
+    }
+    // Across the axis: the distance of closest approach from a cross product, as above.
+    const double xy2 = d.x * d.x + d.y * d.y;
+    const double r = disk.outer_radius_km;
+    if (xy2 > 0.0) {
+        const double miss = (o.x * d.y - o.y * d.x) / std::sqrt(xy2);
+        if (std::abs(miss) >= r) {
+            return false;
+        }
+        const double mid = -(o.x * d.x + o.y * d.y) / xy2;
+        const double half = std::sqrt((r - miss) * (r + miss) / xy2);
+        t0 = std::max(t0, mid - half);
+        t1 = std::min(t1, mid + half);
+    } else if (o.x * o.x + o.y * o.y >= r * r) {
+        return false;
+    }
+    return t0 < t1;
+}
+
 } // namespace
 
 void LabelLayout::update(const Scene& scene, const OutputView& view, int focus, glm::vec2 screen_size,
@@ -93,7 +131,12 @@ void LabelLayout::update(const Scene& scene, const OutputView& view, int focus, 
             if (k != i && other.visible && other.kind != BodyKind::Spacecraft &&
                 other.kind != BodyKind::Barycenter && other.kind != BodyKind::Ghost &&
                 !(lens && other.kind == BodyKind::BlackHole)) {
-                hidden = occluded(rel, other.world_position - cam, other.equatorial_radius_km);
+                const glm::dvec3 center = other.world_position - cam;
+                const AccretionDisk* disk = other.accretion_disk.get();
+                // An illustrative disk is translucent gas: only its star hides labels.
+                hidden = disk && !disk->illustrative_torus
+                             ? occluded_by_slab(rel, center, other.orientation, *disk)
+                             : occluded(rel, center, other.equatorial_radius_km);
             }
         }
         glm::vec2 screen;
@@ -103,9 +146,10 @@ void LabelLayout::update(const Scene& scene, const OutputView& view, int focus, 
             continue;
         }
         const float px_per_radian = camera.focal_y * 0.5f * screen_size.y;
-        const float radius_px = lens ? static_cast<float>(body.equatorial_radius_km * lens->images[0].angular_radius_per_km) *
+        const double extent_km = body_extent_km(body);
+        const float radius_px = lens ? static_cast<float>(extent_km * lens->images[0].angular_radius_per_km) *
                                            px_per_radian
-                                     : static_cast<float>(body.equatorial_radius_km) / w * px_per_radian;
+                                     : static_cast<float>(extent_km) / w * px_per_radian;
         // The secondary image's dot, fainter with the ratio of the images' light (their
         // magnifications; its square root, so that a faint image still shows).
         glm::vec2 image2(0.0f);
@@ -139,8 +183,8 @@ void LabelLayout::update(const Scene& scene, const OutputView& view, int focus, 
         if (a.rank != b.rank) {
             return a.rank < b.rank;
         }
-        return scene.bodies[static_cast<size_t>(a.body)].equatorial_radius_km >
-               scene.bodies[static_cast<size_t>(b.body)].equatorial_radius_km;
+        return body_extent_km(scene.bodies[static_cast<size_t>(a.body)]) >
+               body_extent_km(scene.bodies[static_cast<size_t>(b.body)]);
     });
 
     std::vector<glm::vec4> placed; // label rectangles: min x, min y, max x, max y
@@ -181,6 +225,7 @@ void LabelLayout::update(const Scene& scene, const OutputView& view, int focus, 
         mark.radius = c.radius_px;
         mark.fade = fade;
         mark.text_position = text_pos;
+        mark.text_bounds = rect;
         mark.text_alpha = s.alpha * fade;
         // Ghosts and spacecraft without a shape model are never drawn as bodies, so
         // they always get a dot.
@@ -197,13 +242,21 @@ void LabelLayout::update(const Scene& scene, const OutputView& view, int focus, 
 
 int LabelLayout::pick(glm::vec2 point, float pick_radius) const
 {
-    int picked = -1;
+    int picked_label = -1;
+    int picked_body = -1;
     for (const BodyMark& mark : m_bodies) {
-        if (mark.text_alpha > kPickMinAlpha && glm::length(point - mark.position) < std::max(mark.radius, pick_radius)) {
-            picked = mark.body;
+        if (mark.text_alpha <= kPickMinAlpha) {
+            continue;
+        }
+        const glm::vec4& bounds = mark.text_bounds;
+        if (point.x >= bounds.x && point.x <= bounds.z && point.y >= bounds.y && point.y <= bounds.w) {
+            picked_label = mark.body;
+        }
+        if (glm::length(point - mark.position) < std::max(mark.radius, pick_radius)) {
+            picked_body = mark.body;
         }
     }
-    return picked;
+    return picked_label >= 0 ? picked_label : picked_body;
 }
 
 } // namespace astraxis

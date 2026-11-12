@@ -17,6 +17,8 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <fstream>
+#include <iterator>
 #include <span>
 #include <string>
 #include <utility>
@@ -3552,6 +3554,102 @@ void test_eta_carinae_scene()
     }
 }
 
+void test_beta_lyrae_scene()
+{
+    const Scene scene = load_scene_or_die("beta_lyrae.toml");
+    const int gainer = scene.find("Beta Lyrae Aa2");
+    const int donor = scene.find("Beta Lyrae Aa1");
+    if (gainer < 0 || donor < 0 || !scene.light_curve.enabled()) {
+        check(false, "Beta Lyrae A pair and light curve");
+        return;
+    }
+    const Body& primary = scene.bodies[static_cast<size_t>(gainer)];
+    const Body& secondary = scene.bodies[static_cast<size_t>(donor)];
+    check(primary.label && secondary.label, "Beta Lyrae Aa1 and Aa2 have visible labels enabled");
+    if (!primary.accretion_disk || !secondary.roche) {
+        check(false, "Beta Lyrae A has an opaque disk and a Roche-lobe donor");
+        return;
+    }
+    check(primary.equatorial_radius_km == 6.0 * kSunRadiusKm &&
+              std::abs(primary.accretion_disk->outer_radius_km / kSunRadiusKm - 30.77) < 0.001,
+          "Beta Lyrae A stellar radius and disk radius [M18]");
+    const AccretionDisk& disk = *primary.accretion_disk;
+    check(disk.illustrative_torus && !primary.shape && !disk.mesh.indices.empty(),
+          "Beta Lyrae A displays the disk as gas and keeps a slab for photometry");
+    check(body_extent_km(primary) == std::hypot(disk.outer_radius_km, disk.half_height_km) &&
+              body_extent_km(secondary) == secondary.equatorial_radius_km,
+          "Beta Lyrae A extents: the gainer's disk rim, the donor's L1 radius");
+
+    // The disk turns with the donor, so the gainer cannot carry its own rotation model.
+    {
+        std::ifstream in(ASTRAXIS_ASSET_DIR "/scenes/beta_lyrae.toml", std::ios::binary);
+        std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        const std::string gainer_line = "orbit_color = \"#94a8ca\"";
+        const size_t at = text.find(gainer_line);
+        std::string error;
+        Scene rotated;
+        if (at == std::string::npos) {
+            check(false, "Beta Lyrae A gainer block found in the scene text");
+        } else {
+            text.insert(at, "pole_ra_dec_deg = [0.0, 90.0]\n");
+            check(!load_scene_string(text, "beta_lyrae_pole", rotated, &error, ASTRAXIS_ASSET_DIR) &&
+                      error.find("pole_ra_dec_deg") != std::string::npos,
+                  "accretion_disk rejects the gainer's own pole");
+        }
+    }
+
+    // Mourard et al. Eq. 1, re-centered near the 2026 tour. An HJD UTC is
+    // approximately 69.18 s behind heliocentric TDB at this epoch.
+    const auto time_at_cycle = [](double cycle, double offset_s) {
+        const double hjd = 2408247.968 + (12.913779 + 3.87265e-6 * cycle) * cycle;
+        return tdb_from_jd_tdb(hjd) + offset_s;
+    };
+    const auto offset = [&](double t) {
+        return scene.icrf_state_at(donor, t).position - scene.icrf_state_at(gainer, t).position;
+    };
+    const glm::dvec3 away = glm::normalize(scene.sky.viewer_pc);
+    const glm::dvec3 east = glm::normalize(glm::cross(glm::dvec3(0, 0, 1), away));
+    const glm::dvec3 north = glm::cross(away, east);
+    const double t0 = time_at_cycle(4108.0, 69.18);
+    const double t1 = time_at_cycle(4108.5, 69.18);
+    check(glm::dot(offset(t0), away) > 0.99 * glm::length(offset(t0)) &&
+              glm::dot(offset(t1), away) < -0.99 * glm::length(offset(t1)),
+          "Beta Lyrae A disk in front at primary minimum, donor in front half an orbit later");
+    check(glm::dot(scene.body_to_icrf(primary, t0)[0], glm::normalize(offset(t0))) > 0.99999,
+          "Beta Lyrae A disk's warm sector faces the donor");
+
+    // Zhao et al. Table 2, fitted H-band centroids when both components are resolved.
+    // Compare in the sky plane so the check also catches a 180-degree node error.
+    struct Position {
+        double mjd, separation_mas, pa_deg;
+    };
+    const Position observations[] = {{54284.25, 0.701, 256.3}, {54285.26, 0.852, 254.2}, {54293.26, 0.754, 73.2}};
+    const double mas_per_km = kRadToDeg * 3600.0e3 / (glm::length(scene.sky.viewer_pc) * kParsecKm);
+    for (const Position& p : observations) {
+        const glm::dvec3 r = offset(tdb_from_jd_tdb(p.mjd + 2400000.5));
+        const glm::dvec2 computed = mas_per_km * glm::dvec2(glm::dot(r, east), glm::dot(r, north));
+        const double pa = p.pa_deg * kDegToRad;
+        const glm::dvec2 measured = p.separation_mas * glm::dvec2(std::sin(pa), std::cos(pa));
+        const double residual = glm::length(computed - measured);
+        check(residual < 0.13, "Beta Lyrae A on Zhao's resolved CHARA positions (mas)", residual);
+    }
+
+    // Hvar Johnson V (Mourard data_20171126), folded with Eq. 1 and binned
+    // within 0.025 cycles of each phase: 4.203, 3.382, 3.804 mag at 0, .25, .5.
+    const auto magnitude_at_phase = [&](double phase) {
+        return light_curve_magnitude(scene, time_at_cycle(4108.0 + phase, 69.18));
+    };
+    const double quadrature = magnitude_at_phase(0.25);
+    const double primary_depth = magnitude_at_phase(0.0) - quadrature;
+    const double secondary_depth = magnitude_at_phase(0.5) - quadrature;
+    std::printf("info: Beta Lyrae A V relative to first quadrature: primary %.3f, secondary %.3f mag\n",
+                primary_depth, secondary_depth);
+    check(std::abs(primary_depth - 0.821) < 0.15, "Beta Lyrae A primary eclipse depth (V)", primary_depth);
+    check(std::abs(secondary_depth - 0.422) < 0.15, "Beta Lyrae A secondary eclipse depth (V)", secondary_depth);
+    check(std::abs(primary_depth - 0.799) < 0.01 && std::abs(secondary_depth - 0.440) < 0.01,
+          "Beta Lyrae A photometry retains the calibrated slab eclipse depths");
+}
+
 } // namespace
 
 void run_stellar_system_tests()
@@ -3566,6 +3664,7 @@ void run_stellar_system_tests()
     test_kepler47_scene();
     test_tic168789840_scene();
     test_algol_scene();
+    test_beta_lyrae_scene();
     test_castor_scene();
     test_delta_cephei_scene();
     test_polaris_scene();

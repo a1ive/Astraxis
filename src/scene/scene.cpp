@@ -271,6 +271,12 @@ glm::dvec3 body_surface_normal(const Body& body, const glm::dvec3& point)
     return glm::normalize(point / r2);
 }
 
+double body_extent_km(const Body& body)
+{
+    const AccretionDisk* disk = body.accretion_disk.get();
+    return disk ? std::hypot(disk->outer_radius_km, disk->half_height_km) : body.equatorial_radius_km;
+}
+
 int Scene::find(std::string_view body_name) const
 {
     for (size_t i = 0; i < bodies.size(); ++i) {

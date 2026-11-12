@@ -10,6 +10,7 @@
 
 #include "atmosphere.hlsli"
 #include "common.hlsli"
+#include "noise.hlsli"
 
 #define MAX_OCCLUDERS 8
 #define STYLE_GAS_GIANT 1
@@ -17,6 +18,8 @@
 #define STYLE_BLACK_HOLE 3 // event horizon: absorbs everything
 #define STYLE_DEATH_STAR 4
 #define STYLE_SATURN 5
+#define STYLE_ACCRETION_DISK 6
+#define STYLE_ACCRETION_DONOR 7
 
 static const float kPi = 3.14159265;
 
@@ -56,6 +59,8 @@ cbuffer Uniforms : register(b0, space3)
                                        // w = the albedo of the clouds (0 = none)
     float4 u_cloud_flow;               // the clouds' drift: x = place in the cycle (0..1), y = the cycle (days),
                                        // z, w = deg of longitude per day in the tropics and the middle latitudes
+    float4 u_accretion;                // rgb = inner disk color, w = 1 / outer radius (km)
+    float4 u_accretion_flow;           // x = turns of the disk texture
 };
 
 // A wobble of an edge on a star's surface that changes smoothly over the sphere.
@@ -289,13 +294,6 @@ float3 atmosphere_transmission(float mu)
     return exp(-sun_optical_depth(1.0, mu, u_atmo_rayleigh, u_atmo_haze));
 }
 
-float hash21(float2 q)
-{
-    float3 p3 = frac(float3(q.xyx) * 0.1031);
-    p3 += dot(p3, p3.yzx + 33.33);
-    return frac((p3.x + p3.y) * p3.z);
-}
-
 struct DeathStarSurface
 {
     float3 albedo;
@@ -329,7 +327,7 @@ DeathStarSurface death_star(float3 p)
         float cells = max(1.0, floor(cos((row + 0.5) / kBands[k]) * kBands[k] * 2.0 * kPi));
         float x = (lon / (2.0 * kPi) + 0.5) * cells;
         float2 cell = float2(floor(x), row + 997.0 * k);
-        float h = hash21(cell);
+        float h = hash12(cell);
         const float kContrast[3] = {0.05, 0.10, 0.16}; // subtle large sectors, busier fine plating
         shade *= lerp(1.0, 1.0 + kContrast[k] * (2.0 * h - 1.0), detail);
         float2 f = abs(frac(float2(x, y)) - 0.5);
@@ -339,7 +337,7 @@ DeathStarSurface death_star(float3 p)
         seam = max(seam, edge * detail * kSeam[k]);
         if (k == 2) {
             // Lit windows on 3.5% of the fine panels; their mean glow when too small to resolve.
-            window = lerp(0.035, step(0.965, hash21(cell + 31.7)), detail);
+            window = lerp(0.035, step(0.965, hash12(cell + 31.7)), detail);
         }
     }
     s.albedo = 0.42 * shade * (1.0 - 0.45 * seam);
@@ -400,11 +398,32 @@ float4 main(PSInput input, bool front_face : SV_IsFrontFace) : SV_Target0
         float3 albedo_s = srgb_to_linear(u_color.rgb) / 0.42 * s.albedo; // u_color tints the hull
         return float4(albedo_s * (lit_s + u_params.y) + s.lights * night + s.glow, 1.0);
     }
-    if (style == STYLE_STAR) {
+    if (style == STYLE_ACCRETION_DISK) {
+        const float3 p = input.local * u_accretion.w;
+        const float r = length(p.xy);
+        const float turns = atan2(p.y, p.x) / (2.0 * kPi) - u_accretion_flow.x;
+        const float face = pow(abs(dot(n, input.axis_z)), 2.0);
+        const float shear = turns + 0.34 * log(r + 0.16);
+        const float roll = turn_noise(turns, 4.0 * p.z + 6.0, 8.0);
+        const float bands = turn_noise(shear, 29.0 * r + 0.9 * roll, 13.0);
+        const float fine = turn_noise(shear, 92.0 * r + 3.0 * bands, 31.0);
+        const float rim = turn_noise(turns + 0.08 * p.z, 33.0 * p.z + roll + 19.0, 12.0);
+        const float grain = lerp(0.65 * rim + 0.35 * roll, (0.7 * bands + 0.3 * fine) * smoothstep(0.06, 0.25, r), face);
+        const float hot = saturate(0.28 * log2(max(input.albedo, 1.0)));
+        const float3 color = lerp(u_color.rgb, u_accretion.rgb, hot) * input.albedo;
+        const float mu = saturate(dot(n, V));
+        return float4(color * (1.0 - 0.6 * (1.0 - mu)) * (1.0 + 0.28 * grain), 1.0);
+    }
+    if (style == STYLE_STAR || style == STYLE_ACCRETION_DONOR) {
         // Linear limb darkening, as for the sun sprite; a Roche-lobe star's
         // mesh carries its gravity darkening and irradiation in the albedo.
         float mu = saturate(dot(n, V));
         float3 surface = u_color.rgb * input.albedo;
+        if (style == STYLE_ACCRETION_DONOR) {
+            const float3 p = normalize(input.local);
+            const float mottling = 0.73 * value_noise3(18.0 * p) + 0.27 * value_noise3(41.0 * p);
+            surface *= 1.0 + 0.15 * mottling;
+        }
         if (u_spot_color.a > 0.5) {
             surface = lerp(surface, u_spot_color.rgb, star_spot_cover(normalize(input.local)));
         }

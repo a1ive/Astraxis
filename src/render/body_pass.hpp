@@ -86,6 +86,8 @@ struct BodyDrawItem {
     // A star's flare: site in the body's axes, angular radius (rad; 0 = none), and its radiance.
     glm::vec4 flare{0.0f};
     glm::vec3 flare_color{0.0f};
+    glm::vec4 accretion{0.0f}; // inner disk color and reciprocal outer radius (1/km)
+    float accretion_turns = 0.0f;
 };
 
 struct SunLight {

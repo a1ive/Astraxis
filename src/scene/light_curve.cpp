@@ -217,6 +217,15 @@ void sky_axes(const glm::dvec3& toward, glm::dvec3& e1, glm::dvec3& e2)
     e2 = glm::cross(toward, e1);
 }
 
+glm::dvec3 disk_observer_direction(const Scene& scene, double t_tdb)
+{
+    const int gainer = scene.light_curve.disk_gainer;
+    const glm::dvec3 to_observer = scene.icrf_state_at(scene.light_curve.observer, t_tdb).position -
+                                   scene.icrf_state_at(gainer, t_tdb).position;
+    return glm::transpose(scene.body_to_icrf(scene.bodies[static_cast<size_t>(gainer)], t_tdb)) *
+           glm::normalize(to_observer);
+}
+
 // A Roche surface at its brightest, over directions all around it.
 double roche_brightest(const RocheSurface& surface, double wavelength_nm, double limb_darkening)
 {
@@ -468,6 +477,14 @@ double light_curve_magnitude(const Scene& scene, double t_tdb)
     if (!lc.enabled()) {
         return 0.0;
     }
+    if (!lc.phase_magnitudes.empty()) {
+        const glm::dvec3 toward = disk_observer_direction(scene, t_tdb);
+        const size_t count = lc.phase_magnitudes.size();
+        const double sample = wrap_two_pi(std::atan2(toward.y, toward.x)) * static_cast<double>(count) / kTwoPi;
+        const auto index = static_cast<size_t>(sample);
+        return std::lerp(lc.phase_magnitudes[index % count], lc.phase_magnitudes[(index + 1) % count],
+                         sample - static_cast<double>(index));
+    }
     std::array<StarDisk, kMaxOccluders + 1> disks;
     const size_t count = std::min(lc.stars.size(), disks.size());
     for (size_t i = 0; i < count; ++i) {
@@ -508,6 +525,16 @@ void set_light_curve_reference(Scene& scene)
     LightCurve& lc = scene.light_curve;
     lc.reference_flux = 0.0;
     lc.quiescent_mag = 0.0;
+    if (lc.disk_gainer >= 0) {
+        const Body& gainer = scene.bodies[static_cast<size_t>(lc.disk_gainer)];
+        const int donor = gainer.synchronous_with;
+        const glm::dvec3 displacement = scene.icrf_state_at(donor, 0.0).position -
+                                         scene.icrf_state_at(lc.disk_gainer, 0.0).position;
+        lc.phase_magnitudes = accretion_binary_curve(*gainer.accretion_disk, *scene.bodies[static_cast<size_t>(donor)].roche,
+                                                     glm::length(displacement), disk_observer_direction(scene, 0.0).z,
+                                                     lc.wavelength_nm, lc.limb_darkening);
+        return;
+    }
     double quiescent = 0.0;
     double brightest_flare = 0.0; // the most any one flare adds
     for (int star : lc.stars) {

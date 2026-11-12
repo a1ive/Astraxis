@@ -42,6 +42,11 @@ struct FragmentUniforms {
     glm::vec4 jet_positions[kMaxPlumeDrawJets];
     glm::vec4 jet_axes[kMaxPlumeDrawJets];
 };
+// The plume.frag.hlsl cbuffer, float4 by float4; SDL's Vulkan backend binds 4 KiB
+// of each uniform buffer.
+static_assert(sizeof(FragmentUniforms) == (12 + kMaxPlumeOccluders + 2 * kMaxPlumeDrawJets) * sizeof(glm::vec4),
+              "FragmentUniforms must match the cbuffer of plume.frag.hlsl");
+static_assert(sizeof(FragmentUniforms) <= 4096, "a uniform buffer is bound 4 KiB at a time");
 
 SDL_GPUGraphicsPipeline* create_pipeline(SDL_GPUDevice* device, const SceneTargetFormat& format,
                                          SDL_GPUShader* vs, SDL_GPUShader* fs, bool inside)
@@ -198,7 +203,7 @@ void PlumePass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const C
         fu.planet = glm::vec4(item.planet_center, item.planet_radius);
         fu.shape = item.shape;
         fu.albedo = glm::vec4(item.albedo, item.g);
-        fu.params = glm::vec4(time, static_cast<float>(item.occluder_count), item.density, 0.0f);
+        fu.params = glm::vec4(time, static_cast<float>(item.occluder_count), item.density, item.phase);
         for (int k = 0; k < item.occluder_count && k < kMaxPlumeOccluders; ++k) {
             fu.occluders[k] = item.occluders[k];
         }

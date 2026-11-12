@@ -1,5 +1,6 @@
 #pragma once
 
+#include "render/gpu_buffer.hpp"
 #include "render/gpu_device.hpp"
 #include "render/scene_targets.hpp"
 #include "render/shader.hpp"
@@ -17,8 +18,8 @@ namespace astraxis {
 // sample at full resolution cost ~16 times the fill rate (8 frames per second
 // on an Arc A380 at 1280 x 720, 4x MSAA).
 //
-// The points are a storage buffer (set_points, once per scene) read by the
-// vertex shader given to init: six vertices per point, uniform buffer 0, and
+// The points are a storage buffer (set_points, once per scene, or
+// stream_points, once per frame) read by the vertex shader given to init: six vertices per point, uniform buffer 0, and
 // the outputs dust.frag.hlsl takes (the Gaussian's offset in sigmas and its
 // radiance at the center).
 class SplatPass {
@@ -38,6 +39,8 @@ public:
 
     void clear();
     bool set_points(const void* data, uint32_t bytes, uint32_t count);
+    // Points that change every frame: records a copy pass, outside any render pass.
+    bool stream_points(SDL_GPUCommandBuffer* cmd, const void* data, uint32_t bytes, uint32_t count);
     bool has_points() const { return m_count > 0; }
 
     // Size of the off-screen target for a scene of width x height pixels.
@@ -64,7 +67,9 @@ private:
     SDL_GPUGraphicsPipeline* m_splat_pipeline = nullptr;
     SDL_GPUGraphicsPipeline* m_composite_pipeline = nullptr;
     SDL_GPUSampler* m_linear = nullptr;
-    SDL_GPUBuffer* m_buffer = nullptr;
+    SDL_GPUBuffer* m_buffer = nullptr; // set_points
+    StreamBuffer m_stream;             // stream_points
+    SDL_GPUBuffer* m_points = nullptr; // whichever of the two was filled last
     uint32_t m_count = 0;
 };
 

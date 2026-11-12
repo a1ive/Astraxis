@@ -1,0 +1,165 @@
+# Sheliak (HIP 92420), the eclipsing pair Beta Lyrae A.
+# [M18] Mourard et al. 2018, A&A 618, A112, doi:10.1051/0004-6361/201832952.
+#       Eq. 1: primary minimum when the donor is behind the disk. The orbit is
+#       expanded about cycle E=4108, with 69.18 s added to the modern HJD for
+#       TDB. Table 7: q = M_gainer / M_donor = 4.50, a sin i = 58.19 R_sun,
+#       circular orbit, donor pole at 13,300 K, gainer radius 6 R_sun. Table 9:
+#       slab power-law geometry, i = 93.26 deg, Omega = 253.65 deg, d = 316.7 pc.
+#       GM follows from a and P, then splits according to q. The fitted node
+#       is the P.A. at phase 0.25, so the donor's away-going node is at 73.65 deg.
+#       Table 10: 8764 K equivalent brightness at the slab rim (500 nm).
+#       Table 11: a bright region 6.5 R_sun in radius facing the donor, ~9780 K.
+# [Z08] Zhao et al. 2008, ApJ 684, L95, doi:10.1086/592146. H-band images
+#       resolve the donor and disk. Table 2 checks their positions on the sky.
+# [MD13] Mennickent & Djurašević 2013, MNRAS 432, 799, doi:10.1093/mnras/stt515.
+#       Table 3: donor radius ~15 R_sun, gainer T_eff = 30,000 K.
+# [B21] Brož et al. 2021, A&A 645, A51, doi:10.1051/0004-6361/202039035.
+#       Line emission supports bipolar outflows. The rendered jets and stream
+#       show the geometry schematically, without calibrated colors or fluxes.
+# [Hvar] Hvar Observatory Johnson V photometry distributed with [M18]
+#       (data_20171126, https://sirrah.troja.mff.cuni.cz/~mira/betalyr/).
+#       Folded with [M18] Eq. 1 and binned within 0.025 cycles: 4.203, 3.382
+#       and 3.804 mag at phases 0, 0.25 and 0.5, i.e. eclipse depths of 0.82
+#       and 0.42 mag below first quadrature.
+# [HYG] J2000 sky direction from the local HYG catalog, HIP 92420.
+# Adopted without a direct measurement: the 18,000 K cap on the disk-center
+# temperature, which the [M18] power law would exceed near the gainer.
+
+name = "Beta Lyrae A"
+
+[sky]
+viewer_ra_dec_distance_pc = [282.51998, 33.36267, 316.7]
+milky_way = "sky/beta_lyrae.jpg"
+stars = "sky/beta_lyrae_stars.csv"
+
+[view]
+focus = "Beta Lyrae A"
+event = "Mass transfer in Sheliak"
+start = "2026-11-22 06:02"
+warp = 6500.0
+distance_km = 8.0e7
+up = "orbit_normal:Beta Lyrae Aa1"
+star_surfaces = "relative"
+
+[light_curve]
+observer = "Sun"
+stars = ["Beta Lyrae Aa2", "Beta Lyrae Aa1"]
+band = "V"
+wavelength_nm = 550.0
+limb_darkening = 0.6
+span_days = 13.0
+
+[[bodies]]
+name = "Beta Lyrae A"
+kind = "barycenter"
+
+[[bodies]]
+name = "Beta Lyrae Aa2"
+parent = "Beta Lyrae A"
+kind = "star"
+radii_km = [4174200.0]               # [M18] buried gainer, 6 R_sun
+body_gm_km3_s2 = 1.72131002085e12   # 12.97 M_sun
+temperature_k = 30000.0            # [MD13]
+luminosity_solar = 26270.0          # R^2 (T / 5772 K)^4 for the buried star
+orbit_color = "#94a8ca"
+trail = "none"
+[bodies.accretion_disk]
+companion = "Beta Lyrae Aa1"
+illustrative_torus = true           # the V curve uses the calibrated slab
+outer_radius_km = 21406689.0        # [M18] 30.77 R_sun
+half_height_km = 4417695.0          # 6.35 R_sun, within [M18] slab uncertainty
+rim_temperature_k = 8000.0         # calibrated to the [Hvar] V eclipse depths
+inner_temperature_k = 18000.0      # adopted cap, see the header
+temperature_power = 1.03           # [M18] radial power-law slope
+rim_heating_k = 1600.0              # broad donor-facing warm patch [M18]
+rim_heating_radius_km = 4508136.0
+[bodies.orbit]
+type = "post_keplerian"
+scale = -0.18181818181818
+gm_km3_s2 = 2.10382335882e12
+period_days = 12.9455966924
+pb_dot = 5.98296098978e-7
+omega_dot_deg_per_year = 0.0
+e = 0.0
+i_deg = 93.26
+node_deg = 73.65
+arg_peri_deg = 90.0
+t_peri_jd_tdb = 2461363.126472884
+sky_ra_dec_deg = [282.51998, 33.36267]
+
+[[bodies]]
+name = "Beta Lyrae Aa1"
+parent = "Beta Lyrae A"
+kind = "star"
+body_gm_km3_s2 = 3.82513337967e11  # 2.88 M_sun
+temperature_k = 12410.0            # surface-average equivalent of the 13,300 K pole
+luminosity_solar = 4900.0
+orbit_color = "#c2d8ff"
+trail = "none"
+[bodies.roche]
+companion = "Beta Lyrae Aa2"
+gravity_darkening = 1.0            # [M18] von Zeipel T proportional to g^0.25
+albedo = 0.0                       # the disk intercepts the gainer's direct light
+[bodies.orbit]
+type = "post_keplerian"
+scale = 0.81818181818182
+gm_km3_s2 = 2.10382335882e12
+period_days = 12.9455966924
+pb_dot = 5.98296098978e-7
+omega_dot_deg_per_year = 0.0
+e = 0.0
+i_deg = 93.26
+node_deg = 73.65
+arg_peri_deg = 90.0
+t_peri_jd_tdb = 2461363.126472884
+sky_ra_dec_deg = [282.51998, 33.36267]
+
+[[bodies]]
+name = "Sun"
+template = "bodies/sun.toml"
+parent = "Beta Lyrae A"
+trail = "none"
+label = false
+[bodies.orbit]
+type = "fixed"
+ra_dec_distance_pc = [102.51998, -33.36267, 316.7]
+
+[[events]]
+name = "Mass transfer in Sheliak"
+time_tdb = "2026-11-22 06:01:47"     # phase 0.28, with the warm rim on the near side
+focus = "Beta Lyrae A"
+from_body = "Sun"
+elevation_deg = 29.0
+distance_km = 8.9e7
+warp = 6500.0
+caption = "Gas streams from the stretched donor into the disk. The exposed center and faint jets illustrate the flow around the hotter star."
+
+[[events]]
+name = "The disk eclipses the donor"
+time_tdb = "2026-11-17 17:17:12"     # phase -0.07
+focus = "Beta Lyrae A"
+from_earth = true
+distance_km = 2.4e8
+fov_deg = 13.0
+warp = 4000.0
+caption = "From Earth we see the system almost edge-on. The disk hides much of the brighter donor and produces the deeper dip in visible light."
+
+[[events]]
+name = "The donor eclipses the disk"
+time_tdb = "2026-11-24 04:38:02"     # phase 0.43
+focus = "Beta Lyrae A"
+from_earth = true
+distance_km = 2.4e8
+fov_deg = 13.0
+warp = 4000.0
+caption = "Half an orbit later the donor crosses the disk. It covers part of the broad disk, so this dip is shallower. Each orbit takes just under thirteen days."
+
+[[events]]
+name = "Above the disk"
+time_tdb = "2026-11-27 16:31:17"     # phase 0.70
+focus = "Beta Lyrae A"
+from_body = "Sun"
+elevation_deg = 57.0
+distance_km = 7.8e7
+warp = 6800.0
+caption = "From above the disk, the hot gainer shows through the opening. The bright patch on the rim marks where the stream arrives."

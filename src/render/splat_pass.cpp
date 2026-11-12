@@ -38,6 +38,7 @@ bool SplatPass::init(SDL_GPUDevice* device, const SceneTargetFormat& format, con
 {
     m_device = device;
     m_vertex_shader = vertex_shader;
+    m_stream.init(device, SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ);
     SDL_GPUSamplerCreateInfo info = {};
     info.min_filter = SDL_GPU_FILTER_LINEAR;
     info.mag_filter = SDL_GPU_FILTER_LINEAR;
@@ -116,6 +117,7 @@ void SplatPass::shutdown()
         return;
     }
     clear();
+    m_stream.shutdown();
     SDL_ReleaseGPUGraphicsPipeline(m_device, m_splat_pipeline);
     SDL_ReleaseGPUGraphicsPipeline(m_device, m_composite_pipeline);
     SDL_ReleaseGPUSampler(m_device, m_linear);
@@ -129,6 +131,7 @@ void SplatPass::clear()
 {
     SDL_ReleaseGPUBuffer(m_device, m_buffer);
     m_buffer = nullptr;
+    m_points = nullptr;
     m_count = 0;
 }
 
@@ -143,6 +146,21 @@ bool SplatPass::set_points(const void* data, uint32_t bytes, uint32_t count)
         SDL_LogError(SDL_LOG_CATEGORY_GPU, "Splat buffer creation failed: %s", SDL_GetError());
         return false;
     }
+    m_points = m_buffer;
+    m_count = count;
+    return true;
+}
+
+bool SplatPass::stream_points(SDL_GPUCommandBuffer* cmd, const void* data, uint32_t bytes, uint32_t count)
+{
+    SDL_ReleaseGPUBuffer(m_device, m_buffer);
+    m_buffer = nullptr;
+    m_points = nullptr;
+    m_count = 0;
+    if (count == 0 || !m_stream.upload(cmd, data, bytes)) {
+        return count == 0;
+    }
+    m_points = m_stream.buffer();
     m_count = count;
     return true;
 }
@@ -188,7 +206,7 @@ void SplatPass::render(SDL_GPUCommandBuffer* cmd, SplatTargets& targets, const D
                        uint32_t width, uint32_t height)
 {
     targets.drawn = false;
-    if (m_count == 0 || !m_buffer || draw_count == 0 ||
+    if (m_count == 0 || !m_points || draw_count == 0 ||
         !ensure_targets(targets, target_size(width), target_size(height))) {
         return;
     }
@@ -202,7 +220,7 @@ void SplatPass::render(SDL_GPUCommandBuffer* cmd, SplatTargets& targets, const D
         return;
     }
     SDL_BindGPUGraphicsPipeline(pass, m_splat_pipeline);
-    SDL_GPUBuffer* storage = m_buffer;
+    SDL_GPUBuffer* storage = m_points;
     SDL_BindGPUVertexStorageBuffers(pass, 0, &storage, 1);
     for (size_t i = 0; i < draw_count; ++i) {
         if (draws[i].count == 0) {

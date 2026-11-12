@@ -1,6 +1,7 @@
 #pragma once
 
 #include <glm/vec2.hpp>
+#include <glm/vec4.hpp>
 
 #include <functional>
 #include <string>
@@ -45,6 +46,7 @@ public:
         Dot dot = Dot::None; // spacecraft and bodies under kMarkerRadius: filled; ghosts: hollow
         float fade = 1.0f;   // the body's fade (satellite_fades); the dot's opacity
         glm::vec2 text_position{0.0f}; // top left of the label
+        glm::vec4 text_bounds{0.0f};   // padded bounds of the label
         float text_alpha = 0.0f;       // label opacity (eased, times the fade)
         // A body bent around a black hole is marked at its primary image (`position`);
         // a filled dot also goes at its secondary image, at this opacity relative to the
@@ -66,9 +68,9 @@ public:
     // In placement order (highest priority first).
     const std::vector<BodyMark>& bodies() const { return m_bodies; }
 
-    // The body whose mark is under `point` (within its disk or `pick_radius`)
-    // and whose label is shown enough to be picked; -1 if none. The last such
-    // mark in placement order wins.
+    // Pick a visible label under `point`, then fall back to the body disk or
+    // `pick_radius`. The last eligible mark in placement order wins in each
+    // case. Returns -1 when there is no hit.
     int pick(glm::vec2 point, float pick_radius) const;
 
 private:

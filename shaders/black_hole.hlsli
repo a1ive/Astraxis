@@ -23,6 +23,7 @@
 #define ASTRAXIS_BLACK_HOLE_HLSLI
 
 #include "common.hlsli"
+#include "noise.hlsli"
 
 FRAGMENT_TEXTURE(TextureCube, u_sky, u_sky_sampler, 0);     // Milky Way and stars in ICRF directions, mipmapped (where lensing squeezes the sky)
 FRAGMENT_TEXTURE(Texture2D, u_blackbody, u_lut_sampler, 1); // log-temperature -> linear color
@@ -154,28 +155,6 @@ float3 blackbody(float t)
 {
     float u = saturate(log(t / 1000.0) / log(40.0)); // 1000 K .. 40000 K
     return u_blackbody.SampleLevel(u_lut_sampler, float2(u, 0.5), 0).rgb;
-}
-
-float hash12(float2 q)
-{
-    float3 p3 = frac(float3(q.xyx) * 0.1031);
-    p3 += dot(p3, p3.yzx + 33.33);
-    return frac((p3.x + p3.y) * p3.z);
-}
-
-// Value noise, periodic in x with integer period `period`.
-float periodic_noise(float2 q, float period)
-{
-    float2 i = floor(q);
-    float2 u = q - i;
-    u = u * u * (3.0 - 2.0 * u);
-    float x0 = i.x - period * floor(i.x / period);
-    float x1 = x0 + 1.0 - period * floor((x0 + 1.0) / period);
-    float a = hash12(float2(x0, i.y));
-    float b = hash12(float2(x1, i.y));
-    float c = hash12(float2(x0, i.y + 1.0));
-    float d = hash12(float2(x1, i.y + 1.0));
-    return lerp(lerp(a, b, u.x), lerp(c, d, u.x), u.y);
 }
 
 // Disk texture in [0, 1]: q.x = azimuth in turns (periodic), q.y = log r.

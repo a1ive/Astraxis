@@ -2,6 +2,7 @@
 
 #include "core/time.hpp"
 #include "ephem/motion.hpp"
+#include "scene/accretion_disk.hpp"
 #include "scene/aurora_model.hpp"
 #include "scene/magnetic_field.hpp"
 #include "scene/magnetosphere.hpp"
@@ -467,6 +468,8 @@ struct Body {
     // surface, also drawn as `shape`; the radii are then the distances from its
     // center to L1, the sides and the poles.
     std::shared_ptr<const RocheSurface> roche;
+    // The gainer's visible surface is the opaque accretion disk in `shape`.
+    std::shared_ptr<const AccretionDisk> accretion_disk;
     // Instead of a rotation model: turns with its orbit around this body,
     // x toward it and z along the orbit normal (-1: no).
     int synchronous_with = -1;
@@ -790,6 +793,9 @@ struct LightCurve {
     // Magnitudes count from this light: every star as bright as it gets
     // (a pulsating one at its brightest), nothing hidden (set on load).
     double reference_flux = 0.0;
+    int disk_gainer = -1;
+    // Sampled around the orbit in the disk's frame, from +x toward +y.
+    std::vector<float> phase_magnitudes;
 
     bool enabled() const { return observer >= 0 && !stars.empty(); }
 };
@@ -1025,5 +1031,9 @@ glm::dvec3 ecliptic_pole_icrf();
 // direction (latitude, east longitude), and the outward unit normal there.
 glm::dvec3 body_surface_point(const Body& body, double lat_deg, double lon_deg);
 glm::dvec3 body_surface_normal(const Body& body, const glm::dvec3& point);
+
+// Radius (km) of the sphere around the body's center that holds what is drawn
+// of it: an accretion disk's rim for its gainer, otherwise the equatorial radius.
+double body_extent_km(const Body& body);
 
 } // namespace astraxis

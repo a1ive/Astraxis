@@ -148,6 +148,24 @@ constexpr double kSunMagAt1Au = -26.74;
 // Body pass styles beyond SurfaceStyle (see body.frag.hlsl).
 constexpr int kStyleStar = 2;
 constexpr int kStyleBlackHole = 3;
+constexpr int kStyleAccretionDisk = 6;
+constexpr int kStyleAccretionDonor = 7;
+// One turn of an accretion disk's drawn pattern (real seconds, artistic).
+constexpr double kAccretionTurnSeconds = 50.0;
+
+// The pattern's turns, wrapped in double so that it stays smooth in a long run.
+float accretion_turns(double animation_time)
+{
+    return static_cast<float>(std::fmod(animation_time / kAccretionTurnSeconds, 1.0));
+}
+
+const AccretionDisk* disk_fed_by(const Scene& scene, const Body& donor)
+{
+    if (!donor.roche || donor.synchronous_with < 0) {
+        return nullptr;
+    }
+    return scene.bodies[static_cast<size_t>(donor.synchronous_with)].accretion_disk.get();
+}
 
 // Black hole rendering.
 constexpr float kRayIntegrationRadius = 150.0f; // M; rays with b < 0.8 of it are integrated inside it, analytic beyond
@@ -743,6 +761,7 @@ bool SceneRenderer::init(const GpuDevice& gpu, SDL_GPUTextureFormat output_forma
     return m_starfield.init(device, format, m_catalog) && m_bodies.init(device, format) &&
            m_rings.init(device, format) && m_atmospheres.init(device, format) && m_auroras.init(device, format) &&
            m_plumes.init(device, format) && m_impacts.init(device, format) && m_comets.init(device, format) && m_dust.init(device, format) &&
+           m_accretion_glow.init(device, format) &&
            m_orbits.init(device, format) && m_belts.init(device, format) && m_pinwheel.init(device, format) &&
            m_nebula.init(device, format) &&
            m_corona.init(device, format) && m_disk.init(device, format) && m_sun.init(device, format) && m_beams.init(device, format) && m_black_hole.init(device, format) &&
@@ -754,7 +773,8 @@ bool SceneRenderer::refresh_pipelines()
     const SceneTargetFormat& format = m_device->scene_format();
     return m_starfield.set_format(format) && m_bodies.set_format(format) && m_rings.set_format(format) &&
            m_atmospheres.set_format(format) && m_auroras.set_format(format) && m_plumes.set_format(format) && m_impacts.set_format(format) &&
-           m_comets.set_format(format) && m_dust.set_format(format) && m_orbits.set_format(format) &&
+           m_comets.set_format(format) && m_dust.set_format(format) && m_accretion_glow.set_format(format) &&
+           m_orbits.set_format(format) &&
            m_belts.set_format(format) && m_pinwheel.set_format(format) && m_nebula.set_format(format) && m_corona.set_format(format) && m_disk.set_format(format) && m_sun.set_format(format) &&
            m_beams.set_format(format) && m_black_hole.set_format(format);
 }
@@ -791,6 +811,7 @@ void SceneRenderer::shutdown()
     m_impacts.shutdown();
     m_comets.shutdown();
     m_dust.shutdown();
+    m_accretion_glow.shutdown();
     m_bodies.shutdown();
     m_starfield.shutdown();
     m_device = nullptr;
@@ -1200,7 +1221,8 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
     if (scene.view.relative_star_surfaces) {
         for (const Body& b : scene.bodies) {
             if (b.kind == BodyKind::Star) {
-                const double t = b.pulsation ? b.pulsation->max_temperature_k() : b.temperature_k;
+                const double t = b.accretion_disk ? b.accretion_disk->rim_temperature_k
+                                : b.pulsation ? b.pulsation->max_temperature_k() : b.temperature_k;
                 hottest_surface = std::max(hottest_surface, planck_shape(t, kStarSurfaceWavelengthNm));
             }
         }
@@ -1264,12 +1286,32 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
         item.style = static_cast<int>(body.style);
         item.surface_gain = static_cast<float>(aurora_surface_gain(body.aurora.model, infrared));
         if (body.kind == BodyKind::Star) {
-            item.style = kStyleStar;
-            item.color = glm::vec3(blackbody_linear_srgb(body.temperature_k)) * kStarSurface;
+            const AccretionDisk* disk = body.accretion_disk.get();
+            const AccretionDisk* fed_disk = disk_fed_by(scene, body);
+            if (disk && disk->illustrative_torus) {
+                item.style = kStyleStar;
+                item.color = glm::vec3(blackbody_linear_srgb(body.temperature_k)) * 4.0f;
+                emit(item);
+                continue;
+            }
+            const double temperature = disk ? disk->rim_temperature_k : body.temperature_k;
+            item.style = disk ? kStyleAccretionDisk : kStyleStar;
+            if (fed_disk && fed_disk->illustrative_torus) {
+                item.style = kStyleAccretionDonor;
+            }
+            float radiance_scale = kStarSurface;
             if (hottest_surface > 0.0) {
-                item.color *= kRelativeStarSurfaceScale *
-                              static_cast<float>(planck_shape(body.temperature_k, kStarSurfaceWavelengthNm) /
-                                                 hottest_surface);
+                radiance_scale *= kRelativeStarSurfaceScale *
+                                 static_cast<float>(planck_shape(temperature, kStarSurfaceWavelengthNm) / hottest_surface);
+            }
+            item.color = glm::vec3(blackbody_linear_srgb(temperature)) * radiance_scale;
+            if (disk) {
+                const glm::vec3 white_point(blackbody_linear_srgb(10000.0));
+                item.color /= white_point;
+                item.accretion = glm::vec4(glm::vec3(blackbody_linear_srgb(disk->inner_temperature_k)) *
+                                              radiance_scale / white_point,
+                                          static_cast<float>(1.0 / disk->outer_radius_km));
+                item.accretion_turns = accretion_turns(sim.animation_time());
             }
             item.color *= static_cast<float>(observed_star_display_gain(
                 scene.observed_light_curve, static_cast<int>(i), sim.clock().t_tdb));
@@ -1917,6 +1959,117 @@ void SceneRenderer::build_comet_items(const Simulation& sim, const OutputView& o
     }
 }
 
+void SceneRenderer::add_accretion_gas(const Simulation& sim, const CameraView& view)
+{
+    const Scene& scene = sim.scene();
+    const double time = sim.animation_time();
+    std::vector<DustSplat>& splats = m_accretion_glow.splats();
+    std::vector<AccretionGlowItem>& glows = m_accretion_glow.items();
+    splats.clear();
+    glows.clear();
+    m_accretion_items.clear();
+    for (const Body& gainer : scene.bodies) {
+        const AccretionDisk* disk = gainer.accretion_disk.get();
+        if (!gainer.visible || !disk || !disk->illustrative_torus) {
+            continue;
+        }
+        const Body& donor = scene.bodies[static_cast<size_t>(gainer.synchronous_with)];
+        const double radius = disk->outer_radius_km;
+        const double l1 = (glm::length(donor.world_position - gainer.world_position) - donor.roche->l1_km) / radius;
+        const glm::dvec3 center = gainer.world_position - view.position;
+        const double core = gainer.equatorial_radius_km;
+        PlumeDrawItem volume;
+        volume.type = PlumeDrawItem::Accretion;
+        volume.model = glm::translate(glm::mat4(1.0f), glm::vec3(center)) * glm::mat4(glm::mat3(gainer.orientation));
+        volume.to_local = glm::mat3(glm::transpose(gainer.orientation));
+        volume.camera_local = glm::vec3(glm::transpose(gainer.orientation) * -center);
+        volume.box_max = glm::vec3(1.24 * radius, 1.24 * radius, 2.0 * disk->half_height_km);
+        volume.box_min = -volume.box_max;
+        volume.planet_radius = static_cast<float>(core);
+        const double opening = std::min(1.35 * core, 0.5 * (radius + core));
+        volume.shape = glm::vec4(radius, disk->half_height_km, opening, 0.0);
+        volume.density = static_cast<float>(11.2 / radius);
+        volume.phase = accretion_turns(time);
+        if (donor.visible) {
+            volume.occluder_count = 1;
+            const glm::dvec3 local = glm::transpose(gainer.orientation) * (donor.world_position - gainer.world_position);
+            volume.occluders[0] = glm::vec4(glm::vec3(local), static_cast<float>(donor.roche->volume_radius_km));
+        }
+        m_accretion_items.push_back(volume);
+
+        // The splats have no depth to test against: the two stars hide them instead.
+        AccretionGlowItem glow_item;
+        glow_item.first = static_cast<uint32_t>(splats.size());
+        glow_item.to_local = volume.to_local;
+        glow_item.center = glm::vec3(center);
+        glow_item.occluder_count = 1;
+        glow_item.occluder_radii[0] = glm::vec3(static_cast<float>(core));
+        if (donor.visible) {
+            // The Roche lobe as an ellipsoid from its far side to L1.
+            const RocheSurface& lobe = *donor.roche;
+            const glm::dvec3 local = glm::transpose(gainer.orientation) * (donor.world_position - gainer.world_position);
+            const glm::dvec3 toward_gainer = -glm::normalize(local);
+            glow_item.occluder_count = 2;
+            glow_item.occluder_centers[1] = glm::vec3(local + 0.5 * (lobe.l1_km - lobe.back_km) * toward_gainer);
+            glow_item.occluder_radii[1] = glm::vec3(glm::dvec3(0.5 * (lobe.l1_km + lobe.back_km), lobe.side_km,
+                                                               lobe.pole_km));
+        }
+
+        const auto glow = [&](const glm::dvec3& p, double width, const glm::vec3& color, double intensity) {
+            const double sigma = width * radius;
+            splats.push_back({glm::vec3(center + gainer.orientation * (p * radius)), static_cast<float>(sigma), color,
+                             static_cast<float>(intensity * kTwoPi * sigma * sigma)});
+        };
+
+        const glm::vec3 stream_blue(0.48f, 0.69f, 1.0f);
+        const glm::vec3 impact_color(1.0f, 0.67f, 0.51f);
+        // Two overlapping strands follow the inward, prograde bend from L1.
+        constexpr int kStreamSamples = 96;
+        for (int i = 0; i < kStreamSamples; ++i) {
+            const double u = std::fmod((i + 0.5) / kStreamSamples + time / 4.0, 1.0);
+            const double r = std::lerp(l1 + 0.015, 0.93, u);
+            const double phi = 0.31 * u * u;
+            const double pulse = 0.70 + 0.30 * std::sin(0.9 * i + 13.0 * u);
+            const double fade = glm::smoothstep(0.0, 0.11, u) * (1.0 - glm::smoothstep(0.82, 1.0, u));
+            const glm::vec3 color = glm::mix(stream_blue, impact_color, static_cast<float>(u * u * u));
+            const glm::dvec3 p(r * std::cos(phi), r * std::sin(phi), 0.014 * std::sin(8.0 * u) * u);
+            glow(p, 0.008 + 0.013 * u, color, 0.056 * fade * pulse);
+            const glm::dvec3 wisp(0.0, 0.013 * u * std::sin(i * 2.40), 0.013 * u * std::cos(i * 2.40));
+            glow(p + wisp, 0.018 + 0.017 * u, color, 0.010 * fade);
+        }
+        glow({std::cos(0.22), std::sin(0.22), 0.0}, 0.039, impact_color, 0.28);
+
+        const glm::vec3 jet_blue(0.33f, 0.64f, 1.0f);
+        const glm::vec3 jet_base(0.69f, 0.83f, 1.0f);
+        const double core_radius = gainer.equatorial_radius_km / radius;
+        constexpr int kInnerSamples = 48;
+        for (int i = 0; i < kInnerSamples; ++i) {
+            const double phi = kTwoPi * (i + 0.5) / kInnerSamples;
+            const double r = 1.17 * core_radius;
+            glow({r * std::cos(phi), r * std::sin(phi), 0.024 * std::sin(3.0 * phi)}, 0.047, jet_base, 0.027);
+        }
+        constexpr int kJetSamples = 104;
+        for (const double sign : {-1.0, 1.0}) {
+            glow({0.0, 0.0, sign * 1.12 * core_radius}, 0.073, jet_base, 0.17);
+            for (int i = 0; i < kJetSamples; ++i) {
+                const double u = std::fmod((i + 0.5) / kJetSamples + time / 5.0, 1.0);
+                const double z = sign * (0.87 * core_radius + 1.13 * u);
+                const double spread = 0.004 + 0.019 * u;
+                const double spiral = i * 2.40 + sign * 11.0 * u;
+                const glm::dvec3 p(0.042 * z + spread * std::cos(spiral),
+                                  -0.028 * z + spread * std::sin(spiral), z);
+                const double fade = glm::smoothstep(0.0, 0.08, u) * (1.0 - glm::smoothstep(0.52, 1.0, u));
+                const double pulse = 0.72 + 0.28 * std::sin(31.0 * u - 0.8 * time + sign);
+                const glm::vec3 color = glm::mix(jet_base, jet_blue, static_cast<float>(u));
+                glow(p, 0.009 + 0.017 * u, color, 0.049 * fade * pulse);
+                glow(p, 0.032 + 0.041 * u, jet_blue, 0.005 * fade);
+            }
+        }
+        glow_item.count = static_cast<uint32_t>(splats.size()) - glow_item.first;
+        glows.push_back(glow_item);
+    }
+}
+
 void SceneRenderer::build_orbit_lines(const Simulation& sim, const OutputView& output_view, const ViewOptions& options)
 {
     const Scene& scene = sim.scene();
@@ -2201,12 +2354,24 @@ void SceneRenderer::draw_stars(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pas
         s.position = glm::vec3(to_star);
         s.finite = true;
         s.glow_gain = visible;
-        s.angular_radius = static_cast<float>(body.equatorial_radius_km / distance);
-        s.color = glm::vec3(blackbody_linear_srgb(body.temperature_k));
+        const AccretionDisk* disk = body.accretion_disk.get();
+        const bool disk_donor = disk_fed_by(scene, body) != nullptr;
+        const double visible_radius = disk ? disk->outer_radius_km
+                                    : disk_donor ? body.roche->volume_radius_km : body.equatorial_radius_km;
+        s.angular_radius = static_cast<float>(visible_radius / distance);
+        s.color = glm::vec3(blackbody_linear_srgb(disk ? disk->rim_temperature_k : body.temperature_k));
         s.magnitude = static_cast<float>(apparent_magnitude(body.luminosity_solar, distance));
         s.display_gain = static_cast<float>(observed_star_display_gain(
             observed, static_cast<int>(&body - scene.bodies.data()), sim.clock().t_tdb));
         s.draw_disk = s.angular_radius * viewport_half < 3.0f; // otherwise the sphere shows it
+        if (disk) {
+            s.glow_gain = 0.0f; // The buried star has no independent glare.
+        } else if (disk_donor && !s.draw_disk && !lens) {
+            // A center-depth sprite cuts a hard line across the nearby disk
+            // and the far side of the donor's Roche cusp.
+            s.finite = false;
+            s.glow_gain *= 0.52f;
+        }
         if (bent_surface) {
             s.draw_disk = false;
             s.glow_gain *= std::lerp(1.0f, 0.15f, neutron_star_blend);
@@ -2256,7 +2421,7 @@ void SceneRenderer::draw_stars(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pas
                 const LensedView& image = lens->images[k];
                 SunPass::Star lensed = s;
                 lensed.position = glm::vec3(image.offset);
-                lensed.angular_radius = static_cast<float>(body.equatorial_radius_km * image.angular_radius_per_km);
+                lensed.angular_radius = static_cast<float>(visible_radius * image.angular_radius_per_km);
                 lensed.magnitude = s.magnitude - static_cast<float>(2.5 * std::log10(std::abs(image.magnification)));
                 lensed.draw_disk = lensed.angular_radius * viewport_half < 3.0f;
                 m_sun.draw(cmd, pass, view, lensed);
@@ -2450,6 +2615,7 @@ void SceneRenderer::render(const Frame& frame, const Simulation& sim, const Outp
     build_magnetic_lines(sim, output_view, options); // in the same pass, after the orbits
     build_magnetospheres(sim, output_view, options);
     build_comet_items(sim, output_view, options);
+    add_accretion_gas(sim, view);
 
     // Uploads (copy passes) must precede the render passes.
     m_orbits.upload(frame.cmd);
@@ -2460,6 +2626,7 @@ void SceneRenderer::render(const Frame& frame, const Simulation& sim, const Outp
         m_pinwheel.render(frame.cmd, targets.pinwheel, view, pinwheel_item(sim, output_view), frame.width,
                           frame.height);
     }
+    m_accretion_glow.render(frame.cmd, targets.accretion_glow, view, frame.width, frame.height);
     if (m_nebula.has_grains()) {
         build_nebula_items(sim, output_view);
         if (!m_nebula_items.empty()) {
@@ -2485,6 +2652,7 @@ void SceneRenderer::render(const Frame& frame, const Simulation& sim, const Outp
     m_impacts.draw_plumes(frame.cmd, pass, view, m_impact_plumes);
     m_comets.draw(frame.cmd, pass, view, time, m_comet_items);
     m_dust.draw(frame.cmd, pass, view, static_cast<float>(kDustMinPx));
+    m_accretion_glow.composite(pass, targets.accretion_glow);
     m_rings.draw(frame.cmd, pass, view, m_ring_items);
     m_auroras.draw(frame.cmd, pass, view, m_aurora_items, true);
     build_belt_items(sim, output_view, options);
@@ -2497,6 +2665,8 @@ void SceneRenderer::render(const Frame& frame, const Simulation& sim, const Outp
         draw_neutron_star(frame.cmd, pass, sim, view, neutron_star, neutron_star_blend, options.star_brightness);
     }
     draw_stars(frame.cmd, pass, sim, output_view, neutron_star, neutron_star_blend);
+    // The donor's halo is part of the background seen through the disk.
+    m_plumes.draw(frame.cmd, pass, view, time, m_accretion_items);
     m_beams.draw(frame.cmd, pass, view, m_beam_items);
     m_orbits.draw(frame.cmd, pass, view, options.line_width);
     SDL_EndGPURenderPass(pass);

@@ -52,7 +52,14 @@ struct FragmentUniforms {
     glm::vec4 relief; // x = slope of a full channel (0: no map), y = the sea's mean square slope (0: no glint),
                       // z = its reflectance at normal incidence, w = the albedo of the clouds (0: none)
     glm::vec4 cloud_flow; // BodyDrawItem::cloud_flow
+    glm::vec4 accretion; // BodyDrawItem::accretion
+    glm::vec4 accretion_flow; // x = turns of the disk texture
 };
+// Every member is a float4 of the body.frag.hlsl cbuffer, in its order; SDL's
+// Vulkan backend binds 4 KiB of each uniform buffer.
+static_assert(sizeof(FragmentUniforms) == (28 + kMaxOccluders) * sizeof(glm::vec4),
+              "FragmentUniforms must match the cbuffer of body.frag.hlsl");
+static_assert(sizeof(FragmentUniforms) <= 4096, "a uniform buffer is bound 4 KiB at a time");
 
 struct BodyVertex {
     glm::vec3 position;
@@ -337,6 +344,8 @@ void BodyPass::draw(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const Ca
         fu.spot_color = glm::vec4(item.spot_color, static_cast<float>(item.spot_count));
         fu.flare = item.flare;
         fu.flare_color = glm::vec4(item.flare_color, 0.0f);
+        fu.accretion = item.accretion;
+        fu.accretion_flow.x = item.accretion_turns;
         if (item.relief) {
             fu.relief = glm::vec4(item.relief_slope, item.sea_slope_variance, item.sea_reflectance, 0.0f);
         }

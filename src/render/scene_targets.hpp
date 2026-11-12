@@ -83,6 +83,7 @@ public:
     BlackHoleTargets black_hole;   // managed by BlackHolePass
     SplatTargets pinwheel;         // managed by PinwheelPass
     SplatTargets nebula;           // managed by NebulaPass
+    SplatTargets accretion_glow;   // managed by AccretionGlowPass
 
 private:
     void release_scene();

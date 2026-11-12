@@ -17,6 +17,8 @@
 // waves run outward along the flow (real time, artistic).
 
 #include "atmosphere.hlsli"
+#include "common.hlsli"
+#include "noise.hlsli"
 
 #define MAX_JETS 12
 #define MAX_OCCLUDERS 4
@@ -24,6 +26,7 @@
 #define TYPE_JETS 1
 #define TYPE_COLUMN 2
 #define TYPE_TAIL 3
+#define TYPE_ACCRETION 4
 
 static const int kSteps = 96;
 static const float kTwoPi = 6.2831853;
@@ -37,9 +40,9 @@ cbuffer Uniforms : register(b0, space3)
     float4 u_box_max;     // xyz = box corner, w = jet count
     float4 u_planet;      // xyz = planet center (local), w = radius (km)
     float4 u_shape;       // umbrella: H, R_c, shell width (in q); jets: H, tan(spread), z0; column: H, radius;
-                          // tail: H, radius, length, widening per km
+                          // tail: H, radius, length, widening per km; accretion: radius, H, opening radius
     float4 u_albedo;      // rgb = single-scattering albedo, w = g
-    float4 u_params;      // x = time (s), y = occluder count, z = density scale (per km)
+    float4 u_params;      // x = time (s), y = occluder count, z = density scale (per km), w = accretion phase (turns)
     float4 u_occluders[MAX_OCCLUDERS]; // xyz = center (local), w = radius
     float4 u_jet_pos[MAX_JETS];        // vents (local)
     float4 u_jet_axis[MAX_JETS];       // their axes (unit)
@@ -199,6 +202,83 @@ bool clip_to_canopy(float3 o, float3 dir, inout float t0, inout float t1)
     return t1 > t0;
 }
 
+float stop_at_sphere(float3 o, float3 dir, float4 sphere, float t1)
+{
+    float3 oc = o - sphere.xyz;
+    float b = dot(oc, dir);
+    float3 perp = oc - b * dir;
+    float p2 = dot(perp, perp);
+    float r2 = sphere.w * sphere.w;
+    if (p2 < r2) {
+        float hit = -b - sqrt(r2 - p2);
+        if (hit > 0.0) {
+            return min(t1, hit);
+        }
+    }
+    return t1;
+}
+
+float4 accretion_volume(float3 origin, float3 dir, float t0, float t1, float jitter)
+{
+    const float radius = u_shape.x;
+    const float ray_length = (t1 - t0) / radius;
+    const int steps = clamp((int)ceil(34.0 * ray_length), 24, 60);
+    const float height = u_shape.y / radius;
+    const float opening = u_shape.z / radius;
+    const float3 first = (origin + t0 * dir) / radius;
+    const float stride = ray_length / steps;
+    const float opacity = stride * radius * u_params.z;
+    const float spin = u_params.w; // wrapped on the CPU: float time loses the phase after months
+    const float3 rim_color = 0.70 * srgb_to_linear(float3(0.88, 0.76, 0.70));
+    const float3 inner_color = 1.16 * srgb_to_linear(float3(0.79, 0.87, 1.0));
+    const float3 mist_color = 0.64 * srgb_to_linear(float3(0.48, 0.57, 0.86));
+    const float3 shock_color = srgb_to_linear(float3(1.0, 0.66, 0.42));
+    float3 light = 0.0;
+    float transmission = 1.0;
+    for (int i = 0; i < steps; ++i) {
+        float3 p = first + ((i + jitter) * stride) * dir;
+        float r = length(p.xy);
+        if (r >= 1.22 || r < 0.58 * opening) {
+            continue;
+        }
+        float scale_height = height * (0.35 + 0.17 * saturate(r)) *
+                             (1.0 - 0.24 * smoothstep(0.73, 1.19, r));
+        float z = p.z / scale_height;
+        float vertical = 1.0 - smoothstep(1.3 * height, 2.0 * height, abs(p.z));
+        float inner_edge = smoothstep(0.77 * opening, 1.18 * opening, r);
+        float disk = inner_edge * (1.0 - smoothstep(0.74, 1.10, r)) * exp(-0.5 * z * z);
+        float mist = 0.086 * smoothstep(0.58 * opening, opening, r) *
+                     (1.0 - smoothstep(0.88, 1.22, r)) * exp(-0.17 * z * z);
+        if ((disk + mist) * vertical < 0.001) {
+            continue;
+        }
+
+        float turns = atan2(p.y, p.x) / kTwoPi - spin;
+        float spiral = turns + 0.30 * log(r + 0.14);
+        float cloud = turn_noise(spiral, 9.0 * r + 0.55 * z, 8.0);
+        float band = turn_noise(spiral, 25.0 * r + 1.1 * cloud + 0.6 * z, 9.0);
+        float thread = turn_noise(spiral, 51.0 * r + 1.4 * band + 0.9 * z, 17.0);
+        disk *= max(0.18, 0.91 + 0.45 * cloud + 0.38 * band + 0.17 * thread);
+        mist *= 1.0 + 0.55 * cloud;
+        float depth = opacity * vertical * (disk + mist);
+        float transmitted = exp(-depth);
+
+        float hot = 1.0 - smoothstep(0.34, 1.04, r);
+        float3 from_impact = p - float3(0.921, 0.206, 0.0);
+        float impact = exp(-dot(from_impact, from_impact) / 0.017);
+        float3 source = lerp(rim_color, inner_color, hot) * (0.87 + 0.33 * cloud + 0.34 * band + 0.14 * thread) +
+                        0.60 * impact * shock_color;
+        source = lerp(source, mist_color * (1.0 + 0.50 * cloud), mist / max(disk + mist, 1e-5));
+        light += transmission * (1.0 - transmitted) * source;
+        transmission *= transmitted;
+        if (transmission < 0.004) {
+            break;
+        }
+    }
+    const float emission_gain = 0.30;
+    return float4(emission_gain * light, transmission);
+}
+
 float4 main(PSInput input) : SV_Target0
 {
     float3 dir = normalize(mul((float3x3)u_to_local, input.rel_pos));
@@ -212,18 +292,16 @@ float4 main(PSInput input) : SV_Target0
     float3 tf = max(ta, tb);
     float t0 = max(max(max(tn.x, tn.y), tn.z), 0.0);
     float t1 = min(min(tf.x, tf.y), tf.z);
-    float3 oc = o - u_planet.xyz;
-    float b = dot(oc, dir);
-    float3 perp = oc - b * dir;
-    float p2 = dot(perp, perp);
-    float r2 = u_planet.w * u_planet.w;
-    if (p2 < r2) {
-        float ground = -b - sqrt(r2 - p2);
-        if (ground > 0.0) {
-            t1 = min(t1, ground);
+    t1 = stop_at_sphere(o, dir, u_planet, t1);
+    const int type = (int)u_box_min.w;
+    if (type == TYPE_ACCRETION) {
+        for (int k = 0; k < (int)u_params.y; ++k) {
+            t1 = stop_at_sphere(o, dir, u_occluders[k], t1);
         }
+        return t1 > t0 ? accretion_volume(o, dir, t0, t1, gradient_noise(input.position.xy))
+                       : float4(0.0, 0.0, 0.0, 1.0);
     }
-    if (t1 <= t0 || ((int)u_box_min.w == TYPE_UMBRELLA && !clip_to_canopy(o, dir, t0, t1))) {
+    if (t1 <= t0 || (type == TYPE_UMBRELLA && !clip_to_canopy(o, dir, t0, t1))) {
         return float4(0.0, 0.0, 0.0, 1.0);
     }
 

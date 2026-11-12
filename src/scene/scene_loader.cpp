@@ -462,6 +462,8 @@ private:
     };
     std::vector<RocheSpec> m_roche_stars; // built once every body is loaded
     void build_roche_star(const RocheSpec& spec, Scene& out) const;
+    void parse_accretion_disk(const toml::table& t, const std::string& ctx, Body& body);
+    std::vector<std::pair<int, std::string>> m_accretion_companions;
     int m_current_body = -1;
 };
 
@@ -2218,6 +2220,17 @@ void Loader::parse(const toml::table& root, Scene& out)
                 fail(ctx, "neutron_star needs a spherical star with known mass and radius outside 3 GM/c^2");
             }
         }
+        if (const toml::table* disk = (*t)["accretion_disk"].as_table()) {
+            // The gainer turns with its donor (synchronous_with, set once every body is loaded).
+            if (t->contains("roche") || t->contains("point_at") || t->contains("pole_ra_dec_deg") ||
+                t->contains("prime_meridian_deg") || body.free_precession.enabled || body.spin_table) {
+                fail(ctx, "accretion_disk supplies the gainer's shape and orientation, replacing roche, point_at, "
+                          "pole_ra_dec_deg, prime_meridian_deg, free_precession and spin_table");
+            }
+            parse_accretion_disk(*disk, ctx + " accretion_disk", body);
+        } else if (t->contains("accretion_disk")) {
+            fail(ctx, "accretion_disk must be a table");
+        }
 
         if (!body.nut_prec_ra.empty() || !body.nut_prec_dec.empty() || !body.nut_prec_pm.empty()) {
             // The angles come from the nearest ancestor that defines them (or the body itself).
@@ -2283,6 +2296,15 @@ void Loader::parse(const toml::table& root, Scene& out)
     }
     for (const RocheSpec& spec : m_roche_stars) {
         build_roche_star(spec, out);
+    }
+    for (const auto& [gainer, name] : m_accretion_companions) {
+        const int donor = out.find(name);
+        if (donor < 0 || !out.bodies[static_cast<size_t>(donor)].roche ||
+            out.bodies[static_cast<size_t>(donor)].synchronous_with != gainer) {
+            fail("body '" + out.bodies[static_cast<size_t>(gainer)].name + "' accretion_disk",
+                 "companion must be a Roche-lobe donor paired with this gainer");
+        }
+        out.bodies[static_cast<size_t>(gainer)].synchronous_with = donor;
     }
 
     // Frames: frames[0] is always inertial around the root.
@@ -2799,6 +2821,17 @@ void Loader::parse(const toml::table& root, Scene& out)
         if (curve.stars.empty() || curve.stars.size() > 9) {
             fail(ctx, "needs 1 to 9 stars besides the observer");
         }
+        for (int index : curve.stars) {
+            const Body& star = out.bodies[static_cast<size_t>(index)];
+            if (!star.accretion_disk) {
+                continue;
+            }
+            if (curve.stars.size() != 2 || curve.observer == index || curve.observer == star.synchronous_with ||
+                std::find(curve.stars.begin(), curve.stars.end(), star.synchronous_with) == curve.stars.end()) {
+                fail(ctx, "a disk light curve needs the gainer, its Roche-lobe donor and a separate observer");
+            }
+            curve.disk_gainer = index;
+        }
         set_light_curve_reference(out);
     }
 
@@ -3286,6 +3319,35 @@ void Loader::parse_disk(const toml::table& t, Scene& out) const
         if (seen && disk.reference[static_cast<size_t>(v)] <= 0.0) {
             fail(ctx, "a view shows nothing at display_reference_au");
         }
+    }
+}
+
+void Loader::parse_accretion_disk(const toml::table& t, const std::string& ctx, Body& body)
+{
+    if (body.kind != BodyKind::Star || body.neutron_star || body.pulsation || body.shape ||
+        body.shape_after.shape || body.rotor.period_s > 0.0 || body.synchronous_with >= 0 ||
+        body.starspots.enabled() || !body.flares.empty()) {
+        fail(ctx, "needs a gainer star with its own radius and a disk as its sole surface");
+    }
+    const double radius = get_double(t, "outer_radius_km", ctx);
+    const double height = get_double(t, "half_height_km", ctx);
+    const double rim = get_double(t, "rim_temperature_k", ctx);
+    const double inner = get_double(t, "inner_temperature_k", ctx);
+    const double power = get_double(t, "temperature_power", ctx);
+    const double heat = get_double_or(t, "rim_heating_k", 0.0);
+    const double width = get_double_or(t, "rim_heating_radius_km", height);
+    const double core = body.equatorial_radius_km;
+    if (!(height >= core && radius > height && inner >= rim && rim > 0.0 && power > 0.0 && heat >= 0.0 &&
+          width > 0.0 && std::isfinite(radius) && std::isfinite(inner) && std::isfinite(power) &&
+          std::isfinite(heat) && std::isfinite(width))) {
+        fail(ctx, "needs outer radius > half height >= stellar radius, and finite positive temperatures and power");
+    }
+    m_accretion_companions.emplace_back(static_cast<int>(m_scene->bodies.size()), get_string(t, "companion", ctx));
+    AccretionDisk disk = make_accretion_disk(radius, height, core, rim, inner, power, heat, width);
+    disk.illustrative_torus = t["illustrative_torus"].value_or(false);
+    body.accretion_disk = std::make_shared<const AccretionDisk>(std::move(disk));
+    if (!body.accretion_disk->illustrative_torus) {
+        body.shape = std::shared_ptr<const ShapeModel>(body.accretion_disk, &body.accretion_disk->mesh);
     }
 }
 

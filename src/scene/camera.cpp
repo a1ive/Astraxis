@@ -24,7 +24,7 @@ constexpr double kBlackHoleClearance = 6.0;
 
 double clearance_radius(const Body& b)
 {
-    return b.equatorial_radius_km * (b.kind == BodyKind::BlackHole ? kBlackHoleClearance : kBodyClearance);
+    return body_extent_km(b) * (b.kind == BodyKind::BlackHole ? kBlackHoleClearance : kBodyClearance);
 }
 
 double smoothstep(double x)
@@ -47,13 +47,13 @@ double OrbitCamera::default_distance(int body, const Scene& scene) const
         // Root: frame the whole system.
         return scene.system_extent_km() * 2.6;
     }
-    return b.equatorial_radius_km * 12.0;
+    return body_extent_km(b) * 12.0;
 }
 
 double OrbitCamera::min_distance(int body, const Scene& scene) const
 {
     const Body& b = scene.bodies[static_cast<size_t>(body)];
-    return b.kind == BodyKind::BlackHole ? clearance_radius(b) : b.equatorial_radius_km * 1.15;
+    return b.kind == BodyKind::BlackHole ? clearance_radius(b) : body_extent_km(b) * 1.15;
 }
 
 void OrbitCamera::focus(int body, const Scene& scene)
@@ -218,7 +218,7 @@ void OrbitCamera::update(double real_dt, const Scene& scene)
         // follow it there, just not into the body.
         if (static_cast<int>(k) != m_target && body.kind != BodyKind::BlackHole &&
             glm::length(target_pos - body.world_position) < clearance) {
-            clearance = std::min(clearance, body.equatorial_radius_km * kLowOrbitClearance);
+            clearance = std::min(clearance, body_extent_km(body) * kLowOrbitClearance);
         }
         const glm::dvec3 rel = m_position - body.world_position;
         const double d = glm::length(rel);

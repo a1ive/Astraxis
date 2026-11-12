@@ -1101,7 +1101,58 @@ void test_label_layout()
 
     // (A moon over the focus's disk may win: the last mark under the point does.)
     check(labels.pick(first.position, 10.0f) >= 0, "picking at the focus finds a body");
+    const glm::vec2 label_point = first.text_position + 0.5f * measure(sim.scene().bodies[static_cast<size_t>(focus)].name);
+    check(glm::length(label_point - first.position) > std::max(first.radius, 10.0f) &&
+              labels.pick(label_point, 10.0f) == focus,
+          "picking the visible label outside the body disk finds its body");
     check(labels.pick(glm::vec2(-1000.0f, -1000.0f), 10.0f) == -1, "picking off screen finds nothing");
+
+    // A gainer's mark covers its accretion disk, not only the star buried in it.
+    Simulation lyrae;
+    if (!lyrae.load_scene(ASTRAXIS_ASSET_DIR "/scenes/beta_lyrae.toml", &error)) {
+        check(false, "label test loads beta_lyrae.toml");
+    } else {
+        OutputView lyrae_view;
+        lyrae.compute_view(1280, 720, 1.0, lyrae_view);
+        const Scene& scene = lyrae.scene();
+        const int gainer = scene.find("Beta Lyrae Aa2");
+        const int donor = scene.find("Beta Lyrae Aa1");
+        LabelLayout disk_labels;
+        for (int k = 0; k < 30; ++k) {
+            disk_labels.update(scene, lyrae_view, lyrae.camera().target(), screen, font, measure, 1.0f / 30.0f);
+        }
+        const LabelLayout::BodyMark* gainer_mark = nullptr;
+        const LabelLayout::BodyMark* donor_mark = nullptr;
+        for (const LabelLayout::BodyMark& mark : disk_labels.bodies()) {
+            gainer_mark = mark.body == gainer ? &mark : gainer_mark;
+            donor_mark = mark.body == donor ? &mark : donor_mark;
+        }
+        if (!gainer_mark || !donor_mark) {
+            check(false, "Beta Lyrae A marks both stars");
+        } else {
+            const Body& g = scene.bodies[static_cast<size_t>(gainer)];
+            const double distance = glm::length(g.world_position - lyrae_view.camera.position);
+            const double disk_px = body_extent_km(g) / distance * 0.5 * 720.0 * lyrae_view.camera.focal_y;
+            check(std::abs(gainer_mark->radius / disk_px - 1.0) < 0.05, "a gainer's mark spans its disk",
+                  gainer_mark->radius / disk_px);
+            // A point on the disk, well outside the buried star, off the donor and both labels.
+            bool tried = false;
+            for (int k = 0; k < 8 && !tried; ++k) {
+                const float angle = 0.785398f * static_cast<float>(k);
+                const glm::vec2 point =
+                    gainer_mark->position + 0.85f * gainer_mark->radius * glm::vec2(std::cos(angle), std::sin(angle));
+                auto in = [&](const glm::vec4& b) {
+                    return point.x >= b.x && point.x <= b.z && point.y >= b.y && point.y <= b.w;
+                };
+                if (glm::length(point - donor_mark->position) > std::max(donor_mark->radius, 10.0f) &&
+                    !in(gainer_mark->text_bounds) && !in(donor_mark->text_bounds)) {
+                    tried = true;
+                    check(disk_labels.pick(point, 10.0f) == gainer, "picking the disk outside the buried star finds the gainer");
+                }
+            }
+            check(tried, "a free point on Beta Lyrae A's disk to pick");
+        }
+    }
 
     labels.reset();
     labels.update(sim.scene(), view, focus, screen, font, measure, 0.0f);

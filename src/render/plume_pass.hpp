@@ -19,7 +19,7 @@ inline constexpr int kMaxPlumeDrawJets = 12;
 // One plume component in its local frame (km): origin at the vent on the
 // surface, z up. Values match the TYPE_* constants of shaders/plume.frag.hlsl.
 struct PlumeDrawItem {
-    enum Type : int { Umbrella = 0, Jets = 1, Column = 2, Tail = 3 };
+    enum Type : int { Umbrella = 0, Jets = 1, Column = 2, Tail = 3, Accretion = 4 };
     Type type = Umbrella;
     glm::mat4 model{1.0f};    // local frame -> camera-relative world (translation * rotation)
     glm::mat3 to_local{1.0f}; // world vector -> local frame (the rotation's transpose)
@@ -30,9 +30,10 @@ struct PlumeDrawItem {
     float planet_radius = 1.0f;    // km, at the vent (curvature and shadow)
     // Umbrella: canopy height, canopy radius, shell thickness; jets: scale
     // height, tan(spread), base width; column: height, radius; tail: height,
-    // radius, length, widening per km.
+    // radius, length, widening per km; accretion: outer radius, height, opening radius.
     glm::vec4 shape{0.0f};
     float density = 0.0f; // extinction coefficient scale (per km)
+    float phase = 0.0f;   // accretion: turns of the gas pattern (0..1), wrapped on the CPU in double
     glm::vec3 albedo{1.0f};
     float g = 0.0f;
     glm::vec3 sun_direction{0.0f, 0.0f, 1.0f}; // local, unit
@@ -44,9 +45,8 @@ struct PlumeDrawItem {
     glm::vec4 jet_axes[kMaxPlumeDrawJets] = {};
 };
 
-// Draws volcanic and cryovolcanic plumes by single scattering inside their
-// bounding boxes: scattered sunlight is added and what lies behind is dimmed by
-// the view transmission (depth-tested, not written).
+// Integrates plumes and emitting gas inside bounding boxes. The view transmission
+// dims what lies behind the gas. The boxes test depth without writing it.
 class PlumePass {
 public:
     bool init(SDL_GPUDevice* device, const SceneTargetFormat& format);

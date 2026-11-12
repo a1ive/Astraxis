@@ -66,6 +66,8 @@ add_library(astraxis_sim STATIC
     src/scene/relief.hpp
     src/scene/corona.cpp
     src/scene/corona.hpp
+    src/scene/accretion_disk.cpp
+    src/scene/accretion_disk.hpp
     src/scene/disk.cpp
     src/scene/disk.hpp
     src/scene/aurora.cpp
@@ -162,6 +164,7 @@ astraxis_add_shaders(astraxis_shaders
     shaders/orbit_line.frag.hlsl
     shaders/nebula.vert.hlsl
     shaders/pinwheel.vert.hlsl
+    shaders/accretion_glow.vert.hlsl
     shaders/splat_composite.frag.hlsl
     shaders/ring.vert.hlsl
     shaders/ring.frag.hlsl
@@ -218,6 +221,8 @@ add_executable(astraxis
     src/render/body_pass.hpp
     src/render/comet_pass.cpp
     src/render/comet_pass.hpp
+    src/render/accretion_glow_pass.cpp
+    src/render/accretion_glow_pass.hpp
     src/render/dust_pass.cpp
     src/render/dust_pass.hpp
     src/render/gpu_buffer.cpp

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "render/accretion_glow_pass.hpp"
 #include "render/atmosphere_pass.hpp"
 #include "render/aurora_pass.hpp"
 #include "render/beam_pass.hpp"
@@ -80,6 +81,7 @@ private:
     void build_magnetospheres(const Simulation& sim, const OutputView& view, const ViewOptions& options);
     void build_belt_items(const Simulation& sim, const OutputView& view, const ViewOptions& options);
     void build_comet_items(const Simulation& sim, const OutputView& view, const ViewOptions& options);
+    void add_accretion_gas(const Simulation& sim, const CameraView& view);
     // A colliding-wind binary's dust spiral: its grains (once per scene) and this frame's look.
     void load_pinwheel(const Scene& scene);
     PinwheelDrawItem pinwheel_item(const Simulation& sim, const OutputView& view) const;
@@ -107,6 +109,7 @@ private:
     ImpactPass m_impacts;
     CometPass m_comets;
     DustPass m_dust;
+    AccretionGlowPass m_accretion_glow;
     RingPass m_rings;
     OrbitLinePass m_orbits;
     BeltPass m_belts;
@@ -165,6 +168,7 @@ private:
     std::vector<AtmosphereDrawItem> m_atmosphere_items;
     std::vector<AuroraDrawItem> m_aurora_items;
     std::vector<PlumeDrawItem> m_plume_items;
+    std::vector<PlumeDrawItem> m_accretion_items;
     std::vector<ImpactScarDrawItem> m_impact_scars;
     std::vector<ImpactPlumeDrawItem> m_impact_plumes;
     std::vector<CometDrawItem> m_comet_items;

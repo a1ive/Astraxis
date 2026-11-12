@@ -73,6 +73,8 @@ void SceneTargets::release()
     pinwheel = {};
     SDL_ReleaseGPUTexture(m_device, nebula.color);
     nebula = {};
+    SDL_ReleaseGPUTexture(m_device, accretion_glow.color);
+    accretion_glow = {};
     SDL_ReleaseGPUTexture(m_device, corona.color);
     corona = {};
     SDL_ReleaseGPUTexture(m_device, disk.color);
