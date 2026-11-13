@@ -369,6 +369,8 @@ DiskUniforms disk_uniforms(const Scene& scene, const CameraView& view, double t_
         u.color[k] = glm::vec4(glm::vec3(c.color), static_cast<float>(c.flare_radius_au));
         u.temperature[k] = glm::vec4(static_cast<float>(c.temperature_k), static_cast<float>(c.temperature_radius_au),
                                      static_cast<float>(c.temperature_index), static_cast<float>(c.flare_index));
+        u.asymmetry[k] = glm::vec4(static_cast<float>(c.asymmetry_start_au), static_cast<float>(c.asymmetry_full_au),
+                                  static_cast<float>(c.warp_over_radius), static_cast<float>(c.contrast));
         for (int i = 0; i < kDiskRadialCount; ++i) {
             u.table[static_cast<size_t>(i)][static_cast<int>(k)] =
                 static_cast<float>(thick ? c.tau_per_column * c.column[static_cast<size_t>(i)]
@@ -1748,6 +1750,10 @@ void SceneRenderer::build_nebula_items(const Simulation& sim, const OutputView& 
     // What the stars light follows their observed brightness, compressed like the rest.
     const double light = observed_light_factor(scene.observed_light_curve, t);
     m_nebula_items.clear();
+    if (event >= 0 && (scene.events[static_cast<size_t>(event)].disk_gas ||
+                       scene.events[static_cast<size_t>(event)].disk_millimeter)) {
+        return;
+    }
     for (size_t k = 0; k < scene.nebulae.size(); ++k) {
         const Nebula& n = scene.nebulae[k];
         const double scale = nebula_scale(n, t);
@@ -1776,6 +1782,8 @@ void SceneRenderer::build_nebula_items(const Simulation& sim, const OutputView& 
         item.cull_radiance = kNebulaCullRadiance;
         item.color = n.color;
         if (!infrared) {
+            item.radiance *= static_cast<float>(n.visible_display_gain);
+            item.cull_radiance *= static_cast<float>(std::min(1.0, n.visible_display_gain));
             m_nebula_items.push_back(item);
             continue;
         }

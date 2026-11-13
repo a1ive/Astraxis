@@ -26,7 +26,7 @@ inline constexpr int kDiskDepthHeight = 128;
 // line of its CO (colored by the gas's velocity along the line of sight).
 enum class DiskView { Scattered = 0, Infrared = 1, Millimeter = 2, Gas = 3 };
 
-// One part of a disk: dust in its own plane, axisymmetric, with a column
+// One part of a disk: dust in its own plane, with a radial column
 // density given by radius and a vertical shape of two Gaussians (the second is
 // wider). Their sigmas are constant inside flare_radius_au and grow as
 // r^flare_index outside it. Lengths are in au here: only ratios of them reach
@@ -39,6 +39,12 @@ struct DiskComponent {
     double share2 = 0.0;        // the second Gaussian's share of the column
     double flare_radius_au = 1.0;
     double flare_index = 1.0;
+    // Optional m=1 asymmetry in scattered light. Along the node, positive
+    // warp lifts the broad Gaussian toward +z and contrast brightens +x.
+    double asymmetry_start_au = 0.0;
+    double asymmetry_full_au = 1.0;
+    double warp_over_radius = 0.0;
+    double contrast = 0.0;
     // In an optically thick disk: the optical depth straight through the disk,
     // per unit of the column below (0: it blocks nothing and is not lit).
     double tau_per_column = 0.0;
@@ -146,7 +152,7 @@ double disk_column(const Disk& disk, const DiskComponent& component, double r_au
 double disk_flare(const DiskComponent& component, double r_au);
 
 // The vertical shape at (r, z), per au: its integral over z is 1.
-double disk_vertical(const DiskComponent& component, double r_au, double z_au);
+double disk_vertical(const DiskComponent& component, double r_au, double z_au, double broad_shift_au = 0.0);
 
 // Grains' temperature d from the star.
 double disk_temperature(const DiskComponent& component, double d_au);

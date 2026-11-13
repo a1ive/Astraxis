@@ -1,11 +1,11 @@
 # Beta Pictoris: a young A star 19.44 pc away, with the first debris disk ever
-# imaged (Smith & Terrile 1984) seen almost edge-on and two giant planets inside
-# it, b at ~10 au and c at 2.7 au.
+# imaged (Smith & Terrile 1984), seen almost edge-on, with three giant planets
+# inside the main belt: c at 2.7 au, b at 10 au, and d farther out.
 #
-# The planets are nested two-body orbits (Jacobi coordinates, as fitted in
-# [LA21]); their pull on each other is ignored. The disk is a model
-# (scene/disk.hpp): optically thin, fitted to published profiles, axisymmetric but
-# for the clumps of its CO. The "cat's tail" is a burst of dust integrated under
+# The planets use nested two-body orbits in Jacobi coordinates; their mutual
+# perturbations are ignored. The optically thin disk follows published profiles
+# and includes an asymmetric outer halo in scattered light. The "cat's tail"
+# uses the same dust stream in visible light and the mid-infrared, integrated under
 # gravity, radiation pressure and interstellar drag when the scene loads. The comets
 # take their dates, sizes and periastrons from TESS's transits; their orbits are
 # otherwise schematic, and they show in one event only.
@@ -17,6 +17,23 @@
 #        parallax 51.44 mas; M_star = 1.75 M_sun, M_b = 11.90, M_c = 8.89 M_Jup.
 #        Sect. 3: b's orbit around star + c, c's around the star. Table 1: GRAVITY
 #        positions (tests). The fit's omega is the planet's.
+# [SU26] Sutlieff et al. 2026, ApJL 1006, L10 (arXiv:2606.23801). Table 1:
+#        six astrometric epochs (2014-2025); Fig. 4: b and d close in projection
+#        in 2014; Table 5: a = 26.0 +2.2/-6.1 au, 95.4% interval 17.9-39.7 au.
+#        Table 2: d's model mass 2.4 M_Jup, radius 1.26 R_Jup, T_eff ~600 K.
+# [GI26] Gibbs et al. 2026, ApJL 1006, L11 (arXiv:2606.23789). Table 1:
+#        positions and RV in 2025 and 2026. Sect. 3.3: stable fits favor a > 30 au.
+#        CH4, CO and H2O absorption in d; mass estimate 2-4 M_Jup.
+# [AV26] Avsar et al. 2026 (arXiv:2609.30111), Sects. 3-6: STIS detects the
+#        optical tail out to ~230 au in projection, ~55 au above the midplane;
+#        surface brightness above the halo ~0.03 to 0.01 mJy/arcsec^2. The
+#        STIS/F1550C flux density ratio is 0.1-0.4%. Figs. 5 and 12: the NE
+#        midplane brightens relative to SW beyond ~130 au; NW halo is higher
+#        to the SW, SE halo is higher to the NE.
+# [OC26] Ortiz Ceballos et al. 2026 (arXiv:2609.16720), MeerKAT S-band burst
+#        on 2026 May 2: 3.5 GHz implies local B >= 1.25 kG for fundamental ECMI.
+# [ZH26] Zhou et al. 2026 (arXiv:2607.13133): b's rotation 9.00 +/- 0.13 hr.
+# [NO20] Nowak et al. 2020 (arXiv:2010.04442): c's atmospheric fits 1250-1370 K.
 # [ZW19] Zwintz et al. 2019, A&A 627, A28 (arXiv:1905.12545), Table 5: R = 1.538
 #        R_sun from the angular diameter and parallax, L = 8.62 L_sun, T = 8090 K
 #        (their fit). It rotates at 27% of breakup; drawn as a sphere.
@@ -91,8 +108,9 @@
 # [RE24]'s model's 2.5 deg: their synthetic disk is eccentric, this one a circle.
 # Vertical shapes fitted by eye to [GO06]'s two widths; the secondary disk's sigma
 # is assumed the same as the main disk's narrow part. Inside ~40 au nothing
-# constrains the column except the spine's slope. Its asymmetries (SW brighter at
-# 50-100 au, the bow of the SW wing, the clumps) are left out.
+# constrains the column except the spine's slope. Beyond the inner warp, the
+# broad Gaussian is shifted and the column modulated to approximate the [AV26]
+# outer halo and the unequal brightness of its two wings in projection.
 # The CO line is colored by the Keplerian speed along the line of sight. [DE14] and
 # [MA17] measure where the gas lies only up to which side of the sky plane it is on: this
 # takes the left column of [MA17]'s Fig. 5, the resonant picture of [DE14]'s Fig. 3A,
@@ -137,7 +155,7 @@ center = "Beta Pic"
 sky_ra_dec_deg = [86.82118, -51.06651]
 inner_au = 5.0
 outer_au = 2000.0              # [GO06], [ZI19]
-extent_au = 300.0
+extent_au = 500.0
 phase_g = [0.995, 0.665, 0.035] # [HS15]
 phase_w = [0.643, 0.176, 0.181]
 display_reference_au = 115.0   # where [GO06]'s spine bends
@@ -163,6 +181,12 @@ temperature_index = 0.5
 # tools/betapic/fit_disk.py
 radial_au = [5, 5.83, 6.798, 7.927, 9.244, 10.78, 12.57, 14.66, 17.09, 19.93, 23.24, 27.09, 31.59, 36.84, 42.96, 50.09, 58.41, 68.11, 79.42, 92.61, 108, 125.9, 146.8, 171.2, 199.6, 232.8, 271.4, 316.5, 369.1, 430.4, 501.8, 585.2, 682.3, 795.6, 927.8, 1082, 1261, 1471, 1715, 2000]
 column = [1e-30, 0.01585, 0.06325, 0.129, 0.1854, 0.1908, 0.1832, 0.1759, 0.1689, 0.1627, 0.2399, 0.2994, 0.3332, 0.3418, 0.3292, 0.3119, 0.3004, 0.4654, 0.4719, 0.6002, 0.7038, 0.9059, 0.576, 0.3723, 0.2353, 0.1738, 0.1307, 0.1002, 0.07803, 0.06087, 0.04636, 0.0351, 0.02663, 0.02028, 0.0156, 0.01195, 0.009271, 0.01031, 0.004516, 1e-30]
+
+[disk.components.scattered_asymmetry] # +x is NE and +z points roughly SE.
+start_au = 130.0
+full_au = 350.0
+warp_over_radius = 0.12
+contrast = 0.38
 
 [[disk.components]]
 name = "Secondary disk"
@@ -233,15 +257,16 @@ sigma_deg = 12.0
 tail_deg = 73.0
 gain = 0.6                     # assumed: dimmer [MA17]
 
-# The cat's tail, in the mid-infrared only [RE24]. It expands from the star here
-# rather than from its parent, which matters only far from the JWST epoch.
+# The cat's tail: thermal emission [RE24] and faint scattered light [AV26].
+# Far from the reference epoch its expansion from the star is an approximation.
 [[nebulae]]
 name = "Cat's tail"
 center = "Beta Pic"
 ejection_time = "1873-01-01"   # 150 years before 2023 [RE24]
 reference_time = "2023-01-01"
-infrared_only = true
-light = "emission"
+light = "scattered"
+asymmetry_g = 0.55              # illustrative dust phase function [AV26]
+visible_display_gain = 0.0007  # normalized to the visible halo, not the MIRI display
 wall_sigma_au = 3.0            # the tail's measured half width, 3 MIRI pixels [RE24]
 color = "#ffffff"
 display_reference_au = 150.0
@@ -274,15 +299,33 @@ ism_pa_deg = 214.6             # the SW end of the secondary disk's midplane
 luminosity_solar = 8.62        # [ZW19]
 radiation_q = 0.02             # set by the tip, see above
 
-# Jacobi coordinates [LA21]: b around the star and c's center of mass, c around
-# the star. The system's center of mass does not move.
+# Jacobi coordinates: d around A+b+c, b around A+c, c around A. The inner two
+# orbits are [LA21]. The outer orbit is a representative joint fit to [SU26]
+# and [GI26], with a fixed 32 au (tools/betapic/fit_planet_d.py).
 [[bodies]]
 name = "Beta Pic system"
 kind = "barycenter"
 
 [[bodies]]
-name = "Beta Pic A+c"
+name = "Beta Pic A+b+c"
 parent = "Beta Pic system"
+kind = "barycenter"
+trail = "none"
+[bodies.orbit]
+scale = -0.001292804192
+type = "visual_orbit"
+gm_km3_s2 = 235184630746.56
+a_au = 32.0
+e = 0.2501576851
+i_deg = 89.36662357
+node_deg = 30.37043731
+arg_peri_deg = 144.75032957
+t_peri_jd_tdb = 2460125.738342
+sky_ra_dec_deg = [86.82118, -51.06651]
+
+[[bodies]]
+name = "Beta Pic A+c"
+parent = "Beta Pic A+b+c"
 kind = "barycenter"
 trail = "none"
 [bodies.orbit]
@@ -299,10 +342,14 @@ sky_ra_dec_deg = [86.82118, -51.06651]
 
 [[bodies]]
 name = "Beta Pic b"
-parent = "Beta Pic system"
+parent = "Beta Pic A+b+c"
 radii_km = [104378.0]          # 1.46 R_Jup [KE21]
 body_gm_km3_s2 = 1507569730.0  # 11.90 M_Jup [LA21]
-color = "#d9a57e"              # artistic (a 1,700 K giant, glowing)
+color = "#d5a285"
+style = "gas_giant"
+texture = "textures/beta_pic_b.jpg"
+pole_ra_dec_deg = [203.15754, -18.50751]  # assume an orbit-aligned spin
+prime_meridian_deg = [0.0, 960.0]        # 9 hours [ZH26]; arbitrary phase
 orbit_color = "#ffc28a"
 [bodies.orbit]
 scale = 0.993581548            # (M_star + M_c) / M
@@ -344,6 +391,9 @@ parent = "Beta Pic A+c"
 radii_km = [85790.0]           # 1.2 R_Jup, assumed
 body_gm_km3_s2 = 1126243270.0  # 8.89 M_Jup [LA21]
 color = "#c9a58a"              # artistic
+style = "gas_giant"
+texture = "textures/beta_pic_c.jpg"
+pole_ra_dec_deg = [202.55291, -18.05405]  # illustrative alignment
 orbit_color = "#ffd9a8"
 [bodies.orbit]
 scale = 0.995174064            # M_star / (M_star + M_c)
@@ -355,6 +405,28 @@ i_deg = 88.95
 node_deg = 31.06
 arg_peri_deg = 66.0
 t_peri_jd_tdb = 2459875.423
+sky_ra_dec_deg = [86.82118, -51.06651]
+
+[[bodies]]
+name = "Beta Pic d"
+parent = "Beta Pic system"
+radii_km = [90080.0]          # 1.26 R_Jup [SU26]
+body_gm_km3_s2 = 304047676.56  # 2.4 M_Jup [SU26]
+color = "#a3aabb"
+style = "gas_giant"
+texture = "textures/beta_pic_d.jpg"
+pole_ra_dec_deg = [201.70729, -18.00516]  # illustrative alignment
+orbit_color = "#a2bedf"
+[bodies.orbit]
+scale = 0.998707195808
+type = "visual_orbit"
+gm_km3_s2 = 235184630746.56
+a_au = 32.0
+e = 0.2501576851
+i_deg = 89.36662357
+node_deg = 30.37043731
+arg_peri_deg = 144.75032957
+t_peri_jd_tdb = 2460125.738342
 sky_ra_dec_deg = [86.82118, -51.06651]
 
 # tools/betapic/exocomets.py: in the event "Comets crossing the star" only.
@@ -578,9 +650,9 @@ disk_display_gain = 4.0        # by eye: the path through the face-on disk is sh
 # [GO06], [HS15]
 caption = """\
     No telescope has this view: it is a model made to look right from Earth. Seen \
-    edge-on, each line of sight sums dust at many distances, so its face is worked \
-    out by assuming it is the same all round; its clumps and brighter side are left \
-    out. The light is scaled with the square of the distance from the star, as disk \
+    edge-on, each line of sight sums dust at many distances. The model assumes \
+    a smooth radial belt with a broad halo shaped to match the view from Earth. \
+    The light is scaled with the square of the distance from the star, as disk \
     images often are, to show where the dust lies: a broad belt peaking near 120 au."""
 
 [[events]]
@@ -707,15 +779,16 @@ caption = """\
     calls for a second planet."""
 
 [[events]]
-name = "A cat's tail"
+name = "The cat's tail in infrared"
 time = "2022-12-13"            # [RE24]'s MIRI images
 focus = "Beta Pic"
 frame = "Beta Pic, disk level"
 observer = "Beta Pic system"
 observer_offset_km = [-31278480611.1, -563191924924.9, 698211527688.5]   # 6000 au toward Earth: lines of sight almost parallel, as from Earth
 fov_deg = 3.0                  # 280 au to each side
-warp = 7889400.0
+warp = 1.0
 nebula_infrared = true
+hide_orbits = true
 # [RE24]
 caption = """\
     JWST's mid-infrared images in false color show the secondary disk and, on one \
@@ -723,3 +796,139 @@ caption = """\
     may be dust from a collision about 150 years ago, on the far side of the disk, \
     swept out by the star's light; the smallest grains have gone furthest, and the \
     bend at its tip could be interstellar gas pushing on them."""
+
+[[events]]
+name = "The cat's tail in scattered light"
+time = "2022-12-13"            # same model epoch and camera as the MIRI comparison
+focus = "Beta Pic"
+frame = "Beta Pic, disk level"
+observer = "Beta Pic system"
+observer_offset_km = [-31278480611.1, -563191924924.9, 698211527688.5]
+fov_deg = 3.0
+warp = 1.0
+hide_orbits = true
+# [AV26]
+caption = """\
+    Deep Hubble images reveal the same dust in scattered starlight after the \
+    bright halo is subtracted. The tail fades into the halo about 230 au from \
+    the star in projection. The bent tip is much easier to see by its thermal \
+    emission in Webb's mid-infrared images."""
+
+[[events]]
+name = "A warped outer halo"
+time = "2025-01-01"            # representative epoch of the 2023-2025 STIS mosaic
+focus = "Beta Pic"
+frame = "Beta Pic, disk level"
+observer = "Beta Pic system"
+observer_offset_km = [-31278480611.1, -563191924924.9, 698211527688.5]
+fov_deg = 5.8
+warp = 1.0
+hide_orbits = true
+# [AV26]
+caption = """\
+    Hubble traced the dust halo to about 500 au in projection. The southwest \
+    wing rises higher above the disk, and the northeast wing extends farther \
+    below it. The displacement starts about 130 au out. Gravitational torques \
+    from the planets may help shape the halo."""
+
+[[events]]
+name = "Two planets almost overlap"
+time = "2014-12-08"
+focus = "Beta Pic"
+frame = "Beta Pic, disk level"
+observer = "Beta Pic system"
+observer_offset_km = [-31278480611.1, -563191924924.9, 698211527688.5]
+fov_deg = 0.32
+warp = 1.0
+disk_display_gain = 0.008     # emulate the contrast of the discovery images
+nebula_display_gain = 0.008
+hide_orbits = true
+# [SU26]
+caption = """\
+    In 2014 the outer planet d lay almost on top of b in VLT images. Its faint \
+    signal turned up in the archive after the discovery team knew where to \
+    look. The warm-colored point is b and the blue-gray point just below it is d."""
+
+[[events]]
+name = "The third planet emerges"
+time = "2025-12-03"
+focus = "Beta Pic"
+frame = "Beta Pic, disk level"
+observer = "Beta Pic system"
+observer_offset_km = [-31278480611.1, -563191924924.9, 698211527688.5]
+fov_deg = 0.32
+warp = 1.0
+disk_display_gain = 0.008
+nebula_display_gain = 0.008
+hide_orbits = true
+# [SU26], [GI26]
+caption = """\
+    By late 2025, d was about 1.13 arcseconds southwest of the star, on the \
+    opposite side from b. The VLT imaged it and Webb independently identified \
+    it by its spectrum, with absorption from methane, carbon monoxide and water."""
+
+[[events]]
+name = "Three giants inside the belt"
+time = "2025-12-03"
+focus = "Beta Pic"
+frame = "Beta Pic, disk level"
+from_orbit_normal = "Beta Pic b"
+distance_km = 4.8e10          # 320 au, framing the main belt as well as d
+warp = 15778800.0
+disk_millimeter = true
+disk_display_gain = 10.0
+# [SU26], [GI26]
+caption = """\
+    The third planet travels in almost the same plane as b and c. The orbit \
+    shown is one fit to the measured positions and radial velocities. Planet d \
+    could help clear the inner edge of the planetesimal belt, estimated at about \
+    30 to 50 au. The belt is shown in millimeter false color."""
+
+[[events]]
+name = "Radio bursts from Beta Pic b"
+time = "2026-05-02T09:16:00"  # [OC26], start of the MeerKAT observing session
+focus = "Beta Pic b"
+frame = "Beta Pic, disk level"
+from_body = "Beta Pic"
+phase_deg = 34.0
+distance_km = 580000.0
+warp = 600.0
+hide_orbits = true
+# [OC26], [ZH26]
+caption = """\
+    MeerKAT traced strongly circularly polarized radio bursts to b. Emission \
+    at 3.5 GHz implies at least 1.25 kilogauss at the radio source if it comes \
+    from the electron cyclotron maser fundamental. Webb photometry gives a \
+    nine-hour rotation. The cloud patterns here are illustrative."""
+
+[[events]]
+name = "The young giant Beta Pic c"
+time = "2020-02-10"
+focus = "Beta Pic c"
+frame = "Beta Pic, disk level"
+from_body = "Beta Pic"
+phase_deg = -27.0
+distance_km = 475000.0
+warp = 1.0
+hide_orbits = true
+# [NO20]
+caption = """\
+    Infrared interferometry detected the light of c at a separation of only \
+    a few au from its star. Atmosphere models fitted to its spectrum give \
+    roughly 1,250 to 1,370 K. The cloud patterns here are illustrative."""
+
+[[events]]
+name = "The cool giant Beta Pic d"
+time = "2025-12-03"
+focus = "Beta Pic d"
+frame = "Beta Pic, disk level"
+from_body = "Beta Pic"
+phase_deg = 40.0
+distance_km = 500000.0
+warp = 1.0
+hide_orbits = true
+# [SU26], [GI26]
+caption = """\
+    At about 600 K in evolutionary models, d is the coolest of the three \
+    giants. Its infrared colors and luminosity resemble those of 51 Eridani b. \
+    Its cloud patterns here are illustrative."""

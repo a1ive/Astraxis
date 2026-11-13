@@ -153,7 +153,12 @@ double march(const Disk& disk, const DiskComponent& c, DiskView view, const glm:
                                            (r2_scaled ? reference2 : distance * distance)
                                  : view == DiskView::Gas ? disk_clump_factor(disk, rq, std::atan2(q.y, q.x), t_tdb)
                                                          : disk_thermal_light(c, view, distance);
-            sum += light * disk_vertical(c, rq, q.z) * dt * along;
+            double skew = 0.0;
+            if (view == DiskView::Scattered && (c.warp_over_radius != 0.0 || c.contrast != 0.0)) {
+                skew = glm::smoothstep(c.asymmetry_start_au, c.asymmetry_full_au, rq) * q.x;
+            }
+            const double contrast = 1.0 + c.contrast * skew / std::max(rq, disk.inner_au);
+            sum += light * disk_vertical(c, rq, q.z, c.warp_over_radius * skew) * contrast * dt * along;
         }
         t += dt;
     }
@@ -185,7 +190,7 @@ double disk_flare(const DiskComponent& component, double r_au)
     return std::pow(1.0 + x * x * x * x, 0.25 * component.flare_index);
 }
 
-double disk_vertical(const DiskComponent& component, double r_au, double z_au)
+double disk_vertical(const DiskComponent& component, double r_au, double z_au, double broad_shift_au)
 {
     const double flare = disk_flare(component, r_au);
     const double s1 = component.sigma_au * flare;
@@ -193,7 +198,7 @@ double disk_vertical(const DiskComponent& component, double r_au, double z_au)
     double out = (1.0 - component.share2) * std::exp(-0.5 * a1 * a1) / s1;
     if (component.share2 > 0.0) {
         const double s2 = component.sigma2_au * flare;
-        const double a2 = z_au / s2;
+        const double a2 = (z_au - broad_shift_au) / s2;
         out += component.share2 * std::exp(-0.5 * a2 * a2) / s2;
     }
     return kInverseSqrtTwoPi * out;

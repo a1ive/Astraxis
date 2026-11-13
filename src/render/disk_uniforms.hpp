@@ -34,6 +34,7 @@ struct DiskUniforms {
     std::array<glm::vec4, kDiskMaxComponents> axis_z{}; // w: second Gaussian's share
     std::array<glm::vec4, kDiskMaxComponents> color{};  // w: flare radius
     std::array<glm::vec4, kDiskMaxComponents> temperature{}; // K, radius, index, flare index
+    std::array<glm::vec4, kDiskMaxComponents> asymmetry{}; // start, full, broad-layer warp/r, contrast
     std::array<glm::vec4, kDiskOccluders> occluders{};  // relative to the camera; w: radius
     std::array<glm::vec4, kDiskSources> sources{};      // relative to the camera; w: sigma
     std::array<glm::vec4, kDiskSources> source_light{}; // linear radiance at the center

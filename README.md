@@ -30,7 +30,7 @@ Astraxis is an astronomy background app with planets, spacecraft and stars anima
 | Parker Solar Probe | Venus flybys, close solar passes and an enhanced white-light corona |
 | Solar eclipses | 2017 and 2024 eclipses above Earth, and Earth's red rim from near the Moon in 2022 |
 | Alpha Centauri | Three-star dynamics and Proxima's 2016 superflare |
-| Beta Pictoris | Edge-on debris disks, two planets, Webb's cat's tail and modeled comet transits |
+| Beta Pictoris | Three young giants, a warped debris halo, the cat's tail in visible light and infrared, and modeled comet transits |
 | Sgr A* | Ray-traced Galactic Centre black hole and orbiting S-stars |
 | Gargantua (Interstellar) | The film's black hole and Endurance with its rotating ring |
 | Kerbol System (Kerbal Space Program) | The game's planetary system, orbits and calendar |

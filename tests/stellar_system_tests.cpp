@@ -2326,7 +2326,8 @@ void test_beta_pictoris_scene()
     const int star = scene.find("Beta Pic");
     const int b = scene.find("Beta Pic b");
     const int c = scene.find("Beta Pic c");
-    check(star >= 0 && b >= 0 && c >= 0, "Beta Pictoris: bodies");
+    const int d = scene.find("Beta Pic d");
+    check(star >= 0 && b >= 0 && c >= 0 && d >= 0, "Beta Pictoris: bodies");
     check(scene.disk.enabled() && scene.disk.components.size() == 4, "Beta Pictoris: the disk's four components");
     const double ra = 86.82118;
     const double dec = -51.06651;
@@ -2358,6 +2359,33 @@ void test_beta_pictoris_scene()
     }
     std::printf("  info: Beta Pic planets against GRAVITY, worst %.2f mas\n", worst);
     check(worst < 3.0, "Beta Pic b and c stand where GRAVITY saw them (mas)", worst);
+
+    // [SU26] Table 1 and [GI26] Table 1. The published RVs are absolute;
+    // add the host star's 20 km/s systemic velocity to our relative velocity.
+    const auto at_date = [](int year, int month, int day) {
+        return tdb_from_utc_jd(jd_from_calendar({year, month, day, 0, 0, 0}));
+    };
+    const auto projected_mas = [&](int body, double t) {
+        const glm::dvec3 r = relative(body, t);
+        return glm::dvec2(glm::dot(r, east), glm::dot(r, north)) * (parallax / au);
+    };
+    const double archival = at_date(2014, 12, 8);
+    const glm::dvec2 old_d = projected_mas(d, archival);
+    check(std::abs(glm::length(old_d) - 375.0) < 20.0, "d's 2014 VLT separation (mas)", glm::length(old_d));
+    const double projected_gap = glm::length(old_d - projected_mas(b, archival));
+    check(projected_gap < 65.0, "b and d nearly overlap in 2014 (mas)", projected_gap);
+    const glm::dvec2 new_d = projected_mas(d, at_date(2025, 12, 3));
+    check(std::abs(glm::length(new_d) - 1126.9) < 7.8 && new_d.y < 0.0,
+          "d's 2025 VLT separation and direction", glm::length(new_d));
+    const double jwst = at_date(2025, 11, 29);
+    const glm::dvec3 dv = scene.icrf_state_at(d, jwst).velocity - scene.icrf_state_at(star, jwst).velocity;
+    const double rv = glm::dot(dv, away) + 20.0;
+    check(std::abs(rv - 14.7) < 4.5, "d's JWST radial velocity selects the approaching branch", rv);
+    const double jwst_followup = at_date(2026, 3, 29);
+    const glm::dvec3 dv2 =
+        scene.icrf_state_at(d, jwst_followup).velocity - scene.icrf_state_at(star, jwst_followup).velocity;
+    const double rv2 = glm::dot(dv2, away) + 20.0;
+    check(std::abs(rv2 - 12.6) < 3.0, "d's JWST follow-up radial velocity (km/s)", rv2);
 
     // The periods from the fit's a and masses.
     const auto period_days = [&](int body) {
@@ -2412,6 +2440,13 @@ void test_beta_pictoris_scene()
     second_only.components = {disk.components[1]};
     Disk belt_only = disk;
     belt_only.components = {disk.components[2]};
+
+    // [AV26] Figs. 5 and 12: the NE midplane is brighter in the outer disk,
+    // while the two wings of the halo stretch in opposite directions.
+    const auto halo = [&](double x, double y) { return on_sky(disk, DiskView::Scattered, x, y); };
+    check(halo(400, 0) > 1.5 * halo(-400, 0), "NE outer spine is brighter than SW");
+    check(halo(-300, 100) > halo(300, 100), "the SW halo extends above the disk");
+    check(halo(300, -100) > halo(-300, -100), "the NE halo extends below the disk");
 
     const auto spine = [&](const Disk& d, DiskView view, double along_au, double* offset = nullptr) {
         double best = 0.0;
@@ -2530,7 +2565,9 @@ void test_beta_pictoris_scene()
 
     // The cat's tail [RE24]: a stream from the far side of the disk, running out
     // to the SW and rising to the NW of the main disk.
-    check(scene.nebulae.size() == 1 && scene.nebulae[0].infrared_only, "the cat's tail only in the infrared");
+    check(scene.nebulae.size() == 1 && !scene.nebulae[0].infrared_only && !scene.nebulae[0].infrared.empty() &&
+              scene.nebulae[0].light == NebulaLight::Scattered && scene.nebulae[0].visible_display_gain < 0.01,
+          "one stream supplies faint scattered light and thermal emission");
     const Nebula& tail = scene.nebulae[0];
     check(tail.grains.size() == 3000, "the cat's tail has its grains", static_cast<double>(tail.grains.size()));
     // Grains are in order of beta: the base of the tail first, its tip last.
@@ -2675,12 +2712,20 @@ void test_beta_pictoris_scene()
 
     // Events show what they say: the views and the bodies they center on.
     int millimeter = 0, infrared = 0, gas_events = 0;
+    const SceneEvent* miri_tail = nullptr;
+    const SceneEvent* stis_tail = nullptr;
     for (const SceneEvent& e : scene.events) {
         millimeter += e.disk_millimeter ? 1 : 0;
         infrared += e.nebula_infrared ? 1 : 0;
         gas_events += e.disk_gas ? 1 : 0;
+        if (e.name == "The cat's tail in infrared") miri_tail = &e;
+        if (e.name == "The cat's tail in scattered light") stis_tail = &e;
     }
-    check(millimeter == 1 && infrared == 1 && gas_events == 2, "Beta Pictoris: events in each of the other views");
+    check(millimeter == 2 && infrared == 1 && gas_events == 2, "Beta Pictoris: events in each of the other views");
+    check(miri_tail && stis_tail && miri_tail->nebula_infrared && !stis_tail->nebula_infrared &&
+              miri_tail->t_tdb == stis_tail->t_tdb && miri_tail->observer == stis_tail->observer &&
+              miri_tail->observer_offset_km == stis_tail->observer_offset_km && miri_tail->fov_deg == stis_tail->fov_deg,
+          "the cat's tail comparison uses the same camera and model epoch");
     check(disk.reference[0] > 0.0 && disk.reference[1] > 0.0 && disk.reference[2] > 0.0 && disk.reference[3] > 0.0,
           "the disk has a reference brightness in each view");
 

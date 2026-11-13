@@ -23,6 +23,7 @@ cbuffer Uniforms : register(b0, space3)
     float4 u_axis_z[4]; // w: second Gaussian's share
     float4 u_color[4];  // w: flare radius
     float4 u_temperature[4]; // K, radius, index, flare index
+    float4 u_asymmetry[4];   // start, full, broad-layer warp/r, contrast
     float4 u_occluders[8];   // relative to the camera; w: radius
     float4 u_sources[4];     // relative to the camera; w: sigma
     float4 u_source_light[4];
@@ -61,7 +62,7 @@ float disk_flare(int c, float r)
     return pow(1.0 + x * x * x * x, 0.25 * u_temperature[c].w);
 }
 
-float disk_vertical(int c, float r, float z)
+float disk_vertical(int c, float r, float z, float broad_shift)
 {
     float flare = disk_flare(c, r);
     float s1 = u_axis_x[c].w * flare;
@@ -69,7 +70,7 @@ float disk_vertical(int c, float r, float z)
     float out_ = (1.0 - u_axis_z[c].w) * exp(-0.5 * a1 * a1) / s1;
     if (u_axis_z[c].w > 0.0) {
         float s2 = u_axis_y[c].w * flare;
-        float a2 = z / s2;
+        float a2 = (z - broad_shift) / s2;
         out_ += u_axis_z[c].w * exp(-0.5 * a2 * a2) / s2;
     }
     return 0.3989423 * out_;
@@ -143,7 +144,11 @@ float4 disk_march(int c, float3 origin, float3 ray, float t0, float t1)
         float r = length(q.xy);
         float light = disk_table(c, r);
         if (light > 0.0) {
-            float value = light * disk_vertical(c, r, q.z) * dt;
+            float4 asymmetry = u_asymmetry[c];
+            float skew = view == 0 && any(asymmetry.zw != 0.0)
+                ? smoothstep(asymmetry.x, asymmetry.y, r) * q.x : 0.0;
+            float value = light * disk_vertical(c, r, q.z, asymmetry.z * skew) * dt;
+            value *= 1.0 + asymmetry.w * skew / max(r, 1e-6);
             float distance = length(q);
             float3 rgb;
             if (view == 0) {
@@ -172,7 +177,7 @@ float disk_extinction(float r, float z)
 {
     float out_ = 0.0;
     for (int c = 0; c < (int)u_params.w; ++c) {
-        out_ += disk_table(c, r) * disk_vertical(c, r, z);
+        out_ += disk_table(c, r) * disk_vertical(c, r, z, 0.0);
     }
     return out_;
 }

@@ -218,6 +218,10 @@ Kerbol 场景 16 个天体的纹理（`kerbin.jpg`、`mun.jpg`、`minmus.jpg`、
 
 木星的大气特征会在经度上漂移，所以 `jupiter.jpg` 的经度对齐没有物理意义。
 
+## β Pictoris b、c、d
+
+`beta_pic_b.jpg`、`beta_pic_c.jpg` 和 `beta_pic_d.jpg` 由 `python tools/textures/make_betapic_textures.py` 生成（NumPy、Pillow）。三幅 1536×768 图使用球面噪声生成云块和纬向条带，配色及纹理强度用于区分三颗行星。没有使用外部图像，贴图随项目按 GPL-3.0-or-later 分发。
+
 ## 天空背景：`milky_way.jpg`
 
 | 文件 | 来源 | 许可 |

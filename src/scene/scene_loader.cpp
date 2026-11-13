@@ -2999,11 +2999,14 @@ void Loader::parse(const toml::table& root, Scene& out)
             n.color = parse_color(*nb, "color", ctx, glm::vec3(1.0f));
             n.display_reference_km = get_double(*nb, "display_reference_au", ctx) * kAuKm;
             n.display_gamma = get_double_or(*nb, "display_gamma", n.display_gamma);
+            n.visible_display_gain = get_double_or(*nb, "visible_display_gain", n.visible_display_gain);
             const double grains = get_double(*nb, "grains", ctx);
             if (n.t_reference_tdb <= n.t_ejection_tdb || n.wall_sigma_km <= 0.0 || std::abs(n.asymmetry_g) >= 1.0 ||
-                n.display_reference_km <= 0.0 || n.display_gamma <= 0.0 || n.display_gamma > 1.0) {
+                n.display_reference_km <= 0.0 || n.display_gamma <= 0.0 || n.display_gamma > 1.0 ||
+                !(n.visible_display_gain > 0.0 && n.visible_display_gain <= 100.0)) {
                 fail(ctx, "needs reference_time after ejection_time, positive wall_sigma_au and "
-                          "display_reference_au, |asymmetry_g| < 1 and 0 < display_gamma <= 1");
+                          "display_reference_au, |asymmetry_g| < 1, 0 < display_gamma <= 1 and "
+                          "0 < visible_display_gain <= 100");
             }
             if (grains < 1.0 || grains > 2.0e6 || grains != std::floor(grains)) {
                 fail(ctx, "grains must be whole, 1 .. 2 million");
@@ -3187,6 +3190,20 @@ void Loader::parse_disk(const toml::table& t, Scene& out) const
         c.share2 = get_double_or(*ct, "share2", 0.0);
         c.flare_radius_au = get_double(*ct, "flare_radius_au", cctx);
         c.flare_index = get_double_or(*ct, "flare_index", c.flare_index);
+        if (const toml::node* asymmetry = ct->get("scattered_asymmetry")) {
+            const toml::table* halo = asymmetry->as_table();
+            if (!halo || disk.thick) {
+                fail(cctx, "scattered_asymmetry must be a table in an optically thin disk");
+            }
+            c.asymmetry_start_au = get_double(*halo, "start_au", cctx);
+            c.asymmetry_full_au = get_double(*halo, "full_au", cctx);
+            c.warp_over_radius = get_double_or(*halo, "warp_over_radius", 0.0);
+            c.contrast = get_double_or(*halo, "contrast", 0.0);
+            if (c.asymmetry_start_au < 0.0 || c.asymmetry_full_au <= c.asymmetry_start_au ||
+                std::abs(c.warp_over_radius) > 1.0 || std::abs(c.contrast) >= 1.0) {
+                fail(cctx, "scattered_asymmetry needs 0 <= start_au < full_au, |warp_over_radius| <= 1 and |contrast| < 1");
+            }
+        }
         c.tau_per_column = get_double_or(*ct, "tau_per_column", 0.0);
         if (c.flare_index < 0.0 || c.tau_per_column < 0.0 || (c.tau_per_column > 0.0 && !disk.thick)) {
             fail(cctx, "flare_index and tau_per_column must not be negative, and tau_per_column needs a thick disk");

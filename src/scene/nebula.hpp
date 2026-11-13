@@ -92,8 +92,9 @@ struct Nebula {
     double display_gamma = 0.5;
     std::vector<NebulaLayer> infrared;
     double temperature_index = 0.4;
-    // Only ever seen in the thermal infrared (dust too thin to see in scattered
-    // light: beta Pictoris' cat's tail).
+    // Display strength in scattered light or emission relative to the reference.
+    double visible_display_gain = 1.0;
+    // Skip the visible-light pass if this nebula only has thermal emission.
     bool infrared_only = false;
     std::vector<NebulaGrain> grains;
 
