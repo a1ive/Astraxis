@@ -2377,6 +2377,27 @@ void Loader::parse(const toml::table& root, Scene& out)
         fail(ctx, "unknown frame '" + name + "'");
     };
 
+    // Belts come before the events, which may name them.
+    if (const toml::array* belts = root["belts"].as_array()) {
+        for (size_t k = 0; k < belts->size(); ++k) {
+            const toml::table* t = (*belts)[k].as_table();
+            const std::string ctx = "belts[" + std::to_string(k) + "]";
+            if (!t) {
+                fail(ctx, "must be a table");
+            }
+            SceneBelt belt;
+            belt.name = get_string(*t, "name", ctx);
+            belt.color = parse_color(*t, "color", ctx, glm::vec3(1.0f));
+            belt.brightness = get_double_or(*t, "brightness", 1.0);
+            belt.point_size_px = get_double_or(*t, "point_size_px", 1.5);
+            if (belt.brightness < 0.0 || belt.point_size_px <= 0.0) {
+                fail(ctx, "brightness must not be negative, point_size_px must be positive");
+            }
+            load_belt(get_string(*t, "file", ctx), ctx, belt);
+            out.belts.push_back(std::move(belt));
+        }
+    }
+
     if (const toml::array* events = root["events"].as_array()) {
         for (const auto& node : *events) {
             const toml::table* t = node.as_table();
@@ -2517,6 +2538,22 @@ void Loader::parse(const toml::table& root, Scene& out)
             e.focus_orbits_only = (*t)["focus_orbits_only"].value<bool>().value_or(false);
             e.light_curve_span_days = get_double_or(*t, "light_curve_span_days", 0.0);
             e.hide_orbits = (*t)["hide_orbits"].value<bool>().value_or(false);
+            if (const toml::node* names = t->get("belts")) {
+                const toml::array* list = names->as_array();
+                if (!list) {
+                    fail(ctx, "belts must be an array of belt names");
+                }
+                e.belts_set = true;
+                for (const auto& n : *list) {
+                    const std::string name = n.value_or(std::string());
+                    const auto it = std::find_if(out.belts.begin(), out.belts.end(),
+                                                 [&](const SceneBelt& b) { return b.name == name; });
+                    if (it == out.belts.end()) {
+                        fail(ctx, "unknown belt '" + name + "'");
+                    }
+                    e.belts.push_back(static_cast<int>(it - out.belts.begin()));
+                }
+            }
             if (const auto view = (*t)["magnetic_map"].value<std::string>()) {
                 if (*view != "surface" && *view != "deep" && *view != "crust") {
                     fail(ctx, "magnetic_map must be \"surface\", \"deep\" or \"crust\"");
@@ -2584,26 +2621,6 @@ void Loader::parse(const toml::table& root, Scene& out)
                 parse_event_ghost(ghost->as_table(), ctx, static_cast<int>(out.events.size()), e, out);
             }
             out.events.push_back(std::move(e));
-        }
-    }
-
-    if (const toml::array* belts = root["belts"].as_array()) {
-        for (size_t k = 0; k < belts->size(); ++k) {
-            const toml::table* t = (*belts)[k].as_table();
-            const std::string ctx = "belts[" + std::to_string(k) + "]";
-            if (!t) {
-                fail(ctx, "must be a table");
-            }
-            SceneBelt belt;
-            belt.name = get_string(*t, "name", ctx);
-            belt.color = parse_color(*t, "color", ctx, glm::vec3(1.0f));
-            belt.brightness = get_double_or(*t, "brightness", 1.0);
-            belt.point_size_px = get_double_or(*t, "point_size_px", 1.5);
-            if (belt.brightness < 0.0 || belt.point_size_px <= 0.0) {
-                fail(ctx, "brightness must not be negative, point_size_px must be positive");
-            }
-            load_belt(get_string(*t, "file", ctx), ctx, belt);
-            out.belts.push_back(std::move(belt));
         }
     }
 

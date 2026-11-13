@@ -413,6 +413,15 @@ void Scene::set_active_event(int index)
     m_active_event = index >= 0 && index < static_cast<int>(events.size()) ? index : -1;
 }
 
+bool Scene::belt_shown(size_t index) const
+{
+    if (m_active_event < 0 || !events[static_cast<size_t>(m_active_event)].belts_set) {
+        return true;
+    }
+    const std::vector<int>& shown = events[static_cast<size_t>(m_active_event)].belts;
+    return std::find(shown.begin(), shown.end(), static_cast<int>(index)) != shown.end();
+}
+
 const SceneEvent::Trail* Scene::event_trail(int body) const
 {
     if (m_active_event >= 0) {

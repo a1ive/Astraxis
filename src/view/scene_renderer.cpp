@@ -1585,6 +1585,9 @@ void SceneRenderer::build_belt_items(const Simulation& sim, const OutputView& ou
     const glm::dvec3 sun = scene.sun_position() - view.position;
     const double px_per_radian = 0.5 * view.viewport.y * view.focal_y;
     for (size_t k = 0; k < scene.belts.size(); ++k) {
+        if (!scene.belt_shown(k)) {
+            continue;
+        }
         const SceneBelt& belt = scene.belts[k];
         BeltDrawItem item;
         item.belt = k < m_belt_ids.size() ? m_belt_ids[k] : -1;

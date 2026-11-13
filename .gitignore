@@ -411,3 +411,6 @@ tools/bake/cache/
 
 # SL9 fragment samples from Horizons
 tools/sl9/cache/
+
+# Deep Ecliptic Survey class pages (tools/belts/make_tno_classes.py)
+tools/belts/cache/

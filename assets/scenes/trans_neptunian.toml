@@ -20,6 +20,10 @@
 #        www.boulder.swri.edu/~buie/kbo/astrom/<number>.html (retrieved 2026-11-13):
 #        Orcus 3:2, 1995 DA2 4:3, 1996 TR66 and 2000 JG81 2:1, 1999 DE9 5:2, Gonggong 10:3,
 #        2001 QR322 1:1, Arrokoth and Quaoar classical.
+# [BELT] The known objects as points: JPL SBDB Query API, classes TNO and CEN, osculating
+#        J2000 ecliptic elements moved to JD 2461200.5 TDB; secure resonances from the [DES]
+#        class list (desclass.html, generated 2026-11-12), the rest by element cuts;
+#        tools/belts/make_tno_classes.py, assets/belts/SOURCES.md.
 # [CH03] Chiang et al. 2003, AJ 126, 430 (arXiv:astro-ph/0301458): 2001 QR322, the first
 #        Neptune Trojan, librates about L4 with an amplitude of 24 deg, stable for at least
 #        1 Gyr in their integrations; 1995 DA2 in the 4:3 and 1996 TR66 in the 2:1 (with
@@ -445,6 +449,68 @@ orbit_color = "#d86a5a"
 [bodies.orbit]
 type = "nbody"
 
+# --- Known objects by family ---------------------------------------------------------------
+# Every TNO and resonant Centaur in [BELT] on its two-body orbit from 2026: resonant objects
+# by their secure [DES] class, the others by [GL08]-like cuts in the osculating elements (e
+# < 0.24 classical; else q < 40 au scattered, q >= 40 au detached); insecure resonances and
+# orbits with SBDB condition codes of 6 and worse gray. Brightness and sizes are artistic.
+
+[[belts]]
+name = "Neptune Trojans"
+file = "belts/tno_trojans.bin"
+color = "#7cc48a"
+brightness = 2.5
+point_size_px = 3.2
+
+[[belts]]
+name = "Plutinos"
+file = "belts/tno_plutinos.bin"
+color = "#e0a060"
+brightness = 3.0
+point_size_px = 3.0
+
+[[belts]]
+name = "Twotinos"
+file = "belts/tno_twotinos.bin"
+color = "#e8d070"
+brightness = 3.0
+point_size_px = 3.0
+
+[[belts]]
+name = "Other resonances"
+file = "belts/tno_resonant.bin"
+color = "#c88a66"
+brightness = 2.0
+point_size_px = 2.6
+
+[[belts]]
+name = "Classical belt"
+file = "belts/tno_classical.bin"
+color = "#7aa6e0"
+brightness = 1.4
+point_size_px = 2.4
+
+[[belts]]
+name = "Scattered disk"
+file = "belts/tno_scattered.bin"
+color = "#b08ad8"
+brightness = 2.0
+point_size_px = 2.6
+
+[[belts]]
+name = "Detached objects"
+file = "belts/tno_detached.bin"
+color = "#d86a5a"
+brightness = 4.0
+point_size_px = 3.2
+
+[[belts]]
+name = "Unclassified"
+file = "belts/tno_unclassified.bin"
+color = "#8c8c8c"
+brightness = 0.6
+point_size_px = 1.8
+
 # --- The integration ---------------------------------------------------------------------
 # Yoshida's 4th-order scheme, 20-day steps (217 per orbit of Jupiter). Positions are kept
 # relative to the Sun. Eccentric orbits keep more knots so that the perihelion passages
@@ -659,10 +725,49 @@ elevation_deg = 55.0
 warp = 31557600.0              # 1 year per second
 # [GL08], [DES]
 caption = """\
-    Past Neptune lie thousands of known icy bodies. Their orbits sort them into \
-    families: the classical belt of near-circular orbits, the resonant objects whose \
-    periods are locked to Neptune's, the scattered disk stirred by Neptune, and the \
-    detached objects whose orbits Neptune can no longer reach."""
+    Past Neptune lie thousands of known icy bodies, each point here one of them. Their \
+    orbits sort them into families: the classical belt of near-circular orbits (blue), \
+    objects whose periods are locked to Neptune's (orange, Trojans green), the \
+    scattered disk stirred by Neptune (violet), and detached objects beyond its reach \
+    (red). Gray points have orbits still too poorly known to sort."""
+
+[[events]]
+name = "What the surveys see"
+time = "2026-01-01"
+focus = "Sun"
+distance_km = 1.9e10
+elevation_deg = 90.0
+warp = 2629800.0               # 1 month per second
+hide_orbits = true
+# [BELT], [HO26], [INT]
+caption = """\
+    These are the objects found so far, not the belt as it is. Few are known toward \
+    Taurus and Gemini, where the Milky Way crosses the ecliptic and stars crowd the \
+    images, and 2026 ED138 hid against the Milky Way until this year. Nearly every \
+    known scattered or detached object is now nearer the Sun than its semi-major \
+    axis: the far, faint ones are missed."""
+
+[[events]]
+name = "Every known plutino"
+time = "2026-01-01"
+focus = "Sun"
+frame = "Turning with Neptune"
+distance_km = 1.6e10
+from_body = "Neptune"
+phase_deg = 180.0
+elevation_deg = 90.0
+warp = 315576000.0             # 10 years per second
+belts = ["Plutinos"]
+trails = [
+    { body = "Pluto system", trail = "none" },
+    { body = "Orcus", trail = "none" },
+]
+# [DES], [BELT], [INT]
+caption = """\
+    The 443 objects known to share Pluto's 3:2 resonance, turning with Neptune. The \
+    272 now inside 36 au, near perihelion, all lie more than 20 degrees from Neptune's \
+    direction; those in line with it are far beyond, near aphelion. None is within \
+    12 au of Neptune, and the swarm keeps its shape as the frame turns."""
 
 [[events]]
 name = "Pluto and Orcus: three to two"
@@ -679,6 +784,7 @@ trails = [
     { body = "Orcus", trail = "history", trail_history_days = 180570.0 },
 ]
 # [CO65], [DES], [INT]
+belts = ["Plutinos"]
 caption = """\
     Here the view turns with Neptune, which stays at the top. Pluto goes around \
     the Sun twice while Neptune goes three times, so its path closes into a fixed \
@@ -695,17 +801,18 @@ distance_km = 1.3e10
 from_body = "Neptune"
 phase_deg = 180.0
 elevation_deg = 90.0
-warp = 9467280000.0            # 300 years per second
+warp = 315576000.0             # 10 years per second: the points stay near their orbits
 trails = [
     { body = "2001 QR322", trail = "history", trail_history_days = 3469875.0 },
     { body = "2008 LC18", trail = "history", trail_history_days = 3469875.0 },
 ]
 # [CH03], [ST10], [HL10], [INT]
+belts = ["Neptune Trojans"]
 caption = """\
-    Trojans share Neptune's orbit, 60 degrees ahead or behind. 2001 QR322, the \
-    first one found, swings slowly around the leading point, and 2008 LC18 around \
-    the trailing one, each in about 9,500 years. The small loops come from their \
-    slightly eccentric orbits, one loop per orbit."""
+    Trojans share Neptune's orbit, 60 degrees ahead or behind. 2001 QR322, the first \
+    found, swings around the leading point and 2008 LC18 around the trailing one, each \
+    in about 9,500 years. Of the 33 Trojans known, 28 lead Neptune: in the 2000s and \
+    2010s the trailing cloud lay in front of the crowded center of the Milky Way."""
 
 [[events]]
 name = "Lobes: 4:3 and 5:2"
@@ -722,6 +829,7 @@ trails = [
     { body = "1999 DE9", trail = "history", trail_history_days = 300950.0 },
 ]
 # [DES], [CH03], [INT]
+belts = []                     # the two trails alone
 caption = """\
     In a p:q resonance the object makes q orbits while Neptune makes p, so its path \
     has q perihelion loops and winds p - q times around the Sun. 1995 DA2 (4:3) \
@@ -742,6 +850,7 @@ trails = [
     { body = "Gonggong", trail = "history", trail_history_days = 601900.0 },
 ]
 # [DES], [INT]
+belts = []                     # the trail alone
 caption = """\
     Gonggong, a dwarf planet about 1,230 km across, goes around the Sun three times \
     for every ten of Neptune's, which takes 1,650 years. Its path winds seven times \
@@ -757,6 +866,7 @@ elevation_deg = 60.0
 warp = 172800.0                # 2 days per second
 focus_orbits_only = true
 # [ELEM], [SPHY]
+belts = []                     # a close-up: the points would only cross it
 caption = """\
     Pluto and Charon circle a point between them every 6.4 days, always facing \
     each other. Four small moons, Styx, Nix, Kerberos and Hydra, orbit the pair \
@@ -774,6 +884,7 @@ elevation_deg = 30.0
 warp = 345600.0                # 4 days per second
 focus_orbits_only = true
 # [PR24], [RB09], [INT]
+belts = []                     # a close-up: the points would only cross it
 caption = """\
     Haumea spins once every 3.9 hours, which has stretched it into an elongated \
     shape. Hi'iaka, about 320 km across, orbits it in 49 days, nearly in the plane \
@@ -795,6 +906,7 @@ trails = [
     { body = "2026 ED138", trail = "history", trail_history_days = 722280.0 },
 ]
 # [BR07], [HO26], [INT]
+belts = []                     # the two trails alone
 caption = """\
     Haumea and 2026 ED138, found by the Rubin Observatory in 2026, sit at the edge \
     of the 12:7 resonance: seven orbits for every twelve of Neptune's, about 1,980 \
@@ -816,6 +928,7 @@ trails = [
     { body = "2000 JG81", trail = "history", trail_history_days = 120380.0 },
 ]
 # [CH03], [DES], [INT]
+belts = []                     # the points would smear at this warp (two-body orbits)
 caption = """\
     Objects in the 2:1 resonance have a single perihelion lobe, so it need not lie \
     opposite Neptune. 1996 TR66's lobe stays ahead of Neptune, rocking gently over \
@@ -836,6 +949,7 @@ trails = [
     { body = "Pluto system", trail = "history", trail_history_days = 180570.0 },
 ]
 # [CO65], [MA93], [INT]
+belts = []                     # the points would smear at this warp (two-body orbits)
 caption = """\
     The pattern is not fixed. Over about 20,000 years, Pluto's perihelia swing up \
     to 40 degrees toward Neptune and back, like a pendulum, never reaching it. \
@@ -866,6 +980,7 @@ trails = [                     # only the classical orbits and the planets'
     { body = "2012 VP113", trail = "none" },
 ]
 # [DES], [GL08], [INT]
+belts = ["Classical belt", "Scattered disk"]
 caption = """\
     Between the 3:2 and 2:1 resonances lies the classical belt. Its "cold" members, \
     like Arrokoth, which New Horizons visited, keep nearly circular orbits close to \
@@ -880,6 +995,7 @@ distance_km = 3.0e11
 elevation_deg = 35.0
 warp = 3155760000.0            # 100 years per second
 # [BR04], [TS14], [GL08], [INT]
+belts = []                     # too small at this distance, and smeared at this warp
 caption = """\
     Eris's perihelion is close enough for Neptune to keep tugging on it. Sedna and \
     2012 VP113 never come within 75 au of the Sun, far beyond Neptune's reach. How \

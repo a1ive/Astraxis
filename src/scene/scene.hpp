@@ -731,6 +731,10 @@ struct SceneEvent {
     // are drawn, so that a close view is not crossed by those of distant bodies.
     bool focus_orbits_only = false;
     bool hide_orbits = false; // none at all, where they would cross what the event shows
+    // The belts drawn while the event is active (Scene::belt_shown), e.g. one family of
+    // small bodies at a time; without belts_set, all of them.
+    bool belts_set = false;
+    std::vector<int> belts;
     double light_curve_span_days = 0.0; // the plot's span while the event is on (0: the scene's)
     int flyby = -1;            // >= 0: the body whose pass of the focus the event shows (-1: looked for)
     std::string caption;        // a museum-style note on why the view is worth seeing; may be empty
@@ -915,6 +919,8 @@ public:
     // The event whose trail settings apply (-1: none).
     void set_active_event(int index);
     int active_event() const { return m_active_event; }
+    // Whether belt `index` is drawn: the active event's choice, else every belt.
+    bool belt_shown(size_t index) const;
     const DisplayFrame& frame() const { return frames[static_cast<size_t>(m_active_frame)]; }
     // Whether the axes of the active frame turn (rotating or body-fixed): its
     // z axis is then "up", and orbits are drawn as history trails.

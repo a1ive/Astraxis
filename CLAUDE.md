@@ -76,6 +76,7 @@ ctest --test-dir build/linux -C Release --output-on-failure --no-tests=error
 ### 数据核对备注
 
 - 提取 PDF 表格时用 `pdftotext -raw`，并与原页核对列和负号。Wiley、Nature、ADS 拒绝脚本抓取时，Nature 的开放获取文章可在浏览器里读正文，作者主页的 PDF 可下载后转文本，DSpace 机构仓库（如 Imperial Spiral）可从 `/server/api/core/items/<uuid>/bundles` 的 TEXT 包取全文文本（没有图）。系数印在图里时 `pdftotext` 取不到，用 PyMuPDF 把那一页渲染成图再读。曲线图先用 `page.get_drawings()` 看是不是矢量：是的话直接取路径坐标（描边常被转成填充的轮廓，颜色在 `fill` 里），例见 `tools/geomag/neptune_boundaries_fig4.py`；路径里除了线段 `l` 还有贝塞尔段 `c`，两种都要沿线加密取点，只取端点会在平滑处留下大段空白。老文章的 ADS PDF 地址若只返回第一页，在浏览器打开 `ui.adsabs.harvard.edu/scan/manifest/<bibcode>` 查看扫描件。需要单页时，可用页面的 `/v1/accounts/bootstrap` 返回的访问令牌请求 `/v1/scan/image/iiif/2/bitmaps-~seri-~<刊>-~<卷>-~600-~<页>.000/full/1600,/0/default.jpg`。
+- DES（Buie）的单个天体分类页不能批量抓取，约 260 页后服务器返回 403；只用汇总页 `desclass.html`，见 [小天体带来源](assets/belts/SOURCES.md)。
 - Tiranti 2026 的 FITS 中 `INTENSITY_PROFILES` 约为 `3e-12`，按同温度和密度换算的总发射约 `4e-14 W m⁻³ sr⁻¹`。与 Melin 2025 的柱亮度差约 70 倍，因此仅用剖面形状，定标见 [冰巨星红外资料](assets/geomag/SOURCES.md)。
 
 ## 待办
@@ -88,6 +89,5 @@ ctest --test-dir build/linux -C Release --output-on-failure --no-tests=error
 - 查找嫦娥五号 T1 服务舱和天问一号轨道器的机身尺寸及展开翼展。补 Orion 再入姿态与防热罩曲面、DART 电池片图案。评估运行时自阴影和镜面高光。
 - 为 Castor 补 TESS 第 44、45、47、71 扇区，核对 2021-12-08 耀斑归属，绘制轨道法线，等 C 的观测弧延长后更新轨道。
 - 支持 macOS 的 Metal 着色器和 CI。J1141−6545 待几何解进一步约束后加入自转轴进动。
-- 海王星外天体场景第二阶段：按动力学分类着色的已知 TNO 点群（参考太阳系场景的 `[[belts]]`，需能在随海王星转动的参考系中显示），并说明巡天的观测偏差。
 
 提交前更新已完成的待办，把可复用的排障经验放到对应章节或代码旁，把新物理或数据近似写进 [已知局限](limitations.md)。开发过程记在提交信息里。

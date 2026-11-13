@@ -317,6 +317,110 @@ void test_moons()
     check(deg(normal("Hydra", "Pluto system"), unit_toward(132.993, -6.163)) < 0.5, "Hydra in Pluto's equator");
 }
 
+// Ecliptic longitude (deg, 0..360) of an ICRF direction.
+double ecliptic_longitude(const glm::dvec3& icrf)
+{
+    const double eps = 84381.448 / 3600.0 * kDegToRad;
+    const double y = std::cos(eps) * icrf.y + std::sin(eps) * icrf.z;
+    return wrap_deg(std::atan2(y, icrf.x) * kRadToDeg);
+}
+
+int belt_index(const Scene& scene, const char* name)
+{
+    for (size_t k = 0; k < scene.belts.size(); ++k) {
+        if (scene.belts[k].name == name) {
+            return static_cast<int>(k);
+        }
+    }
+    check(false, (std::string("belt ") + name + " exists").c_str());
+    return 0;
+}
+
+// The known objects ([BELT]): what the captions say about them in 2026, and which events
+// show which family.
+void test_belts()
+{
+    Scene& scene = tno_scene();
+    const double t = tdb_from_julian_year(2026.0);
+    const double neptune = ecliptic_longitude(scene.icrf_state_at(scene.find("Neptune"), t).position);
+    auto from_neptune = [&](const glm::dvec3& p) { return wrap_deg(ecliptic_longitude(p) - neptune + 180.0) - 180.0; };
+
+    // "The 443 objects known to share Pluto's 3:2 resonance ... The 272 now inside 36 au,
+    // near perihelion, all lie more than 20 degrees from Neptune's direction ... None is
+    // within 12 au of Neptune."
+    const SceneBelt& plutinos = scene.belts[static_cast<size_t>(belt_index(scene, "Plutinos"))];
+    const glm::dvec3 neptune_at = scene.icrf_state_at(scene.find("Neptune"), t).position;
+    double closest = 360.0;
+    double nearest_au = 1e9;
+    int inner = 0;
+    for (size_t k = 0; k < plutinos.size(); ++k) {
+        const glm::dvec3 p = belt_position(plutinos, k, t);
+        nearest_au = std::min(nearest_au, glm::length(p - neptune_at) / kAuKm);
+        if (glm::length(p) < 36.0 * kAuKm) {
+            ++inner;
+            closest = std::min(closest, std::abs(from_neptune(p)));
+        }
+    }
+    check(plutinos.size() == 443 && inner == 272, "443 plutinos, 272 inside 36 au (the caption)", inner);
+    check(closest > 20.0, "no plutino near perihelion within 20 deg of Neptune", closest);
+    check(nearest_au > 12.0, "no plutino within 12 au of Neptune", nearest_au);
+
+    // "Of the 33 Trojans known, 28 lead Neptune."
+    const SceneBelt& trojans = scene.belts[static_cast<size_t>(belt_index(scene, "Neptune Trojans"))];
+    int leading = 0;
+    for (size_t k = 0; k < trojans.size(); ++k) {
+        leading += from_neptune(belt_position(trojans, k, t)) > 0.0 ? 1 : 0;
+    }
+    check(trojans.size() == 33 && leading == 28, "33 Trojans, 28 leading (the caption)", leading);
+    // "In the 2000s and 2010s the trailing cloud lay in front of the crowded center of the
+    // Milky Way": L5, 60 deg behind Neptune, within 25 deg of where the Galactic plane
+    // crosses the ecliptic toward the center (ecliptic longitude ~266 deg).
+    for (double year = 2000.0; year < 2020.0; year += 1.0) {
+        const double l5 = ecliptic_longitude(scene.icrf_state_at(scene.find("Neptune"), tdb_from_julian_year(year)).position) - 60.0;
+        const double off = std::abs(wrap_deg(l5 - 266.0 + 180.0) - 180.0);
+        check(off < 25.0, "L5 toward the Galactic center in 2000-2019", off);
+    }
+
+    // "Few are known toward Taurus and Gemini" (ecliptic longitude 90-120 deg, where the
+    // Galactic anticenter crosses it): fewer than 40% of the average per 30 deg.
+    int total = 0;
+    int gap = 0;
+    int scattered = 0;
+    int inside = 0;
+    for (size_t b = 0; b < scene.belts.size(); ++b) {
+        const SceneBelt& belt = scene.belts[b];
+        const bool far_family = belt.name == "Scattered disk" || belt.name == "Detached objects";
+        for (size_t k = 0; k < belt.size(); ++k) {
+            const glm::dvec3 p = belt_position(belt, k, t);
+            const double lon = ecliptic_longitude(p);
+            ++total;
+            gap += lon >= 90.0 && lon < 120.0 ? 1 : 0;
+            if (far_family) {
+                ++scattered;
+                inside += glm::length(p) < belt.elements[k * SceneBelt::kStride] * kAuKm ? 1 : 0;
+            }
+        }
+    }
+    const double gap_share = gap / (total / 12.0);
+    std::printf("info: %d known objects; toward Taurus-Gemini %.2f of the average; %d of %d scattered or detached "
+                "inside their semi-major axis\n",
+                total, gap_share, inside, scattered);
+    check(gap_share < 0.4, "few known toward Taurus and Gemini", gap_share);
+    check(inside > 0.9 * scattered, "nearly every scattered or detached object inside a", inside / double(scattered));
+
+    // Events choose their families; without an event, all are drawn.
+    int event = -1;
+    for (size_t k = 0; k < scene.events.size(); ++k) {
+        event = scene.events[k].name == "Every known plutino" ? static_cast<int>(k) : event;
+    }
+    scene.set_active_event(event);
+    const bool only_plutinos = scene.belt_shown(static_cast<size_t>(belt_index(scene, "Plutinos"))) &&
+                               !scene.belt_shown(static_cast<size_t>(belt_index(scene, "Classical belt")));
+    scene.set_active_event(-1);
+    check(event >= 0 && only_plutinos, "the plutino event shows the plutinos alone");
+    check(scene.belt_shown(static_cast<size_t>(belt_index(scene, "Classical belt"))), "all belts without an event");
+}
+
 } // namespace
 
 void run_trans_neptunian_tests()
@@ -325,4 +429,5 @@ void run_trans_neptunian_tests()
     test_resonances();
     test_orbits();
     test_moons();
+    test_belts();
 }
