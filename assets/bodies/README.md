@@ -104,6 +104,7 @@ file = "ephem/moon_geo.eph"
 - 土星的大卫星：[mimas.toml](mimas.toml)、[enceladus.toml](enceladus.toml)（含羽流）、[tethys.toml](tethys.toml)、[dione.toml](dione.toml)、[rhea.toml](rhea.toml)、[titan.toml](titan.toml)（含大气）、[iapetus.toml](iapetus.toml)。
 - 天王星的卫星：[miranda.toml](miranda.toml)、[ariel.toml](ariel.toml)、[umbriel.toml](umbriel.toml)、[titania.toml](titania.toml)、[oberon.toml](oberon.toml)。
 - 海王星的卫星：[proteus.toml](proteus.toml)（形状模型）、[triton.toml](triton.toml)（含大气和羽流）。
+- 矮行星与海王星外天体：[pluto.toml](pluto.toml)（含霾层）、[charon.toml](charon.toml)、[eris.toml](eris.toml)、[haumea.toml](haumea.toml)（含环）、[makemake.toml](makemake.toml)、[gonggong.toml](gonggong.toml)、[quaoar.toml](quaoar.toml)（含环）、[sedna.toml](sedna.toml)、[arrokoth.toml](arrokoth.toml)（形状模型）。太阳系场景和海王星外天体场景共用。冥王星的四颗小卫星和 Haumea 的两颗卫星只在海王星外天体场景里，仍内联定义。
 
 只在一个场景里出现的天体（Janus 等）仍内联定义，第二个场景用到时再移进模板。
 

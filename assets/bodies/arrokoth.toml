@@ -1,0 +1,11 @@
+# [ARRO] Arrokoth: shape model of Porter et al. 2024 (PDS SBN, doi:10.26007/97r3-1e19;
+#        assets/shapes/SOURCES.md), 34.546 x 19.838 x 13.822 km (Table 2 of the paper);
+#        pole and prime meridian from the New Horizons PCK nh_arrokoth_002.tpc, which states
+#        that these values were used in that shape model. Rotation period 15.45 h there
+#        (Spencer et al. 2020: 15.92 h). No GM is known. Color illustrative.
+
+shape = "shapes/arrokoth.mesh"             # [ARRO] the two lobes, Wenu along +x
+radii_km = [17.273, 9.919, 6.911]          # [ARRO] half the overall dimensions (shadows, camera distances)
+pole_ra_dec_deg = [319.3685820, -25.5875063]   # [ARRO]
+prime_meridian_deg = [71.9541475, 559.393617318826]  # [ARRO] P = 15.45 h
+color = "#a8604a"

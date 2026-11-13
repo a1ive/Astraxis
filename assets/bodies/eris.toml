@@ -1,0 +1,11 @@
+# [ERIS] Sicardy et al. 2011, Nature 478, 493: R = 1163 +- 6 km (stellar occultation).
+# [GMB]  NAIF gm_de440.tpc (2022-12-14): Eris from JPL IOM 392R-22-003 (Brozovic 2022), the
+#        system; Dysnomia's mass taken as 0.
+# Texture: NASA VTAD illustrative surface (assets/textures/SOURCES.md); its meridian is
+# arbitrary, and with no known pole the body does not turn.
+
+radii_km = [1163.0]                        # [ERIS] 1163 +- 6 km
+body_gm_km3_s2 = 1098.9                    # [GMB]
+color = "#ebe7e1"
+texture = "textures/eris.jpg"
+texture_left_lon_deg = 0.0                 # arbitrary meridian

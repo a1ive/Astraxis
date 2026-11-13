@@ -3552,6 +3552,7 @@ void Loader::parse_nbody(const toml::table& t, Scene& out)
     std::vector<int> body_of;
     std::vector<NBodyParticle> particles;
     std::vector<double> period_of; // initial osculating period around the relative_to centre (0: none)
+    std::vector<double> knots_of;  // the member's own knots_per_orbit (0: the scene's)
     auto member_index = [&](const std::string& name, const std::string& mctx) {
         const int b = out.find(name);
         for (size_t k = 0; k < body_of.size(); ++k) {
@@ -3663,8 +3664,17 @@ void Loader::parse_nbody(const toml::table& t, Scene& out)
                 const glm::dmat3 g = galactic_to_icrf();
                 relative.position = g * glm::dvec3(pos[0], pos[1], pos[2]) * kParsecKm;
                 relative.velocity = g * glm::dvec3(vel[0], vel[1], vel[2]);
+            } else if (const toml::table* is = (*m)["icrf_state"].as_table()) {
+                // Cartesian state as JPL Horizons gives it (ICRF, km, km/s).
+                double pos[3];
+                double vel[3];
+                get_array(*is, "position_km", mctx, pos, 3, 3);
+                get_array(*is, "velocity_km_s", mctx, vel, 3, 3);
+                relative.position = glm::dvec3(pos[0], pos[1], pos[2]);
+                relative.velocity = glm::dvec3(vel[0], vel[1], vel[2]);
             } else {
-                fail(mctx, "relative members need [visual_orbit], [transit_orbit] or [galactic_state]");
+                fail(mctx,
+                     "relative members need [visual_orbit], [transit_orbit], [galactic_state] or [icrf_state]");
             }
             p.position = center.position + relative.position;
             p.velocity = center.velocity + relative.velocity;
@@ -3675,6 +3685,13 @@ void Loader::parse_nbody(const toml::table& t, Scene& out)
         body_of.push_back(b);
         particles.push_back(p);
         period_of.push_back(period);
+        // A very eccentric orbit needs more knots than the scene's default to
+        // follow its perihelion passage.
+        const double own_knots = get_double_or(*m, "knots_per_orbit", 0.0);
+        if (own_knots < 0.0) {
+            fail(mctx, "knots_per_orbit must not be negative");
+        }
+        knots_of.push_back(own_knots);
     }
     const bool root_member = body_of.front() == 0;
     if (body_of.size() != m_nbody_bodies.size() + (root_member ? 1 : 0)) {
@@ -3705,18 +3722,21 @@ void Loader::parse_nbody(const toml::table& t, Scene& out)
 
     // Thin the output to about knots_per_orbit knots per revolution of each
     // member; members without an orbit of their own get the densest stride.
-    if (knots_per_orbit > 0.0) {
-        auto stride_for = [&](double period) {
-            return std::max(1, static_cast<int>(period / (knots_per_orbit * step)));
+    const bool own_knots = std::any_of(knots_of.begin(), knots_of.end(), [](double k) { return k > 0.0; });
+    if (knots_per_orbit > 0.0 || own_knots) {
+        auto stride_for = [&](double period, double knots) {
+            return knots > 0.0 ? std::max(1, static_cast<int>(period / (knots * step))) : 1;
         };
         int densest = 0;
-        for (double period : period_of) {
-            if (period > 0.0) {
-                densest = densest == 0 ? stride_for(period) : std::min(densest, stride_for(period));
+        for (size_t k = 0; k < period_of.size(); ++k) {
+            if (period_of[k] > 0.0) {
+                const int s = stride_for(period_of[k], knots_of[k] > 0.0 ? knots_of[k] : knots_per_orbit);
+                densest = densest == 0 ? s : std::min(densest, s);
             }
         }
-        for (double period : period_of) {
-            options.stride.push_back(period > 0.0 ? stride_for(period) : std::max(1, densest));
+        for (size_t k = 0; k < period_of.size(); ++k) {
+            const double knots = knots_of[k] > 0.0 ? knots_of[k] : knots_per_orbit;
+            options.stride.push_back(period_of[k] > 0.0 ? stride_for(period_of[k], knots) : std::max(1, densest));
         }
     }
 

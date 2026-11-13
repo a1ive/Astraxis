@@ -1,0 +1,28 @@
+# [PCK]  NAIF pck00011.tpc (IAU 2015): radius, pole, prime meridian.
+# [SPHY] JPL SSD, Planetary Satellite Physical Parameters (https://ssd.jpl.nasa.gov/sats/phys_par/),
+#        "Planet and Pluto GM Values": Pluto alone (PLU060). Scenes give the system GM
+#        (Pluto + Charon + the small moons, 975.5 km^3/s^2, DE440) as gm_km3_s2 where it moves
+#        as one body.
+# [ATM]  Haze to above 200 km (Cheng et al. 2017, Icarus 290, 112, arXiv:1702.07771), vertical
+#        optical depth ~0.013 (Gladstone et al. 2016, Science 351, aad8866, as quoted by Cheng
+#        et al.), scale height 50 km (Cheng et al., Sect. 5); g = 0.5 matches the ratio of the
+#        haze I/F at 167 deg and 20 deg phase in their Table 4 (peak 15, at 45 km 37;
+#        Henyey-Greenstein gives 15 at g = 0.44, 37 at 0.56). Albedo and the blue color
+#        (Angstrom exponent 2) illustrative. N2 Rayleigh scattering is negligible. Single
+#        scattering, as for the other atmospheres.
+# Texture: assets/textures/SOURCES.md.
+
+radii_km = [1188.3]                        # [PCK]
+body_gm_km3_s2 = 869.3                     # [SPHY] (PLU060)
+pole_ra_dec_deg = [132.993, -6.163]        # [PCK]
+prime_meridian_deg = [302.695, 56.3625225]
+color = "#d8b48c"
+texture = "textures/pluto.jpg"
+texture_left_lon_deg = 0.0
+[atmosphere]                               # [ATM]
+height_km = 250.0
+haze_depth = 0.013
+haze_angstrom = 2.0
+haze_scale_height_km = 50.0
+haze_albedo = 0.9
+haze_g = 0.5

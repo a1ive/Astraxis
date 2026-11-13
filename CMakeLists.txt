@@ -355,6 +355,7 @@ add_executable(astraxis_tests
     tests/settings_tests.cpp
     tests/shape_tests.cpp
     tests/stellar_system_tests.cpp
+    tests/trans_neptunian_tests.cpp
 )
 # stb: the tests read the baked relief maps.
 target_link_libraries(astraxis_tests PRIVATE astraxis_sim astraxis_settings stb)

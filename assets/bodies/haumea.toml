@@ -1,0 +1,30 @@
+# [HAUM] Ortiz et al. 2017, Nature 550, 219 (arXiv:2006.03113): semi-axes 1161 x 852 x 513
+#        km, ring pole RA 285.1, Dec -10.6 deg (J2000; solution 1, favoured by photometry),
+#        rotation 3.915341 h; ring radius 2,287 km, width 70 km, apparent opacity 0.5 seen
+#        at an opening angle of 13.8 deg.
+# [GMB]  NAIF gm_de440.tpc (2022-12-14): Haumea from JPL IOM 392R-22-003 (Brozovic 2022),
+#        the primary.
+# Texture: NASA VTAD illustrative surface (assets/textures/SOURCES.md), arbitrary meridian.
+#
+# Ring: normal optical depth -ln(1 - 0.5) sin(13.8 deg) = 0.17 (ignoring diffraction, see
+# the paper), in Haumea's equatorial plane. Tint and gain illustrative. The planet's
+# shadow on the ring treats Haumea as a sphere of its longest semi-axis.
+
+radii_km = [1161.0, 852.0, 513.0]          # [HAUM] semi-axes
+body_gm_km3_s2 = 264.413                   # [GMB]
+pole_ra_dec_deg = [285.1, -10.6]           # [HAUM] ring pole, assumed equatorial
+prime_meridian_deg = [0.0, 2206.646]       # [HAUM] P = 3.915341 h; W0 arbitrary
+color = "#e6e6ea"
+texture = "textures/haumea.jpg"
+texture_left_lon_deg = 0.0                 # arbitrary meridian
+
+[rings]
+color = "#9a9a9a"
+gain = 4.0
+phase_g = 0.0
+
+[[rings.bands]]
+name = "Ring"
+inner_km = 2252.00
+outer_km = 2322.00
+optical_depth = 0.17

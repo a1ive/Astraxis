@@ -14,6 +14,9 @@ void accelerations(const std::vector<NBodyParticle>& p, std::vector<glm::dvec3>&
     acc.assign(p.size(), glm::dvec3(0.0));
     for (size_t i = 0; i < p.size(); ++i) {
         for (size_t j = i + 1; j < p.size(); ++j) {
+            if (p[i].gm == 0.0 && p[j].gm == 0.0) {
+                continue; // two test particles do not pull each other
+            }
             const glm::dvec3 d = p[j].position - p[i].position;
             const double r2 = glm::dot(d, d);
             const glm::dvec3 f = d / (r2 * std::sqrt(r2));

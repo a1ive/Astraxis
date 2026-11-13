@@ -1,0 +1,5 @@
+# [GONG] Kiss et al. 2019, Icarus 334, 3 (arXiv:1903.05439): diameter 1230 +- 50 km.
+# No GM is given in NAIF gm_de440.tpc. The reddish color is illustrative.
+
+radii_km = [615.0]                         # [GONG]
+color = "#b0705a"

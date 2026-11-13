@@ -49,3 +49,4 @@ void run_mission_tests();
 void run_stellar_system_tests();
 void run_relativity_tests();
 void run_scene_tests();
+void run_trans_neptunian_tests();

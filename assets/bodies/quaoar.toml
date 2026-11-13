@@ -1,0 +1,48 @@
+# [QUAO] Margoti et al. 2026 (arXiv:2607.06450): oblate ellipsoid, a = b = 566.1 km,
+#        c = 511.2 km, from 37 stellar occultations.
+# [GMB]  NAIF gm_de440.tpc (2022-12-14): Quaoar from JPL IOM 392R-22-003 (Brozovic 2022),
+#        the primary.
+# [QRNG] Pereira et al. 2023, A&A (arXiv:2304.09237), Table 2 and Sect. 5: Quaoar's two
+#        rings and the Q1R pole, RA 17h19m16.8s, Dec +53 27' (ICRS). Table 7: Q1R's dense
+#        part at egress (2022 Aug 9; CFHT, Gemini z', r'): radius 4123.69, 4123.11, 4122.85
+#        km, width 6.1, 5.3, 5.1 km, tau 0.395, 0.417, 0.398.
+#
+# Rings [QRNG]: Q1R at 4,057 km (its tenuous part, 80-100 km wide, tau ~0.003) and Q2R at
+# 2,520 km (~10 km wide, tau ~0.004), both outside the Roche limit. Q1R's dense part (Table
+# 7, mean of the three: 4123.2 km, 5.5 km wide, tau 0.40) was only seen in 2 of 19 chords,
+# so it is an arc whose length, from those odds, lies between 18 and 72 deg with 70% chance
+# (Sect. 5): drawn 45 deg long. Where it lies is not known (its phase here is arbitrary); it
+# moves at the circular mean motion there, sqrt(GM / r^3) with Quaoar's GM. Assumed in
+# Quaoar's equatorial plane (pole above). Tint, gain and the body's color illustrative.
+
+radii_km = [566.1, 511.2]                  # [QUAO] oblate ellipsoid
+body_gm_km3_s2 = 95.6021989                # [GMB]
+pole_ra_dec_deg = [259.82, 53.45]          # [QRNG] Q1R pole (preferred solution), assumed equatorial
+color = "#a8786a"
+
+[rings]
+color = "#8a7a70"
+gain = 60.0
+phase_g = 0.0
+epoch = "2022-08-09 06:38"                 # [QRNG] the egress detection (phase arbitrary)
+
+[[rings.bands]]
+name = "Q2R"
+inner_km = 2515.00
+outer_km = 2525.00
+optical_depth = 0.004
+
+[[rings.bands]]
+name = "Q1R"
+inner_km = 4012.00
+outer_km = 4102.00
+optical_depth = 0.003                      # width 80-100 km
+
+[[rings.bands]]
+name = "Q1R dense arc"
+inner_km = 4120.45
+outer_km = 4125.95
+optical_depth = 0.40
+arc_center_deg = 0.0                       # arbitrary
+arc_length_deg = 45.0
+arc_rate_deg_per_day = 182.8166            # sqrt(GM / r^3) at 4123.2 km, GM 95.6022 [GMB]

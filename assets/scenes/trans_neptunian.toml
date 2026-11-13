@@ -1,0 +1,887 @@
+# Beyond Neptune: the kinds of trans-Neptunian objects, and the mean-motion resonances that
+# keep many of them away from Neptune. Neptune's Trojans (1:1), 1995 DA2 (4:3), Pluto and
+# Orcus (3:2), 1996 TR66 and 2000 JG81 (2:1), 1999 DE9 (5:2), Gonggong (10:3), and Haumea
+# and 2026 ED138 at the edge of the 12:7; the classical belt (Arrokoth, Quaoar, Makemake);
+# the scattered disk (Eris); and the detached objects Sedna and 2012 VP113. Pluto with its
+# five moons, Haumea with its two. Every orbit is integrated here with the four giant planets
+# from the Julian year -8000 to 52,000, so that the slow swings of the resonances can be followed.
+#
+# Sources
+# [HZN]  JPL Horizons geometric states (ICRF, TDB, km and km/s) relative to the Sun's center
+#        at 2026-01-01 00:00 TDB (JD 2461041.5), fetched by tools/bake/tno_states.py: the
+#        giant planets' system barycenters and the Pluto system barycenter from DE441; the
+#        small bodies from the JPL orbit solution noted at each member.
+# [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html:
+#        the Sun 132712440041.279419, Mercury 22031.868551, Venus 324858.592, Earth-Moon
+#        403503.235625, Mars system 42828.375816; Jupiter, Saturn, Uranus and Neptune systems
+#        as given at each body (km^3/s^2).
+# [DES]  Deep Ecliptic Survey classifications (Elliot et al. 2005, AJ 129, 1117), from the
+#        nominal orbit and two clones 3 sigma away, all agreeing ("secure"), at
+#        www.boulder.swri.edu/~buie/kbo/astrom/<number>.html (retrieved 2026-11-13):
+#        Orcus 3:2, 1995 DA2 4:3, 1996 TR66 and 2000 JG81 2:1, 1999 DE9 5:2, Gonggong 10:3,
+#        2001 QR322 1:1, Arrokoth and Quaoar classical.
+# [CH03] Chiang et al. 2003, AJ 126, 430 (arXiv:astro-ph/0301458): 2001 QR322, the first
+#        Neptune Trojan, librates about L4 with an amplitude of 24 deg, stable for at least
+#        1 Gyr in their integrations; 1995 DA2 in the 4:3 and 1996 TR66 in the 2:1 (with
+#        Nesvorny & Roig 2001); the 2:1 objects they list mostly librate about phi = 70-90
+#        deg (asymmetric), while 2000 JG81 librates about 180 deg with an amplitude of
+#        ~160 deg (symmetric); 1999 DE9 among the 5:2 objects (Table 2).
+# [HL10] Horner & Lykawka 2010, MNRAS 405, 49 (arXiv:1002.4699): with a better orbit, most
+#        clones of 2001 QR322 leave the Trojan cloud within a few hundred million years.
+# [ST10] Sheppard & Trujillo 2010, Science 329, 1304: 2008 LC18, the first Trojan found at
+#        Neptune's trailing (L5) point.
+# [CO65] Cohen & Hubbard 1965, AJ 70, 10: Pluto's 3:2 resonance with Neptune keeps the two
+#        apart although Pluto's orbit crosses Neptune's.
+# [MA93] Malhotra 1993, Nature 365, 819: Neptune's outward migration can have captured
+#        Pluto into the resonance and raised its eccentricity.
+# [GL08] Gladman, Marsden & VanLaerhoven 2008, in The Solar System Beyond Neptune, 43:
+#        nomenclature (resonant, classical, scattering, detached).
+# [BR04] Brown, Trujillo & Rabinowitz 2004, ApJ 617, 645: Sedna, perihelion 76 au.
+# [TS14] Trujillo & Sheppard 2014, Nature 507, 471: 2012 VP113, perihelion 80 au.
+# [FO13] Fornasier et al. 2013, A&A 555, A15 (arXiv:1305.0449): Orcus 917 +- 25 km across
+#        (Vanth 276 km).
+# [ELEM] JPL SSD, Planetary Satellite Mean Elements (https://ssd.jpl.nasa.gov/sats/elem/,
+#        retrieved 2026-11-13), PLU060, epoch 2000-01-01.5 TDB, in Pluto's equator: Charon,
+#        Styx, Nix, Kerberos, Hydra (Brozovic & Jacobson 2024, AJ 167, 256). Node periods
+#        listed as positive are regressions (as for the Moon's 18.6 years).
+# [SPHY] JPL SSD, Planetary Satellite Physical Parameters (https://ssd.jpl.nasa.gov/sats/phys_par/,
+#        retrieved 2026-11-13): mean radii of Nix 18.0, Hydra 18.5, Kerberos 6.0, Styx 5.2
+#        km; GM of Nix 0.0015 and Hydra 0.0020 km^3/s^2 (PLU060).
+# [PR24] Proudfoot et al. 2024, PSJ 5, 69 (arXiv:2403.12782), Table 2: non-Keplerian fit
+#        to the orbits of Hi'iaka and Namaka (HST only), J2000 ecliptic elements at
+#        Haumea-centric JD 2454615.0; masses of Haumea and both moons.
+# [RB09] Ragozzine & Brown 2009, AJ 137, 4766 (arXiv:0903.4213): radii of Hi'iaka and
+#        Namaka about 160 and 80 km for the density of water ice; no Keplerian orbit fits
+#        Namaka over long times.
+# [BR07] Brown et al. 2007, Nature 446, 294, as cited by Ragozzine & Brown 2007 (AJ 134,
+#        2160, arXiv:0709.0328): Haumea has diffused in the fifth-order 12:7 resonance
+#        from where its collisional family began. DES classifies it as scattered-near.
+#        From this scene's initial states, an offline check with REBOUND (WHFast, the same
+#        five masses, barycentric elements) finds Haumea's three 12:7 arguments circulating
+#        for the first ~650,000 years and librating after that: at the edge, as captioned.
+# [HO26] Holman et al. 2026, submitted to AJ (arXiv:2610.38693): 2026 ED138, found in early
+#        Rubin Observatory data; H_V = 3.19, 612-1530 km across for albedos 0.25-0.04;
+#        barycentric a = 43.09 au, e = 0.139, i = 24.4 deg; at the edge of the 12:7
+#        resonance, phi = 12 lambda - 7 lambda_N - 3 varpi - 2 Omega librating about 180
+#        deg with amplitude 95-115 deg in 46% of the clones over 10 Myr (a resonant
+#        candidate); g - r = 0.63, too red for Haumea's family.
+# [SBDB] JPL Small-Body Database (https://ssd-api.jpl.nasa.gov/sbdb.api, retrieved
+#        2026-11-13): absolute magnitudes H, for the bodies without a measured size.
+# [INT]  This scene's own integration (tests/trans_neptunian_tests.cpp): the libration
+#        centers, amplitudes and periods, and closest approaches quoted in the captions. At
+#        perihelion the resonant angle p lambda - q lambda_N - (p - q) varpi is q times the
+#        perihelion's longitude from Neptune, so Pluto's +-80 deg libration about 180 deg
+#        moves its perihelia +-40 deg about 90 deg from Neptune.
+#
+# The model: the Sun (carrying the masses of the four inner planets) and the giant
+# planets' system barycenters pull on each other; the trans-Neptunian objects are test
+# particles. Over tens of thousands of years this shows what the resonances do, not where
+# each body will really be: the planets' phases drift from the real ones within centuries,
+# and the small bodies' orbits are known only to their observational uncertainties.
+# Colors of the orbits: resonant objects orange (Trojans green), classical blue,
+# scattered violet, detached red. Sizes without a measurement come from H with an assumed
+# geometric albedo of 0.10, D = 1329 km / sqrt(0.10) * 10^(-H / 5): illustrative.
+# Body sizes, rotations and rings of the dwarf planets come from bodies/*.toml.
+
+name = "Trans-Neptunian Objects"
+
+[view]
+focus = "Sun"
+distance_km = 1.6e10       # ~110 au
+start = "now"
+warp = 31557600.0          # 1 year per second
+up = "ecliptic"
+
+[[bodies]]
+name = "Sun"
+template = "bodies/sun.toml"
+gm_km3_s2 = 1.32712440041279419e11         # [GM]
+pole_ra_dec_deg = [286.13, 63.87]          # NAIF pck00011.tpc
+prime_meridian_deg = [84.176, 14.1844]
+color = "#fff4e0"
+
+# --- Giant planets -----------------------------------------------------------------------
+
+[[bodies]]
+name = "Jupiter"
+parent = "Sun"
+template = "bodies/jupiter.toml"
+gm_km3_s2 = 126712764.1                    # system [GM]
+orbit_color = "#c8a27a"
+label = false
+[bodies.orbit]
+type = "nbody"
+
+[[bodies]]
+name = "Saturn"
+parent = "Sun"
+template = "bodies/saturn.toml"
+gm_km3_s2 = 37940584.8418                  # system [GM]
+orbit_color = "#d6c08e"
+label = false
+[bodies.orbit]
+type = "nbody"
+
+[[bodies]]
+name = "Uranus"
+parent = "Sun"
+template = "bodies/uranus.toml"
+gm_km3_s2 = 5794556.4                      # system [GM]
+orbit_color = "#9fd2d8"
+[bodies.orbit]
+type = "nbody"
+
+[[bodies]]
+name = "Neptune"
+parent = "Sun"
+template = "bodies/neptune.toml"
+gm_km3_s2 = 6836527.10058                  # system [GM]
+orbit_color = "#7b98e0"
+[bodies.orbit]
+type = "nbody"
+
+# --- Resonant objects --------------------------------------------------------------------
+
+[[bodies]]
+name = "2001 QR322"                        # Neptune Trojan, L4 [CH03]
+parent = "Sun"
+radii_km = [50.4]                          # H 8.10 [SBDB]
+color = "#9a9088"
+orbit_color = "#7cc48a"
+[bodies.orbit]
+type = "nbody"
+
+[[bodies]]
+name = "2008 LC18"                         # Neptune Trojan, L5 [ST10]
+parent = "Sun"
+radii_km = [47.9]                          # H 8.21 [SBDB]
+color = "#9a9088"
+orbit_color = "#7cc48a"
+[bodies.orbit]
+type = "nbody"
+
+[[bodies]]
+name = "1995 DA2"                          # 4:3 [DES], [CH03]
+parent = "Sun"
+radii_km = [51.4]                          # H 8.06 [SBDB]
+color = "#9a9088"
+orbit_color = "#e0a060"
+[bodies.orbit]
+type = "nbody"
+
+# Pluto's system: the barycenter moves in the integration; Pluto and Charon circle it
+# (Pluto at -q r, Charon at (1 - q) r, q = GM Charon / GM system = 106.1 / 975.5), and the
+# four small moons circle the pair, all on [ELEM]'s mean orbits in Pluto's equator.
+[[bodies]]
+name = "Pluto system"                      # 3:2 [CO65]
+parent = "Sun"
+kind = "barycenter"
+gm_km3_s2 = 975.5                          # system [GM]
+orbit_color = "#e0a060"
+[bodies.orbit]
+type = "nbody"
+
+[[bodies]]
+name = "Pluto"
+parent = "Pluto system"
+template = "bodies/pluto.toml"
+orbit_color = "#c8aa88"
+[bodies.orbit]                             # [ELEM] Charon relative to Pluto, scaled by -q
+scale = -0.1087647360
+type = "mean_elements"
+a_km = 19600.0
+e = 0.0
+arg_peri_deg = 0.0
+mean_anomaly_deg = 304.1
+i_deg = 0.0
+node_deg = 0.0
+period_days = 6.387222
+laplace_pole_ra_dec_deg = [132.993, -6.163]
+
+[[bodies]]
+name = "Charon"
+parent = "Pluto system"
+template = "bodies/charon.toml"
+orbit_color = "#b8b4ae"
+[bodies.orbit]                             # [ELEM], scaled by 1 - q
+scale = 0.8912352640
+type = "mean_elements"
+a_km = 19600.0
+e = 0.0
+arg_peri_deg = 0.0
+mean_anomaly_deg = 304.1
+i_deg = 0.0
+node_deg = 0.0
+period_days = 6.387222
+laplace_pole_ra_dec_deg = [132.993, -6.163]
+
+[[bodies]]
+name = "Styx"
+parent = "Pluto system"
+radii_km = [5.2]                           # [SPHY] mean radius
+color = "#b8b4ae"                          # illustrative
+orbit_color = "#9c9890"
+label = false
+[bodies.orbit]                             # [ELEM]
+type = "mean_elements"
+a_km = 43200.0
+e = 0.025
+arg_peri_deg = 322.5
+mean_anomaly_deg = 358.1
+i_deg = 0.0
+node_deg = 0.0
+period_days = 20.16
+laplace_pole_ra_dec_deg = [132.993, -6.163]
+
+[[bodies]]
+name = "Nix"
+parent = "Pluto system"
+radii_km = [18.0]                          # [SPHY] mean radius
+body_gm_km3_s2 = 0.0015                    # [SPHY]
+color = "#c8c4bc"                          # illustrative
+orbit_color = "#9c9890"
+[bodies.orbit]                             # [ELEM]
+type = "mean_elements"
+a_km = 49300.0
+e = 0.015
+arg_peri_deg = 31.4
+mean_anomaly_deg = 338.2
+i_deg = 0.0
+node_deg = 0.0
+period_days = 24.85
+laplace_pole_ra_dec_deg = [132.993, -6.163]
+
+[[bodies]]
+name = "Kerberos"
+parent = "Pluto system"
+radii_km = [6.0]                           # [SPHY] mean radius
+color = "#8c8884"                          # illustrative
+orbit_color = "#9c9890"
+label = false
+[bodies.orbit]                             # [ELEM]
+type = "mean_elements"
+a_km = 58300.0
+e = 0.010
+arg_peri_deg = 32.1
+mean_anomaly_deg = 276.1
+i_deg = 0.4
+node_deg = 314.3
+period_days = 32.17
+node_period_years = -9.0                   # [ELEM] (regressing)
+laplace_pole_ra_dec_deg = [132.993, -6.163]
+
+[[bodies]]
+name = "Hydra"
+parent = "Pluto system"
+radii_km = [18.5]                          # [SPHY] mean radius
+body_gm_km3_s2 = 0.0020                    # [SPHY]
+color = "#c8c4bc"                          # illustrative
+orbit_color = "#9c9890"
+[bodies.orbit]                             # [ELEM]
+type = "mean_elements"
+a_km = 65200.0
+e = 0.009
+arg_peri_deg = 139.3
+mean_anomaly_deg = 335.0
+i_deg = 0.3
+node_deg = 114.3
+period_days = 38.20
+node_period_years = -14.0                  # [ELEM] (regressing)
+laplace_pole_ra_dec_deg = [132.993, -6.163]
+
+[[bodies]]
+name = "Orcus"                             # 3:2 [DES]
+parent = "Sun"
+radii_km = [458.5]                         # [FO13]
+color = "#a8a4a0"                          # illustrative
+orbit_color = "#e0a060"
+[bodies.orbit]
+type = "nbody"
+
+[[bodies]]
+name = "1996 TR66"                         # 2:1 [DES], [CH03]
+parent = "Sun"
+radii_km = [68.7]                          # H 7.43 [SBDB]
+color = "#9a9088"
+orbit_color = "#e0a060"
+[bodies.orbit]
+type = "nbody"
+
+[[bodies]]
+name = "2000 JG81"                         # 2:1 [DES], [CH03]
+parent = "Sun"
+radii_km = [53.7]                          # H 7.96 [SBDB]
+color = "#9a9088"
+orbit_color = "#e0a060"
+[bodies.orbit]
+type = "nbody"
+
+[[bodies]]
+name = "1999 DE9"                          # 5:2 [DES], [CH03]
+parent = "Sun"
+radii_km = [221.1]                         # H 4.89 [SBDB]
+color = "#9a9088"
+orbit_color = "#e0a060"
+[bodies.orbit]
+type = "nbody"
+
+[[bodies]]
+name = "Gonggong"                          # 10:3 [DES]
+parent = "Sun"
+template = "bodies/gonggong.toml"
+orbit_color = "#e0a060"
+[bodies.orbit]
+type = "nbody"
+
+# At the edge of the 12:7 resonance [BR07], [HO26]. Haumea's moons on fixed Keplerian
+# orbits from [PR24]'s HST-only fit (J2000 ecliptic, Haumea-centric JD 2454615.0); periods
+# from those semi-major axes and the fitted masses (Haumea 3952.44e18 kg, Namaka 1.18e18,
+# Hi'iaka 12.13e18). Radii for water-ice density [RB09].
+[[bodies]]
+name = "Haumea"
+parent = "Sun"
+template = "bodies/haumea.toml"
+orbit_color = "#e0a060"
+[bodies.orbit]
+type = "nbody"
+
+[[bodies]]
+name = "Namaka"
+parent = "Haumea"
+radii_km = [80.0]                          # [RB09]
+body_gm_km3_s2 = 0.0788                    # [PR24] 1.18e18 kg
+color = "#d8d8dc"                          # illustrative (water ice)
+orbit_color = "#a8aab0"
+[bodies.orbit]                             # [PR24] Table 2, HST only
+type = "mean_elements"
+epoch_jd_tdb = 2454615.0
+a_km = 25506.0
+e = 0.2179
+arg_peri_deg = 118.35
+mean_anomaly_deg = 185.19
+i_deg = 69.005
+node_deg = 23.725
+period_days = 18.2360
+laplace_pole_ra_dec_deg = [270.0, 66.560719]   # the J2000 ecliptic
+
+[[bodies]]
+name = "Hi'iaka"
+parent = "Haumea"
+radii_km = [160.0]                         # [RB09]
+body_gm_km3_s2 = 0.8096                    # [PR24] 12.13e18 kg
+color = "#e0e0e4"                          # illustrative (water ice)
+orbit_color = "#a8aab0"
+[bodies.orbit]                             # [PR24] Table 2, HST only
+type = "mean_elements"
+epoch_jd_tdb = 2454615.0
+a_km = 49371.0
+e = 0.0542
+arg_peri_deg = 98.34
+mean_anomaly_deg = 154.53
+i_deg = 77.394
+node_deg = 13.11
+period_days = 49.0426
+laplace_pole_ra_dec_deg = [270.0, 66.560719]   # the J2000 ecliptic
+
+[[bodies]]
+name = "2026 ED138"                        # 12:7 candidate [HO26]
+parent = "Sun"
+radii_km = [484.0]                         # [HO26] 968 km for an albedo of 0.10 (612-1530 km)
+color = "#b87a62"                          # illustrative; redder than the Sun, g - r = 0.63 [HO26]
+orbit_color = "#e0a060"
+[bodies.orbit]
+type = "nbody"
+
+# --- Classical belt ----------------------------------------------------------------------
+
+[[bodies]]
+name = "Arrokoth"                          # cold classical [DES]
+parent = "Sun"
+template = "bodies/arrokoth.toml"
+orbit_color = "#7aa6e0"
+[bodies.orbit]
+type = "nbody"
+
+[[bodies]]
+name = "Quaoar"                            # classical [DES]
+parent = "Sun"
+template = "bodies/quaoar.toml"
+orbit_color = "#7aa6e0"
+[bodies.orbit]
+type = "nbody"
+
+[[bodies]]
+name = "Makemake"                          # classical by [GL08]'s rules (i = 29 deg) [INT]
+parent = "Sun"
+template = "bodies/makemake.toml"
+orbit_color = "#7aa6e0"
+[bodies.orbit]
+type = "nbody"
+
+# --- Scattered disk and detached objects -------------------------------------------------
+
+[[bodies]]
+name = "Eris"                              # scattered disk
+parent = "Sun"
+template = "bodies/eris.toml"
+orbit_color = "#b08ad8"
+[bodies.orbit]
+type = "nbody"
+
+[[bodies]]
+name = "Sedna"                             # detached [BR04]
+parent = "Sun"
+template = "bodies/sedna.toml"
+orbit_color = "#d86a5a"
+[bodies.orbit]
+type = "nbody"
+
+[[bodies]]
+name = "2012 VP113"                        # detached [TS14]
+parent = "Sun"
+radii_km = [325.5]                         # H 4.05 [SBDB]
+color = "#c07a6a"                          # illustrative
+orbit_color = "#d86a5a"
+[bodies.orbit]
+type = "nbody"
+
+# --- The integration ---------------------------------------------------------------------
+# Yoshida's 4th-order scheme, 20-day steps (217 per orbit of Jupiter). Positions are kept
+# relative to the Sun. Eccentric orbits keep more knots so that the perihelion passages
+# stay smooth.
+
+[nbody]
+epoch_jd_tdb = 2461041.5
+span_years = [-8000.0, 52000.0]
+step_days = 20.0
+knots_per_orbit = 32
+origin = ["Sun"]
+
+[[nbody.members]]
+body = "Sun"
+gm_km3_s2 = 132713233263.351411            # [GM] the Sun with Mercury, Venus, Earth-Moon and Mars
+
+[[nbody.members]]
+body = "Jupiter"
+relative_to = ["Sun"]
+[nbody.members.icrf_state]      # [HZN] Jupiter Barycenter (5), DE441
+position_km = [-2.534192463e+08, 6.754687513e+08, 2.956929388e+08]
+velocity_km_s = [-1.251949933320e+01, -3.455895210535e+00, -1.176547441289e+00]
+
+[[nbody.members]]
+body = "Saturn"
+relative_to = ["Sun"]
+[nbody.members.icrf_state]      # [HZN] Saturn Barycenter (6), DE441
+position_km = [1.422278323e+09, 5.816266735e+07, -3.722204574e+07]
+velocity_km_s = [-8.018109094425e-01, 8.893988384187e+00, 3.707892263765e+00]
+
+[[nbody.members]]
+body = "Uranus"
+relative_to = ["Sun"]
+[nbody.members.icrf_state]      # [HZN] Uranus Barycenter (7), DE441
+position_km = [1.478074531e+09, 2.309769374e+09, 9.906917946e+08]
+velocity_km_s = [-5.932665527620e+00, 2.840699195432e+00, 1.328130924718e+00]
+
+[[nbody.members]]
+body = "Neptune"
+relative_to = ["Sun"]
+[nbody.members.icrf_state]      # [HZN] Neptune Barycenter (8), DE441
+position_km = [4.468805551e+09, 1.128253081e+08, -6.506898956e+07]
+velocity_km_s = [-1.416283715311e-01, 5.058822186331e+00, 2.074067061603e+00]
+
+[[nbody.members]]
+body = "2001 QR322"
+gm_km3_s2 = 0.0                # a test particle
+relative_to = ["Sun"]
+[nbody.members.icrf_state]      # [HZN] 612243 (2001 QR322), JPL#18
+position_km = [2.876598770e+09, 3.265793225e+09, 1.303605506e+09]
+velocity_km_s = [-4.091816129292e+00, 3.252247603508e+00, 1.380808975430e+00]
+
+[[nbody.members]]
+body = "2008 LC18"
+gm_km3_s2 = 0.0                # a test particle
+relative_to = ["Sun"]
+[nbody.members.icrf_state]      # [HZN] (2008 LC18), JPL#7
+position_km = [1.819401656e+09, -3.593255950e+09, -2.655444683e+09]
+velocity_km_s = [3.971966372410e+00, 2.940704396509e+00, -9.543173649843e-01]
+
+[[nbody.members]]
+body = "1995 DA2"
+gm_km3_s2 = 0.0                # a test particle
+relative_to = ["Sun"]
+[nbody.members.icrf_state]      # [HZN] 15836 (1995 DA2), JPL#8
+position_km = [-5.323051083e+09, -4.653560695e+08, 3.492964356e+08]
+velocity_km_s = [-7.234616005086e-02, -4.736612927605e+00, -1.665654821888e+00]
+
+[[nbody.members]]
+body = "Pluto system"
+gm_km3_s2 = 0.0                # a test particle
+knots_per_orbit = 64
+relative_to = ["Sun"]
+[nbody.members.icrf_state]      # [HZN] Pluto Barycenter (9), DE441
+position_km = [2.876455717e+09, -3.927815323e+09, -2.092208665e+09]
+velocity_km_s = [4.699546494443e+00, 2.219174965811e+00, -7.269535908217e-01]
+
+[[nbody.members]]
+body = "Orcus"
+gm_km3_s2 = 0.0                # a test particle
+knots_per_orbit = 64
+relative_to = ["Sun"]
+[nbody.members.icrf_state]      # [HZN] 90482 Orcus (2004 DW), JPL#61
+position_km = [-6.561754985e+09, 2.396964079e+09, -1.659338444e+09]
+velocity_km_s = [-6.814013501294e-01, -3.335561973415e+00, -1.681689757537e+00]
+
+[[nbody.members]]
+body = "1996 TR66"
+gm_km3_s2 = 0.0                # a test particle
+knots_per_orbit = 96
+relative_to = ["Sun"]
+[nbody.members.icrf_state]      # [HZN] 20161 (1996 TR66), JPL#5
+position_km = [5.074162997e+09, 3.743440474e+09, 3.044993463e+09]
+velocity_km_s = [-1.516243772594e+00, 3.427933611434e+00, 2.315169311640e+00]
+
+[[nbody.members]]
+body = "2000 JG81"
+gm_km3_s2 = 0.0                # a test particle
+knots_per_orbit = 64
+relative_to = ["Sun"]
+[nbody.members.icrf_state]      # [HZN] 130391 (2000 JG81), JPL#4
+position_km = [-8.604760706e+07, -4.332404626e+09, -3.630548090e+09]
+velocity_km_s = [4.966541980125e+00, 9.802707594639e-02, -1.864120144041e+00]
+
+[[nbody.members]]
+body = "1999 DE9"
+gm_km3_s2 = 0.0                # a test particle
+knots_per_orbit = 96
+relative_to = ["Sun"]
+[nbody.members.icrf_state]      # [HZN] 26375 (1999 DE9), JPL#38
+position_km = [-5.870727536e+09, -1.622533889e+09, -1.459898380e+09]
+velocity_km_s = [-6.143232576822e-02, -4.468192221811e+00, -2.535846548252e+00]
+
+[[nbody.members]]
+body = "Gonggong"
+gm_km3_s2 = 0.0                # a test particle
+knots_per_orbit = 128
+relative_to = ["Sun"]
+[nbody.members.icrf_state]      # [HZN] 225088 Gonggong (2007 OR10), JPL#25
+position_km = [1.220289277e+10, -5.040692237e+09, -2.400836386e+09]
+velocity_km_s = [1.767760141289e+00, 8.174810825152e-01, 1.650046397032e+00]
+
+[[nbody.members]]
+body = "Arrokoth"
+gm_km3_s2 = 0.0                # a test particle
+relative_to = ["Sun"]
+[nbody.members.icrf_state]      # [HZN] 486958 Arrokoth (2014 MU69), JPL#3
+position_km = [2.739272609e+09, -5.423746383e+09, -2.143299300e+09]
+velocity_km_s = [4.096222103721e+00, 1.951290221507e+00, 6.878299523205e-01]
+
+[[nbody.members]]
+body = "Quaoar"
+gm_km3_s2 = 0.0                # a test particle
+relative_to = ["Sun"]
+[nbody.members.icrf_state]      # [HZN] 50000 Quaoar (2002 LM60), JPL#52
+position_km = [1.166890864e+09, -6.046604333e+09, -1.655663513e+09]
+velocity_km_s = [4.480129533466e+00, 9.288786234161e-01, 3.590162516577e-01]
+
+[[nbody.members]]
+body = "Makemake"
+gm_km3_s2 = 0.0                # a test particle
+relative_to = ["Sun"]
+[nbody.members.icrf_state]      # [HZN] 136472 Makemake (2005 FY9), JPL#130
+position_km = [-6.879280744e+09, -2.678855128e+09, 2.775014937e+09]
+velocity_km_s = [3.249046921030e-01, -3.178968452874e+00, -1.988839347117e+00]
+
+[[nbody.members]]
+body = "Haumea"
+gm_km3_s2 = 0.0                # a test particle
+relative_to = ["Sun"]
+[nbody.members.icrf_state]      # [HZN] 136108 Haumea (2003 EL61), JPL#132
+position_km = [-5.538536365e+09, -4.641646255e+09, 1.827539016e+09]
+velocity_km_s = [2.392183243720e+00, -2.691559556607e+00, -1.420872334502e+00]
+
+[[nbody.members]]
+body = "Eris"
+gm_km3_s2 = 0.0                # a test particle
+knots_per_orbit = 128
+relative_to = ["Sun"]
+[nbody.members.icrf_state]      # [HZN] 136199 Eris (2003 UB313), JPL#103
+position_km = [1.274784716e+10, 6.457846861e+09, -5.355327858e+07]
+velocity_km_s = [-8.282217252658e-01, 7.164989571168e-01, 2.079737809698e+00]
+
+[[nbody.members]]
+body = "Sedna"
+gm_km3_s2 = 0.0                # a test particle
+knots_per_orbit = 512
+relative_to = ["Sun"]
+[nbody.members.icrf_state]      # [HZN] 90377 Sedna (2003 VB12), JPL#51
+position_km = [5.893889385e+09, 1.076925695e+10, 1.888746325e+09]
+velocity_km_s = [-4.306549709270e+00, 8.158401088768e-01, 7.346043277915e-01]
+
+[[nbody.members]]
+body = "2012 VP113"
+gm_km3_s2 = 0.0                # a test particle
+knots_per_orbit = 256
+relative_to = ["Sun"]
+[nbody.members.icrf_state]      # [HZN] (2012 VP113), JPL#11
+position_km = [6.804997811e+09, 1.066685070e+10, 1.244759968e+09]
+velocity_km_s = [-2.578188655947e+00, 2.404960739384e+00, 2.269776597398e+00]
+
+[[nbody.members]]
+body = "2026 ED138"
+gm_km3_s2 = 0.0                # a test particle
+relative_to = ["Sun"]
+[nbody.members.icrf_state]      # [HZN] (2026 ED138), JPL#2
+position_km = [2.741453071e+08, -5.178977801e+09, -4.780993731e+09]
+velocity_km_s = [3.977837008220e+00, -8.975313204435e-01, 5.776696716855e-01]
+
+# --- Frames --------------------------------------------------------------------------------
+# Turning with Neptune (x toward Neptune, z along its orbit normal), resonant orbits close
+# into fixed patterns.
+
+[[frames]]
+name = "Turning with Neptune"
+type = "rotating"
+primary = "Sun"
+secondary = "Neptune"
+origin = "Sun"
+
+# --- Events ---------------------------------------------------------------------------------
+# Patterns: a p:q resonance repeats after p orbits of Neptune (164.8 years each), so each
+# resonant trail is that long: 2:1 120,380 days, 3:2 180,570, 4:3 240,760, 5:2 300,950,
+# 10:3 601,900, 12:7 722,280. The Trojans' trails are one swing about their point, 9,500 years [INT].
+
+[[events]]
+name = "Beyond Neptune"
+time = "2026-01-01"
+focus = "Sun"
+distance_km = 1.9e10
+elevation_deg = 55.0
+warp = 31557600.0              # 1 year per second
+# [GL08], [DES]
+caption = """\
+    Past Neptune lie thousands of known icy bodies. Their orbits sort them into \
+    families: the classical belt of near-circular orbits, the resonant objects whose \
+    periods are locked to Neptune's, the scattered disk stirred by Neptune, and the \
+    detached objects whose orbits Neptune can no longer reach."""
+
+[[events]]
+name = "Pluto and Orcus: three to two"
+time = "2026-01-01"
+focus = "Sun"
+frame = "Turning with Neptune"
+distance_km = 2.0e10
+from_body = "Neptune"
+phase_deg = 180.0
+elevation_deg = 90.0
+warp = 315576000.0             # 10 years per second
+trails = [
+    { body = "Pluto system", trail = "history", trail_history_days = 180570.0 },
+    { body = "Orcus", trail = "history", trail_history_days = 180570.0 },
+]
+# [CO65], [DES], [INT]
+caption = """\
+    Here the view turns with Neptune, which stays at the top. Pluto goes around \
+    the Sun twice while Neptune goes three times, so its path closes into a fixed \
+    pattern. Pluto's orbit dips inside Neptune's, but its perihelia fall about a \
+    quarter turn away from Neptune, and the two never come closer than 17 au. \
+    Orcus follows the same pattern, half a cycle behind."""
+
+[[events]]
+name = "Neptune's Trojans: one to one"
+time = "2026-01-01"
+focus = "Sun"
+frame = "Turning with Neptune"
+distance_km = 1.3e10
+from_body = "Neptune"
+phase_deg = 180.0
+elevation_deg = 90.0
+warp = 9467280000.0            # 300 years per second
+trails = [
+    { body = "2001 QR322", trail = "history", trail_history_days = 3469875.0 },
+    { body = "2008 LC18", trail = "history", trail_history_days = 3469875.0 },
+]
+# [CH03], [ST10], [HL10], [INT]
+caption = """\
+    Trojans share Neptune's orbit, 60 degrees ahead or behind. 2001 QR322, the \
+    first one found, swings slowly around the leading point, and 2008 LC18 around \
+    the trailing one, each in about 9,500 years. The small loops come from their \
+    slightly eccentric orbits, one loop per orbit."""
+
+[[events]]
+name = "Lobes: 4:3 and 5:2"
+time = "2026-01-01"
+focus = "Sun"
+frame = "Turning with Neptune"
+distance_km = 2.4e10
+from_body = "Neptune"
+phase_deg = 180.0
+elevation_deg = 90.0
+warp = 315576000.0             # 10 years per second
+trails = [
+    { body = "1995 DA2", trail = "history", trail_history_days = 240760.0 },
+    { body = "1999 DE9", trail = "history", trail_history_days = 300950.0 },
+]
+# [DES], [CH03], [INT]
+caption = """\
+    In a p:q resonance the object makes q orbits while Neptune makes p, so its path \
+    has q perihelion loops and winds p - q times around the Sun. 1995 DA2 (4:3) \
+    has three loops, and 1999 DE9 (5:2) two, wound three times around. Like Pluto, \
+    each passes perihelion far from Neptune."""
+
+[[events]]
+name = "Gonggong: ten to three"
+time = "2026-01-01"
+focus = "Sun"
+frame = "Turning with Neptune"
+distance_km = 3.6e10
+from_body = "Neptune"
+phase_deg = 180.0
+elevation_deg = 90.0
+warp = 315576000.0             # 10 years per second
+trails = [
+    { body = "Gonggong", trail = "history", trail_history_days = 601900.0 },
+]
+# [DES], [INT]
+caption = """\
+    Gonggong, a dwarf planet about 1,230 km across, goes around the Sun three times \
+    for every ten of Neptune's, which takes 1,650 years. Its path winds seven times \
+    around the Sun between its three perihelion loops, which stay clear of \
+    Neptune."""
+
+[[events]]
+name = "Pluto and its five moons"
+time = "2026-01-01"
+focus = "Pluto system"
+distance_km = 2.6e5
+elevation_deg = 60.0
+warp = 172800.0                # 2 days per second
+focus_orbits_only = true
+# [ELEM], [SPHY]
+caption = """\
+    Pluto and Charon circle a point between them every 6.4 days, always facing \
+    each other. Four small moons, Styx, Nix, Kerberos and Hydra, orbit the pair \
+    farther out, in periods close to 3, 4, 5 and 6 times Charon's. Nix and Hydra \
+    are about 37 km across, Kerberos and Styx about 11."""
+
+[[events]]
+name = "Haumea and its moons"
+time = "2026-01-01"
+focus = "Haumea"
+distance_km = 1.4e5
+from_body = "Sun"              # the lit side
+phase_deg = 20.0
+elevation_deg = 30.0
+warp = 345600.0                # 4 days per second
+focus_orbits_only = true
+# [PR24], [RB09], [INT]
+caption = """\
+    Haumea spins once every 3.9 hours, which has stretched it into an elongated \
+    shape. Hi'iaka, about 320 km across, orbits it in 49 days, nearly in the plane \
+    of its ring, and Namaka, half as large, in 18 days on a tilted, eccentric orbit. \
+    Both are thought to be pieces knocked off in an ancient collision."""
+
+[[events]]
+name = "Haumea and 2026 ED138: twelve to seven"
+time = "2026-01-01"
+focus = "Sun"
+frame = "Turning with Neptune"
+distance_km = 2.4e10
+from_body = "Neptune"
+phase_deg = 180.0
+elevation_deg = 90.0
+warp = 1577880000.0            # 50 years per second
+trails = [
+    { body = "Haumea", trail = "history", trail_history_days = 722280.0 },
+    { body = "2026 ED138", trail = "history", trail_history_days = 722280.0 },
+]
+# [BR07], [HO26], [INT]
+caption = """\
+    Haumea and 2026 ED138, found by the Rubin Observatory in 2026, sit at the edge \
+    of the 12:7 resonance: seven orbits for every twelve of Neptune's, about 1,980 \
+    years. 2026 ED138 swings within it here, but only about half of the orbits that \
+    fit its data stay in for ten million years. Haumea slips in and out."""
+
+[[events]]
+name = "Two ways to keep 2:1"
+time = "2026-01-01"
+focus = "Sun"
+frame = "Turning with Neptune"
+distance_km = 2.6e10
+from_body = "Neptune"
+phase_deg = 180.0
+elevation_deg = 90.0
+warp = 15778800000.0           # 500 years per second
+trails = [
+    { body = "1996 TR66", trail = "history", trail_history_days = 120380.0 },
+    { body = "2000 JG81", trail = "history", trail_history_days = 120380.0 },
+]
+# [CH03], [DES], [INT]
+caption = """\
+    Objects in the 2:1 resonance have a single perihelion lobe, so it need not lie \
+    opposite Neptune. 1996 TR66's lobe stays ahead of Neptune, rocking gently over \
+    thousands of years. 2000 JG81's lobe swings from one side of Neptune to the \
+    other and back. Here every second is 500 years."""
+
+[[events]]
+name = "Pluto's slow swing"
+time = "2026-01-01"
+focus = "Sun"
+frame = "Turning with Neptune"
+distance_km = 2.0e10
+from_body = "Neptune"
+phase_deg = 180.0
+elevation_deg = 90.0
+warp = 15778800000.0           # 500 years per second
+trails = [
+    { body = "Pluto system", trail = "history", trail_history_days = 180570.0 },
+]
+# [CO65], [MA93], [INT]
+caption = """\
+    The pattern is not fixed. Over about 20,000 years, Pluto's perihelia swing up \
+    to 40 degrees toward Neptune and back, like a pendulum, never reaching it. \
+    Neptune is thought to have captured Pluto in this resonance as it migrated \
+    outward early on, raising Pluto's eccentricity."""
+
+[[events]]
+name = "The classical belt, edge-on"
+time = "2026-01-01"
+focus = "Sun"
+distance_km = 1.5e10
+elevation_deg = 4.0
+warp = 31557600.0              # 1 year per second
+trails = [                     # only the classical orbits and the planets'
+    { body = "2001 QR322", trail = "none" },
+    { body = "2008 LC18", trail = "none" },
+    { body = "1995 DA2", trail = "none" },
+    { body = "Pluto system", trail = "none" },
+    { body = "Haumea", trail = "none" },
+    { body = "2026 ED138", trail = "none" },
+    { body = "Orcus", trail = "none" },
+    { body = "1996 TR66", trail = "none" },
+    { body = "2000 JG81", trail = "none" },
+    { body = "1999 DE9", trail = "none" },
+    { body = "Gonggong", trail = "none" },
+    { body = "Eris", trail = "none" },
+    { body = "Sedna", trail = "none" },
+    { body = "2012 VP113", trail = "none" },
+]
+# [DES], [GL08], [INT]
+caption = """\
+    Between the 3:2 and 2:1 resonances lies the classical belt. Its "cold" members, \
+    like Arrokoth, which New Horizons visited, keep nearly circular orbits close to \
+    the plane of the planets. "Hot" members such as Makemake are tilted by up to 30 \
+    degrees."""
+
+[[events]]
+name = "Scattered and detached"
+time = "2026-01-01"
+focus = "Sun"
+distance_km = 3.0e11
+elevation_deg = 35.0
+warp = 3155760000.0            # 100 years per second
+# [BR04], [TS14], [GL08], [INT]
+caption = """\
+    Eris's perihelion is close enough for Neptune to keep tugging on it. Sedna and \
+    2012 VP113 never come within 75 au of the Sun, far beyond Neptune's reach. How \
+    they got there, perhaps from a passing star in the Sun's birth cluster, is \
+    still debated."""

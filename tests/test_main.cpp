@@ -17,6 +17,7 @@ int main()
     run_stellar_system_tests();
     run_relativity_tests();
     run_scene_tests();
+    run_trans_neptunian_tests();
 
     const int failures = failure_count();
     if (failures == 0) {

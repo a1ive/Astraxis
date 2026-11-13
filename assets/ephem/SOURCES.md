@@ -849,7 +849,12 @@ durations must not be interpreted as predictions for a ground observer.
 
 2022 年月食的参考时刻为 11 月 8 日 10:59:00 UTC，与 [NASA/GSFC 当年预报](https://eclipse.gsfc.nasa.gov/OH/OH2022.html) 给出的食甚分钟一致。视点在该时刻从月心朝地心方向、月球半径 1737.4 km 加 200 km 处，地心月距为 390651.871445 km；偏移固定在月心 ICRF，随月球平移。它是月球附近的设计视点，不是着陆点或绕月轨道。地球边缘的折射像由大气模型另算，几何星历不因此改变。其他几何简化与上述日食相同。
 
-## Proteus（NEP098）
+## 海王星外天体（`trans_neptunian.toml`，`tools/bake/tno_states.py`）
+
+场景只取一个历元（2026-01-01 00:00 TDB）的 Horizons 状态，其余时刻都由加载器的 N 体积分算出，不使用星历表。`tno_states.py` 取四颗巨行星的系统质心、冥王星系统质心和各小天体（含 Haumea 和 2026 ED138）相对太阳中心的 ICRF 状态，输出可直接粘进场景的 `[[nbody.members]]`，并在注释里写上 JPL 轨道解的编号。重新取数后要重新运行 `tests/trans_neptunian_tests.cpp`：测试把 1950 和 2100 年的位置与 Horizons 比较，并检查各共振角在整个积分区间内保持天平动。
+
+太阳的 GM 并入水星、金星、地月和火星系统（DE440），巨行星用系统 GM。成员的 `icrf_state` 给出相对 `relative_to` 质心的 km、km/s 状态；`knots_per_orbit` 可按成员覆盖场景值，Sedna 这类高偏心轨道需要更多节点才能画顺近日点附近的路径。两个无质量成员之间不计算引力。冥王星和 Haumea 的卫星不参与积分，用平根数挂在各自的系统上，来源写在场景文件头。
+
 
 `proteus_nep.elm` 使用 JPL 的 [NEP098 卫星星历](https://ssd.jpl.nasa.gov/sats/ephem/)，来源为 Brozović 与 Jacobson 2026 的海王星内卫星及 Triton 轨道解。原始文件 [nep098.bsp](https://ssd.jpl.nasa.gov/ftp/eph/satellites/bsp/nep098.bsp) 覆盖 1800-01-01 至 2100-01-10。取 NAIF 808 和 899 相对海王星系统质心（8）的 ICRF 状态后相减，得到 Proteus 相对海王星中心的 km、km/s 状态，时间为 TDB。
 

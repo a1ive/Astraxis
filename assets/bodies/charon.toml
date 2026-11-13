@@ -1,0 +1,13 @@
+# [PCK]  NAIF pck00011.tpc (IAU 2015): pole (Pluto's) and prime meridian; Charon rotates
+#        synchronously, its meridian 180 deg from Pluto's.
+# [SPHY] JPL SSD, Planetary Satellite Physical Parameters (https://ssd.jpl.nasa.gov/sats/phys_par/):
+#        mean radius 606.0 km and GM 106.1 km^3/s^2 (PLU060).
+# Texture: assets/textures/SOURCES.md.
+
+radii_km = [606.0]                         # [SPHY]
+body_gm_km3_s2 = 106.1                     # [SPHY] (PLU060)
+pole_ra_dec_deg = [132.993, -6.163]        # [PCK]
+prime_meridian_deg = [122.695, 56.3625225]
+color = "#a19a92"
+texture = "textures/charon.jpg"
+texture_left_lon_deg = -180.0

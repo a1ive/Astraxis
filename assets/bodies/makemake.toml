@@ -1,0 +1,8 @@
+# [MAKE] Brown 2013, ApJL 767, L7 (arXiv:1304.1041): equatorial diameter 1434 +- 14 km.
+# No GM is given in NAIF gm_de440.tpc, so the info panel shows no mass.
+# Texture: NASA VTAD illustrative surface (assets/textures/SOURCES.md), arbitrary meridian.
+
+radii_km = [717.0]                         # [MAKE]
+color = "#d4a98a"
+texture = "textures/makemake.jpg"
+texture_left_lon_deg = 0.0                 # arbitrary meridian

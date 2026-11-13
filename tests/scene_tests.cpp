@@ -386,6 +386,11 @@ void test_cross_scene_orbits()
     };
     std::map<std::string, std::vector<Entry>> by_name; // "name / parent" -> entries
     for (const auto& [name, scene] : all_scenes()) {
+        // Integrated over millennia from one epoch rather than copied from the tables;
+        // trans_neptunian_tests.cpp checks it against Horizons.
+        if (name == "trans_neptunian") {
+            continue;
+        }
         for (size_t i = 0; i < scene->bodies.size(); ++i) {
             const Body& b = scene->bodies[i];
             if (!b.motion || b.parent < 0) {

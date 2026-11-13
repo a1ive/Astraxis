@@ -1,0 +1,5 @@
+# [SEDN] Pal et al. 2012, A&A 541, L6 (arXiv:1204.0899): diameter 995 +- 80 km.
+# No GM is given in NAIF gm_de440.tpc. The red color is illustrative.
+
+radii_km = [497.5]                         # [SEDN]
+color = "#c0503a"
