@@ -718,6 +718,15 @@ struct SceneEvent {
     // A disk's CO line while the event is active (colored by its velocity along the
     // line of sight).
     bool disk_gas = false;
+    // A thin disk's scattered light "r^2-scaled" while the event is active, as disk
+    // images often are: every sample lit as if at the display reference distance
+    // from the star, so the brightness follows the dust instead of the starlight.
+    bool disk_r2_scaled = false;
+    // On the disk's and the nebulae's display brightness while the event is active
+    // (display only: a short path through a face-on disk, or shells around
+    // something else the event shows).
+    double disk_display_gain = 1.0;
+    double nebula_display_gain = 1.0;
     bool aurora_visible = false; // visible aurora while the event is active
     bool aurora_ultraviolet = false; // UV false-color overlay on the visible planet
     bool aurora_infrared = false; // IR false-color overlay on the visible planet

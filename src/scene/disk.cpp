@@ -127,8 +127,9 @@ bool clip_ray(const Disk& disk, const glm::dvec3& origin, const glm::dvec3& dire
 }
 
 double march(const Disk& disk, const DiskComponent& c, DiskView view, const glm::dvec3& origin,
-             const glm::dvec3& direction, double t0, double t1, double t_tdb)
+             const glm::dvec3& direction, double t0, double t1, double t_tdb, bool r2_scaled)
 {
+    const double reference2 = disk.display_reference_au * disk.display_reference_au;
     const glm::dmat3 to_plane = glm::transpose(c.to_icrf);
     const glm::dvec3 o = to_plane * origin;
     const glm::dvec3 d = to_plane * direction;
@@ -148,7 +149,8 @@ double march(const Disk& disk, const DiskComponent& c, DiskView view, const glm:
         if (light > 0.0) {
             const double distance = glm::length(q);
             const double along = view == DiskView::Scattered
-                                     ? disk_phase(disk, -glm::dot(q, d) / distance) / (distance * distance)
+                                     ? disk_phase(disk, -glm::dot(q, d) / distance) /
+                                           (r2_scaled ? reference2 : distance * distance)
                                  : view == DiskView::Gas ? disk_clump_factor(disk, rq, std::atan2(q.y, q.x), t_tdb)
                                                          : disk_thermal_light(c, view, distance);
             sum += light * disk_vertical(c, rq, q.z) * dt * along;
@@ -255,7 +257,7 @@ double disk_line_of_sight_km_s(const DiskComponent& component, double gm_km3_s2,
 }
 
 double disk_radiance(const Disk& disk, DiskView view, const glm::dvec3& origin, const glm::dvec3& direction,
-                     double t_max, double t_tdb)
+                     double t_max, double t_tdb, bool r2_scaled)
 {
     double t0 = 0.0;
     double t1 = 0.0;
@@ -269,7 +271,7 @@ double disk_radiance(const Disk& disk, DiskView view, const glm::dvec3& origin, 
     double sum = 0.0;
     for (const DiskComponent& c : disk.components) {
         if (c.gain[static_cast<size_t>(view)] > 0.0) {
-            sum += march(disk, c, view, origin, direction, t0, t1, t_tdb);
+            sum += march(disk, c, view, origin, direction, t0, t1, t_tdb, r2_scaled && view == DiskView::Scattered);
         }
     }
     return sum;

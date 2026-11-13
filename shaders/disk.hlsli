@@ -15,6 +15,7 @@ cbuffer Uniforms : register(b0, space3)
     float4 u_phase_w;   // w: a thick disk's gain on the first scattering
     float4 u_tint;      // w: sources
     float4 u_gas;       // sqrt(GM) in km/s sqrt(au), full color's speed, clumps
+    float4 u_display;   // x: 1 / display_reference_au^2 in an r^2-scaled view (0: 1 / d^2)
     float4 u_clump[2];  // cos, sin of its azimuth, radius, radial sigma
     float4 u_clump_shape[2]; // sigma ahead, tail behind (radians), gain
     float4 u_axis_x[4]; // w: sigma
@@ -146,7 +147,7 @@ float4 disk_march(int c, float3 origin, float3 ray, float t0, float t1)
             float distance = length(q);
             float3 rgb;
             if (view == 0) {
-                value *= disk_phase(-dot(q, d) / distance) / (distance * distance);
+                value *= disk_phase(-dot(q, d) / distance) * (u_display.x > 0.0 ? u_display.x : 1.0 / (distance * distance));
                 rgb = u_color[c].rgb;
             } else if (view == 1) {
                 float4 thermal = disk_thermal(disk_ln_temperature(c, distance));

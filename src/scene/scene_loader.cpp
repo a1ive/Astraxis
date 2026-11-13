@@ -2499,6 +2499,16 @@ void Loader::parse(const toml::table& root, Scene& out)
             if ((e.nebula_infrared ? 1 : 0) + (e.disk_millimeter ? 1 : 0) + (e.disk_gas ? 1 : 0) > 1) {
                 fail(ctx, "nebula_infrared, disk_millimeter and disk_gas are different views");
             }
+            e.disk_r2_scaled = (*t)["disk_r2_scaled"].value<bool>().value_or(false);
+            if (e.disk_r2_scaled && (e.nebula_infrared || e.disk_millimeter || e.disk_gas)) {
+                fail(ctx, "disk_r2_scaled applies to the scattered light");
+            }
+            e.disk_display_gain = get_double_or(*t, "disk_display_gain", 1.0);
+            e.nebula_display_gain = get_double_or(*t, "nebula_display_gain", 1.0);
+            if (!(e.disk_display_gain > 0.0 && e.disk_display_gain <= 100.0 && e.nebula_display_gain > 0.0 &&
+                  e.nebula_display_gain <= 100.0)) {
+                fail(ctx, "disk_display_gain and nebula_display_gain must be in (0, 100]");
+            }
             e.aurora_visible = (*t)["aurora_visible"].value<bool>().value_or(false);
             e.aurora_ultraviolet = (*t)["aurora_ultraviolet"].value<bool>().value_or(false);
             e.aurora_infrared = (*t)["aurora_infrared"].value<bool>().value_or(false);
@@ -3111,6 +3121,11 @@ void Loader::parse(const toml::table& root, Scene& out)
     // [disk]: dust seen through, in a few components (see Disk).
     if (const toml::table* table = root["disk"].as_table()) {
         parse_disk(*table, out);
+    }
+    for (const SceneEvent& e : out.events) {
+        if (e.disk_r2_scaled && (!out.disk.enabled() || out.disk.thick)) {
+            fail("event '" + e.name + "'", "disk_r2_scaled needs a [disk] that is not thick");
+        }
     }
     out.set_active_frame(out.view.frame);
 }

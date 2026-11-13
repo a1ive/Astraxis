@@ -115,7 +115,8 @@
 # positions, the periods, the Hill sphere transit [KE21], the spine's slopes and
 # widths [GO06], the tilt of the secondary disk [GO06], which side is near [AP15],
 # the millimeter belt's vertical widths [MA19], the cat's tail and its tip [RE24], the
-# CO clump's flux, place and speed [DE14] [MA17], and the comets' transits [LE22].
+# CO clump's flux, place and speed [DE14] [MA17], the comets' transits [LE22], and the
+# peak of the r^2-scaled view from above (display only: every sample lit as at 115 au).
 
 name = "Beta Pictoris"
 
@@ -572,13 +573,15 @@ frame = "Beta Pic, disk level"
 from_orbit_normal = "Beta Pic b"
 distance_km = 8.0e10           # 530 au
 warp = 15778800.0
+disk_r2_scaled = true          # face-on, 1 / d^2 would hide the belts under the star's falloff
+disk_display_gain = 4.0        # by eye: the path through the face-on disk is short
 # [GO06], [HS15]
 caption = """\
-    No telescope has this view: it is a model made to look right from Earth. Light \
-    from a line of sight along the edge-on disk sums dust at many distances, so \
-    the disk's face can be worked out only by assuming it is the same all the way \
-    round. The real one has clumps and a brighter side that are left out here. \
-    Dust grains scatter most of their light forward, away from the star."""
+    No telescope has this view: it is a model made to look right from Earth. Seen \
+    edge-on, each line of sight sums dust at many distances, so its face is worked \
+    out by assuming it is the same all round; its clumps and brighter side are left \
+    out. The light is scaled with the square of the distance from the star, as disk \
+    images often are, to show where the dust lies: a broad belt peaking near 120 au."""
 
 [[events]]
 name = "A planet in the disk"

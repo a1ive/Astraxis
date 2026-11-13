@@ -26,6 +26,7 @@ struct DiskUniforms {
     glm::vec4 phase_w{0.0f};     // w: a thick disk's gain on the first scattering
     glm::vec4 tint{1.0f};        // millimeter view's false color (linear); w: sources
     glm::vec4 gas{0.0f};         // sqrt(GM) in km/s sqrt(au), full color's speed, clumps, unused
+    glm::vec4 display{0.0f};     // x: 1 / display_reference_au^2 in an r^2-scaled view (0: 1 / d^2)
     std::array<glm::vec4, kDiskMaxClumps> clump{};       // cos, sin of its azimuth, radius, radial sigma
     std::array<glm::vec4, kDiskMaxClumps> clump_shape{}; // sigma ahead, tail behind (radians), gain, unused
     std::array<glm::vec4, kDiskMaxComponents> axis_x{}; // w: sigma

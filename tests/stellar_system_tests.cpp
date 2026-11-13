@@ -2683,6 +2683,38 @@ void test_beta_pictoris_scene()
     check(millimeter == 1 && infrared == 1 && gas_events == 2, "Beta Pictoris: events in each of the other views");
     check(disk.reference[0] > 0.0 && disk.reference[1] > 0.0 && disk.reference[2] > 0.0 && disk.reference[3] > 0.0,
           "the disk has a reference brightness in each view");
+
+    // Seen from above, r^2-scaled: the brightness follows the dust (a belt), where
+    // 1 / d^2 only falls away from the star.
+    const SceneEvent* above = nullptr;
+    for (const SceneEvent& e : scene.events) {
+        above = e.disk_r2_scaled ? &e : above;
+    }
+    check(above && above->name == "Seen from above" && above->disk_display_gain > 1.0,
+          "Beta Pictoris: the view from above is r^2-scaled and brightened");
+    const glm::dvec3 face_normal = disk.components[0].to_icrf[2];
+    const glm::dvec3 face_x = disk.components[0].to_icrf[0];
+    const auto face_on = [&](double r, bool scaled) {
+        return disk_radiance(disk, DiskView::Scattered, face_x * r + face_normal * 600.0, -face_normal,
+                             std::numeric_limits<double>::infinity(), 0.0, scaled);
+    };
+    double scaled_peak = 0.0, scaled_peak_r = 0.0;
+    for (double r = 20.0; r <= 300.0; r += 2.0) {
+        const double scaled = face_on(r, true);
+        if (scaled > scaled_peak) {
+            scaled_peak = scaled;
+            scaled_peak_r = r;
+        }
+    }
+    std::printf("  info: Beta Pic r^2-scaled face-on peak at %.0f au, %.2f of it at 40 au, %.2f at 200 au\n",
+                scaled_peak_r, face_on(40.0, true) / scaled_peak, face_on(200.0, true) / scaled_peak);
+    const double unscaled_ratio = face_on(20.0, false) / face_on(scaled_peak_r, false);
+    check(unscaled_ratio > 3.0, "Beta Pic face-on, unscaled: the inner disk outshines the belt", unscaled_ratio);
+    check(scaled_peak_r > 80.0 && scaled_peak_r < 140.0, "Beta Pic face-on, r^2-scaled: the belt peaks near 100 au",
+          scaled_peak_r);
+    check(std::abs(face_on(disk.display_reference_au, true) / face_on(disk.display_reference_au, false) - 1.0) < 0.05,
+          "r^2 scaling leaves the display reference radius as bright");
+
     std::string error;
     Scene bad;
     const std::string base = "name = \"x\"\n[view]\nfocus = \"S\"\n[[bodies]]\nname = \"S\"\nkind = \"star\"\nradii_km = [1000.0]\n"

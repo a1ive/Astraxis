@@ -177,9 +177,12 @@ double disk_line_of_sight_km_s(const DiskComponent& component, double gm_km3_s2,
 
 // Light along a ray (au, ICRF axes, relative to the star; `direction` a unit
 // vector, the way the camera looks), integrated by the shader's steps
-// (shaders/disk.hlsli) as far as t_max, with the clumps as at t_tdb.
+// (shaders/disk.hlsli) as far as t_max, with the clumps as at t_tdb. r2_scaled
+// (thin disks, scattered light) lights every sample as if display_reference_au from
+// the star instead of 1 / d^2, as an image multiplied by r^2 shows the dust.
 double disk_radiance(const Disk& disk, DiskView view, const glm::dvec3& origin, const glm::dvec3& direction,
-                     double t_max = std::numeric_limits<double>::infinity(), double t_tdb = 0.0);
+                     double t_max = std::numeric_limits<double>::infinity(), double t_tdb = 0.0,
+                     bool r2_scaled = false);
 
 // A thick disk's extinction at (r, z), per au.
 double disk_extinction(const Disk& disk, double r_au, double z_au);

@@ -312,13 +312,18 @@ DiskUniforms disk_uniforms(const Scene& scene, const CameraView& view, double t_
     }
     const int event = scene.active_event();
     DiskView which = DiskView::Scattered;
+    bool r2_scaled = false;
+    double event_gain = 1.0;
     if (event >= 0) {
         const SceneEvent& e = scene.events[static_cast<size_t>(event)];
         which = e.nebula_infrared  ? DiskView::Infrared
                 : e.disk_millimeter ? DiskView::Millimeter
                 : e.disk_gas        ? DiskView::Gas
                                     : DiskView::Scattered;
+        r2_scaled = e.disk_r2_scaled && which == DiskView::Scattered && !disk.thick;
+        event_gain = e.disk_display_gain;
     }
+    // A sample at the reference distance is as bright either way: the same reference.
     const double reference = disk.reference[static_cast<size_t>(which)];
     if (reference <= 0.0) {
         return u;
@@ -334,6 +339,9 @@ DiskUniforms disk_uniforms(const Scene& scene, const CameraView& view, double t_
                           static_cast<float>(disk.phase_g[2]), 2.0f * kDiskSourceMinPx / (view.viewport.y * view.focal_y));
     u.phase_w = glm::vec4(static_cast<float>(disk.phase_w[0]), static_cast<float>(disk.phase_w[1]),
                           static_cast<float>(disk.phase_w[2]), static_cast<float>(disk.single_scatter_gain));
+    if (r2_scaled) {
+        u.display.x = static_cast<float>(1.0 / (disk.display_reference_au * disk.display_reference_au));
+    }
     if (which == DiskView::Gas) {
         u.gas = glm::vec4(static_cast<float>(std::sqrt(disk.gas_star_gm_km3_s2 / kAuKm)),
                           static_cast<float>(disk.gas_velocity_km_s), static_cast<float>(disk.clumps.size()), 0.0f);
@@ -376,7 +384,7 @@ DiskUniforms disk_uniforms(const Scene& scene, const CameraView& view, double t_
     const double camera_au = glm::length(glm::dvec3(u.camera));
     const double adapt = std::min(1.0, camera_au / disk.display_adapt_au);
     // A thin disk's table is relative to the reference already.
-    const double view_gain = which == DiskView::Gas ? disk.gas_display_gain : 1.0;
+    const double view_gain = (which == DiskView::Gas ? disk.gas_display_gain : 1.0) * event_gain;
     u.params = glm::vec4(kDiskRadiance * static_cast<float>(adapt * view_gain), static_cast<float>(disk.display_gamma),
                          thick ? static_cast<float>(reference) : 1.0f, static_cast<float>(count));
     u.range = glm::vec4(static_cast<float>(std::log(disk.inner_au)), static_cast<float>(std::log(disk.outer_au)),
@@ -1736,6 +1744,7 @@ void SceneRenderer::build_nebula_items(const Simulation& sim, const OutputView& 
     const double t = sim.clock().t_tdb;
     const int event = scene.active_event();
     const bool infrared = event >= 0 && scene.events[static_cast<size_t>(event)].nebula_infrared;
+    const double event_gain = event >= 0 ? scene.events[static_cast<size_t>(event)].nebula_display_gain : 1.0;
     // What the stars light follows their observed brightness, compressed like the rest.
     const double light = observed_light_factor(scene.observed_light_curve, t);
     m_nebula_items.clear();
@@ -1760,7 +1769,7 @@ void SceneRenderer::build_nebula_items(const Simulation& sim, const OutputView& 
         item.reference_km = static_cast<float>(n.display_reference_km);
         const double camera_km = glm::length(glm::dvec3(item.center));
         const double adapt_km = kNebulaAdaptShare * nebula_extent_km(n, t);
-        item.radiance = static_cast<float>(kNebulaRadiance * nebula_exposure(n, t) *
+        item.radiance = static_cast<float>(kNebulaRadiance * event_gain * nebula_exposure(n, t) *
                                            std::pow(light, n.display_gamma) *
                                            (adapt_km > 0.0 ? std::min(1.0, camera_km / adapt_km) : 1.0));
         item.gamma = static_cast<float>(n.display_gamma);

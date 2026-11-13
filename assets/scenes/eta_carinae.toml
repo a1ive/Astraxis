@@ -382,13 +382,15 @@ frame = "Eta Car, north up"
 from_earth = true
 distance_km = 1.0e12           # 6,700 au: outside the Little Homunculus
 warp = 864000.0                # ten days per second
+nebula_display_gain = 0.08     # by eye: the lobes around the shells dimmed
 # [GU16], [MA13b]
 caption = """\
     Every periastron, the companion's fast wind sweeps around the primary \
     and shovels its slow, dense wind into a shell, which then coasts outward \
     at 470 km/s. Hubble mapped three, possibly four, of these nested shells \
     in the glow of iron, all on the far side where periastron happens; the \
-    side toward us is the cavity the companion's wind keeps open."""
+    side toward us is the cavity the companion's wind keeps open. The lobes \
+    around them are dimmed here."""
 
 [[events]]
 name = "The Homunculus, as Hubble sees it"
