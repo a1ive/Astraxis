@@ -63,6 +63,7 @@ ctest --test-dir build/linux -C Release --output-on-failure --no-tests=error
 - 没有太阳天体的场景可用 `from_body = "Sun"` 引用太阳方向。没有地球时用 `observer` 和 `observer_offset_km` 锚定地球方向的设计视点。`flyby` 需要最近点两侧都有数据，撞击事件用视点字段构图。`elevation_deg` 覆盖俯仰角，`phase_deg` 调整方位角。
 - 视点超过星表完整距离 `max_viewer_pc` 时，用 [模型星空](assets/sky/SOURCES.md)。近地航天器若用平根数画一圈轨道，用 `trail = "orbit"`。换参考系或时间倍率后检查轨迹密度和事件节奏。
 - 用原始观测或论文表格标注物理量来源。场景 TOML 文件头列出引用标签，正文引用这些标签。能用独立数据交叉验证的位置、方向、距离或时刻，写进相关测试。核对时间尺度、光行时、参考中心、经纬度正方向以及距离是到中心还是到表面。
+- [refresh-data](.github/workflows/refresh-data.yml) 每月 3 日运行 [monthly_refresh.py](tools/refresh/monthly_refresh.py)：重新下载 OMNI2，把 JWST、Euclid、Roman、TESS、Chandra 的 `stop` 移到 Horizons 当前覆盖的末端并重新烘焙，同步资料页里的数字，然后从 `auto/refresh-data` 开 PR，并在该分支上触发 `build.yml`。合并前按 PR 里的清单核对资料页文字。测试不要钉住预报段的状态或表的结束时间（用 `EphemerisMotion::table().end()`），否则每月刷新都会失败。仓库设置里要允许 GitHub Actions 创建 PR。
 - 星历工具在 [tools/bake](tools/bake)。压缩容差约束位置，点火和数据接缝要另留节点。Δv 按原表节点计算，靠近扁行星时扣除带状谐项。分段 SPK 按实际记录覆盖取值，详见 [星历资料](assets/ephem/SOURCES.md)。
 - 航天器转换用 [make_spacecraft.py](tools/shapes/make_spacecraft.py)。导入时应用节点变换，用已知部件标定尺寸，核对 OBJ 导出轴和关键部件法线。模型用硬边标志，删除游离顶点。`point_at` 指定 +z 方向，`fill_light` 是示意补光。烘焙自阴影时要核对模型的 +z 与场景中的入射阳光方向。
 - 依赖由 CMake FetchContent 固定到版本或提交。外部数据选用许可明确的来源，优先公有领域。原始大文件按资料页下载。新增依赖、移植代码或外部资源时更新 [第三方声明](THIRD_PARTY_NOTICES.md) 和相关资料页。新增或改名场景时更新 README 的场景表。
@@ -81,8 +82,8 @@ ctest --test-dir build/linux -C Release --output-on-failure --no-tests=error
 
 ## 待办
 
-- 定期刷新地球的逐小时太阳风记录（OMNI2，现到 2026-10），评估用传播模型给外行星接入太阳风。
-- 定期刷新 Roman、TESS、Euclid、JWST、Chandra 的预报段。随 ESA 新核更新 Hera 抵近弧和两颗小行星的位置，补 Milani、Juventas 分离后的模型和轨迹，以及撞击后的 Dimorphos 形状。
+- 评估用传播模型给外行星接入太阳风。
+- 随 ESA 新核更新 Hera 抵近弧和两颗小行星的位置，补 Milani、Juventas 分离后的模型和轨迹，以及撞击后的 Dimorphos 形状。
 - 按 Dyudina 2015 的旋转周期试做土星可见光亮弧，先核对 Leicester 相位表许可。等待 Callisto 空间分辨观测、Io 的 SO₂ 食中时序、Europa 更多食中图像、火星新绿线观测与高度剖面。冰巨星待补夜侧、地方时和垂直剖面的约束。
 - 补海王星暗斑伴云、GDS 形变及其他暗斑，核对 NDS-2018 的后期消退。待正式资料更新 Sincérité 的长度、光学深度和 Égalité 的演化。
 - 补 PDS 70 的光学厚 ¹²CO 和 Mie 波长颜色。HD 206893 采用更高分辨率缺口拟合，并跟进 B I 候选体。旋臂优先参考已有图案速度测量的 MWC 758。

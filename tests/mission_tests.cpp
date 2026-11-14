@@ -2180,9 +2180,11 @@ void test_space_telescopes_scene()
         check(worst < s.max_km, (std::string(s.name) + " stays near L2 (km)").c_str(), worst);
     }
 
-    // Fresh Horizons queries (2026-10-24/25), independent of the bake grid:
-    // geocentric ICRF geometric vectors, KM-S. Include short source seams / burns
+    // Fresh Horizons queries (2026-10-24/25; Chandra 2026-11-14), independent of the bake
+    // grid: geocentric ICRF geometric vectors, KM-S. Include short source seams / burns
     // missed by a uniform two-hour verification grid; t is TDB seconds from J2000.
+    // Chandra's table ends in a forecast that the monthly refresh replaces
+    // (tools/refresh/monthly_refresh.py), so its vectors stay months inside the tracking.
     struct VectorCheck {
         const char* name;
         double t;
@@ -2194,8 +2196,8 @@ void test_space_telescopes_scene()
              VectorCheck{"WMAP", 63115216.99998826, {-258406.218620208, 1280568.67644474, 635682.9376225594}, 5.1},
              VectorCheck{"WMAP", 292371197.0000088, {-1408551.831508985, -330920.4857712177, -342919.1650053819}, 5.1},
              VectorCheck{"Chandra", -12470083.000002801, {49997.48276067643, -113796.8719038102, 66331.50262958142}, 5.1},
-             VectorCheck{"Chandra", 844013116.9999971, {-40090.52578809944, -57180.86568803087, 93850.64340492764}, 5.1},
-             VectorCheck{"Chandra", 859679836.999999, {13755.57455619608, -91344.61786789444, 30070.29729866157}, 5.1},
+             VectorCheck{"Chandra", 803144836.9999812, {-10974.33040021622, -109903.537700509, 91778.45609998346}, 5.1},
+             VectorCheck{"Chandra", 834743596.999982, {8192.986431947034, -114165.626193707, 64396.44504581218}, 5.1},
              VectorCheck{"Spitzer", 349977917.0, {134213490.5576793, 36974949.23263077, 18821472.06356023}},
              VectorCheck{"Herschel", 349977917.0, {-463693.8639576982, 1194605.40533179, 306965.8072545305}},
              VectorCheck{"Planck", 349977917.0, {-848482.7376102738, 1063117.120169815, 293740.7324689996}},
@@ -2278,10 +2280,18 @@ void test_space_telescopes_scene()
             }
             const Body& body = sc.bodies[static_cast<size_t>(index)];
             const bool wmap = std::string(name) == "WMAP";
+            // Chandra's table ends in a forecast whose end moves with the monthly refresh.
+            const auto* table = dynamic_cast<const EphemerisMotion*>(body.motion.get());
+            check(table != nullptr, "new telescope follows its table");
+            if (table == nullptr) {
+                continue;
+            }
+            const double after_end = table->table().end() + kSecondsPerDay;
+            check(wmap ? std::abs(table->table().end() - at("2009-04-07 10:16")) < 120.0 : table->table().end() > at("2027-01-01"),
+                  "new telescope's table ends where expected");
             check(body.motion->valid_at(at("2002-01-01")), "new telescope is valid in 2002");
             check(!body.motion->valid_at(at("1999-01-01")), "new telescope is absent before coverage");
-            check(!body.motion->valid_at(at(wmap ? "2009-04-08" : "2027-03-31")),
-                  "new telescope has no extrapolation after coverage");
+            check(!body.motion->valid_at(after_end), "new telescope has no extrapolation after coverage");
             int event_count = 0;
             for (size_t e = 0; e < sc.events.size(); ++e) {
                 if (sc.events[e].name.find(name) == std::string::npos) {
@@ -2306,7 +2316,7 @@ void test_space_telescopes_scene()
                 }
             }
             check(event_count == (wmap ? 2 : 1), "new telescope events are registered");
-            sim.clock().t_tdb = at(wmap ? "2009-04-08" : "2027-03-31");
+            sim.clock().t_tdb = after_end;
             sim.update(0.0);
             check(!body.visible, "telescope disappears after table coverage");
         }

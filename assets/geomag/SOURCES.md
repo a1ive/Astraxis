@@ -484,7 +484,7 @@ python -E -P tools/geomag/field_map_bake.py build/field_map/Morschhauser2014.txt
 - **地球磁尾**：Slavin et al. 1985（JGR 90, 10875，摘要）用 ISEE-3 的 756 次磁层顶穿越得出 |X| = 130–225 RE 处磁尾直径 60 ± 5 RE，约 120 ± 10 RE 以外不再张开。Shue 的公式在那里没有约束，会一直张开，所以模板用 `flare_end_radii = 120`：更远处是半径等于该处 Shue 值（29.6 RE）的圆柱。轴线按地球公转速度和 430 km/s 的太阳风偏转约 4°（Fairfield 1971 的假设）。ISEE-3 在 1982-10 至 1983-12 位于 60 RE 以外尾向的时间里，约 55% 在这个平均面内，最远 236.2 RE 处离轴 16 RE；Hones et al. 1984（GRL 11, 5，摘要）说它在尾内时约三分之一在等离子体片里，磁尾摆动的幅度和自身宽度相当。
 - **2024-05-10/11**：事件按下面的逐小时记录画，从 5 月 10 日 13:00 开始（每秒 15 分钟）。流压在 17 UT 那一小时从约 1 nPa 升到 17.75 nPa，20 UT 达 55.89 nPa，11 日 02–03 UT 为 48.76 nPa、Bz（GSM）−20.5 nT、速度 738 km/s，这一小时 Shue 给出 4.97 RE。事件开场时磁层顶在 11.3 RE，最小 4.86 RE（10 日 20:30 UT），此后 36 小时里有 19 小时在地球同步轨道（6.6 RE）以内。Fu et al. 2025（GRL 52, e2024GL114040）由地面磁强计、THEMIS-A 和 GOES-16/18 得出 5 月 10 日压缩到 5.12–5.20 RE，可作旁证。激波按磁层顶等比例缩小，没有计入风暴时较低的马赫数。
 
-**逐小时太阳风**（`solar_wind.bin`，地球模板的 `solar_wind`）：NASA GSFC SPDF 的 OMNI2 小时值，[low_res_omni](https://spdf.gsfc.nasa.gov/pub/data/omni/low_res_omni/) 的 `omni2_1963.dat` 至 `omni2_2026.dat`（King & Papitashvili 2005, JGR 110, A02104；美国政府作品，SPDF 要求致谢 OMNIWeb 服务和 OMNI 数据），2026-11-11 下载。数据已由各探测器的位置平移到弓激波鼻点，每行一小时（UT）。`tools/geomag/solar_wind_bake.py` 只保留三个量，每小时 4 字节：流压（第 29 个字，0.01 nPa 一档）、GSM 的 Bz（第 17 个字，0.5 nT 一档，限在 ±63.5 nT，记录里没有超出的小时）、流速（第 25 个字，`150 + 8n` km/s，只用于约 4° 的光行差）。格式写在工具开头。
+**逐小时太阳风**（`solar_wind.bin`，地球模板的 `solar_wind`）：NASA GSFC SPDF 的 OMNI2 小时值，[low_res_omni](https://spdf.gsfc.nasa.gov/pub/data/omni/low_res_omni/) 的 `omni2_1963.dat` 至 `omni2_2026.dat`（King & Papitashvili 2005, JGR 110, A02104；美国政府作品，SPDF 要求致谢 OMNIWeb 服务和 OMNI 数据），2026-11-14 下载。数据已由各探测器的位置平移到弓激波鼻点，每行一小时（UT）。`tools/geomag/solar_wind_bake.py` 只保留三个量，每小时 4 字节：流压（第 29 个字，0.01 nPa 一档）、GSM 的 Bz（第 17 个字，0.5 nT 一档，限在 ±63.5 nT，记录里没有超出的小时）、流速（第 25 个字，`150 + 8n` km/s，只用于约 4° 的光行差）。格式写在工具开头。
 
 ```
 mkdir -p build/omni
@@ -492,7 +492,7 @@ for y in $(seq 1963 2026); do curl -s --fail -o build/omni/omni2_$y.dat https://
 python -I tools/geomag/solar_wind_bake.py build/omni assets/geomag/solar_wind.bin
 ```
 
-当前文件 559,418 小时，1963-01-01 至 2026-10-26 02:00 UT，SHA-256 `595097c2a3df7f6f3fed0fb57d9e521b06aaa8187f25b385c1b9e6ea5aba9cdb`；流压中位数 1.79 nPa、速度 414 km/s，最大的小时流压 76.06 nPa。有流压的小时占比：1960 年代 36%、1970 年代 66%、1980 年代 52%、1990 年代 68%、2000 年以后 96–99%（工具按年代打印）。更新时重新下载最近几年并重跑工具：最近的值可能修订。
+当前文件 559,418 小时，1963-01-01 至 2026-10-26 02:00 UT，SHA-256 `595097c2a3df7f6f3fed0fb57d9e521b06aaa8187f25b385c1b9e6ea5aba9cdb`；流压中位数 1.79 nPa、速度 414 km/s，最大的小时流压 76.06 nPa。有流压的小时占比：1960 年代 36%、1970 年代 66%、1980 年代 52%、1990 年代 68%、2000 年以后 96–99%（工具按年代打印）。更新时重新下载最近几年并重跑工具：最近的值可能修订。这一步每月由 `tools/refresh/monthly_refresh.py`（`refresh-data` 工作流）完成，它同时改写本段和上段的年份、下载日期、小时数、末端、SHA-256、中位数和最大流压，并开 PR；年代覆盖率仍需人工对照工具输出。
 
 运行时（`SolarWindRecord::mean`、`Scene::magnetosphere_wind`）：取以当前时刻为中心的时间窗内的平均，窗宽为屏幕上 1.5 秒对应的时间、至少 1 小时，所以正常速度下就是相邻两个小时均值之间的线性内插，高倍速时面缓慢涨缩而不闪烁。缺测的小时和记录以外按典型太阳风（2 nPa、Bz = 0、430 km/s）计入平均，三个量各自判断缺测。1979 年有几个小时的流压记为 0.00，平均后的流压不低于 0.02 nPa。面板的 `Magnetosphere` 选 `Always` 时地球按记录画；事件里写 `recorded = true`。其他行星没有这样的记录：从 1 au 外推到木星以远要用传播模型（如 Tao 2005、mSWiM），只在冲日前后可靠，这里没有做。`test_magnetospheres` 检查上面的小时值、内插、缺测（1983-10-27 整天没有数据）和记录两端。
 

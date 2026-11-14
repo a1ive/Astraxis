@@ -11,7 +11,8 @@
 #                    "suitable for general historical purposes", not for precise work)
 #   New Horizons (-98): 2006-Jan-19 19:51:18 TDB .. 2050-Jan-01 (navigation reconstruction
 #                    concatenated with predictions)
-#   JWST (-170):     2021-Dec-25 13:01:09 TDB .. 2031-Sep-27 23:59 TDB
+#   JWST (-170):     2021-Dec-25 13:01:09 TDB .. 2031-Nov-09 00:01 TDB (checked 2026-11-14;
+#                    tracking to 2026-11-08, then a 28-day predict and the 5-year schedule)
 #   Galileo (-77):   1989-Oct-19 .. 2003-Sep-30 (navigation team fits to 2002-Aug-12, then
 #                    baseline predicts; impact into Jupiter 2003-Sep-21)
 #   Juno (-61):      2011-Aug-05 .. 2028-Sep-02 (reconstructed to 2026-Aug-24, then the
@@ -267,19 +268,22 @@ naif_id = -170
 center = "500@399"
 center_naif_id = 399
 start = "2021-12-25 13:02"
-stop = "2031-09-27 23:00"
+stop = "2031-11-09 00:00"
 base_step_minutes = 360
 
+# JWST, Euclid, Roman, TESS and Chandra end in a forecast: tools/refresh/monthly_refresh.py
+# moves their `stop` to the end of Horizons' coverage and rebakes them every month.
+#
 # The other telescopes of the Space Telescopes scene (assets/scenes/space_telescopes.toml).
-# Horizons coverage (checked 2026-10-22):
-#   Euclid (-680):    2023-Jul-01 15:53 .. 2031-Oct-05 TDB (tracking to 2026-08-31, then ESA predicts)
-#   Roman (-211):     2026-Aug-30 11:59 .. 2028-Oct-18 13:01 TDB (GSFC FDF; tracking to 2026-10-18,
+# Horizons coverage (checked 2026-10-22; Euclid, Roman and TESS 2026-11-14):
+#   Euclid (-680):    2023-Jul-01 15:53 .. 2031-Oct-05 TDB (tracking to 2026-10-26, then ESA predicts)
+#   Roman (-211):     2026-Aug-30 11:59 .. 2028-Nov-08 13:01 TDB (GSFC FDF; tracking to 2026-11-08,
 #                     then predicts)
 #   Gaia (-139479):   2013-Dec-19 09:55 .. 2125-Mar-28 TDB (ESOC final reconstruction to the end of the
 #                     mission, 2025-03-28, then a 100-year prediction of the disposal orbit)
 #   Kepler (-227):    2009-Mar-07 04:57 .. 2201-Feb-20 TDB (JPL navigation; prediction after 2018-10-30)
-#   TESS (-95):       2018-Apr-18 23:37 .. 2028-Apr-19 13:01 TDB (808 concatenated tag-up predictions;
-#                     tracking to 2026-10-18)
+#   TESS (-95):       2018-Apr-18 23:37 .. 2028-May-03 13:01 TDB (812 concatenated tag-up predictions;
+#                     tracking to 2026-11-01)
 # Gaia and Kepler stop with the Earth-Moon barycenter table (emb.eph, 2100), which the
 # rotating frame needs. Far from the Earth their geocentric positions still carry the
 # Earth's monthly wobble around the barycenter (~4,700 km): a knot every few days.
@@ -301,7 +305,7 @@ naif_id = -211
 center = "500@399"
 center_naif_id = 399
 start = "2026-08-30 12:00"
-stop = "2028-10-18 12:00"
+stop = "2028-11-08 13:00"
 base_step_minutes = 60     # the first day starts near the Earth at ~10 km/s
 verify_step_minutes = 20
 
@@ -334,15 +338,15 @@ naif_id = -95
 center = "500@399"
 center_naif_id = 399
 start = "2018-04-18 23:37"
-stop = "2028-04-19 12:00"
+stop = "2028-05-03 13:00"
 base_step_minutes = 60     # the phasing loops of the first two months dip to a 200 km perigee
 verify_step_minutes = 20
 kepler_gm_km3_s2 = 398600.435507   # the Earth (DE440, JPL SSD astrodynamic parameters)
 
-# WMAP and Chandra: Horizons coverage checked 2026-10-25.
+# WMAP and Chandra: Horizons coverage checked 2026-10-25 (Chandra 2026-11-14).
 # WMAP is GSFC MAP_Mission_20090417 (free-flight arcs; burns not modeled).
-# Chandra is CFA cxo_99219_06045 / cxo_06002_10103 / CXO_10056_27089;
-# states after 2026-10-01 are predictions. Stop inside the published coverage.
+# Chandra is CFA cxo_99219_06045 / cxo_06002_10103 / CXO_10056_27118;
+# states after 2026-11-01 are predictions. Stop inside the published coverage.
 [[target]]
 name = "wmap_geo"
 command = "-165"
@@ -362,7 +366,7 @@ naif_id = -151
 center = "500@399"
 center_naif_id = 399
 start = "1999-08-07 07:32"
-stop = "2027-03-30 12:00"
+stop = "2027-04-28 12:00"
 base_step_minutes = 60
 verify_step_minutes = 20
 tolerance_km = 5.0

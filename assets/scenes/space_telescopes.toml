@@ -13,18 +13,18 @@
 #
 # Sources
 # [HZN]  JPL Horizons state vectors, baked by tools/bake/horizons_bake.py, all geocentric
-#        ICRF (coverage in tools/bake/ephem.toml):
-#          JWST (-170)    2021-12-25 .. 2031-09-27 (as flown to 2026-09-28, then a 28-day
-#                         prediction and a 5-year planned schedule)
-#          Euclid (-680)  2023-07-01 .. 2031-10-04 (tracking to 2026-08-31, then ESA predicts)
-#          Roman (-211)   2026-08-30 .. 2028-10-18 (GSFC FDF; tracking to 2026-10-18, then
-#                         predicts)
+#        ICRF (coverage in tools/bake/ephem.toml). The tables marked * end in a forecast
+#        that tools/refresh/monthly_refresh.py rebakes every month; their ends and tracking
+#        dates are kept in tools/bake/ephem.toml and assets/ephem/SOURCES.md.
+#          JWST (-170)*   from 2021-12-25 (as flown, then a 28-day prediction and a 5-year
+#                         planned schedule)
+#          Euclid (-680)* from 2023-07-01 (tracking, then ESA predicts)
+#          Roman (-211)*  from 2026-08-30 (GSFC FDF; tracking, then predicts)
 #          Gaia (-139479) 2013-12-19 .. 2099-12-31 (ESOC final reconstruction to the end of
 #                         the mission, 2025-03-28, then a prediction of the disposal orbit)
 #          Kepler (-227)  2009-03-07 .. 2099-12-31 (JPL navigation; prediction after
 #                         2018-10-30)
-#          TESS (-95)     2018-04-18 .. 2028-04-19 (concatenated tag-up predictions; tracking
-#                         to 2026-10-18)
+#          TESS (-95)*    from 2018-04-18 (concatenated tag-up predictions)
 #          Spitzer (-79)  2003-08-25 .. 2099-12-31 (tracking to 2020-01-30 22:30 UTC,
 #                         then a nominal prediction; retrieved 2026-10-24)
 #          Herschel (-486) 2009-05-14 .. 2049-12-31 (ESA H20140117_0001, including
@@ -33,8 +33,7 @@
 #                         prediction of the disposal orbit)
 #          WMAP (-165)   2001-06-30 .. 2009-04-07 (GSFC MAP_Mission_20090417;
 #                         free-flight arcs, maneuvers not modeled)
-#          Chandra (-151) 1999-08-07 .. 2027-03-30 (CFA; prediction after
-#                         2026-10-01, retrieved 2026-10-25)
+#          Chandra (-151)* from 1999-08-07 (CFA; tracking, then a prediction)
 #          Moon (301)     1972 .. 2099 (as in solar_system.toml)
 #        Horizons' notes: Kepler's Earth-trailing heliocentric orbit has "a period of 372.5
 #        days" and "very-low disturbing torque on spacecraft"; Gaia arrived at its Lissajous
