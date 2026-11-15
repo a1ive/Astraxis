@@ -415,6 +415,40 @@ curl -L -o build/field/igrf14coeffs.txt https://www.ngdc.noaa.gov/IAGA/vmod/coef
 python -I tools/geomag/field_coeffs.py build/field assets/geomag
 ```
 
+## 太阳的势场源表面模型（PFSS）
+
+`sun_hmi_synoptic.txt` 是太阳光球径向场的球谐系数，每个卡林顿自转周一行，由本项目从 SDO/HMI 的极区填补综观图 `hmi.Synoptic_Mr_polfil_720s`（Sun, Liu, Hoeksema, Hayashi & Zhao 2011，*A New Method for Polar Field Interpolation*，Solar Physics 270, 9）算出。原图的 FITS 头写着 `LICENSE = CC0 1.0`，致谢写作 courtesy of NASA/SDO and the HMI science team。这些系数是本项目的派生产品，不是 HMI 团队发布的数据。
+
+**原图**：[JSOC 的静态目录](http://jsoc.stanford.edu/data/hmi/synoptic/)中的 `hmi.Synoptic_Mr_polfil.<CR>.fits`，覆盖 CR2097–CR2316（2010-05 至 2026-10），每张约 4.3 MB，不入库。每月的数据刷新会补上新的自转周（见下）。图为 3600 个卡林顿经度乘 1440 个等间距正弦纬度，单位 Mx/cm² = G，按 RICE_1 分行压缩。经度方向：`CRPIX1 = 1800` 处为 180°，`CDELT1 = −0.1` 是卡林顿时间的步长，所以经度每像素增加 0.1°，像素 k（从 0 起）的中心在 0.1(k+1)°。60° 以上的极区由多年的观测填补（`LATFIL = 75`，头文件的 `METHOD = TEMP_SPAT`）。WSO 的 [Harmonic.rad](http://wso.stanford.edu/Harmonic.rad/) 系数从 1976 年起算，但它的[数据政策](http://wso.stanford.edu/DataPolicy.html)只要求通知和致谢，没有明确授权再分发，所以不入库，只在测试里引用几个数作独立核对。
+
+**系数**：`tools/geomag/sun_synoptic_bake.py`（只用标准库）解压每张图，平均到 1° 经度乘 1/90 正弦纬度（360 × 180），再按 Stanford PFSS 的约定（[Sun, *Notes on PFSS Extrapolation*](http://wso.stanford.edu/words/pfss.pdf)，式 10 和 15）投影到施密特准归一化的函数上：
+
+g′ₙₘ, h′ₙₘ = (2n+1)/(XY) Σ Br Pₙᵐ(sin 纬度) (cos, sin)(m 经度)
+
+于是光球上 Br = Σ Pₙᵐ (g′ cos mφ + h′ sin mφ)。取到 20 阶，单极项（全图的净通量）不用。解压后全图的平均值等于头文件的 `DATAMEAN`（CR2200：−0.06008 G 对 −0.06007 G），以此核对解码正确。
+
+**场**：源表面在 2.5 个太阳半径（Schatten, Wilcox & Ness 1969；Altschuler & Newkirk 1969；WSO 也取 2.5）。程序把 g′ 换成内部势的系数 g = g′ / (n+1 + n (R/Rs)²ⁿ⁺¹)（pfss.pdf 式 11），每阶的径向分量乘 n+1 + n (r/Rs)²ⁿ⁺¹，切向分量乘 1 − (r/Rs)²ⁿ⁺¹（式 16–18），源表面以外取径向，Br 按 1/r² 衰减（`MagneticField::set_source_surface`）。卡林顿经度就是 IAU 太阳本体系的东经（`prime_meridian_deg = [84.176, 14.1844]`），所以系数直接画在太阳的本体系里。
+
+**随时间**：`Scene::update` 取时钟所在的自转周的图（`follow_synoptic_field`）。自转周的起点按 Meeus《天文算法》第 29 章，CR2200 的起点与 HMI 头文件的 `T_START` 相差不到一分钟。最后一张图之后保持两个自转周，再往后和 2010 年以前都不画。重新追踪磁力线只在线被画出时进行，所以换周后的第一帧画的还是上一周的线。
+
+**磁力线**：从光球上的 300 个点出发（Fibonacci 格点，均匀分布），画到 4 个太阳半径。`parker.toml` 有两个事件：2019-12 的极小期（CR2225：122 条闭合线，14 条向外、25 条向内的开放线）和 2024-10 的极大期附近（CR2289：155 条闭合线，开放线只有 2 条向外、8 条向内）。一次追踪在本机约 20–30 ms。`solar_system.toml` 的太阳也有这个场，只能手动打开，那里的导览按约定不放磁场事件。闭合的线只保留从正极性足点出发的那一条，免得画两次；开放的线按源表面处 Br 的符号着色，向外为暖色，向内为蓝色。线密度只表示种子的分布，不表示场强。
+
+核对（`test_sun_pfss`）：
+- 极小期两极冕洞的开放线：根在北纬 60° 以上的向外，南纬 60° 以上的向内，没有例外；极小期开放线的比例是极大期的两倍以上。源表面以外的线与径向的夹角不到 1°。
+- 合成的场在源表面上径向，在源表面内旋度和散度为零，源表面以外按 1/r² 衰减，源表面很远时退化为内部场。
+- 太阳本体系里地球下点（sub-Earth point）的经度：CR2200 中点（HMI 的 `T_ROT`）是 180°，WSO 首页 2026-08-08 22:34 UTC 的戳记 CT2314:275 是 275°，场景都在 0.3° 以内。
+- 和 WSO（独立的仪器）对照：六个自转周的轴向偶极符号一致；偶极明显倾斜的 CR2290、CR2300，偶极经度分别相差 21° 和 3°（经度若取反或差 180°，会差 120° 以上）。HMI 的偶极比 WSO 强约 1.6 倍，这和 WSO 低分辨率磁像仪的已知饱和相符。
+
+重新生成（只用标准库，约 1 分钟）：
+
+```bash
+mkdir -p build/hmi
+for cr in $(seq 2097 2316); do f=hmi.Synoptic_Mr_polfil.$cr.fits; curl -sSL -o build/hmi/$f http://jsoc.stanford.edu/data/hmi/synoptic/$f; done
+python -I tools/geomag/sun_synoptic_bake.py build/hmi assets/geomag/sun_hmi_synoptic.txt
+```
+
+新的自转周每月有一张图。`tools/refresh/monthly_refresh.py` 每月从 JSOC 的目录找出新图，只下载最后两个已有的自转周和新的几周，用 `--merge` 烘焙进文件，并同步上面的覆盖范围和 `seq` 的终点；工具要求自转周连续。
+
 ## 径向磁场图
 
 `*.fieldmap` 是固定在本体上的磁场图，由 `tools/geomag/field_map_bake.py` 烘焙（需要 numpy）。径向图的文件头 `AXFIELDMAP1 宽 高 上限_nT` 之后是 宽×高 个有符号字节，值为 127·sign(Br)·√(min(|Br|/上限, 1))；强度图的文件头 `AXFIELDMAG1 宽 高 下限_nT 上限_nT` 之后是 127·(2t − 1)，t = (|B| − 下限)/(上限 − 下限)。行由北向南按行星中心纬度（`body.vert.hlsl` 就是这样采样的），列从 180°W 向东，在椭球面上该方向的真实位置求值。

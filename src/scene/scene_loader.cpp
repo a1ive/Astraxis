@@ -543,6 +543,8 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
         {"longitude_offset_deg", number}, {"prime_meridian_deg", list}, {"l_shells", list},
         {"open_latitudes_deg", list}, {"parent_field", boolean},
         {"lines_per_shell", integer}, {"max_radius", number}, {"color", text},
+        {"synoptic", text}, {"source_surface", number}, {"surface_seeds", integer},
+        {"outward_color", text}, {"inward_color", text},
     };
     static const TemplateFields magnetic_map = {{"surface", text}, {"deep", text}, {"crust", text}};
     static const TemplateFields magnetosphere = {
@@ -1820,13 +1822,39 @@ void Loader::parse(const toml::table& root, Scene& out)
         }
         if (const toml::table* field = (*t)["magnetic_field"].as_table()) {
             const std::string mctx = ctx + " magnetic_field";
-            if (body.kind != BodyKind::Planet || body.shape) {
-                fail(ctx, "only ellipsoidal planets can have a magnetic field");
+            const bool synoptic = field->contains("synoptic");
+            if (!(body.kind == BodyKind::Planet || (synoptic && body.kind == BodyKind::Star)) || body.shape) {
+                fail(ctx, "only ellipsoidal planets, and stars with synoptic maps, can have a magnetic field");
             }
             auto model = std::make_shared<MagneticField>();
             std::string error;
             BodyMagneticField& m = body.magnetic_field;
-            if (field->contains("coefficients_by_year")) {
+            if (synoptic) {
+                for (const char* key : {"coefficients", "coefficients_by_year", "l_shells", "open_latitudes_deg",
+                                        "parent_field", "lines_per_shell", "flip_pole", "longitude_offset_deg",
+                                        "prime_meridian_deg"}) {
+                    if (field->contains(key)) {
+                        fail(mctx, std::string("synoptic maps are in Carrington longitude and take no ") + key);
+                    }
+                }
+                auto series = std::make_shared<SynopticFieldSeries>();
+                if (!series->load(m_asset_root / get_string(*field, "synoptic", mctx), &error)) {
+                    fail(mctx, error);
+                }
+                m.source_surface = get_double(*field, "source_surface", mctx);
+                if (!(m.source_surface > 1.0)) {
+                    fail(mctx, "source_surface must be above 1 (radii)");
+                }
+                // Until the scene's first update, which also traces the lines once they are drawn.
+                m.rotation = series->last_rotation();
+                *model = series->at(m.rotation, m.source_surface);
+                m.synoptic = series;
+                m.outward_color = parse_color(*field, "outward_color", mctx, m.outward_color);
+                m.inward_color = parse_color(*field, "inward_color", mctx, m.inward_color);
+            } else if (field->contains("source_surface") || field->contains("surface_seeds") ||
+                       field->contains("outward_color") || field->contains("inward_color")) {
+                fail(mctx, "source_surface, surface_seeds and the open lines' colors go with synoptic");
+            } else if (field->contains("coefficients_by_year")) {
                 if (field->contains("coefficients")) {
                     fail(mctx, "takes coefficients or coefficients_by_year, not both");
                 }
@@ -1890,7 +1918,15 @@ void Loader::parse(const toml::table& root, Scene& out)
             }
             settings.surface_equatorial = body.equatorial_radius_km / m.reference_radius_km;
             settings.surface_polar = body.polar_radius_km / m.reference_radius_km;
-            m.lines = trace_field_lines(*model, settings);
+            if (synoptic) {
+                settings.l_shells.clear();
+                settings.surface_seeds = (*field)["surface_seeds"].value<int>().value_or(300);
+                if (settings.surface_seeds < 1 || !(settings.max_radius > m.source_surface)) {
+                    fail(mctx, "needs surface_seeds above 0 and max_radius beyond the source surface");
+                }
+            } else {
+                m.lines = trace_field_lines(*model, settings);
+            }
             m.line_settings = settings;
             m.model = model;
         }

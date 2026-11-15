@@ -372,13 +372,15 @@ void App::build_control_panel()
     }
 
     if (std::any_of(scene.bodies.begin(), scene.bodies.end(),
-                    [](const Body& b) { return b.magnetic_field.model != nullptr; })) {
+                    [](const Body& b) { return b.magnetic_field.model || b.magnetic_field.synoptic; })) {
         ImGui::Combo("Field lines", &m_view_options.magnetic_view, "Event setting\0Always\0Never\0");
         ImGui::SetItemTooltip("Magnetic field lines from each planet's internal field model (B).\n"
                              "Only what the planet itself makes: no solar wind, magnetopause or magnetodisc,\n"
                              "so they fade out a few radii away. Event setting: off unless the event enables them.\n"
                              "Jupiter's moons also get the line through them now (faint) and the Alfven wave\n"
-                             "on its way to the auroral spot (orange), with the magnetodisc.");
+                             "on its way to the auroral spot (orange), with the magnetodisc.\n"
+                             "The Sun: a potential field from that rotation's SDO/HMI map (2010 on), radial\n"
+                             "beyond 2.5 solar radii; lines that leave are colored outward (warm) or inward (blue).");
     }
 
     if (std::any_of(scene.bodies.begin(), scene.bodies.end(),

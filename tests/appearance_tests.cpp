@@ -3058,12 +3058,16 @@ void test_magnetic_field()
     // Off by default; only these events turn them on, and with something to show.
     Scene uranus_scene = load_scene_or_die("uranus.toml");
     Scene neptune_scene = load_scene_or_die("neptune.toml");
-    for (const Scene* scene : {&solar,&uranus_scene, &neptune_scene, &saturn_scene, &earth_scene, &jupiter_scene, &mercury_scene}) {
+    Scene parker_scene = load_scene_or_die("parker.toml");
+    for (Scene* scene : {&solar, &uranus_scene, &neptune_scene, &saturn_scene, &earth_scene, &jupiter_scene, &mercury_scene, &parker_scene}) {
         for (const SceneEvent& event : scene->events) {
             if (event.magnetic_lines) {
-                check(event.focus >= 0 && scene->bodies[static_cast<size_t>(event.focus)].magnetic_field.model != nullptr,
-                      "an event's field lines are on its focus");
-                check(event.focus_orbits_only, "and no distant orbits cross them");
+                // The Sun's model comes with the clock: at the event's time.
+                scene->update(event.t_tdb);
+                const BodyMagneticField* field = event.focus >= 0 ? &scene->bodies[static_cast<size_t>(event.focus)].magnetic_field : nullptr;
+                check(field && field->model != nullptr, "an event's field lines are on its focus");
+                // Around the Sun every planet's orbit is the focus's.
+                check(event.focus_orbits_only || (event.hide_orbits && field && field->synoptic), "and no distant orbits cross them");
             }
         }
     }
@@ -3072,6 +3076,7 @@ void test_magnetic_field()
     };
     check(shown(uranus_scene) == 1 && shown(neptune_scene) == 1 && shown(saturn_scene) == 1 && shown(mercury_scene) == 1 && shown(jupiter_scene) == 1,
           "the ice giants, Saturn, Mercury and Ganymede each have their event");
+    check(shown(parker_scene) == 2, "the Sun's field at minimum and maximum, in Parker's years");
     check(shown(solar) == 0, "the Solar System's tour leaves them to the planets' own scenes");
 
     // A wrong description is refused.
@@ -3996,6 +4001,173 @@ void test_flux_tubes()
     const glm::dvec3 too_far(1.5 * nominal[0], 0.0, 0.0);
     check(!model.flux_tube(0, false, too_far, false, line), "no line outside the table's domain");
     check(!model.flux_tube(3, false, too_far, false, line), "nor for another moon");
+}
+
+void test_sun_pfss()
+{
+    // The source surface on a made-up field: radial there, curl- and divergence-free inside,
+    // 1/r^2 beyond, and the internal field when far away.
+    MagneticField synthetic;
+    for (auto [is_h, n, m, value] : {std::tuple{false, 1, 0, 3.0e5}, {false, 1, 1, -1.0e5}, {true, 1, 1, 2.0e5},
+                                     {false, 2, 1, 1.5e5}, {true, 3, 2, -2.0e5}, {false, 5, 4, 1.0e5}}) {
+        synthetic.set_coefficient(is_h, n, m, value);
+    }
+    MagneticField pfss = synthetic;
+    pfss.set_source_surface(2.5);
+    const glm::dvec3 at_surface = 2.5 * glm::normalize(glm::dvec3(0.3, -0.5, 0.8));
+    const glm::dvec3 b_ss = pfss.field_nt(at_surface * (1.0 - 1e-9));
+    const glm::dvec3 up = glm::normalize(at_surface);
+    check(glm::length(b_ss - glm::dot(b_ss, up) * up) < 1e-6 * glm::length(b_ss), "PFSS: the field is radial on the source surface",
+          glm::length(b_ss - glm::dot(b_ss, up) * up) / glm::length(b_ss));
+    const glm::dvec3 b_beyond = pfss.field_nt(at_surface * 1.6);
+    check(glm::length(b_beyond - b_ss / (1.6 * 1.6)) < 1e-6 * glm::length(b_beyond), "and beyond it falls off as 1/r^2 along the radius");
+    const glm::dvec3 x0(0.4, 1.1, -0.7);
+    constexpr double kH = 1e-5;
+    double divergence = 0.0;
+    glm::dmat3 gradient(0.0); // gradient[j][i] = dB_i/dx_j
+    for (int j = 0; j < 3; ++j) {
+        glm::dvec3 step(0.0);
+        step[j] = kH;
+        gradient[j] = (pfss.field_nt(x0 + step) - pfss.field_nt(x0 - step)) / (2.0 * kH);
+        divergence += gradient[j][j];
+    }
+    const glm::dvec3 curl(gradient[1][2] - gradient[2][1], gradient[2][0] - gradient[0][2], gradient[0][1] - gradient[1][0]);
+    const double scale = glm::length(pfss.field_nt(x0)) / glm::length(x0);
+    check(std::abs(divergence) < 1e-6 * scale && glm::length(curl) < 1e-6 * scale, "and curl- and divergence-free inside it",
+          std::max(std::abs(divergence), glm::length(curl)) / scale);
+    MagneticField far = synthetic;
+    far.set_source_surface(1e6);
+    check(glm::length(far.field_nt(x0) - synthetic.field_nt(x0)) < 1e-9 * glm::length(synthetic.field_nt(x0)),
+          "with the surface far away it is the internal field");
+
+    // Carrington rotations begin when HMI's synoptic maps say: CR2200 at 2018-01-27 06:39:59 TAI
+    // (the header's T_START), and the WSO home page stamped 2026-08-08 22:34 UTC CT2314:275.
+    double t = 0.0;
+    parse_utc("2018-01-27 06:39:22", &t);
+    check(std::abs(SynopticFieldSeries::rotation_start_tdb(2200) - t) < 300.0, "CR2200 begins as in the HMI header (s)",
+          SynopticFieldSeries::rotation_start_tdb(2200) - t);
+    double t_wso = 0.0;
+    parse_utc("2026-08-08 22:34:18", &t_wso);
+    check(SynopticFieldSeries::rotation_at(t_wso) == 2314 && SynopticFieldSeries::rotation_at(t - 600.0) == 2199 &&
+              SynopticFieldSeries::rotation_at(t + 600.0) == 2200,
+          "and the rotation going on is counted from them");
+
+    Scene scene = load_scene_or_die("solar_system.toml");
+    const int sun_index = scene.find("Sun");
+    Body& sun = scene.bodies[static_cast<size_t>(sun_index)];
+    const Body& earth = scene.bodies[static_cast<size_t>(scene.find("Earth"))];
+    BodyMagneticField& field = sun.magnetic_field;
+    check(field.synoptic != nullptr && field.source_surface == 2.5, "the Sun's field comes from synoptic maps, source surface 2.5 R");
+    if (!field.synoptic) return;
+
+    // Carrington longitude is the IAU frame's east longitude: the sub-Earth point is at L0 =
+    // 180 deg at CR2200's middle (T_ROT 2018-02-09 22:46:24 TAI) and at 275 deg at the WSO stamp.
+    double worst_l0 = 0.0;
+    for (auto [utc, l0] : {std::pair{"2018-02-09 22:45:47", 180.0}, {"2026-08-08 22:34:18", 275.0}}) {
+        parse_utc(utc, &t);
+        scene.update(t);
+        const glm::dvec3 to_earth = glm::transpose(sun.orientation) * (earth.world_position - sun.world_position);
+        worst_l0 = std::max(worst_l0, std::abs(angle_difference_deg(std::atan2(to_earth.y, to_earth.x) / kDegToRad, l0)));
+    }
+    check(worst_l0 < 0.3, "the sub-Earth Carrington longitude of the Sun's frame (deg)", worst_l0);
+
+    // The maps against WSO's own harmonics (Harmonic.rad, an independent instrument): the dipole
+    // has the same sign and, when it is tilted, points to the same longitude.
+    const SynopticFieldSeries& series = *field.synoptic;
+    check(series.first_rotation() == 2097 && series.last_rotation() >= 2316, "HMI's maps from CR2097 on");
+    struct Wso { int rotation; double g10, g11, h11; };
+    double worst_longitude = 0.0;
+    for (const Wso& w : {Wso{2100, -47.517, 12.910, -11.116}, Wso{2150, 32.303, -6.311, -6.837},
+                         Wso{2200, 97.243, -1.476, -11.301}, Wso{2250, 75.298, -13.914, -3.389},
+                         Wso{2290, -22.612, 16.974, 40.200}, Wso{2300, -41.784, 47.355, 69.771}}) {
+        const MagneticField hmi = series.at(w.rotation, 1e6);
+        check(hmi.g(1, 0) * w.g10 > 0.0, "the axial dipole has WSO's sign", w.rotation);
+        if (std::hypot(w.g11, w.h11) > 0.5 * std::abs(w.g10)) {
+            const double longitude = angle_difference_deg(std::atan2(hmi.h(1, 1), hmi.g(1, 1)) / kDegToRad,
+                                                          std::atan2(w.h11, w.g11) / kDegToRad);
+            worst_longitude = std::max(worst_longitude, std::abs(longitude));
+        }
+    }
+    // WSO's 3' pixels see the active regions differently (21 deg apart in CR2290); a mirrored
+    // or turned longitude would be 120 deg or more off in both tilted rotations.
+    check(worst_longitude < 30.0, "a tilted dipole points where WSO's does (deg)", worst_longitude);
+
+    // Br on the photosphere is the map's, whatever the source surface.
+    const MagneticField at_2200 = series.at(2200, 2.5);
+    const MagneticField bare = series.at(2200, 1e6);
+    double worst_br = 0.0, peak_br = 0.0;
+    for (int k = 0; k < 50; ++k) {
+        const glm::dvec3 p = glm::normalize(glm::dvec3(std::sin(1.7 * k), std::cos(2.3 * k), std::sin(0.9 * k + 0.4)));
+        const double br = glm::dot(at_2200.field_nt(p), p);
+        worst_br = std::max(worst_br, std::abs(br - glm::dot(bare.field_nt(p), p)));
+        peak_br = std::max(peak_br, std::abs(br));
+    }
+    check(worst_br < 1e-9 * peak_br, "the photospheric Br does not depend on the source surface", worst_br / peak_br);
+    std::printf("  info: CR2200 g'10 %.3f G (WSO 0.972 G), strongest Br at 50 points %.1f G\n", bare.g(1, 0) * 2e-5, peak_br * 1e-5);
+
+    // In the scene: nothing before the maps, the map of the rotation after, lines once drawn.
+    scene.update(tdb_from_julian_year(2005.0));
+    check(!field.model && field.lines.empty(), "no field before HMI");
+    struct Count { int rotation, closed, outward, inward; double worst_radial, ms; };
+    const auto count_lines = [&](const char* utc) {
+        parse_utc(utc, &t);
+        scene.update(t);
+        Count c{SynopticFieldSeries::rotation_at(t), 0, 0, 0, 0.0, 0.0};
+        check(field.model && field.rotation == c.rotation && field.lines_rotation != c.rotation,
+              "the rotation's field, its lines not yet traced", field.rotation);
+        field.lines_in_view = true;
+        const auto start = std::chrono::steady_clock::now();
+        scene.update(t + 60.0);
+        c.ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+        for (const std::vector<glm::dvec4>& line : field.lines) {
+            const double front = glm::length(glm::dvec3(line.front())), back = glm::length(glm::dvec3(line.back()));
+            check(std::min(front, back) < 1.01, "every line has a footpoint on the photosphere", std::min(front, back));
+            if (std::max(front, back) < 1.01) {
+                ++c.closed;
+                continue;
+            }
+            (back > front ? c.outward : c.inward) += 1;
+            const glm::dvec3 tip(back > front ? line.back() : line.front());
+            const glm::dvec3 before(back > front ? line[line.size() - 2] : line[1]);
+            if (glm::length(before) > 2.6) {
+                c.worst_radial = std::max(c.worst_radial, std::asin(std::min(glm::length(glm::cross(glm::normalize(tip - before), glm::normalize(tip))), 1.0)) / kDegToRad);
+            }
+        }
+        check(field.lines_rotation == c.rotation, "the lines are traced once drawn");
+        std::printf("  info: CR%d: %d closed, %d outward, %d inward lines in %.0f ms\n", c.rotation, c.closed, c.outward, c.inward, c.ms);
+        return c;
+    };
+    // At the 2019 minimum the open field comes from the polar holes, north outward (the dipole
+    // of cycle 24's end); near the 2024 maximum most lines close over active regions.
+    const Count minimum = count_lines("2019-12-15");
+    const Count maximum = count_lines("2024-10-15");
+    check(minimum.outward > 10 && minimum.inward > 10 && maximum.closed > 100, "open lines of both signs at minimum, loops at maximum");
+    const auto open_share = [](const Count& c) { return double(c.outward + c.inward) / (c.closed + c.outward + c.inward); };
+    check(open_share(minimum) > 2.0 * open_share(maximum), "the open share at minimum is more than twice that at maximum",
+          open_share(minimum) / open_share(maximum));
+    check(std::max(minimum.worst_radial, maximum.worst_radial) < 1.0, "the open lines run radially beyond the source surface (deg)",
+          std::max(minimum.worst_radial, maximum.worst_radial));
+    // At minimum the polar holes have the dipole's signs: lines rooted above 60 deg N leave
+    // outward, above 60 deg S come in.
+    int polar_right = 0, polar_wrong = 0;
+    parse_utc("2019-12-15", &t);
+    scene.update(t);
+    field.lines_in_view = true;
+    scene.update(t + 60.0);
+    for (const std::vector<glm::dvec4>& line : field.lines) {
+        const glm::dvec3 front(line.front()), back(line.back());
+        const bool outward = glm::length(back) > 2.5, inward = glm::length(front) > 2.5;
+        const glm::dvec3 foot = outward ? front : back;
+        if ((outward || inward) && std::abs(foot.z) > std::sin(60.0 * kDegToRad) * glm::length(foot)) {
+            ((foot.z > 0.0) == outward ? polar_right : polar_wrong) += 1;
+        }
+    }
+    check(polar_right > 10 && polar_wrong == 0, "in 2019 the north polar hole's field points out, the south's in", polar_right);
+    // Held for kSynopticHold rotations after the last map, then gone.
+    scene.update(SynopticFieldSeries::rotation_start_tdb(series.last_rotation() + BodyMagneticField::kSynopticHold) + 3600.0);
+    check(field.model && field.rotation == series.last_rotation(), "the last map is held for a while");
+    scene.update(SynopticFieldSeries::rotation_start_tdb(series.last_rotation() + BodyMagneticField::kSynopticHold + 1) + 3600.0);
+    check(!field.model && field.lines.empty(), "and then dropped");
 }
 
 void test_magnetic_maps()
@@ -5007,6 +5179,7 @@ void run_appearance_tests()
     test_flux_tubes();
     test_magnetospheres();
     test_magnetic_maps();
+    test_sun_pfss();
     test_ganymede_aurora();
     test_europa_aurora();
     test_io_callisto_aurora();

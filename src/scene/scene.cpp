@@ -643,6 +643,36 @@ bool follow_magnetic_field_year(Body& body, double t_tdb)
     return true;
 }
 
+void follow_synoptic_field(Body& body, double t_tdb)
+{
+    BodyMagneticField& field = body.magnetic_field;
+    if (!field.synoptic) {
+        return;
+    }
+    const SynopticFieldSeries& series = *field.synoptic;
+    const int rotation = SynopticFieldSeries::rotation_at(t_tdb);
+    if (rotation < series.first_rotation() || rotation > series.last_rotation() + BodyMagneticField::kSynopticHold) {
+        field.model.reset();
+        field.rotation = 0;
+        field.lines.clear();
+        field.lines_rotation = 0;
+        field.lines_in_view = false;
+        return;
+    }
+    const int used = std::min(rotation, series.last_rotation());
+    if (used != field.rotation || !field.model) {
+        field.model = std::make_shared<MagneticField>(series.at(used, field.source_surface));
+        field.rotation = used;
+    }
+    // Tracing takes a while: only for lines being drawn, which show the last rotation's
+    // for a frame.
+    if (field.lines_in_view && field.lines_rotation != used) {
+        field.lines = trace_field_lines(*field.model, field.line_settings);
+        field.lines_rotation = used;
+    }
+    field.lines_in_view = false;
+}
+
 SolarWind Scene::magnetosphere_wind(const MagnetosphereState& state, double t_tdb, double warp) const
 {
     const Body& b = bodies[static_cast<size_t>(state.body)];
@@ -745,6 +775,7 @@ void Scene::update(double t_tdb)
     double extent = 0.0;
     for (Body& body : bodies) {
         follow_magnetic_field_year(body, t_tdb);
+        follow_synoptic_field(body, t_tdb);
         glm::dvec3 pos(0.0);
         glm::dvec3 vel(0.0);
         bool visible = true;

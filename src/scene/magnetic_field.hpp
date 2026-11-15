@@ -36,6 +36,14 @@ public:
     void set_ambient_nt(const glm::dvec3& field) { m_ambient = field; }
     const glm::dvec3& ambient_nt() const { return m_ambient; }
 
+    // A potential-field source surface (the Sun's PFSS, Schatten et al. 1969), in radii; zero:
+    // none. The potential is then zero there, so the field turns radial on it and beyond falls
+    // off as 1/r^2. The coefficients stay those of the internal part: each degree n's field is
+    // its internal field with the radial part times 1 + n/(n+1) (r/rs)^(2n+1) and the others
+    // times 1 - (r/rs)^(2n+1).
+    void set_source_surface(double radius) { m_source_surface = radius; }
+    double source_surface() const { return m_source_surface; }
+
     // The dipole's strength at the equator of the reference sphere (nT), the
     // direction where its field leaves the planet, and its tilt from the model's
     // z axis (the acute angle). The offset is the center of the eccentric dipole
@@ -48,9 +56,37 @@ public:
 private:
     static int index(int degree, int order) { return degree * (degree + 1) / 2 + order; }
 
+    glm::dvec3 field_inside_nt(const glm::dvec3& position) const;
+
     int m_degree = 0;
     std::vector<double> m_g, m_h;
     glm::dvec3 m_ambient{0.0};
+    double m_source_surface = 0.0;
+};
+
+// The Sun's photospheric field, one harmonic set per Carrington rotation (from synoptic maps;
+// tools/geomag/sun_synoptic_bake.py). The file has a line "degree n" and a line per rotation:
+// its number, then g'_n0 and g'_nm h'_nm (m = 1..n) for n = 1..degree, in G, such that
+// Br(R) = sum P_n^m (g' cos m lon + h' sin m lon) (Schmidt; Carrington longitude); # starts a
+// comment. Rotations must follow each other.
+class SynopticFieldSeries {
+public:
+    bool load(const std::filesystem::path& file, std::string* error = nullptr);
+
+    int first_rotation() const { return m_first; }
+    int last_rotation() const { return m_first + static_cast<int>(m_rows.size()) - 1; }
+    // The rotation's field with a source surface at `source_surface` radii (above 1).
+    MagneticField at(int rotation, double source_surface) const;
+
+    // When Carrington rotation `rotation` begins (TDB seconds from J2000; Meeus, Astronomical
+    // Algorithms, ch. 29, good to minutes), and the rotation going on at t_tdb.
+    static double rotation_start_tdb(int rotation);
+    static int rotation_at(double t_tdb);
+
+private:
+    int m_degree = 0;
+    int m_first = 0;
+    std::vector<std::vector<double>> m_rows;
 };
 
 // A field model given at epochs (the Earth's IGRF: every 5 years): linear between them,
@@ -91,6 +127,10 @@ struct FieldLineSettings {
     // dipole's equator, in both hemispheres), lines_per_shell around each. For a field with an
     // ambient part; of the rings above only the lines that close on the body are then kept.
     std::vector<double> open_latitudes_deg;
+    // Instead of the rings: lines from this many footpoints spread evenly over the surface (a
+    // Fibonacci lattice). A line that closes is kept from its outward footpoint only, so that
+    // it is not drawn twice; lines that leave are kept from either.
+    int surface_seeds = 0;
 };
 
 // One line through `seed`, from one end to the other: xyz in radii, w = fade
@@ -123,6 +163,18 @@ struct BodyMagneticField {
     // the series; its last epoch after loading).
     std::shared_ptr<const MagneticFieldSeries> series;
     double model_year = 0.0;
+    // Or a map per Carrington rotation (the Sun's): `model` is that of `rotation`, which
+    // Scene::update keeps at the rotation going on, holding the last for kSynopticHold
+    // rotations past the end. Outside that `model` is null and nothing is drawn. The lines
+    // are traced again only once drawn (lines_in_view), so `lines` may be a rotation late.
+    static constexpr int kSynopticHold = 2;
+    std::shared_ptr<const SynopticFieldSeries> synoptic;
+    int rotation = 0;
+    int lines_rotation = 0; // what `lines` were traced for; 0: none yet
+    double source_surface = 0.0;
+    // Lines that leave through the source surface, by the sign of Br there (sRGB).
+    glm::vec3 outward_color{1.0f, 0.55f, 0.4f};
+    glm::vec3 inward_color{0.45f, 0.65f, 1.0f};
     FieldLineSettings line_settings; // what `lines` were traced with
     // The body stands in its parent's field (Ganymede in Jupiter's, from the parent's table of
     // the field at its moons): Scene::update keeps the model's ambient field and the lines to

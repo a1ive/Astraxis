@@ -20,6 +20,9 @@
 #        Mars, and for Venus and the Earth outside the baked span.
 # [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
 # [PCK]  NAIF pck00011.tpc (IAU 2015): radii, poles, prime meridians (T terms ignored).
+# [PFSS] The Sun's field lines: a potential field with a source surface at 2.5 R_sun from
+#        each Carrington rotation's SDO/HMI synoptic map (CC0), as in solar_system.toml;
+#        assets/geomag/SOURCES.md.
 # [CAP]  Event captions (retrieved 2026-10-07):
 #        [PSP] NASA, science.nasa.gov/mission/parker-solar-probe/: to "touch the Sun"; a
 #          carbon-composite heat shield; 24 orbits over seven years.
@@ -74,6 +77,12 @@ gm_km3_s2 = 1.32712440041279419e11         # [GM]
 pole_ra_dec_deg = [286.13, 63.87]          # [PCK]
 prime_meridian_deg = [84.176, 14.1844]
 color = "#fff4e0"
+[bodies.magnetic_field]        # [PFSS]; off unless switched on (B)
+synoptic = "geomag/sun_hmi_synoptic.txt"
+reference_radius_km = 695700.0
+source_surface = 2.5
+max_radius = 4.0
+color = "#f2e6cc"
 
 [[bodies]]
 name = "Mercury"
@@ -227,6 +236,28 @@ caption = """\
     the closest spacecraft to the Sun, and the fastest. Now it swings by about 24 \
     million km from the solar surface. Six more Venus flybys will take it much closer."""
 
+# The Sun's field, seen from the Earth's side and a little above the solar equator, at the
+# minimum between cycles 24 and 25 and near cycle 25's maximum. At an hour per second the
+# Sun turns 0.6 deg a second; the map changes with each Carrington rotation (27.3 days).
+[[events]]
+name = "The Sun's magnetic field at solar minimum (2019-12)"
+magnetic_lines = true
+hide_orbits = true
+time_tdb = "2019-12-15"
+focus = "Sun"
+from_body = "Earth"
+elevation_deg = 20.0
+distance_km = 5.0e6
+warp = 3600.0
+# [PFSS]
+caption = """\
+    The Sun's field, extrapolated from that month's magnetic map by SDO. Near solar \
+    minimum it is close to a tilted dipole: loops (pale) close over a belt near the \
+    equator, and open field (warm: pointing out, blue: pointing in) leaves from the \
+    polar holes, out in the north and in in the south. Beyond 2.5 solar radii the \
+    solar wind is taken to carry every line straight out. A model without currents, \
+    not an image."""
+
 [[events]]
 name = "Venus flyby 2 (2019-12-26, 3,001 km altitude)"
 time_tdb = "2019-12-26 16:16"
@@ -313,6 +344,23 @@ caption = """\
 [[events.trails]]
 body = "Parker Solar Probe"
 trail_history_days = 30.0
+
+[[events]]
+name = "The Sun's magnetic field near solar maximum (2024-10)"
+magnetic_lines = true
+hide_orbits = true
+time_tdb = "2024-10-15"
+focus = "Sun"
+from_body = "Earth"
+elevation_deg = 20.0
+distance_km = 5.0e6
+warp = 3600.0
+# [PFSS]
+caption = """\
+    Near the maximum of cycle 25, five years after the minimum. Loops over the active regions \
+    crowd the low latitudes, only a few lines open into the solar wind, and the \
+    polar field has reversed: the dipole that pointed north in 2019 has turned \
+    over. Extrapolated from SDO's magnetic map of this month, without currents."""
 
 [[events]]
 name = "Venus flyby 7 (2024-11-06, 372 km altitude)"

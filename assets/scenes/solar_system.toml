@@ -156,6 +156,12 @@
 #          the distance where that spacecraft met it. The real shapes are not known: the
 #          two crossings do not fit one such surface, the boundaries breathe with the solar
 #          cycle, and the tail may be long or short. assets/geomag/SOURCES.md.
+#        [PFSS] The Sun's field lines: a potential field with a source surface at 2.5 R_sun
+#          (Schatten, Wilcox & Ness 1969, Solar Phys. 6, 442; Altschuler & Newkirk 1969),
+#          from SDO/HMI synoptic maps of the radial field with the poles filled
+#          (hmi.Synoptic_Mr_polfil_720s, Sun et al. 2011; CC0), degree 20, one map per
+#          Carrington rotation. No currents, no differential rotation within a rotation.
+#          assets/geomag/SOURCES.md.
 #        [MK20] McKinnon et al. 2020, Science 367, eaay6620: Arrokoth is a contact binary
 #          from a gentle, low-speed merger in the early solar system.
 #        [REN] X. Ren, W. Yan, R. Zhao et al., "Interstellar Object 3I/ATLAS Observed from
@@ -240,6 +246,14 @@ gm_km3_s2 = 1.32712440041279419e11         # [GM]
 pole_ra_dec_deg = [286.13, 63.87]          # [PCK]
 prime_meridian_deg = [84.176, 14.1844]
 color = "#fff4e0"
+# The corona's potential field [PFSS]: each Carrington rotation's SDO/HMI map (CR2097 on,
+# 2010-05), source surface at 2.5 R_sun. Off unless switched on (B).
+[bodies.magnetic_field]
+synoptic = "geomag/sun_hmi_synoptic.txt"
+reference_radius_km = 695700.0
+source_surface = 2.5
+max_radius = 4.0
+color = "#f2e6cc"
 # The heliosphere [HELIO]: lengths in au, the nose toward where the interstellar wind comes
 # from [MC15]. Without an event: a round 120 au, between the two crossings.
 [bodies.magnetosphere]

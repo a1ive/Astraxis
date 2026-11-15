@@ -2240,13 +2240,22 @@ void SceneRenderer::build_magnetic_lines(const Simulation& sim, const OutputView
         const glm::dmat3 axes = body.orientation * magnetic_model_to_body(body, t) * field.reference_radius_km;
         if (show_lines && focused) {
             field.lines_in_view = true;
+            const double source_surface = field.model->source_surface();
             for (const std::vector<glm::dvec4>& line : field.lines) {
                 m_line_points.clear();
                 for (const glm::dvec4& p : line) {
                     m_line_points.emplace_back(to_render(body.world_position + axes * glm::dvec3(p), cam),
                                                static_cast<float>(p.w));
                 }
-                m_orbits.add_line(m_line_points, glm::vec4(field.color, static_cast<float>(opacity)), 0.0f);
+                // Through the source surface: the line runs along the field, so its far end
+                // tells which way it points there.
+                glm::vec3 color = field.color;
+                if (source_surface > 0.0 && glm::length(glm::dvec3(line.back())) > source_surface) {
+                    color = field.outward_color;
+                } else if (source_surface > 0.0 && glm::length(glm::dvec3(line.front())) > source_surface) {
+                    color = field.inward_color;
+                }
+                m_orbits.add_line(m_line_points, glm::vec4(color, static_cast<float>(opacity)), 0.0f);
             }
         }
         if (!show_tubes || !body.aurora.jovian) {

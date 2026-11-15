@@ -590,6 +590,10 @@ double magnetic_map_turn_deg(const Body& body, double t_tdb);
 // its lines and the body's strength map to the year of t_tdb. True if they changed.
 // Scene::update does this.
 bool follow_magnetic_field_year(Body& body, double t_tdb);
+// A field per Carrington rotation (BodyMagneticField::synoptic): brings the model to the
+// rotation of t_tdb, or drops it outside the maps, and traces the lines if they were drawn
+// since the last call. Scene::update does this.
+void follow_synoptic_field(Body& body, double t_tdb);
 
 // Rate of the prime meridian (deg/day, negative if retrograde) at t_tdb: the
 // spin table's, else the IAU model's secular rate (without periodic terms).

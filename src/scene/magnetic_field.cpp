@@ -224,6 +224,101 @@ MagneticField MagneticFieldSeries::at(double year) const
     return field;
 }
 
+bool SynopticFieldSeries::load(const std::filesystem::path& file, std::string* error)
+{
+    const auto failed = [&](const std::string& what) {
+        if (error) {
+            *error = file.string() + ": " + what;
+        }
+        return false;
+    };
+    std::ifstream in(file);
+    if (!in) {
+        return failed("cannot open");
+    }
+    m_degree = 0;
+    m_rows.clear();
+    std::string line;
+    while (std::getline(in, line)) {
+        if (line.empty() || line[0] == '#') {
+            continue;
+        }
+        std::istringstream row(line);
+        row.imbue(std::locale::classic());
+        if (line.rfind("degree", 0) == 0) {
+            std::string word;
+            row >> word >> m_degree;
+            if (m_degree < 1 || m_degree > MagneticField::kMaxDegree || !m_rows.empty()) {
+                return failed("bad degree line: " + line);
+            }
+            continue;
+        }
+        int rotation = 0;
+        std::vector<double> values(static_cast<size_t>(m_degree * (m_degree + 2)));
+        row >> rotation;
+        for (double& value : values) {
+            row >> value;
+        }
+        double extra = 0.0;
+        if (m_degree < 1 || !row || row >> extra) {
+            return failed("bad line: " + line.substr(0, 40));
+        }
+        if (m_rows.empty()) {
+            m_first = rotation;
+        } else if (rotation != last_rotation() + 1) {
+            return failed("rotations must follow each other: " + std::to_string(rotation));
+        }
+        m_rows.push_back(std::move(values));
+    }
+    if (m_rows.empty()) {
+        return failed("no rotations");
+    }
+    return true;
+}
+
+MagneticField SynopticFieldSeries::at(int rotation, double source_surface) const
+{
+    constexpr double kNanoteslaPerGauss = 1e5;
+    const std::vector<double>& values =
+        m_rows[static_cast<size_t>(std::clamp(rotation, first_rotation(), last_rotation()) - m_first)];
+    MagneticField field;
+    size_t k = 0;
+    for (int n = 1; n <= m_degree; ++n) {
+        // From the photospheric Br coefficients to the internal part's: Br(1) of degree n is
+        // (n + 1 + n rs^-(2n+1)) times the internal coefficient (Sun, WSO pfss.pdf, eq. 11).
+        const double scale = kNanoteslaPerGauss / (n + 1.0 + n * std::pow(source_surface, -(2.0 * n + 1.0)));
+        field.set_coefficient(false, n, 0, values[k++] * scale);
+        for (int m = 1; m <= n; ++m) {
+            field.set_coefficient(false, n, m, values[k++] * scale);
+            field.set_coefficient(true, n, m, values[k++] * scale);
+        }
+    }
+    field.set_source_surface(source_surface);
+    return field;
+}
+
+double SynopticFieldSeries::rotation_start_tdb(int rotation)
+{
+    const double c = rotation;
+    const double m = (281.96 + 26.882476 * c) * kDegToRad;
+    const double jde = 2398140.2270 + 27.2752316 * c + 0.1454 * std::sin(m) - 0.0085 * std::sin(2.0 * m) -
+                       0.0141 * std::cos(2.0 * m);
+    return (jde - kJ2000Jd) * kSecondsPerDay;
+}
+
+int SynopticFieldSeries::rotation_at(double t_tdb)
+{
+    int rotation = static_cast<int>(std::floor((t_tdb / kSecondsPerDay + kJ2000Jd - 2398140.2270) / 27.2752316));
+    // The periodic terms move the starts by a few hours.
+    while (t_tdb < rotation_start_tdb(rotation)) {
+        --rotation;
+    }
+    while (t_tdb >= rotation_start_tdb(rotation + 1)) {
+        ++rotation;
+    }
+    return rotation;
+}
+
 void MagneticField::set_coefficient(bool is_h, int degree, int order, double value)
 {
     m_degree = std::max(m_degree, degree);
@@ -237,7 +332,22 @@ void MagneticField::set_coefficient(bool is_h, int degree, int order, double val
 
 glm::dvec3 MagneticField::field_nt(const glm::dvec3& x) const
 {
+    const double rs = m_source_surface;
     const double r = glm::length(x);
+    if (rs > 0.0 && r > rs) {
+        // Radial beyond the source surface, with Br falling off as 1/r^2.
+        const glm::dvec3 up = x / r;
+        return glm::dot(field_inside_nt(rs * up), up) * (rs / r) * (rs / r) * up;
+    }
+    return field_inside_nt(x);
+}
+
+glm::dvec3 MagneticField::field_inside_nt(const glm::dvec3& x) const
+{
+    const double r = glm::length(x);
+    // (r/rs)^(2n+1) by degree; zero without a source surface.
+    const double ratio = m_source_surface > 0.0 ? r / m_source_surface : 0.0;
+    double outer = ratio;
     const double cos_theta = x.z / r;
     const double sin_theta = std::max(std::sqrt(std::max(1.0 - cos_theta * cos_theta, 0.0)), 1e-9);
     const double phi = std::atan2(x.y, x.x);
@@ -259,6 +369,9 @@ glm::dvec3 MagneticField::field_nt(const glm::dvec3& x) const
         p[n][n] = sin_theta * p[n - 1][n - 1] * (n == 1 ? 1.0 : std::sqrt((2.0 * dn - 1.0) / (2.0 * dn)));
 
         factor /= r;
+        outer *= ratio * ratio;
+        const double radial_factor = factor * (dn + 1.0 + dn * outer);
+        const double tangential_factor = factor * (1.0 - outer);
         double cos_m = 1.0, sin_m = 0.0;
         for (int m = 0; m <= n; ++m) {
             const double dm = m;
@@ -267,9 +380,9 @@ glm::dvec3 MagneticField::field_nt(const glm::dvec3& x) const
             const double along = gnm * cos_m + hnm * sin_m;
             const double previous = m < n ? p[n - 1][m] : 0.0;
             const double derivative = (dn * cos_theta * p[n][m] - std::sqrt(dn * dn - dm * dm) * previous) / sin_theta;
-            radial += (dn + 1.0) * factor * along * p[n][m];
-            polar -= factor * along * derivative;
-            azimuthal += dm * factor * (gnm * sin_m - hnm * cos_m) * p[n][m] / sin_theta;
+            radial += radial_factor * along * p[n][m];
+            polar -= tangential_factor * along * derivative;
+            azimuthal += dm * tangential_factor * (gnm * sin_m - hnm * cos_m) * p[n][m] / sin_theta;
             const double next_cos = cos_m * cos_phi - sin_m * sin_phi;
             sin_m = sin_m * cos_phi + cos_m * sin_phi;
             cos_m = next_cos;
@@ -334,12 +447,31 @@ std::vector<glm::dvec4> trace_field_line(const MagneticField& field, const glm::
 
 std::vector<std::vector<glm::dvec4>> trace_field_lines(const MagneticField& field, const FieldLineSettings& s)
 {
+    std::vector<std::vector<glm::dvec4>> lines;
+    const auto on_surface = [&](const glm::dvec4& p) { return surface_level(glm::dvec3(p), s) < 1e-2; };
+    if (s.surface_seeds > 0) {
+        const double golden_angle = kPi * (3.0 - std::sqrt(5.0));
+        for (int i = 0; i < s.surface_seeds; ++i) {
+            const double z = 1.0 - (2.0 * i + 1.0) / s.surface_seeds;
+            const double rho = std::sqrt(1.0 - z * z);
+            const glm::dvec3 direction(rho * std::cos(golden_angle * i), rho * std::sin(golden_angle * i), z);
+            const double radius = 1.0 / std::sqrt(rho * rho / (s.surface_equatorial * s.surface_equatorial) +
+                                                  z * z / (s.surface_polar * s.surface_polar));
+            const glm::dvec3 seed = 1.002 * radius * direction;
+            std::vector<glm::dvec4> line = trace_field_line(field, seed, s);
+            if (line.size() < 2 || (on_surface(line.front()) && on_surface(line.back()) &&
+                                    glm::dot(field.field_nt(seed), direction) < 0.0)) {
+                continue;
+            }
+            lines.push_back(std::move(line));
+        }
+        return lines;
+    }
     const glm::dvec3 axis = field.dipole_axis();
     const glm::dvec3 offset = field.dipole_offset();
     const glm::dvec3 reference = std::abs(axis.y) < 0.9 ? glm::dvec3(0.0, 1.0, 0.0) : glm::dvec3(1.0, 0.0, 0.0);
     const glm::dvec3 e1 = glm::normalize(glm::cross(axis, reference));
     const glm::dvec3 e2 = glm::cross(axis, e1);
-    std::vector<std::vector<glm::dvec4>> lines;
     for (size_t shell = 0; shell < s.l_shells.size(); ++shell) {
         for (int k = 0; k < s.lines_per_shell; ++k) {
             // Alternate shells are staggered, so that the lines do not stack up.
@@ -351,7 +483,6 @@ std::vector<std::vector<glm::dvec4>> trace_field_lines(const MagneticField& fiel
             std::vector<glm::dvec4> line = trace_field_line(field, seed, s);
             // In an ambient field a ring may lie beyond the last closed line: those lines
             // pass the body by, and the ones that leave it are started below.
-            const auto on_surface = [&](const glm::dvec4& p) { return surface_level(glm::dvec3(p), s) < 1e-2; };
             if (!s.open_latitudes_deg.empty() && !(on_surface(line.front()) && on_surface(line.back()))) {
                 continue;
             }

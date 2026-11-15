@@ -1,7 +1,8 @@
 name: Refresh forecast data
 
-# Once a month: the hourly OMNI2 solar wind and the forecast tails of the space telescope
-# ephemerides (tools/refresh/monthly_refresh.py). The result goes to a pull request from
+# Once a month: the hourly OMNI2 solar wind, the forecast tails of the space telescope
+# ephemerides and the Sun's field from the newest HMI synoptic maps
+# (tools/refresh/monthly_refresh.py). The result goes to a pull request from
 # the auto/refresh-data branch, and build.yml is dispatched on that branch to test it.
 on:
   schedule:
@@ -19,7 +20,7 @@ concurrency:
 
 jobs:
   refresh:
-    name: Refresh OMNI2 and telescope forecasts
+    name: Refresh OMNI2, telescope forecasts and HMI maps
     if: github.ref_name == github.event.repository.default_branch
     runs-on: ubuntu-latest
     timeout-minutes: 180
@@ -43,7 +44,7 @@ jobs:
             exit 0
           fi
           git diff --stat
-          title="Refresh OMNI2 solar wind and telescope forecasts ($(date -u +%Y-%m))"
+          title="Refresh OMNI2 solar wind, telescope forecasts and HMI maps ($(date -u +%Y-%m))"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git switch -C "$BRANCH"

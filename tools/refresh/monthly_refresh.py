@@ -1,7 +1,7 @@
 """Monthly refresh of the data that ends in a forecast or at the latest measurement
 (run by .github/workflows/refresh-data.yml; works the same by hand).
 
-    python -I tools/refresh/monthly_refresh.py [--skip-omni] [--skip-ephem] [--body <file>]
+    python -I tools/refresh/monthly_refresh.py [--skip-omni] [--skip-ephem] [--skip-hmi] [--body <file>]
 
 1. OMNI2: downloads the yearly hourly files into build/omni (years already there are kept,
    the last three are always fetched again: recent values get revised), rebakes
@@ -11,7 +11,11 @@
    moves `stop` in tools/bake/ephem.toml to the last whole hour at least a minute inside
    it, rebakes with tools/bake/horizons_bake.py and updates the table row in
    assets/ephem/SOURCES.md.
-3. With --body, writes a pull request description: what changed, the trajectory notes
+3. HMI: lists the polar-filled synoptic maps on JSOC, downloads into build/hmi/refresh the
+   last two rotations already in assets/geomag/sun_hmi_synoptic.txt (in case they were
+   reprocessed) and every newer one, merges them in with tools/geomag/sun_synoptic_bake.py
+   --merge and updates the coverage in assets/geomag/SOURCES.md.
+4. With --body, writes a pull request description: what changed, the trajectory notes
    Horizons gives for each target, and what is left to check by hand.
 
 Every documented number it rewrites must be found exactly once; if a page was reworded,
@@ -20,6 +24,7 @@ the script stops instead of leaving the data and the page apart. Standard librar
 
 import datetime
 import hashlib
+import math
 import os
 import re
 import struct
@@ -39,6 +44,11 @@ GEOMAG_SOURCES = os.path.join(ROOT, 'assets', 'geomag', 'SOURCES.md')
 EPHEM_CONFIG = os.path.join(ROOT, 'tools', 'bake', 'ephem.toml')
 EPHEM_SOURCES = os.path.join(ROOT, 'assets', 'ephem', 'SOURCES.md')
 HORIZONS_API = 'https://ssd.jpl.nasa.gov/api/horizons.api'
+HMI_INDEX = 'http://jsoc.stanford.edu/data/hmi/synoptic/'
+HMI_MAP = 'hmi.Synoptic_Mr_polfil.{}.fits'
+HMI_DIR = os.path.join(ROOT, 'build', 'hmi', 'refresh')
+SUN_FIELD = os.path.join(ROOT, 'assets', 'geomag', 'sun_hmi_synoptic.txt')
+HMI_FIRST_ROTATION = 2097
 
 # The telescopes whose tables run into a forecast (assets/scenes/space_telescopes.toml).
 TARGETS = ['jwst_geo', 'euclid_geo', 'roman_geo', 'tess_geo', 'chandra_geo']
@@ -249,9 +259,63 @@ def refresh_ephem():
     return results
 
 
+# --- HMI synoptic maps -------------------------------------------------------
+
+def sun_field_summary(path):
+    """(first rotation, last rotation, g'10 of the last in G) of sun_hmi_synoptic.txt."""
+    rows = []
+    with open(path, encoding='utf-8') as f:
+        for line in f:
+            if line[0].isdigit():
+                rotation, g10 = line.split()[:2]
+                rows.append((int(rotation), float(g10)))
+    return rows[0][0], rows[-1][0], rows[-1][1]
+
+
+def rotation_end(rotation):
+    """When Carrington rotation `rotation` ends (Meeus ch. 29, as SynopticFieldSeries), UTC to a day."""
+    c = rotation + 1
+    m = math.radians(281.96 + 26.882476 * c)
+    jde = 2398140.2270 + 27.2752316 * c + 0.1454 * math.sin(m) - 0.0085 * math.sin(2 * m) - 0.0141 * math.cos(2 * m)
+    return datetime.datetime(2000, 1, 1, 12) + datetime.timedelta(days=jde - 2451545.0)
+
+
+def refresh_hmi():
+    first, old_last, old_g10 = sun_field_summary(SUN_FIELD)
+    index = fetch(HMI_INDEX).decode('utf-8', errors='replace')
+    listed = {int(r) for r in re.findall(r'hmi\.Synoptic_Mr_polfil\.(\d{4})\.fits', index)}
+    if not listed or first != HMI_FIRST_ROTATION:
+        sys.exit(f'JSOC lists no polar-filled maps, or the file starts at CR{first}')
+    wanted = list(range(old_last - 1, max(listed) + 1))
+    missing = [r for r in wanted if r not in listed]
+    if missing:
+        sys.exit(f'JSOC lacks the polar-filled maps of CR{missing}; the rotations must follow each other')
+    os.makedirs(HMI_DIR, exist_ok=True)
+    for name in os.listdir(HMI_DIR):  # what the bake merges is what is downloaded now
+        os.remove(os.path.join(HMI_DIR, name))
+    for rotation in wanted:
+        name = HMI_MAP.format(rotation)
+        data = fetch(HMI_INDEX + name, timeout=300)
+        with open(os.path.join(HMI_DIR, name), 'wb') as f:
+            f.write(data)
+        print(f'downloaded {name} ({len(data) // 1024} KB)')
+    run(os.path.join('tools', 'geomag', 'sun_synoptic_bake.py'), '--merge', HMI_DIR, SUN_FIELD)
+    _, new_last, new_g10 = sun_field_summary(SUN_FIELD)
+
+    text, nl = read_text(GEOMAG_SOURCES)
+    where = 'assets/geomag/SOURCES.md'
+    end = rotation_end(new_last)
+    text = replace_once(text, r'覆盖 CR2097–CR\d{4}（2010-05 至 \d{4}-\d{2}）',
+                        f'覆盖 CR2097–CR{new_last}（2010-05 至 {end:%Y-%m}）', where)
+    text = replace_once(text, r'seq 2097 \d{4}', f'seq 2097 {new_last}', where)
+    write_text(GEOMAG_SOURCES, text, nl)
+    return {'old_last': old_last, 'new_last': new_last, 'old_g10': old_g10, 'new_g10': new_g10,
+            'baked': wanted, 'end': end}
+
+
 # --- Pull request -----------------------------------------------------------
 
-def pr_body(today, omni, ephem):
+def pr_body(today, omni, ephem, hmi=None):
     out = [f'每月自动刷新（{today:%Y-%m-%d}，`tools/refresh/monthly_refresh.py`）。数据由脚本重新下载和烘焙，'
            '资料页里的数字已同步；文字说明需要人工核对后再合并。', '']
     if omni:
@@ -272,12 +336,21 @@ def pr_body(today, omni, ephem):
         for r in ephem:
             out += [f'<details><summary><code>{r["name"]}</code>（{r["command"]}）</summary>', '', '```',
                     r['notes'] or '(no trajectory notes)', '```', '', '</details>', '']
+    if hmi:
+        added = hmi['new_last'] - hmi['old_last']
+        out += ['## 太阳磁场（HMI 综观图）', '',
+                f'重新烘焙 CR{hmi["baked"][0]}–CR{hmi["baked"][-1]}，新增 {added} 个自转周；'
+                f'文件现在到 CR{hmi["new_last"]}（约 {hmi["end"]:%Y-%m-%d} 结束）。'
+                f"最后一周的 g'10：{hmi['old_g10']:+.3f} G（CR{hmi['old_last']}）→ {hmi['new_g10']:+.3f} G"
+                f'（CR{hmi["new_last"]}）。', '']
     out += ['## 合并前核对', '',
             '- [ ] Windows 和 Linux 的构建与测试通过（工作流已在本分支上触发 `build.yml`）。',
             '- [ ] `assets/ephem/SOURCES.md` 的说明文字：各望远镜的烘焙日期、跟踪数据截止日、预报来源。',
             '- [ ] `tools/bake/ephem.toml` 中望远镜一节的覆盖注释（“checked …”、轨道文件名）。',
             '- [ ] 结束时间变化较大时，打开 Space Telescopes 场景看最后一段轨迹，并核对测试里依赖预报段的跨度。',
-            '- [ ] OMNI2 的年代覆盖率（`solar_wind_bake.py` 的输出）与 `assets/geomag/SOURCES.md` 一致。']
+            '- [ ] OMNI2 的年代覆盖率（`solar_wind_bake.py` 的输出）与 `assets/geomag/SOURCES.md` 一致。',
+            '- [ ] 新的 HMI 自转周：`sun_synoptic_bake.py` 是否报告了空白像素或较大的净通量；'
+            '需要时在 Solar System 场景里按 B 看最新一周的太阳磁力线。']
     return '\n'.join(out) + '\n'
 
 
@@ -290,15 +363,16 @@ def main():
             sys.exit(__doc__)
         body_path = args[i + 1]
         del args[i:i + 2]
-    unknown = [a for a in args if a not in ('--skip-omni', '--skip-ephem')]
+    unknown = [a for a in args if a not in ('--skip-omni', '--skip-ephem', '--skip-hmi')]
     if unknown:
         sys.exit(__doc__)
     today = datetime.datetime.now(datetime.timezone.utc).date()
     omni = None if '--skip-omni' in args else refresh_omni(today)
     ephem = None if '--skip-ephem' in args else refresh_ephem()
+    hmi = None if '--skip-hmi' in args else refresh_hmi()
     if body_path:
         with open(body_path, 'w', encoding='utf-8', newline='\n') as f:
-            f.write(pr_body(today, omni, ephem))
+            f.write(pr_body(today, omni, ephem, hmi))
         print(f'wrote {body_path}')
 
 

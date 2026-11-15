@@ -51,6 +51,7 @@ ctest --test-dir build/linux -C Release --output-on-failure --no-tests=error
 - 把 `<name>.<vert|frag|comp>.hlsl` 加到 [CMakeLists.txt](CMakeLists.txt) 的 `astraxis_add_shaders`。包含生成的 `<shaders/<name>.<stage>.h>`，把 DXIL 和 SPIR-V 一起交给 `create_shader`。
 - 按 SDL_GPU 的 `register`/`space` 约定绑定资源。片元纹理用 `FRAGMENT_TEXTURE` 配对纹理和采样器，输入和输出按 `TEXCOORD0`、`TEXCOORD1` 等顺序声明，系统语义照常使用。读存储缓冲区用 `ByteAddressBuffer`，与 D3D12 的 RAW SRV 对齐。SDL 的 Vulkan 后端每个 uniform 绑定限 4 KiB。用 `static_assert` 检查大小，大表用纹理或存储缓冲区。
 - D3D12 的 ImGui 后端需要 DXBC，创建设备时声明 `DXIL | DXBC`。各宿主都调用 `ImGui_ImplSDLGPU3_NewFrame()` 以初始化后端资源。全局快捷键用 `WantTextInput` 判断是否正在输入文本。
+- 太阳的磁力线是 PFSS（`[bodies.magnetic_field]` 的 `synoptic`）：每个卡林顿周一组 HMI 系数，`Scene::update` 按时钟换模型，线也只在被画出时重新追踪，测试里同样先设 `lines_in_view`。系数用 `tools/geomag/sun_synoptic_bake.py` 从 JSOC 的 polfil 综观图重新生成。
 - 随时间变的磁力线（Ganymede 叠加木星磁场）只在被画出时更新：绘制方设 `BodyMagneticField::lines_in_view`，`Scene::update` 下一帧才追踪，测试里要先设这个标志。
 - 查表的边界面（`BoundaryTable`，海王星）在四个方位的剖面之间用 `a + b cos φ + c sin φ + d cos 2φ` 相接；加新的表时四条剖面在日向上要取同一个值。
 - 磁层顶、弓激波等线框曲面走轨道线的 pass（`OrbitLinePass::add_line`），每帧由 `boundary_wireframe` 生成。画面用的太阳风经 `Scene::magnetosphere_wind` 取得，不直接读事件里的值。
@@ -63,7 +64,7 @@ ctest --test-dir build/linux -C Release --output-on-failure --no-tests=error
 - 没有太阳天体的场景可用 `from_body = "Sun"` 引用太阳方向。没有地球时用 `observer` 和 `observer_offset_km` 锚定地球方向的设计视点。`flyby` 需要最近点两侧都有数据，撞击事件用视点字段构图。`elevation_deg` 覆盖俯仰角，`phase_deg` 调整方位角。
 - 视点超过星表完整距离 `max_viewer_pc` 时，用 [模型星空](assets/sky/SOURCES.md)。近地航天器若用平根数画一圈轨道，用 `trail = "orbit"`。换参考系或时间倍率后检查轨迹密度和事件节奏。
 - 用原始观测或论文表格标注物理量来源。场景 TOML 文件头列出引用标签，正文引用这些标签。能用独立数据交叉验证的位置、方向、距离或时刻，写进相关测试。核对时间尺度、光行时、参考中心、经纬度正方向以及距离是到中心还是到表面。
-- [refresh-data](.github/workflows/refresh-data.yml) 每月 3 日运行 [monthly_refresh.py](tools/refresh/monthly_refresh.py)：重新下载 OMNI2，把 JWST、Euclid、Roman、TESS、Chandra 的 `stop` 移到 Horizons 当前覆盖的末端并重新烘焙，同步资料页里的数字，然后从 `auto/refresh-data` 开 PR，并在该分支上触发 `build.yml`。合并前按 PR 里的清单核对资料页文字。测试不要钉住预报段的状态或表的结束时间（用 `EphemerisMotion::table().end()`），否则每月刷新都会失败。仓库设置里要允许 GitHub Actions 创建 PR。
+- [refresh-data](.github/workflows/refresh-data.yml) 每月 3 日运行 [monthly_refresh.py](tools/refresh/monthly_refresh.py)：重新下载 OMNI2，把 JWST、Euclid、Roman、TESS、Chandra 的 `stop` 移到 Horizons 当前覆盖的末端并重新烘焙，补上 JSOC 新出的 HMI 综观图并合并进太阳的磁场系数，同步资料页里的数字，然后从 `auto/refresh-data` 开 PR，并在该分支上触发 `build.yml`。合并前按 PR 里的清单核对资料页文字。测试不要钉住预报段的状态或表的结束时间（用 `EphemerisMotion::table().end()`，HMI 用 `last_rotation()`），否则每月刷新都会失败。仓库设置里要允许 GitHub Actions 创建 PR。
 - 星历工具在 [tools/bake](tools/bake)。压缩容差约束位置，点火和数据接缝要另留节点。Δv 按原表节点计算，靠近扁行星时扣除带状谐项。分段 SPK 按实际记录覆盖取值，详见 [星历资料](assets/ephem/SOURCES.md)。
 - 航天器转换用 [make_spacecraft.py](tools/shapes/make_spacecraft.py)。导入时应用节点变换，用已知部件标定尺寸，核对 OBJ 导出轴和关键部件法线。模型用硬边标志，删除游离顶点。`point_at` 指定 +z 方向，`fill_light` 是示意补光。烘焙自阴影时要核对模型的 +z 与场景中的入射阳光方向。
 - 依赖由 CMake FetchContent 固定到版本或提交。外部数据选用许可明确的来源，优先公有领域。原始大文件按资料页下载。新增依赖、移植代码或外部资源时更新 [第三方声明](THIRD_PARTY_NOTICES.md) 和相关资料页。新增或改名场景时更新 README 的场景表。
