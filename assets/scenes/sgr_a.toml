@@ -191,12 +191,15 @@ sky_ra_dec_deg = [266.41683333, -29.00781611]
 # and orientation (their convention matches [GR20]'s for S2); the size follows
 # from the period and this scene's mass. Like S2 they are taken as 25,000 K;
 # luminosities scale with S2's by their K magnitudes (same temperature, so the same
-# bolometric correction and extinction), radii as sqrt(L). No labels: a crowd.
+# bolometric correction and extinction), radii as sqrt(L). No labels: a crowd. Nor
+# are they on the H-R diagram: one assumed temperature would line them up in a column,
+# most of it below the main sequence (the fainter ones are cooler B stars).
 [[bodies]]
 name = "S1"
 parent = "Sgr A*"
 kind = "star"
 label = false
+hr_diagram = false
 radii_km = [2955107.0]
 temperature_k = 25000.0
 luminosity_solar = 6350.0      # K = 14.7
@@ -217,6 +220,7 @@ name = "S4"
 parent = "Sgr A*"
 kind = "star"
 label = false
+hr_diagram = false
 radii_km = [3392917.0]
 temperature_k = 25000.0
 luminosity_solar = 8370.0      # K = 14.4
@@ -237,6 +241,7 @@ name = "S6"
 parent = "Sgr A*"
 kind = "star"
 label = false
+hr_diagram = false
 radii_km = [2140786.0]
 temperature_k = 25000.0
 luminosity_solar = 3332.0      # K = 15.4
@@ -257,6 +262,7 @@ name = "S8"
 parent = "Sgr A*"
 kind = "star"
 label = false
+hr_diagram = false
 radii_km = [3240211.0]
 temperature_k = 25000.0
 luminosity_solar = 7634.0      # K = 14.5
@@ -277,6 +283,7 @@ name = "S9"
 parent = "Sgr A*"
 kind = "star"
 label = false
+hr_diagram = false
 radii_km = [2457951.0]
 temperature_k = 25000.0
 luminosity_solar = 4393.0      # K = 15.1
@@ -297,6 +304,7 @@ name = "S12"
 parent = "Sgr A*"
 kind = "star"
 label = false
+hr_diagram = false
 radii_km = [2044435.0]
 temperature_k = 25000.0
 luminosity_solar = 3039.0      # K = 15.5
@@ -317,6 +325,7 @@ name = "S13"
 parent = "Sgr A*"
 kind = "star"
 label = false
+hr_diagram = false
 radii_km = [1780628.0]
 temperature_k = 25000.0
 luminosity_solar = 2305.0      # K = 15.8
@@ -337,6 +346,7 @@ name = "S14"
 parent = "Sgr A*"
 kind = "star"
 label = false
+hr_diagram = false
 radii_km = [1864547.0]
 temperature_k = 25000.0
 luminosity_solar = 2528.0      # K = 15.7
@@ -357,6 +367,7 @@ name = "S18"
 parent = "Sgr A*"
 kind = "star"
 label = false
+hr_diagram = false
 radii_km = [1176449.0]
 temperature_k = 25000.0
 luminosity_solar = 1006.0      # K = 16.7
@@ -377,6 +388,7 @@ name = "S19"
 parent = "Sgr A*"
 kind = "star"
 label = false
+hr_diagram = false
 radii_km = [1623952.0]
 temperature_k = 25000.0
 luminosity_solar = 1918.0      # K = 16.0
@@ -397,6 +409,7 @@ name = "S22"
 parent = "Sgr A*"
 kind = "star"
 label = false
+hr_diagram = false
 radii_km = [1231894.0]
 temperature_k = 25000.0
 luminosity_solar = 1103.0      # K = 16.6
@@ -417,6 +430,7 @@ name = "S23"
 parent = "Sgr A*"
 kind = "star"
 label = false
+hr_diagram = false
 radii_km = [708881.0]
 temperature_k = 25000.0
 luminosity_solar = 365.0      # K = 17.8
@@ -437,6 +451,7 @@ name = "S29"
 parent = "Sgr A*"
 kind = "star"
 label = false
+hr_diagram = false
 radii_km = [1176449.0]
 temperature_k = 25000.0
 luminosity_solar = 1006.0      # K = 16.7
@@ -457,6 +472,7 @@ name = "S31"
 parent = "Sgr A*"
 kind = "star"
 label = false
+hr_diagram = false
 radii_km = [1864547.0]
 temperature_k = 25000.0
 luminosity_solar = 2528.0      # K = 15.7
@@ -477,6 +493,7 @@ name = "S33"
 parent = "Sgr A*"
 kind = "star"
 label = false
+hr_diagram = false
 radii_km = [1623952.0]
 temperature_k = 25000.0
 luminosity_solar = 1918.0      # K = 16.0
@@ -497,6 +514,7 @@ name = "S60"
 parent = "Sgr A*"
 kind = "star"
 label = false
+hr_diagram = false
 radii_km = [1414403.0]
 temperature_k = 25000.0
 luminosity_solar = 1455.0      # K = 16.3
@@ -517,6 +535,7 @@ name = "S66"
 parent = "Sgr A*"
 kind = "star"
 label = false
+hr_diagram = false
 radii_km = [2822106.0]
 temperature_k = 25000.0
 luminosity_solar = 5791.0      # K = 14.8
@@ -537,6 +556,7 @@ name = "S67"
 parent = "Sgr A*"
 kind = "star"
 label = false
+hr_diagram = false
 radii_km = [9785280.0]
 temperature_k = 25000.0
 luminosity_solar = 69621.0      # K = 12.1
@@ -557,6 +577,7 @@ name = "S71"
 parent = "Sgr A*"
 kind = "star"
 label = false
+hr_diagram = false
 radii_km = [1550862.0]
 temperature_k = 25000.0
 luminosity_solar = 1749.0      # K = 16.1
@@ -577,6 +598,7 @@ name = "S83"
 parent = "Sgr A*"
 kind = "star"
 label = false
+hr_diagram = false
 radii_km = [4904257.0]
 temperature_k = 25000.0
 luminosity_solar = 17488.0      # K = 13.6
@@ -597,6 +619,7 @@ name = "S87"
 parent = "Sgr A*"
 kind = "star"
 label = false
+hr_diagram = false
 radii_km = [4904257.0]
 temperature_k = 25000.0
 luminosity_solar = 17488.0      # K = 13.6
@@ -617,6 +640,7 @@ name = "S91"
 parent = "Sgr A*"
 kind = "star"
 label = false
+hr_diagram = false
 radii_km = [9344870.0]
 temperature_k = 25000.0
 luminosity_solar = 63495.0      # K = 12.2
@@ -637,6 +661,7 @@ name = "S96"
 parent = "Sgr A*"
 kind = "star"
 label = false
+hr_diagram = false
 radii_km = [25737909.0]
 temperature_k = 25000.0
 luminosity_solar = 481662.0      # K = 10.0
@@ -657,6 +682,7 @@ name = "S175"
 parent = "Sgr A*"
 kind = "star"
 label = false
+hr_diagram = false
 radii_km = [813904.0]
 temperature_k = 25000.0
 luminosity_solar = 482.0      # K = 17.5
@@ -677,6 +703,7 @@ name = "R34"
 parent = "Sgr A*"
 kind = "star"
 label = false
+hr_diagram = false
 radii_km = [4079184.0]
 temperature_k = 25000.0
 luminosity_solar = 12099.0      # K = 14.0

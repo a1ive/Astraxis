@@ -1,6 +1,7 @@
 // ImGui panels and on-screen body labels.
 
 #include "app/app.hpp"
+#include "app/hr_diagram_overlay.hpp"
 #include "app/label_overlay.hpp"
 #include "app/light_curve_overlay.hpp"
 
@@ -681,6 +682,10 @@ void App::build_info_panel()
                 info_row("Luminosity", "%.3g L_sun", body.luminosity_solar);
             }
             ImGui::EndTable();
+        }
+        if (shows_hr_diagram(body)) {
+            ImGui::SeparatorText("H-R diagram");
+            draw_hr_diagram(scene, focus, std::max(ImGui::GetContentRegionAvail().x, 15.0f * ImGui::GetFontSize()));
         }
     }
 

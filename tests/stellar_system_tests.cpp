@@ -7,6 +7,7 @@
 #include "core/time.hpp"
 #include "ephem/ephemeris.hpp"
 #include "ephem/kepler.hpp"
+#include "scene/hr_diagram.hpp"
 #include "scene/light_curve.hpp"
 #include "scene/scene_loader.hpp"
 #include "scene/simulation.hpp"
@@ -3794,6 +3795,92 @@ void test_beta_lyrae_scene()
           "Beta Lyrae A photometry retains the calibrated slab eclipse depths");
 }
 
+// The info panel's H-R diagram (scene/hr_diagram.hpp): its stellar models
+// against the Sun and a measured white dwarf, and the scenes' stars where they
+// belong on it.
+void test_hr_diagram()
+{
+    // [TO96] at 1 M_sun: the zero-age Sun was ~30% fainter.
+    const StellarModelPoint zams = zams_star(1.0);
+    check(std::abs(zams.luminosity - 0.698) < 0.002, "ZAMS luminosity at 1 M_sun", zams.luminosity);
+    check(std::abs(zams.radius - 0.888) < 0.002, "ZAMS radius at 1 M_sun", zams.radius);
+    // [HPT00]'s 1 M_sun model at the Sun's age (4.57 Gyr) is the Sun to a few percent.
+    const StellarModelPoint sun = main_sequence_star(1.0, 4.57e9);
+    check(std::abs(sun.luminosity - 1.0) < 0.06, "1 M_sun model at 4.57 Gyr: luminosity", sun.luminosity);
+    check(std::abs(sun.radius - 1.0) < 0.03, "1 M_sun model at 4.57 Gyr: radius", sun.radius);
+    check(std::abs(effective_temperature_k(sun.luminosity, sun.radius) - 5772.0) < 60.0,
+          "1 M_sun model at 4.57 Gyr: temperature", effective_temperature_k(sun.luminosity, sun.radius));
+    const double sun_life = main_sequence_lifetime_yr(1.0);
+    check(sun_life > 9e9 && sun_life < 12e9, "main-sequence lifetime at 1 M_sun", sun_life);
+    // Held at the end of the main sequence, and brighter there at every mass.
+    for (double m = 0.1; m <= 100.0; m *= 1.25) {
+        const StellarModelPoint end = main_sequence_star(m, main_sequence_lifetime_yr(m));
+        const StellarModelPoint later = main_sequence_star(m, 2.0 * main_sequence_lifetime_yr(m));
+        check(end.luminosity == later.luminosity && end.radius == later.radius, "held at the end of the MS", m);
+        check(end.luminosity >= zams_star(m).luminosity, "MS end at least as bright as the ZAMS", m);
+    }
+    // [TO97] against PSR J1141-6545's white dwarf: 1.02 M_sun, ~5,400 km [VK20].
+    const Scene j1141 = load_scene_or_die("psr_j1141.toml");
+    const double wd_radius =
+        j1141.bodies[static_cast<size_t>(j1141.find("J1141-6545 white dwarf"))].equatorial_radius_km / kSunRadiusKm;
+    check(std::abs(white_dwarf_radius(1.02) / wd_radius - 1.0) < 0.03, "white dwarf radius at 1.02 M_sun",
+          white_dwarf_radius(1.02) * kSunRadiusKm);
+
+    const HrBand ms = main_sequence_band();
+    const HrBand wd = white_dwarf_band();
+    const auto at = [](const Scene& scene, const char* name) {
+        const Body& b = scene.bodies[static_cast<size_t>(scene.find(name))];
+        return HrPoint{std::log10(b.temperature_k), std::log10(b.luminosity_solar)};
+    };
+    check(ms.contains({std::log10(5772.0), 0.0}), "the Sun on the main sequence");
+    const Scene alpha_cen = load_scene_or_die("alpha_centauri.toml");
+    check(ms.contains(at(alpha_cen, "Alpha Centauri A")), "Alpha Centauri A on the main sequence");
+    check(ms.contains(at(alpha_cen, "Alpha Centauri B")), "Alpha Centauri B on the main sequence");
+    // Red dwarfs sit at most ~0.03 dex (5%) cooler than [TO96]'s zero-age line,
+    // whose low-mass models run a little hot (limitations.md).
+    check(ms.distance(at(alpha_cen, "Proxima Centauri")) < 0.04, "Proxima Centauri by the main sequence",
+          ms.distance(at(alpha_cen, "Proxima Centauri")));
+    const Scene castor = load_scene_or_die("castor.toml");
+    check(ms.distance(at(castor, "Castor Ab")) < 0.04, "Castor Ab by the main sequence",
+          ms.distance(at(castor, "Castor Ab")));
+    check(ms.contains(at(castor, "Castor Aa")), "Castor Aa on the main sequence");
+    // The Algol paradox: the less massive star has left the main sequence.
+    const Scene algol = load_scene_or_die("algol.toml");
+    check(ms.contains(at(algol, "Algol A")), "Algol A on the main sequence");
+    // (Distances are in dex along both axes: Algol B is ~1 dex brighter than the
+    // band at its temperature, but ~0.09 dex from its cool corner.)
+    check(!ms.contains(at(algol, "Algol B")) && ms.distance(at(algol, "Algol B")) > 0.05,
+          "Algol B off the main sequence", ms.distance(at(algol, "Algol B")));
+    // PDS 70 is still contracting toward it, above it.
+    const Scene pds70 = load_scene_or_die("pds70.toml");
+    const HrPoint pds = at(pds70, "PDS 70");
+    check(!ms.contains(pds) && ms.distance(pds) > 0.05, "PDS 70 off the main sequence", ms.distance(pds));
+    // Delta Cephei loops through the instability strip, clear of it all cycle long
+    // (~0.42 dex from the band's top, which bends cooler there).
+    const Scene cep = load_scene_or_die("delta_cephei.toml");
+    const Body& cep_a = cep.bodies[static_cast<size_t>(cep.find("Delta Cephei A"))];
+    check(cep_a.pulsation != nullptr, "Delta Cephei A pulsates");
+    if (cep_a.pulsation) {
+        for (const Pulsation::Sample& s : cep_a.pulsation->samples) {
+            const HrPoint p{std::log10(s.temperature_k), std::log10(s.luminosity_solar)};
+            check(ms.distance(p) > 0.3 && !wd.contains(p), "Delta Cephei A a supergiant", ms.distance(p));
+        }
+    }
+    check(wd.contains(at(j1141, "J1141-6545 white dwarf")), "J1141-6545's companion among the white dwarfs");
+    check(!ms.contains(at(j1141, "J1141-6545 white dwarf")), "a white dwarf off the main sequence");
+
+    // Left off: the S-stars whose temperature is one assumed value, and Kerbol.
+    const Scene sgr = load_scene_or_die("sgr_a.toml");
+    int crowd = 0;
+    for (const Body& b : sgr.bodies) {
+        crowd += b.kind == BodyKind::Star && !b.hr_diagram ? 1 : 0;
+    }
+    check(crowd == 25, "the S-star crowd left off the H-R diagram", crowd);
+    check(sgr.bodies[static_cast<size_t>(sgr.find("S2"))].hr_diagram, "S2 on the H-R diagram");
+    const Scene kerbol = load_scene_or_die("kerbol.toml");
+    check(!kerbol.bodies[static_cast<size_t>(kerbol.find("Kerbol"))].hr_diagram, "Kerbol left off the H-R diagram");
+}
+
 } // namespace
 
 void run_stellar_system_tests()
@@ -3819,4 +3906,5 @@ void run_stellar_system_tests()
     test_wr140_scene();
     test_observed_light_and_exposure();
     test_eta_carinae_scene();
+    test_hr_diagram();
 }

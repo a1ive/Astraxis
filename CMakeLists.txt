@@ -81,6 +81,8 @@ add_library(astraxis_sim STATIC
     src/scene/camera_director.cpp
     src/scene/camera_director.hpp
     src/scene/comet.cpp
+    src/scene/hr_diagram.cpp
+    src/scene/hr_diagram.hpp
     src/scene/impact.cpp
     src/scene/impact.hpp
     src/scene/comet.hpp
@@ -183,6 +185,8 @@ add_executable(astraxis
     src/app/app_ui.cpp
     src/app/captions.cpp
     src/app/captions.hpp
+    src/app/hr_diagram_overlay.cpp
+    src/app/hr_diagram_overlay.hpp
     src/app/label_overlay.cpp
     src/app/label_overlay.hpp
     src/app/light_curve_overlay.cpp

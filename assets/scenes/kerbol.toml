@@ -82,6 +82,7 @@ pole_ra_dec_deg = [270.0, 90.0]
 prime_meridian_deg = [0.0, 72.0]
 temperature_k = 5772.0     # the Sun's: the game's look, not its numbers (see above)
 luminosity_solar = 0.0082574 # [PHY]
+hr_diagram = false         # its temperature is for looks; the H-R diagram is for real stars
 
 [[bodies]]
 name = "Moho"

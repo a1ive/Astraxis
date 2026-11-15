@@ -160,7 +160,7 @@ The auto tour switches views and visits events in time order, slowing down for f
 | `[` / `]` | Halve / double time warp |
 | `N` | Jump to the current time |
 | `A` | Toggle auto tour (starts by itself after 60 s idle) |
-| `O` / `L` / `I` | Toggle orbits / labels / the focused body's info panel |
+| `O` / `L` / `I` | Toggle orbits / labels / the focused body's info panel (for a star, with its place on an H–R diagram) |
 | `E` | Hide or show the current event's caption |
 | `P` | Toggle the volcanic and cryovolcanic plumes (Io, Enceladus, Triton) |
 | `M` | Toggle atmospheres |

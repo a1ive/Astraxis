@@ -85,7 +85,7 @@ file = "ephem/moon_geo.eph"
 
 `nut_prec_ra/dec/pm` 可以使用祖先天体的 `nut_prec_angles`，和 PCK 一样：土星的卫星（`mimas.toml`、`tethys.toml`、`rhea.toml`）只写周期项的系数，角度取自 `saturn.toml`。加载器检查本体或最近的祖先给出的角度够不够用，不够时报错。
 
-`name`、`parent`、`orbit`、`orbit_color`、`trail*`、标签和事件关联写在场景中。`synchronous`、`roche`、`accretion_disk`、`pulsar` 等涉及父天体或其他天体的模型也留在场景。当前允许清单以外的模型（包括彗尾和脉动）继续内联定义。
+`name`、`parent`、`orbit`、`orbit_color`、`trail*`、标签（`label`、`hr_diagram`）和事件关联写在场景中。`synchronous`、`roche`、`accretion_disk`、`pulsar` 等涉及父天体或其他天体的模型也留在场景。当前允许清单以外的模型（包括彗尾和脉动）继续内联定义。
 
 `[bodies.accretion_disk]` 写在受体星上，`companion` 指向为它供质的洛希面恒星。盘绕受体、与轨道共面，`outer_radius_km` 和 `half_height_km` 给出不透明表面的大小，半厚至少为盘内恒星的半径（`radii_km`）。`rim_temperature_k`、`temperature_power` 和 `inner_temperature_k` 控制盘面温度，最后一项是盘心温度上限。可用 `rim_heating_k` 和 `rim_heating_radius_km` 设定朝供体一侧的温升和范围。`[light_curve].stars` 列出这对恒星时，加载场景会按远方观察者的方向计算一圈双食光变。
 
