@@ -43,6 +43,14 @@
 #        candidate d (tests); Sect. 1, Mesa et al. 2019 first saw it at 13 au.
 # [DO25] arXiv:2507.09402: the infrared ring at 54 au, ALMA Band 9 at 67 au, the
 #        longer wavelengths at 76 au.
+# [DN24] Donati et al. 2024, MNRAS 535, 3363 (arXiv:2411.03089): SPIRou, 2020-2024.
+#        Table 1: rotation 3.008 +- 0.006 d (3.010 d to phase the data, from BJD
+#        2458977.9); inclination 60 +- 6 deg, near the outer disk's 51.7, so any
+#        misalignment is small; corotation radius 0.039 au, 6.5 stellar radii.
+#        Table 3: the dipole changes within months; 2024 April, the strongest, 420 G
+#        (polar), tilted 31 deg toward phase 0.35. The longitudinal field is mostly
+#        positive (median +66 G), so the visible pole is the positive one. Sect. 8:
+#        at 420 G the field could hold the disk off to 1.08 +- 0.21 corotation radii.
 # [WIKI] Wikipedia, PDS 70: ICRS position 14 08 10.15455, -41 23 52.5733 (SIMBAD).
 #
 # [CAP]  Event captions: from the sources above.
@@ -214,9 +222,24 @@ body_gm_km3_s2 = 1.26342243e11 # 0.952 M_sun [TR25]
 temperature_k = 3972.0         # [MU18]
 luminosity_solar = 0.35        # [PR23]
 trail = "none"
+# The spin taken along the disk's [DN24], turning in 3.010 d with it.
+spin_sky = { ra_dec_deg = [212.0423106, -41.3979370], node_deg = 156.7, i_deg = 128.3 }
+prime_meridian_deg = [0.0, 119.601328904]
 [bodies.orbit]
 type = "fixed"
 ra_dec_distance_pc = [0.0, 0.0, 0.0]
+# The 2024 April dipole [DN24], out to the corotation radius (the outer loops).
+[bodies.magnetic_field]
+reference_radius_km = 876582.0
+l_shells = [1.5, 2.5, 4.0, 6.5]
+max_radius = 9.0
+[bodies.magnetic_field.dipole]
+polar_g = 420.0
+tilt_deg = 31.0
+phase = 0.35
+phase_zero_jd = 2458977.9      # BJD, taken as TDB
+period_days = 3.010
+visible_pole = "positive"
 
 [[bodies]]
 name = "PDS 70 b"
@@ -411,6 +434,26 @@ caption = """\
     orbit, perhaps in resonance with the others, or a clump in the inner disk. Its \
     light does not settle the matter, and adding it to the fits makes most of the \
     system's possible orbits unstable."""
+
+# Phase 0.35 of [DN24]'s 2024 April map: the dipole's positive pole turned toward Earth.
+[[events]]
+name = "The star's magnetic field, out to the corotation radius (2024-04)"
+magnetic_lines = true
+time_tdb = "2024-04-14 05:22"
+focus = "PDS 70"
+from_body = "Sun"
+phase_deg = 90.0               # from the side: Earth is off to one side
+elevation_deg = 50.0           # above the disk's cavity, clear of its rim
+hide_orbits = true             # the planets' orbits would cross the star edge-on
+distance_km = 2.0e7
+warp = 600.0                   # 10 minutes per second: a turn in 7.5 minutes
+# [DN24]
+caption = """\
+    PDS 70 is still young, and its magnetic field is strong: in April 2024 its dipole \
+    reached 420 gauss, tilted 31 degrees from the spin axis, its positive pole toward \
+    Earth, and it changes within months. At this strength it can hold the inner disk off \
+    out to about where the disk orbits as fast as the star turns, 6.5 stellar radii \
+    (the outer loops). The spin axis is taken to lie along the disk's."""
 
 [[events]]
 name = "Edge-on, as no one sees it"

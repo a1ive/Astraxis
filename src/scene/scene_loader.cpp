@@ -455,6 +455,14 @@ private:
     std::map<std::string, toml::table> m_templates; // validated body templates
     std::vector<int> m_nbody_bodies; // bodies whose motion comes from [nbody]
     std::vector<std::pair<int, std::string>> m_pulsar_axes; // pulsar, body defining its spin or precession axis
+    // A star's dipole from Zeeman-Doppler imaging ([bodies.magnetic_field.dipole]), placed once
+    // the bodies exist: it needs the direction to the observer at the published phase.
+    struct ZdiDipole {
+        int body = -1;
+        double polar_g = 0.0, tilt_deg = 0.0, phase = 0.0, phase_zero_jd = 0.0, period_days = 0.0;
+        bool visible_pole_positive = true;
+    };
+    std::vector<ZdiDipole> m_zdi_dipoles;
     struct RocheSpec {
         int body = -1;
         std::string companion;
@@ -518,6 +526,11 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
     static const TemplateField boolean{{Type::boolean}, nullptr};
     static const TemplateField list{{Type::array}, nullptr};
     static const TemplateField rgb{{Type::floating_point, Type::array}, nullptr}; // one value or [r, g, b]
+    static const TemplateFields zdi_dipole = {
+        {"polar_g", number}, {"tilt_deg", number}, {"phase", number}, {"phase_zero_jd", number},
+        {"period_days", number}, {"visible_pole", text},
+    };
+    static const TemplateFields spin_sky = {{"ra_dec_deg", list}, {"node_deg", number}, {"i_deg", number}};
     static const TemplateFields free_precession = {
         {"nutation_deg", number}, {"precession_period_days", number}, {"spin_period_days", number},
         {"epoch", text}, {"phases_deg", list},
@@ -545,7 +558,7 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
         {"open_latitudes_deg", list}, {"parent_field", boolean},
         {"lines_per_shell", integer}, {"max_radius", number}, {"color", text},
         {"synoptic", text}, {"source_surface", number}, {"surface_seeds", integer},
-        {"outward_color", text}, {"inward_color", text},
+        {"outward_color", text}, {"inward_color", text}, {"dipole", {{Type::table}, &zdi_dipole}},
     };
     static const TemplateFields magnetic_map = {{"surface", text}, {"deep", text}, {"crust", text}};
     static const TemplateFields magnetosphere = {
@@ -592,7 +605,7 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
         {"neutron_star", boolean},
         {"zonal_harmonics", list}, {"spin", number}, {"temperature_k", number}, {"luminosity_solar", number},
         {"pole_ra_dec_deg", list}, {"prime_meridian_deg", list}, {"pole_rate_deg_per_century", list},
-        {"nut_prec_angles", list}, {"nut_prec_ra", list}, {"nut_prec_dec", list}, {"nut_prec_pm", list},
+        {"spin_sky", {{Type::table}, &spin_sky}}, {"nut_prec_angles", list}, {"nut_prec_ra", list}, {"nut_prec_dec", list}, {"nut_prec_pm", list},
         {"spin_table", text}, {"point_at", text}, {"fill_light", number}, {"color", text}, {"style", text},
         {"shape", text}, {"texture", text},
         {"texture_left_lon_deg", number}, {"texture_lon_direction", text},
@@ -1227,6 +1240,25 @@ void Loader::parse(const toml::table& root, Scene& out)
         body.pole_ra = pole[0] * kDegToRad;
         body.pole_dec = pole[1] * kDegToRad;
         body.pole = unit_from_ra_dec(body.pole_ra, body.pole_dec);
+        if (const toml::table* sky = (*t)["spin_sky"].as_table()) {
+            // The spin as a visual orbit's angular momentum: its node and inclination on the sky
+            // at the star's place (i below 90 deg: turning counterclockwise as seen, the pole
+            // toward us), the convention of visual orbits and disks.
+            const std::string sctx = ctx + " spin_sky";
+            if (t->contains("pole_ra_dec_deg")) {
+                fail(sctx, "replaces pole_ra_dec_deg");
+            }
+            double place[2];
+            get_array(*sky, "ra_dec_deg", sctx, place, 2, 2);
+            VisualOrbit plane;
+            plane.i_deg = get_double(*sky, "i_deg", sctx);
+            plane.node_deg = get_double(*sky, "node_deg", sctx);
+            plane.ra_deg = place[0];
+            plane.dec_deg = place[1];
+            body.pole = glm::normalize(visual_orbit_frame(plane)[2]);
+            body.pole_ra = std::atan2(body.pole.y, body.pole.x);
+            body.pole_dec = std::asin(std::clamp(body.pole.z, -1.0, 1.0));
+        }
 
         double pm[3] = {0.0, 0.0, 0.0}; // W0 deg, deg/day, optional deg/day^2
         if (t->contains("prime_meridian_deg")) {
@@ -1836,13 +1868,41 @@ void Loader::parse(const toml::table& root, Scene& out)
         if (const toml::table* field = (*t)["magnetic_field"].as_table()) {
             const std::string mctx = ctx + " magnetic_field";
             const bool synoptic = field->contains("synoptic");
-            if (!(body.kind == BodyKind::Planet || (synoptic && body.kind == BodyKind::Star)) || body.shape) {
-                fail(ctx, "only ellipsoidal planets, and stars with synoptic maps, can have a magnetic field");
+            const toml::table* dipole = (*field)["dipole"].as_table();
+            if (!(body.kind == BodyKind::Planet || ((synoptic || dipole) && body.kind == BodyKind::Star)) || body.shape) {
+                fail(ctx, "only ellipsoidal planets, and stars with synoptic maps or a dipole, can have a magnetic field");
             }
             auto model = std::make_shared<MagneticField>();
             std::string error;
             BodyMagneticField& m = body.magnetic_field;
-            if (synoptic) {
+            if (dipole) {
+                const std::string dctx = mctx + " dipole";
+                for (const char* key : {"coefficients", "coefficients_by_year", "synoptic", "parent_field",
+                                        "open_latitudes_deg", "flip_pole", "longitude_offset_deg", "prime_meridian_deg"}) {
+                    if (field->contains(key)) {
+                        fail(dctx, std::string("is in the star's own frame and takes no ") + key);
+                    }
+                }
+                ZdiDipole z;
+                z.body = static_cast<int>(out.bodies.size());
+                z.polar_g = get_double(*dipole, "polar_g", dctx);
+                z.tilt_deg = get_double(*dipole, "tilt_deg", dctx);
+                z.phase = get_double(*dipole, "phase", dctx);
+                z.phase_zero_jd = get_double(*dipole, "phase_zero_jd", dctx);
+                z.period_days = get_double(*dipole, "period_days", dctx);
+                const std::string visible = get_string(*dipole, "visible_pole", dctx);
+                z.visible_pole_positive = visible == "positive";
+                if (!(z.polar_g > 0.0) || z.tilt_deg < 0.0 || z.tilt_deg > 90.0 || !(z.period_days > 0.0) ||
+                    (visible != "positive" && visible != "negative")) {
+                    fail(dctx, "needs polar_g > 0, tilt_deg in 0..90, period_days > 0 and visible_pole positive or negative");
+                }
+                if (std::abs(body.pm_rate_deg_per_day * z.period_days - 360.0) > 1e-6) {
+                    fail(dctx, "the star's prime_meridian_deg must turn once in period_days");
+                }
+                m_zdi_dipoles.push_back(z);
+                // A placeholder until the dipole is placed, after all bodies are read.
+                model->set_coefficient(false, 1, 0, 1.0);
+            } else if (synoptic) {
                 for (const char* key : {"coefficients", "coefficients_by_year", "l_shells", "open_latitudes_deg",
                                         "parent_field", "lines_per_shell", "flip_pole", "longitude_offset_deg",
                                         "prime_meridian_deg"}) {
@@ -1937,7 +1997,7 @@ void Loader::parse(const toml::table& root, Scene& out)
                 if (settings.surface_seeds < 1 || !(settings.max_radius > m.source_surface)) {
                     fail(mctx, "needs surface_seeds above 0 and max_radius beyond the source surface");
                 }
-            } else {
+            } else if (!dipole) { // a dipole's lines come once it is placed
                 m.lines = trace_field_lines(*model, settings);
             }
             m.line_settings = settings;
@@ -3179,6 +3239,35 @@ void Loader::parse(const toml::table& root, Scene& out)
             fail("event '" + e.name + "'", "disk_r2_scaled needs a [disk] that is not thick");
         }
     }
+    // Zeeman-Doppler dipoles: tilted from the visible rotation pole toward the longitude that
+    // faces us at the published phase. That holds whichever way the star actually turns.
+    for (const ZdiDipole& z : m_zdi_dipoles) {
+        Body& body = out.bodies[static_cast<size_t>(z.body)];
+        const std::string dctx = "body '" + body.name + "' magnetic_field dipole";
+        const int sun = out.find("Sun");
+        if (sun < 0) {
+            fail(dctx, "needs the Sun's body, for the direction to the observer");
+        }
+        const double t_face = (z.phase_zero_jd + z.phase * z.period_days - kJ2000Jd) * kSecondsPerDay;
+        const glm::dvec3 to_observer =
+            glm::normalize(out.icrf_state_at(sun, t_face).position - out.icrf_state_at(z.body, t_face).position);
+        const glm::dvec3 seen = glm::transpose(out.body_to_icrf(body, t_face)) * to_observer; // body frame
+        const double up = seen.z >= 0.0 ? 1.0 : -1.0; // the visible rotation pole
+        const glm::dvec3 toward = glm::normalize(glm::dvec3(seen.x, seen.y, 0.0));
+        const double tilt = z.tilt_deg * kDegToRad;
+        const glm::dvec3 visible_pole = std::cos(tilt) * glm::dvec3(0.0, 0.0, up) + std::sin(tilt) * toward;
+        // Where the field leaves; Br there is 2 g for a dipole, so g is half the polar strength.
+        const glm::dvec3 outward = z.visible_pole_positive ? visible_pole : -visible_pole;
+        const double g = 0.5 * z.polar_g * 1e5; // nT
+        auto model = std::make_shared<MagneticField>();
+        model->set_coefficient(false, 1, 0, g * outward.z);
+        model->set_coefficient(false, 1, 1, g * outward.x);
+        model->set_coefficient(true, 1, 1, g * outward.y);
+        BodyMagneticField& m = body.magnetic_field;
+        m.model = model;
+        m.lines = trace_field_lines(*model, m.line_settings);
+    }
+
     out.set_active_frame(out.view.frame);
 }
 

@@ -382,7 +382,8 @@ void App::build_control_panel()
                              "The Sun: a potential field from that rotation's SDO/HMI map (2010 on), radial\n"
                              "beyond 2.5 solar radii; lines that leave are colored outward (warm) or inward (blue).\n"
                              "Pulsars: a corotating dipole inside the light cylinder (circle); open lines,\n"
-                             "in the beam color, leave the polar caps where the beams come from.");
+                             "in the beam color, leave the polar caps where the beams come from.\n"
+                             "Proxima and PDS 70: the dipole of a Zeeman-Doppler map, as of the map's months.");
     }
 
     if (std::any_of(scene.bodies.begin(), scene.bodies.end(),

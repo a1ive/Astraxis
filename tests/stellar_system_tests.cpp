@@ -2897,6 +2897,73 @@ void test_hd206893_scene()
     check(millimeter == 2, "HD 206893: events at millimeter wavelengths", millimeter);
 }
 
+// Dipoles from Zeeman-Doppler imaging: Proxima (Klein et al. 2021) and PDS 70 (Donati et al.
+// 2024). At the published phase the visible magnetic pole faces Earth, as far from the line of
+// sight as |inclination - tilt| can allow, with the published polarity and polar strength.
+void test_zdi_dipoles()
+{
+    struct Case {
+        const char* file; const char* star; double spin_to_sight_deg, tilt_deg, polar_g, face_jd, period_days;
+        bool visible_positive;
+    };
+    for (const Case& c : {Case{"alpha_centauri.toml", "Proxima Centauri", 47.0, 51.0, 135.0, 2457862.0 + 0.28 * 89.8, 89.8, false},
+                          Case{"pds70.toml", "PDS 70", 51.7, 31.0, 420.0, 2458977.9 + 477.35 * 3.010, 3.010, true}}) {
+        Scene scene = load_scene_or_die(c.file);
+        const int index = scene.find(c.star);
+        const int sun = scene.find("Sun");
+        check(index >= 0 && sun >= 0, c.star);
+        if (index < 0 || sun < 0) continue;
+        const Body& body = scene.bodies[static_cast<size_t>(index)];
+        const MagneticField* field = body.magnetic_field.model.get();
+        check(field != nullptr && !body.magnetic_field.lines.empty(), "the star has its dipole and lines");
+        if (!field) continue;
+        const auto at = [&](double t) {
+            const glm::dvec3 sight = glm::normalize(scene.icrf_state_at(sun, t).position - scene.icrf_state_at(index, t).position);
+            const glm::dmat3 to_icrf = scene.body_to_icrf(body, t);
+            return std::pair{sight, to_icrf};
+        };
+        const double t_face = (c.face_jd - kJ2000Jd) * kSecondsPerDay;
+        const auto [sight, to_icrf] = at(t_face);
+        const double spin_to_sight = std::acos(std::abs(glm::dot(to_icrf[2], sight))) / kDegToRad;
+        check(std::abs(spin_to_sight - c.spin_to_sight_deg) < 0.05, "the spin axis's angle to the line of sight (deg)", spin_to_sight);
+        check(std::abs(field->dipole_tilt_deg() - c.tilt_deg) < 1e-9, "the dipole's tilt to the spin (deg)", field->dipole_tilt_deg());
+        // Br at the positive magnetic pole is the published polar strength.
+        const glm::dvec3 axis = field->dipole_axis();
+        check(std::abs(glm::dot(field->field_nt(axis), axis) - c.polar_g * 1e5) < 1e-6 * c.polar_g * 1e5,
+              "the polar strength (nT)", glm::dot(field->field_nt(axis), axis));
+        const auto pole_to_sight = [&](double t) {
+            const auto [s, r] = at(t);
+            const glm::dvec3 visible = (c.visible_positive ? 1.0 : -1.0) * (r * axis);
+            return std::acos(std::clamp(glm::dot(visible, s), -1.0, 1.0)) / kDegToRad;
+        };
+        const double closest = pole_to_sight(t_face);
+        check(std::abs(closest - std::abs(c.spin_to_sight_deg - c.tilt_deg)) < 0.05,
+              "at the phase, the visible magnetic pole is as close to the line of sight as it gets (deg)", closest);
+        const double quarter = c.period_days / 4.0 * kSecondsPerDay;
+        check(pole_to_sight(t_face - quarter) > closest + 10.0 && pole_to_sight(t_face + quarter) > closest + 10.0 &&
+                  pole_to_sight(t_face + 2.0 * quarter) > closest + 30.0,
+              "and turns away from it over a rotation");
+        std::printf("info: %s dipole: tilt %.1f deg, the visible %s pole %.1f deg from the line of sight at the phase\n",
+                    c.star, field->dipole_tilt_deg(), c.visible_positive ? "positive" : "negative", closest);
+    }
+    // PDS 70's spin is the disk's, and its outer loops reach the corotation radius.
+    Scene pds = load_scene_or_die("pds70.toml");
+    const int star = pds.find("PDS 70");
+    if (star >= 0) {
+        const Body& body = pds.bodies[static_cast<size_t>(star)];
+        const glm::dvec3 disk_normal = pds.disk.components[0].to_icrf[2];
+        check(glm::dot(pds.body_to_icrf(body, 0.0)[2], glm::normalize(disk_normal)) > 1.0 - 1e-12,
+              "PDS 70 spins about the disk's axis, in its sense");
+        double farthest = 0.0;
+        for (const auto& line : body.magnetic_field.lines) {
+            for (const glm::dvec4& p : line) {
+                farthest = std::max(farthest, glm::length(glm::dvec3(p)));
+            }
+        }
+        check(std::abs(farthest - 6.5) < 0.05, "the outer loops reach 6.5 stellar radii [DN24] (radii)", farthest);
+    }
+}
+
 void test_pds70_scene()
 {
     Scene scene = load_scene_or_die("pds70.toml");
@@ -3735,6 +3802,7 @@ void run_stellar_system_tests()
     test_proxima_superflare();
     test_beta_pictoris_scene();
     test_pds70_scene();
+    test_zdi_dipoles();
     test_hd206893_scene();
     test_trappist1_scene();
     test_kepler223_scene();

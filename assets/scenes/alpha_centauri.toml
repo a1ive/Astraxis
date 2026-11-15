@@ -82,6 +82,14 @@
 #        2014 around the peak (tools/proxima/superflare_curve.py).
 #        Flare patch: 9000 K, 2.61% of the disk at the peak (from those numbers). Its
 #        site is not known and is assumed, on the side facing Earth.
+# [KL21] Klein et al. 2021, MNRAS 500, 1844 (arXiv:2010.14311): HARPS-Pol, 2017 April-July.
+#        Zeeman-Doppler imaging: rotation 89.8 +- 4.0 d, phases from BJD 2457862.0;
+#        inclination 47 +- 7 deg; large-scale field 200 G, mainly poloidal, its dipole
+#        135 G tilted 51 deg to the rotation axis toward phase 0.28 (Sect. 3.2); the
+#        negative pole comes closest to the observer at phase 0.34 (Sect. 4). Equatorial
+#        Alfven radius about 25 stellar radii, mostly dipolar there; b orbits at 70.
+#        The spin axis's position angle on the sky is not known: node 0 is assumed, and
+#        the sense of rotation does not matter for a dipole seen this way.
 # [GDR3] Gaia DR3 via SIMBAD: Proxima at RA 217.42894222, Dec -62.67949019 deg.
 # [CK17] Chen & Kipping 2017, ApJ 834, 17 (arXiv:1603.08614), Table 1:
 #        R = 1.008 M^0.2790 below 2.04 M_earth, R proportional to M^0.589 above
@@ -199,6 +207,21 @@ temperature_k = 3050.0         # [BO12]
 luminosity_solar = 0.00185
 orbit_color = "#ff8a6a"
 trail_history_days = 365250.0  # a thousand years: Proxima's orbit takes ~550,000
+# The spin [KL21]: 47 deg from the line of sight, node assumed; a turn in 89.8 days.
+spin_sky = { ra_dec_deg = [217.42894222, -62.67949019], node_deg = 0.0, i_deg = 47.0 }
+prime_meridian_deg = [0.0, 4.00890868597]
+# The 2017 dipole [KL21], drawn out to 8 radii; the field changes with Proxima's cycle.
+[bodies.magnetic_field]
+reference_radius_km = 107277.0
+l_shells = [1.5, 2.5, 4.0, 8.0]
+max_radius = 12.0
+[bodies.magnetic_field.dipole]
+polar_g = 135.0
+tilt_deg = 51.0
+phase = 0.28
+phase_zero_jd = 2457862.0      # BJD, taken as TDB
+period_days = 89.8
+visible_pole = "negative"
 [[bodies.flares]]              # [HO18]
 time = "2016-03-18 08:32:10"
 curve = "stars/proxima_superflare_2016.csv"
@@ -442,6 +465,26 @@ caption = """\
     11.4 to 6.8, just visible to the naked eye at a dark site. Evryscope caught \
     it, and HARPS, hunting for Proxima b, took a spectrum 27 minutes later. It \
     faded over an hour. The size of the patch follows the light; its place is assumed."""
+
+# Phase 0.28 of [KL21]: the dipole's negative pole turned toward Earth.
+[[events]]
+name = "Proxima's magnetic field, mapped in 2017"
+magnetic_lines = true
+time_tdb = "2017-05-13 15:28"
+focus = "Proxima Centauri"
+frame = "Proxima Centauri-centered"
+from_body = "Sun"
+phase_deg = 90.0               # from the side: Earth is off to one side
+focus_orbits_only = true
+distance_km = 2.5e6
+warp = 3600.0                  # an hour per second: a turn in 36 minutes
+# [KL21]
+caption = """\
+    In 2017 the polarization of Proxima's light revealed its large-scale magnetic field: \
+    about 200 gauss, mostly a dipole tilted 51 degrees from the spin axis. Seen here from \
+    the side, its negative pole is turned toward Earth. The star turns once in about \
+    90 days, and its planets orbit beyond the field's reach. Drawn out to eight stellar \
+    radii; how the spin axis lies on the sky is assumed."""
 
 [[events]]
 name = "Proxima d and b, 0.03 and 0.05 au from their star"
