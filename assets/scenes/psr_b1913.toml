@@ -24,6 +24,12 @@
 #        profile, more and more as our line of sight nears the edge of the beam.
 #        Sec. 4.4: the published fits of the spin geometry are inconsistent (too
 #        much so to correct the timing for aberration).
+# [GJ69] Goldreich & Julian 1969, ApJ 157, 869: the magnetosphere corotates out to the light
+#        cylinder, c / Omega from the spin axis; dipole lines that would reach beyond it
+#        open, from the polar caps, which is where the radio beams come from. The lines
+#        drawn are a centered vacuum dipole inside the cylinder, turning with the beams;
+#        near the cylinder the real (plasma-filled) field departs from a dipole, and
+#        beyond it winds into a spiral wind (Spitkovsky 2006, ApJ 648, L51): not drawn.
 # [WT02] Weisberg & Taylor 2002, ApJ 576, 942 (https://arxiv.org/abs/astro-ph/0205280):
 #        Table 1 solution 1: i = 47.2 deg, lambda = 21.1 deg, alpha = 157.5 deg,
 #        T0 = 1981.0. Eqs. 2 and 5 define the spin and its angle to Earth.
@@ -105,6 +111,7 @@ beam_half_angle_deg = 15.15      # illustrative circular edge: exits near 2025, 
 beam_cutoff = true
 display_period_s = 2.0
 beam_color = "#b8c8ff"
+spin_period_s = 0.0590301      # 1 / f [WH16]; light cylinder 2,820 km [GJ69]
 [bodies.pulsar.geodetic_precession]
 misalignment_deg = 21.1         # [WT02] Table 1, solution 1 (lambda, also called delta)
 epoch_year = 1981.0             # [WT02] T0; interpreted as a Julian epoch
@@ -237,6 +244,23 @@ caption = """\
     The pulsar spins 17 times a second; its radio beams are drawn here, slowed down. Its \
     spin axis also slowly precesses, another effect of relativity, so the pulses we \
     receive change shape over the years."""
+
+[[events]]
+name = "The magnetic field, out to the light cylinder (2,820 km)"
+magnetic_lines = true
+hide_orbits = true
+time = "2026-01-01"
+focus = "PSR B1913+16"
+distance_km = 1.2e4
+elevation_deg = 25.0
+warp = 30.0
+# [GJ69], [WT02], [WH16]
+caption = """\
+    Spinning 17 times a second, the pulsar's magnetic field could turn with it only \
+    out to 2,820 km, where it would move at the speed of light (the circle). Lines \
+    that would reach further are open: they leave from two caps about 1.5 km across \
+    at the magnetic poles, where the radio beams come from. Drawn as a simple dipole, \
+    turning as slowly as the beams; the real field bends near the circle."""
 
 [[events]]
 name = "A full turn every 85 years (3 years per second): back on Newton's ellipse in 2059"

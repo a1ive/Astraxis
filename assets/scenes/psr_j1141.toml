@@ -28,6 +28,16 @@
 # [RE19] Reardon et al. 2019, MNRAS 485, 4389 (arXiv:1903.01990): from the pulsar's
 #        scintillation, i < 90 deg (not 109) and the ascending node Omega = 24.8 +- 1.8
 #        deg, east of north.
+# [VK19] Venkatraman Krishnan et al. 2019, ApJ 873, L15 (arXiv:1902.09112): from 18 years of
+#        pulse widths under geodetic precession, a nearly orthogonal rotator, magnetic
+#        inclination alpha = 89 +18 -17 deg (68%); an earlier fit to the polarization
+#        sweep gave 160 deg. No interpulse is seen from the other pole.
+# [GJ69] Goldreich & Julian 1969, ApJ 157, 869: the magnetosphere corotates out to the light
+#        cylinder, c / Omega from the spin axis; dipole lines that would reach beyond it
+#        open, from the polar caps, which is where the radio beams come from. The lines
+#        drawn are a centered vacuum dipole inside the cylinder, turning with the beams;
+#        near the cylinder the real (plasma-filled) field departs from a dipole, and
+#        beyond it winds into a spiral wind (Spitkovsky 2006, ApJ 648, L51): not drawn.
 # [AN11] Antoniadis et al. 2011, MNRAS 412, 580 (arXiv:1011.0926): the white dwarf's
 #        optical counterpart (V = 25.08); its colour fits no cooling track, so no
 #        temperature or age was derived.
@@ -41,7 +51,7 @@
 #   1999-07 to 2026-10 adds up to ~145 deg.
 # Assumed: neutron star radius 12 km at 5e5 K (L = 0.017 L_sun; a young neutron star);
 # white dwarf at 20,000 K (L = 8.7e-3 L_sun from its radius) - see [AN11]. The
-# pulsar's spin axis along the orbit normal, magnetic axis 45 deg from it, beams 10 deg
+# pulsar's spin axis along the orbit normal, magnetic axis 89 deg from it [VK19], beams 10 deg
 # wide; the real spin axis is tilted and precesses (its pulse profile changes), which
 # is not shown. The beams are radio and invisible; they are drawn bluish and turn once
 # every 2 s of real time (the true 0.39 s cannot be shown). The [RE19] node and sense
@@ -86,10 +96,11 @@ luminosity_solar = 0.0168
 orbit_color = "#a0b8ff"
 [bodies.pulsar]
 spin_axis_orbit_normal = "J1141-6545 white dwarf"
-magnetic_inclination_deg = 45.0
+magnetic_inclination_deg = 89.0 # [VK19]
 beam_half_angle_deg = 10.0
 display_period_s = 2.0
 beam_color = "#b8c8ff"
+spin_period_s = 0.393902       # 1 / 2.5387 Hz [VK20]; light cylinder 18,800 km [GJ69]
 [bodies.orbit]
 scale = -0.445479042831        # -m_c / (m_p + m_c)
 type = "post_keplerian"
@@ -219,6 +230,23 @@ caption = """\
     The pulsar turns 2.5 times a second, slow for a pulsar: having formed after \
     its companion, it was never spun up by its matter. The radio beams are shown \
     here with their motion slowed down."""
+
+[[events]]
+name = "The magnetic field, out to the light cylinder (18,800 km)"
+magnetic_lines = true
+hide_orbits = true
+time = "2026-01-01"
+focus = "PSR J1141-6545"
+distance_km = 8.0e4
+elevation_deg = 25.0
+warp = 30.0
+# [GJ69], [VK19], [VK20]
+caption = """\
+    A slow pulsar has a wide magnetosphere: turning 2.5 times a second, its field can \
+    corotate out to 18,800 km (the circle). Its magnetic axis lies almost in its \
+    equator, the pulse widths suggest, so the open field lines, in the beams' color, \
+    leave the poles nearly sideways. Drawn as a simple dipole, turning as slowly as \
+    the beams; the real field is distorted near the circle."""
 
 [[events]]
 name = "Centuries at 3 years per second: the orbit spins, Newton's does not"

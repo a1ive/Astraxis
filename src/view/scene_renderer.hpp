@@ -78,6 +78,7 @@ private:
     void build_body_items(const Simulation& sim, const OutputView& view, const ViewOptions& options, int neutron_star);
     void build_orbit_lines(const Simulation& sim, const OutputView& view, const ViewOptions& options);
     void build_magnetic_lines(const Simulation& sim, const OutputView& view, const ViewOptions& options);
+    void build_pulsar_lines(const Simulation& sim, const OutputView& view, size_t body_index);
     void build_magnetospheres(const Simulation& sim, const OutputView& view, const ViewOptions& options);
     void build_belt_items(const Simulation& sim, const OutputView& view, const ViewOptions& options);
     void build_comet_items(const Simulation& sim, const OutputView& view, const ViewOptions& options);

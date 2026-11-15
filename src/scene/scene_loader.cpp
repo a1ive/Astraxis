@@ -15,6 +15,7 @@
 #include "ephem/post_keplerian.hpp"
 #include "ephem/visual_orbit.hpp"
 #include "scene/light_curve.hpp"
+#include "scene/pulsar.hpp"
 
 #include <glm/vector_relational.hpp>
 #include <toml++/toml.hpp>
@@ -1335,6 +1336,18 @@ void Loader::parse(const toml::table& root, Scene& out)
             body.pulsar.beam_half_angle_deg = get_double_or(*p, "beam_half_angle_deg", body.pulsar.beam_half_angle_deg);
             body.pulsar.beam_color = parse_color(*p, "beam_color", ctx + " pulsar", body.pulsar.beam_color);
             body.pulsar.beam_cutoff = (*p)["beam_cutoff"].value<bool>().value_or(false);
+            body.pulsar.spin_period_s = get_double_or(*p, "spin_period_s", 0.0);
+            if (body.pulsar.spin_period_s < 0.0) {
+                fail(ctx, "pulsar spin_period_s must be positive");
+            }
+            if (body.pulsar.spin_period_s > 0.0) {
+                body.pulsar.light_cylinder_km = light_cylinder_km(body.pulsar.spin_period_s);
+                if (!(body.pulsar.light_cylinder_km > 2.0 * body.equatorial_radius_km)) {
+                    fail(ctx, "pulsar light cylinder (c P / 2 pi) must lie well outside the star");
+                }
+                body.pulsar.field_lines = pulsar_field_lines(body.pulsar.magnetic_inclination_deg, body.equatorial_radius_km,
+                                                             body.pulsar.light_cylinder_km);
+            }
             if (const toml::table* precession = (*p)["geodetic_precession"].as_table()) {
                 auto& prec = body.pulsar.precession;
                 const std::string pctx = ctx + " pulsar geodetic_precession";

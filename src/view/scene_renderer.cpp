@@ -105,6 +105,9 @@ CoronaUniforms corona_uniforms(const Scene& scene, const CameraView& view)
 constexpr int kTrailPoints = 2048;
 constexpr float kOrbitOpacity = 0.55f;
 constexpr double kMagneticLineOpacity = 0.38;
+// A pulsar's closed field lines (its open ones take the beam color) and, fainter, its light cylinder.
+constexpr glm::vec3 kPulsarClosedColor(0.85f, 0.88f, 0.95f);
+constexpr double kLightCylinderOpacity = 0.6;
 // Wire surfaces of magnetopauses; the bow shock and a surface shown for comparison are fainter.
 constexpr double kMagnetosphereOpacity = 0.42;
 constexpr double kBowShockOpacity = 0.6;
@@ -2201,6 +2204,45 @@ void SceneRenderer::build_orbit_lines(const Simulation& sim, const OutputView& o
     }
 }
 
+void SceneRenderer::build_pulsar_lines(const Simulation& sim, const OutputView& output_view, size_t body_index)
+{
+    const Scene& scene = sim.scene();
+    const Body& body = scene.bodies[body_index];
+    const Body::Pulsar& pulsar = body.pulsar;
+    glm::dmat3 axes;
+    if (!pulsar_corotating_axes(scene, body, sim.clock().t_tdb, sim.animation_time(), axes)) {
+        return;
+    }
+    const CameraView& view = output_view.camera;
+    const glm::dvec3& cam = view.position;
+    // Faded out while the light cylinder is a few pixels across.
+    const double distance = glm::length(body.world_position - cam);
+    const double pixels = 0.5 * view.viewport.y * view.focal_y * pulsar.light_cylinder_km / std::max(distance, 1.0);
+    const double opacity = kMagneticLineOpacity * output_view.body_fades[body_index] * field_line_size_fade(0.25 * pixels);
+    if (opacity <= 0.0) {
+        return;
+    }
+    const glm::vec4 closed_color(kPulsarClosedColor, static_cast<float>(opacity));
+    const glm::vec4 open_color(pulsar.beam_color, static_cast<float>(opacity));
+    for (const Body::Pulsar::FieldLine& line : pulsar.field_lines) {
+        m_line_points.clear();
+        for (const glm::dvec4& p : line.points) {
+            m_line_points.emplace_back(to_render(body.world_position + axes * glm::dvec3(p), cam), static_cast<float>(p.w));
+        }
+        m_orbits.add_line(m_line_points, line.open ? open_color : closed_color, 0.0f);
+    }
+    // The light cylinder, where corotation would reach the speed of light: its circle in the
+    // spin equator.
+    m_line_points.clear();
+    constexpr int kSegments = 128;
+    for (int k = 0; k <= kSegments; ++k) {
+        const double a = kTwoPi * k / kSegments;
+        const glm::dvec3 p = pulsar.light_cylinder_km * (std::cos(a) * axes[0] + std::sin(a) * axes[1]);
+        m_line_points.emplace_back(to_render(body.world_position + p, cam), 0.0f);
+    }
+    m_orbits.add_line(m_line_points, glm::vec4(kPulsarClosedColor, static_cast<float>(kLightCylinderOpacity * opacity)), 0.0f);
+}
+
 void SceneRenderer::build_magnetic_lines(const Simulation& sim, const OutputView& output_view,
                                          const ViewOptions& options)
 {
@@ -2223,6 +2265,10 @@ void SceneRenderer::build_magnetic_lines(const Simulation& sim, const OutputView
         // With a moon in focus, its parent still draws the lines that reach that moon: the
         // moon's own open lines (Ganymede's) run on into them.
         const bool focused = only < 0 || static_cast<int>(i) == only;
+        if (show_lines && focused && body.visible && !body.pulsar.field_lines.empty()) {
+            build_pulsar_lines(sim, output_view, i);
+            continue;
+        }
         const bool parent_of_focus = !focused && scene.bodies[static_cast<size_t>(only)].parent == static_cast<int>(i);
         if (!field.model || !body.visible || !(focused || (parent_of_focus && show_tubes && body.aurora.jovian))) {
             continue;

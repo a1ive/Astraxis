@@ -372,7 +372,7 @@ void App::build_control_panel()
     }
 
     if (std::any_of(scene.bodies.begin(), scene.bodies.end(),
-                    [](const Body& b) { return b.magnetic_field.model || b.magnetic_field.synoptic; })) {
+                    [](const Body& b) { return b.magnetic_field.model || b.magnetic_field.synoptic || !b.pulsar.field_lines.empty(); })) {
         ImGui::Combo("Field lines", &m_view_options.magnetic_view, "Event setting\0Always\0Never\0");
         ImGui::SetItemTooltip("Magnetic field lines from each planet's internal field model (B).\n"
                              "Only what the planet itself makes: no solar wind, magnetopause or magnetodisc,\n"
@@ -380,7 +380,9 @@ void App::build_control_panel()
                              "Jupiter's moons also get the line through them now (faint) and the Alfven wave\n"
                              "on its way to the auroral spot (orange), with the magnetodisc.\n"
                              "The Sun: a potential field from that rotation's SDO/HMI map (2010 on), radial\n"
-                             "beyond 2.5 solar radii; lines that leave are colored outward (warm) or inward (blue).");
+                             "beyond 2.5 solar radii; lines that leave are colored outward (warm) or inward (blue).\n"
+                             "Pulsars: a corotating dipole inside the light cylinder (circle); open lines,\n"
+                             "in the beam color, leave the polar caps where the beams come from.");
     }
 
     if (std::any_of(scene.bodies.begin(), scene.bodies.end(),

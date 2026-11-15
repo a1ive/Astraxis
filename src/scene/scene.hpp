@@ -557,6 +557,16 @@ struct Body {
             glm::dvec3 x_icrf{1.0, 0.0, 0.0}; // toward the projection of observer-to-pulsar
         } precession;
         glm::vec3 beam_color{0.7f, 0.8f, 1.0f}; // sRGB
+        // The true spin period (s): with it, the corotating dipole's field lines inside the
+        // light cylinder (pulsar_field_lines), drawn with the magnetic lines, turning with
+        // the beams. Zero: none.
+        double spin_period_s = 0.0;
+        double light_cylinder_km = 0.0;
+        struct FieldLine {
+            std::vector<glm::dvec4> points; // corotating frame, km; w: fade
+            bool open = false;
+        };
+        std::vector<FieldLine> field_lines;
     } pulsar;
 
     // Motion relative to the parent; null keeps the body at the scene origin.

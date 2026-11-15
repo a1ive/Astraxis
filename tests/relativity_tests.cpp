@@ -427,6 +427,91 @@ void test_psr_b1913_scene()
 
 }
 
+// The corotating dipole inside the light cylinder (Goldreich & Julian 1969).
+void test_pulsar_field_lines()
+{
+    // Aligned: the last closed line crosses the spin equator at the cylinder, so L = c / Omega,
+    // and the polar cap's half-angle is asin(sqrt(R / L)).
+    check(std::abs(light_cylinder_km(0.0590301) - 2816.6) < 0.1, "B1913's light cylinder from 59 ms (km)",
+          light_cylinder_km(0.0590301));
+    check(std::abs(pulsar_last_closed_l(0.0, 1.3, 1000.0) - 1000.0) < 1e-6, "aligned: the last closed line has L = R_LC");
+    // Orthogonal, in the plane of both axes: the line crosses the spin axis at its magnetic
+    // equator, its distance from the axis is L sin^2(theta) |cos(theta)|, at most 2 / (3 sqrt 3) L.
+    // Across that plane (phi = 90 deg) the whole line lies in the spin equator.
+    check(std::abs(pulsar_last_closed_l(90.0, 0.0, 1000.0) / 1000.0 - 1.5 * std::sqrt(3.0)) < 1e-6,
+          "orthogonal, in the plane of both axes: L = (3 sqrt 3 / 2) R_LC", pulsar_last_closed_l(90.0, 0.0, 1000.0));
+    check(std::abs(pulsar_last_closed_l(90.0, 0.5 * kPi, 1000.0) - 1000.0) < 1e-6,
+          "orthogonal, across it: L = R_LC");
+
+    struct Case { const char* file; const char* name; double period, cap_low, cap_high; };
+    // Cap diameters as in the events' captions (12 km star): B1913 about 1.5 km, B1620 some 3.5 km.
+    for (const Case& c : {Case{"psr_b1913.toml", "PSR B1913+16", 0.0590301, 1.3, 1.8},
+                          Case{"psr_j1141.toml", "PSR J1141-6545", 0.393902, 0.3, 1.0},
+                          Case{"psr_b1620.toml", "PSR B1620-26 A", 0.0110757509142, 3.0, 4.0}}) {
+        Scene scene = load_scene_or_die(c.file);
+        const int index = scene.find(c.name);
+        check(index >= 0, c.name);
+        if (index < 0) continue;
+        const Body& body = scene.bodies[static_cast<size_t>(index)];
+        const Body::Pulsar& p = body.pulsar;
+        const double rlc = p.light_cylinder_km, radius = body.equatorial_radius_km;
+        check(p.spin_period_s == c.period && std::abs(rlc - light_cylinder_km(c.period)) < 1e-9 && !p.field_lines.empty(),
+              "the pulsar's lines come from its true period");
+        const double alpha = p.magnetic_inclination_deg * kDegToRad;
+        const glm::dvec3 m(std::sin(alpha), 0.0, std::cos(alpha));
+        double worst_surface = 0.0, worst_outside = 0.0, worst_end = 0.0, worst_tangent = 0.0, widest_closed = 0.0;
+        int closed = 0, open = 0;
+        for (const Body::Pulsar::FieldLine& line : p.field_lines) {
+            worst_surface = std::max(worst_surface, std::abs(glm::length(glm::dvec3(line.points.front())) - radius));
+            for (size_t k = 0; k < line.points.size(); ++k) {
+                const glm::dvec3 q(line.points[k]);
+                const double rho = std::hypot(q.x, q.y);
+                worst_outside = std::max(worst_outside, rho / rlc - 1.0);
+                if (!line.open) widest_closed = std::max(widest_closed, rho / rlc);
+                if (k == 0) continue;
+                // Along the dipole field 3 (m.n) n - m at the segment's middle.
+                const glm::dvec3 a(line.points[k - 1]);
+                const glm::dvec3 mid = 0.5 * (a + q), n = glm::normalize(mid);
+                const glm::dvec3 b = 3.0 * glm::dot(m, n) * n - m;
+                worst_tangent = std::max(worst_tangent, std::asin(std::min(glm::length(glm::cross(glm::normalize(q - a), glm::normalize(b))), 1.0)));
+            }
+            if (line.open) {
+                ++open;
+                const glm::dvec3 end(line.points.back());
+                // The magnetic axis lines stop at the cylinder or 2 R_LC out.
+                if (std::abs(glm::dot(glm::normalize(end), m)) < 0.9999) {
+                    worst_end = std::max(worst_end, std::abs(std::hypot(end.x, end.y) / rlc - 1.0));
+                }
+            } else {
+                ++closed;
+                worst_surface = std::max(worst_surface, std::abs(glm::length(glm::dvec3(line.points.back())) - radius));
+            }
+        }
+        check(worst_surface < 1e-6 * radius, "every line starts (and a closed one ends) on the star (km)", worst_surface);
+        check(worst_outside < 1e-9 && widest_closed > 0.995, "nothing beyond the cylinder; the last closed lines touch it",
+              widest_closed);
+        check(worst_end < 1e-6, "open lines end on the cylinder", worst_end);
+        check(worst_tangent < 0.03, "the lines follow the dipole (rad)", worst_tangent);
+        // The polar cap: lines rooted within asin(sqrt(R / L_last)) of the magnetic pole open.
+        double cap = 0.0;
+        for (int k = 0; k < 64; ++k) {
+            cap += std::asin(std::sqrt(radius / pulsar_last_closed_l(p.magnetic_inclination_deg, kTwoPi * k / 64.0, rlc))) / 64.0;
+        }
+        const double cap_km = 2.0 * radius * cap;
+        check(cap_km > c.cap_low && cap_km < c.cap_high, "the polar cap is as wide as the caption says (km)", cap_km);
+        // The lines turn with the beams: the corotating frame's tilted axis is beam 0.
+        scene.update(tdb_from_julian_year(2026.0));
+        glm::dmat3 axes;
+        glm::dvec3 beams[2];
+        check(pulsar_corotating_axes(scene, body, tdb_from_julian_year(2026.0), 0.61, axes) &&
+                  pulsar_beams(scene, body, tdb_from_julian_year(2026.0), 0.61, beams) &&
+                  glm::length(axes * m - beams[0]) < 1e-12 && std::abs(glm::determinant(axes) - 1.0) < 1e-12,
+              "the field turns with the beams");
+        std::printf("info: %s: light cylinder %.0f km, %d closed and %d open lines, polar cap %.2f km across\n", c.name,
+                    rlc, closed, open, cap_km);
+    }
+}
+
 void test_psr_j1141_scene()
 {
     Scene scene = load_scene_or_die("psr_j1141.toml");
@@ -1492,6 +1577,7 @@ void run_relativity_tests()
     test_post_keplerian();
     test_psr_b1913_scene();
     test_psr_j1141_scene();
+    test_pulsar_field_lines();
     test_schwarzschild_star_light();
     test_kerr_null_geodesics();
     test_observer_frame();

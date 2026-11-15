@@ -14,6 +14,12 @@
 #        (245.9092575, -26.5316025 deg).
 #        Table 2, the outer orbit taken circular: x = 6.4 lt-s, P = 61.8 yr,
 #        ascending node of the inner binary JD 2449104 (1993 April).
+# [GJ69] Goldreich & Julian 1969, ApJ 157, 869: the magnetosphere corotates out to the light
+#        cylinder, c / Omega from the spin axis; dipole lines that would reach beyond it
+#        open, from the polar caps, which is where the radio beams come from. The lines
+#        drawn are a centered vacuum dipole inside the cylinder, turning with the beams;
+#        near the cylinder the real (plasma-filled) field departs from a dipole, and
+#        beyond it winds into a spiral wind (Spitkovsky 2006, ApJ 648, L51): not drawn.
 # [SI03] Sigurdsson et al. 2003, Science 301, 193: white dwarf 0.34 M_sun, pulsar
 #        1.35 M_sun assumed; planet 2.5 +- 1 M_Jup, a ~ 23 au (the circular solution
 #        used here has 18.6 au); Table 1: white dwarf F555W = 24.093, F814W = 23.379,
@@ -135,6 +141,7 @@ magnetic_inclination_deg = 45.0
 beam_half_angle_deg = 10.0
 display_period_s = 2.0
 beam_color = "#b8c8ff"
+spin_period_s = 0.0110757509142 # [TH99]; light cylinder 528 km [GJ69]
 [bodies.orbit]
 scale = -0.201183431953        # -m_wd / (m_p + m_wd)
 type = "visual_orbit"
@@ -211,6 +218,23 @@ caption = """\
     sweep across the Earth is a pulse. The beams are shown here with their motion \
     slowed down: the real pulsar, spun up long ago by matter from a companion, \
     turns 90 times a second."""
+
+[[events]]
+name = "The magnetic field, out to the light cylinder (528 km)"
+magnetic_lines = true
+hide_orbits = true
+time = "2026-01-01"
+focus = "PSR B1620-26 A"
+distance_km = 2.3e3
+elevation_deg = 25.0
+warp = 600.0
+# [GJ69], [TH99]
+caption = """\
+    At 90 turns a second the field could corotate only out to 528 km, some 44 times \
+    the star's radius (the circle), so a larger share of it is open: the polar caps \
+    that feed the beams are some 3.5 km across. The tilt of the magnetic axis is not \
+    known; 45 degrees is assumed. Drawn as a simple dipole, turning as slowly as the \
+    beams."""
 
 [[events]]
 name = "The planet's 62-year orbit, tilted 40 deg to the binary's"

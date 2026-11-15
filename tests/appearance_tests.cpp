@@ -3059,15 +3059,22 @@ void test_magnetic_field()
     Scene uranus_scene = load_scene_or_die("uranus.toml");
     Scene neptune_scene = load_scene_or_die("neptune.toml");
     Scene parker_scene = load_scene_or_die("parker.toml");
-    for (Scene* scene : {&solar, &uranus_scene, &neptune_scene, &saturn_scene, &earth_scene, &jupiter_scene, &mercury_scene, &parker_scene}) {
+    Scene b1913_scene = load_scene_or_die("psr_b1913.toml");
+    Scene j1141_scene = load_scene_or_die("psr_j1141.toml");
+    Scene b1620_scene = load_scene_or_die("psr_b1620.toml");
+    for (Scene* scene : {&solar, &uranus_scene, &neptune_scene, &saturn_scene, &earth_scene, &jupiter_scene, &mercury_scene,
+                         &parker_scene, &b1913_scene, &j1141_scene, &b1620_scene}) {
         for (const SceneEvent& event : scene->events) {
             if (event.magnetic_lines) {
                 // The Sun's model comes with the clock: at the event's time.
                 scene->update(event.t_tdb);
-                const BodyMagneticField* field = event.focus >= 0 ? &scene->bodies[static_cast<size_t>(event.focus)].magnetic_field : nullptr;
-                check(field && field->model != nullptr, "an event's field lines are on its focus");
-                // Around the Sun every planet's orbit is the focus's.
-                check(event.focus_orbits_only || (event.hide_orbits && field && field->synoptic), "and no distant orbits cross them");
+                const Body* focus = event.focus >= 0 ? &scene->bodies[static_cast<size_t>(event.focus)] : nullptr;
+                const bool pulsar = focus && !focus->pulsar.field_lines.empty();
+                check(focus && (focus->magnetic_field.model != nullptr || pulsar), "an event's field lines are on its focus");
+                // Around the Sun every planet's orbit is the focus's; a pulsar's own orbit
+                // runs through it.
+                check(event.focus_orbits_only || (event.hide_orbits && (focus->magnetic_field.synoptic || pulsar)),
+                      "and no distant orbits cross them");
             }
         }
     }
@@ -3077,6 +3084,8 @@ void test_magnetic_field()
     check(shown(uranus_scene) == 1 && shown(neptune_scene) == 1 && shown(saturn_scene) == 1 && shown(mercury_scene) == 1 && shown(jupiter_scene) == 1,
           "the ice giants, Saturn, Mercury and Ganymede each have their event");
     check(shown(parker_scene) == 2, "the Sun's field at minimum and maximum, in Parker's years");
+    check(shown(b1913_scene) == 1 && shown(j1141_scene) == 1 && shown(b1620_scene) == 1,
+          "each pulsar shows its magnetosphere once");
     check(shown(solar) == 0, "the Solar System's tour leaves them to the planets' own scenes");
 
     // A wrong description is refused.
