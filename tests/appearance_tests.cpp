@@ -3064,8 +3064,10 @@ void test_magnetic_field()
     Scene b1620_scene = load_scene_or_die("psr_b1620.toml");
     Scene alpha_cen_scene = load_scene_or_die("alpha_centauri.toml");
     Scene pds70_scene = load_scene_or_die("pds70.toml");
+    Scene beta_pic_scene = load_scene_or_die("beta_pictoris.toml");
     for (Scene* scene : {&solar, &uranus_scene, &neptune_scene, &saturn_scene, &earth_scene, &jupiter_scene, &mercury_scene,
-                         &parker_scene, &b1913_scene, &j1141_scene, &b1620_scene, &alpha_cen_scene, &pds70_scene}) {
+                         &parker_scene, &b1913_scene, &j1141_scene, &b1620_scene, &alpha_cen_scene, &pds70_scene,
+                         &beta_pic_scene}) {
         for (const SceneEvent& event : scene->events) {
             if (event.magnetic_lines) {
                 // The Sun's model comes with the clock: at the event's time.
@@ -3088,6 +3090,7 @@ void test_magnetic_field()
     check(shown(b1913_scene) == 1 && shown(j1141_scene) == 1 && shown(b1620_scene) == 1,
           "each pulsar shows its magnetosphere once");
     check(shown(alpha_cen_scene) == 1 && shown(pds70_scene) == 1, "Proxima and PDS 70 each show their mapped dipole once");
+    check(shown(beta_pic_scene) == 1, "Beta Pic b shows its dipole with its radio bursts");
     check(shown(solar) == 0, "the Solar System's tour leaves them to the planets' own scenes");
 
     // A wrong description is refused.

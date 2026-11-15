@@ -1,0 +1,9 @@
+# Beta Pictoris b, a dipole: 0.8 kG at the poles, the dynamo-scaling estimate of Ortiz
+# Ceballos et al. 2026 (arXiv:2609.16720, Methods), whose MeerKAT bursts at 3.5 GHz need
+# at least 1.25 kG at the source. Tilted 10 deg from the spin toward longitude 0, with
+# Jupiter's polarity (field out of the north): both assumed, as is the phase.
+# Radius 104,378 km (1.46 R_Jup). Schmidt quasi-normalized internal Gauss coefficients
+# in nT, body frame; g = 0.5 * 800 G = 4.0e7 nT. See SOURCES.md.
+g 1 0 39392310.1
+g 1 1 6945927.1
+h 1 1 0.0

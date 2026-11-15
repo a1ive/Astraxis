@@ -2761,6 +2761,34 @@ void test_beta_pictoris_scene()
     check(std::abs(face_on(disk.display_reference_au, true) / face_on(disk.display_reference_au, false) - 1.0) < 0.05,
           "r^2 scaling leaves the display reference radius as bright");
 
+    // b's dipole [OC26]: 0.8 kG at the poles from dynamo scaling, short of the >= 1.25 kG the
+    // 3.5 GHz bursts need at the source by about their factor of 1.6; its spin is seen nearly
+    // equator-on, as the paper takes it.
+    {
+        const Body& planet = scene.bodies[static_cast<size_t>(b)];
+        const MagneticField* field = planet.magnetic_field.model.get();
+        check(field != nullptr && !planet.magnetic_field.lines.empty(), "Beta Pic b has its dipole and lines");
+        if (field) {
+            const glm::dvec3 axis = field->dipole_axis();
+            const double polar_g = glm::dot(field->field_nt(axis), axis) / 1e5;
+            check(std::abs(polar_g - 800.0) < 0.01, "Beta Pic b's polar field (G)", polar_g);
+            check(std::abs(field->dipole_tilt_deg() - 10.0) < 1e-6, "its assumed tilt (deg)", field->dipole_tilt_deg());
+            check(axis.z > 0.0, "field out of the north, as Jupiter's (assumed)");
+            const double cyclotron_ghz = 2.799249 * polar_g / 1000.0; // e B / (2 pi m_e) at the pole
+            const double needed = 1250.0 / polar_g;
+            std::printf("  info: Beta Pic b's dipole: %.0f G, %.2f GHz at the poles; the bursts need %.2f times it\n",
+                        polar_g, cyclotron_ghz, needed);
+            check(cyclotron_ghz < 3.5 && needed > 1.5 && needed < 1.7,
+                  "a pure dipole falls short of 3.5 GHz by the paper's factor of ~1.6", needed);
+            const double t = (2461162.886 - kJ2000Jd) * kSecondsPerDay; // 2026-05-02 09:16 UTC
+            scene.update(t);
+            const double spin_to_sight =
+                std::acos(std::abs(glm::dot(scene.body_to_icrf(planet, t)[2], away))) / kDegToRad;
+            check(spin_to_sight > 80.0, "Beta Pic b's spin is seen nearly equator-on (deg from the line of sight)",
+                  spin_to_sight);
+        }
+    }
+
     std::string error;
     Scene bad;
     const std::string base = "name = \"x\"\n[view]\nfocus = \"S\"\n[[bodies]]\nname = \"S\"\nkind = \"star\"\nradii_km = [1000.0]\n"

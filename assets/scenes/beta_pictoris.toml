@@ -32,6 +32,8 @@
 #        to the SW, SE halo is higher to the NE.
 # [OC26] Ortiz Ceballos et al. 2026 (arXiv:2609.16720), MeerKAT S-band burst
 #        on 2026 May 2: 3.5 GHz implies local B >= 1.25 kG for fundamental ECMI.
+#        Methods: dynamo scaling gives a mean surface field ~1.2 kG, a polar dipole
+#        ~0.8 kG; the obliquity is not constrained. assets/geomag/field_beta_pic_b.txt.
 # [ZH26] Zhou et al. 2026 (arXiv:2607.13133): b's rotation 9.00 +/- 0.13 hr.
 # [NO20] Nowak et al. 2020 (arXiv:2010.04442): c's atmospheric fits 1250-1370 K.
 # [ZW19] Zwintz et al. 2019, A&A 627, A28 (arXiv:1905.12545), Table 5: R = 1.538
@@ -133,7 +135,8 @@
 # positions, the periods, the Hill sphere transit [KE21], the spine's slopes and
 # widths [GO06], the tilt of the secondary disk [GO06], which side is near [AP15],
 # the millimeter belt's vertical widths [MA19], the cat's tail and its tip [RE24], the
-# CO clump's flux, place and speed [DE14] [MA17], the comets' transits [LE22], and the
+# CO clump's flux, place and speed [DE14] [MA17], the comets' transits [LE22], b's
+# dipole against the bursts' 1.25 kG and its spin seen equator-on [OC26], and the
 # peak of the r^2-scaled view from above (display only: every sample lit as at 115 au).
 
 name = "Beta Pictoris"
@@ -351,6 +354,13 @@ texture = "textures/beta_pic_b.jpg"
 pole_ra_dec_deg = [203.15754, -18.50751]  # assume an orbit-aligned spin
 prime_meridian_deg = [0.0, 960.0]        # 9 hours [ZH26]; arbitrary phase
 orbit_color = "#ffc28a"
+# A dipole of 0.8 kG at the poles [OC26]; its 10 deg tilt, polarity and phase are
+# assumed. The bursts need >= 1.25 kG at the source, more than this dipole gives anywhere.
+[bodies.magnetic_field]
+coefficients = "geomag/field_beta_pic_b.txt"
+reference_radius_km = 104378.0
+l_shells = [1.5, 2.5, 4.0]
+max_radius = 6.0
 [bodies.orbit]
 scale = 0.993581548            # (M_star + M_c) / M
 type = "visual_orbit"
@@ -894,12 +904,14 @@ phase_deg = 34.0
 distance_km = 580000.0
 warp = 600.0
 hide_orbits = true
+magnetic_lines = true
 # [OC26], [ZH26]
 caption = """\
     MeerKAT traced strongly circularly polarized radio bursts to b. Emission \
     at 3.5 GHz implies at least 1.25 kilogauss at the radio source if it comes \
-    from the electron cyclotron maser fundamental. Webb photometry gives a \
-    nine-hour rotation. The cloud patterns here are illustrative."""
+    from the electron cyclotron maser fundamental. The lines show a dipole of \
+    0.8 kilogauss at the poles, as dynamo scaling predicts; its tilt is assumed. \
+    Webb photometry gives a nine-hour rotation. The cloud patterns are illustrative."""
 
 [[events]]
 name = "The young giant Beta Pic c"
