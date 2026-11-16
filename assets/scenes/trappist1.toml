@@ -274,6 +274,7 @@ focus = "TRAPPIST-1"
 from_orbit_normal = "TRAPPIST-1 e"
 distance_km = 2.5e7
 warp = 21600.0
+habitable_zone = true
 # [GI17], [AG21]
 caption = """\
     Seven Earth-sized planets, all closer to their star than Mercury is to the \

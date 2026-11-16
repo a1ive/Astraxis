@@ -7,6 +7,7 @@
 #include "core/time.hpp"
 #include "ephem/ephemeris.hpp"
 #include "ephem/kepler.hpp"
+#include "scene/habitable_zone.hpp"
 #include "scene/hr_diagram.hpp"
 #include "scene/light_curve.hpp"
 #include "scene/scene_loader.hpp"
@@ -3986,6 +3987,121 @@ void test_hr_diagram()
     check(!kerbol.bodies[static_cast<size_t>(kerbol.find("Kerbol"))].hr_diagram, "Kerbol left off the H-R diagram");
 }
 
+// Habitable zones (scene/habitable_zone.hpp): [KO14]'s limits, and the planets
+// the discovery papers place in them.
+void test_habitable_zones()
+{
+    // The Sun alone: Eq. (5) with Table 1's S_eff (T_eff - 5780 K = -8 K).
+    const HabitableZoneFlux sun = habitable_zone_flux(5772.0);
+    check(std::abs(1.0 / std::sqrt(sun.runaway_greenhouse) - 0.951) < 0.001, "Sun's runaway greenhouse at 0.95 au [KO14]",
+          1.0 / std::sqrt(sun.runaway_greenhouse));
+    check(std::abs(1.0 / std::sqrt(sun.maximum_greenhouse) - 1.676) < 0.002, "Sun's maximum greenhouse at 1.68 au",
+          1.0 / std::sqrt(sun.maximum_greenhouse));
+    check(std::abs(habitable_zone_flux(5780.0).early_mars - 0.32) < 1e-12, "early Mars S_eff for a 5780 K star");
+
+    const auto zone_of = [](const Scene& scene, std::vector<HabitableZone>& zones, const char* star) {
+        const int index = scene.find(star);
+        for (const HabitableZone& z : zones) {
+            if (std::find(z.stars.begin(), z.stars.begin() + z.count, index) != z.stars.begin() + z.count &&
+                z.stars[0] == index) {
+                return &z;
+            }
+        }
+        return static_cast<const HabitableZone*>(nullptr);
+    };
+    const auto conservative = [](const HabitableZoneFlux& s) {
+        return s.runaway_greenhouse < 1.0 && s.maximum_greenhouse > 1.0;
+    };
+    const auto optimistic = [](const HabitableZoneFlux& s) { return s.recent_venus < 1.0 && s.early_mars > 1.0; };
+    std::vector<HabitableZone> zones;
+
+    // TRAPPIST-1 (2566 K, just below [KO14]'s range): e, f and g in the
+    // conservative zone [GI17], d only in the optimistic one, b, c and h outside.
+    {
+        Scene scene = load_scene_or_die("trappist1.toml");
+        scene.update(tdb_from_jd_tdb(2459000.5));
+        find_habitable_zones(scene, zones);
+        const HabitableZone* zone = zone_of(scene, zones, "TRAPPIST-1");
+        check(zone != nullptr && zone->count == 1, "TRAPPIST-1 has a zone of its own");
+        if (zone) {
+            const auto at = [&](const char* name) {
+                return habitable_zone_insolation(scene, *zone, scene.bodies[static_cast<size_t>(scene.find(name))].world_position);
+            };
+            check(!optimistic(at("TRAPPIST-1 b")) && !optimistic(at("TRAPPIST-1 c")), "TRAPPIST-1 b and c too hot");
+            check(optimistic(at("TRAPPIST-1 d")) && !conservative(at("TRAPPIST-1 d")), "TRAPPIST-1 d in the optimistic zone only");
+            check(conservative(at("TRAPPIST-1 e")) && conservative(at("TRAPPIST-1 f")) && conservative(at("TRAPPIST-1 g")),
+                  "TRAPPIST-1 e, f and g in the conservative zone");
+            check(!optimistic(at("TRAPPIST-1 h")), "TRAPPIST-1 h too cold");
+            const glm::dvec3 n = scene.orbit_normal(scene.find("TRAPPIST-1 f"));
+            check(std::abs(glm::dot(zone->normal, n)) > 0.999999, "TRAPPIST-1's zone in f's orbital plane");
+        }
+    }
+
+    // Kepler-47: one zone around both stars; c in it all along its orbit [OR12],
+    // b too hot.
+    {
+        Scene scene = load_scene_or_die("kepler47.toml");
+        const int c = scene.find("Kepler-47 c");
+        const int b = scene.find("Kepler-47 b");
+        bool c_in = true;
+        bool b_out = true;
+        bool shared = true;
+        for (int k = 0; k < 12; ++k) {
+            scene.update(tdb_from_jd_tdb(2461041.5 + 25.3 * k));
+            find_habitable_zones(scene, zones);
+            const HabitableZone* zone = zone_of(scene, zones, "Kepler-47 A");
+            shared = shared && zone && zone->count == 2 && zone->stars[1] == scene.find("Kepler-47 B");
+            if (!zone) {
+                continue;
+            }
+            c_in = c_in && conservative(habitable_zone_insolation(scene, *zone, scene.bodies[static_cast<size_t>(c)].world_position));
+            b_out = b_out && !optimistic(habitable_zone_insolation(scene, *zone, scene.bodies[static_cast<size_t>(b)].world_position));
+        }
+        check(shared, "Kepler-47's stars share one zone");
+        check(c_in, "Kepler-47 c in the conservative zone through its orbit");
+        check(b_out, "Kepler-47 b too hot");
+    }
+
+    // Alpha Centauri: A and B 11-36 au apart have zones of their own, as does
+    // Proxima, with b in its conservative zone (Anglada-Escude et al. 2016).
+    {
+        Scene scene = load_scene_or_die("alpha_centauri.toml");
+        scene.update(tdb_from_jd_tdb(2461041.5));
+        find_habitable_zones(scene, zones);
+        check(zone_of(scene, zones, "Alpha Centauri A") && zone_of(scene, zones, "Alpha Centauri B"),
+              "Alpha Centauri A and B have separate zones");
+        const HabitableZone* proxima = zone_of(scene, zones, "Proxima Centauri");
+        check(proxima && proxima->count == 1, "Proxima has a zone of its own");
+        if (proxima) {
+            const int pb = scene.find("Proxima Centauri b");
+            check(conservative(habitable_zone_insolation(scene, *proxima, scene.bodies[static_cast<size_t>(pb)].world_position)),
+                  "Proxima b in the conservative zone");
+        }
+    }
+
+    // Left out: stars too hot, evolved or pulsating, and dwarfs beside them.
+    {
+        Scene castor = load_scene_or_die("castor.toml");
+        castor.update(tdb_from_jd_tdb(2461041.5));
+        find_habitable_zones(castor, zones);
+        check(zone_of(castor, zones, "Castor Ca") != nullptr, "YY Gem (Castor C) has a zone");
+        check(!zone_of(castor, zones, "Castor Ab") && !zone_of(castor, zones, "Castor Bb"),
+              "no zone for red dwarfs beside Castor's A stars");
+        const Scene algol = load_scene_or_die("algol.toml");
+        check(!has_habitable_zone(algol.bodies[static_cast<size_t>(algol.find("Algol B"))]), "Algol B, a subgiant, has none");
+        const Scene polaris = load_scene_or_die("polaris.toml");
+        check(!has_habitable_zone(polaris.bodies[static_cast<size_t>(polaris.find("Polaris Aa"))]), "Polaris Aa has none");
+        Scene cephei = load_scene_or_die("delta_cephei.toml");
+        cephei.update(tdb_from_jd_tdb(2461041.5));
+        find_habitable_zones(cephei, zones);
+        check(!zone_of(cephei, zones, "Delta Cephei B"), "no zone for delta Cephei B beside the Cepheid");
+        const Scene pic = load_scene_or_die("beta_pictoris.toml");
+        check(!has_habitable_zone(pic.bodies[static_cast<size_t>(pic.find("Beta Pic"))]), "Beta Pic (8090 K) has none");
+        const Scene kerbol = load_scene_or_die("kerbol.toml");
+        check(!has_habitable_zone(kerbol.bodies[static_cast<size_t>(kerbol.find("Kerbol"))]), "Kerbol has none");
+    }
+}
+
 } // namespace
 
 void run_stellar_system_tests()
@@ -4012,4 +4128,5 @@ void run_stellar_system_tests()
     test_observed_light_and_exposure();
     test_eta_carinae_scene();
     test_hr_diagram();
+    test_habitable_zones();
 }

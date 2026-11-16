@@ -493,6 +493,7 @@ focus = "Proxima Centauri"
 distance_km = 3.0e7
 warp = 21600.0                 # 6 hours per second: b orbits in 45 s, d in 20 s
 frame = "Proxima Centauri-centered"
+habitable_zone = true
 # [AE16], [SM25]
 caption = """\
     Proxima Centauri, the Sun's closest stellar neighbor, is a red dwarf that \
@@ -508,6 +509,7 @@ from_body = "Sun"              # as seen from Earth
 distance_km = 1.2e9
 warp = 1728000.0               # 20 days per second: an orbit in 36 s
 frame = "Alpha Centauri A-centered"
+habitable_zone = true
 # [BS25], Saturn's mass
 caption = """\
     In August 2024 the James Webb Space Telescope found a faint point of infrared \

@@ -748,6 +748,7 @@ struct SceneEvent {
     bool aurora_infrared = false; // IR false-color overlay on the visible planet
     bool magnetic_lines = false; // the field lines of bodies with a magnetic_field
     bool flux_tubes = false; // the lines from Jupiter's moons to their footprints
+    bool habitable_zone = false; // the stars' habitable zones (scene/habitable_zone.hpp)
     // Magnetopauses and bow shocks drawn while the event is active, each under its own
     // solar wind (several of one body: to compare them).
     std::vector<MagnetosphereState> magnetosphere;

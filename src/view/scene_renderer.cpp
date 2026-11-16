@@ -7,6 +7,7 @@
 #include "ephem/schwarzschild_light.hpp"
 #include "render/render_output.hpp"
 #include "render/texture.hpp"
+#include "scene/habitable_zone.hpp"
 #include "scene/lensing.hpp"
 #include "scene/light_curve.hpp"
 #include "scene/pulsar.hpp"
@@ -112,6 +113,15 @@ constexpr double kLightCylinderOpacity = 0.6;
 constexpr double kMagnetosphereOpacity = 0.42;
 constexpr double kBowShockOpacity = 0.6;
 constexpr double kMagnetosphereFaint = 0.3;
+// Habitable zones: linear radiance, from sRGB green (conservative) and a paler green
+// (optimistic); faint, as a wash under the orbits. Close to the camera (closer than a
+// fraction of the conservative zone's width) they fade out.
+const glm::vec3 kHabitableZoneConservative =
+    0.065f * glm::vec3(srgb_to_linear(glm::dvec3(0.30, 0.85, 0.42)));
+const glm::vec3 kHabitableZoneOptimistic =
+    0.04f * glm::vec3(srgb_to_linear(glm::dvec3(0.40, 0.85, 0.62)));
+constexpr double kHabitableZoneNearStart = 0.02;
+constexpr double kHabitableZoneNearEnd = 0.2;
 // The lines to the moons' footprints: the field line through the moon now, and, brighter, the
 // wave on its way down, which ends at the spot.
 constexpr double kFieldLineToMoonOpacity = 0.3;
@@ -772,7 +782,7 @@ bool SceneRenderer::init(const GpuDevice& gpu, SDL_GPUTextureFormat output_forma
     SDL_GPUDevice* device = gpu.device();
     const SceneTargetFormat& format = gpu.scene_format();
     return m_starfield.init(device, format, m_catalog) && m_bodies.init(device, format) &&
-           m_rings.init(device, format) && m_atmospheres.init(device, format) && m_auroras.init(device, format) &&
+           m_rings.init(device, format) && m_habitable_zones.init(device, format) && m_atmospheres.init(device, format) && m_auroras.init(device, format) &&
            m_plumes.init(device, format) && m_impacts.init(device, format) && m_comets.init(device, format) && m_dust.init(device, format) &&
            m_accretion_glow.init(device, format) &&
            m_orbits.init(device, format) && m_belts.init(device, format) && m_pinwheel.init(device, format) &&
@@ -785,6 +795,7 @@ bool SceneRenderer::refresh_pipelines()
 {
     const SceneTargetFormat& format = m_device->scene_format();
     return m_starfield.set_format(format) && m_bodies.set_format(format) && m_rings.set_format(format) &&
+           m_habitable_zones.set_format(format) &&
            m_atmospheres.set_format(format) && m_auroras.set_format(format) && m_plumes.set_format(format) && m_impacts.set_format(format) &&
            m_comets.set_format(format) && m_dust.set_format(format) && m_accretion_glow.set_format(format) &&
            m_orbits.set_format(format) &&
@@ -818,6 +829,7 @@ void SceneRenderer::shutdown()
     m_pinwheel.shutdown();
     m_nebula.shutdown();
     m_rings.shutdown();
+    m_habitable_zones.shutdown();
     m_atmospheres.shutdown();
     m_auroras.shutdown();
     m_plumes.shutdown();
@@ -2398,6 +2410,44 @@ void SceneRenderer::build_magnetospheres(const Simulation& sim, const OutputView
     }
 }
 
+void SceneRenderer::build_habitable_zones(const Simulation& sim, const OutputView& output_view,
+                                          const ViewOptions& options)
+{
+    m_zone_items.clear();
+    const Scene& scene = sim.scene();
+    const int event = scene.active_event();
+    const bool shown = options.habitable_zone_view == 1 ||
+        (options.habitable_zone_view == 0 && event >= 0 && scene.events[static_cast<size_t>(event)].habitable_zone);
+    if (!shown) {
+        return;
+    }
+    find_habitable_zones(scene, m_zones);
+    const glm::dvec3& cam = output_view.camera.position;
+    for (const HabitableZone& zone : m_zones) {
+        // Plane axes: x and y in the plane, z along its normal.
+        const glm::dvec3 z = glm::normalize(zone.normal);
+        const glm::dvec3 x = glm::normalize(
+            glm::cross(std::abs(z.x) < 0.9 ? glm::dvec3(1.0, 0.0, 0.0) : glm::dvec3(0.0, 1.0, 0.0), z));
+        const glm::dmat3 axes(x, glm::cross(z, x), z);
+        HabitableZoneDrawItem item;
+        item.model = glm::translate(glm::mat4(1.0f), to_render(zone.center, cam)) * glm::mat4(glm::mat3(axes * kAuKm));
+        item.inner_au = static_cast<float>(zone.inner_km / kAuKm);
+        item.outer_au = static_cast<float>(zone.outer_km / kAuKm);
+        item.star_count = zone.count;
+        for (int k = 0; k < zone.count; ++k) {
+            const glm::dvec3 offset = scene.bodies[static_cast<size_t>(zone.stars[static_cast<size_t>(k)])].world_position -
+                                      zone.center;
+            item.stars[static_cast<size_t>(k)] = glm::vec4(glm::vec3(glm::transpose(axes) * offset / kAuKm), 0.0f);
+            const HabitableZoneFlux& w = zone.weights_au2[static_cast<size_t>(k)];
+            item.weights[static_cast<size_t>(k)] = glm::vec4(static_cast<float>(w.recent_venus), static_cast<float>(w.runaway_greenhouse),
+                                                             static_cast<float>(w.maximum_greenhouse), static_cast<float>(w.early_mars));
+        }
+        item.near_start_km = static_cast<float>(kHabitableZoneNearStart * zone.width_km);
+        item.near_end_km = static_cast<float>(kHabitableZoneNearEnd * zone.width_km);
+        m_zone_items.push_back(item);
+    }
+}
+
 void SceneRenderer::draw_stars(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const Simulation& sim,
                                const OutputView& output_view, int neutron_star, float neutron_star_blend)
 {
@@ -2691,6 +2741,7 @@ void SceneRenderer::render(const Frame& frame, const Simulation& sim, const Outp
     build_orbit_lines(sim, output_view, options);
     build_magnetic_lines(sim, output_view, options); // in the same pass, after the orbits
     build_magnetospheres(sim, output_view, options);
+    build_habitable_zones(sim, output_view, options);
     build_comet_items(sim, output_view, options);
     add_accretion_gas(sim, view);
 
@@ -2745,6 +2796,7 @@ void SceneRenderer::render(const Frame& frame, const Simulation& sim, const Outp
     // The donor's halo is part of the background seen through the disk.
     m_plumes.draw(frame.cmd, pass, view, time, m_accretion_items);
     m_beams.draw(frame.cmd, pass, view, m_beam_items);
+    m_habitable_zones.draw(frame.cmd, pass, view, m_zone_items, kHabitableZoneConservative, kHabitableZoneOptimistic);
     m_orbits.draw(frame.cmd, pass, view, options.line_width);
     SDL_EndGPURenderPass(pass);
 

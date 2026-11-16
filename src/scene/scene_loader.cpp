@@ -2658,6 +2658,7 @@ void Loader::parse(const toml::table& root, Scene& out)
             e.aurora_infrared = (*t)["aurora_infrared"].value<bool>().value_or(false);
             e.magnetic_lines = (*t)["magnetic_lines"].value<bool>().value_or(false);
             e.flux_tubes = (*t)["flux_tubes"].value<bool>().value_or(false);
+            e.habitable_zone = (*t)["habitable_zone"].value<bool>().value_or(false);
             if (const toml::node* spheres = t->get("magnetosphere")) {
                 const toml::array* list = spheres->as_array();
                 if (!list) {

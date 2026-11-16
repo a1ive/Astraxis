@@ -81,6 +81,8 @@ add_library(astraxis_sim STATIC
     src/scene/camera_director.cpp
     src/scene/camera_director.hpp
     src/scene/comet.cpp
+    src/scene/habitable_zone.cpp
+    src/scene/habitable_zone.hpp
     src/scene/hr_diagram.cpp
     src/scene/hr_diagram.hpp
     src/scene/impact.cpp
@@ -170,6 +172,8 @@ astraxis_add_shaders(astraxis_shaders
     shaders/splat_composite.frag.hlsl
     shaders/ring.vert.hlsl
     shaders/ring.frag.hlsl
+    shaders/habitable_zone.vert.hlsl
+    shaders/habitable_zone.frag.hlsl
     shaders/starfield.vert.hlsl
     shaders/starfield.frag.hlsl
     shaders/sun.vert.hlsl
@@ -233,6 +237,8 @@ add_executable(astraxis
     src/render/gpu_buffer.hpp
     src/render/gpu_device.cpp
     src/render/gpu_device.hpp
+    src/render/habitable_zone_pass.cpp
+    src/render/habitable_zone_pass.hpp
     src/render/offscreen_output.cpp
     src/render/offscreen_output.hpp
     src/render/orbit_line_pass.cpp

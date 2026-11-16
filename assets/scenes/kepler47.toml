@@ -188,6 +188,7 @@ focus = "Kepler-47"
 from_orbit_normal = "Kepler-47 B"
 distance_km = 4.0e8
 warp = 345600.0
+habitable_zone = true
 # [OR12], [OR19]
 caption = """\
     The first system found with several planets crossing in front of two stars. A \

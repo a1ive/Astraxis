@@ -62,7 +62,7 @@ ctest --test-dir build/linux -C Release --output-on-failure --no-tests=error
 
 - 场景在 [assets/scenes](assets/scenes)，共用天体字段见 [Body Templates](assets/bodies/README.md)，解析入口是 [scene_loader.cpp](src/scene/scene_loader.cpp)。顶层 TOML 键放在首个表头之前。切换互斥字段时用 `unset` 清除模板值。`body_gm_km3_s2` 为天体自身 GM，`gm_km3_s2` 可含卫星质量。
 - 没有太阳天体的场景可用 `from_body = "Sun"` 引用太阳方向。没有地球时用 `observer` 和 `observer_offset_km` 锚定地球方向的设计视点。`flyby` 需要最近点两侧都有数据，撞击事件用视点字段构图。`elevation_deg` 覆盖俯仰角，`phase_deg` 调整方位角。
-- 恒星的 `temperature_k`、`luminosity_solar` 会画在信息面板的 H–R 图上（`scene/hr_diagram.hpp`），要用有出处的值。只为外观或一群星共用的假设值，设 `hr_diagram = false` 不画。
+- 恒星的 `temperature_k`、`luminosity_solar` 会画在信息面板的 H–R 图上（`scene/hr_diagram.hpp`），要用有出处的值。只为外观或一群星共用的假设值，设 `hr_diagram = false` 不画。宜居带（`scene/habitable_zone.hpp`）也只画这些有出处的恒星，并要求 2500–7200 K、半径 ≤ 2 R☉、不脉动；事件用 `habitable_zone = true` 打开。附近有本身不适用的亮星时整片不画，测试里先 `update` 再调用 `find_habitable_zones`。
 - 视点超过星表完整距离 `max_viewer_pc` 时，用 [模型星空](assets/sky/SOURCES.md)。近地航天器若用平根数画一圈轨道，用 `trail = "orbit"`。换参考系或时间倍率后检查轨迹密度和事件节奏。
 - 用原始观测或论文表格标注物理量来源。场景 TOML 文件头列出引用标签，正文引用这些标签。能用独立数据交叉验证的位置、方向、距离或时刻，写进相关测试。核对时间尺度、光行时、参考中心、经纬度正方向以及距离是到中心还是到表面。
 - [refresh-data](.github/workflows/refresh-data.yml) 每月 3 日运行 [monthly_refresh.py](tools/refresh/monthly_refresh.py)：重新下载 OMNI2，把 JWST、Euclid、Roman、TESS、Chandra 的 `stop` 移到 Horizons 当前覆盖的末端并重新烘焙，补上 JSOC 新出的 HMI 综观图并合并进太阳的磁场系数，同步资料页里的数字，然后从 `auto/refresh-data` 开 PR，并在该分支上触发 `build.yml`。合并前按 PR 里的清单核对资料页文字。测试不要钉住预报段的状态或表的结束时间（用 `EphemerisMotion::table().end()`，HMI 用 `last_rotation()`），否则每月刷新都会失败。仓库设置里要允许 GitHub Actions 创建 PR。

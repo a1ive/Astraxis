@@ -7,6 +7,7 @@
 
 #include "core/math.hpp"
 #include "core/time.hpp"
+#include "scene/habitable_zone.hpp"
 
 #include <glm/glm.hpp>
 #include <imgui.h>
@@ -408,6 +409,17 @@ void App::build_control_panel()
                              "Mars 150 km up, the Moon 30 km up, Jupiter at the cloud tops or deep at the top of\n"
                              "its dynamo, Uranus and Neptune at the surface, the Earth's crust alone.\n"
                              "Strength, dark where weak: the Earth's whole field.\n"
+                             "Event setting: off unless the event enables it.");
+    }
+
+    if (std::any_of(scene.bodies.begin(), scene.bodies.end(), [](const Body& b) { return has_habitable_zone(b); })) {
+        ImGui::Combo("Habitable zone", &m_view_options.habitable_zone_view, "Event setting\0Always\0Never\0");
+        ImGui::SetItemTooltip("Where an Earth-like planet could keep liquid water on its surface, in the plane of\n"
+                             "the planets (Kopparapu et al. 2014, for an Earth-mass planet). Green: the\n"
+                             "conservative zone, from the runaway to the maximum greenhouse. Pale green: the\n"
+                             "optimistic one, from where Venus last had water to where early Mars had it.\n"
+                             "A pair of stars shares one zone, adding their light (Haghighipour & Kaltenegger 2013).\n"
+                             "Only main-sequence stars from 2,500 to 7,200 K, with no hotter or evolved star near.\n"
                              "Event setting: off unless the event enables it.");
     }
 

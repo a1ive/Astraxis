@@ -11,6 +11,7 @@
 #include "render/corona_pass.hpp"
 #include "render/disk_pass.hpp"
 #include "render/dust_pass.hpp"
+#include "render/habitable_zone_pass.hpp"
 #include "render/orbit_line_pass.hpp"
 #include "render/nebula_pass.hpp"
 #include "render/pinwheel_pass.hpp"
@@ -80,6 +81,7 @@ private:
     void build_magnetic_lines(const Simulation& sim, const OutputView& view, const ViewOptions& options);
     void build_pulsar_lines(const Simulation& sim, const OutputView& view, size_t body_index);
     void build_magnetospheres(const Simulation& sim, const OutputView& view, const ViewOptions& options);
+    void build_habitable_zones(const Simulation& sim, const OutputView& view, const ViewOptions& options);
     void build_belt_items(const Simulation& sim, const OutputView& view, const ViewOptions& options);
     void build_comet_items(const Simulation& sim, const OutputView& view, const ViewOptions& options);
     void add_accretion_gas(const Simulation& sim, const CameraView& view);
@@ -112,6 +114,7 @@ private:
     DustPass m_dust;
     AccretionGlowPass m_accretion_glow;
     RingPass m_rings;
+    HabitableZonePass m_habitable_zones;
     OrbitLinePass m_orbits;
     BeltPass m_belts;
     PinwheelPass m_pinwheel;
@@ -165,6 +168,8 @@ private:
     // Per-frame scratch.
     std::vector<BodyDrawItem> m_body_items;
     std::vector<RingDrawItem> m_ring_items;
+    std::vector<HabitableZone> m_zones;
+    std::vector<HabitableZoneDrawItem> m_zone_items;
     std::vector<NebulaDrawItem> m_nebula_items;
     std::vector<AtmosphereDrawItem> m_atmosphere_items;
     std::vector<AuroraDrawItem> m_aurora_items;
