@@ -169,10 +169,9 @@ struct BodyMagneticField {
     std::shared_ptr<const MagneticFieldSeries> series;
     double model_year = 0.0;
     // Or a map per Carrington rotation (the Sun's): `model` is that of `rotation`, which
-    // Scene::update keeps at the rotation going on, holding the last for kSynopticHold
-    // rotations past the end. Outside that `model` is null and nothing is drawn. The lines
-    // are traced again only once drawn (lines_in_view), so `lines` may be a rotation late.
-    static constexpr int kSynopticHold = 2;
+    // Scene::update keeps at the rotation going on, or the first or last map outside them.
+    // The lines are traced again only once drawn (lines_in_view), so `lines` may be a
+    // rotation late.
     std::shared_ptr<const SynopticFieldSeries> synoptic;
     int rotation = 0;
     int lines_rotation = 0; // what `lines` were traced for; 0: none yet

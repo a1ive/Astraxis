@@ -4119,9 +4119,9 @@ void test_sun_pfss()
     check(worst_br < 1e-9 * peak_br, "the photospheric Br does not depend on the source surface", worst_br / peak_br);
     std::printf("  info: CR2200 g'10 %.3f G (WSO 0.972 G), strongest Br at 50 points %.1f G\n", bare.g(1, 0) * 2e-5, peak_br * 1e-5);
 
-    // In the scene: nothing before the maps, the map of the rotation after, lines once drawn.
+    // In the scene: the first map before HMI, the map of the rotation after, lines once drawn.
     scene.update(tdb_from_julian_year(2005.0));
-    check(!field.model && field.lines.empty(), "no field before HMI");
+    check(field.model && field.rotation == series.first_rotation(), "before HMI, its first map", field.rotation);
     struct Count { int rotation, closed, outward, inward; double worst_radial, ms; };
     const auto count_lines = [&](const char* utc) {
         parse_utc(utc, &t);
@@ -4177,11 +4177,20 @@ void test_sun_pfss()
         }
     }
     check(polar_right > 10 && polar_wrong == 0, "in 2019 the north polar hole's field points out, the south's in", polar_right);
-    // Held for kSynopticHold rotations after the last map, then gone.
-    scene.update(SynopticFieldSeries::rotation_start_tdb(series.last_rotation() + BodyMagneticField::kSynopticHold) + 3600.0);
-    check(field.model && field.rotation == series.last_rotation(), "the last map is held for a while");
-    scene.update(SynopticFieldSeries::rotation_start_tdb(series.last_rotation() + BodyMagneticField::kSynopticHold + 1) + 3600.0);
-    check(!field.model && field.lines.empty(), "and then dropped");
+    // After the last map it is held, years on, and its lines are traced once, not each rotation.
+    const double after = SynopticFieldSeries::rotation_start_tdb(series.last_rotation() + 1) + 3600.0;
+    scene.update(after);
+    field.lines_in_view = true;
+    scene.update(after + 60.0);
+    check(field.model && field.rotation == series.last_rotation() && field.lines_rotation == series.last_rotation() &&
+              !field.lines.empty(),
+          "after the maps, the last one and its lines");
+    const std::vector<glm::dvec4> held_line = field.lines.front();
+    field.lines_in_view = true;
+    scene.update(after + 10.0 * kDaysPerJulianYear * kSecondsPerDay);
+    check(field.rotation == series.last_rotation() && field.lines.front().size() == held_line.size() &&
+              glm::length(glm::dvec3(field.lines.front().front()) - glm::dvec3(held_line.front())) == 0.0,
+          "ten years later still, without tracing again");
 }
 
 void test_magnetic_maps()

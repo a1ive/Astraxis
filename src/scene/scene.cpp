@@ -650,16 +650,8 @@ void follow_synoptic_field(Body& body, double t_tdb)
         return;
     }
     const SynopticFieldSeries& series = *field.synoptic;
-    const int rotation = SynopticFieldSeries::rotation_at(t_tdb);
-    if (rotation < series.first_rotation() || rotation > series.last_rotation() + BodyMagneticField::kSynopticHold) {
-        field.model.reset();
-        field.rotation = 0;
-        field.lines.clear();
-        field.lines_rotation = 0;
-        field.lines_in_view = false;
-        return;
-    }
-    const int used = std::min(rotation, series.last_rotation());
+    // Outside the maps, the nearest one, as the Earth's field model is held at its ends.
+    const int used = std::clamp(SynopticFieldSeries::rotation_at(t_tdb), series.first_rotation(), series.last_rotation());
     if (used != field.rotation || !field.model) {
         field.model = std::make_shared<MagneticField>(series.at(used, field.source_surface));
         field.rotation = used;
