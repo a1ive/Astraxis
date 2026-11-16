@@ -2926,17 +2926,21 @@ void test_hd206893_scene()
     check(millimeter == 2, "HD 206893: events at millimeter wavelengths", millimeter);
 }
 
-// Dipoles from Zeeman-Doppler imaging: Proxima (Klein et al. 2021) and PDS 70 (Donati et al.
-// 2024). At the published phase the visible magnetic pole faces Earth, as far from the line of
-// sight as |inclination - tilt| can allow, with the published polarity and polar strength.
+// Dipoles from Zeeman-Doppler imaging: Proxima (Klein et al. 2021), PDS 70 (Donati et al.
+// 2024) and YY Gem (Kochukhov & Shulyak 2019, fitted to their Fig. 5). At the published phase
+// the visible magnetic pole faces Earth, as far from the line of sight as |inclination - tilt|
+// can allow, with the published polarity and polar strength.
 void test_zdi_dipoles()
 {
     struct Case {
         const char* file; const char* star; double spin_to_sight_deg, tilt_deg, polar_g, face_jd, period_days;
         bool visible_positive;
     };
+    constexpr double kYyGemT0 = 2459690.57515, kYyGemP = 0.81428247;
     for (const Case& c : {Case{"alpha_centauri.toml", "Proxima Centauri", 47.0, 51.0, 135.0, 2457862.0 + 0.28 * 89.8, 89.8, false},
-                          Case{"pds70.toml", "PDS 70", 51.7, 31.0, 420.0, 2458977.9 + 477.35 * 3.010, 3.010, true}}) {
+                          Case{"pds70.toml", "PDS 70", 51.7, 31.0, 420.0, 2458977.9 + 477.35 * 3.010, 3.010, true},
+                          Case{"castor.toml", "Castor Ca", 86.29, 14.0, 287.0, kYyGemT0 + (0.819 - 4610.0) * kYyGemP, kYyGemP, true},
+                          Case{"castor.toml", "Castor Cb", 86.29, 48.0, 174.0, kYyGemT0 + (0.278 - 4610.0) * kYyGemP, kYyGemP, false}}) {
         Scene scene = load_scene_or_die(c.file);
         const int index = scene.find(c.star);
         const int sun = scene.find("Sun");
@@ -2969,8 +2973,9 @@ void test_zdi_dipoles()
         check(std::abs(closest - std::abs(c.spin_to_sight_deg - c.tilt_deg)) < 0.05,
               "at the phase, the visible magnetic pole is as close to the line of sight as it gets (deg)", closest);
         const double quarter = c.period_days / 4.0 * kSecondsPerDay;
+        // Half a turn later it is about twice the tilt farther (exactly so with the spin across the sight line).
         check(pole_to_sight(t_face - quarter) > closest + 10.0 && pole_to_sight(t_face + quarter) > closest + 10.0 &&
-                  pole_to_sight(t_face + 2.0 * quarter) > closest + 30.0,
+                  pole_to_sight(t_face + 2.0 * quarter) > closest + std::min(30.0, 1.5 * c.tilt_deg),
               "and turns away from it over a rotation");
         std::printf("info: %s dipole: tilt %.1f deg, the visible %s pole %.1f deg from the line of sight at the phase\n",
                     c.star, field->dipole_tilt_deg(), c.visible_positive ? "positive" : "negative", closest);
@@ -2990,6 +2995,34 @@ void test_zdi_dipoles()
             }
         }
         check(std::abs(farthest - 6.5) < 0.05, "the outer loops reach 6.5 stellar radii [DN24] (radii)", farthest);
+    }
+    // YY Gem: the dipoles anti-aligned [KS19 Sect. 5.2], and each star's lines short of halfway to the other.
+    Scene castor = load_scene_or_die("castor.toml");
+    const int ca = castor.find("Castor Ca");
+    const int cb = castor.find("Castor Cb");
+    if (ca >= 0 && cb >= 0) {
+        const Body& a = castor.bodies[static_cast<size_t>(ca)];
+        const Body& b = castor.bodies[static_cast<size_t>(cb)];
+        if (a.magnetic_field.model && b.magnetic_field.model) {
+            const double t = (2455936.6 - kJ2000Jd) * kSecondsPerDay; // 2012 January
+            const glm::dvec3 pole_a = castor.body_to_icrf(a, t) * a.magnetic_field.model->dipole_axis();
+            const glm::dvec3 pole_b = castor.body_to_icrf(b, t) * b.magnetic_field.model->dipole_axis();
+            const double angle = std::acos(std::clamp(glm::dot(pole_a, pole_b), -1.0, 1.0)) / kDegToRad;
+            check(angle > 110.0, "YY Gem's positive poles point roughly opposite ways (deg)", angle);
+            const double half_gap = 0.5 * glm::length(castor.icrf_state_at(ca, t).position - castor.icrf_state_at(cb, t).position) /
+                                    a.magnetic_field.reference_radius_km;
+            for (const Body* yy : {&a, &b}) {
+                double farthest = 0.0;
+                for (const auto& line : yy->magnetic_field.lines) {
+                    for (const glm::dvec4& p : line) {
+                        farthest = std::max(farthest, glm::length(glm::dvec3(p)));
+                    }
+                }
+                check(farthest < half_gap && farthest > 2.4, "YY Gem: the loops stay short of halfway to the other star (radii)",
+                      farthest);
+            }
+            std::printf("info: YY Gem dipoles %.0f deg apart; half the gap is %.2f stellar radii\n", angle, half_gap);
+        }
     }
 }
 

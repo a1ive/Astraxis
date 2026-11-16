@@ -2264,7 +2264,9 @@ void SceneRenderer::build_magnetic_lines(const Simulation& sim, const OutputView
         const BodyMagneticField& field = body.magnetic_field;
         // With a moon in focus, its parent still draws the lines that reach that moon: the
         // moon's own open lines (Ganymede's) run on into them.
-        const bool focused = only < 0 || static_cast<int>(i) == only;
+        // A barycenter in focus stands for its stars (YY Gem's pair).
+        const bool focused = only < 0 || static_cast<int>(i) == only ||
+            (body.parent == only && scene.bodies[static_cast<size_t>(only)].kind == BodyKind::Barycenter);
         if (show_lines && focused && body.visible && !body.pulsar.field_lines.empty()) {
             build_pulsar_lines(sim, output_view, i);
             continue;

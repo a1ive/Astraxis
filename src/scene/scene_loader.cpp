@@ -1897,7 +1897,8 @@ void Loader::parse(const toml::table& root, Scene& out)
                     (visible != "positive" && visible != "negative")) {
                     fail(dctx, "needs polar_g > 0, tilt_deg in 0..90, period_days > 0 and visible_pole positive or negative");
                 }
-                if (std::abs(body.pm_rate_deg_per_day * z.period_days - 360.0) > 1e-6) {
+                // A synchronous star turns with its orbit, checked once the bodies are placed.
+                if (body.synchronous_with < 0 && std::abs(body.pm_rate_deg_per_day * z.period_days - 360.0) > 1e-6) {
                     fail(dctx, "the star's prime_meridian_deg must turn once in period_days");
                 }
                 m_zdi_dipoles.push_back(z);
@@ -3250,6 +3251,13 @@ void Loader::parse(const toml::table& root, Scene& out)
             fail(dctx, "needs the Sun's body, for the direction to the observer");
         }
         const double t_face = (z.phase_zero_jd + z.phase * z.period_days - kJ2000Jd) * kSecondsPerDay;
+        if (body.synchronous_with >= 0) {
+            const glm::dvec3 x0 = out.body_to_icrf(body, t_face)[0];
+            const glm::dvec3 x1 = out.body_to_icrf(body, t_face + z.period_days * kSecondsPerDay)[0];
+            if (glm::dot(x0, x1) < std::cos(0.1 * kDegToRad)) {
+                fail(dctx, "a synchronous star's orbit must take period_days");
+            }
+        }
         const glm::dvec3 to_observer =
             glm::normalize(out.icrf_state_at(sun, t_face).position - out.icrf_state_at(z.body, t_face).position);
         const glm::dvec3 seen = glm::transpose(out.body_to_icrf(body, t_face)) * to_observer; // body frame

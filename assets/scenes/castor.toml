@@ -62,6 +62,18 @@
 #        (from 1994) is 10.5 minutes off by 2022.
 # [PM13] Pecaut & Mamajek 2013, ApJS 208, 9, and E. Mamajek's online table
 #        (EEM_dwarf_UBVIJHK_colors_Teff.txt): M2.5V, 3470 K.
+# [KS19] Kochukhov & Shulyak 2019, ApJ 873, 69 (arXiv:1902.04157): Zeeman-Doppler maps of
+#        both stars from 36 Stokes V profiles, ESPaDOnS, 2012 January 4-17, degree <= 10.
+#        Table 3: mean global field 260 and 205 G, mean |Br| 168 and 98 G, 52 and 46% of
+#        the energy in the dipole. Sect. 5.2: the dipoles anti-aligned, positive at the
+#        north pole of the primary (Ca), negative on the secondary. Sect. 6: Zeeman
+#        intensification, 3.44 and 3.15 kG mean field over the whole surface.
+#        The maps are published only as Fig. 5; tools/castor/yy_gem_zdi_dipoles.py fits
+#        the dipole to its radial-field panels (mean |Br| 168 and 100 G there): Ca
+#        287 G at the pole, tilted 14 deg, the positive pole at longitude 65; Cb 174 G,
+#        48 deg, the negative pole at 260. Their longitude L faces Earth at phase
+#        1 - L/360 for both stars, phase 0 at Ca's eclipse ([TR02]'s ephemeris, minutes
+#        from [TESS] in 2012: a few degrees).
 # [BU15] Butler et al. 2015, MNRAS 446, 4205 (arXiv:1501.03930): YY Gem, flare stars.
 # [SIMB] SIMBAD: ICRS position of alpha Gem at J2000, 113.64947164, 31.88828222 deg.
 #
@@ -348,6 +360,18 @@ peak_disk_share = 0.0050
 site_longitude_deg = 280.0
 site_latitude_deg = 45.0
 window_hours = [0.5, 1.5]
+# The 2012 dipole [KS19], out to just short of halfway to Cb (3.15 radii).
+[bodies.magnetic_field]
+reference_radius_km = 430708.0
+l_shells = [1.3, 1.8, 2.5]
+max_radius = 3.1
+[bodies.magnetic_field.dipole]
+polar_g = 287.0
+tilt_deg = 14.0
+phase = 0.819                  # longitude 65
+phase_zero_jd = 2459690.57515  # [TESS]
+period_days = 0.81428247
+visible_pole = "positive"
 [bodies.orbit]
 scale = -0.501418558           # -M_Cb / M_C
 type = "transit_orbit"
@@ -402,6 +426,18 @@ from_year = 2023.45
 spots = [
     { longitude_deg = 351.24, latitude_deg = 45.0, radius_deg = 31.2 },
 ]
+# The 2012 dipole [KS19], about opposite to Ca's.
+[bodies.magnetic_field]
+reference_radius_km = 430708.0
+l_shells = [1.3, 1.8, 2.5]
+max_radius = 3.1
+[bodies.magnetic_field.dipole]
+polar_g = 174.0
+tilt_deg = 48.0
+phase = 0.278                  # longitude 260
+phase_zero_jd = 2459690.57515  # [TESS]
+period_days = 0.81428247
+visible_pole = "negative"
 [bodies.orbit]
 scale = 0.498581442            # M_Ca / M_C
 type = "transit_orbit"
@@ -585,6 +621,25 @@ caption = """\
     ultraviolet rose only 0.6 magnitude, yet the hydrogen emission was far stronger \
     than on the 24th. Three flares within five days came from one region, Bopp \
     found, no more than 60 degrees across."""
+
+[[events]]
+name = "2012: two magnetic fields, opposite ways"
+magnetic_lines = true
+focus_orbits_only = true
+time_tdb = "2012-01-10 02:03"  # Ca's positive pole toward Earth [KS19]
+focus = "Castor C"
+frame = "Castor C-centered"
+from_body = "Sun"
+elevation_deg = 20.0
+distance_km = 6.0e6
+warp = 600.0                   # 10 minutes per second: one orbit in 2 minutes
+# [KS19]
+caption = """\
+    In January 2012 the polarization of YY Gem's light mapped the large-scale \
+    magnetic field of each star: a few hundred gauss, about half of it in a dipole. \
+    The two dipoles point roughly opposite ways, which may couple the stars' fields \
+    across the gap. Only the dipoles are drawn. The full field, mostly in small \
+    tangled regions, averages over 3,000 gauss."""
 
 [[events]]
 name = "2023: the spots TESS saw"

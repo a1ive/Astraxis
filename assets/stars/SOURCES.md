@@ -70,3 +70,15 @@
 - 3 月 28 日有 V，第一个峰（V 未测）按 B 换算
 - 表里是耀斑那颗星自己的 V 光相对宁静时（一对相等的星：一对光增加 s，这颗星增加 2 s）
 - 列：`minutes,flux`，时间从场景里 `time` 写的 UT 量起。发生在主星上、区域和经度见 Bopp 1974（ApJ 193, 389）表 3、第 V 节，其经度 ℓ 对应相位 ℓ/360 过子午线，场景的经度 = −ℓ
+
+## YY Gem 2012 年的磁场偶极
+
+`castor.toml` 里 Ca、Cb 的 `[bodies.magnetic_field.dipole]`：Kochukhov & Shulyak 2019（ApJ 873, 69，arXiv:1902.04157）用 2012 年 1 月 ESPaDOnS 的 36 条 Stokes V 谱做了两颗星的塞曼-多普勒图（ℓ ≤ 10），但系数没有发表，只有图 5。图是矢量图，`tools/castor/yy_gem_zdi_dipoles.py`（需要 PyMuPDF 和 NumPy，PDF 不入库）把第 8 页按 300 dpi 渲染，径向场面板的每个像素取色标上最近的一档（离所有色档都远的网格线和文字不要），反解 Hammer–Aitoff 投影（等面积，像素等权），再用最小二乘拟合 Br = b · r̂，得到 ℓ = 1 分量：
+
+```bash
+python -I tools/castor/yy_gem_zdi_dipoles.py <arXiv 1902.04157 的 PDF>
+```
+
+- 结果：Ca 极区 287 G，正极偏离自转北极 14°，在经度 65°；Cb 极区 174 G，负极偏离北极 48°，在经度 260°。北极极性一正一负，与论文第 5.2 节一致
+- 对照：平均 |Br| 读出 168 G、100 G，论文表 3 是 168 G、98 G
+- 经度约定：论文中经度 L 在相位 1 − L/360 正对地球，两颗星相同，相位 0 是 Ca 被食。场景用 [TESS] 的历元和周期，与论文所用 Torres & Ribas 2002 的历元在 2012 年只差几分钟
