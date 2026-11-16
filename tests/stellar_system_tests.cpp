@@ -868,6 +868,50 @@ void test_algol_scene()
         check(off < 1e-6, "Algol B's long axis on A (rad)", off);
     }
 
+    // The 2008 radio loop [PE10 Fig. 3]: dipole lines along the orbit's normal from L = 2 to 4,
+    // 10^3 G, their feet on B's polar regions and their apexes toward A.
+    {
+        const BodyMagneticField& field = star_b.magnetic_field;
+        check(field.model != nullptr && field.lines.size() >= 9, "Algol B has its loop", static_cast<double>(field.lines.size()));
+        if (field.model) {
+            check(std::abs(field.reference_radius_km / star_b.roche->volume_radius_km - 1.0) < 1e-3,
+                  "the loop's L in B's volume radius", field.reference_radius_km / star_b.roche->volume_radius_km);
+            check(field.model->dipole_tilt_deg() < 1e-9, "the dipole along B's spin, the orbit's normal (deg)",
+                  field.model->dipole_tilt_deg());
+            const glm::dvec3 axis = field.model->dipole_axis();
+            check(std::abs(std::abs(glm::dot(field.model->field_nt(axis), axis)) - 1000.0 * 1e5) < 1e-3,
+                  "the loop's surface field, 10^3 G at the pole (nT)", glm::dot(field.model->field_nt(axis), axis));
+            double apex_min = 1e9, apex_max = 0.0, off_axis_max = 0.0, foot_min = 90.0, foot_max = 0.0;
+            bool both_poles = true;
+            for (const auto& line : field.lines) {
+                glm::dvec3 apex(0.0);
+                for (const glm::dvec4& p : line) {
+                    if (glm::length(glm::dvec3(p)) > glm::length(apex)) apex = glm::dvec3(p);
+                }
+                apex_min = std::min(apex_min, glm::length(apex));
+                apex_max = std::max(apex_max, glm::length(apex));
+                off_axis_max = std::max(off_axis_max, std::abs(std::atan2(apex.y, apex.x)) / kDegToRad);
+                const auto latitude = [](const glm::dvec4& p) {
+                    return std::asin(p.z / glm::length(glm::dvec3(p))) / kDegToRad;
+                };
+                const double foot_n = latitude(line.front()), foot_s = latitude(line.back());
+                both_poles = both_poles && foot_n * foot_s < 0.0;
+                for (double l : {std::abs(foot_n), std::abs(foot_s)}) {
+                    foot_min = std::min(foot_min, l);
+                    foot_max = std::max(foot_max, l);
+                }
+            }
+            check(apex_min > 1.99 && apex_max < 4.01 && apex_max > 3.99, "apexes from 2 to 4 radii", apex_max);
+            check(off_axis_max < 15.0, "every apex toward A, within the circular footprint (deg)", off_axis_max);
+            check(both_poles && foot_min > 44.0 && foot_max < 62.0, "the feet in both polar regions (latitude, deg)", foot_min);
+            const double t = tdb_from_jd_tdb(2454695.94); // 2008 August 17 [PE10 Fig. 2c]
+            const double gap_r = glm::length(scene.icrf_state_at(a, t).position - scene.icrf_state_at(b, t).position) /
+                                 field.reference_radius_km;
+            std::printf("info: Algol B's loop: %zu lines, apexes %.2f-%.2f radii, A at %.2f radii; feet %.1f-%.1f deg\n",
+                        field.lines.size(), apex_min, apex_max, gap_r, foot_min, foot_max);
+        }
+    }
+
     // Light of the three stars seen from Earth at t, with and without eclipses.
     const glm::dvec3 toward_earth = -away;
     auto flux = [&](double t, bool hide) {

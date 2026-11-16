@@ -131,6 +131,11 @@ struct FieldLineSettings {
     // Fibonacci lattice). A line that closes is kept from its outward footpoint only, so that
     // it is not drawn twice; lines that leave are kept from either.
     int surface_seeds = 0;
+    // Instead of the rings: one bundle of lines between the shells loop_l_min and loop_l_max,
+    // whose footprint on the unit sphere is a circle, in the plane of the dipole's axis and the
+    // model's +x (Algol B's loop toward its companion).
+    double loop_l_min = 0.0;
+    double loop_l_max = 0.0;
 };
 
 // One line through `seed`, from one end to the other: xyz in radii, w = fade

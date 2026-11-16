@@ -463,6 +463,13 @@ private:
         bool visible_pole_positive = true;
     };
     std::vector<ZdiDipole> m_zdi_dipoles;
+    // A coronal loop toward the companion ([bodies.magnetic_field.companion_loop]), placed once
+    // the stars are built: a Roche star's surface and its turning with the orbit come then.
+    struct CompanionLoop {
+        int body = -1;
+        double polar_g = 0.0, l_min = 0.0, l_max = 0.0;
+    };
+    std::vector<CompanionLoop> m_companion_loops;
     struct RocheSpec {
         int body = -1;
         std::string companion;
@@ -530,6 +537,7 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
         {"polar_g", number}, {"tilt_deg", number}, {"phase", number}, {"phase_zero_jd", number},
         {"period_days", number}, {"visible_pole", text},
     };
+    static const TemplateFields companion_loop = {{"polar_g", number}, {"l_range", list}};
     static const TemplateFields spin_sky = {{"ra_dec_deg", list}, {"node_deg", number}, {"i_deg", number}};
     static const TemplateFields free_precession = {
         {"nutation_deg", number}, {"precession_period_days", number}, {"spin_period_days", number},
@@ -559,6 +567,7 @@ void validate_body_template(const toml::table& t, const std::string& ctx, std::s
         {"lines_per_shell", integer}, {"max_radius", number}, {"color", text},
         {"synoptic", text}, {"source_surface", number}, {"surface_seeds", integer},
         {"outward_color", text}, {"inward_color", text}, {"dipole", {{Type::table}, &zdi_dipole}},
+        {"companion_loop", {{Type::table}, &companion_loop}},
     };
     static const TemplateFields magnetic_map = {{"surface", text}, {"deep", text}, {"crust", text}};
     static const TemplateFields magnetosphere = {
@@ -1870,8 +1879,11 @@ void Loader::parse(const toml::table& root, Scene& out)
             const std::string mctx = ctx + " magnetic_field";
             const bool synoptic = field->contains("synoptic");
             const toml::table* dipole = (*field)["dipole"].as_table();
-            if (!(body.kind == BodyKind::Planet || ((synoptic || dipole) && body.kind == BodyKind::Star)) || body.shape) {
-                fail(ctx, "only ellipsoidal planets, and stars with synoptic maps or a dipole, can have a magnetic field");
+            const toml::table* loop = (*field)["companion_loop"].as_table();
+            if (!(body.kind == BodyKind::Planet || ((synoptic || dipole || loop) && body.kind == BodyKind::Star)) ||
+                body.shape || (dipole && loop)) {
+                fail(ctx, "only ellipsoidal planets, and stars with synoptic maps, a dipole or a companion loop, can have "
+                          "a magnetic field");
             }
             auto model = std::make_shared<MagneticField>();
             std::string error;
@@ -1904,6 +1916,27 @@ void Loader::parse(const toml::table& root, Scene& out)
                 m_zdi_dipoles.push_back(z);
                 // A placeholder until the dipole is placed, after all bodies are read.
                 model->set_coefficient(false, 1, 0, 1.0);
+            } else if (loop) {
+                const std::string lctx = mctx + " companion_loop";
+                for (const char* key : {"coefficients", "coefficients_by_year", "synoptic", "parent_field", "l_shells",
+                                        "open_latitudes_deg", "lines_per_shell", "flip_pole", "longitude_offset_deg",
+                                        "prime_meridian_deg"}) {
+                    if (field->contains(key)) {
+                        fail(lctx, std::string("is an aligned dipole in the star's own frame and takes no ") + key);
+                    }
+                }
+                CompanionLoop c;
+                c.body = static_cast<int>(out.bodies.size());
+                c.polar_g = get_double(*loop, "polar_g", lctx);
+                double range[2];
+                get_array(*loop, "l_range", lctx, range, 2, 2);
+                c.l_min = range[0];
+                c.l_max = range[1];
+                if (!(c.polar_g > 0.0) || !(c.l_min > 1.0) || !(c.l_max > c.l_min)) {
+                    fail(lctx, "needs polar_g > 0 and l_range from above 1 upward");
+                }
+                m_companion_loops.push_back(c);
+                model->set_coefficient(false, 1, 0, 1.0); // a placeholder until the loop is placed
             } else if (synoptic) {
                 for (const char* key : {"coefficients", "coefficients_by_year", "l_shells", "open_latitudes_deg",
                                         "parent_field", "lines_per_shell", "flip_pole", "longitude_offset_deg",
@@ -1999,7 +2032,7 @@ void Loader::parse(const toml::table& root, Scene& out)
                 if (settings.surface_seeds < 1 || !(settings.max_radius > m.source_surface)) {
                     fail(mctx, "needs surface_seeds above 0 and max_radius beyond the source surface");
                 }
-            } else if (!dipole) { // a dipole's lines come once it is placed
+            } else if (!dipole && !loop) { // a dipole's or a loop's lines come once it is placed
                 m.lines = trace_field_lines(*model, settings);
             }
             m.line_settings = settings;
@@ -3275,6 +3308,37 @@ void Loader::parse(const toml::table& root, Scene& out)
         BodyMagneticField& m = body.magnetic_field;
         m.model = model;
         m.lines = trace_field_lines(*model, m.line_settings);
+    }
+
+    // Coronal loops toward the companion: the star turns with its orbit, its x toward the companion.
+    for (const CompanionLoop& c : m_companion_loops) {
+        Body& body = out.bodies[static_cast<size_t>(c.body)];
+        const std::string lctx = "body '" + body.name + "' magnetic_field companion_loop";
+        if (body.synchronous_with < 0) {
+            fail(lctx, "needs a star that turns with its orbit (synchronous, or filling its Roche lobe)");
+        }
+        BodyMagneticField& m = body.magnetic_field;
+        if (!(m.line_settings.max_radius > c.l_max)) {
+            fail(lctx, "max_radius must be beyond the outer shell");
+        }
+        // Aligned with the orbit's normal; which way it points is not known (Br at the north
+        // pole taken as negative, as on Earth).
+        auto model = std::make_shared<MagneticField>();
+        model->set_coefficient(false, 1, 0, -0.5 * c.polar_g * 1e5);
+        FieldLineSettings& settings = m.line_settings;
+        settings.l_shells.clear();
+        settings.loop_l_min = c.l_min;
+        settings.loop_l_max = c.l_max;
+        // A Roche lobe's sides and poles, as the spheroid the lines end on.
+        if (body.roche) {
+            settings.surface_equatorial = body.roche->side_km / m.reference_radius_km;
+            settings.surface_polar = body.roche->pole_km / m.reference_radius_km;
+        } else {
+            settings.surface_equatorial = body.equatorial_radius_km / m.reference_radius_km;
+            settings.surface_polar = body.polar_radius_km / m.reference_radius_km;
+        }
+        m.model = model;
+        m.lines = trace_field_lines(*model, settings);
     }
 
     out.set_active_frame(out.view.frame);

@@ -46,6 +46,16 @@
 #        side radius for their q = 0.227, a = 13.65 R_sun) are not used: B is its
 #        Roche lobe for [BA12]'s masses (q = 0.221, a = 13.335 R_sun: volume
 #        radius 3.44 R_sun).
+# [PE10] Peterson, Mutel, Guedel & Goss 2010, Nature 463, 207: six 12-hour images at
+#        15 GHz with the High Sensitivity Array (VLBA, GBT, Effelsberg, phased VLA),
+#        2008 April 6 to August 17, beam 0.4 x 0.6 mas. The radio source follows B
+#        and is a double or a whole loop about B's diameter across, its feet on B's
+#        polar regions and its apex toward A, turning with the orbit (Fig. 2: phases
+#        0.29, 0.50, 0.80 on June 19, July 27, August 17). Fig. 3: a gyrosynchrotron
+#        model fits the July image with a bundle of dipole lines between L = 2 and 4
+#        with a circular footprint, a surface field of 10^3 G, tilted 82 deg to the
+#        line of sight (the orbit's inclination). Text: a giant X-ray flare occulted
+#        in secondary eclipse sat just above B's south pole (Schmitt & Favata 1999).
 # [TESS] Primary minima in the TESS light curves (sectors 18, 58, 85; 2019-2024),
 #        measured by tools/algol/algol_ephemeris.py, which removes the light-time
 #        effect of the outer orbit: geometric minimum BJD_TDB 2459743.07502,
@@ -62,11 +72,13 @@
 #
 # [CAP]  Event captions: from the sources above.
 # A and C are spheres; the gas flowing from B to A is left out (limitations.md).
+# B's loop [PE10] is the model of their Fig. 3, the dipole along the orbit's normal (its
+# polarity unknown), L in units of B's volume radius.
 # GM = mass * GM_sun (1.32712440041279419e11 km^3/s^2, JPL DE440).
 # Luminosity = R^2 (T / 5772 K)^4 (B's with its volume radius, without A's light).
 # Checks (tests/stellar_system_tests.cpp): the [BA12] positions of B and C, the
 # [TESS] minima with the light-time effect, the [GCVS] depth and duration, B's
-# lobe against [KI89]'s radii.
+# lobe against [KI89]'s radii, the [PE10] loop's shells, feet and direction.
 
 name = "Algol"
 
@@ -169,6 +181,13 @@ orbit_color = "#ffb880"
 companion = "Algol A"
 gravity_darkening = 0.20       # [KI89] g2
 albedo = 0.46                  # [KI89] A2
+# The coronal loop of 2008 [PE10 Fig. 3]: dipole lines from L = 2 to 4, toward A.
+[bodies.magnetic_field]
+reference_radius_km = 2389700.0 # its volume radius, 3.435 R_sun
+max_radius = 5.0
+[bodies.magnetic_field.companion_loop]
+polar_g = 1000.0               # "of the order of 10^3 G" at the surface
+l_range = [2.0, 4.0]
 [bodies.orbit]
 scale = 0.819121447            # M_A / M_AB
 type = "transit_orbit"
@@ -240,6 +259,23 @@ caption = """\
     swollen until it fills the space its gravity holds, so gas flows from it to \
     A. It is the more evolved star, though the lighter one. It was once the \
     heavier star and has since given much of its mass to A."""
+
+[[events]]
+name = "2008: a radio loop between the stars"
+magnetic_lines = true
+time = "2008-08-17 10:30"      # [PE10 Fig. 2c], phase 0.80
+focus = "Algol AB"
+frame = "Algol AB-centered"
+from_body = "Sun"
+distance_km = 3.0e7
+warp = 1800.0                  # 30 minutes per second: one orbit in 2.3 minutes
+# [PE10]
+caption = """\
+    Radio telescopes on two continents, linked as one, imaged Algol six times \
+    in 2008. The radio source follows Algol B: a loop as tall as the star is \
+    wide, rooted near both its poles and arching toward A. It turned with the \
+    orbit all year. Drawn is the model fitted to the images: magnetic lines of \
+    about 1,000 gauss at the surface."""
 
 [[events]]
 name = "Algol C: 680 days, at right angles"

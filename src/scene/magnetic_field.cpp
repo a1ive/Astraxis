@@ -469,6 +469,36 @@ std::vector<std::vector<glm::dvec4>> trace_field_lines(const MagneticField& fiel
     }
     const glm::dvec3 axis = field.dipole_axis();
     const glm::dvec3 offset = field.dipole_offset();
+    if (s.loop_l_max > 0.0) {
+        // A dipole line r = L cos^2(latitude) meets the unit sphere where cos^2 = 1/L. The
+        // footprint's circle spans those latitudes for the two shells; rows across it and
+        // lines along each row a quarter of its radius apart, each started at the equator.
+        const glm::dvec3 toward = glm::normalize(glm::dvec3(1.0, 0.0, 0.0) - axis * axis.x);
+        const glm::dvec3 side = glm::cross(axis, toward);
+        const double low = std::acos(std::sqrt(1.0 / s.loop_l_min));
+        const double high = std::acos(std::sqrt(1.0 / s.loop_l_max));
+        const double center = 0.5 * (low + high);
+        const double radius = 0.5 * (high - low);
+        constexpr int kRows = 5;
+        for (int row = 0; row < kRows; ++row) {
+            const double latitude = low + (high - low) * row / (kRows - 1);
+            // Longitudes within `radius` of the circle's center, on this latitude.
+            const double c = (std::cos(radius) - std::sin(latitude) * std::sin(center)) /
+                             (std::cos(latitude) * std::cos(center));
+            const double reach = std::acos(std::clamp(c, -1.0, 1.0));
+            const double step = 0.5 * radius / std::cos(latitude);
+            const int half = static_cast<int>(std::floor(reach / step + 1e-9));
+            const double l_shell = 1.0 / (std::cos(latitude) * std::cos(latitude));
+            for (int k = -half; k <= half; ++k) {
+                const double longitude = k * step;
+                const glm::dvec3 seed = offset + l_shell * (std::cos(longitude) * toward + std::sin(longitude) * side);
+                if (glm::length(seed) < s.max_radius) {
+                    lines.push_back(trace_field_line(field, seed, s));
+                }
+            }
+        }
+        return lines;
+    }
     const glm::dvec3 reference = std::abs(axis.y) < 0.9 ? glm::dvec3(0.0, 1.0, 0.0) : glm::dvec3(1.0, 0.0, 0.0);
     const glm::dvec3 e1 = glm::normalize(glm::cross(axis, reference));
     const glm::dvec3 e2 = glm::cross(axis, e1);
