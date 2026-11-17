@@ -193,6 +193,7 @@ name = "Castor Aa"
 parent = "Castor A"
 kind = "star"
 radii_km = [1453317.0]         # 2.089 R_sun [TO22]
+main_sequence = true          # A dwarf [TO22 Sect. 4.1]
 temperature_k = 9750.0
 luminosity_solar = 35.53
 orbit_color = "#c8d8ff"
@@ -234,6 +235,7 @@ name = "Castor Ba"
 parent = "Castor B"
 kind = "star"
 radii_km = [1146514.0]         # 1.648 R_sun [TO22]
+main_sequence = true          # A dwarf [TO22 Sect. 4.1]
 temperature_k = 8250.0
 luminosity_solar = 11.34
 orbit_color = "#e8e8ff"
@@ -751,3 +753,21 @@ caption = """\
     centuries it has moved only 4 degrees around them, too small an arc to find \
     the orbit. The period is roughly 14,500 years. The orbit drawn here fits the \
     measured motion, but it is one of many that would."""
+
+[[events]]
+name = "Two habitable zones around Castor A and B"
+time = "1959-08-04"
+focus = "Castor AB"
+frame = "Castor AB, wide orbit up"
+from_body = "Castor B"
+phase_deg = -52.0              # oblique to both inner orbits
+elevation_deg = 21.0
+distance_km = 1.65e10          # 110 au
+warp = 86400.0
+hide_orbits = true
+habitable_zone = true
+caption = """\
+    Each close pair has a band in its own orbital plane. A's is farther out \
+    because Aa is more luminous. At this point in the wide orbit the pairs \
+    are 67 au apart, and each also gets some light from the other. The bands \
+    show irradiation for hypothetical rocky planets."""

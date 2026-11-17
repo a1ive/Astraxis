@@ -378,6 +378,7 @@ name = "Beta Pic"
 parent = "Beta Pic A+c"
 kind = "star"
 radii_km = [1069987.0]         # 1.538 R_sun [ZW19]
+main_sequence = true          # early main sequence [ZW19 Sect. 2]
 body_gm_km3_s2 = 2.32246770e11 # 1.75 M_sun [LA21]
 gm_km3_s2 = 2.32246770e11      # the comets' dust tails
 temperature_k = 8090.0         # [ZW19]
@@ -944,3 +945,18 @@ caption = """\
     At about 600 K in evolutionary models, d is the coolest of the three \
     giants. Its infrared colors and luminosity resemble those of 51 Eridani b. \
     Its cloud patterns here are illustrative."""
+
+[[events]]
+name = "The habitable zone and Beta Pic c"
+time = "2025-12-03"
+focus = "Beta Pic"
+frame = "Beta Pic, disk level"
+from_orbit_normal = "Beta Pic c"
+distance_km = 3.5e9           # 23 au, framing the orbits of b and c
+fov_deg = 53.0
+warp = 5259600.0              # two months per second
+habitable_zone = true
+caption = """\
+    For an Earth-like planet, the conservative zone around this young A star \
+    spans about 2.5 to 4.2 au. The gas giant c crosses the inner edge twice \
+    per orbit."""

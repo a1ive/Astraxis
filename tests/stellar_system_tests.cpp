@@ -3987,7 +3987,7 @@ void test_hr_diagram()
     check(!kerbol.bodies[static_cast<size_t>(kerbol.find("Kerbol"))].hr_diagram, "Kerbol left off the H-R diagram");
 }
 
-// Habitable zones (scene/habitable_zone.hpp): [KO14]'s limits, and the planets
+// Habitable zones (scene/habitable_zone.hpp): the flux limits and the planets
 // the discovery papers place in them.
 void test_habitable_zones()
 {
@@ -3998,6 +3998,12 @@ void test_habitable_zones()
     check(std::abs(1.0 / std::sqrt(sun.maximum_greenhouse) - 1.676) < 0.002, "Sun's maximum greenhouse at 1.68 au",
           1.0 / std::sqrt(sun.maximum_greenhouse));
     check(std::abs(habitable_zone_flux(5780.0).early_mars - 0.32) < 1e-12, "early Mars S_eff for a 5780 K star");
+    const HabitableZoneFlux join = habitable_zone_flux(7200.0);
+    const HabitableZoneFlux just_above = habitable_zone_flux(7200.001);
+    check(std::abs(join.recent_venus - just_above.recent_venus) < 1e-6 &&
+          std::abs(join.runaway_greenhouse - just_above.runaway_greenhouse) < 1e-6 &&
+          std::abs(join.maximum_greenhouse - just_above.maximum_greenhouse) < 1e-6 &&
+          std::abs(join.early_mars - just_above.early_mars) < 1e-6, "hot-star flux limits join [KO14] at 7200 K");
 
     const auto zone_of = [](const Scene& scene, std::vector<HabitableZone>& zones, const char* star) {
         const int index = scene.find(star);
@@ -4079,14 +4085,45 @@ void test_habitable_zones()
         }
     }
 
-    // Left out: stars too hot, evolved or pulsating, and dwarfs beside them.
+    // Beta Pic: [RA18] Table 1 thresholds scaled to [KO14] at 7200 K.
+    {
+        Scene scene = load_scene_or_die("beta_pictoris.toml");
+        scene.update(tdb_from_jd_tdb(2461012.5));
+        find_habitable_zones(scene, zones);
+        const HabitableZone* zone = zone_of(scene, zones, "Beta Pic");
+        check(zone && zone->count == 1, "Beta Pic has a zone");
+        if (zone && zone->count == 1) {
+            const HabitableZoneFlux& r2 = zone->weights_au2[0];
+            check(std::abs(std::sqrt(r2.recent_venus) - 1.986) < 0.002 &&
+                  std::abs(std::sqrt(r2.runaway_greenhouse) - 2.470) < 0.002 &&
+                  std::abs(std::sqrt(r2.maximum_greenhouse) - 4.210) < 0.002 &&
+                  std::abs(std::sqrt(r2.early_mars) - 4.469) < 0.002, "Beta Pic's four flux boundaries in au");
+            const glm::dvec3 n = scene.orbit_normal(scene.find("Beta Pic c"));
+            check(std::abs(glm::dot(zone->normal, n)) > 0.999999, "Beta Pic's zone lies in c's orbital plane");
+        }
+        Body& star = scene.bodies[static_cast<size_t>(scene.find("Beta Pic"))];
+        star.temperature_k = 10000.0;
+        check(has_habitable_zone(star), "the hot-star fit includes 10000 K");
+        star.temperature_k = 10001.0;
+        check(!has_habitable_zone(star), "no zone beyond the hot-star fit");
+    }
+
+    // Castor's inner binaries have separate zones, each including their red dwarf.
     {
         Scene castor = load_scene_or_die("castor.toml");
-        castor.update(tdb_from_jd_tdb(2461041.5));
+        castor.update(tdb_from_julian_year(1959.59)); // periastron of the wide orbit [TO22]
         find_habitable_zones(castor, zones);
+        const HabitableZone* a = zone_of(castor, zones, "Castor Aa");
+        const HabitableZone* b = zone_of(castor, zones, "Castor Ba");
+        check(a && a->count >= 2 && a->stars[1] == castor.find("Castor Ab"), "Castor Aa and Ab share a zone");
+        check(b && b->count >= 2 && b->stars[1] == castor.find("Castor Bb"), "Castor Ba and Bb share a zone");
+        check(a && b && a->count == 3 && b->count == 3 && a->stars[2] == b->stars[0] && b->stars[2] == a->stars[0],
+              "Castor A and B each include light from the other pair's primary near wide periastron");
         check(zone_of(castor, zones, "Castor Ca") != nullptr, "YY Gem (Castor C) has a zone");
-        check(!zone_of(castor, zones, "Castor Ab") && !zone_of(castor, zones, "Castor Bb"),
-              "no zone for red dwarfs beside Castor's A stars");
+    }
+
+    // Stars outside the climate model can also suppress a close companion's zone.
+    {
         const Scene algol = load_scene_or_die("algol.toml");
         check(!has_habitable_zone(algol.bodies[static_cast<size_t>(algol.find("Algol B"))]), "Algol B, a subgiant, has none");
         const Scene polaris = load_scene_or_die("polaris.toml");
@@ -4095,8 +4132,9 @@ void test_habitable_zones()
         cephei.update(tdb_from_jd_tdb(2461041.5));
         find_habitable_zones(cephei, zones);
         check(!zone_of(cephei, zones, "Delta Cephei B"), "no zone for delta Cephei B beside the Cepheid");
-        const Scene pic = load_scene_or_die("beta_pictoris.toml");
-        check(!has_habitable_zone(pic.bodies[static_cast<size_t>(pic.find("Beta Pic"))]), "Beta Pic (8090 K) has none");
+        const Scene pulsar = load_scene_or_die("psr_b1620.toml");
+        check(!has_habitable_zone(pulsar.bodies[static_cast<size_t>(pulsar.find("PSR B1620-26 B"))]),
+              "the white dwarf at 7820 K is outside the main-sequence model");
         const Scene kerbol = load_scene_or_die("kerbol.toml");
         check(!has_habitable_zone(kerbol.bodies[static_cast<size_t>(kerbol.find("Kerbol"))]), "Kerbol has none");
     }

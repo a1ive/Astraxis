@@ -23,6 +23,7 @@ Per-file details, original download URLs and processing steps are in each direct
 
 | Files | Source | License / attribution |
 |---|---|---|
+| `src/scene/habitable_zone.cpp` (hot-star flux coefficients) | Ramses M. Ramirez (2018), *A More Comprehensive Habitable Zone for Finding Life on Other Planets*, Geosciences 8, 280, Table 1, https://doi.org/10.3390/geosciences8080280 | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The fitted fluxes are scaled to match the Kopparapu 2014 limits at 7200 K. |
 | `assets/geomag/field_uranus_ah5.txt`, `field_neptune_o8.txt`, `field_jupiter_jrm33.txt`, `field_saturn_cassini11.txt`, `field_mercury_anderson2012.txt`, `field_ganymede_weber2022.txt` | Gauss coefficients of the published field models (Herbert 2009; Connerney et al. 1991, 2022; Dougherty et al. 2018; Anderson et al. 2012; Weber et al. 2022), as tabulated by libinternalfield, commit `9a6b6e5` | Published coefficients, cited as facts in `assets/geomag/SOURCES.md`, which gives each paper's terms (JRM33: CC BY-NC 4.0; the others: journal subscription terms). The tabulation of libinternalfield is MIT, Copyright (c) 2022 Dr Matt James |
 | `assets/geomag/field_earth_igrf14.txt` | IGRF-14, IAGA Working Group V-MOD | Public model; cited in `assets/geomag/SOURCES.md` |
 | `assets/geomag/mars_br.fieldmap` | Computed from the Mars crustal field model of Morschhauser et al. 2014, coefficients archived by M. Wieczorek (doi:10.5281/zenodo.3876495) | CC BY 4.0 |

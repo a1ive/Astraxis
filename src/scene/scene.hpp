@@ -23,6 +23,7 @@
 
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -430,6 +431,7 @@ struct Body {
     bool label = true; // false: no name on screen unless focused (e.g. a crowd of stars)
     bool hr_diagram = true; // stars: false leaves it off the info panel's H-R diagram (e.g. an assumed
                             // temperature shared by a crowd, or a fictional star)
+    std::optional<bool> main_sequence; // classification from the scene, used by the habitable zone
     int event = -1;    // shown only while this event is active: its ghost (SceneEvent::Ghost) or a body
                        // it shows (SceneEvent's `show` in the file, e.g. a planet claim since refuted)
     std::vector<int> also_shown_by; // and these events (several events can `show` a body)

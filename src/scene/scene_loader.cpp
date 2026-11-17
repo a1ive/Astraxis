@@ -1570,6 +1570,7 @@ void Loader::parse(const toml::table& root, Scene& out)
             get_string_or(*t, "trail", body.kind == BodyKind::Spacecraft ? "history" : "orbit"), ctx);
         body.label = (*t)["label"].value<bool>().value_or(true);
         body.hr_diagram = (*t)["hr_diagram"].value<bool>().value_or(true);
+        body.main_sequence = (*t)["main_sequence"].value<bool>();
         body.trail_history_days = get_double_or(*t, "trail_history_days", 0.0);
         body.trail_linger_days = get_double_or(*t, "trail_linger_days", 0.0);
         body.mark_periapsides = (*t)["mark_periapsides"].value<bool>().value_or(false);

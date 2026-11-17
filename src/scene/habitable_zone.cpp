@@ -24,9 +24,25 @@ constexpr Limit kRunawayGreenhouse{1.107, 1.332e-4, 1.58e-8, -8.308e-12, -1.931e
 constexpr Limit kMaximumGreenhouse{0.356, 6.171e-5, 1.698e-9, -3.198e-12, -5.575e-16};
 constexpr Limit kEarlyMars{0.32, 5.547e-5, 1.526e-9, -2.874e-12, -5.011e-16};
 
-double s_eff(const Limit& l, double t)
+// [RA18] Table 1, with the corrected Early Mars cubic coefficient.
+constexpr Limit kHotRecentVenus{1.768, 1.3151e-4, 5.8695e-10, -2.8895e-12, 3.2174e-16};
+constexpr Limit kHotRunawayGreenhouse{1.1105, 1.1921e-4, 9.5932e-9, -2.6189e-12, 1.3710e-16};
+constexpr Limit kHotMaximumGreenhouse{0.3587, 5.8087e-5, 1.5393e-9, -8.3547e-13, 1.0319e-16};
+constexpr Limit kHotEarlyMars{0.3246, 5.213e-5, 4.5245e-10, -1.0223e-12, 9.6376e-17};
+
+constexpr double kKopparapuMaxTeffK = 7200.0;
+constexpr double kTemperatureOriginK = 5780.0;
+
+constexpr double s_eff(const Limit& l, double t)
 {
     return l.s_sun + t * (l.a + t * (l.b + t * (l.c + t * l.d)));
+}
+
+double hot_s_eff(const Limit& cool, const Limit& hot, double t)
+{
+    // Take the fractional change along [RA18]'s curve from the [KO14] endpoint.
+    constexpr double join = kKopparapuMaxTeffK - kTemperatureOriginK;
+    return s_eff(cool, join) * (s_eff(hot, t) / s_eff(hot, join));
 }
 
 // Another star's insolation on a zone (L_sun / au^2) below which it is left
@@ -66,17 +82,23 @@ int find_root(std::vector<int>& parent, int i)
 
 HabitableZoneFlux habitable_zone_flux(double teff_k)
 {
-    const double t = teff_k - 5780.0;
+    const double t = teff_k - kTemperatureOriginK;
+    if (teff_k > kKopparapuMaxTeffK) {
+        return {hot_s_eff(kRecentVenus, kHotRecentVenus, t), hot_s_eff(kRunawayGreenhouse, kHotRunawayGreenhouse, t),
+                hot_s_eff(kMaximumGreenhouse, kHotMaximumGreenhouse, t), hot_s_eff(kEarlyMars, kHotEarlyMars, t)};
+    }
     return {s_eff(kRecentVenus, t), s_eff(kRunawayGreenhouse, t), s_eff(kMaximumGreenhouse, t),
             s_eff(kEarlyMars, t)};
 }
 
 bool has_habitable_zone(const Body& body)
 {
+    const bool inferred_main_sequence = body.temperature_k <= kKopparapuMaxTeffK &&
+        body.equatorial_radius_km <= kHabitableZoneMaxRadiusSolar * kSunRadiusKm;
     return body.kind == BodyKind::Star && !body.neutron_star && !body.pulsation && body.hr_diagram &&
-           body.luminosity_solar > 0.0 && body.temperature_k >= kHabitableZoneMinTeffK &&
-           body.temperature_k <= kHabitableZoneMaxTeffK &&
-           body.equatorial_radius_km <= kHabitableZoneMaxRadiusSolar * kSunRadiusKm;
+           body.main_sequence.value_or(inferred_main_sequence) && body.luminosity_solar > 0.0 &&
+           body.temperature_k >= kHabitableZoneMinTeffK &&
+           body.temperature_k <= kHabitableZoneMaxTeffK;
 }
 
 void find_habitable_zones(const Scene& scene, std::vector<HabitableZone>& out)

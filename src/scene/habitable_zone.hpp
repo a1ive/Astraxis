@@ -18,6 +18,9 @@ struct Body;
 //        zone runs from the runaway greenhouse to the maximum greenhouse limit; the
 //        optimistic one from "recent Venus" to "early Mars" (the insolation those
 //        planets got when they last had surface water).
+// [RA18] Ramirez 2018, Geosciences 8, 280 (doi:10.3390/geosciences8080280):
+//        Table 1 (including the Leconte et al. runaway limit). Above 7200 K,
+//        use the relative change in each fitted flux from 7200 to 10,000 K.
 // [HK13] Haghighipour & Kaltenegger 2013, ApJ 777, 166: in a binary, a limit
 //        lies where the stars' insolations, each divided by its own star's S_eff,
 //        add up to 1 (S_eff depends on the spectrum, so on T_eff).
@@ -30,20 +33,16 @@ struct HabitableZoneFlux {
     double early_mars = 0.0;
 };
 
-// [KO14] Eq. (4) at `teff_k`.
+// The [KO14] or [RA18] fluxes at `teff_k` within the supported range.
 HabitableZoneFlux habitable_zone_flux(double teff_k);
 
-// Range of T_eff with a zone: [KO14]'s, extended 100 K down so that TRAPPIST-1
-// (2566 K) is in, as the papers on its planets apply these limits.
+// TRAPPIST-1 (2566 K) uses a short extrapolation of [KO14].
 inline constexpr double kHabitableZoneMinTeffK = 2500.0;
-inline constexpr double kHabitableZoneMaxTeffK = 7200.0;
-// Main-sequence stars in that range are smaller; evolved ones (Algol B,
-// Polaris, delta Cephei) larger.
+inline constexpr double kHabitableZoneMaxTeffK = 10000.0;
+// Approximate main-sequence selection through 7200 K if the scene gives no class.
 inline constexpr double kHabitableZoneMaxRadiusSolar = 2.0;
 
-// Whether a star gets a zone: a main-sequence star (by its radius) with its
-// T_eff in range and with sourced values (hr_diagram), not pulsating. Its
-// visibility is not checked.
+// Eligibility for the flux model, independent of visibility.
 bool has_habitable_zone(const Body& body);
 
 inline constexpr int kMaxHabitableZoneStars = 4;

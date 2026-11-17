@@ -414,13 +414,13 @@ void App::build_control_panel()
 
     if (std::any_of(scene.bodies.begin(), scene.bodies.end(), [](const Body& b) { return has_habitable_zone(b); })) {
         ImGui::Combo("Habitable zone", &m_view_options.habitable_zone_view, "Event setting\0Always\0Never\0");
-        ImGui::SetItemTooltip("Where an Earth-like planet could keep liquid water on its surface, in the plane of\n"
-                             "the planets (Kopparapu et al. 2014, for an Earth-mass planet). Green: the\n"
-                             "conservative zone, from the runaway to the maximum greenhouse. Pale green: the\n"
-                             "optimistic one, from where Venus last had water to where early Mars had it.\n"
-                             "A pair of stars shares one zone, adding their light (Haghighipour & Kaltenegger 2013).\n"
-                             "Only main-sequence stars from 2,500 to 7,200 K, with no hotter or evolved star near.\n"
-                             "Event setting: off unless the event enables it.");
+        ImGui::SetItemTooltip("Surface liquid water limits for an Earth-like planet, drawn in the orbital plane.\n"
+                             "Green marks the conservative zone (runaway to maximum greenhouse).\n"
+                             "Pale green marks the optimistic zone (recent Venus to early Mars).\n"
+                             "Kopparapu et al. 2014 through 7,200 K, Ramirez 2018 above it through 10,000 K.\n"
+                             "Nearby stars contribute light. A bright star outside the model can hide the zone.\n"
+                             "The shading shows irradiation. Orbital stability is a separate calculation.\n"
+                             "Event setting is off unless the event enables it.");
     }
 
     ImGui::SetNextItemWidth(160.0f * ImGui::GetStyle().FontScaleDpi);
