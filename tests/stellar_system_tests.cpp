@@ -4132,12 +4132,82 @@ void test_habitable_zones()
         cephei.update(tdb_from_jd_tdb(2461041.5));
         find_habitable_zones(cephei, zones);
         check(!zone_of(cephei, zones, "Delta Cephei B"), "no zone for delta Cephei B beside the Cepheid");
-        const Scene pulsar = load_scene_or_die("psr_b1620.toml");
-        check(!has_habitable_zone(pulsar.bodies[static_cast<size_t>(pulsar.find("PSR B1620-26 B"))]),
-              "the white dwarf at 7820 K is outside the main-sequence model");
+        // A white dwarf counts only when the scene says it is one; its zone lies in
+        // its orbit around the pulsar, not the far planet's.
+        Scene pulsar = load_scene_or_die("psr_b1620.toml");
+        const int wd = pulsar.find("PSR B1620-26 B");
+        check(has_habitable_zone(pulsar.bodies[static_cast<size_t>(wd)]), "PSR B1620-26 B, a white dwarf, has a zone");
+        pulsar.update(tdb_from_jd_tdb(2461041.5));
+        find_habitable_zones(pulsar, zones);
+        const HabitableZone* wd_zone = zone_of(pulsar, zones, "PSR B1620-26 B");
+        check(wd_zone && wd_zone->count == 1 &&
+                  std::abs(glm::dot(wd_zone->normal, pulsar.orbit_normal(wd))) > 0.999999,
+              "PSR B1620-26 B's zone in its orbit around the pulsar");
+        Body& unclassified = pulsar.bodies[static_cast<size_t>(wd)];
+        unclassified.white_dwarf = false;
+        unclassified.temperature_k = 7000.0;
+        check(!has_habitable_zone(unclassified), "no zone for a white dwarf the scene does not classify");
         const Scene kerbol = load_scene_or_die("kerbol.toml");
         check(!has_habitable_zone(kerbol.bodies[static_cast<size_t>(kerbol.find("Kerbol"))]), "Kerbol has none");
     }
+}
+
+// WD 1856+534: the transits at Gendreau-Distler 2025's times (among them JWST's of
+// 2023-04-27), grazing as MacDonald 2026 fit them; the incident flux of Vanderburg
+// 2020; the planet outside the white dwarf's habitable zone.
+void test_wd1856_scene()
+{
+    Scene scene = load_scene_or_die("wd1856.toml");
+    const int wd = scene.find("WD 1856+534");
+    const int planet = scene.find("WD 1856+534 b");
+    const int ga = scene.find("G 229-20 A");
+    const int gb = scene.find("G 229-20 B");
+    check(wd > 0 && planet > 0 && ga > 0 && gb > 0, "WD 1856+534 bodies");
+    if (wd <= 0 || planet <= 0 || ga <= 0 || gb <= 0) {
+        return;
+    }
+    const glm::dvec3 away = unit_toward(284.413931970, 53.509250303);
+    const double r_wd = scene.bodies[static_cast<size_t>(wd)].equatorial_radius_km;
+    double worst_s = 0.0;
+    for (const int epoch : {-200, 0, 609, 1500}) { // 609: JWST, 2023-04-27 [MA26]
+        const double t_ref = tdb_from_jd_tdb(2459204.572725 + epoch * 1.407939211);
+        const double t = find_conjunction(scene, planet, wd, away, t_ref, 0.05 * kSecondsPerDay);
+        worst_s = std::max(worst_s, std::isnan(t) ? 1e9 : std::abs(t - t_ref));
+        if (epoch == 609 && !std::isnan(t)) {
+            const glm::dvec3 r = scene.icrf_state_at(planet, t).position - scene.icrf_state_at(wd, t).position;
+            const double impact = glm::length(r - away * glm::dot(r, away)) / r_wd;
+            check(std::abs(impact - 7.19) < 0.05, "WD 1856 b impact parameter 7.19 [MA26]", impact);
+            const double reach = (scene.bodies[static_cast<size_t>(planet)].equatorial_radius_km + r_wd) / r_wd;
+            check(impact < reach && impact > reach - 2.0, "WD 1856 b grazes the white dwarf", reach - impact);
+        }
+    }
+    check(worst_s < 1.0, "WD 1856 b transits at [GD25]'s times (s)", worst_s);
+
+    scene.update(tdb_from_jd_tdb(2461041.5));
+    const glm::dvec3 d = scene.bodies[static_cast<size_t>(planet)].world_position -
+                         scene.bodies[static_cast<size_t>(wd)].world_position;
+    const double d_au = glm::length(d) / kAuKm;
+    const double flux = scene.bodies[static_cast<size_t>(wd)].luminosity_solar / (d_au * d_au);
+    check(std::abs(flux - 0.181) < 0.018, "WD 1856 b gets 0.181 +- 0.018 S_earth [VA20]", flux);
+    const double pair_au = glm::length(scene.bodies[static_cast<size_t>(ga)].world_position -
+                                       scene.bodies[static_cast<size_t>(gb)].world_position) / kAuKm;
+    check(std::abs(pair_au - 56.0) < 3.0, "G 229-20 A and B ~56 au apart on the sky [VA20]", pair_au);
+
+    std::vector<HabitableZone> zones;
+    find_habitable_zones(scene, zones);
+    const auto it = std::find_if(zones.begin(), zones.end(), [&](const HabitableZone& z) { return z.stars[0] == wd; });
+    check(it != zones.end() && it->count == 1, "WD 1856+534 has a zone of its own");
+    if (it != zones.end()) {
+        const HabitableZoneFlux& w = it->weights_au2[0];
+        check(std::abs(std::sqrt(w.runaway_greenhouse) - 0.0088) < 0.0002 &&
+              std::abs(std::sqrt(w.maximum_greenhouse) - 0.0161) < 0.0002,
+              "WD 1856's conservative zone at 0.0088-0.0161 au");
+        const HabitableZoneFlux s =
+            habitable_zone_insolation(scene, *it, scene.bodies[static_cast<size_t>(planet)].world_position);
+        check(s.early_mars < 1.0, "WD 1856 b beyond the zone's outer edge", s.early_mars);
+        check(std::abs(glm::dot(it->normal, scene.orbit_normal(planet))) > 0.999999, "WD 1856's zone in b's orbital plane");
+    }
+    check_relocated_sky(scene, "WD 1856+534 sky");
 }
 
 } // namespace
@@ -4167,4 +4237,5 @@ void run_stellar_system_tests()
     test_eta_carinae_scene();
     test_hr_diagram();
     test_habitable_zones();
+    test_wd1856_scene();
 }

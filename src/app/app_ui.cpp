@@ -418,6 +418,7 @@ void App::build_control_panel()
                              "Green marks the conservative zone (runaway to maximum greenhouse).\n"
                              "Pale green marks the optimistic zone (recent Venus to early Mars).\n"
                              "Kopparapu et al. 2014 through 7,200 K, Ramirez 2018 above it through 10,000 K.\n"
+                             "White dwarfs use the same limits at their own temperature (Barnes & Heller 2013).\n"
                              "Nearby stars contribute light. A bright star outside the model can hide the zone.\n"
                              "The shading shows irradiation. Orbital stability is a separate calculation.\n"
                              "Event setting is off unless the event enables it.");

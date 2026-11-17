@@ -10,8 +10,8 @@ namespace astraxis {
 class Scene;
 struct Body;
 
-// Habitable zones of main-sequence stars and of binaries of them, where an
-// Earth-like planet could keep liquid water on its surface.
+// Habitable zones of main-sequence stars, white dwarfs and binaries of them,
+// where an Earth-like planet could keep liquid water on its surface.
 //
 // [KO14] Kopparapu et al. 2014, ApJL 787, L29 (arXiv:1404.5292): Eq. (4)-(5) and
 //        Table 1 (1 Earth mass), for 2600 K <= T_eff <= 7200 K. The conservative
@@ -24,6 +24,9 @@ struct Body;
 // [HK13] Haghighipour & Kaltenegger 2013, ApJ 777, 166: in a binary, a limit
 //        lies where the stars' insolations, each divided by its own star's S_eff,
 //        add up to 1 (S_eff depends on the spectrum, so on T_eff).
+// [BH13] Barnes & Heller 2013, Astrobiology 13, 279 (arXiv:1211.6467), Sect. 2.3:
+//        a white dwarf's "insolation habitable zone" takes the main-sequence flux
+//        limits at its own T_eff and luminosity (as Agol 2011, ApJL 731, L31).
 
 // Insolation at each limit, relative to the Earth's (S_eff of [KO14]).
 struct HabitableZoneFlux {
@@ -39,7 +42,9 @@ HabitableZoneFlux habitable_zone_flux(double teff_k);
 // TRAPPIST-1 (2566 K) uses a short extrapolation of [KO14].
 inline constexpr double kHabitableZoneMinTeffK = 2500.0;
 inline constexpr double kHabitableZoneMaxTeffK = 10000.0;
-// Approximate main-sequence selection through 7200 K if the scene gives no class.
+// Approximate main-sequence selection through 7200 K if the scene gives no class:
+// smaller stars are white dwarfs (which need `white_dwarf`), larger ones evolved.
+inline constexpr double kHabitableZoneMinRadiusSolar = 0.07;
 inline constexpr double kHabitableZoneMaxRadiusSolar = 2.0;
 
 // Eligibility for the flux model, independent of visibility.
@@ -66,8 +71,10 @@ struct HabitableZone {
 // Scene::update). Stars whose zones would overlap share one (a planet around
 // both, Kepler-47's); a star bright enough nearby to shift a zone, but without
 // one of its own (a hot or evolved companion), leaves it out. A zone lies in
-// the orbital plane of its planet nearest the zone's middle, else of its stars
-// around each other, else across the scene's up axis.
+// the orbital plane of its planet nearest the zone's middle (within
+// kHabitableZonePlaneReach of its outer edge), else of its stars around each
+// other, else across the scene's up axis.
+inline constexpr double kHabitableZonePlaneReach = 3.0;
 void find_habitable_zones(const Scene& scene, std::vector<HabitableZone>& out);
 
 // Each limit's sum of insolation over S_eff at a point (display frame, km):

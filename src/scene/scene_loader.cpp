@@ -1571,6 +1571,10 @@ void Loader::parse(const toml::table& root, Scene& out)
         body.label = (*t)["label"].value<bool>().value_or(true);
         body.hr_diagram = (*t)["hr_diagram"].value<bool>().value_or(true);
         body.main_sequence = (*t)["main_sequence"].value<bool>();
+        body.white_dwarf = (*t)["white_dwarf"].value<bool>().value_or(false);
+        if (body.white_dwarf && (body.kind != BodyKind::Star || body.main_sequence.value_or(false))) {
+            fail(ctx, "white_dwarf is a star's class, other than main_sequence");
+        }
         body.trail_history_days = get_double_or(*t, "trail_history_days", 0.0);
         body.trail_linger_days = get_double_or(*t, "trail_linger_days", 0.0);
         body.mark_periapsides = (*t)["mark_periapsides"].value<bool>().value_or(false);

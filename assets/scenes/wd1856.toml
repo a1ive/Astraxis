@@ -1,0 +1,199 @@
+# WD 1856+534: a cold white dwarf, 5.9 billion years past the end of its star's
+# life, with a giant planet on a 1.4-day orbit, seven times the white dwarf's
+# size and grazing it as seen from the Earth. The planet lies just outside the
+# white dwarf's habitable zone. A pair of red dwarfs, G 229-20 A and B, about
+# 1,000 au away, makes the system a triple.
+#
+# [VA20] Vanderburg et al. 2020, Nature 585, 363 (arXiv:2009.07282): Table 1:
+#        white dwarf 0.518 M_sun, 0.0131 R_sun, T_eff = 4710 K, cooling age
+#        5.85 Gyr; planet i = 88.778 deg, e = 0 (circular fit), incident flux
+#        0.181 +- 0.018 S_earth, T_eq = 163 K. Methods: G 229-20 A and B,
+#        R = 0.35 and 0.34 R_sun at T_eff = 3521 and 3513 K (TIC v8), masses
+#        0.346 and 0.331 M_sun (the conservative estimate); about 43" (~1000 au)
+#        from the white dwarf and 2.3" (~56 au) apart; the outer orbit, a ~ 1500 au,
+#        i ~ 22 deg (LOFTI).
+# [GD25] Gendreau-Distler et al. 2025 (arXiv:2511.21611): Table 2, constant-period
+#        ephemeris without TESS: t0 = 2459204.572725 BJD_TDB, P = 1.407939211 d;
+#        e <~ 0.01.
+# [MA26] MacDonald et al. 2026, Nature 655, 76 (doi:10.1038/s41586-026-10514-7):
+#        JWST NIRSpec transit of 2023-04-27; Extended Data Table 1 (FIREFLy):
+#        b = 7.19 +- 0.09, R_p / R_star = 7.03; R_p = 0.911 R_Jup; mass 6.7 M_Jup
+#        (4.3-10.9 over both reductions); methane, hydrocarbons and aerosols; the
+#        nightside radiates at 390-412 K, more than the 160 K of the starlight alone.
+# [GAIA] Gaia DR3 (ESA Gaia archive): source 2146576589564898688, epoch 2016.0
+#        RA 284.4157312, Dec 53.5090171 deg, parallax 40.3931 mas (24.757 pc),
+#        proper motion (240.749, -52.470) mas/yr; G 229-20 A (2146576757065535360,
+#        the northern one) and B (2146576761360909056).
+# [BH13] Barnes & Heller 2013, Astrobiology 13, 279 (arXiv:1211.6467): a white
+#        dwarf's insolation habitable zone moves in as it cools; planets that the
+#        zone reaches may have lost their water before (Sect. 1, 3.1).
+# Derived:
+#   L = R^2 (T_eff / 5772 K)^4 = 7.609e-5 L_sun for the white dwarf, 0.01696 and
+#     0.01586 L_sun for the red dwarfs.
+#   a = 0.019825 au from P and the masses (a / R_star = 325.4; [VA20] 336 +- 14
+#     circular, 325 +- 18 eccentric); i = acos(b R_star / a) = 88.734 deg for
+#     [MA26]'s b; the incident flux 0.194 S_earth.
+#   J2000 positions: [GAIA] moved back 16 years along the proper motion.
+#   The red dwarfs: their 2016 offsets on the sky from the white dwarf at its
+#     distance (1081 and 1034 au, 57 au apart).
+#
+# [CAP]  Event captions: from the sources above, and the zone of
+#        src/scene/habitable_zone.hpp (Kopparapu et al. 2014 for 4710 K).
+# GM = mass * GM_sun (1.32712440041279419e11 km^3/s^2, JPL DE440);
+# GM_Jupiter = 1.26686534e8 km^3/s^2 (JPL SSD).
+# Times are BJD_TDB (as seen from the solar-system barycentre).
+# Assumed: the orbit's node on the sky (0); the planet turning with its orbit; the
+# red dwarfs in the plane of the sky through the white dwarf, held where they
+# were in 2016 (their orbits take centuries to tens of millennia and are not
+# measured). Planet and white-dwarf colours of the surfaces are artistic, the
+# stars' light comes from T_eff.
+# Check (tests/stellar_system_tests.cpp): the transits come at [GD25]'s times and
+# graze as [MA26] fit them; the incident flux matches [VA20]; the planet lies
+# outside the habitable zone; the sky's viewer is opposite the Sun body.
+# The sky: the catalog stars (HYG, Hipparcos distances; assets/stars/SOURCES.md) as
+# seen from WD 1856+534 [GAIA]; the Milky Way map is the one seen from Earth.
+
+name = "WD 1856+534"
+
+[sky]
+viewer_ra_dec_distance_pc = [284.413931970, 53.509250303, 24.7567]   # [GAIA]
+
+[view]
+focus = "WD 1856+534"
+distance_km = 9.0e6
+start = "now"
+warp = 7200.0                  # 2 hours per second: an orbit in 17 s
+up = "orbit_normal:WD 1856+534 b"
+
+[[bodies]]
+name = "WD 1856+534 system"
+kind = "barycenter"
+
+# The planet relative to the white dwarf, split by the masses.
+[[bodies]]
+name = "WD 1856+534"
+parent = "WD 1856+534 system"
+kind = "star"
+white_dwarf = true             # [VA20]
+radii_km = [9113.67]           # 0.0131 R_sun [VA20]
+body_gm_km3_s2 = 6.874504394e10 # 0.518 M_sun [VA20]
+temperature_k = 4710.0         # [VA20]
+luminosity_solar = 7.609e-5    # derived
+orbit_color = "#fff0d8"
+trail = "none"
+[bodies.orbit]
+scale = -0.012196478           # -m_b / (M + m_b)
+type = "transit_orbit"
+gm_km3_s2 = 6.959384372e10     # 0.518 M_sun + 6.7 M_Jup
+period_days = 1.407939211      # [GD25]
+t_transit_bjd_tdb = 2459204.572725 # [GD25]
+e = 0.0                        # [VA20], [GD25]
+arg_peri_deg = 90.0
+i_deg = 88.734                 # derived from [MA26]'s b
+node_deg = 0.0                 # assumed
+transit_u_deg = 90.0
+sky_ra_dec_deg = [284.413931970, 53.509250303]
+
+[[bodies]]
+name = "WD 1856+534 b"
+parent = "WD 1856+534 system"
+radii_km = [65129.2]           # 0.911 R_Jup [MA26]
+body_gm_km3_s2 = 8.487998e8    # 6.7 M_Jup [MA26]
+color = "#c8b49c"
+style = "gas_giant"
+orbit_color = "#e8c890"
+synchronous = true             # assumed
+[bodies.orbit]
+scale = 0.987803522            # M / (M + m_b)
+type = "transit_orbit"
+gm_km3_s2 = 6.959384372e10
+period_days = 1.407939211
+t_transit_bjd_tdb = 2459204.572725
+e = 0.0
+arg_peri_deg = 90.0
+i_deg = 88.734
+node_deg = 0.0
+transit_u_deg = 90.0
+sky_ra_dec_deg = [284.413931970, 53.509250303]
+
+[[bodies]]
+name = "G 229-20 A"
+parent = "WD 1856+534 system"
+kind = "star"
+radii_km = [243495.0]          # 0.35 R_sun [VA20]
+body_gm_km3_s2 = 4.59185043e10 # 0.346 M_sun [VA20]
+temperature_k = 3521.0         # [VA20]
+luminosity_solar = 0.01696     # derived
+trail = "none"
+[bodies.orbit]                 # its 2016 offset on the sky [GAIA], held fixed
+type = "fixed"
+ra_dec_distance_pc = [124.152352, 34.848058, 0.00523946]
+
+[[bodies]]
+name = "G 229-20 B"
+parent = "WD 1856+534 system"
+kind = "star"
+radii_km = [236538.0]          # 0.34 R_sun [VA20]
+body_gm_km3_s2 = 4.39278177e10 # 0.331 M_sun [VA20]
+temperature_k = 3513.0         # [VA20]
+luminosity_solar = 0.01586     # derived
+trail = "none"
+[bodies.orbit]
+type = "fixed"
+ra_dec_distance_pc = [126.189463, 34.486852, 0.00501132]
+
+[[bodies]]
+name = "Sun"
+template = "bodies/sun.toml"
+parent = "WD 1856+534 system"
+trail = "none"
+[bodies.orbit]                 # opposite direction of WD 1856+534 as seen from the Sun [GAIA]
+type = "fixed"
+ra_dec_distance_pc = [104.413931970, -53.509250303, 24.7567]
+
+[[events]]
+name = "A giant planet just beyond the habitable zone"
+time = "2026-01-01"
+focus = "WD 1856+534"
+from_orbit_normal = "WD 1856+534 b"
+distance_km = 9.0e6
+warp = 7200.0
+habitable_zone = true
+# [VA20], [MA26], [BH13]
+caption = """\
+    This white dwarf is a star's remnant, the size of the Earth, cooling for six \
+    billion years. Its giant planet orbits every 1.4 days and gets a fifth of the \
+    sunlight the Earth does: just too little for liquid water on a planet like \
+    ours. The zone where it could stay liquid lies closer in, and has moved \
+    inward as the white dwarf cooled."""
+
+[[events]]
+name = "The JWST transit (2023-04-27)"
+time_tdb = "2023-04-27 12:08:30"     # mid-transit 12:11:06 [GD25]
+focus = "WD 1856+534"
+from_body = "Sun"
+distance_km = 6.0e7            # far beyond the planet (3.0e6 km out), so both look their true sizes
+fov_deg = 0.4                  # 420,000 km across
+warp = 6.0                     # the transit lasts 8 minutes
+# [MA26], [VA20]
+caption = """\
+    The planet is seven times wider than its white dwarf and passes across one \
+    edge of it, hiding about half of the disk for eight minutes. In that light the \
+    James Webb Space Telescope found methane, haze, and a planet glowing near \
+    400 K, far warmer than the white dwarf can make it."""
+
+[[events]]
+name = "A triple: the red dwarf pair 1,000 au away"
+time = "2026-01-01"
+focus = "WD 1856+534"
+from_body = "G 229-20 A"
+phase_deg = 180.0              # behind the white dwarf, the pair beyond it
+elevation_deg = 20.0
+distance_km = 1.5e11           # 1,000 au
+warp = 86400.0
+# [VA20], [GAIA]
+caption = """\
+    Two red dwarfs, G 229-20 A and B, move through space with the white dwarf. \
+    They orbit each other about 60 au apart, and the pair and the white dwarf \
+    circle their common center roughly 1,500 au apart. Their orbits take \
+    centuries to many thousands of years, so here they stay in place."""

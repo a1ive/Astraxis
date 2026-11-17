@@ -158,6 +158,7 @@ sky_ra_dec_deg = [245.9092575, -26.5316025]
 name = "PSR B1620-26 B"
 parent = "PSR B1620-26 AB"
 kind = "star"
+white_dwarf = true             # [SI03]
 radii_km = [16012.6]           # 0.023 R_sun (derived)
 temperature_k = 7820.0
 luminosity_solar = 1.8e-3

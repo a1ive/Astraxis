@@ -49,6 +49,7 @@ Astraxis is an astronomy background app with planets, spacecraft and stars anima
 | WR 104 | A Wolf-Rayet binary with a rotating dust pinwheel |
 | WR 140 | Nested dust shells from successive close passes of a Wolf-Rayet binary |
 | Eta Carinae | The expanding Homunculus, fossil wind shells and a light curve dating to the 1820s |
+| WD 1856+534 | A giant planet grazing a cold white dwarf, just outside its habitable zone |
 | PSR B1620-26 | A pulsar, white dwarf and planet in the M4 cluster |
 | PSR B1913+16 (Hulse-Taylor) | Binary neutron stars with relativistic orbital precession |
 | PSR J1141-6545 | A pulsar and white dwarf with relativistic orbital precession |

@@ -94,9 +94,10 @@ HabitableZoneFlux habitable_zone_flux(double teff_k)
 bool has_habitable_zone(const Body& body)
 {
     const bool inferred_main_sequence = body.temperature_k <= kKopparapuMaxTeffK &&
+        body.equatorial_radius_km >= kHabitableZoneMinRadiusSolar * kSunRadiusKm &&
         body.equatorial_radius_km <= kHabitableZoneMaxRadiusSolar * kSunRadiusKm;
     return body.kind == BodyKind::Star && !body.neutron_star && !body.pulsation && body.hr_diagram &&
-           body.main_sequence.value_or(inferred_main_sequence) && body.luminosity_solar > 0.0 &&
+           (body.white_dwarf || body.main_sequence.value_or(inferred_main_sequence)) && body.luminosity_solar > 0.0 &&
            body.temperature_k >= kHabitableZoneMinTeffK &&
            body.temperature_k <= kHabitableZoneMaxTeffK;
 }
@@ -201,6 +202,8 @@ void find_habitable_zones(const Scene& scene, std::vector<HabitableZone>& out)
 
         // The plane: of the planet around these stars nearest the zone's middle
         // (always shown, not one an event shows), else of the stars' own orbits.
+        // A planet far beyond the zone (PSR B1620-26 b, 300 times as far as its
+        // white dwarf's) says nothing of where a planet in it would orbit.
         const auto is_member = [&](int body) {
             return std::find(zone.stars.begin(), zone.stars.begin() + members, body) != zone.stars.begin() + members;
         };
@@ -221,6 +224,9 @@ void find_habitable_zones(const Scene& scene, std::vector<HabitableZone>& out)
                  std::any_of(zone.stars.begin(), zone.stars.begin() + members,
                              [&](int s) { return scene.bodies[static_cast<size_t>(s)].parent == center; }));
             const double r = glm::length(planet.world_position - zone.center);
+            if (r > kHabitableZonePlaneReach * outer_au * kAuKm) {
+                continue;
+            }
             const double off = r > 0.0 ? std::abs(std::log(r / middle_km)) : nearest;
             if (around && off < nearest) {
                 nearest = off;
