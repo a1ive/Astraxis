@@ -44,6 +44,8 @@ add_library(astraxis_sim STATIC
     src/ephem/kerr_lens.hpp
     src/ephem/kerr_null.cpp
     src/ephem/kerr_null.hpp
+    src/ephem/riaf.cpp
+    src/ephem/riaf.hpp
     src/ephem/schwarzschild_light.cpp
     src/ephem/schwarzschild_light.hpp
     src/ephem/kerr_orbit.cpp
@@ -69,6 +71,8 @@ add_library(astraxis_sim STATIC
     src/scene/accretion_disk.cpp
     src/scene/accretion_disk.hpp
     src/scene/disk.cpp
+    src/scene/flares.cpp
+    src/scene/flares.hpp
     src/scene/disk.hpp
     src/scene/aurora.cpp
     src/scene/aurora_model.cpp

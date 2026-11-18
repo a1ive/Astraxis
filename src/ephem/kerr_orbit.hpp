@@ -10,13 +10,21 @@
 
 namespace astraxis {
 
+// Hole frame -> ICRF: z along the spin axis, x toward the ascending node of
+// the hole's equator on the ICRF equator.
+glm::dmat3 hole_frame_from_pole(const glm::dvec3& pole);
+
 // A star orbiting a black hole along a Kerr geodesic.
 //
 // Initial conditions: the Newtonian state of the osculating `elements` at
 // `elements_epoch_tdb` (e.g. the GRAVITY S2 elements are osculating at the 2010
-// apocentre). The orbit plane is the elements' plane, and the black hole's
-// spin axis is taken along the orbit normal (equatorial geodesic) - exact for
-// a non-spinning hole, an assumption otherwise.
+// apocentre). By default the orbit plane is the elements' plane, and the black
+// hole's spin axis is taken along the orbit normal (equatorial geodesic, the
+// implicit-midpoint integrator of kerr_geodesic.hpp) - exact for a non-spinning
+// hole, an assumption otherwise. With `tilted` the spin axis is the hole's own
+// `pole` and the orbit may lie in any plane: the particle is integrated in 3D in
+// Cartesian Kerr-Schild coordinates (particle_step, RK4 in proper time with steps
+// ~ eta r^3/2), so the plane turns by frame dragging (Lense-Thirring).
 //
 // Trajectories are integrated ahead of time into a knot table (Hermite
 // interpolation, as for baked ephemerides), either once over a fixed span or
@@ -28,6 +36,8 @@ struct KerrOrbitSetup {
     VisualOrbit elements;
     double elements_epoch_tdb = 0.0;
     double step_eta = 0.003; // step = eta * sqrt(r^3 / M) (geometric units)
+    bool tilted = false;
+    glm::dvec3 pole{0.0, 0.0, 1.0}; // with tilted: the hole's spin axis (ICRF)
 };
 
 class KerrOrbitMotion final : public MotionSource {
@@ -42,8 +52,11 @@ public:
     void history_times(double t0, double t1, int max_points, std::vector<double>& out) const override;
 
     const KerrEquatorial& metric() const { return m_kerr; }
+    bool tilted() const { return m_setup.tilted; }
+    double spin() const { return m_setup.spin; }
     const EphemerisTable& table() const { return m_table; }
-    // Orbit plane in ICRF (columns: P toward the initial periapsis, Q, normal).
+    // Orbit plane in ICRF (columns: P toward the initial periapsis, Q, normal);
+    // the initial plane when tilted.
     const glm::dmat3& plane() const { return m_plane; }
 
 private:
@@ -51,6 +64,7 @@ private:
         double t = 0.0; // TDB seconds
         glm::dvec2 x{0.0};
         glm::dvec2 u{0.0};
+        Photon particle; // tilted: Kerr-Schild state in the hole frame (units of M)
     };
 
     explicit KerrOrbitMotion(const KerrOrbitSetup& setup);
@@ -62,9 +76,12 @@ private:
     void ensure_covered(double t_tdb) const;
     void restart(double t_tdb) const;
 
+    PlaneState integrate_tilted(PlaneState from, double t_end, std::vector<EphemerisTable::Knot>& out) const;
+
     KerrOrbitSetup m_setup;
     KerrEquatorial m_kerr;
     glm::dmat3 m_plane{1.0};
+    glm::dmat3 m_hole{1.0}; // tilted: hole frame -> ICRF (z = spin axis)
     double m_mass_km = 0.0;
 
     bool m_rolling = false;

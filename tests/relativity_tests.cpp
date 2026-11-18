@@ -2,6 +2,7 @@
 
 #include "test_util.hpp"
 
+#include "scene/flares.hpp"
 #include "scene/lensing.hpp"
 #include "scene/pulsar.hpp"
 #include "scene/simulation.hpp"
@@ -12,6 +13,7 @@
 #include "ephem/kerr_null.hpp"
 #include "ephem/kerr_orbit.hpp"
 #include "ephem/post_keplerian.hpp"
+#include "ephem/riaf.hpp"
 #include "ephem/schwarzschild_light.hpp"
 #include "ephem/visual_orbit.hpp"
 
@@ -111,6 +113,69 @@ void test_kerr_conservation()
     check(worst_e[1] < 1.5 * worst_e[0] + 1e-12, "Kerr energy error bounded (no drift)", worst_e[1] / worst_e[0]);
     check(worst_l < 1e-6, "Kerr angular momentum conserved", worst_l);
     check(kerr.horizon_radius() > m && kerr.horizon_radius() < 2.0 * m, "Kerr horizon radius", kerr.horizon_radius());
+}
+
+// A tilted orbit around a fast-spinning hole keeps its energy, axial angular
+// momentum and Carter constant (particle_step, the integrator of tilted orbits).
+void test_kerr_tilted_conservation()
+{
+    const double a = 0.94;
+    Photon s = make_particle(glm::dvec3(30.0, 0.0, 0.0), glm::dvec3(0.0, 0.12, 0.12), a);
+    const double e0 = -s.pt;
+    const double l0 = s.x.x * s.p.y - s.x.y * s.p.x;
+    const double q0 = carter_constant(s, a);
+    check(q0 > 1.0, "tilted orbit has a Carter constant", q0);
+    double t = 0.0;
+    double worst_e = 0.0;
+    double worst_l = 0.0;
+    double worst_q = 0.0;
+    double z_max = 0.0;
+    for (int i = 0; i < 200000 && t < 20.0 * kTwoPi * std::pow(30.0, 1.5); ++i) {
+        const double r = kerr_schild_r(s.x, a);
+        particle_step(s, t, a, 0.003 * r * std::sqrt(r));
+        worst_e = std::max(worst_e, std::abs(-s.pt / e0 - 1.0));
+        worst_l = std::max(worst_l, std::abs((s.x.x * s.p.y - s.x.y * s.p.x) / l0 - 1.0));
+        if (std::abs(s.x.z) < 0.9 * kerr_schild_r(s.x, a)) { // Q's formula divides by sin^2 theta
+            worst_q = std::max(worst_q, std::abs(carter_constant(s, a) / q0 - 1.0));
+        }
+        z_max = std::max(z_max, std::abs(s.x.z));
+    }
+    check(z_max > 10.0, "tilted orbit leaves the equatorial plane", z_max);
+    check(worst_e < 1e-9, "tilted Kerr orbit: energy conserved", worst_e);
+    check(worst_l < 1e-7, "tilted Kerr orbit: axial angular momentum conserved", worst_l);
+    check(worst_q < 1e-6, "tilted Kerr orbit: Carter constant conserved", worst_q);
+}
+
+// Without spin the plane does not matter: the 3D integrator about any axis follows
+// the equatorial integrator (independent code, Boyer-Lindquist-like coordinates).
+void test_tilted_orbit_matches_equatorial()
+{
+    KerrOrbitSetup setup;
+    setup.gm_km3_s2 = 4.261e6 * kSunGmKm3S2;
+    setup.elements.a_km = 0.125058 * 8246.7 * kAuKm;
+    setup.elements.e = 0.884649;
+    setup.elements.i_deg = 134.567;
+    setup.elements.node_deg = 228.171;
+    setup.elements.arg_peri_deg = 66.263;
+    setup.elements.t_peri_tdb = tdb_from_julian_year(2018.379);
+    setup.elements.ra_deg = 266.41683;
+    setup.elements.dec_deg = -29.00782;
+    const double period = kTwoPi * std::sqrt(std::pow(setup.elements.a_km, 3) / setup.gm_km3_s2);
+    setup.elements_epoch_tdb = setup.elements.t_peri_tdb - 0.5 * period;
+    const double t_end = setup.elements_epoch_tdb + 1.2 * period;
+    const KerrOrbitMotion flat(setup, setup.elements_epoch_tdb, t_end);
+    KerrOrbitSetup tilted = setup;
+    tilted.tilted = true;
+    tilted.pole = glm::normalize(glm::dvec3(0.3, 0.4, 0.866));
+    const KerrOrbitMotion three_d(tilted, setup.elements_epoch_tdb, t_end);
+    check(std::abs(three_d.table().end() - t_end) < 0.01 * period, "tilted orbit covers the span");
+    double worst = 0.0;
+    for (double t = setup.elements_epoch_tdb; t < t_end; t += 0.01 * period) {
+        const glm::dvec3 a = flat.eval(t).position;
+        const glm::dvec3 b = three_d.eval(t).position;
+        worst = std::max(worst, glm::length(a - b) / glm::length(a));
+    }
+    check(worst < 2e-4, "tilted integrator = equatorial integrator at a = 0", worst);
 }
 
 void test_kerr_schwarzschild_precession()
@@ -791,9 +856,9 @@ void test_sgr_a_scene()
     Scene scene = load_scene_or_die("sgr_a.toml");
     const int s2 = scene.find("S2");
     check(scene.bodies[0].kind == BodyKind::BlackHole, "Sgr A* is a black hole");
-    // Horizon of a non-spinning 4.261e6 M_sun hole: 2 GM / c^2 ~ 1.26e7 km.
-    check(std::abs(scene.bodies[0].equatorial_radius_km / 1.2584e7 - 1.0) < 1e-3, "Sgr A* horizon",
-          scene.bodies[0].equatorial_radius_km);
+    // Horizon of a 4.261e6 M_sun hole with a = 0.94: (1 + sqrt(1 - a^2)) GM / c^2.
+    check(std::abs(scene.bodies[0].equatorial_radius_km / (6.2921e6 * (1.0 + std::sqrt(1.0 - 0.94 * 0.94))) - 1.0) < 1e-3,
+          "Sgr A* horizon", scene.bodies[0].equatorial_radius_km);
 
     // Pericentre of the GR-integrated orbit (started at the 2010 apocentre).
     double best_t = 0.0;
@@ -888,9 +953,11 @@ void test_sgr_a_scene()
     check(glm::length(far) > 30.0 * m && glm::length(far) < 400.0 * m, "rolling orbit after a jump", glm::length(far) / m);
 }
 
-// The Death Star's periapsides (as marked in the app) advance by the exact
-// Schwarzschild amount for its integrated turning points (~18 deg per orbit,
-// vs 16.6 deg at 1PN), and the event "at periapsis" really is at one.
+// The Death Star's orbit (as marked in the app) around the spinning hole: its
+// periapsis advances in the orbit plane by the exact Schwarzschild amount for its
+// turning points (~18 deg per orbit, vs 16.6 at 1PN) plus the spin's Lense-Thirring
+// and quadrupole terms, and its node turns about the spin axis; the event "at
+// periapsis" really is at one.
 void test_death_star_precession()
 {
     Scene scene = load_scene_or_die("sgr_a.toml");
@@ -914,21 +981,61 @@ void test_death_star_precession()
     for (double t = peri[0]; t < peri[1]; t += 60.0) {
         r_a = std::max(r_a, glm::length(scene.icrf_state_at(ds, t).position) / m);
     }
-    const double expected = schwarzschild_advance(r_p, r_a);
-
-    double worst = 0.0;
+    // Orbit angles about the spin axis z: the node n on the hole's equator and the
+    // periapsis's angle omega from it in the orbit plane.
+    const glm::dvec3 z = scene.bodies[0].pole;
+    const glm::dvec3 x_axis = glm::normalize(glm::cross(glm::dvec3(0.0, 0.0, 1.0), z));
+    const glm::dvec3 y_axis = glm::cross(z, x_axis);
+    struct Angles {
+        double node = 0.0;
+        double omega = 0.0;
+        double inclination = 0.0;
+    };
+    auto angles_at = [&](double t) {
+        const State s = scene.icrf_state_at(ds, t);
+        const glm::dvec3 l = glm::normalize(glm::cross(s.position, s.velocity));
+        const glm::dvec3 n = glm::normalize(glm::cross(z, l)); // ascending node
+        Angles out;
+        out.node = std::atan2(glm::dot(n, y_axis), glm::dot(n, x_axis));
+        out.omega = std::atan2(glm::dot(s.position, glm::cross(l, n)), glm::dot(s.position, n));
+        out.inclination = std::acos(std::clamp(glm::dot(l, z), -1.0, 1.0));
+        return out;
+    };
+    double node_sum = 0.0;
+    double omega_sum = 0.0;
     for (size_t k = 1; k < peri.size(); ++k) {
-        const glm::dvec3 a = scene.icrf_state_at(ds, peri[k - 1]).position;
-        const glm::dvec3 b = scene.icrf_state_at(ds, peri[k]).position;
-        const double advance = std::acos(std::clamp(glm::dot(a, b) / (glm::length(a) * glm::length(b)), -1.0, 1.0));
-        worst = std::max(worst, std::abs(advance / expected - 1.0));
-        // Prograde: the periapsis turns in the sense of the orbital motion.
-        const glm::dvec3 h = glm::cross(a, scene.icrf_state_at(ds, peri[k - 1]).velocity);
-        check(glm::dot(glm::cross(a, b), h) > 0.0, "apsidal advance is prograde");
+        const Angles before = angles_at(peri[k - 1]);
+        const Angles after = angles_at(peri[k]);
+        node_sum += wrap_pi(after.node - before.node);
+        omega_sum += wrap_pi(after.omega - before.omega);
     }
-    check(worst < 0.01, "Death Star apsidal advance = exact Schwarzschild (rel. error)", worst);
-    std::printf("info: Death Star r_p %.2f M, r_a %.1f M, advance %.2f deg/orbit (exact), 1PN %.2f\n", r_p, r_a,
-                expected / kDegToRad, 6.0 * kPi / (0.5 * (r_p + r_a) * (1.0 - std::pow((r_a - r_p) / (r_a + r_p), 2.0))) / kDegToRad);
+    const double orbits = static_cast<double>(peri.size() - 1);
+    const double node_rate = node_sum / orbits;
+    const double omega_rate = omega_sum / orbits;
+
+    // Predictions per orbit for a = 0.94: Lense-Thirring (first post-Newtonian order)
+    // dOmega = 4 pi a / (A^3/2 (1 - e^2)^3/2), domega = -3 cos i dOmega; the quadrupole
+    // Q = -a^2 M as an oblate J2 R^2 = a^2: dOmega = -3 pi a^2 cos i / p^2,
+    // domega = 3 pi a^2 (2 - 5/2 sin^2 i) / p^2, p = A (1 - e^2).
+    const double a_spin = 0.94;
+    const double inc = angles_at(peri[0]).inclination;
+    const double big_a = 0.5 * (r_p + r_a);
+    const double ecc = (r_a - r_p) / (r_a + r_p);
+    const double semi_latus = big_a * (1.0 - ecc * ecc);
+    const double lt = 4.0 * kPi * a_spin / (std::pow(big_a, 1.5) * std::pow(1.0 - ecc * ecc, 1.5));
+    const double quad = 3.0 * kPi * a_spin * a_spin / (semi_latus * semi_latus);
+    const double node_expected = lt - quad * std::cos(inc);
+    const double schwarzschild = schwarzschild_advance(r_p, r_a);
+    const double omega_expected =
+        schwarzschild - 3.0 * std::cos(inc) * lt + quad * (2.0 - 2.5 * std::sin(inc) * std::sin(inc));
+    std::printf("info: Death Star r_p %.2f M, r_a %.1f M, i %.1f deg: node %.3f deg/orbit (expected %.3f), "
+                "periapsis %.3f (expected %.3f, Schwarzschild alone %.3f)\n",
+                r_p, r_a, inc / kDegToRad, node_rate / kDegToRad, node_expected / kDegToRad, omega_rate / kDegToRad,
+                omega_expected / kDegToRad, schwarzschild / kDegToRad);
+    check(node_rate > 0.0 && std::abs(node_rate / node_expected - 1.0) < 0.03,
+          "Death Star node: Lense-Thirring + quadrupole precession", node_rate / node_expected);
+    check(omega_rate > 0.0 && std::abs(omega_rate / omega_expected - 1.0) < 0.03,
+          "Death Star periapsis: Schwarzschild + Lense-Thirring + quadrupole advance", omega_rate / omega_expected);
 
     // Event "Death Star at periapsis": a periapsis within the following 3 hours.
     for (const SceneEvent& e : scene.events) {
@@ -1568,11 +1675,530 @@ void test_gargantua_lensed_bodies()
     check(craft >= 0 && !view.lens[static_cast<size_t>(craft)].lensed, "Gargantua: Endurance seen from up close");
 }
 
+// Hot accretion flow (RIAF, src/ephem/riaf.cpp).
+
+RiafParams test_riaf(double n_e0)
+{
+    RiafParams p;
+    p.n_e0_cm3 = n_e0;
+    p.t_e0_k = 1e11;
+    p.beta = 10.0;
+    p.outer_m = 50.0;
+    return p;
+}
+
+// Sgr A*'s hot flow as seen from the Earth at 230 GHz, traced from a camera at
+// 1000 M along the line of sight (the flow is axisymmetric: only the angle between
+// the spin and the line of sight matters).
+struct RiafImage {
+    double flux_jy = 0.0;
+    double ring_radius_m = 0.0; // peak of the azimuthally averaged brightness, after the blur
+};
+
+// blur_fwhm_m: Gaussian blur (FWHM, units of M) before the ring is measured, as an
+// interferometer's resolution blurs it.
+RiafImage riaf_image(double a, double gm_km3_s2, const RiafParams& flow, double inclination, double distance_pc, int grid,
+                     double half_width_m, double blur_fwhm_m)
+{
+    const double m_km = gm_km3_s2 / (kSpeedOfLightKmS * kSpeedOfLightKmS);
+    const double r_cam = 1000.0;
+    const glm::dvec3 cam = r_cam * glm::dvec3(std::sin(inclination), 0.0, std::cos(inclination));
+    const glm::dvec3 forward = -glm::normalize(cam);
+    const glm::dvec3 right = glm::normalize(glm::cross(forward, glm::dvec3(0.0, 0.0, 1.0)));
+    const glm::dvec3 up = glm::cross(right, forward);
+    const ObserverFrame frame = static_observer_frame(cam, a, forward, up, right);
+    const double pixel = 2.0 * half_width_m / grid / r_cam; // radians at the camera
+    const auto n = static_cast<size_t>(grid);
+    std::vector<double> tb(n * n);
+    double tb_sum = 0.0;
+    for (int iy = 0; iy < grid; ++iy) {
+        for (int ix = 0; ix < grid; ++ix) {
+            const double sx = (ix + 0.5 - 0.5 * grid) * pixel;
+            const double sy = (iy + 0.5 - 0.5 * grid) * pixel;
+            const FlowRay ray = trace_flow_ray(frame_photon(cam, frame, glm::dvec3(sx, sy, 1.0)), a, m_km * 1e5, 230e9,
+                                               flow, 1.01 * r_cam);
+            tb[static_cast<size_t>(iy) * n + static_cast<size_t>(ix)] = ray.tb_k;
+            tb_sum += ray.tb_k;
+        }
+    }
+    // F = (2 k nu^2 / c^2) sum T_b dOmega, the solid angles shrunk from the camera's distance to ours.
+    constexpr double kBoltzmann = 1.380649e-16;
+    constexpr double kLightCm = 2.99792458e10;
+    const double scale = r_cam * m_km / (distance_pc * kParsecKm);
+    RiafImage out;
+    out.flux_jy = 2.0 * kBoltzmann * 230e9 * 230e9 / (kLightCm * kLightCm) * tb_sum * pixel * pixel * scale * scale / 1e-23;
+
+    // Separable Gaussian blur.
+    const double pixel_m = 2.0 * half_width_m / grid;
+    const double sigma = blur_fwhm_m / 2.3548200450309493 / pixel_m;
+    if (sigma > 0.0) {
+        const int reach = static_cast<int>(std::ceil(3.0 * sigma));
+        std::vector<double> kernel(static_cast<size_t>(2 * reach + 1));
+        for (int k = -reach; k <= reach; ++k) {
+            kernel[static_cast<size_t>(k + reach)] = std::exp(-0.5 * k * k / (sigma * sigma));
+        }
+        std::vector<double> tmp(n * n, 0.0);
+        for (int pass = 0; pass < 2; ++pass) {
+            std::fill(tmp.begin(), tmp.end(), 0.0);
+            for (int iy = 0; iy < grid; ++iy) {
+                for (int ix = 0; ix < grid; ++ix) {
+                    double sum = 0.0;
+                    for (int k = -reach; k <= reach; ++k) {
+                        const int jx = pass == 0 ? ix + k : ix;
+                        const int jy = pass == 0 ? iy : iy + k;
+                        if (jx >= 0 && jx < grid && jy >= 0 && jy < grid) {
+                            sum += kernel[static_cast<size_t>(k + reach)] * tb[static_cast<size_t>(jy) * n + static_cast<size_t>(jx)];
+                        }
+                    }
+                    tmp[static_cast<size_t>(iy) * n + static_cast<size_t>(ix)] = sum;
+                }
+            }
+            tb.swap(tmp);
+        }
+    }
+
+    constexpr int kBins = 60;
+    double ring_sum[kBins] = {};
+    int ring_count[kBins] = {};
+    for (int iy = 0; iy < grid; ++iy) {
+        for (int ix = 0; ix < grid; ++ix) {
+            const double radius = std::hypot(ix + 0.5 - 0.5 * grid, iy + 0.5 - 0.5 * grid) * pixel_m;
+            const int bin = static_cast<int>(radius / half_width_m * kBins);
+            if (bin < kBins) {
+                ring_sum[bin] += tb[static_cast<size_t>(iy) * n + static_cast<size_t>(ix)];
+                ++ring_count[bin];
+            }
+        }
+    }
+    double best = 0.0;
+    for (int k = 0; k < kBins; ++k) {
+        const double mean = ring_count[k] > 0 ? ring_sum[k] / ring_count[k] : 0.0;
+        if (mean > best) {
+            best = mean;
+            out.ring_radius_m = (k + 0.5) * half_width_m / kBins;
+        }
+    }
+    return out;
+}
+
+// A ray that spirals into a fast-spinning hole (a = 0.94) gets numerically unstable near
+// the horizon before reaching it (H grew to 1e5 and the ray was thrown back out). It
+// is captured, and stays finite.
+void test_near_horizon_spiral_captured()
+{
+    const double a = 0.94;
+    const double r_cam = 1000.0;
+    const double inclination = 150.0 * kDegToRad;
+    const glm::dvec3 cam = r_cam * glm::dvec3(std::sin(inclination), 0.0, std::cos(inclination));
+    const glm::dvec3 forward = -glm::normalize(cam);
+    const glm::dvec3 right = glm::normalize(glm::cross(forward, glm::dvec3(0.0, 0.0, 1.0)));
+    const ObserverFrame frame = static_observer_frame(cam, a, forward, glm::cross(right, forward), right);
+    const double pixel = 30.0 / 96.0 / r_cam;
+    const glm::dvec3 n((41.5 - 48.0) * pixel, (51.5 - 48.0) * pixel, 1.0);
+    const RayResult ray = trace_ray(frame_photon(cam, frame, n), a, 1.01 * r_cam, 0.0, 0.0);
+    check(ray.outcome == RayOutcome::Captured, "near-horizon spiral captured (trace_ray)",
+          static_cast<double>(ray.outcome));
+    const FlowRay flow = trace_flow_ray(frame_photon(cam, frame, n), a, 6.2921e11, 230e9, test_riaf(1e7), 1.01 * r_cam);
+    check(flow.outcome == RayOutcome::Captured && std::isfinite(flow.tb_k) && std::isfinite(flow.tau),
+          "near-horizon spiral captured and finite (trace_flow_ray)", flow.tb_k);
+}
+
+// Sgr A* at 230 GHz as seen from the Earth, north up and east left: the camera at 1000 M
+// toward us in the hole frame of hole_frame_from_pole(). Returns the flux (Jy) and the
+// brightness centroid (west, north; units of M) of the image.
+struct SkyImage {
+    double flux_jy = 0.0;
+    glm::dvec2 centroid_m{0.0};
+};
+
+SkyImage riaf_sky_image(const Body& hole, const HotSpot* spot, int grid, double half_width_m)
+{
+    const double a = hole.spin;
+    const double m_km = hole.gm_km3_s2 / (kSpeedOfLightKmS * kSpeedOfLightKmS);
+    const double distance_pc = 8246.7;
+    const double ra = 266.41683333 * kDegToRad;
+    const double dec = -29.00781611 * kDegToRad;
+    const glm::dmat3 to_hole = glm::transpose(hole_frame_from_pole(hole.pole));
+    const glm::dvec3 toward_earth = -unit_toward(266.41683333, -29.00781611);
+    const glm::dvec3 north(-std::sin(dec) * std::cos(ra), -std::sin(dec) * std::sin(ra), std::cos(dec));
+    const glm::dvec3 west(std::sin(ra), -std::cos(ra), 0.0);
+    const double r_cam = 1000.0;
+    const glm::dvec3 cam = r_cam * (to_hole * toward_earth);
+    const ObserverFrame frame = static_observer_frame(cam, a, -glm::normalize(cam), to_hole * north, to_hole * west);
+    const double pixel = 2.0 * half_width_m / grid / r_cam;
+    SkyImage out;
+    double sum = 0.0;
+    for (int iy = 0; iy < grid; ++iy) {
+        for (int ix = 0; ix < grid; ++ix) {
+            const double sx = (ix + 0.5 - 0.5 * grid) * pixel;
+            const double sy = (iy + 0.5 - 0.5 * grid) * pixel;
+            const double tb = trace_flow_ray(frame_photon(cam, frame, glm::dvec3(sx, sy, 1.0)), a, m_km * 1e5, 230e9,
+                                             *hole.hot_flow, 1.01 * r_cam, 4000, spot)
+                                  .tb_k;
+            sum += tb;
+            out.centroid_m += tb * glm::dvec2(sx, sy) * r_cam;
+        }
+    }
+    constexpr double kBoltzmann = 1.380649e-16;
+    constexpr double kLightCm = 2.99792458e10;
+    const double scale = r_cam * m_km / (distance_pc * kParsecKm);
+    out.flux_jy = 2.0 * kBoltzmann * 230e9 * 230e9 / (kLightCm * kLightCm) * sum * pixel * pixel * scale * scale / 1e-23;
+    out.centroid_m = sum > 0.0 ? out.centroid_m / sum : glm::dvec2(0.0);
+    return out;
+}
+
+// Sgr A*'s flares: the recorded ones and the random rate, the hot spot's 230 GHz flux at
+// the ALMA flare's peak (Wielgus et al. 2022, sec. 3.1: I_hotspot <~ 0.3 Jy; flare_t_s_k is
+// set to it), and its sense of motion on the sky - clockwise, as GRAVITY 2018, 2023 and
+// ALMA all saw.
+void test_sgr_a_flares()
+{
+    Scene scene = load_scene_or_die("sgr_a.toml");
+    const Body& hole = scene.bodies[0];
+    const FlareSettings& flares = hole.hot_flow_flares;
+    check(flares.recorded.size() == 2 && flares.random_per_day == 1.5 && hole.flare_t_s_k > 0.0,
+          "Sgr A* has two recorded flares and random ones");
+    if (flares.recorded.size() != 2 || !hole.hot_flow) {
+        return;
+    }
+    const FlareRecord& gravity = flares.recorded[0];
+    const FlareRecord& alma = flares.recorded[1];
+    check(std::abs(gravity.t_peak_tdb - tdb_from_julian_year(2018.5558)) < 0.5 * kSecondsPerDay && gravity.radius_m == 7.5,
+          "GRAVITY flare of 2018-07-22 at 7.5 r_g");
+    check(std::abs(alma.t_peak_tdb - tdb_from_julian_year(2017.2754)) < 0.5 * kSecondsPerDay && alma.radius_m == 11.0,
+          "ALMA hot spot of 2017-04-11 at 11 r_g");
+    int with_earth_view = 0;
+    for (const SceneEvent& e : scene.events) {
+        for (const FlareRecord* r : {&gravity, &alma}) {
+            if (e.from_earth && e.t_tdb < r->t_peak_tdb && r->t_peak_tdb - e.t_tdb < 3600.0) {
+                ++with_earth_view;
+            }
+        }
+    }
+    check(with_earth_view == 2, "an event seen from the Earth before each recorded flare", with_earth_view);
+
+    HotSpot spot;
+    spot.radius_m = alma.radius_m;
+    spot.sigma_m = hole.flare_diameter_m / 2.3548200450309493;
+    spot.tau0 = hole.flare_tau0;
+    spot.t_s_k = hole.flare_t_s_k;
+    spot.strength = 1.0;
+    const double base = riaf_sky_image(hole, nullptr, 72, 18.0).flux_jy;
+    double added = 0.0;
+    for (int k = 0; k < 8; ++k) {
+        spot.phase_rad = k * kTwoPi / 8.0;
+        added += (riaf_sky_image(hole, &spot, 72, 18.0).flux_jy - base) / 8.0;
+    }
+    std::printf("info: Sgr A* hot spot at 11 r_g adds %.3f Jy at 230 GHz (orbit average)\n", added);
+    check(std::abs(added / 0.3 - 1.0) < 0.1, "ALMA hot spot flux (Wielgus 2022: <~0.3 Jy)", added);
+
+    // Sense on the sky: the spot's light (image with the spot minus without) turns clockwise,
+    // i.e. its position angle (east of north) decreases.
+    auto spot_pa = [&](double phase) {
+        spot.phase_rad = phase;
+        const SkyImage with = riaf_sky_image(hole, &spot, 72, 18.0);
+        const SkyImage without = riaf_sky_image(hole, nullptr, 72, 18.0);
+        const glm::dvec2 c = (with.centroid_m * with.flux_jy - without.centroid_m * without.flux_jy) /
+                             (with.flux_jy - without.flux_jy);
+        return std::atan2(-c.x, c.y); // east = -west
+    };
+    const double turned = wrap_pi(spot_pa(0.5) - spot_pa(0.0));
+    check(turned < -0.2, "hot spot moves clockwise on the sky (GRAVITY, ALMA)", turned / kDegToRad);
+}
+
+void test_sgr_a_hot_flow()
+{
+    Scene scene = load_scene_or_die("sgr_a.toml");
+    const Body& hole = scene.bodies[0];
+    check(hole.hot_flow.has_value() && hole.disk_outer_m == 0.0, "Sgr A* has a hot flow, no thin disk");
+    if (!hole.hot_flow) {
+        return;
+    }
+    // The spin axis: 150 deg from the direction to the Earth [EHT24VIII], at position angle 121 deg
+    // east of north on the sky [JA25].
+    const double ra = 266.41683333;
+    const double dec = -29.00781611;
+    const glm::dvec3 toward_earth = -unit_toward(ra, dec);
+    const double inclination = std::acos(glm::dot(hole.pole, toward_earth));
+    check(std::abs(inclination * kRadToDeg - 150.0) < 0.1, "Sgr A* spin 150 deg from the line of sight",
+          inclination * kRadToDeg);
+    const double ra_r = ra * kDegToRad;
+    const double dec_r = dec * kDegToRad;
+    const glm::dvec3 east(-std::sin(ra_r), std::cos(ra_r), 0.0);
+    const glm::dvec3 north(-std::sin(dec_r) * std::cos(ra_r), -std::sin(dec_r) * std::sin(ra_r), std::cos(dec_r));
+    const double pa = std::atan2(glm::dot(hole.pole, east), glm::dot(hole.pole, north)) * kRadToDeg;
+    check(std::abs(pa - 121.0) < 0.1, "Sgr A* spin axis at position angle 121 deg", pa);
+
+    // The orbits feel the hole's spin about its own axis (tilted KerrOrbitMotion).
+    for (const char* name : {"S2", "S301", "Death Star"}) {
+        const int i = scene.find(name);
+        const auto* orbit = i >= 0 ? dynamic_cast<const KerrOrbitMotion*>(scene.bodies[static_cast<size_t>(i)].motion.get())
+                                   : nullptr;
+        check(orbit && orbit->tilted() && orbit->spin() == 0.94, "Sgr A* orbits integrated with its spin and axis");
+    }
+
+    // 230 GHz: 2.44 +- 0.23 Jy in 2017 [WI22] (n_e0_cm3 is calibrated to it by bisection on
+    // this image). The ring, measured on the image blurred to the array's ~20 microarcsecond
+    // resolution, comes out ~37 microarcseconds across against EHT's 51.8 +- 2.3 [EHT22]:
+    // the plunging gas inside the photon ring outshines it (limitations.md). The check
+    // holds the model's own value so that it does not drift unnoticed.
+    const double distance_pc = 8246.7;
+    const double theta_g_uas = hole.gm_km3_s2 / (kSpeedOfLightKmS * kSpeedOfLightKmS) / (distance_pc * kParsecKm) *
+                               kRadToDeg * 3600.0 * 1e6;
+    const RiafImage image =
+        riaf_image(hole.spin, hole.gm_km3_s2, *hole.hot_flow, inclination, distance_pc, 96, 15.0, 20.0 / theta_g_uas);
+    const double diameter = 2.0 * image.ring_radius_m * theta_g_uas;
+    std::printf("info: Sgr A* RIAF at 230 GHz: %.3f Jy, ring %.1f microarcseconds across (EHT: 51.8 +- 2.3)\n",
+                image.flux_jy, diameter);
+    check(std::abs(image.flux_jy / 2.44 - 1.0) < 0.1, "Sgr A* 230 GHz flux", image.flux_jy);
+    check(std::abs(diameter / 37.0 - 1.0) < 0.1, "Sgr A* 230 GHz ring diameter (microarcseconds)", diameter);
+}
+
+void test_bessel_k2()
+{
+    check(std::abs(bessel_k2(10.0) / 2.150981700693e-05 - 1.0) < 1e-6, "K2(10)", bessel_k2(10.0));
+    check(std::abs(bessel_k2(5.0) / 5.308943712223e-03 - 1.0) < 1e-6, "K2(5)", bessel_k2(5.0));
+    check(std::abs(bessel_k2(1.0) / 1.624838898635 - 1.0) < 1e-6, "K2(1)", bessel_k2(1.0));
+    check(std::abs(bessel_k2(0.1) / 199.5039646419 - 1.0) < 1e-6, "K2(0.1)", bessel_k2(0.1));
+}
+
+void test_thermal_synchrotron()
+{
+    // Leung, Gammie & Noble 2011 eq. 72 evaluated by hand (Theta_e = 16.86, X = 55.18).
+    const double j = thermal_synchrotron_emissivity(230e9, 1e6, 1e11, 30.0, kRiafSinPitch);
+    check(std::abs(j / 2.29262e-16 - 1.0) < 1e-3, "Leung 2011 emissivity", j);
+    check(std::abs(thermal_synchrotron_emissivity(230e9, 3e6, 1e11, 30.0, kRiafSinPitch) / j - 3.0) < 1e-12,
+          "synchrotron emissivity ~ n_e");
+}
+
+// Below Theta_e ~ 0.0116 the shader's K_2(1/Theta) and the emission both underflow
+// float (0/0): the reference stops emitting where the shader does, at Theta_e < 0.02.
+void test_cold_electrons_do_not_emit()
+{
+    const double theta_015 = 0.015 * 5.9298e9; // K
+    check(thermal_synchrotron_emissivity(230e9, 1e6, theta_015, 30.0, kRiafSinPitch) == 0.0,
+          "no synchrotron below Theta_e = 0.02");
+    check(thermal_synchrotron_emissivity(230e9, 1e6, 0.03 * 5.9298e9, 30.0, kRiafSinPitch) >= 0.0,
+          "synchrotron evaluated above Theta_e = 0.02");
+}
+
+// A hot flow whose ring spans only a few pixels is point-sampled by a handful of rays
+// and would flicker: it fades out between 1.5 and 4 pixels across 10 M.
+void test_hot_flow_far_fade()
+{
+    check(riaf_far_view_fade(1.0) == 0.0, "hot flow hidden when 10 M is a pixel");
+    check(riaf_far_view_fade(1.5) == 0.0 && riaf_far_view_fade(4.0) == 1.0, "hot flow fade range");
+    check(riaf_far_view_fade(100.0) == 1.0, "hot flow shown up close");
+    bool rising = true;
+    for (double px = 1.0; px < 5.0; px += 0.1) {
+        rising = rising && riaf_far_view_fade(px + 0.1) >= riaf_far_view_fade(px);
+    }
+    check(rising, "hot flow fades in monotonically");
+}
+
+void test_riaf_plasma()
+{
+    RiafParams p;
+    p.n_e0_cm3 = 1e7;
+    p.t_e0_k = 1e11;
+    p.beta = 10.0;
+    p.outer_m = 50.0;
+    const RiafPlasma mid = riaf_plasma(glm::dvec3(20.0, 0.0, 0.0), 0.0, p);
+    check(std::abs(mid.n_e_cm3 / 7.9433e5 - 1.0) < 1e-4, "RIAF density at 20 M", mid.n_e_cm3);
+    check(std::abs(mid.t_e_k / 1.4454e10 - 1.0) < 1e-4, "RIAF electron temperature at 20 M", mid.t_e_k);
+    check(std::abs(mid.b_gauss / 5.00 - 1.0) < 2e-3, "RIAF field at 20 M (beta = 10)", mid.b_gauss);
+    const RiafPlasma off = riaf_plasma(glm::dvec3(std::sqrt(300.0), 0.0, 10.0), 0.0, p);
+    check(std::abs(off.n_e_cm3 / (7.9433e5 * std::exp(-1.0 / 6.0)) - 1.0) < 1e-4, "RIAF vertical profile",
+          off.n_e_cm3);
+    check(std::abs(off.t_e_k / mid.t_e_k - 1.0) < 1e-12, "RIAF temperature depends on r only");
+    check(std::abs(off.b_gauss / (mid.b_gauss * std::exp(-1.0 / 12.0)) - 1.0) < 1e-9, "RIAF field ~ sqrt(n)");
+    const RiafPlasma out = riaf_plasma(glm::dvec3(60.0, 0.0, 0.0), 0.0, p);
+    check(out.n_e_cm3 == 0.0 && out.t_e_k == 0.0 && out.b_gauss == 0.0, "no RIAF beyond outer_m");
+}
+
+// Kerr-Schild Cartesian point at Boyer-Lindquist (r, theta) and phi = 0.
+glm::dvec3 ks_point(double r, double theta, double a)
+{
+    return glm::dvec3(r * std::sin(theta), a * std::sin(theta), r * std::cos(theta));
+}
+
+double ks_norm(const glm::dvec3& x, double a, const glm::dvec4& u)
+{
+    const KerrSchild k = kerr_schild(x, a);
+    const double lu = u.w + glm::dot(k.l, glm::dvec3(u));
+    return -u.w * u.w + glm::dot(glm::dvec3(u), glm::dvec3(u)) + k.f * lu * lu;
+}
+
+void test_riaf_velocity_grid()
+{
+    const double a = 0.94;
+    const double r_isco = isco_radius(a);
+    const double radii[] = {horizon_radius(a) + 0.02, 1.6, r_isco - 1e-6, r_isco + 1e-6, 6.0, 20.0, 50.0};
+    const double thetas[] = {1.0, 30.0, 60.0, 90.0, 120.0, 179.0};
+    bool timelike = true;
+    bool inward = true;
+    double worst = 0.0;
+    for (double r : radii) {
+        for (double th : thetas) {
+            const glm::dvec3 x = ks_point(r, th * kDegToRad, a);
+            const glm::dvec4 u = riaf_four_velocity(x, a);
+            const double n = ks_norm(x, a, u);
+            const bool finite = std::isfinite(u.x) && std::isfinite(u.y) && std::isfinite(u.z) && std::isfinite(u.w);
+            timelike = timelike && finite && u.w > 0.0;
+            worst = std::max(worst, std::abs(n + 1.0));
+            if (r < r_isco - 1e-3) {
+                // Plunging: the radius decreases along u.
+                const double dr = kerr_schild_r(x + 1e-6 * glm::dvec3(u), a) - r;
+                inward = inward && dr < 0.0;
+            }
+        }
+    }
+    check(timelike, "RIAF velocity finite and future directed");
+    check(worst < 1e-9, "RIAF velocity normalized (u.u = -1)", worst);
+    check(inward, "RIAF gas plunges inside the ISCO");
+
+    const glm::dvec3 x6 = ks_point(6.0, 0.5 * kPi, a);
+    const glm::dvec4 u6 = riaf_four_velocity(x6, a);
+    const double omega = (x6.x * u6.y - x6.y * u6.x) / ((x6.x * x6.x + x6.y * x6.y) * u6.w);
+    check(std::abs(omega * (std::pow(6.0, 1.5) + a) - 1.0) < 1e-9, "RIAF Keplerian outside the ISCO", omega);
+
+    // Off the equator the plunge starts with u^r ~ sqrt(r_isco - r): continuous, not smooth.
+    double jump = 0.0;
+    for (double th : thetas) {
+        const glm::dvec4 in = riaf_four_velocity(ks_point(r_isco - 1e-10, th * kDegToRad, a), a);
+        const glm::dvec4 out = riaf_four_velocity(ks_point(r_isco + 1e-10, th * kDegToRad, a), a);
+        const glm::dvec4 d = glm::abs(in - out);
+        jump = std::max({jump, d.x, d.y, d.z, d.w});
+    }
+    check(jump < 1e-4, "RIAF velocity continuous at the ISCO", jump);
+}
+
+// Flare hot spot (riaf.cpp): Keplerian period, position and its light along a ray.
+void test_hot_spot_period()
+{
+    const double m_km = 6.2921e6;
+    check(std::abs(hot_spot_period_s(0.94, 7.0, m_km) / 60.0 - 42.77) < 0.1, "spot period at 7 r_g (GRAVITY 2018: 40 +- 8 min)",
+          hot_spot_period_s(0.94, 7.0, m_km) / 60.0);
+    check(std::abs(hot_spot_period_s(0.94, 9.0, m_km) / 60.0 - 61.41) < 0.1, "spot period at 9 r_g (GRAVITY 2023: 60 +- 3 min)",
+          hot_spot_period_s(0.94, 9.0, m_km) / 60.0);
+    check(std::abs(hot_spot_period_s(0.94, 11.0, m_km) / 60.0 - 82.25) < 0.1, "spot period at 11 r_g (ALMA: 74 +- 6 min)",
+          hot_spot_period_s(0.94, 11.0, m_km) / 60.0);
+}
+
+void test_hot_spot_center()
+{
+    HotSpot s;
+    s.radius_m = 9.0;
+    s.phase_rad = 0.3;
+    const double a = 0.94;
+    const glm::dvec3 c0 = hot_spot_center(s, a, 0.0);
+    check(std::abs(c0.z) < 1e-12 && std::abs(kerr_schild_r(c0, a) - 9.0) < 1e-9, "spot centre on the equator at R");
+    const double quarter = 0.25 * kTwoPi * (std::pow(9.0, 1.5) + a); // M
+    const glm::dvec3 c1 = hot_spot_center(s, a, quarter);
+    const double turned = std::atan2(c0.x * c1.y - c0.y * c1.x, glm::dot(c0, c1));
+    check(std::abs(turned - 0.5 * kPi) < 1e-9, "spot turns prograde by pi/2 in a quarter period", turned);
+}
+
+// A camera at 60 M in the equatorial plane looking at the hole through a spot at R = 9
+// (its phase set where the light leaving it ~9 M before "now" at the hole finds it).
+FlowRay spot_ray(const HotSpot* spot, const glm::dvec3& aim)
+{
+    const double a = 0.94;
+    const glm::dvec3 cam(60.0, 0.0, 0.0);
+    const ObserverFrame frame =
+        static_observer_frame(cam, a, glm::dvec3(-1.0, 0.0, 0.0), glm::dvec3(0.0, 0.0, 1.0), glm::dvec3(0.0, 1.0, 0.0));
+    const glm::dvec3 d = glm::normalize(aim - cam);
+    const glm::dvec3 n(glm::dot(d, glm::dvec3(0.0, 1.0, 0.0)), glm::dot(d, glm::dvec3(0.0, 0.0, 1.0)), -d.x);
+    return trace_flow_ray(frame_photon(cam, frame, n), a, 6.2921e11, 230e9, test_riaf(1.0), 150.0, 4000, spot);
+}
+
+void test_hot_spot_brightens_ray()
+{
+    HotSpot spot;
+    spot.radius_m = 9.0;
+    spot.t_s_k = 1e11;
+    spot.strength = 1.0;
+    spot.phase_rad = -9.0 / (std::pow(9.0, 1.5) + 0.94); // where it is when the light seen now leaves it
+    const glm::dvec3 centre(9.0, 0.94, 0.0);
+    const double base = spot_ray(nullptr, centre).tb_k;
+    const double through = spot_ray(&spot, centre).tb_k - base;
+    check(through > 0.03 * spot.t_s_k && through < 0.2 * spot.t_s_k, "a ray through the spot gains ~g T_s (1 - e^-0.1)",
+          through / spot.t_s_k);
+    const glm::dvec3 above(9.0, 0.94, 20.0);
+    check(std::abs(spot_ray(&spot, above).tb_k - spot_ray(nullptr, above).tb_k) <= 1e-6 * (1.0 + base),
+          "a ray 20 M from the spot does not see it");
+    HotSpot off = spot;
+    off.strength = 0.0;
+    check(spot_ray(&off, centre).tb_k == base, "a spot of strength 0 adds nothing");
+}
+
+void test_hot_spot_ray_near_spot()
+{
+    HotSpot spot;
+    spot.radius_m = 9.0;
+    spot.t_s_k = 1e11;
+    spot.strength = 1.0;
+    const double a = 0.94;
+    const glm::dvec3 cam(8.0, 3.0, 0.5);
+    const ObserverFrame frame =
+        static_observer_frame(cam, a, glm::dvec3(-1.0, 0.0, 0.0), glm::dvec3(0.0, 0.0, 1.0), glm::dvec3(0.0, 1.0, 0.0));
+    bool ok = true;
+    for (int i = 0; i < 64; ++i) {
+        const double z = 1.0 - (i + 0.5) / 32.0;
+        const double s = std::sqrt(1.0 - z * z);
+        const glm::dvec3 n(s * std::cos(i * 2.39996323), s * std::sin(i * 2.39996323), z);
+        const FlowRay ray = trace_flow_ray(frame_photon(cam, frame, n), a, 6.2921e11, 230e9, test_riaf(1e7), 150.0, 4000, &spot);
+        ok = ok && std::isfinite(ray.tb_k) && ray.tb_k >= 0.0;
+    }
+    check(ok, "rays from a camera beside the hot spot are finite");
+}
+
+void test_flow_ray_from_inside()
+{
+    const double a = 0.94;
+    const double mass_cm = 6.2921e11; // 4.261e6 M_sun
+    const glm::dvec3 cam(30.0, 0.0, 0.0);
+    const ObserverFrame frame =
+        static_observer_frame(cam, a, glm::dvec3(-1.0, 0.0, 0.0), glm::dvec3(0.0, 0.0, 1.0), glm::dvec3(0.0, 1.0, 0.0));
+    bool ok = true;
+    double brightest = 0.0;
+    for (int i = 0; i < 64; ++i) {
+        // Fibonacci sphere of local directions.
+        const double z = 1.0 - (i + 0.5) / 32.0;
+        const double s = std::sqrt(1.0 - z * z);
+        const double phi = i * 2.39996323;
+        const glm::dvec3 n(s * std::cos(phi), s * std::sin(phi), z);
+        const FlowRay ray = trace_flow_ray(frame_photon(cam, frame, n), a, mass_cm, 230e9, test_riaf(1e7), 150.0);
+        ok = ok && std::isfinite(ray.tb_k) && ray.tb_k >= 0.0 && std::isfinite(ray.tau) && ray.tau >= 0.0;
+        brightest = std::max(brightest, ray.tb_k);
+    }
+    check(ok, "RIAF rays from a camera inside the flow are finite");
+    check(brightest > 0.0, "RIAF seen from inside the flow", brightest);
+}
+
+void test_flow_ray_optically_thick()
+{
+    // Dense enough that the ray toward the hole is opaque: the brightness approaches
+    // the source function g T_e at the tau = 1 surface (Kirchhoff) and never exceeds its largest value.
+    const double a = 0.94;
+    const glm::dvec3 cam(40.0, 0.0, 0.0);
+    const ObserverFrame frame =
+        static_observer_frame(cam, a, glm::dvec3(-1.0, 0.0, 0.0), glm::dvec3(0.0, 0.0, 1.0), glm::dvec3(0.0, 1.0, 0.0));
+    const FlowRay ray =
+        trace_flow_ray(frame_photon(cam, frame, glm::dvec3(0.0, 0.0, 1.0)), a, 6.2921e11, 230e9, test_riaf(1e12), 150.0);
+    check(ray.tau > 20.0, "dense RIAF is optically thick", ray.tau);
+    check(ray.tb_k <= ray.max_source_k * (1.0 + 1e-9), "brightness below the largest source function", ray.tb_k);
+    check(ray.tb_k > 0.3 * ray.tau1_source_k && ray.tb_k < 3.0 * ray.tau1_source_k,
+          "thick brightness ~ source at tau = 1", ray.tb_k / ray.tau1_source_k);
+}
+
 } // namespace
 
 void run_relativity_tests()
 {
     test_kerr_conservation();
+    test_kerr_tilted_conservation();
+    test_tilted_orbit_matches_equatorial();
     test_kerr_schwarzschild_precession();
     test_post_keplerian();
     test_psr_b1913_scene();
@@ -1589,4 +2215,19 @@ void run_relativity_tests()
     test_edmunds_planet();
     test_kerr_lens();
     test_gargantua_lensed_bodies();
+    test_bessel_k2();
+    test_thermal_synchrotron();
+    test_cold_electrons_do_not_emit();
+    test_hot_flow_far_fade();
+    test_riaf_plasma();
+    test_riaf_velocity_grid();
+    test_flow_ray_from_inside();
+    test_flow_ray_optically_thick();
+    test_hot_spot_period();
+    test_hot_spot_center();
+    test_hot_spot_brightens_ray();
+    test_hot_spot_ray_near_spot();
+    test_near_horizon_spiral_captured();
+    test_sgr_a_hot_flow();
+    test_sgr_a_flares();
 }

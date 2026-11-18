@@ -2,12 +2,14 @@
 
 #include "core/time.hpp"
 #include "ephem/motion.hpp"
+#include "ephem/riaf.hpp"
 #include "scene/accretion_disk.hpp"
 #include "scene/aurora_model.hpp"
 #include "scene/magnetic_field.hpp"
 #include "scene/magnetosphere.hpp"
 #include "scene/corona.hpp"
 #include "scene/disk.hpp"
+#include "scene/flares.hpp"
 #include "scene/impact.hpp"
 #include "scene/nebula.hpp"
 #include "scene/refraction.hpp"
@@ -372,6 +374,18 @@ struct Body {
     bool disk_uniform = false;
     double disk_temperature_k = 8000.0; // peak of the temperature profile, or the uniform one
     double disk_brightness = 3.0;       // radiance scale (linear HDR)
+    // Black holes: a hot, thick accretion flow (RIAF, ephem/riaf.hpp) ray traced in
+    // its 230 GHz light and drawn in false color, instead of the thin disk.
+    std::optional<RiafParams> hot_flow;
+    double hot_flow_display_gain = 1.0; // radiance scale of the false color (linear HDR)
+    // Flares of the hot flow: a hot spot (ephem/riaf.hpp HotSpot) per recorded or random
+    // flare (scene/flares.hpp), with optical depth flare_tau0 through its centre, source
+    // brightness temperature flare_t_s_k and flare_diameter_m across at half maximum.
+    FlareSettings hot_flow_flares;
+    double flare_t_s_k = 0.0;
+    double flare_tau0 = 0.1;
+    double flare_diameter_m = 6.0;
+    double flare_display_gain = 1.0; // drawn spots only: T_s x gain in the false color (illustrative)
 
     // Stars: effective temperature (color) and luminosity (apparent brightness).
     double temperature_k = 5772.0;

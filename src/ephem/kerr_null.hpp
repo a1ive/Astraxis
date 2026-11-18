@@ -86,6 +86,16 @@ void geodesic_derivatives(const Photon& ph, double a, glm::dvec3& dx, glm::dvec3
 // outside the hole): future directed, H = -1/2, p_t = -E.
 Photon make_particle(const glm::dvec3& x, const glm::dvec3& v, double a);
 
+// One RK4 step of proper time h (units of M, negative: backward) for a massive
+// particle and its Kerr-Schild coordinate time t.
+void particle_step(Photon& s, double& t, double a, double h);
+
+// Carter constant Q = p_theta^2 + cos^2 theta (a^2 (1 - E^2) + L_z^2 / sin^2 theta)
+// of a massive particle (H = -1/2), with E = -p_t and L_z = x p_y - y p_x;
+// p_theta is the same in Kerr-Schild and Boyer-Lindquist coordinates. Divides by
+// sin^2 theta: not on the spin axis.
+double carter_constant(const Photon& s, double a);
+
 // Outer horizon r+ and prograde ISCO radius (Bardeen, Press & Teukolsky 1972).
 double horizon_radius(double a);
 double isco_radius(double a);
@@ -130,6 +140,14 @@ RayResult trace_camera_ray(const glm::dvec3& cam, const ObserverFrame& frame, co
 
 // Step length used by trace_ray (also mirrored in the shader).
 double ray_step(const glm::dvec3& x, double a);
+
+// Rays spiralling into a fast-spinning hole (a ~ 0.94) make the fixed-step RK4
+// unstable just outside the horizon: H runs away and the ray would be thrown back
+// out. Inside r = 2 (the equatorial ergosphere) a ray whose |H| exceeds this
+// fraction of p_t^2 is counted as captured - it was falling in.
+inline constexpr double kRayCaptureRadius = 2.0;
+inline constexpr double kRayCaptureDrift = 1e-2;
+bool ray_runaway(const Photon& ph, double a);
 
 // Redshift factor g = nu_observed / nu_emitted for a photon (traced backward,
 // at the disk point x on z = 0) emitted by matter on a prograde circular

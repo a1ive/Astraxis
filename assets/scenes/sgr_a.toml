@@ -27,26 +27,60 @@
 #        [EHT22] Event Horizon Telescope Collaboration 2022, ApJL 930, L12: the first image of
 #          Sgr A* (published 2022-05-12, from 2017 data), a ring 51.8 microarcseconds across
 #          around a dark shadow.
-# Rendering: the hole is ray traced (src/ephem/kerr_null.cpp, shaders/black_hole.frag.hlsl):
-# shadow, lensed starfield and an ILLUSTRATIVE thin accretion disk (temperature profile
-# T ~ r^-3/4 (1 - sqrt(r_in/r))^1/4 from the ISCO, Doppler beaming and gravitational
-# redshift). Sgr A*'s real accretion flow is hot, thick and radiatively inefficient; the
-# disk axis (here the north Galactic pole) is likewise an artistic choice.
+# Spin and accretion flow:
+# [EHT22V] Event Horizon Telescope Collaboration 2022, ApJL 930, L16 (arXiv:2311.09478):
+#        the models passing all constraints have prograde spin a = 0.5 or 0.94 and
+#        inclination <= 50 deg.
+# [EHT24VIII] Event Horizon Telescope Collaboration 2024, ApJL 964, L26: with an external
+#        Faraday screen the one model passing every total-intensity and polarimetric
+#        constraint has a = 0.94 and i = 150 deg (clockwise on the sky, as [GR18F]).
+# [JA25] Janssen et al. 2025, A&A 698, A62 (arXiv:2506.13877), sec. 4: the projected
+#        accretion-flow angular momentum at position angle ~106-137 deg east of north. We
+#        take 121 deg; the spin's direction on the sky is not measured otherwise.
+# [GR18F] GRAVITY Collaboration 2018, A&A 618, L10: near-infrared flares orbit clockwise
+#        on the sky, near face-on, at ~6-10 gravitational radii; sec. 3.1: the 2018-07-22
+#        flare at R ~ 7 (NERO) - 8 (GYOTO) R_g, P = 40 +- 8 min, flares lasting 30-90 min.
+# [GR23] GRAVITY Collaboration 2023, A&A 677, L10 (arXiv:2307.11821): polarimetric and
+#        astrometric flares fit R ~ 9 R_g, i ~ 155 deg, P ~ 60 min; introduction: flares of
+#        ten times the quiescent flux once or twice per day.
+# [WI22A] Wielgus et al. 2022, A&A 665, L6 (arXiv:2209.09926): ALMA polarimetric loops on
+#        2017-04-11 from 09:20 UT, ~2 h, after an X-ray flare peaking at 08:48 UT; r_orb ~ 11
+#        r_g, period 74 +- 6 min, Gaussian hot spot ~6 r_g across, clockwise; sec. 3.1: the
+#        hot spot's flux I_hotspot <~ 0.3 Jy.
+# The flares between these are RANDOM (src/scene/flares.cpp): 1.5 a day, 30-90 min, at
+# 7-11 r_g, drawn from the time alone - a statistical illustration, not observed events.
+# [BR09] Broderick et al. 2009, ApJ 697, 45 (arXiv:0809.4490), sec. II.1, eqs. 1, 2, 4:
+#        the RIAF - n_e ~ (r/r_S)^-1.1 exp(-z^2/2 rho^2), T_e ~ (r/r_S)^-0.84, toroidal
+#        field at beta = 10, Keplerian outside the ISCO and plunging inside.
+# [EM21] Emami et al. 2021, ApJ 923, 272 (arXiv:2101.05327), sec. V.2.1: T_e0 = 1.5e11 K.
+# [LGN11] Leung, Gammie & Noble 2011, ApJ 737, 21, eq. 72: thermal synchrotron emissivity.
+# [WI22] Wielgus et al. 2022, ApJL 930, L19 (arXiv:2207.06829), Table 1: 2.44 +- 0.23 Jy
+#        at 228-230 GHz (ALMA + SMA, April 2017) - the density n_e0 is set to give it.
 #
-# Model choices: the hole is taken as non-spinning (Schwarzschild). Its spin is not
-# measured; S2's orbit is not in any assumed equatorial plane, and spin effects at
-# S2's distance are tiny compared with the Schwarzschild precession.
+# Rendering: the hole is ray traced (src/ephem/kerr_null.cpp, shaders/black_hole.hlsli):
+# shadow and lensed starfield, and the RIAF integrated along each ray at 230 GHz
+# (src/ephem/riaf.cpp) with its Doppler and gravitational shifts. Its brightness
+# temperature is drawn in FALSE COLOR and illustrative brightness; the gas is
+# transparent to visible light, so it hides nothing behind it. At 230 GHz its ring is
+# ~37 microarcseconds across (blurred to EHT's resolution) against the 51.8 measured:
+# the plunging gas inside the photon ring outshines it.
+#
+# Model choices: a = 0.94 around the axis above. S2, S301 and the Death Star are
+# integrated in 3D about that axis (spin_axis = "hole", src/ephem/kerr_orbit.cpp); their
+# planes lie 74.5, 37.9 and 53.0 deg from the hole's equator. Spin effects at S2's
+# distance are tiny compared with the Schwarzschild precession.
 # The "Death Star" is NOT a real object (nor a real-sized one): a test particle on an
-# orbit with pericentre 40 M (~1.7 au), where the periapsis advances by ~18 deg per
-# orbit. The line of apsides is drawn at each periapsis, so the lines fan out as
-# the orbit precesses. Its radius is exaggerated ~30,000x (the fictional DS-I is
+# orbit with pericentre ~40 M (~1.7 au), where the periapsis advances by ~15 deg per
+# orbit (~18 from the mass alone, less ~2.5 from the spin) and frame dragging turns the orbit's node about the spin axis by ~1.2 deg per
+# orbit (Lense-Thirring). The line of apsides is drawn at each periapsis, so the lines
+# fan out as the orbit precesses. Its radius is exaggerated ~30,000x (the fictional DS-I is
 # ~160 km across) so it shows as a sphere in the orbit view; this does not affect
-# its motion. It is lit by the accretion disk.
+# its motion. It is lit by the hot flow, illustratively.
 # Relativity vs Newton: the hollow "(Newton)" markers and their grey ellipses follow
 # the Keplerian orbits of the same elements - where each star would go without
 # relativity. S2's leaves its ghost from the 2010 apocentre, where its elements are
 # osculating (the ellipses part by ~12 arcmin per orbit); the Death Star's from
-# wherever its rolling integration last (re)started from the elements (~18 deg per orbit).
+# wherever its rolling integration last (re)started from the elements (~15 deg per orbit).
 # [GI17] Gillessen et al. 2017, ApJ 837, 30 (arXiv:1611.09144), Table 3: the orbits of
 #        the other S-stars (see the note before the events).
 # The sky is a model of the Galaxy as seen from Sgr A* (tools/sky/make_galaxy_sky.py,
@@ -67,17 +101,40 @@ focus = "Sgr A*"
 distance_km = 6.0e11           # ~4000 au: the whole S2 orbit
 start = "now"
 warp = 2629800.0               # 1 month per second: an S2 orbit in ~3 minutes
-up = "Sgr A*"                  # the disk axis
+up = "Sgr A*"                  # the spin axis
 
 [[bodies]]
 name = "Sgr A*"
 kind = "black_hole"
 gm_km3_s2 = 5.65487707e17      # 4.261e6 GM_sun [GR20]
-spin = 0.0
-pole_ra_dec_deg = [192.85948, 27.12825]   # disk axis: north Galactic pole (illustrative)
-disk_outer_m = 25.0
-disk_temperature_k = 6500.0
-disk_brightness = 0.6
+spin = 0.94                    # [EHT22V], [EHT24VIII]
+[bodies.spin_sky]              # the flow's angular momentum: [EHT24VIII] i, [JA25] position angle
+ra_dec_deg = [266.41683333, -29.00781611]   # [RB04]
+i_deg = 150.0                  # pointing 30 deg from straight away from us: clockwise on the sky
+node_deg = 31.0                # the projected axis at position angle 121 deg E of N (illustrative)
+[bodies.hot_flow]              # [BR09] RIAF
+model = "riaf"
+n_e0_cm3 = 6.59e6              # calibrated: 2.44 Jy at 230 GHz [WI22] (relativity_tests.cpp)
+t_e0_k = 1.5e11                # [EM21]
+beta = 10.0                    # [BR09]
+outer_m = 50.0
+display_gain = 1.0
+# Flares: a hot spot circling in the equatorial plane [GR18F], [GR23], [WI22A].
+random_flares_per_day = 1.5    # "ten times the quiescent flux ... once or twice per day" [GR23]
+flare_tau0 = 0.1               # optically thin: the spot adds light, hides nothing
+flare_diameter_m = 6.0         # [WI22A] sec. 3.3: Gaussian hot spot ~6 r_g across
+flare_display_gain = 5.0       # drawn spots only: brighter than at 230 GHz, as in the infrared (illustrative)
+flare_t_s_k = 7.30e10          # calibrated: <~0.3 Jy at 230 GHz [WI22A] sec. 3.1 (relativity_tests.cpp)
+[[bodies.hot_flow.flares]]     # [GR18F]: astrometric loop on 2018-07-22 (MJD 58321.9954)
+time = "2018-07-22 23:53"
+duration_min = 60.0            # "flares lasted for 30 to 90 minutes"
+radius_m = 7.5                 # 7 (NERO) - 8.0 (GYOTO) R_g; period 40 +- 8 min
+phase_deg = 0.0                # not constrained here (illustrative)
+[[bodies.hot_flow.flares]]     # [WI22A]: ALMA loops from T0 = 09:20 UT, ~2 h, after an X-ray flare
+time = "2017-04-11 10:20"
+duration_min = 120.0
+radius_m = 11.0                # fiducial r_orb = 11 r_g; period 74 +- 6 min
+phase_deg = 0.0                # illustrative
 
 [[bodies]]
 name = "S2"
@@ -93,6 +150,7 @@ type = "kerr_geodesic"
 elements_epoch = "previous_apocentre"
 span_years = [1850.0, 2200.0]
 step_eta = 0.003
+spin_axis = "hole"             # the hole's spin and axis: the plane turns by frame dragging
 [bodies.orbit.elements]        # [GR20] Table E.1
 a_mas = 125.058
 distance_pc = 8246.7
@@ -117,6 +175,7 @@ type = "kerr_geodesic"
 elements_epoch = "previous_apocentre"
 span_years = [1850.0, 2200.0]
 step_eta = 0.0015
+spin_axis = "hole"             # the hole's spin and axis: the plane turns by frame dragging
 [bodies.orbit.elements]        # [GR26] first orientation, with the scene's R0
 a_mas = 83.0
 distance_pc = 8246.7
@@ -142,6 +201,7 @@ mark_periapsides = true
 type = "kerr_geodesic"
 rolling_window_days = 30.0     # integrated around the current time
 step_eta = 0.004
+spin_axis = "hole"             # the hole's spin and axis: the plane turns by frame dragging
 [bodies.orbit.elements]        # hypothetical: r_p = 40 M = 2.52e8 km, e = 0.7
 a_au = 5.607833
 e = 0.7
@@ -720,18 +780,18 @@ t_peri_year = 1522
 sky_ra_dec_deg = [266.41683333, -29.00781611]
 
 [[events]]
-name = "The black hole: shadow, lensed sky and disk"
+name = "The black hole: shadow, lensed sky and hot gas"
 time = "2026-10-01"
 focus = "Sgr A*"
 distance_km = 3.8e8            # ~60 M
 warp = 60.0
-# [GR20], [EHT22]
+# [GR20], [EHT22], [EHT24VIII], [BR09]
 caption = """\
     This black hole at the center of our Galaxy has the mass of four million suns \
-    and lies 27,000 light years away. Its gravity bends light, producing a dark \
-    shadow and distorting the sky into rings. The disk shown here is illustrative; \
-    the real accretion flow is hot and thick. In 2022 the Event Horizon Telescope \
-    imaged its shadow."""
+    and lies 27,000 light years away. Its gravity bends light into a dark shadow. A \
+    faint, hot, thick flow of gas spirals in, shown in false color as radio telescopes \
+    see it at 1.3 mm. In 2022 the Event Horizon Telescope imaged its glowing ring. The \
+    occasional flares circling the hole are simulated at their observed rate."""
 
 [[events]]
 name = "S2 pericentre (2018-05-19, 120 au, 7,700 km/s)"
@@ -767,7 +827,7 @@ from_orbit_normal = "Death Star"
 # (Death Star notes above)
 caption = """\
     This imaginary body follows a tight orbit, 40 gravitational radii from the \
-    hole at its closest, where relativity is strong. Its orbit turns about 18 \
+    hole at its closest, where relativity is strong. Its orbit turns about 15 \
     degrees each lap. Lines marking successive closest approaches show how the \
     orbit rotates."""
 
@@ -780,8 +840,8 @@ warp = 60.0
 # (Death Star notes above)
 caption = """\
     At closest approach the imaginary body moves at a fifth of the speed of light, \
-    lit only by the accretion disk. Its path soon diverges from the grey Newtonian \
-    ellipse. Its size is exaggerated thirty-thousand-fold so that it can be seen."""
+    lit only by the hot gas around the hole. Its path soon diverges from the grey \
+    Newtonian ellipse. Its size is exaggerated thirty-thousand-fold so that it can be seen."""
 
 [[events]]
 name = "S301 orbit and precession"
@@ -810,8 +870,8 @@ focus_orbits_only = true
 # [GR26]
 caption = """\
     S301 sweeps within about 11.5 au of the black hole at 25,500 km/s. This close pass \
-    makes its orbit sensitive to frame dragging. The scene uses a non-spinning \
-    black hole, so the precession shown here comes from the Schwarzschild geometry."""
+    makes its orbit sensitive to frame dragging, the twisting of space by the \
+    hole's spin, but most of the precession shown still comes from the hole's mass."""
 [[events.trails]]
 body = "S301"
 trail_history_days = 1.5
@@ -819,3 +879,29 @@ trail_history_days = 1.5
 body = "Death Star"
 trail = "none"
 trail_history_days = 1.0       # less than one orbit, so there are no apsis lines
+
+[[events]]
+name = "GRAVITY flare (2018-07-22): a hot spot near the ISCO"
+time = "2018-07-22 23:33"      # 20 min before the flare's peak
+focus = "Sgr A*"
+distance_km = 3.8e8            # ~60 M, along our line of sight
+from_earth = true
+warp = 60.0                    # one orbit (~45 min at 7.5 r_g) in ~45 s
+# [GR18F]
+caption = """\
+    In July 2018 the GRAVITY instrument followed a flare of infrared light looping \
+    clockwise around the black hole in about 40 minutes, only seven or eight times its \
+    gravitational radius out. Here it is drawn as a hot spot in the gas, seen from the Earth."""
+
+[[events]]
+name = "ALMA hot spot (2017-04-11) after an X-ray flare"
+time = "2017-04-11 10:00"      # 20 min before the spot's peak
+focus = "Sgr A*"
+distance_km = 3.8e8
+from_earth = true
+warp = 60.0                    # one orbit (~80 min at 11 r_g) in ~80 s
+# [WI22A]
+caption = """\
+    On 11 April 2017, half an hour after an X-ray flare, ALMA saw the polarization of \
+    Sgr A* swing in loops for about two hours: a hot spot orbiting about 11 gravitational \
+    radii out once every 70 minutes or so, clockwise as seen from the Earth."""

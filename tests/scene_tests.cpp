@@ -5,7 +5,9 @@
 #include "core/math.hpp"
 #include "core/time.hpp"
 #include "ephem/ephemeris.hpp"
+#include "ephem/kerr_orbit.hpp"
 #include "scene/camera.hpp"
+#include "scene/flares.hpp"
 #include "scene/camera_director.hpp"
 #include "scene/label_layout.hpp"
 #include "scene/pulsar.hpp"
@@ -71,6 +73,211 @@ void test_scene_loader()
               error.find("parent 'C'") != std::string::npos,
           "rejects unknown parent");
     check(!load_scene_string("name = [", "bad3", bad, &error), "rejects TOML syntax error");
+}
+
+// [bodies.hot_flow]: a black hole's RIAF instead of its thin disk.
+void test_hot_flow_loading()
+{
+    const std::string head = "name = 'Hot flow'\n[[bodies]]\nname = 'Hole'\nkind = 'black_hole'\n"
+                             "gm_km3_s2 = 5.65e17\nspin = 0.5\n";
+    const std::string flow = "[bodies.hot_flow]\nmodel = 'riaf'\nn_e0_cm3 = 2.0e6\nt_e0_k = 1.5e11\n";
+    Scene scene;
+    std::string error;
+    check(load_scene_string(head + flow + "beta = 5.0\nouter_m = 40.0\ndisplay_gain = 2.0\n", "hot_flow", scene, &error),
+          error.c_str());
+    if (!scene.bodies.empty() && scene.bodies[0].hot_flow) {
+        const RiafParams& p = *scene.bodies[0].hot_flow;
+        check(p.n_e0_cm3 == 2.0e6 && p.t_e0_k == 1.5e11 && p.beta == 5.0 && p.outer_m == 40.0,
+              "hot_flow parameters loaded");
+        check(scene.bodies[0].hot_flow_display_gain == 2.0, "hot_flow display gain loaded");
+    } else {
+        check(false, "hot_flow loaded");
+    }
+    check(load_scene_string(head + flow, "hot_flow_defaults", scene, &error) && scene.bodies[0].hot_flow &&
+              scene.bodies[0].hot_flow->beta == 10.0 && scene.bodies[0].hot_flow->outer_m == 50.0 &&
+              scene.bodies[0].hot_flow_display_gain == 1.0,
+          "hot_flow defaults: beta 10, outer 50 M, gain 1");
+    check(load_scene_string(head, "no_flow", scene, &error) && !scene.bodies[0].hot_flow, "no hot_flow by default");
+
+    auto rejects = [&](const std::string& text, const char* needle, const char* what) {
+        Scene bad;
+        std::string message;
+        check(!load_scene_string(text, "bad_hot_flow", bad, &message) && message.find(needle) != std::string::npos, what);
+    };
+    rejects("name = 'x'\n[[bodies]]\nname = 'Star'\nradii_km = [1.0]\n" + flow, "hot_flow", "hot_flow only on black holes");
+    rejects(head + "disk_outer_m = 20.0\n" + flow, "hot_flow replaces the thin disk", "hot_flow excludes the thin disk");
+    rejects(head + "[bodies.hot_flow]\nmodel = 'adaf'\nn_e0_cm3 = 1.0\nt_e0_k = 1.0\n", "model", "hot_flow model must be riaf");
+    rejects(head + "[bodies.hot_flow]\nmodel = 'riaf'\nn_e0_cm3 = 0.0\nt_e0_k = 1.0\n", "n_e0_cm3", "hot_flow density > 0");
+    rejects(head + "[bodies.hot_flow]\nmodel = 'riaf'\nn_e0_cm3 = 1.0\nt_e0_k = -1.0\n", "t_e0_k", "hot_flow temperature > 0");
+    rejects(head + flow + "beta = 0.0\n", "beta", "hot_flow beta > 0");
+    rejects(head + flow + "outer_m = 3.0\n", "outer_m", "hot_flow reaches beyond the ISCO");
+    rejects(head + flow + "outer_m = 130.0\n", "outer_m", "hot_flow inside the ray-traced region (120 M)");
+    rejects(head + flow + "display_gain = 0.0\n", "display_gain", "hot_flow display gain > 0");
+}
+
+// Flare schedule (scene/flares.hpp): recorded flares and random ones that depend on the time only.
+FlareSettings random_flares()
+{
+    FlareSettings s;
+    s.random_per_day = 1.5;
+    s.seed = 7;
+    return s;
+}
+
+void test_flare_schedule_deterministic()
+{
+    const FlareSettings s = random_flares();
+    const double t0 = tdb_from_julian_year(2026.0);
+    std::vector<double> forward;
+    for (int i = 0; i < 2000; ++i) {
+        const auto f = active_flare(s, t0 + i * 600.0);
+        forward.push_back(f ? f->envelope + f->flare.t_peak_tdb + f->flare.radius_m : -1.0);
+    }
+    bool same = true;
+    for (int i = 1999; i >= 0; --i) { // backward, as when the clock runs in reverse
+        const auto f = active_flare(s, t0 + i * 600.0);
+        same = same && (f ? f->envelope + f->flare.t_peak_tdb + f->flare.radius_m : -1.0) == forward[static_cast<size_t>(i)];
+    }
+    check(same, "flare schedule depends on the time only");
+}
+
+void test_flare_rate()
+{
+    const FlareSettings s = random_flares();
+    const double t0 = tdb_from_julian_year(2026.0);
+    std::vector<double> peaks;
+    bool ranges = true;
+    for (double t = t0; t < t0 + 1000.0 * kSecondsPerDay; t += 600.0) {
+        const auto f = active_flare(s, t);
+        if (f && (peaks.empty() || peaks.back() != f->flare.t_peak_tdb)) {
+            peaks.push_back(f->flare.t_peak_tdb);
+            ranges = ranges && f->flare.duration_s >= 1800.0 && f->flare.duration_s <= 5400.0 &&
+                     f->flare.radius_m >= 7.0 && f->flare.radius_m <= 11.0 && !f->recorded;
+        }
+    }
+    check(std::abs(static_cast<double>(peaks.size()) - 1500.0) < 150.0, "about 1.5 random flares a day",
+          static_cast<double>(peaks.size()));
+    check(ranges, "random flares last 30-90 min at 7-11 r_g");
+}
+
+void test_flare_recorded()
+{
+    FlareSettings s;
+    FlareRecord r;
+    r.t_peak_tdb = tdb_from_julian_year(2018.56);
+    r.duration_s = 3600.0;
+    r.radius_m = 7.5;
+    r.phase_deg = 40.0;
+    s.recorded.push_back(r);
+    const auto f = active_flare(s, r.t_peak_tdb);
+    check(f && f->recorded && f->envelope == 1.0 && f->flare.radius_m == 7.5 && f->flare.phase_deg == 40.0 &&
+              f->flare.duration_s == 3600.0,
+          "recorded flare active at its peak");
+    check(!active_flare(s, r.t_peak_tdb + kSecondsPerDay), "no flare away from the record (no random ones)");
+    s.random_per_day = 1.5;
+    s.seed = 7;
+    for (double t = r.t_peak_tdb - 2.0 * 3600.0; t <= r.t_peak_tdb + 2.0 * 3600.0; t += 300.0) {
+        const auto g = active_flare(s, t);
+        check(!g || g->recorded, "random flares give way to a recorded one");
+    }
+}
+
+void test_flare_envelope_continuous()
+{
+    FlareSettings s = random_flares();
+    FlareRecord r;
+    r.t_peak_tdb = tdb_from_julian_year(2026.0) + 3.3 * kSecondsPerDay;
+    s.recorded.push_back(r);
+    const double t0 = tdb_from_julian_year(2026.0);
+    double prev = 0.0;
+    double worst = 0.0;
+    for (double t = t0; t < t0 + 10.0 * kSecondsPerDay; t += 60.0) {
+        const auto f = active_flare(s, t);
+        const double e = f ? f->envelope : 0.0;
+        worst = std::max(worst, std::abs(e - prev));
+        prev = e;
+    }
+    check(worst < 0.05, "flare brightness never jumps between minutes", worst);
+}
+
+void test_flare_warp_fade()
+{
+    check(flare_warp_fade(0.0) == 1.0 && flare_warp_fade(300.0) == 1.0 && flare_warp_fade(-100.0) == 1.0,
+          "flares shown when paused or slow");
+    check(flare_warp_fade(1200.0) == 0.0 && flare_warp_fade(-2000.0) == 0.0, "flares hidden when fast");
+    bool falling = true;
+    for (double w = 300.0; w < 1200.0; w += 10.0) {
+        falling = falling && flare_warp_fade(w + 10.0) <= flare_warp_fade(w);
+    }
+    check(falling, "flare fade falls with the warp");
+}
+
+// [bodies.hot_flow] flare keys and [[bodies.hot_flow.flares]].
+void test_hot_flow_flare_loading()
+{
+    const std::string head = "name = 'Flares'\n[[bodies]]\nname = 'Hole'\nkind = 'black_hole'\n"
+                             "gm_km3_s2 = 5.65e17\nspin = 0.5\n"
+                             "[bodies.hot_flow]\nmodel = 'riaf'\nn_e0_cm3 = 2.0e6\nt_e0_k = 1.5e11\n";
+    const std::string keys = "random_flares_per_day = 1.5\nflare_t_s_k = 2.0e11\nflare_tau0 = 0.2\nflare_diameter_m = 5.0\n"
+                             "flare_display_gain = 4.0\n";
+    const std::string record = "[[bodies.hot_flow.flares]]\ntime = '2018-07-22 23:53'\nduration_min = 60.0\nradius_m = 7.5\n"
+                               "phase_deg = 30.0\n";
+    Scene scene;
+    std::string error;
+    check(load_scene_string(head + keys + record, "flares", scene, &error), error.c_str());
+    if (!scene.bodies.empty()) {
+        const Body& b = scene.bodies[0];
+        check(b.hot_flow_flares.random_per_day == 1.5 && b.flare_t_s_k == 2.0e11 && b.flare_tau0 == 0.2 &&
+                  b.flare_diameter_m == 5.0 && b.flare_display_gain == 4.0,
+              "hot_flow flare keys loaded");
+        check(b.hot_flow_flares.recorded.size() == 1 && b.hot_flow_flares.recorded[0].radius_m == 7.5 &&
+                  b.hot_flow_flares.recorded[0].duration_s == 3600.0 && b.hot_flow_flares.recorded[0].phase_deg == 30.0 &&
+                  std::abs(b.hot_flow_flares.recorded[0].t_peak_tdb - tdb_from_julian_year(2018.5578)) < 2.0 * kSecondsPerDay,
+              "recorded flare loaded");
+    }
+    check(load_scene_string(head, "no_flares", scene, &error) && scene.bodies[0].hot_flow_flares.random_per_day == 0.0 &&
+              scene.bodies[0].hot_flow_flares.recorded.empty() && scene.bodies[0].flare_tau0 == 0.1 &&
+              scene.bodies[0].flare_diameter_m == 6.0 && scene.bodies[0].flare_display_gain == 1.0,
+          "hot_flow flare defaults: none, tau0 0.1, 6 M across, gain 1");
+    auto rejects = [&](const std::string& text, const char* needle, const char* what) {
+        Scene bad;
+        std::string message;
+        check(!load_scene_string(text, "bad_flares", bad, &message) && message.find(needle) != std::string::npos, what);
+    };
+    rejects(head + "flare_tau0 = 0.0\n", "flare_tau0", "flare_tau0 > 0");
+    rejects(head + "flare_diameter_m = -1.0\n", "flare_diameter_m", "flare_diameter_m > 0");
+    rejects(head + "flare_display_gain = 0.0\n", "flare_display_gain", "flare_display_gain > 0");
+    rejects(head + "random_flares_per_day = -1.0\n", "random_flares_per_day", "random_flares_per_day >= 0");
+    rejects(head + "random_flares_per_day = 5.0\n", "random_flares_per_day", "at most 4 random flares a day (one per slot)");
+    rejects(head + "[[bodies.hot_flow.flares]]\ntime = '2018-07-22'\nduration_min = 60.0\nradius_m = 2.0\n", "radius_m",
+            "flare radius beyond the ISCO");
+    rejects(head + "[[bodies.hot_flow.flares]]\ntime = '2018-07-22'\nduration_min = 60.0\nradius_m = 70.0\n", "radius_m",
+            "flare radius inside outer_m");
+    rejects(head + "[[bodies.hot_flow.flares]]\ntime = '2018-07-22'\nduration_min = 0.0\nradius_m = 9.0\n", "duration_min",
+            "flare duration > 0");
+}
+
+// kerr_geodesic orbits: spin_axis = "hole" (tilted, the hole's pole) or "orbit_normal" (default).
+void test_kerr_orbit_spin_axis()
+{
+    const std::string scene_text = "name = 'Axis'\n[[bodies]]\nname = 'Hole'\nkind = 'black_hole'\n"
+                                   "gm_km3_s2 = 5.65e17\nspin = 0.5\npole_ra_dec_deg = [10.0, 20.0]\n"
+                                   "[[bodies]]\nname = 'Star'\nparent = 'Hole'\nradii_km = [1.0e6]\n"
+                                   "[bodies.orbit]\ntype = 'kerr_geodesic'\nrolling_window_days = 30.0\n";
+    const std::string elements = "[bodies.orbit.elements]\na_au = 100.0\ne = 0.5\ni_deg = 40.0\nnode_deg = 10.0\n"
+                                 "arg_peri_deg = 0.0\nt_peri_year = 2020.0\nsky_ra_dec_deg = [266.4, -29.0]\n";
+    Scene scene;
+    std::string error;
+    auto orbit_of = [&]() { return dynamic_cast<const KerrOrbitMotion*>(scene.bodies[1].motion.get()); };
+    check(load_scene_string(scene_text + elements, "axis_default", scene, &error) && orbit_of() && !orbit_of()->tilted(),
+          "kerr_geodesic keeps the orbit normal as the spin axis by default");
+    check(load_scene_string(scene_text + "spin_axis = 'hole'\n" + elements, "axis_hole", scene, &error) && orbit_of() &&
+              orbit_of()->tilted() && orbit_of()->spin() == 0.5,
+          "kerr_geodesic about the hole's spin axis");
+    Scene bad;
+    check(!load_scene_string(scene_text + "spin_axis = 'sky'\n" + elements, "axis_bad", bad, &error) &&
+              error.find("spin_axis") != std::string::npos,
+          "kerr_geodesic spin_axis must be hole or orbit_normal");
 }
 
 void test_body_templates()
@@ -1599,6 +1806,14 @@ void test_tour_events()
 void run_scene_tests()
 {
     test_scene_loader();
+    test_hot_flow_loading();
+    test_kerr_orbit_spin_axis();
+    test_flare_schedule_deterministic();
+    test_flare_rate();
+    test_flare_recorded();
+    test_flare_envelope_continuous();
+    test_flare_warp_fade();
+    test_hot_flow_flare_loading();
     test_body_templates();
     test_satellite_fades();
     test_cross_scene_orbits();

@@ -4,6 +4,7 @@
 #include "core/math.hpp"
 #include "core/time.hpp"
 #include "ephem/kerr_null.hpp"
+#include "ephem/kerr_orbit.hpp"
 #include "ephem/schwarzschild_light.hpp"
 #include "render/render_output.hpp"
 #include "render/texture.hpp"
@@ -183,6 +184,8 @@ const AccretionDisk* disk_fed_by(const Scene& scene, const Body& donor)
 // Black hole rendering.
 constexpr float kRayIntegrationRadius = 150.0f; // M; rays with b < 0.8 of it are integrated inside it, analytic beyond
 constexpr float kRayMaxSteps = 400.0f;
+constexpr double kHotFlowFrequencyGhz = 230.0; // black holes' hot flows are seen at 1.3 mm, as by the EHT
+constexpr double kHotFlowLightRadiusM = 6.0;   // a hot flow lights orbiting bodies from about its ring (illustrative)
 constexpr float kLensEdgeFade = 0.6f;     // fade the lensed region over its outer 40%
 // Cap on the brightening of a lensed star: a point source on a caustic would be
 // infinitely bright (a real star, having a finite size, stays finite).
@@ -1118,6 +1121,46 @@ void SceneRenderer::trace_black_hole(SDL_GPUCommandBuffer* cmd, uint32_t width, 
         const bool shifts = event < 0 || scene.events[static_cast<size_t>(event)].disk_shifts;
         u.sky = glm::vec4(0.5f * m_starfield.max_star_size(), kMaxStarMagnification, body.disk_uniform ? 1.0f : 0.0f,
                           shifts ? 1.0f : 0.0f);
+        if (body.hot_flow) {
+            // Units of shaders/black_hole.hlsli's flow_step(): GHz, 1e10 K.
+            const RiafParams& f = *body.hot_flow;
+            constexpr double kElectronCharge = 4.80320471e-10; // esu
+            constexpr double kProtonMass = 1.67262192369e-24;  // g
+            constexpr double kLightCm = 2.99792458e10;
+            constexpr double kBoltzmann = 1.380649e-16;
+            constexpr double kNuCPerGauss = 2.7992490e-3; // e / (2 pi m_e c), GHz per gauss
+            const double mass_cm = m_km * 1e5;
+            const double tau_scale = f.n_e0_cm3 * std::sqrt(2.0) * kPi * kElectronCharge * kElectronCharge * kLightCm /
+                                     (6.0 * kBoltzmann) * mass_cm * 1e-19;
+            const double b0 = std::sqrt(8.0 * kPi * f.n_e0_cm3 * kProtonMass * kLightCm * kLightCm / (12.0 * f.beta));
+            u.flow0 = glm::vec4(1.0f, static_cast<float>(f.outer_m), static_cast<float>(isco_radius(a)), 0.0f);
+            u.flow1 = glm::vec4(static_cast<float>(tau_scale), static_cast<float>(kNuCPerGauss * b0),
+                                static_cast<float>(f.t_e0_k * 1e-10), static_cast<float>(kHotFlowFrequencyGhz));
+            const double ring_pixels = 10.0 * m_km / distance / pixel; // 10 M on screen
+            u.flow2 = glm::vec4(static_cast<float>(body.hot_flow_display_gain),
+                                static_cast<float>(riaf_far_view_fade(ring_pixels)), 0.0f, 0.0f);
+
+            // A flare's hot spot (scene/flares.hpp, ephem/riaf.hpp HotSpot), faded at high warps.
+            const SimClock& clock = sim.clock();
+            const std::optional<ActiveFlare> flare = active_flare(body.hot_flow_flares, clock.t_tdb);
+            const double strength = flare ? flare->envelope * flare_warp_fade(clock.paused ? 0.0 : clock.warp) : 0.0;
+            if (strength > 0.0 && body.flare_t_s_k > 0.0) {
+                // The flare's phase is in the frame of hole_frame_from_pole(); this hole frame
+                // (black_hole_axes) shares its z and differs by a turn about it.
+                const glm::dvec3 x_axis = to_hole * frame.direction_to_display(hole_frame_from_pole(body.pole)[0]);
+                const double radius = flare->flare.radius_m;
+                const double omega = 1.0 / (radius * std::sqrt(radius) + a); // per M of coordinate time
+                const double since_peak_m = (clock.t_tdb - flare->flare.t_peak_tdb) * kSpeedOfLightKmS / m_km;
+                const double phase = std::remainder(flare->flare.phase_deg * kDegToRad + std::atan2(x_axis.y, x_axis.x) +
+                                                        omega * since_peak_m,
+                                                    kTwoPi);
+                u.spot0 = glm::vec4(static_cast<float>(radius), static_cast<float>(body.flare_diameter_m / 2.3548200450309493),
+                                    static_cast<float>(phase), static_cast<float>(omega));
+                u.spot1 = glm::vec4(static_cast<float>(body.flare_tau0 * strength),
+                                    static_cast<float>(body.flare_t_s_k * body.flare_display_gain * 1e-10),
+                                    static_cast<float>(glm::length(cam)), 0.0f);
+            }
+        }
         m_black_hole.trace(cmd, width, height, u, targets);
         return; // one hole per scene: the trace targets hold a single result
     }
@@ -1402,9 +1445,10 @@ void SceneRenderer::build_body_items(const Simulation& sim, const OutputView& ou
         const Body* parent = body.parent >= 0 ? &scene.bodies[static_cast<size_t>(body.parent)] : nullptr;
         StarLight stars[kMaxStarLights];
         int star_count = 0;
-        if (parent && parent->kind == BodyKind::BlackHole && parent->disk_outer_m > 0.0) {
+        if (parent && parent->kind == BodyKind::BlackHole && (parent->disk_outer_m > 0.0 || parent->hot_flow)) {
             light = parent->world_position;
-            light_radius = parent->disk_outer_m * parent->gm_km3_s2 / (kSpeedOfLightKmS * kSpeedOfLightKmS);
+            light_radius = (parent->hot_flow ? kHotFlowLightRadiusM : parent->disk_outer_m) * parent->gm_km3_s2 /
+                           (kSpeedOfLightKmS * kSpeedOfLightKmS);
         } else if (star_count = scene.lighting_stars(static_cast<int>(i), stars, kMaxStarLights); star_count > 0) {
             const Body& brightest = scene.bodies[static_cast<size_t>(stars[0].star)];
             light = brightest.world_position;

@@ -944,6 +944,14 @@ std::unique_ptr<MotionSource> Loader::parse_motion(const toml::table& t, const s
         KerrOrbitSetup setup;
         setup.gm_km3_s2 = parent->gm_km3_s2;
         setup.spin = get_double_or(t, "spin_override", parent->spin);
+        // spin_axis: "orbit_normal" (default) integrates in the orbit's own plane as if the
+        // hole spun about its normal; "hole" uses the hole's pole, the plane free to turn.
+        const std::string axis = get_string_or(t, "spin_axis", "orbit_normal");
+        if (axis != "orbit_normal" && axis != "hole") {
+            fail(ctx, "spin_axis must be \"orbit_normal\" or \"hole\"");
+        }
+        setup.tilted = axis == "hole";
+        setup.pole = parent->pole;
         setup.elements = parse_visual_orbit(*el, ctx + " elements");
         setup.step_eta = get_double_or(t, "step_eta", setup.step_eta);
         const double a = setup.elements.a_km;
@@ -1218,9 +1226,86 @@ void Loader::parse(const toml::table& root, Scene& out)
             if (body.disk_inner_m != 0.0 && body.disk_inner_m < isco_radius(body.spin)) {
                 fail(ctx, "disk_inner_m is inside the ISCO");
             }
+            if (const toml::table* flow = (*t)["hot_flow"].as_table()) {
+                const std::string fctx = ctx + " hot_flow";
+                if (body.disk_outer_m > 0.0) {
+                    fail(fctx, "hot_flow replaces the thin disk: leave out disk_outer_m");
+                }
+                if (get_string_or(*flow, "model", "") != "riaf") {
+                    fail(fctx, "model must be \"riaf\"");
+                }
+                RiafParams p;
+                p.n_e0_cm3 = get_double(*flow, "n_e0_cm3", fctx);
+                p.t_e0_k = get_double(*flow, "t_e0_k", fctx);
+                p.beta = get_double_or(*flow, "beta", p.beta);
+                p.outer_m = get_double_or(*flow, "outer_m", p.outer_m);
+                if (p.n_e0_cm3 <= 0.0) {
+                    fail(fctx, "n_e0_cm3 must be positive");
+                }
+                if (p.t_e0_k <= 0.0) {
+                    fail(fctx, "t_e0_k must be positive");
+                }
+                if (p.beta <= 0.0) {
+                    fail(fctx, "beta must be positive");
+                }
+                if (p.outer_m <= isco_radius(body.spin)) {
+                    fail(fctx, "outer_m must lie beyond the ISCO");
+                }
+                if (p.outer_m > kHotFlowMaxOuterM) {
+                    fail(fctx, "outer_m must be at most 120 M: rays farther out are not integrated");
+                }
+                body.hot_flow = p;
+                body.hot_flow_display_gain = get_double_or(*flow, "display_gain", 1.0);
+                if (body.hot_flow_display_gain <= 0.0) {
+                    fail(fctx, "display_gain must be positive");
+                }
+                // Flares (scene/flares.hpp): random ones at most one per 6-hour slot.
+                FlareSettings& flares = body.hot_flow_flares;
+                flares.random_per_day = get_double_or(*flow, "random_flares_per_day", 0.0);
+                flares.seed = static_cast<uint64_t>(get_double_or(*flow, "flare_seed", 1.0));
+                body.flare_t_s_k = get_double_or(*flow, "flare_t_s_k", 0.0);
+                body.flare_tau0 = get_double_or(*flow, "flare_tau0", body.flare_tau0);
+                body.flare_diameter_m = get_double_or(*flow, "flare_diameter_m", body.flare_diameter_m);
+                if (flares.random_per_day < 0.0 || flares.random_per_day > 4.0) {
+                    fail(fctx, "random_flares_per_day must be in [0, 4] (one per 6-hour slot at most)");
+                }
+                if (body.flare_tau0 <= 0.0) {
+                    fail(fctx, "flare_tau0 must be positive");
+                }
+                if (body.flare_diameter_m <= 0.0) {
+                    fail(fctx, "flare_diameter_m must be positive");
+                }
+                body.flare_display_gain = get_double_or(*flow, "flare_display_gain", 1.0);
+                if (body.flare_display_gain <= 0.0) {
+                    fail(fctx, "flare_display_gain must be positive");
+                }
+                if (const toml::array* list = (*flow)["flares"].as_array()) {
+                    for (const toml::node& node : *list) {
+                        const toml::table* ft = node.as_table();
+                        if (!ft) {
+                            fail(fctx, "flares must be tables");
+                        }
+                        const std::string rctx = fctx + " flares";
+                        FlareRecord r;
+                        r.t_peak_tdb = parse_time(*ft, "time", rctx);
+                        r.duration_s = get_double(*ft, "duration_min", rctx) * 60.0;
+                        r.radius_m = get_double(*ft, "radius_m", rctx);
+                        r.phase_deg = get_double_or(*ft, "phase_deg", 0.0);
+                        if (r.duration_s <= 0.0) {
+                            fail(rctx, "duration_min must be positive");
+                        }
+                        if (r.radius_m <= isco_radius(body.spin) || r.radius_m > p.outer_m) {
+                            fail(rctx, "radius_m must lie between the ISCO and outer_m");
+                        }
+                        flares.recorded.push_back(r);
+                    }
+                }
+            }
             const double m = body.gm_km3_s2 / (kSpeedOfLightKmS * kSpeedOfLightKmS);
             body.equatorial_radius_km = body.polar_radius_km = m + m * std::sqrt(1.0 - body.spin * body.spin);
             body.equatorial_radius_b_km = body.equatorial_radius_km;
+        } else if (t->contains("hot_flow")) {
+            fail(ctx, "only black holes have a hot_flow");
         } else if (body.kind == BodyKind::Barycenter || body.kind == BodyKind::Ghost) {
             body.equatorial_radius_km = body.equatorial_radius_b_km = body.polar_radius_km = 1.0;
         } else if (t->contains("roche")) {

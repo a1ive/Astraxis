@@ -57,6 +57,7 @@ ctest --test-dir build/linux -C Release --output-on-failure --no-tests=error
 - 磁层顶、弓激波等线框曲面走轨道线的 pass（`OrbitLinePass::add_line`），每帧由 `boundary_wireframe` 生成。画面用的太阳风经 `Scene::magnetosphere_wind` 取得，不直接读事件里的值。
 - 表面叠加图按 `body.vert.hlsl` 的行星中心纬度采样。光线和小天体的垂距用叉积求，避免两个大平方数相减。极薄的壳层先裁剪射线再积分，大面积加性光斑先画到半分辨率单采样目标再合成；这个目标没有深度，每帧变化的光斑用 `SplatPass::stream_points` 上传，被恒星挡住的部分在顶点着色器里按遮挡椭球淡出（`accretion_glow.vert.hlsl`）。共用的哈希和值噪声放在 `noise.hlsli`。
 - `SceneRenderer::render` 在检查黑洞 pass 的 `ready()` 之前更新星表资源。透镜雅可比用有限差分求，轨道线使用几何位置。修改黑洞合成时同时检查屏幕追踪、星表和立方体天空回退。
+- 黑洞的热吸积流（`[bodies.hot_flow]`，RIAF）在追踪循环里按亮温累加，单位用 GHz 和 10¹⁰ K 让 float 不溢出，CPU 参考是 `src/ephem/riaf.cpp`。改模型参数后先跑测试：它把 n_e0 定标到 230 GHz 总流量，再核对环直径。高自旋时光线在视界外会让 RK4 失稳，CPU 和着色器都用哈密顿量漂移判为捕获（`ray_runaway`）。耀斑热斑在追踪循环里和热流一起累加（`spot_step`，CPU 参考是 `trace_flow_ray` 的 `HotSpot`），日程在 `src/scene/flares.cpp`，只由时刻决定，跳时和倒放都一致。
 
 ## 场景与数据
 

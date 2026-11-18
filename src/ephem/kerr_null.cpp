@@ -197,6 +197,39 @@ void rk4_step(Photon& ph, double a, double h)
     ph.p += h / 6.0 * (k1p + 2.0 * k2p + 2.0 * k3p + k4p);
 }
 
+void particle_step(Photon& s, double& t, double a, double h)
+{
+    glm::dvec3 kx[4];
+    glm::dvec3 kp[4];
+    double kt[4];
+    Photon y = s;
+    for (int i = 0; i < 4; ++i) {
+        if (i > 0) {
+            const double c = i == 3 ? h : 0.5 * h;
+            y.x = s.x + c * kx[i - 1];
+            y.p = s.p + c * kp[i - 1];
+        }
+        geodesic_derivatives(y, a, kx[i], kp[i], kt[i]);
+    }
+    s.x += h / 6.0 * (kx[0] + 2.0 * kx[1] + 2.0 * kx[2] + kx[3]);
+    s.p += h / 6.0 * (kp[0] + 2.0 * kp[1] + 2.0 * kp[2] + kp[3]);
+    t += h / 6.0 * (kt[0] + 2.0 * kt[1] + 2.0 * kt[2] + kt[3]);
+}
+
+double carter_constant(const Photon& s, double a)
+{
+    // Cartesian Kerr-Schild -> (r, theta, phi): x + i y = (r + i a) sin(theta) e^(i phi),
+    // z = r cos(theta), so dx/dtheta = x cot(theta), dy/dtheta = y cot(theta), dz/dtheta = -r sin(theta).
+    const double r = kerr_schild_r(s.x, a);
+    const double cos_t = s.x.z / r;
+    const double sin2 = 1.0 - cos_t * cos_t;
+    const double sin_t = std::sqrt(sin2);
+    const double p_theta = (s.x.x * s.p.x + s.x.y * s.p.y) * cos_t / sin_t - r * sin_t * s.p.z;
+    const double e = -s.pt;
+    const double lz = s.x.x * s.p.y - s.x.y * s.p.x;
+    return p_theta * p_theta + cos_t * cos_t * (a * a * (1.0 - e * e) + lz * lz / sin2);
+}
+
 double horizon_radius(double a)
 {
     return 1.0 + std::sqrt(std::max(0.0, 1.0 - a * a));
@@ -213,6 +246,11 @@ double ray_step(const glm::dvec3& x, double a)
 {
     const double r = kerr_schild_r(x, a);
     return 0.07 * std::max(r - horizon_radius(a), 0.0) + 0.015;
+}
+
+bool ray_runaway(const Photon& ph, double a)
+{
+    return kerr_schild_r(ph.x, a) < kRayCaptureRadius && std::abs(hamiltonian(ph, a)) > kRayCaptureDrift * ph.pt * ph.pt;
 }
 
 RayResult trace_ray(const glm::dvec3& x, const glm::dvec3& dir, double a, double escape_radius, double disk_r_in,
@@ -242,7 +280,7 @@ RayResult trace_ray(Photon ph, double a, double escape_radius, double disk_r_in,
             }
         }
         const double r = kerr_schild_r(ph.x, a);
-        if (r < r_plus + 0.02) {
+        if (r < r_plus + 0.02 || ray_runaway(ph, a)) {
             out.outcome = RayOutcome::Captured;
             out.photon = ph;
             return out;

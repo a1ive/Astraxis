@@ -13,35 +13,6 @@ namespace {
 constexpr double kC = kSpeedOfLightKmS;
 constexpr int kMaxStepHalvings = 4;
 
-// Hole frame -> ICRF: z along the spin axis, x toward the ascending node of
-// the hole's equator on the ICRF equator.
-glm::dmat3 hole_frame_from_pole(const glm::dvec3& pole)
-{
-    const glm::dvec3 z = glm::normalize(pole);
-    const glm::dvec3 node = glm::cross(glm::dvec3(0.0, 0.0, 1.0), z);
-    const glm::dvec3 x = glm::length(node) > 1e-12 ? glm::normalize(node) : glm::dvec3(1.0, 0.0, 0.0);
-    return glm::dmat3(x, glm::cross(z, x), z);
-}
-
-// One RK4 step of proper time h (units of M) for the particle and its coordinate time t.
-void particle_step(Photon& s, double& t, double a, double h)
-{
-    glm::dvec3 kx[4], kp[4];
-    double kt[4];
-    Photon y = s;
-    for (int i = 0; i < 4; ++i) {
-        if (i > 0) {
-            const double c = i == 3 ? h : 0.5 * h;
-            y.x = s.x + c * kx[i - 1];
-            y.p = s.p + c * kp[i - 1];
-        }
-        geodesic_derivatives(y, a, kx[i], kp[i], kt[i]);
-    }
-    s.x += h / 6.0 * (kx[0] + 2.0 * kx[1] + 2.0 * kx[2] + kx[3]);
-    s.p += h / 6.0 * (kp[0] + 2.0 * kp[1] + 2.0 * kp[2] + kp[3]);
-    t += h / 6.0 * (kt[0] + 2.0 * kt[1] + 2.0 * kt[2] + kt[3]);
-}
-
 double particle_step_length(const Photon& s, double a, double eta)
 {
     const double r = kerr_schild_r(s.x, a);
@@ -51,10 +22,19 @@ double particle_step_length(const Photon& s, double a, double eta)
 
 } // namespace
 
+glm::dmat3 hole_frame_from_pole(const glm::dvec3& pole)
+{
+    const glm::dvec3 z = glm::normalize(pole);
+    const glm::dvec3 node = glm::cross(glm::dvec3(0.0, 0.0, 1.0), z);
+    const glm::dvec3 x = glm::length(node) > 1e-12 ? glm::normalize(node) : glm::dvec3(1.0, 0.0, 0.0);
+    return glm::dmat3(x, glm::cross(z, x), z);
+}
+
 KerrOrbitMotion::KerrOrbitMotion(const KerrOrbitSetup& setup)
     : m_setup(setup)
     , m_kerr(setup.gm_km3_s2 / (kC * kC), setup.spin * setup.gm_km3_s2 / (kC * kC))
     , m_plane(visual_orbit_frame(setup.elements))
+    , m_hole(hole_frame_from_pole(setup.pole))
     , m_mass_km(setup.gm_km3_s2 / (kC * kC))
 {
 }
@@ -85,6 +65,14 @@ std::unique_ptr<KerrOrbitMotion> KerrOrbitMotion::rolling(const KerrOrbitSetup& 
 KerrOrbitMotion::PlaneState KerrOrbitMotion::initial_state(double epoch_tdb) const
 {
     const State s = visual_orbit_state(m_setup.elements, m_setup.gm_km3_s2, epoch_tdb);
+    if (m_setup.tilted) {
+        // The Newtonian state as Kerr-Schild position and coordinate velocity in the hole frame.
+        const glm::dmat3 to_hole = glm::transpose(m_hole);
+        PlaneState out;
+        out.t = epoch_tdb;
+        out.particle = make_particle(to_hole * s.position / m_mass_km, to_hole * s.velocity / kC, m_setup.spin);
+        return out;
+    }
     const glm::dvec3 p = m_plane[0];
     const glm::dvec3 q = m_plane[1];
     PlaneState out;
@@ -97,6 +85,13 @@ KerrOrbitMotion::PlaneState KerrOrbitMotion::initial_state(double epoch_tdb) con
 
 EphemerisTable::Knot KerrOrbitMotion::knot(const PlaneState& s) const
 {
+    if (m_setup.tilted) {
+        glm::dvec3 dx;
+        glm::dvec3 dp;
+        double dt = 1.0;
+        geodesic_derivatives(s.particle, m_setup.spin, dx, dp, dt);
+        return {s.t, m_hole * s.particle.x * m_mass_km, m_hole * (dx / dt) * kC};
+    }
     glm::dvec2 dxdt;
     glm::dvec2 dudt;
     m_kerr.derivatives(s.x, s.u, dxdt, dudt);
@@ -108,6 +103,9 @@ EphemerisTable::Knot KerrOrbitMotion::knot(const PlaneState& s) const
 KerrOrbitMotion::PlaneState KerrOrbitMotion::integrate(PlaneState s, double t_end,
                                                        std::vector<EphemerisTable::Knot>& out) const
 {
+    if (m_setup.tilted) {
+        return integrate_tilted(s, t_end, out);
+    }
     const double sign = t_end >= s.t ? 1.0 : -1.0;
     const double plunge = 2.0 * m_kerr.horizon_radius();
     while (sign * (t_end - s.t) > 1e-6) {
@@ -137,6 +135,27 @@ KerrOrbitMotion::PlaneState KerrOrbitMotion::integrate(PlaneState s, double t_en
         s.x = x;
         s.u = u;
         s.t += sign * dt_s;
+        out.push_back(knot(s));
+    }
+    return s;
+}
+
+KerrOrbitMotion::PlaneState KerrOrbitMotion::integrate_tilted(PlaneState s, double t_end,
+                                                              std::vector<EphemerisTable::Knot>& out) const
+{
+    const double a = m_setup.spin;
+    const double sign = t_end >= s.t ? 1.0 : -1.0;
+    const double capture = horizon_radius(a) * 1.05;
+    const double seconds_per_m = m_mass_km / kC;
+    while (sign * (t_end - s.t) > 1e-6) {
+        PlaneState next = s;
+        double t_m = 0.0;
+        particle_step(next.particle, t_m, a, sign * particle_step_length(s.particle, a, m_setup.step_eta));
+        if (kerr_schild_r(next.particle.x, a) < capture) {
+            break; // plunged: the trajectory ends here
+        }
+        next.t += t_m * seconds_per_m;
+        s = next;
         out.push_back(knot(s));
     }
     return s;

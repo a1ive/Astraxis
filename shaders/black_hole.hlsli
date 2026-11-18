@@ -46,6 +46,11 @@ cbuffer Uniforms : register(b0, space3)
     float4 u_stars;    // x = sky grid cells per axis, y = star brightness, z = Milky Way brightness (0: none)
     float4 u_sky_params; // x = largest star dot half size (pixels), y = largest magnification of a star image,
                          // z = 1: uniform disk temperature, w = 1: disk frequency shifts on
+    float4 u_flow0;      // hot flow (RIAF): x = 1: on (no thin disk), y = outer radius, z = ISCO radius
+    float4 u_flow1;      // x = optical depth scale, y = nu_c scale (GHz), z = T_e0 (1e10 K), w = observed frequency (GHz)
+    float4 u_flow2;      // x = display gain, y = far-view fade
+    float4 u_spot0;      // flare hot spot: x = orbit radius (M), y = Gaussian sigma (M), z = phase now (rad), w = Omega (per M)
+    float4 u_spot1;      // x = tau0 x strength (0: none), y = source temperature (1e10 K), z = |camera| (M)
 };
 
 static const float kPi = 3.14159265;
@@ -213,6 +218,166 @@ float3 disk_emission(float3 c, float3 p, float pt, float a, out float alpha)
     return blackbody(max(t_obs, 1000.0)) * radiance * streaks;
 }
 
+// Hot accretion flow (RIAF): the formulas of src/ephem/riaf.cpp, in units that keep
+// float in range - frequencies in GHz, temperatures in 1e10 K, optical depth through
+// u_flow1.x = n_e0 sqrt(2) pi e^2 c / (6 k) M_cm 1e-19 (computed on the CPU).
+
+// K_2 from Abramowitz & Stegun 9.8.1-9.8.8, as bessel_k2() in riaf.cpp.
+float flow_bessel_k2(float x)
+{
+    float k0;
+    float k1;
+    if (x <= 2.0) {
+        float y = 0.25 * x * x;
+        float t = (x / 3.75) * (x / 3.75);
+        float i0 = 1.0 + t * (3.5156229 + t * (3.0899424 + t * (1.2067492 + t * (0.2659732 + t * (0.360768e-1 + t * 0.45813e-2)))));
+        float i1 = x * (0.5 + t * (0.87890594 + t * (0.51498869 + t * (0.15084934 + t * (0.2658733e-1 + t * (0.301532e-2 + t * 0.32411e-3))))));
+        k0 = -log(0.5 * x) * i0 + (-0.57721566 + y * (0.42278420 + y * (0.23069756 + y * (0.3488590e-1 + y * (0.262698e-2 + y * (0.10750e-3 + y * 0.74e-5))))));
+        k1 = log(0.5 * x) * i1 + (1.0 / x) * (1.0 + y * (0.15443144 + y * (-0.67278579 + y * (-0.18156897 + y * (-0.1919402e-1 + y * (-0.110404e-2 + y * (-0.4686e-4)))))));
+    } else {
+        float y = 2.0 / x;
+        float e = exp(-x) * rsqrt(x);
+        k0 = e * (1.25331414 + y * (-0.7832358e-1 + y * (0.2189568e-1 + y * (-0.1062446e-1 + y * (0.587872e-2 + y * (-0.251540e-2 + y * 0.53208e-3))))));
+        k1 = e * (1.25331414 + y * (0.23498619 + y * (-0.3655620e-1 + y * (0.1504268e-1 + y * (-0.780353e-2 + y * (0.325614e-2 + y * (-0.68245e-3)))))));
+    }
+    return k0 + 2.0 / x * k1;
+}
+
+// Gas 4-velocity (contravariant, w = u^t) in Kerr-Schild coordinates: Keplerian
+// shells outside the ISCO, a plunge at fixed theta inside (riaf_four_velocity()).
+float4 flow_velocity(float3 x, float r, float a)
+{
+    float a2 = a * a;
+    float cos_t = clamp(x.z / r, -1.0, 1.0);
+    float cos2 = cos_t * cos_t;
+    float sin2 = 1.0 - cos2;
+    float rs = max(r, u_flow0.z);
+    float omega = 1.0 / (rs * sqrt(rs) + a);
+    float sigma_s = rs * rs + a2 * cos2;
+    float delta_s = rs * rs - 2.0 * rs + a2;
+    float big_a_s = (rs * rs + a2) * (rs * rs + a2) - a2 * delta_s * sin2;
+    float g_tt = -(1.0 - 2.0 * rs / sigma_s);
+    float g_tp_s = -2.0 * a * rs / sigma_s;
+    float g_pp_s = big_a_s / sigma_s;
+    float ut_s = rsqrt(max(-(g_tt + sin2 * (2.0 * omega * g_tp_s + omega * omega * g_pp_s)), 1e-6));
+    if (r >= u_flow0.z) {
+        return float4(-omega * ut_s * x.y, omega * ut_s * x.x, 0.0, ut_s);
+    }
+    float u_t = ut_s * (g_tt + sin2 * omega * g_tp_s);
+    float l_hat = ut_s * (g_tp_s + omega * g_pp_s);
+    float sigma = r * r + a2 * cos2;
+    float delta = r * r - 2.0 * r + a2;
+    float big_a = (r * r + a2) * (r * r + a2) - a2 * delta * sin2;
+    float sd = sigma * delta;
+    float gi_tt = -big_a / sd;
+    float gi_tp = -2.0 * a * r / sd;
+    float gi_pp_s = (delta - a2 * sin2) / sd;
+    float up_bl = gi_tp * u_t + gi_pp_s * l_hat;
+    float ut_bl = gi_tt * u_t + gi_tp * sin2 * l_hat;
+    float rest = -1.0 - (gi_tt * u_t * u_t + 2.0 * gi_tp * sin2 * u_t * l_hat + gi_pp_s * sin2 * l_hat * l_hat);
+    float ur = -sqrt(max(delta / sigma * rest, 0.0));
+    float s = r * r + a2;
+    float3 l = float3((r * x.x + a * x.y) / s, (r * x.y - a * x.x) / s, x.z / r);
+    float up_ks = up_bl + a / delta * ur;
+    return float4(l * ur + up_ks * float3(-x.y, x.x, 0.0), ut_bl + 2.0 * r / delta * ur);
+}
+
+// One step of the transfer at the end point x of a step of affine length h:
+// adds the gas's brightness temperature (1e10 K) seen through flow_transmit.
+void flow_step(float3 x, float3 p, float pt, float a, float h, inout float flow_tb, inout float flow_transmit)
+{
+    float r = ks_r(x, a);
+    if (r > u_flow0.y || r <= u_radii.x) {
+        return;
+    }
+    float half_r = 0.5 * r;
+    float s2 = max(r * r - x.z * x.z, 1e-6);
+    float n_rel = pow(half_r, -1.1) * exp(-x.z * x.z / (2.0 * s2));
+    float t10 = u_flow1.z * pow(half_r, -0.84);
+    float theta = 1.6863699 * t10; // k T / m_e c^2
+    if (theta < 0.02 || n_rel < 1e-12) { // as riaf.cpp; below ~0.0116 K_2 and the emission underflow (0 / 0)
+        return;
+    }
+    float4 u = flow_velocity(x, r, a);
+    float pu = pt * u.w + dot(p, u.xyz); // nu_emit / nu_obs
+    if (!(pu > 0.0)) {
+        return;
+    }
+    float nu = u_flow1.w * pu;
+    float nu_c = u_flow1.y * sqrt(n_rel / half_r);
+    float nu_s = (2.0 / 9.0) * nu_c * theta * theta * 0.78539816;
+    float xs = nu / nu_s;
+    float shape = sqrt(xs) + 1.8877486 * pow(xs, 1.0 / 6.0); // 2^(11/12)
+    float emission = shape * shape * exp(-pow(xs, 1.0 / 3.0));
+    float dtau = u_flow1.x * n_rel * nu_s * emission / (flow_bessel_k2(1.0 / theta) * nu * nu * t10) * pu * h;
+    float g = 1.0 / pu;
+    flow_tb += flow_transmit * g * t10 * (1.0 - exp(-dtau));
+    flow_transmit *= exp(-dtau);
+}
+
+// False color of a brightness temperature (1e10 K), linear HDR.
+static const float kFlowTbLo = 0.3;  // 3e9 K: the bottom of the color ramp
+static const float kFlowTbHi = 10.0; // 1e11 K: its top (Doppler-boosted gas seen edge-on)
+float3 flow_color(float tb)
+{
+    static const float3 kRamp[5] = {
+        float3(0.06, 0.0, 0.0), float3(0.45, 0.05, 0.0), float3(0.85, 0.35, 0.02), float3(1.0, 0.75, 0.2), float3(1.0, 0.97, 0.85)};
+    float u = saturate(log(max(tb, 1e-6) / kFlowTbLo) / log(kFlowTbHi / kFlowTbLo)) * 4.0;
+    int i = min((int)u, 3);
+    float3 c = srgb_to_linear(lerp(kRamp[i], kRamp[i + 1], u - i));
+    // Compressed: the beamed side outshines the rest ~100x. u_flow2.y fades a flow only a
+    // few pixels across (riaf_far_view_fade()).
+    return c * (u_flow2.x * u_flow2.y * 0.5 * sqrt(tb / kFlowTbHi));
+}
+
+// p.p - f (l.p)^2 over 2: grows away from 0 when the RK4 runs away (ray_runaway()).
+float ray_hamiltonian(float3 x, float3 p, float pt, float a)
+{
+    float r = ks_r(x, a);
+    float a2 = a * a;
+    float f = 2.0 * r * r * r / (r * r * r * r + a2 * x.z * x.z);
+    float s = r * r + a2;
+    float3 l = float3((r * x.x + a * x.y) / s, (r * x.y - a * x.x) / s, x.z / r);
+    float lp = -pt + dot(l, p);
+    return 0.5 * (-pt * pt + dot(p, p) - f * lp * lp);
+}
+
+// dt/dl of Kerr-Schild coordinate time along the (backward) ray: -p_t + f (l.p), as
+// geodesic_derivatives() in kerr_null.cpp.
+float ray_time_rate(float3 x, float3 p, float pt, float a)
+{
+    float r = ks_r(x, a);
+    float a2 = a * a;
+    float f = 2.0 * r * r * r / (r * r * r * r + a2 * x.z * x.z);
+    float s = r * r + a2;
+    float3 l = float3((r * x.x + a * x.y) / s, (r * x.y - a * x.x) / s, x.z / r);
+    return -pt + f * (-pt + dot(l, p));
+}
+
+// A flare's hot spot (HotSpot in riaf.cpp) where it was when this light left it:
+// ray_time (<= 0) since the camera plus |camera| for "now" at the hole.
+void spot_step(float3 x, float3 p, float pt, float a, float h, float ray_time, inout float flow_tb,
+               inout float flow_transmit)
+{
+    float phi = u_spot0.z + u_spot0.w * (ray_time + u_spot1.z);
+    float c = cos(phi);
+    float s = sin(phi);
+    float3 d = x - float3(u_spot0.x * c - a * s, u_spot0.x * s + a * c, 0.0);
+    float sigma = u_spot0.y;
+    float d2 = dot(d, d);
+    if (d2 > 25.0 * sigma * sigma) {
+        return;
+    }
+    float4 u = flow_velocity(x, ks_r(x, a), a);
+    float pu = pt * u.w + dot(p, u.xyz); // nu_emit / nu_obs
+    if (!(pu > 0.0)) {
+        return;
+    }
+    float dtau = u_spot1.x * exp(-0.5 * d2 / (sigma * sigma)) / (sigma * 2.5066283) * pu * h;
+    flow_tb += flow_transmit * u_spot1.y / pu * (1.0 - exp(-dtau));
+    flow_transmit *= exp(-dtau);
+}
+
 // What the camera sees through the pixel at uv (0..1 over the scene, y down).
 struct Trace
 {
@@ -280,6 +445,13 @@ Trace trace_pixel(float2 uv)
         float r_plus = u_radii.x;
         bool escaped = false;
         int max_steps = (int)u_disk.z;
+        bool flow = u_flow0.x > 0.5;
+        float flow_tb = 0.0;       // brightness temperature of the hot flow (1e10 K)
+        float flow_transmit = 1.0; // the flow's own transparency at its frequency (not the sky's)
+        bool spot = flow && u_spot1.x > 0.0;
+        // Coordinate time since the camera; the leg outside R_s as a straight line.
+        float ray_time = dist > R ? -(dist - R) : 0.0;
+        float time_rate = spot ? ray_time_rate(x, p, pt, a) : 0.0;
 
         [loop]
         for (int i = 0; i < max_steps; ++i) {
@@ -295,6 +467,22 @@ Trace trace_pixel(float2 uv)
             x += h / 6.0 * (k1x + 2.0 * k2x + 2.0 * k3x + k4x);
             p += h / 6.0 * (k1p + 2.0 * k2p + 2.0 * k3p + k4p);
 
+            // A ray spiralling into a fast-spinning hole can make the RK4 run away just
+            // outside the horizon (ray_runaway() in kerr_null.cpp): it was falling in.
+            if (ks_r(x, a) < 2.0 && abs(ray_hamiltonian(x, p, pt, a)) > 0.01 * pt * pt) {
+                opaque = true;
+                transmit = 0.0;
+                break;
+            }
+            if (spot) {
+                float next_rate = ray_time_rate(x, p, pt, a);
+                ray_time += 0.5 * h * (time_rate + next_rate);
+                time_rate = next_rate;
+                spot_step(x, p, pt, a, h, ray_time, flow_tb, flow_transmit);
+            }
+            if (flow) {
+                flow_step(x, p, pt, a, h, flow_tb, flow_transmit);
+            }
             if (prev.z * x.z < 0.0 && u_params.z > 0.0) {
                 float3 c = lerp(prev, x, prev.z / (prev.z - x.z));
                 float rc = ks_r(float3(c.xy, 0.0), a);
@@ -328,6 +516,9 @@ Trace trace_pixel(float2 uv)
         if (!escaped && transmit > 0.0) {
             opaque = true; // ran out of steps: treat as captured
             transmit = 0.0;
+        }
+        if (flow) {
+            color += flow_color(flow_tb); // transparent in visible light: the sky shows through
         }
     }
 

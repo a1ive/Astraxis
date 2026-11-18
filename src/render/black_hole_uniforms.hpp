@@ -27,6 +27,12 @@ struct BlackHoleUniforms {
     glm::vec4 stars{0.0f};       // sky grid cells per axis, star brightness, Milky Way brightness
     glm::vec4 sky{0.0f};         // largest star dot half size (pixels), largest star magnification,
                                  // uniform disk temperature (1/0), disk frequency shifts (1/0)
+    glm::vec4 flow0{0.0f};       // hot flow on (1/0), outer radius, ISCO radius
+    glm::vec4 flow1{0.0f};       // optical depth scale, nu_c scale (GHz), T_e0 (1e10 K), observed frequency (GHz)
+    glm::vec4 flow2{0.0f};       // display gain, far-view fade
+    glm::vec4 spot0{0.0f};       // flare hot spot: orbit radius (M), Gaussian sigma (M), phase now (rad), Omega (per M)
+    glm::vec4 spot1{0.0f};       // tau0 x strength (0: none), source temperature (1e10 K), |camera| (M)
 };
+static_assert(sizeof(BlackHoleUniforms) <= 4096, "SDL's Vulkan backend limits a uniform binding to 4 KiB");
 
 } // namespace astraxis
