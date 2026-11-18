@@ -143,9 +143,9 @@ arg_apoapsis_deg = 90.0        # apoapsis 30 deg above the disk
 apoapsis_time = "2026-10-01"
 span_years = [2016.0, 2036.0]
 
-# Endurance: a simplified tribute to the film's ship, modelled for this program
+# Endurance: an original tribute to the film's ship, modelled for this program
 # (tools/shapes/make_endurance.py; illustrative dimensions, not the film's): a fixed
-# hull 25 m wide and a ring of twelve modules 70 m across, turning about the hull once
+# docking spine with two small craft and a 70 m ring of twelve modules, turning once
 # every 11.44 s, for 1 g on the modules' floor 32.5 m from the axis (tests). The film
 # keeps it in orbit near Miller's planet, which this scene cannot have (see the header),
 # so this orbit is ASSUMED: circular and prograde in the disk plane at 30 M, beyond the
@@ -159,6 +159,7 @@ kind = "spacecraft"
 radii_km = [0.036]             # encloses the ring
 shape = "shapes/endurance_hull.mesh"
 color = "#d6d6d0"
+fill_light = 0.075             # illustrative reflected light on the dark side
 orbit_color = "#e0c48f"
 pole_ra_dec_deg = [266.40500, -28.93617]   # ring axis: the Galactic center (arbitrary)
 trail_history_days = 1.0
@@ -278,17 +279,17 @@ caption = """\
 
 [[events]]
 name = "Endurance, a tribute"
-time = "2026-10-03 07:00"      # the ring's axis 67.5 deg from the hole: its lit face...
+time = "2026-10-03 02:30"
 focus = "Endurance"
 from_body = "Gargantua"
-phase_deg = 135.0              # ...turned toward the camera, the hole to one side
-elevation_deg = 20.0
+phase_deg = 128.0              # the disk to one side of the docking hub
+elevation_deg = 12.0
 distance_km = 0.16
 warp = 1.0                     # the ring at its true rate
 # The ship and its orbit are this scene's (see the body); period, time dilation and
 # the ring's gravity from them (tests)
 caption = """\
-    A simple tribute to the film's ship Endurance, here on an assumed orbit 4.4 billion \
-    km from the center, beyond the disk, going around every six days. Its ring of twelve \
-    modules turns every 11.4 seconds, for Earth's gravity on their floors. Time aboard \
+    A Ranger and a Lander dock at the hub of Endurance. On this assumed orbit, the ship \
+    circles Gargantua every six days, 4.4 billion km from the center. The twelve outer \
+    modules turn every 11.4 seconds, for Earth's gravity on their floors. Time aboard \
     runs only 5 percent slower than far away."""

@@ -15,7 +15,7 @@
 | `pallas.mesh` | VLT/SPHERE 大型观测计划的 MPCD 形状模型（Marsset et al. 2020, Nature Astronomy 4, 569；Vernazza et al. 2021, A&A 654, A56），Sketchfab 用户 “marin”（@marin14）上传的 “(2) Pallas - MPCD model”，<https://sketchfab.com/3d-models/2-pallas-mpcd-model-59c1ec418b2f4f13bc182633a2cddc66>，文件 `2_Pallas_mpcd.obj`（2022-06-13） | CC BY 4.0（Sketchfab 页面标注；署名：marin (@marin14) / Marsset et al. 2020, Vernazza et al. 2021） |
 | `vesta.mesh` | USGS Astrogeology / DLR，Vesta Dawn FC HAMO Global DTM 93m（2013-12-10 发布，黎明号分幅相机 HAMO 立体图像），<https://astrogeology.usgs.gov/search/map/vesta_dawn_fc_hamo_global_dtm_93m>，文件 `Vesta_Dawn_HAMO_DTM_DLR_Global_48ppd.tif` | 公有领域（请引用作者） |
 | `phobos.mesh`、`deimos.mesh` | P. C. Thomas，“Small Body Optical Shape Models” V1.0（PDS SBN，`ast-sat.thomas.shape-models`，由 PDS3 数据集 EAR-A-5-DDR-SHAPE-MODELS-V2.1 迁移），<https://sbnarchive.psi.edu/pds4/non_mission/ast-sat.thomas.shape-models_V1_0/>，文件 `data/m1phobos.tab`、`data/m2deimos.tab`；Thomas 1993, Icarus 105, 326 | PDS 存档数据，公有领域（请引用数据集与作者） |
-| `endurance_hull.mesh`、`endurance_ring.mesh` | 本项目原创的简化造型，致敬电影《星际穿越》（2014）里的飞船 Endurance，由 `tools/shapes/make_endurance.py` 生成（只用标准库）；不是电影的模型或制作数据 | 随本项目（GPL-3.0-or-later） |
+| `endurance_hull.mesh`、`endurance_ring.mesh` | 本项目原创的《星际穿越》Endurance 致敬模型，由 `tools/shapes/make_endurance.py` 在 Blender 中生成 | 随本项目（GPL-3.0-or-later） |
 | `voyager.mesh`、`jwst.mesh`、`parker.mesh`（和 `../textures/` 里同名的图集） | NASA 3D Resources，<https://github.com/nasa/NASA-3D-Resources>，见下面的“探测器模型” | NASA 素材，美国不受版权保护（NASA 媒体使用指南），徽标除外 |
 | `didymos.mesh`、`dimorphos.mesh` | DART Shapemodel Archive Bundle（Daly, T.; Barnouin, O.; Ernst, C.; Nair, H.; Espiritu, R.; Waller, D.，PDS SBN `urn:nasa:pds:dart_shapemodel::1.0`，doi:[10.26007/96fn-p578](https://doi.org/10.26007/96fn-p578)），<https://pdssbn.astro.umd.edu/holdings/pds4-dart_shapemodel-v1.0/>：Didymos v003 的 9.3 m 版本 `data_derived_didymos_model_v003/didymos_g_9309mm_spc_obj_0000n00000_v003.obj`（SHA-256 `b5349374186d254ca21b7b00ddd9f6dea7e2762ca6bbff13f43151ee448e3f20`），Dimorphos v004 的 1.9 m 版本 `data_derived_dimorphos_model_v004/dimorphos_g_1940mm_spc_obj_0000n00000_v004.obj`（SHA-256 `833eaeac8c49338abe64012a679b1b9695f774f1b5e4842a8e5b9f0af1d28664`）；Daly et al. 2023, Nature 616, 443；Daly et al. 2024, PSJ 5, 24 | NASA DART 任务的 PDS 数据，公有领域（请引用数据集与作者） |
 | `arrokoth.mesh` | Porter, S. et al. 2024, “New Horizons Porter (2024) Arrokoth Shape Model Collection”，PDS Small Bodies Node，doi:[10.26007/97r3-1e19](https://doi.org/10.26007/97r3-1e19)，<https://pdssbn.astro.umd.edu/holdings/pds4-nh_derived-v3.0/arrokoth_shapemodel_porter2024/>；方法见同目录的 `porteretal2024b.pdf`（Porter et al. 2024, “The Shape of (486958) Arrokoth”） | NASA 新视野号项目的 PDS 数据，公有领域（请引用作者） |
@@ -151,13 +151,18 @@
 
 ## Endurance（致敬造型）
 
-- 来源：本项目原创。造型只取电影里 Endurance 的大意（中间的船体、一圈 12 个舱段、辐条），尺寸和明暗都是示意的，没有参考或使用电影的模型、图纸和制作数据。单位 m，写入文件时换成 km。
-- 两个网格：`endurance_hull.mesh` 是不转的船体（八棱柱主体、两端的环、背面的设备架，设备架不对称，舱段转动时看得出船体的朝向），`endurance_ring.mesh` 是绕 +z 轴转动的环（12 个带倒角的舱段、外侧的设备托架、环管、轮毂和三根辐条；0 号舱段颜色深一些，能看出转动）。场景里船体是天体的 `shape`，环是 `[bodies.rotor]`：同一位置、同一朝向，再绕本体 z 轴转。
-- 尺寸：环直径 70 m（托架的角到 70.2 m），舱段在 23–33 m 半径之间，地板（舱段外壁内侧）取 32.5 m；船体宽 25 m、长 20.4 m。场景的 `radii_km` 取 0.036 km，包住整个环。
+- 环站、Ranger 和 Lander 的外形参考了[电影模型主管 Ian Hunter 的访谈与模型照片](https://www.artofvfx.com/interstellar-ian-hunter-miniature-vfx-supervisor-co-founder-new-deal-studios/)。全部几何均为本项目绘制；舱段用途、停靠布局、尺寸和材质为场景设计，没有导入电影模型或贴图。
+- `Hull` 集合是固定的对接轴，两侧各停靠一艘飞船：Ranger 机身呈楔形，Lander 有一对侧舱。`Rotor` 集合绕本体 +z 转动。环上的推进舱有双喷口，居住舱有成对的白色舱盖，散热舱有深色百叶；舱与舱之间由过渡通道连接，三道桁架将环接到中央轴承。
+- Blender 单位为 m，导出时换算为 km。环的外径约 70 m，地板半径取 32.5 m；场景用 0.036 km 半径包住模型。
 - 转速：环每 11.44 s 转一圈，32.5 m 处的离心加速度为 1 g（2π√(32.5 m / 9.80665 m/s²)，`test_endurance_shape` 检查）。
-- 硬边：文件带硬边标志，每个平面用自己的顶点；圆管的侧壁沿圆周共用顶点，看起来是圆的。
-- 反照率：脚本里的明暗值（0.12–0.9）按两个网格合起来的面积加权平均（0.584）归一，文件里是相对值（0.21–1.54），整体颜色由场景的 `color` 给。
-- 光照只有吸积盘的漫反射，没有自身阴影：环内侧和环后面的船体也会被照亮。
+- 导出器按面保留硬边，把 Blender 材质的视口灰度写入顶点反照率。两个网格按合并后的表面积加权平均亮度归一，运行时共用场景的 `color`。主光来自吸积盘，另有少量示意补光；不计算部件间的投影。
+
+从仓库根目录运行以下命令，重建两个运行时网格和本地工作文件 `ref/Endurance/Endurance.blend`（不纳入 Git）。如果手工改过 `.blend`，请用第二条命令直接导出，不要重新建模。
+
+```sh
+blender -b --factory-startup --python-exit-code 1 -P tools/shapes/make_endurance.py
+blender -b ref/Endurance/Endurance.blend --python-exit-code 1 -P tools/shapes/make_endurance.py -- --export-only
+```
 
 ## 环旁小卫星与特洛伊卫星（Thomas 卡西尼形状模型）
 
