@@ -1,21 +1,26 @@
 """Monthly refresh of the data that ends in a forecast or at the latest measurement
 (run by .github/workflows/refresh-data.yml; works the same by hand).
 
-    python -I tools/refresh/monthly_refresh.py [--skip-omni] [--skip-ephem] [--skip-hmi] [--body <file>]
+    python -I tools/refresh/monthly_refresh.py [--skip-omni] [--skip-mswim] [--skip-ephem] [--skip-hmi] [--body <file>]
 
 1. OMNI2: downloads the yearly hourly files into build/omni (years already there are kept,
    the last three are always fetched again: recent values get revised), rebakes
    assets/geomag/solar_wind.bin with tools/geomag/solar_wind_bake.py and updates its
    numbers in assets/geomag/SOURCES.md.
-2. Horizons: for each telescope in TARGETS, reads the end of its coverage from Horizons,
+2. MSWIM2D: downloads the model's hourly series at Jupiter, Saturn and Uranus and the L1
+   data that drive it into build/mswim2d (as for OMNI2, the last three years are always
+   fetched again), rebakes assets/geomag/<planet>_solar_wind.bin with
+   tools/geomag/mswim2d_bake.py (after OMNI2: it reads the Earth's record) and updates their
+   numbers in assets/geomag/SOURCES.md.
+3. Horizons: for each telescope in TARGETS, reads the end of its coverage from Horizons,
    moves `stop` in tools/bake/ephem.toml to the last whole hour at least a minute inside
    it, rebakes with tools/bake/horizons_bake.py and updates the table row in
    assets/ephem/SOURCES.md.
-3. HMI: lists the polar-filled synoptic maps on JSOC, downloads into build/hmi/refresh the
+4. HMI: lists the polar-filled synoptic maps on JSOC, downloads into build/hmi/refresh the
    last two rotations already in assets/geomag/sun_hmi_synoptic.txt (in case they were
    reprocessed) and every newer one, merges them in with tools/geomag/sun_synoptic_bake.py
    --merge and updates the coverage in assets/geomag/SOURCES.md.
-4. With --body, writes a pull request description: what changed, the trajectory notes
+5. With --body, writes a pull request description: what changed, the trajectory notes
    Horizons gives for each target, and what is left to check by hand.
 
 Every documented number it rewrites must be found exactly once; if a page was reworded,
@@ -40,6 +45,13 @@ OMNI_URL = 'https://spdf.gsfc.nasa.gov/pub/data/omni/low_res_omni/omni2_{}.dat'
 OMNI_DIR = os.path.join(ROOT, 'build', 'omni')
 OMNI_FIRST_YEAR = 1963
 SOLAR_WIND = os.path.join(ROOT, 'assets', 'geomag', 'solar_wind.bin')
+MSWIM_URL = 'https://csem.engin.umich.edu/MSWIM2D/'
+MSWIM_TRAJECTORY = 'precomputed_trajectories/chunks/{}/{}.csv'
+MSWIM_L1 = 'MSWIM2D_Data_New/Satellite_Data/chunks/l1/{}.csv'
+MSWIM_DIR = os.path.join(ROOT, 'build', 'mswim2d')
+MSWIM_FIRST_YEAR = 1985
+MSWIM_L1_FIRST_YEAR = 1998
+MSWIM_BODIES = ['Jupiter', 'Saturn', 'Uranus']  # baked to assets/geomag/<body>_solar_wind.bin
 GEOMAG_SOURCES = os.path.join(ROOT, 'assets', 'geomag', 'SOURCES.md')
 EPHEM_CONFIG = os.path.join(ROOT, 'tools', 'bake', 'ephem.toml')
 EPHEM_SOURCES = os.path.join(ROOT, 'assets', 'ephem', 'SOURCES.md')
@@ -103,15 +115,17 @@ def solar_wind_summary(path):
     with open(path, 'rb') as f:
         data = f.read()
     magic, (version, first_year, count) = data[:4], struct.unpack_from('<HHI', data, 4)
-    if magic != b'AXSW' or version != 1:
-        sys.exit(f'{path}: not an AXSW v1 file')
-    hours = list(struct.iter_unpack('<HbB', data[12:12 + 4 * count]))
+    if magic != b'AXSW' or version not in (1, 2):
+        sys.exit(f'{path}: not an AXSW file')
+    # Version 2 (a planet's modelled wind) has its own pressure step after the count.
+    header, step = (16, struct.unpack_from('<f', data, 12)[0]) if version == 2 else (12, 0.01)
+    hours = list(struct.iter_unpack('<HbB', data[header:header + 4 * count]))
     start = datetime.datetime(first_year, 1, 1)
 
     def median(values):
         values = sorted(values)
         return values[len(values) // 2]
-    pressures = [h[0] / 100 for h in hours if h[0] != 65535]
+    pressures = [h[0] * step for h in hours if h[0] != 65535]
     speeds = [150 + 8 * h[2] for h in hours if h[2] != 255]
     return {
         'hours': count,
@@ -163,6 +177,76 @@ def refresh_omni(today):
         where)
     write_text(GEOMAG_SOURCES, text, nl)
     return old, new
+
+
+# --- MSWIM2D ----------------------------------------------------------------
+
+def fetch_years(url, directory, first_year, today):
+    """Downloads <year>.csv from `url` (a format with the year) into `directory`, keeping
+    years older than the last three; returns the last year there is."""
+    os.makedirs(directory, exist_ok=True)
+    last_year = None
+    for year in range(first_year, today.year + 2):  # the model's forecast runs into next year
+        path = os.path.join(directory, f'{year}.csv')
+        if os.path.exists(path) and year < today.year - 2:
+            last_year = year
+            continue
+        try:
+            data = fetch(url.format(year))
+        except urllib.error.HTTPError as e:
+            if e.code == 404 and year >= today.year:
+                break
+            raise
+        with open(path + '.part', 'wb') as f:
+            f.write(data)
+        os.replace(path + '.part', path)
+        print(f'downloaded {url.format(year)} ({len(data) // 1024} KB)')
+        last_year = year
+    # A year that is no longer served would break the run of years.
+    for name in os.listdir(directory):
+        m = re.fullmatch(r'(\d{4})\.csv', name)
+        if m and int(m.group(1)) > last_year:
+            os.remove(os.path.join(directory, name))
+    return last_year
+
+
+def refresh_mswim(today):
+    """{body: (old summary, new summary)} for each body in MSWIM_BODIES."""
+    l1_dir = os.path.join(MSWIM_DIR, 'l1')
+    last_l1_year = fetch_years(MSWIM_URL + MSWIM_L1.format('{}'), l1_dir, MSWIM_L1_FIRST_YEAR, today)
+    with open(os.path.join(l1_dir, f'{last_l1_year}.csv'), encoding='ascii') as f:
+        l1_last = datetime.datetime.fromisoformat(f.read().split()[-1].split(',')[0])
+
+    text, nl = read_text(GEOMAG_SOURCES)
+    where = 'assets/geomag/SOURCES.md'
+    results = {}
+    last_years = set()
+    for body in MSWIM_BODIES:
+        body_dir = os.path.join(MSWIM_DIR, body)
+        last_years.add(fetch_years(MSWIM_URL + MSWIM_TRAJECTORY.format(body, '{}'), body_dir, MSWIM_FIRST_YEAR, today))
+        name = f'{body.lower()}_solar_wind.bin'
+        path = os.path.join(ROOT, 'assets', 'geomag', name)
+        old = solar_wind_summary(path)
+        run(os.path.join('tools', 'geomag', 'mswim2d_bake.py'), body_dir, l1_dir, SOLAR_WIND, path)
+        new = solar_wind_summary(path)
+        results[body] = (old, new)
+        text = replace_once(
+            text,
+            rf'`{re.escape(name)}` [\d,]+ 小时，1985-01-01 至 \d{{4}}-\d{{2}}-\d{{2}} \d{{2}}:\d{{2}} UT，SHA-256 `[0-9a-f]{{64}}`；'
+            r'动压中位数 [\d.]+ nPa、速度 \d+ km/s，最大的小时动压 [\d.]+ nPa',
+            f'`{name}` {new["hours"]:,} 小时，1985-01-01 至 {new["end"]:%Y-%m-%d %H:%M} UT，'
+            f'SHA-256 `{new["sha256"]}`；动压中位数 {new["median_pressure"]:.5f} nPa、速度 {new["median_speed"]} km/s，'
+            f'最大的小时动压 {new["max_pressure"]:.3f} nPa',
+            where)
+    if len(last_years) != 1:
+        sys.exit(f'MSWIM2D: the bodies end in different years {sorted(last_years)}')
+
+    text = replace_once(text, r'(MSWIM2D 的行星序列和 L1 输入，)\d{4}-\d{2}-\d{2}( 下载)', rf'\g<1>{today:%Y-%m-%d}\g<2>', where)
+    text = replace_once(text, r'L1 数据到 \d{4}-\d{2}-\d{2} \d{2}:\d{2} UT', f'L1 数据到 {l1_last:%Y-%m-%d %H:%M} UT', where)
+    text = replace_once(text, r'seq 1985 \d{4}', f'seq 1985 {last_years.pop()}', where)
+    text = replace_once(text, r'seq 1998 \d{4}', f'seq 1998 {last_l1_year}', where)
+    write_text(GEOMAG_SOURCES, text, nl)
+    return results
 
 
 # --- Horizons ---------------------------------------------------------------
@@ -315,7 +399,7 @@ def refresh_hmi():
 
 # --- Pull request -----------------------------------------------------------
 
-def pr_body(today, omni, ephem, hmi=None):
+def pr_body(today, omni, ephem, hmi=None, mswim=None):
     out = [f'每月自动刷新（{today:%Y-%m-%d}，`tools/refresh/monthly_refresh.py`）。数据由脚本重新下载和烘焙，'
            '资料页里的数字已同步；文字说明需要人工核对后再合并。', '']
     if omni:
@@ -325,6 +409,14 @@ def pr_body(today, omni, ephem, hmi=None):
         for label, s in (('原有', old), ('刷新后', new)):
             out.append(f'| {label} | {s["hours"]:,} | {s["end"]:%Y-%m-%d %H:%M} | {s["median_pressure"]:.2f} nPa | '
                        f'{s["median_speed"]} km/s | {s["max_pressure"]:.2f} nPa |')
+        out.append('')
+    if mswim:
+        out += ['## 外行星的模型太阳风（MSWIM2D）', '',
+                '| 行星 | | 小时数 | 记录末端（UT） | 动压中位数 | 速度中位数 | 最大动压 |', '|---|---|---:|---|---:|---:|---:|']
+        for body, (old, new) in mswim.items():
+            for label, s in (('原有', old), ('刷新后', new)):
+                out.append(f'| {body} | {label} | {s["hours"]:,} | {s["end"]:%Y-%m-%d %H:%M} | {s["median_pressure"]:.5f} nPa | '
+                           f'{s["median_speed"]} km/s | {s["max_pressure"]:.3f} nPa |')
         out.append('')
     if ephem:
         out += ['## 空间望远镜星历', '',
@@ -349,6 +441,8 @@ def pr_body(today, omni, ephem, hmi=None):
             '- [ ] `tools/bake/ephem.toml` 中望远镜一节的覆盖注释（“checked …”、轨道文件名）。',
             '- [ ] 结束时间变化较大时，打开 Space Telescopes 场景看最后一段轨迹，并核对测试里依赖预报段的跨度。',
             '- [ ] OMNI2 的年代覆盖率（`solar_wind_bake.py` 的输出）与 `assets/geomag/SOURCES.md` 一致。',
+            '- [ ] 外行星记录：`mswim2d_bake.py` 输出的 L1 数据末端、略去的小时数和坏样本与资料页一致；'
+            '记录末端若没有前移，看 MSWIM2D 是否停更。',
             '- [ ] 新的 HMI 自转周：`sun_synoptic_bake.py` 是否报告了空白像素或较大的净通量；'
             '需要时在 Solar System 场景里按 B 看最新一周的太阳磁力线。']
     return '\n'.join(out) + '\n'
@@ -363,16 +457,17 @@ def main():
             sys.exit(__doc__)
         body_path = args[i + 1]
         del args[i:i + 2]
-    unknown = [a for a in args if a not in ('--skip-omni', '--skip-ephem', '--skip-hmi')]
+    unknown = [a for a in args if a not in ('--skip-omni', '--skip-mswim', '--skip-ephem', '--skip-hmi')]
     if unknown:
         sys.exit(__doc__)
     today = datetime.datetime.now(datetime.timezone.utc).date()
     omni = None if '--skip-omni' in args else refresh_omni(today)
+    mswim = None if '--skip-mswim' in args else refresh_mswim(today)
     ephem = None if '--skip-ephem' in args else refresh_ephem()
     hmi = None if '--skip-hmi' in args else refresh_hmi()
     if body_path:
         with open(body_path, 'w', encoding='utf-8', newline='\n') as f:
-            f.write(pr_body(today, omni, ephem, hmi))
+            f.write(pr_body(today, omni, ephem, hmi, mswim))
         print(f'wrote {body_path}')
 
 

@@ -62,9 +62,11 @@ private:
     Profile m_profiles[2][2][4]; // surface, state, azimuth
 };
 
-// The solar wind at the Earth hour by hour (NASA's OMNI2: King & Papitashvili 2005, JGR 110,
-// A02104), shifted to the bow shock's nose, as baked by tools/geomag/solar_wind_bake.py into
-// assets/geomag/solar_wind.bin. Many hours have no measurement, most of those before 1995.
+// The solar wind at a planet hour by hour. The Earth's is measured (NASA's OMNI2: King &
+// Papitashvili 2005, JGR 110, A02104), shifted to the bow shock's nose, as baked by
+// tools/geomag/solar_wind_bake.py into assets/geomag/solar_wind.bin; many hours have no
+// measurement, most of those before 1995. Jupiter's is modelled (MSWIM2D, propagated out from
+// 1 au; tools/geomag/mswim2d_bake.py), pressure and speed only.
 class SolarWindRecord {
 public:
     bool load(const std::filesystem::path& file, std::string* error);
@@ -81,7 +83,7 @@ public:
 
 private:
     struct Hour {
-        uint16_t pressure; // 0.01 nPa
+        uint16_t pressure; // m_pressure_step_npa
         int8_t bz;         // 0.5 nT
         uint8_t speed;     // 150 + 8 n km/s
     };
@@ -89,6 +91,9 @@ private:
     double hour(double t_tdb) const;
 
     double m_start_jd_utc = 0.0;
+    double m_pressure_step_npa = 0.01;
+    double m_pressure_floor_npa = 0.02; // the least mean pressure
+
     std::vector<Hour> m_hours;
 };
 

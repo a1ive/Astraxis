@@ -82,11 +82,25 @@ bool SolarWindRecord::load(const std::filesystem::path& file, std::string* error
     std::memcpy(&first_year, bytes.data() + 6, 2);
     std::memcpy(&count, bytes.data() + 8, 4);
     static_assert(sizeof(Hour) == 4);
-    if (version != 1 || count == 0 || bytes.size() != 12 + sizeof(Hour) * static_cast<size_t>(count)) {
+    // Version 1: the Earth's, in steps of 0.01 nPa. Version 2: its own step (a planet's model,
+    // tools/geomag/mswim2d_bake.py).
+    const size_t header = version == 2 ? 16 : 12;
+    if ((version != 1 && version != 2) || count == 0 || bytes.size() != header + sizeof(Hour) * static_cast<size_t>(count)) {
         return failed("unsupported version or wrong size");
     }
+    m_pressure_step_npa = 0.01;
+    m_pressure_floor_npa = 0.02;
+    if (version == 2) {
+        float step = 0.0f;
+        std::memcpy(&step, bytes.data() + 12, 4);
+        if (!(step > 0.0f) || !std::isfinite(step)) {
+            return failed("the pressure step must be positive");
+        }
+        m_pressure_step_npa = step;
+        m_pressure_floor_npa = step;
+    }
     m_hours.resize(count);
-    std::memcpy(m_hours.data(), bytes.data() + 12, sizeof(Hour) * m_hours.size());
+    std::memcpy(m_hours.data(), bytes.data() + header, sizeof(Hour) * m_hours.size());
     // January 1 of the first year, 00:00 UTC (Gregorian: days before it since
     // JD 1721425.5, 0001-01-01).
     const double y = first_year - 1.0;
@@ -124,7 +138,7 @@ SolarWind SolarWindRecord::mean(double t0_tdb, double t1_tdb, const SolarWind& f
         const double weight = std::min(x1, k + 1.0) - std::max(x0, static_cast<double>(k));
         const Hour& h = m_hours[k];
         if (h.pressure != 0xffff) {
-            sum[0] += weight * h.pressure * 0.01;
+            sum[0] += weight * h.pressure * m_pressure_step_npa;
             measured[0] += weight;
         }
         if (h.bz != -128) {
@@ -138,9 +152,9 @@ SolarWind SolarWindRecord::mean(double t0_tdb, double t1_tdb, const SolarWind& f
     }
     const double span = x1 - x0;
     SolarWind wind = fallback;
-    // Never zero, which would put the boundary at infinity: the record has hours of 0.00 nPa
-    // (in 1979).
-    wind.pressure_npa = std::max((sum[0] + (span - measured[0]) * fallback.pressure_npa) / span, 0.02);
+    // Never zero, which would put the boundary at infinity: the Earth's record has hours of
+    // 0.00 nPa (in 1979).
+    wind.pressure_npa = std::max((sum[0] + (span - measured[0]) * fallback.pressure_npa) / span, m_pressure_floor_npa);
     wind.bz_nt = (sum[1] + (span - measured[1]) * fallback.bz_nt) / span;
     wind.speed_km_s = (sum[2] + (span - measured[2]) * fallback.speed_km_s) / span;
     return wind;

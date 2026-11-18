@@ -3382,6 +3382,65 @@ void test_magnetospheres()
         check(std::abs(glm::length(cassini) - 140.2) < 1.5, "Cassini met the shock 140.2 Rj out (Kurth 2002, Fig. 2)", glm::length(cassini));
         check(std::abs(miss - 1.0) < 0.1, "close to Joy's bow shock for 0.02 nPa", miss);
     }
+    // Jupiter's wind hour by hour, modelled by MSWIM2D from the wind at 1 au. Against what
+    // Cassini saw on its way past (Kurth 2002), some six weeks after opposition (2000-11-28).
+    check(jupiter.record != nullptr, "Jupiter has a modelled record of the wind");
+    if (jupiter.record) {
+        const SolarWindRecord& record = *jupiter.record;
+        MagnetosphereState live;
+        live.body = jupiter_scene.find("Jupiter");
+        live.wind = jupiter.typical;
+        live.recorded = true;
+        const auto pressure = [&](double t) { return jupiter_scene.magnetosphere_wind(live, t, 1.0).pressure_npa; };
+        // The pressure from Cassini's plasma frequency at its first bow shock: 0.018 nPa.
+        const double at_shock = pressure(utc("2000-12-28 04:19"));
+        std::printf("Jupiter's modelled wind at Cassini's first bow shock: %.4f nPa (Cassini: 0.018)\n", at_shock);
+        check(at_shock > 0.009 && at_shock < 0.036, "within a factor of two of Cassini's 0.018 nPa", at_shock);
+        // A compression came in on 2001-01-10: by 20:52 Galileo's crossing needs 0.045 nPa,
+        // after a quiet spell. The model's front, where it first passes 0.045 nPa after the
+        // 8th, comes within two days of it and peaks several times higher.
+        const double crossing = utc("2001-01-10 20:52");
+        const double before = pressure(utc("2001-01-08 06:00"));
+        double front = 0.0, peak = 0.0;
+        for (double t = utc("2001-01-08 06:00"); t < utc("2001-01-13 00:00"); t += 1800.0) {
+            const double p = pressure(t);
+            if (front == 0.0 && p > 0.0452) front = t;
+            peak = std::max(peak, p);
+        }
+        std::printf("Jupiter's modelled wind: %.4f nPa on 2001-01-08, front %+.1f h from Galileo's crossing, peak %.3f nPa\n",
+                    before, (front - crossing) / 3600.0, peak);
+        check(before < 0.03, "quiet on 2001-01-08", before);
+        check(front != 0.0 && std::abs(front - crossing) < 2.0 * 86400.0, "the front within two days of Galileo's crossing",
+              (front - crossing) / 3600.0);
+        check(peak > 4.0 * before, "a compression several times the quiet pressure", peak / before);
+        // The pressure is held to 1e-4 nPa steps, not the Earth's 0.01.
+        const double between = pressure(utc("2000-12-26 06:30"));
+        check(std::abs(between - std::round(between * 1e4) * 1e-4) < 1e-6 && between < 0.015 && between > 0.002,
+              "fine steps for Jupiter's low pressures", between);
+        // From 1985 (once the wind that left 1 au a solar rotation after the model's start is
+        // in, about 45 days) to where the L1 data end (moved on by the monthly refresh: no end
+        // pinned here); a fifth of 1985-94 is left out, where the model ran on OMNI's gaps.
+        check(utc("1985-01-01 00:00") == record.start_tdb() && record.end_tdb() > utc("2026-07-01 00:00"),
+              "the record runs from 1985 to the end of the L1 data", record.end_tdb());
+        check(record.coverage(utc("1985-01-01 00:00"), utc("1985-02-05 00:00")) == 0.0, "the model's start is left out");
+        // Faults in the model's files (late 1985, single samples near 1000 km/s) are dropped.
+        check(pressure(utc("1985-12-25 17:00")) < 0.3, "no fault on 1985-12-25", pressure(utc("1985-12-25 17:00")));
+        const double early = record.coverage(utc("1986-01-01 00:00"), utc("1995-01-01 00:00"));
+        const double late = record.coverage(utc("2005-01-01 00:00"), utc("2025-01-01 00:00"));
+        std::printf("Jupiter: the modelled wind covers %.1f%% of 1986-94 and %.1f%% of 2005-24\n", 100.0 * early, 100.0 * late);
+        check(early > 0.65 && early < 0.85 && late == 1.0, "the record's coverage", early);
+        check(pressure(utc("2030-01-01 00:00")) == jupiter.typical.pressure_npa, "beyond it, the typical wind");
+        // The median over two decades is near Joy's expanded state, below Rutala's 0.071 nPa.
+        std::vector<double> sample;
+        for (double t = utc("2001-01-01 00:00"); t < utc("2021-01-01 00:00"); t += 86400.0 + 3600.0) {
+            sample.push_back(record.mean(t, t + 3600.0, jupiter.typical).pressure_npa);
+        }
+        std::nth_element(sample.begin(), sample.begin() + sample.size() / 2, sample.end());
+        const double median = sample[sample.size() / 2];
+        std::printf("Jupiter's modelled wind, 2001-20: median %.4f nPa, magnetopause %.1f Rj\n", median,
+                    magnetopause(jupiter, SolarWind{median}).nose());
+        check(median > 0.02 && median < 0.071, "the modelled median between 0.02 and 0.071 nPa", median);
+    }
 
     // --- Uranus: Jasinski et al. 2024 ------------------------------------------------------
     Scene uranus_scene = load_scene_or_die("uranus.toml");
@@ -3427,6 +3486,62 @@ void test_magnetospheres()
         }
         check(shown, "the Uranus scene compares the squeezed magnetopause with the mean one");
     }
+    // Uranus's wind hour by hour, modelled by MSWIM2D, against Jasinski's reading of Voyager 2:
+    // about 28 radii a week before the flyby, then a compression that held the magnetopause
+    // at 17.3 radii (0.0184 nPa). Uranus was two months past conjunction, 19 au out.
+    check(uranus.record != nullptr, "Uranus has a modelled record of the wind");
+    if (uranus.record) {
+        MagnetosphereState live;
+        live.body = uranus_scene.find("Uranus");
+        live.wind = uranus.typical;
+        live.recorded = true;
+        const auto wind_at = [&](double t) { return uranus_scene.magnetosphere_wind(live, t, 1.0); };
+        const double flyby = utc("1986-01-24 10:07");
+        // Most of that week is left out (the model ran on OMNI's gaps, IMP 8 out of the wind):
+        // the widest magnetopause of the hours it has.
+        const SolarWindRecord& record = *uranus.record;
+        double week_before = 0.0, quiet_t = 0.0;
+        for (double t = flyby - 7.0 * 86400.0; t < flyby; t += 3600.0) {
+            if (record.coverage(t - 1800.0, t + 1800.0) == 1.0) {
+                const double standoff = magnetopause(uranus, wind_at(t)).standoff;
+                if (standoff > week_before) {
+                    week_before = standoff;
+                    quiet_t = t;
+                }
+            }
+        }
+        double peak = 0.0, peak_t = 0.0, arrival = 0.0;
+        for (double t = flyby - 2.0 * 86400.0; t < flyby + 8.0 * 86400.0; t += 1800.0) {
+            const double p = wind_at(t).pressure_npa;
+            if (arrival == 0.0 && p > 0.9 * 0.0184) arrival = t;
+            if (p > peak) {
+                peak = p;
+                peak_t = t;
+            }
+        }
+        std::printf("Uranus's modelled wind: at most %.1f Ru in the week before the flyby (%+.1f d), %.0f%% of its hours "
+                    "recorded; compression past 90%% of 0.0184 nPa %+.1f d from it, peak %.4f nPa (%.1f Ru) %+.1f d\n",
+                    week_before, (quiet_t - flyby) / 86400.0, 100.0 * record.coverage(flyby - 7.0 * 86400.0, flyby),
+                    (arrival - flyby) / 86400.0, peak, magnetopause(uranus, SolarWind{peak}).standoff, (peak_t - flyby) / 86400.0);
+        check(std::abs(week_before / 28.0 - 1.0) < 0.15, "about 28 radii in the week before (Jasinski 2024)", week_before);
+        check(peak > 0.0184 / 1.5 && peak < 0.0184 * 1.5, "a compression as strong as the flyby's", peak);
+        check(arrival != 0.0 && std::abs(arrival - flyby) < 4.0 * 86400.0, "within four days of it",
+              (arrival - flyby) / 86400.0);
+        // The wind takes some 60 days from 1 au: the record starts later than Jupiter's.
+        check(record.coverage(utc("1985-01-01 00:00"), utc("1985-03-15 00:00")) == 0.0, "the model's start is left out");
+        // The steps are 1e-5 nPa: Uranus's wind is a tenth of Jupiter's.
+        const double low = wind_at(utc("1986-01-22 00:30")).pressure_npa;
+        check(std::abs(low - std::round(low * 1e5) * 1e-5) < 1e-8 && low < 0.002, "fine steps for Uranus", low);
+        std::vector<double> sample;
+        for (double t = utc("2001-01-01 00:00"); t < utc("2021-01-01 00:00"); t += 86400.0 + 3600.0) {
+            sample.push_back(record.mean(t, t + 3600.0, uranus.typical).pressure_npa);
+        }
+        std::nth_element(sample.begin(), sample.begin() + sample.size() / 2, sample.end());
+        const double median = magnetopause(uranus, SolarWind{sample[sample.size() / 2]}).standoff;
+        std::printf("Uranus's modelled wind, 2001-20: median %.5f nPa, standoff %.1f Ru (Jasinski's mean 22.2)\n",
+                    sample[sample.size() / 2], median);
+        check(std::abs(median / 22.2 - 1.0) < 0.1, "the modelled median standoff near Jasinski's mean", median);
+    }
 
     // --- Saturn: Kanani et al. 2010 and Went et al. 2011 -----------------------------------
     Scene saturn_scene = load_scene_or_die("saturn.toml");
@@ -3463,6 +3578,55 @@ void test_magnetospheres()
                   "outside the one for 2.5 times the pressure");
             check(bow_shock(saturn, event->magnetosphere[1].wind).contains(titan), "but still behind the shock");
         }
+    }
+    // Saturn's wind hour by hour, modelled by MSWIM2D, against what Cassini measured 0.2 au
+    // upstream in January 2004, four weeks after opposition (Crary et al. 2005; Belenkaya et
+    // al. 2008, Ann. Geophys. 26, 159, with a 17 h shift to Saturn): a minor compression on
+    // 16-18 January, a rarefaction, a major one from the 25th to the end on the 30th; 0.08 nPa
+    // on the 26th just before its peak, 0.03 nPa on the 30th as it declined.
+    check(saturn.record != nullptr, "Saturn has a modelled record of the wind");
+    if (saturn.record) {
+        MagnetosphereState live;
+        live.body = saturn_scene.find("Saturn");
+        live.wind = saturn.typical;
+        live.recorded = true;
+        const auto pressure = [&](double t) { return saturn_scene.magnetosphere_wind(live, t, 1.0).pressure_npa; };
+        const auto extreme = [&](double t0, double t1, bool most, double* when) {
+            double value = most ? 0.0 : 1e9;
+            for (double t = t0; t <= t1; t += 1800.0) {
+                const double p = pressure(t);
+                if (most ? p > value : p < value) {
+                    value = p;
+                    if (when) *when = t;
+                }
+            }
+            return value;
+        };
+        const double before = extreme(utc("2004-01-10 00:00"), utc("2004-01-15 00:00"), false, nullptr);
+        const double minor = extreme(utc("2004-01-16 00:00"), utc("2004-01-19 12:00"), true, nullptr);
+        const double between = extreme(utc("2004-01-20 00:00"), utc("2004-01-25 00:00"), false, nullptr);
+        double major_t = 0.0;
+        const double major = extreme(utc("2004-01-24 00:00"), utc("2004-02-02 00:00"), true, &major_t);
+        const double on_30th = saturn.record->mean(utc("2004-01-30 00:00"), utc("2004-01-31 00:00"), saturn.typical).pressure_npa;
+        std::printf("Saturn's modelled wind, January 2004: %.4f before, minor compression %.4f, rarefaction %.4f, "
+                    "major %.4f nPa on the %.1fth; the 18th %.4f (Cassini 0.01), the 30th %.4f (Cassini 0.03)\n",
+                    before, minor, between, major, 1.0 + (major_t - utc("2004-01-01 00:00")) / 86400.0,
+                    pressure(utc("2004-01-18 12:00")), on_30th);
+        check(minor > 2.5 * before, "a minor compression on 16-18 January", minor / before);
+        check(between < 0.6 * minor, "then a rarefaction", between / minor);
+        check(major > 0.08 && major_t > utc("2004-01-25 00:00") && major_t < utc("2004-01-31 00:00"),
+              "a major compression past 0.08 nPa between the 25th and the 30th", major);
+        check(on_30th > 0.015 && on_30th < 0.06, "within a factor of two of Cassini's 0.03 nPa on the 30th", on_30th);
+        check(saturn.record->coverage(utc("1985-01-01 00:00"), utc("1985-02-20 00:00")) == 0.0, "the model's start is left out");
+        std::vector<double> sample;
+        for (double t = utc("2001-01-01 00:00"); t < utc("2021-01-01 00:00"); t += 86400.0 + 3600.0) {
+            sample.push_back(saturn.record->mean(t, t + 3600.0, saturn.typical).pressure_npa);
+        }
+        std::nth_element(sample.begin(), sample.begin() + sample.size() / 2, sample.end());
+        const double median = sample[sample.size() / 2];
+        std::printf("Saturn's modelled wind, 2001-20: median %.4f nPa, magnetopause %.1f Rs\n", median,
+                    magnetopause(saturn, SolarWind{median}).nose());
+        check(median > 0.005 && median < 0.03, "the modelled median near the typical 0.02 nPa", median);
     }
 
     // --- Mercury: Winslow et al. 2013 ------------------------------------------------------

@@ -501,15 +501,15 @@ python -E -P tools/geomag/field_map_bake.py build/field_map/Morschhauser2014.txt
 
 ## 磁层顶与弓激波
 
-`src/scene/magnetosphere.cpp` 用经验模型把磁层顶（蓝）和弓激波（橙）画成线框曲面，系数都是论文里的数值；数据文件只有地球的逐小时太阳风 `solar_wind.bin`（见下面的“逐小时太阳风”）和海王星的边界剖面表 `neptune_boundaries.txt`。行星有地球、木星、土星、天王星、水星和海王星。面板的 `Magnetosphere` 选 `Always` 时按模板里的典型太阳风画；`Event setting` 下由事件的 `magnetosphere` 列表给出各自的太阳风，`faint = true` 的一项是用来对比的淡色面（不画激波）。坐标轴：x 指向太阳（地球、水星另加光行差），z 是轨道面北（木星按 Joy 取自转轴），y 指向昏侧。
+`src/scene/magnetosphere.cpp` 用经验模型把磁层顶（蓝）和弓激波（橙）画成线框曲面，系数都是论文里的数值；数据文件只有地球的逐小时太阳风 `solar_wind.bin`（实测，见下面的“逐小时太阳风”）、木星、土星和天王星的逐小时太阳风 `<行星>_solar_wind.bin`（模型，见“外行星的模型太阳风”）和海王星的边界剖面表 `neptune_boundaries.txt`。行星有地球、木星、土星、天王星、水星和海王星。面板的 `Magnetosphere` 选 `Always` 时地球、木星、土星和天王星按当时的记录画，其余按模板里的典型太阳风画；`Event setting` 下由事件的 `magnetosphere` 列表给出各自的太阳风，`faint = true` 的一项是用来对比的淡色面（不画激波）。坐标轴：x 指向太阳（地球、水星另加光行差），z 是轨道面北（木星按 Joy 取自转轴），y 指向昏侧。
 
 | 天体 | 磁层顶 | 弓激波 | 典型太阳风 |
 |---|---|---|---|
 | 地球 | Shue et al. 1998, JGR 103, 17691, doi:10.1029/98JA01103：`r0 = (10.22 + 1.29 tanh[0.184 (Bz + 8.14)]) Dp^(−1/6.6)`，`α = (0.58 − 0.007 Bz)(1 + 0.024 ln Dp)`，`r = r0 (2 / (1 + cos θ))^α`，半径 6371.2 km | Fairfield 1971（JGR 76, 6700）的平均二次曲线，取 SPEDAS `bshock_2`、`mpause_2` 的系数：鼻点 14.33、磁层顶 10.78 RE，晨昏线处 27.2、−22.9 RE。这里取对称的、焦点在地心的圆锥曲线：鼻点为磁层顶的 1.33 倍，偏心率 0.75（晨昏线半径 25.1 RE） | 2 nPa、Bz = 0，得 10.25 RE |
-| 木星 | Joy et al. 2002, JGR 107, 1309, doi:10.1029/2001JA009146：`z² = A + B x + C x² + D y + E y² + F x y`，长度以 120 RJ 为单位，A、B、C 为 `c0 + c1 P^(−1/4)`，D、E、F 为 `c0 + c1 P`，z 沿自转轴 | 同一篇的另一组系数 | 0.071 nPa（Rutala et al. 2025 的中位数），得 83 RJ |
-| 天王星 | Jasinski et al. 2024, Nature Astronomy 9, 66, doi:10.1038/s41550-024-02389-3（CC BY 4.0）的方法：`R = (B0² / (2 μ0 P))^(1/5.7)`，B0 = 23,000 nT，形状同 Shue、张开参数 0.6（Cao & Paty 的 MHD 模拟给 0.45–0.75），半径 25,559 km | 抛物线（偏心率 1，假设），鼻点为磁层顶的 1.275 倍（Farris & Russell 1994 的 `1 + 1.1 (γ − 1)/(γ + 1)`，高马赫数极限，γ = 5/3） | 平均 22.2 RU |
+| 木星 | Joy et al. 2002, JGR 107, 1309, doi:10.1029/2001JA009146：`z² = A + B x + C x² + D y + E y² + F x y`，长度以 120 RJ 为单位，A、B、C 为 `c0 + c1 P^(−1/4)`，D、E、F 为 `c0 + c1 P`，z 沿自转轴 | 同一篇的另一组系数 | 0.071 nPa（Rutala et al. 2025 的中位数），得 83 RJ；`Always` 下按 MSWIM2D 的逐小时模型值 |
+| 天王星 | Jasinski et al. 2024, Nature Astronomy 9, 66, doi:10.1038/s41550-024-02389-3（CC BY 4.0）的方法：`R = (B0² / (2 μ0 P))^(1/5.7)`，B0 = 23,000 nT，形状同 Shue、张开参数 0.6（Cao & Paty 的 MHD 模拟给 0.45–0.75），半径 25,559 km | 抛物线（偏心率 1，假设），鼻点为磁层顶的 1.275 倍（Farris & Russell 1994 的 `1 + 1.1 (γ − 1)/(γ + 1)`，高马赫数极限，γ = 5/3） | 平均 22.2 RU；`Always` 下按 MSWIM2D 的逐小时模型值 |
 
-| 土星 | Kanani et al. 2010, JGR 115, A06207, doi:10.1029/2009JA014262：`r0 = 10.3 P^(−0.2)` RS，张开参数 `0.73 + 0.4 P`，形状同 Shue，半径 60,268 km | Went et al. 2011, JGR 116, A07202, doi:10.1029/2010JA016349：焦点在土星的圆锥曲线，偏心率 0.84，鼻点 `15 P^(−1/5.4)` RS | 0.02 nPa（取的整数值），得 22.5、31.0 RS |
+| 土星 | Kanani et al. 2010, JGR 115, A06207, doi:10.1029/2009JA014262：`r0 = 10.3 P^(−0.2)` RS，张开参数 `0.73 + 0.4 P`，形状同 Shue，半径 60,268 km | Went et al. 2011, JGR 116, A07202, doi:10.1029/2010JA016349：焦点在土星的圆锥曲线，偏心率 0.84，鼻点 `15 P^(−1/5.4)` RS | 0.02 nPa（取的整数值），得 22.5、31.0 RS；`Always` 下按 MSWIM2D 的逐小时模型值 |
 | 水星 | Winslow et al. 2013, JGR Space Physics 118, 2213, doi:10.1002/jgra.50237：形状同 Shue，`Rss = 2.15 P^(−1/6.75)` RM，张开参数 0.5，半径 2440 km。中心在偶极中心（北移 0.196 RM），轴线带光行差（400 km/s） | 同一篇表 2（马赫数修正后的拟合）：焦点在轴上 0.5 RM，p = 2.90 RM，偏心率 1.02，鼻点 1.96 RM | 14.3 nPa（平均冲压） |
 | 海王星 | Mejnertsen et al. 2016 的 MHD 模拟（图 4 的曲线，`neptune_boundaries.txt`），随偶极转动和季节变化。乘 1.007 以通过旅行者 2 号 1989-08-24 的穿越点（26.5 RN，Ness et al. 1989, Science 246, 1473，“tentatively”），半径 24,765 km | 同一模拟，乘 1.088 以通过 34.9 RN 的穿越点（同上） | 飞掠时的弱太阳风 |
 
@@ -531,7 +531,42 @@ python -I tools/geomag/solar_wind_bake.py build/omni assets/geomag/solar_wind.bi
 
 当前文件 559,418 小时，1963-01-01 至 2026-10-26 02:00 UT，SHA-256 `595097c2a3df7f6f3fed0fb57d9e521b06aaa8187f25b385c1b9e6ea5aba9cdb`；流压中位数 1.79 nPa、速度 414 km/s，最大的小时流压 76.06 nPa。有流压的小时占比：1960 年代 36%、1970 年代 66%、1980 年代 52%、1990 年代 68%、2000 年以后 96–99%（工具按年代打印）。更新时重新下载最近几年并重跑工具：最近的值可能修订。这一步每月由 `tools/refresh/monthly_refresh.py`（`refresh-data` 工作流）完成，它同时改写本段和上段的年份、下载日期、小时数、末端、SHA-256、中位数和最大流压，并开 PR；年代覆盖率仍需人工对照工具输出。
 
-运行时（`SolarWindRecord::mean`、`Scene::magnetosphere_wind`）：取以当前时刻为中心的时间窗内的平均，窗宽为屏幕上 1.5 秒对应的时间、至少 1 小时，所以正常速度下就是相邻两个小时均值之间的线性内插，高倍速时面缓慢涨缩而不闪烁。缺测的小时和记录以外按典型太阳风（2 nPa、Bz = 0、430 km/s）计入平均，三个量各自判断缺测。1979 年有几个小时的流压记为 0.00，平均后的流压不低于 0.02 nPa。面板的 `Magnetosphere` 选 `Always` 时地球按记录画；事件里写 `recorded = true`。其他行星没有这样的记录：从 1 au 外推到木星以远要用传播模型（如 Tao 2005、mSWiM），只在冲日前后可靠，这里没有做。`test_magnetospheres` 检查上面的小时值、内插、缺测（1983-10-27 整天没有数据）和记录两端。
+运行时（`SolarWindRecord::mean`、`Scene::magnetosphere_wind`）：取以当前时刻为中心的时间窗内的平均，窗宽为屏幕上 1.5 秒对应的时间、至少 1 小时，所以正常速度下就是相邻两个小时均值之间的线性内插，高倍速时面缓慢涨缩而不闪烁。缺测的小时和记录以外按典型太阳风（2 nPa、Bz = 0、430 km/s）计入平均，三个量各自判断缺测。1979 年有几个小时的流压记为 0.00，平均后的流压不低于 0.02 nPa。面板的 `Magnetosphere` 选 `Always` 时地球按记录画；事件里写 `recorded = true`。木星、土星和天王星有模型的记录（下一节），海王星没有。`test_magnetospheres` 检查上面的小时值、内插、缺测（1983-10-27 整天没有数据）和记录两端。
+
+**外行星的模型太阳风**（`jupiter_solar_wind.bin`、`saturn_solar_wind.bin`、`uranus_solar_wind.bin`，各自模板的 `solar_wind`）：不是实测，是 MSWIM2D（Keebler et al. 2022, ApJS 260, 43, doi:10.3847/1538-4365/ac67eb）的结果。这是密歇根大学 CSEM 的二维 MHD 模型，覆盖黄道面内 1–75 au，内边界在 1 au，1985 年至 2004 年 7 月由 OMNI 驱动，此后由 MIDL（L1）和 STEREO 驱动，借共转把单点观测铺到各个经度。数据取自 [MSWIM2D](https://csem.engin.umich.edu/MSWIM2D/) 的静态文件：`precomputed_trajectories/chunks/<行星>/<年>.csv` 是模型在行星处的逐小时采样（整点，HGI 坐标，`rho` 以 amu/cm³ 计，速度分量以 km/s 计），`MSWIM2D_Data_New/Satellite_Data/chunks/l1/<年>.csv` 是驱动它的 L1 数据，只用来确定数据末端。MSWIM2D 的行星序列和 L1 输入，2026-11-17 下载。按其客户端 CSEM-MSWIM2D 的 MIT 条款使用，见 [第三方声明](../../THIRD_PARTY_NOTICES.md)。海王星的面是查表的，不随太阳风变，所以没有接。
+
+`tools/geomag/mswim2d_bake.py` 把动压 `ρv²` 和速度写成与地球相同的记录。格式是第 2 版：压强的一档取能放下最大值的 10 的整数次幂（木星 1e-4 nPa，土星和天王星 1e-5 nPa），Bz 一律缺测。每小时取该小时中点，在两侧的整点采样间线性内插。全为零的采样，以及速度与前后两个采样都差 30% 以上、而前后两者相近的单个采样，是文件里的坏点，先剔除：1985-11-21、12-02、12-11、12-17、12-25 的同一时刻在三颗行星上都有，速度约 1000 km/s，前后都约 400 km/s。以下小时记为缺测：
+
+- 模型起算阶段：这股风离开 1 au 的时刻，在模型起算后一个自转周（27.2753 天）以内的小时。这时行星和 1 au 之间还是模型的初始状态，1985 年开头的值是常数。木星约 45 天，土星约 55 天，天王星约 85 天。
+- 模型跑在 OMNI 缺测上的小时。MSWIM2D 用直线衔接 OMNI 的缺口，例如 1990-05-22 至 05-30 整整一周，模型在地球处的流压从 4.6 nPa 直线降到 2.0 nPa。工具假设太阳风沿径向以当地速度运动，从 1 au 走到行星需要 `(r − 1 au)/v`；再假设结构随太阳共转（会合周期 27.2753 天），推出这股风经过地球经度的时刻。这个时刻前后一天内 OMNI 没有流压时，记为缺测。这一条只用于 2004 年 7 月以前；1985–1994 年每年木星约 1800–2500 小时、土星约 1700–2800 小时、天王星约 1700–3200 小时被略去。
+- 推出的时刻晚于 L1 数据末端的小时。此后是 MSWIM2D 的持续预报，即重复最近一个自转周，记录在这里截止。离太阳越远，记录越晚截止。
+
+当前文件（L1 数据到 2026-07-31 23:00 UT）：
+
+- `jupiter_solar_wind.bin` 364,624 小时，1985-01-01 至 2026-08-06 16:00 UT，SHA-256 `faf7e5539dd2d2a6634c023585eebc409d9ad53d589ced79e657293f7a558218`；动压中位数 0.04620 nPa、速度 422 km/s，最大的小时动压 1.167 nPa。
+- `saturn_solar_wind.bin` 364,767 小时，1985-01-01 至 2026-08-12 15:00 UT，SHA-256 `1935800aca9759014fd98fee5c97cca3c51664552c076f25992dd15d5d913254`；动压中位数 0.01482 nPa、速度 422 km/s，最大的小时动压 0.330 nPa。
+- `uranus_solar_wind.bin` 365,848 小时，1985-01-01 至 2026-09-26 16:00 UT，SHA-256 `a9aa22d49fb0335efdb4a7d79f224e29cc48f031fa99174b856f96d973c274ed`；动压中位数 0.00426 nPa、速度 414 km/s，最大的小时动压 0.071 nPa。
+
+生成命令如下（OMNI 的记录先按上一节烘焙好）：
+
+```
+mkdir -p build/mswim2d/l1
+for b in Jupiter Saturn Uranus; do mkdir -p build/mswim2d/$b; for y in $(seq 1985 2027); do curl -s --fail -o build/mswim2d/$b/$y.csv https://csem.engin.umich.edu/MSWIM2D/precomputed_trajectories/chunks/$b/$y.csv; done; done
+for y in $(seq 1998 2026); do curl -s --fail -o build/mswim2d/l1/$y.csv https://csem.engin.umich.edu/MSWIM2D/MSWIM2D_Data_New/Satellite_Data/chunks/l1/$y.csv; done
+for b in Jupiter Saturn Uranus; do python -I tools/geomag/mswim2d_bake.py build/mswim2d/$b build/mswim2d/l1 assets/geomag/solar_wind.bin assets/geomag/$(echo $b | tr A-Z a-z)_solar_wind.bin; done
+```
+
+每月由 `monthly_refresh.py` 重新下载最近三年并重新烘焙，同时改写本段的下载日期、L1 末端、年份、小时数、末端、SHA-256、中位数和最大动压。每年略去的小时数和坏点需要人工对照工具输出。
+
+**可靠性**：沿用 mSWiM 一维模型的经验（Zieger & Hansen 2008, JGR 113, A08107），共转外推在冲日前后几个月内可用，离冲日越远越差；合日前后，行星看到的太阳风来自地球看不到的那一侧太阳，基本是外推。2006 年以后有 STEREO 参与驱动，情况好一些。模型只在黄道面内，三颗行星的轨道倾角都在 2.5° 以内，影响不大。距离越远，到达时刻的误差越大。
+
+**核对**（`test_magnetospheres`）：
+
+- **木星**，与 Kurth et al. 2002 记录的 Cassini 飞越对比，在 2000-11-28 冲日之后约六周。2000-12-28 04:19 Cassini 第一次遇到弓激波，由等离子体频率得出的太阳风动压为 0.018 nPa，模型给 0.0110 nPa。2001-01-10 20:52 Galileo 的磁层顶穿越要求 0.0452 nPa，而且磁层正在被压缩；模型在 01-08 为 0.0221 nPa，此后的压缩区比 Galileo 的穿越早 32.9 小时越过 0.0452 nPa，峰值 0.202 nPa，比实测穿越推出的压强高约四倍。2001–2020 年的中位数为 0.0383 nPa（Joy 的磁层顶日下点 92.3 RJ），接近 Joy 的“扩张态”0.039 nPa，低于 Rutala 2025 的 0.071 nPa；模板的典型值仍取 0.071 nPa，只在缺测和记录以外使用。1986–1994 年记录覆盖 77.3%，2005–2024 年覆盖 100%。
+- **土星**，与 Cassini 在 2004 年 1 月于土星上游 0.2 au 测到的太阳风对比（Crary et al. 2005, Nature 433, 720；Belenkaya et al. 2008, Ann. Geophys. 26, 159 的图 1，按 17 小时平移到土星），在 2003-12-31 冲日之后四周。实测有 1 月 16–18 日的小压缩区、其后的稀疏区，以及 25 日到观测结束（30 日）的大压缩区：26 日在峰值前 0.08 nPa，30 日回落到 0.03 nPa；18 日为 0.01 nPa。模型：10–15 日最低 0.0018 nPa，16–19 日小压缩区 0.0318 nPa，20–25 日稀疏区 0.0134 nPa，大压缩区峰值 0.107 nPa（1 月 28 日），30 日平均 0.0354 nPa，18 日为 0.0317 nPa（比实测高约三倍）。2001–2020 年的中位数为 0.0132 nPa（Kanani 的磁层顶 24.5 RS），模板的典型值 0.02 nPa。
+- **天王星**，与 Jasinski et al. 2024 由旅行者 2 号得出的状态对比：飞掠时（1986-01-24）压缩区把磁层顶压到 17.3 RU（0.0184 nPa），一周前约 28 RU。这时天王星在合日后约两个月，离冲日较远。那一周 OMNI 大部分缺测（IMP 8 不在太阳风里），记录只有 35% 的小时；其中磁层顶最大 28.1 RU（飞掠前 2.7 天）。模型的压缩区在飞掠后 2.3 天越过 0.0184 nPa 的 90%，3.9 天后达到峰值 0.0196 nPa（17.1 RU）：幅度一致，到达晚了两三天。2001–2020 年的中位数为 0.00361 nPa（23.0 RU），与 Jasinski 的平均 22.2 RU 相近。
+
+各事件（木星“Jupiter's magnetosphere caught shrinking”、土星的 Titan、天王星飞掠）仍画由穿越点反推的面或固定的太阳风，不读这些记录；面板选 `Always` 时才按记录画。
 
 **日球层**（太阳系场景的太阳，`model = "heliosphere"`，长度用 au）：同一套线框画日球层顶（蓝）和终端激波（橙，在日球层顶以内）。两者没有随太阳风变化的公式，大小直接给定。
 

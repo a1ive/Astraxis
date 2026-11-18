@@ -398,7 +398,8 @@ void App::build_control_panel()
                              "Shue 1998 for the Earth, Joy 2002 for Jupiter, a pressure balance for Uranus,\n"
                              "fits of spacecraft crossings for Mercury, Saturn and Neptune.\n"
                              "The Sun: the heliopause, where its wind ends, and the termination shock inside it.\n"
-                             "Always: under typical solar wind. Event setting: under the event's own wind,\n"
+                             "Always: under the wind of the hour where there is a record (measured at the Earth,\n"
+                             "modelled from 1 au for Jupiter, Saturn and Uranus), else a typical one. Event setting: under the event's own wind,\n"
                              "with a fainter surface for comparison. Averages: the real edges ripple and flap.");
     }
 

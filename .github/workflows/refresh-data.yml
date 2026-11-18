@@ -1,6 +1,6 @@
 name: Refresh forecast data
 
-# Once a month: the hourly OMNI2 solar wind, the forecast tails of the space telescope
+# Once a month: the hourly OMNI2 solar wind, MSWIM2D's modelled wind at Jupiter, the forecast tails of the space telescope
 # ephemerides and the Sun's field from the newest HMI synoptic maps
 # (tools/refresh/monthly_refresh.py). The result goes to a pull request from
 # the auto/refresh-data branch, and build.yml is dispatched on that branch to test it.
