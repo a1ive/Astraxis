@@ -59,12 +59,14 @@ ctest --test-dir build/linux -C Release --output-on-failure --no-tests=error
 - `SceneRenderer::render` 在检查黑洞 pass 的 `ready()` 之前更新星表资源。透镜雅可比用有限差分求，轨道线使用几何位置。修改黑洞合成时同时检查屏幕追踪、星表和立方体天空回退。
 - 黑洞的热吸积流（`[bodies.hot_flow]`，RIAF）在追踪循环里按亮温累加，单位用 GHz 和 10¹⁰ K 让 float 不溢出，CPU 参考是 `src/ephem/riaf.cpp`。改模型参数后先跑测试：它把 n_e0 定标到 230 GHz 总流量，再核对环直径。高自旋时光线在视界外会让 RK4 失稳，CPU 和着色器都用哈密顿量漂移判为捕获（`ray_runaway`）。耀斑热斑在追踪循环里和热流一起累加（`spot_step`，CPU 参考是 `trace_flow_ray` 的 `HotSpot`），日程在 `src/scene/flares.cpp`，只由时刻决定，跳时和倒放都一致。
 
+- 黑洞的喷流（`[bodies.jet]`，CPU 参考是 `src/ephem/jet.cpp`）在黑洞合成之后用全屏 pass 加光（`jet.frag.hlsl`）：每条视线先和包住喷流的二次曲面 `s² < A z + B z² + C` 求交，再在交出的每段里按 `asinh` 映射取固定数量的样本。远处相机的视线也要按二次方程解（`quadric_inside` 的“近似线性”判据比较的是 `a t²` 和 `b t + c`），退化成半无限段时样本会稀到满屏噪点。曝光按半个画面的尺度归一，显示亮度取平方根。
+
 ## 场景与数据
 
 - 场景在 [assets/scenes](assets/scenes)，共用天体字段见 [Body Templates](assets/bodies/README.md)，解析入口是 [scene_loader.cpp](src/scene/scene_loader.cpp)。顶层 TOML 键放在首个表头之前。切换互斥字段时用 `unset` 清除模板值。`body_gm_km3_s2` 为天体自身 GM，`gm_km3_s2` 可含卫星质量。
 - 没有太阳天体的场景可用 `from_body = "Sun"` 引用太阳方向。没有地球时用 `observer` 和 `observer_offset_km` 锚定地球方向的设计视点。`flyby` 需要最近点两侧都有数据，撞击事件用视点字段构图。`elevation_deg` 覆盖俯仰角，`phase_deg` 调整方位角。
 - 恒星的 `temperature_k`、`luminosity_solar` 会画在信息面板的 H–R 图上（`scene/hr_diagram.hpp`），要用有出处的值。只为外观或一群星共用的假设值，设 `hr_diagram = false` 不画。宜居带（`scene/habitable_zone.hpp`）同样要求有出处的温度和光度，适用范围为 2500–10,000 K。7200 K 以上的主序星标记 `main_sequence = true`，并注明分类依据。白矮星标记 `white_dwarf = true`，同样注明依据。未指定分类时，7200 K 及以下用 0.07–2 R☉ 作粗筛。事件用 `habitable_zone = true` 打开。附近有超出模型范围的亮星时整片不画，测试里先 `update` 再调用 `find_habitable_zones`。
-- 视点超过星表完整距离 `max_viewer_pc` 时，用 [模型星空](assets/sky/SOURCES.md)。近地航天器若用平根数画一圈轨道，用 `trail = "orbit"`。换参考系或时间倍率后检查轨迹密度和事件节奏。
+- 视点超过星表完整距离 `max_viewer_pc` 时，用 [模型星空](assets/sky/SOURCES.md)，M87* 的星空由 `tools/sky/make_m87_sky.py` 按它自己的亮度剖面生成。相机最远到 10¹⁴ km 或场景里最远视点的 3 倍。近地航天器若用平根数画一圈轨道，用 `trail = "orbit"`。换参考系或时间倍率后检查轨迹密度和事件节奏。
 - 用原始观测或论文表格标注物理量来源。场景 TOML 文件头列出引用标签，正文引用这些标签。能用独立数据交叉验证的位置、方向、距离或时刻，写进相关测试。核对时间尺度、光行时、参考中心、经纬度正方向以及距离是到中心还是到表面。
 - [refresh-data](.github/workflows/refresh-data.yml) 每月 3 日运行 [monthly_refresh.py](tools/refresh/monthly_refresh.py)：重新下载 OMNI2，把 JWST、Euclid、Roman、TESS、Chandra 的 `stop` 移到 Horizons 当前覆盖的末端并重新烘焙，补上 JSOC 新出的 HMI 综观图并合并进太阳的磁场系数，同步资料页里的数字，然后从 `auto/refresh-data` 开 PR，并在该分支上触发 `build.yml`。合并前按 PR 里的清单核对资料页文字。测试不要钉住预报段的状态或表的结束时间（用 `EphemerisMotion::table().end()`，HMI 用 `last_rotation()`），否则每月刷新都会失败。仓库设置里要允许 GitHub Actions 创建 PR。
 - 星历工具在 [tools/bake](tools/bake)。压缩容差约束位置，点火和数据接缝要另留节点。Δv 按原表节点计算，靠近扁行星时扣除带状谐项。分段 SPK 按实际记录覆盖取值，详见 [星历资料](assets/ephem/SOURCES.md)。
@@ -91,6 +93,7 @@ ctest --test-dir build/linux -C Release --output-on-failure --no-tests=error
 - 补 PDS 70 的光学厚 ¹²CO 和 Mie 波长颜色。HD 206893 采用更高分辨率缺口拟合，并跟进 B I 候选体。旋臂优先参考已有图案速度测量的 MWC 758。
 - 查找嫦娥五号 T1 服务舱和天问一号轨道器的机身尺寸及展开翼展。补 Orion 再入姿态与防热罩曲面、DART 电池片图案。评估运行时自阴影和镜面高光。
 - 为 Castor 补 TESS 第 44、45、47、71 扇区，核对 2021-12-08 耀斑归属，绘制轨道法线，等 C 的观测弧延长后更新轨道。
+- M87* 的喷流结点可按 Meyer 等 2013 的自行移动，并补 HST-1 的光变。
 - 支持 macOS 的 Metal 着色器和 CI。J1141−6545 待几何解进一步约束后加入自转轴进动。
 
 提交前更新已完成的待办，把可复用的排障经验放到对应章节或代码旁，把新物理或数据近似写进 [已知局限](limitations.md)。开发过程记在提交信息里。

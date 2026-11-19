@@ -1,0 +1,253 @@
+# M87*: the black hole at the centre of the giant elliptical galaxy M87, its hot
+# accretion flow, and the jet that it launches - long enough and bright enough to be
+# seen in visible light, the "curious straight ray" Curtis noted in 1918. Its nozzle
+# precesses with a period of about 11 years.
+#
+# The hole:
+# [EHT19VI] Event Horizon Telescope Collaboration 2019, ApJL 875, L6 (arXiv:1906.11243):
+#        ring 42 +- 3 microarcseconds across, theta_g = GM/Dc^2 = 3.8 +- 0.4 microarcseconds,
+#        M = 6.5 (+-0.2 stat, +-0.7 sys) x 10^9 M_sun at D = 16.8 Mpc.
+# [EHT19V] Event Horizon Telescope Collaboration 2019, ApJL 875, L5 (arXiv:1906.11242):
+#        sec. 3 and 6: the 1.3 mm compact flux density 0.5 Jy (from Paper IV); if the large-
+#        scale jet (position angle 288 deg) is along the spin, the spin points away from the
+#        Earth (i = 163 deg) and the plasma circulates clockwise on the sky.
+# [CO26] Conroy et al. 2026, OJAp (arXiv:2606.11322), sec. 4.1: the 2017-2018 ring asymmetry
+#        strongly disfavours spins pointing toward the Earth and mildly disfavours small
+#        ones; the asymmetry's position angle suggests that the disk has little tilt.
+# [PW05] Perlman & Wilson 2005, ApJ 627, 140 (arXiv:astro-ph/0503024), Table 1: the
+#        nucleus at RA 12h30m49.417s, Dec +12d23'28.02" (VLA).
+#
+# The jet's precession:
+# [CU23] Cui et al. 2023, Nature 621, 711 (ref/), Table 1 and Methods eqs. 1-9: from 22
+#        years of VLBI (0.7-3.0 mas from the core, ~600-2500 r_g deprojected), the jet's
+#        position angle swings with a peak-to-peak amplitude of ~10 deg about 288 deg. A
+#        precessing cone fits it: reference time t0 = 2014.82 +- 0.15, axis at position
+#        angle 288.47 +- 0.27 deg and 17.21 +- 1.74 deg from the line of sight, half-
+#        opening angle 1.25 +- 0.18 deg, omega_p = 0.56 +- 0.02 rad/yr (period 11.24 +-
+#        0.47 yr). The sense of precession is not determined; their eq. 1 (which this
+#        scene follows) assumes it clockwise. They attribute it to Lense-Thirring
+#        precession of a slightly tilted disk about the spin, with the jet aligned to the
+#        spin near the horizon and to the disk at mas scales (Fig. 3, a* = 0.9375).
+#
+# The jet (ephem/jet.hpp):
+# [AN12] Asada & Nakamura 2012, ApJL 745, L28 (arXiv:1110.1793), Fig. 2: the jet's radius
+#        (to the outer edges of the FWHM) grows as z^0.58 (r = 1.43 z^0.578, both in r_s,
+#        read off the solid line) out to ~2 x 10^5 r_s near HST-1, then conically
+#        (r ~ 0.007 z, the dashed line). In units of M the parabola is r^2 ~ 15.3 z at
+#        10^4 M; the two meet at 3 x 10^5 M.
+# [PA19] Park et al. 2019, ApJ 887, 147 (arXiv:1911.02279), sec. 6.2 and Fig. 12: subluminal
+#        within ~500 R_S, accelerating slowly, Gamma ~ z^(0.16 +- 0.01), Gamma = 1 at
+#        ~300 R_S on the best-fit line; slower motions (Gamma beta 0.2-0.8) at 10^2-10^3
+#        R_S; beyond the Bondi radius (~4 x 10^5 R_S) the knots of Meyer et al. 2013 show
+#        Gamma beta ~1-2 at 5 x 10^6 - 10^7 R_S.
+# [EM21] Emami et al. 2021, ApJ 923, 272 (arXiv:2101.05327), sec. 4.1: a force-free jet
+#        with a toroidal field and electrons at a fixed fraction of the magnetic pressure
+#        (their constant beta_e model): the emissivity per unit length falls with the
+#        jet's radius as L ~ w^-(1 + alpha) here (limitations.md).
+# [PE01] Perlman et al. 2001, ApJ 551, 206 (arXiv:astro-ph/0012044), Table 2: the knots'
+#        photometry in HST F606W (Feb 1998, microjansky) and their extraction boxes along
+#        the jet (0.0758667"/pixel, nucleus at pixel 20); optical spectral indices
+#        alpha_o 0.8-1.1 (F_nu ~ nu^-alpha). HST-1 lies behind a dust lane (low in blue).
+#
+# What is drawn:
+# - The hole is ray traced (shadow, lensed sky) with a hot, thick flow (the RIAF model of
+#   Sgr A*'s scene, Broderick et al. 2009) in its 230 GHz light, in FALSE COLOR with
+#   illustrative brightness. [EHT21VIII]'s polarimetric models passing EHT's constraints
+#   (magnetically arrested) have, near the horizon, n_e 10^4-10^5 cm^-3, B 7-30 G and
+#   T_e (5-35) x 10^10 K. Here T_e0 = 3e11 K (1.4e11 K at 5 M), beta = 1 (7 G at 2 M) and
+#   n_e0 calibrated to 0.5 Jy at this distance (relativity_tests.cpp): 1.6e4 cm^-3.
+#   Blurred to EHT's resolution its ring is ~22 microarcseconds across against 42: seen
+#   nearly face-on, the gas plunging inside the photon ring fills the middle.
+#   [EHT21VIII] Event Horizon Telescope Collaboration 2021, ApJL 910, L13 (as summarized
+#   by [EM21] sec. 2.2).
+# - The jet is drawn in VISIBLE light: optically thin synchrotron, F_nu ~ nu^-0.9 (the
+#   color of that spectrum), Doppler boosted by D^2.9. Its brightness is normalized to
+#   the view's scale (an exposure that follows the camera's distance), so the jet near
+#   the hole and the kiloparsec knots are both visible; the ratios within one view, and
+#   between the approaching and counter jets, are as modelled. The knots' brightness
+#   along the jet is the measured one with the boost toward the Earth taken out. The
+#   knots do not move (they show superluminal motions of up to 6c).
+# - The jet is not lensed and starts 5 M above the hole; rays into the shadow end there.
+# - The nozzle leans by [CU23]'s 1.25 deg from 100 M to 10^4 M (blending in from 10 M and
+#   out by 10^5 M: illustrative; [CU23] measured it at 600-2500 r_g), turning about the
+#   spin axis as in [CU23] eq. 1. Near the hole and far out the jet follows the axis.
+#   The flow itself is not tilted (a tilt of ~1 deg would not show).
+# - The sky is M87's own starlight seen from its centre (tools/sky/make_m87_sky.py,
+#   assets/sky/SOURCES.md): [KFCB]'s V-band profile deprojected, a uniform glow of about
+#   17 V mag/arcsec^2 (325 times the Milky Way's from the Sun, compressed for display),
+#   and statistical stars of an old population; the globular clusters, the Virgo cluster's
+#   other galaxies and the Milky Way are left out (see there).
+#   [KFCB] Kormendy, Fisher, Cornell & Bender 2009, ApJS 182, 216, Tables 1 and 3.
+
+name = "M87*"
+
+[sky]
+viewer_ra_dec_distance_pc = [187.705904, 12.391117, 1.68e7]   # [PW05], [EHT19VI]
+milky_way = "sky/m87.jpg"         # M87's own starlight seen from its centre
+stars = "sky/m87_stars.csv"
+
+[view]
+focus = "M87*"
+distance_km = 3.84e13          # 4000 M: the inner jet, where the nozzle precesses
+start = "now"
+warp = 7889400.0               # 3 months per second: one precession in ~45 s
+up = "-M87*"                   # the spin axis, the approaching jet up
+pitch_deg = 40.0               # toward the approaching jet
+
+[[bodies]]
+name = "M87*"
+kind = "black_hole"
+gm_km3_s2 = 8.6263086e20       # 6.5e9 GM_sun [EHT19VI]; M = 9.598e9 km = 64 au
+spin = 0.9375                  # [CU23]'s simulation; [CO26]: spinning, magnitude not fixed
+[bodies.spin_sky]              # pointing away from the Earth [EHT19V], [CO26]
+ra_dec_deg = [187.705904, 12.391117]   # [PW05]
+i_deg = 162.79                 # 180 - 17.21 [CU23]
+node_deg = 18.47               # the spin at position angle 108.47 deg, the approaching jet at 288.47 [CU23]
+[bodies.hot_flow]              # RIAF (see sgr_a.toml)
+model = "riaf"
+n_e0_cm3 = 1.635e4             # calibrated: 0.5 Jy at 230 GHz [EHT19V] (relativity_tests.cpp)
+t_e0_k = 3.0e11                # 1.4e11 K at 5 M: within [EHT21VIII]'s (5-35) x 10^10
+beta = 1.0                     # 7 G at 2 M: [EHT21VIII]'s 7-30 G
+outer_m = 50.0
+display_gain = 1.0
+[bodies.jet]
+ra_dec_deg = [187.705904, 12.391117]
+distance_pc = 1.68e7           # [EHT19VI]
+parabola_k_m = 15.3            # [AN12]
+cone_slope = 0.007             # [AN12]
+lorentz_unity_m = 600.0        # [PA19]: Gamma = 1 at 300 R_S
+lorentz_index = 0.16           # [PA19]
+gamma_beta_min = 0.4           # [PA19] Fig. 12, 10^2-10^3 R_S
+accel_end_m = 8.0e5            # [PA19]: the Bondi radius, ~4 x 10^5 R_S
+decel_index = -0.23            # Gamma beta 3.0 there to 1.5 at 1.5e7 M [PA19]
+spectral_index = 0.9           # [PE01]
+base_m = 5.0
+length_arcsec = 19.5           # to the end of knot C [PE01]
+display_gain = 0.05
+[bodies.jet.precession]        # [CU23] Table 1
+t0_year = 2014.82
+omega_rad_per_year = 0.56
+half_angle_deg = 1.25
+tilt_m = [10.0, 100.0, 1.0e4, 1.0e5]   # illustrative (see the header)
+# [PE01] Table 2, F606W (microjansky); arcsec = (pixel - 20) x 0.0758667.
+[[bodies.jet.knots]]
+name = "HST-1"
+arcsec = [0.607, 1.897]
+flux = 19.8
+[[bodies.jet.knots]]
+name = "D"
+arcsec = [2.428, 4.476]
+flux = 117.0
+[[bodies.jet.knots]]
+name = "E"
+arcsec = [5.842, 6.752]
+flux = 33.4
+[[bodies.jet.knots]]
+name = "F"
+arcsec = [7.814, 9.635]
+flux = 123.0
+[[bodies.jet.knots]]
+name = "I"
+arcsec = [10.773, 11.608]
+flux = 54.2
+[[bodies.jet.knots]]
+name = "A bar"
+arcsec = [11.608, 11.987]
+flux = 83.8
+[[bodies.jet.knots]]
+name = "A shock"
+arcsec = [12.063, 12.746]
+flux = 670.0
+[[bodies.jet.knots]]
+name = "A diffuse"
+arcsec = [12.821, 13.732]
+flux = 332.6
+[[bodies.jet.knots]]
+name = "B-1"
+arcsec = [13.808, 15.022]
+flux = 400.0
+[[bodies.jet.knots]]
+name = "B-2"
+arcsec = [15.098, 16.160]
+flux = 189.4
+[[bodies.jet.knots]]
+name = "C-1"
+arcsec = [16.842, 18.208]
+flux = 310.7
+[[bodies.jet.knots]]
+name = "C-2"
+arcsec = [18.284, 18.967]
+flux = 86.3
+
+[[events]]
+name = "The black hole: hot flow and the base of the jet"
+time = "2017-04-11"
+focus = "M87*"
+distance_km = 7.7e11           # 80 M
+elevation_deg = 20.0           # 70 deg from the spin axis
+jet_display_gain = 4.0         # from the side the jet is dimmer than from the Earth
+warp = 86400.0                 # one day per second: the gas at 10 M turns in ~75 s
+# [EHT19VI], [EHT19V]
+caption = """\
+    The black hole at the heart of the galaxy M87 weighs six and a half billion suns. \
+    Hot gas swirls into it, shown in false color as radio telescopes see it at 1.3 mm. \
+    Along its spin axis, magnetic fields launch a pair of jets at nearly the speed of \
+    light, drawn here in visible light."""
+
+[[events]]
+name = "The ring the EHT imaged (2017)"
+time = "2017-04-11"
+focus = "M87*"
+distance_km = 3.84e13          # 4000 M, toward the Earth
+from_earth = true
+fov_deg = 0.8                  # 28 M to each side
+jet_display_gain = 0.4         # looking down the jet: dimmed so that the ring shows
+warp = 86400.0
+# [EHT19VI], [EHT19V]
+caption = """\
+    From the Earth we look at M87* almost along its jet, 17 degrees off. In 2019 the Event \
+    Horizon Telescope showed its ring, 42 microarcseconds across, brighter in the south \
+    where the gas turning clockwise around the hole comes toward us."""
+
+[[events]]
+name = "A precessing nozzle (period ~11 years)"
+time = "2013-01-01"
+focus = "M87*"
+distance_km = 3.84e14          # 40,000 M, toward the Earth
+from_earth = true
+fov_deg = 3.0                  # 1000 M to each side: the jet out to ~4 mas
+warp = 7889400.0               # 3 months per second
+# [CU23]
+caption = """\
+    Over 22 years of radio images, the base of the jet swung back and forth by about 10 \
+    degrees on the sky, every 11 years. The nozzle circles a cone 1.25 degrees wide around \
+    the spin axis, probably because the spinning hole drags a slightly tilted disk around."""
+
+[[events]]
+name = "HST-1 and the knots in visible light"
+time = "1998-02-25"
+focus = "M87*"
+distance_km = 8.6e17           # 9e7 M, toward the Earth
+from_earth = true
+fov_deg = 8.0                  # 6.3e6 M (2 kpc) to each side
+warp = 1.0
+# [PE01], [AN12]
+caption = """\
+    In visible light the jet runs 5,000 light years across the sky, a chain of knots from \
+    HST-1 out to knot A and beyond, as the Hubble Space Telescope saw it in 1998. Its \
+    light comes from electrons spiralling in magnetic fields at nearly the speed of light."""
+
+[[events]]
+name = "The jets from the side: Doppler beaming"
+time = "1998-02-25"
+focus = "M87*"
+distance_km = 2.4e17           # 2.5e7 M
+elevation_deg = 0.0
+fov_deg = 40.0
+warp = 1.0
+jet_display_gain = 14.0        # seen from the side, the jets are far dimmer than from the Earth
+# [PA19], [PE01]
+caption = """\
+    The jet points nearly at us, and its light, beamed forward by its speed, looks \
+    thousands of times brighter than the counter-jet's. Seen from the side, the two jets \
+    look alike, and both are far dimmer: they are brightened here."""

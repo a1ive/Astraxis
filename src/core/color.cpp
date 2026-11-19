@@ -50,6 +50,41 @@ glm::dvec3 blackbody_linear_srgb(double kelvin)
     return m > 0.0 ? rgb / m : glm::dvec3(1.0);
 }
 
+namespace {
+
+// Piecewise Gaussian lobe of Wyman et al. 2013: sigma1 below the peak, sigma2 above.
+double cie_lobe(double lambda, double mu, double sigma1, double sigma2)
+{
+    const double t = (lambda - mu) / (lambda < mu ? sigma1 : sigma2);
+    return std::exp(-0.5 * t * t);
+}
+
+} // namespace
+
+glm::dvec3 spectrum_linear_srgb(double (*spectrum)(double lambda_nm, double param), double param)
+{
+    glm::dvec3 xyz(0.0);
+    for (double lambda = 380.0; lambda <= 780.0; lambda += 1.0) {
+        const double f = spectrum(lambda, param);
+        xyz.x += f * (1.056 * cie_lobe(lambda, 599.8, 37.9, 31.0) + 0.362 * cie_lobe(lambda, 442.0, 16.0, 26.7) -
+                      0.065 * cie_lobe(lambda, 501.1, 20.4, 26.2));
+        xyz.y += f * (0.821 * cie_lobe(lambda, 568.8, 46.9, 40.5) + 0.286 * cie_lobe(lambda, 530.9, 16.3, 31.1));
+        xyz.z += f * (1.217 * cie_lobe(lambda, 437.0, 11.8, 36.0) + 0.681 * cie_lobe(lambda, 459.0, 26.0, 13.8));
+    }
+    glm::dvec3 rgb(3.2406 * xyz.x - 1.5372 * xyz.y - 0.4986 * xyz.z,
+                   -0.9689 * xyz.x + 1.8758 * xyz.y + 0.0415 * xyz.z,
+                   0.0557 * xyz.x - 0.2040 * xyz.y + 1.0570 * xyz.z);
+    rgb = glm::max(rgb, glm::dvec3(0.0));
+    const double m = std::max({rgb.r, rgb.g, rgb.b});
+    return m > 0.0 ? rgb / m : glm::dvec3(1.0);
+}
+
+glm::dvec3 power_law_linear_srgb(double alpha)
+{
+    // F_nu ~ nu^-alpha is F_lambda ~ lambda^(alpha - 2).
+    return spectrum_linear_srgb([](double lambda, double a) { return std::pow(lambda / 550.0, a - 2.0); }, alpha);
+}
+
 double blackbody_band_share(double kelvin, double lo_nm, double hi_nm)
 {
     constexpr double kC2NmK = 1.438776877e7; // second radiation constant hc / k (nm K), CODATA 2018

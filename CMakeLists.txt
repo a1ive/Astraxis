@@ -46,6 +46,8 @@ add_library(astraxis_sim STATIC
     src/ephem/kerr_null.hpp
     src/ephem/riaf.cpp
     src/ephem/riaf.hpp
+    src/ephem/jet.cpp
+    src/ephem/jet.hpp
     src/ephem/schwarzschild_light.cpp
     src/ephem/schwarzschild_light.hpp
     src/ephem/kerr_orbit.cpp
@@ -155,6 +157,7 @@ astraxis_add_shaders(astraxis_shaders
     shaders/black_hole.frag.hlsl
     shaders/black_hole_composite.frag.hlsl
     shaders/neutron_star.frag.hlsl
+    shaders/jet.frag.hlsl
     shaders/milky_way.frag.hlsl
     shaders/bloom_upsample.frag.hlsl
     shaders/body.vert.hlsl
@@ -227,6 +230,9 @@ add_executable(astraxis
     src/render/belt_pass.hpp
     src/render/black_hole_pass.cpp
     src/render/black_hole_pass.hpp
+    src/render/jet_pass.cpp
+    src/render/jet_pass.hpp
+    src/render/jet_uniforms.hpp
     src/render/black_hole_uniforms.hpp
     src/render/neutron_star_uniforms.hpp
     src/render/body_pass.cpp

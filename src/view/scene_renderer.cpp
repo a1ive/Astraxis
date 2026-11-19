@@ -3,6 +3,7 @@
 #include "core/color.hpp"
 #include "core/math.hpp"
 #include "core/time.hpp"
+#include "ephem/jet.hpp"
 #include "ephem/kerr_null.hpp"
 #include "ephem/kerr_orbit.hpp"
 #include "ephem/schwarzschild_light.hpp"
@@ -183,6 +184,12 @@ const AccretionDisk* disk_fed_by(const Scene& scene, const Body& donor)
 
 // Black hole rendering.
 constexpr float kRayIntegrationRadius = 150.0f; // M; rays with b < 0.8 of it are integrated inside it, analytic beyond
+// The jet is drawn along straight rays: those passing closer to the hole than about the
+// shadow's radius (5.2 M without spin, less on the prograde side) end there.
+constexpr float kJetShadowRadiusM = 5.0f;
+constexpr glm::vec3 kJetAxisColor{0.62f, 0.66f, 0.74f};
+constexpr float kJetAxisOpacity = 0.15f;
+constexpr double kKnotHeadroom = 200.0;
 constexpr float kRayMaxSteps = 400.0f;
 constexpr double kHotFlowFrequencyGhz = 230.0; // black holes' hot flows are seen at 1.3 mm, as by the EHT
 constexpr double kHotFlowLightRadiusM = 6.0;   // a hot flow lights orbiting bodies from about its ring (illustrative)
@@ -790,7 +797,7 @@ bool SceneRenderer::init(const GpuDevice& gpu, SDL_GPUTextureFormat output_forma
            m_accretion_glow.init(device, format) &&
            m_orbits.init(device, format) && m_belts.init(device, format) && m_pinwheel.init(device, format) &&
            m_nebula.init(device, format) &&
-           m_corona.init(device, format) && m_disk.init(device, format) && m_sun.init(device, format) && m_beams.init(device, format) && m_black_hole.init(device, format) &&
+           m_corona.init(device, format) && m_disk.init(device, format) && m_sun.init(device, format) && m_beams.init(device, format) && m_black_hole.init(device, format) && m_jet.init(device, format) &&
            m_post.init(device, format.color, output_format);
 }
 
@@ -803,7 +810,7 @@ bool SceneRenderer::refresh_pipelines()
            m_comets.set_format(format) && m_dust.set_format(format) && m_accretion_glow.set_format(format) &&
            m_orbits.set_format(format) &&
            m_belts.set_format(format) && m_pinwheel.set_format(format) && m_nebula.set_format(format) && m_corona.set_format(format) && m_disk.set_format(format) && m_sun.set_format(format) &&
-           m_beams.set_format(format) && m_black_hole.set_format(format);
+           m_beams.set_format(format) && m_black_hole.set_format(format) && m_jet.set_format(format);
 }
 
 void SceneRenderer::shutdown()
@@ -822,6 +829,7 @@ void SceneRenderer::shutdown()
     }
     m_milky_way_path.clear();
     m_black_hole.shutdown();
+    m_jet.shutdown();
     m_post.shutdown();
     m_beams.shutdown();
     m_sun.shutdown();
@@ -1164,6 +1172,109 @@ void SceneRenderer::trace_black_hole(SDL_GPUCommandBuffer* cmd, uint32_t width, 
         m_black_hole.trace(cmd, width, height, u, targets);
         return; // one hole per scene: the trace targets hold a single result
     }
+}
+
+bool SceneRenderer::jet_uniforms(const Simulation& sim, const CameraView& view, JetUniforms& u) const
+{
+    const Scene& scene = sim.scene();
+    for (const Body& body : scene.bodies) {
+        if (body.kind != BodyKind::BlackHole || !body.visible || !body.jet) {
+            continue;
+        }
+        const JetParams& p = *body.jet;
+        const FrameTransform& frame = scene.current_transform();
+        const double m_km = body.gm_km3_s2 / (kSpeedOfLightKmS * kSpeedOfLightKmS);
+        const SkyAxes sky = sky_axes(p.ra_deg, p.dec_deg);
+
+        // Jet frame (ICRF): z along the spin axis' side toward the Earth (the approaching
+        // jet), x toward the side the nozzle leans to now.
+        glm::dvec3 axis = body.pole;
+        if (glm::dot(axis, sky.toward_observer) < 0.0) {
+            axis = -axis;
+        }
+        glm::dvec3 lean = glm::cross(axis, std::abs(axis.z) < 0.9 ? glm::dvec3(0.0, 0.0, 1.0) : glm::dvec3(1.0, 0.0, 0.0));
+        if (p.precesses) {
+            const double year = 2000.0 + sim.clock().t_tdb / (86400.0 * 365.25);
+            const glm::dvec3 nozzle = jet_nozzle(p.precession, axis, sky, year);
+            lean = nozzle - glm::dot(nozzle, axis) * axis;
+        }
+        const glm::dvec3 ez = frame.direction_to_display(axis);
+        const glm::dvec3 ex = glm::normalize(frame.direction_to_display(lean));
+        const glm::dvec3 ey = glm::cross(ez, ex);
+        const auto to_jet = [&](const glm::dvec3& v) { return glm::dvec3(glm::dot(v, ex), glm::dot(v, ey), glm::dot(v, ez)); };
+
+        const glm::dvec3 cam = to_jet(view.position - body.world_position) / m_km;
+        const double distance = glm::length(cam);
+        const glm::dvec3 right(view.view[0][0], view.view[1][0], view.view[2][0]);
+        const glm::dvec3 up(view.view[0][1], view.view[1][1], view.view[2][1]);
+        const glm::dvec3 forward(-view.view[0][2], -view.view[1][2], -view.view[2][2]);
+        const double tan_half = 1.0 / view.focal_y;
+        const double aspect = view.viewport.x / view.viewport.y;
+        const double pixel = 2.0 * tan_half / view.viewport.y;
+        const double min_width = 0.7 * pixel; // radians: a jet thinner than this is spread to it
+
+        u.camera = glm::vec4(glm::vec3(cam), kJetShadowRadiusM);
+        u.right = glm::vec4(glm::vec3(to_jet(right) * (tan_half * aspect)), 0.0f);
+        u.up = glm::vec4(glm::vec3(to_jet(up) * tan_half), 0.0f);
+        u.forward = glm::vec4(glm::vec3(to_jet(forward)), static_cast<float>(min_width));
+        const double cone2 = p.cone_slope * p.cone_slope;
+        u.shape = glm::vec4(static_cast<float>(p.parabola_k_m), static_cast<float>(cone2), static_cast<float>(p.base_m),
+                            static_cast<float>(p.length_m));
+        u.speed = glm::vec4(static_cast<float>(p.lorentz_unity_m), static_cast<float>(p.lorentz_index),
+                            static_cast<float>(p.gamma_beta_min), static_cast<float>(p.accel_end_m));
+        u.speed2 = glm::vec4(static_cast<float>(p.decel_index), static_cast<float>(jet_gamma_beta(p, p.accel_end_m)),
+                             static_cast<float>(p.spectral_index), static_cast<float>(jet_profile_area()));
+        const double* tilt = p.precession.tilt_m;
+        const double tan_tilt = p.precesses ? std::tan(p.precession.half_angle_deg * kDegToRad) : 0.0;
+        u.tilt = glm::vec4(static_cast<float>(p.precesses ? p.precession.half_angle_deg * kDegToRad : 0.0),
+                           static_cast<float>(p.precesses ? tilt[3] : 0.0), 0.0f, 0.0f);
+        u.tilt_log = glm::vec4(static_cast<float>(std::log(tilt[0])), static_cast<float>(std::log(tilt[1])),
+                               static_cast<float>(std::log(tilt[2])), static_cast<float>(std::log(tilt[3])));
+        // Envelopes: 1.4 radii (where the profile ends; squared, 2) of the radius widened to
+        // a pixel at up to (camera distance + height) from the camera, plus the lean.
+        const double q2 = min_width * min_width;
+        const double a_far = 2.0 * (p.parabola_k_m + 2.0 * q2 * distance);
+        const double b_far = 2.0 * (cone2 + q2);
+        u.envelope = glm::vec4(static_cast<float>(2.0 * a_far), static_cast<float>(2.0 * b_far + 2.0 * tan_tilt * tan_tilt),
+                               static_cast<float>(a_far), static_cast<float>(b_far));
+        u.envelope2 = glm::vec4(static_cast<float>(4.0 * q2 * distance * distance), 0.0f, 0.0f, 0.0f);
+
+        // Exposure: the approaching jet seen from the Earth as bright at every scale, at the
+        // height spanned by half the view; beyond the first knot, by the brightest knot.
+        // Its brightness along the jet, and the Doppler boost from other directions, are as
+        // modelled.
+        const double theta_earth = std::acos(std::clamp(glm::dot(axis, sky.toward_observer), -1.0, 1.0));
+        const double boost = 2.0 + p.spectral_index;
+        const auto earth_brightness = [&](double zeta) {
+            return jet_line_brightness(p, zeta) * std::pow(jet_doppler(p, zeta, theta_earth), boost) / jet_radius(p, zeta);
+        };
+        const double first = p.knots.empty() ? 0.5 * p.length_m : p.knots.front().start_m;
+        const double scale = distance * tan_half; // half the view's height at the hole
+        const double zeta = std::clamp(scale, 4.0 * p.base_m, first);
+        double reference = earth_brightness(zeta);
+        if (!p.knots.empty()) {
+            double knots = 0.0;
+            for (const JetKnot& k : p.knots) {
+                knots = std::max(knots, earth_brightness(0.5 * (k.start_m + k.end_m)));
+            }
+            // The knots have no bright core above them to leave headroom for (the display
+            // gain keeps the inner jet's from saturating): shown kKnotHeadroom times brighter.
+            const double blend = glm::smoothstep(std::log(first), std::log(5.0 * first), std::log(scale + 1.0));
+            reference = std::exp(std::lerp(std::log(reference), std::log(knots / kKnotHeadroom), blend));
+        }
+        const int event = scene.active_event();
+        const double event_gain = event >= 0 ? scene.events[static_cast<size_t>(event)].jet_display_gain : 1.0;
+        const double gain = p.display_gain * event_gain;
+        u.color = glm::vec4(glm::vec3(power_law_linear_srgb(p.spectral_index) * gain), static_cast<float>(1.0 / reference));
+        u.inner = glm::vec4(static_cast<float>(first), static_cast<float>(jet_radius(p, first)),
+                            static_cast<float>(p.knots.size()), 0.0f);
+        for (size_t i = 0; i < p.knots.size() && i < static_cast<size_t>(kMaxJetKnots); ++i) {
+            u.knots[i] = glm::vec4(static_cast<float>(p.knots[i].start_m), static_cast<float>(p.knots[i].end_m),
+                                   static_cast<float>(p.knots[i].line_brightness), 0.0f);
+        }
+        return gain > 0.0;
+    }
+    return false;
 }
 
 void SceneRenderer::draw_neutron_star(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const Simulation& sim,
@@ -2211,6 +2322,37 @@ void SceneRenderer::build_orbit_lines(const Simulation& sim, const OutputView& o
         m_orbits.add_line(m_line_points, glm::vec4(scene.bodies[i].orbit_color, kOrbitOpacity * fade));
     }
 
+    // A precessing jet's mean axis (ephem/jet.hpp), through the heights where its nozzle
+    // leans: the guide that the nozzle swings around.
+    for (size_t i = 0; i < scene.bodies.size(); ++i) {
+        const Body& body = scene.bodies[i];
+        if (!body.jet || !body.jet->precesses || !body.visible || quiet) {
+            continue;
+        }
+        // Only in views of the leaning nozzle (half the view's height between where the
+        // lean is full and where it ends), and short of the camera.
+        const double m_km = body.gm_km3_s2 / (kSpeedOfLightKmS * kSpeedOfLightKmS);
+        const double* tilt = body.jet->precession.tilt_m;
+        const double distance = glm::length(cam - body.world_position);
+        const double scale = distance / view.focal_y / m_km;
+        const double shown = glm::smoothstep(std::log(tilt[1]), std::log(2.0 * tilt[1]), std::log(scale)) *
+                             (1.0 - glm::smoothstep(std::log(0.5 * tilt[2]), std::log(tilt[2]), std::log(scale)));
+        if (shown <= 0.0) {
+            continue;
+        }
+        const double reach = std::min(tilt[3] * m_km, 0.5 * distance);
+        const glm::dvec3 axis = scene.current_transform().direction_to_display(body.pole);
+        m_line_points.clear();
+        constexpr int kAxisPoints = 33;
+        for (int k = 0; k < kAxisPoints; ++k) {
+            const double s = 2.0 * k / (kAxisPoints - 1) - 1.0;
+            m_line_points.emplace_back(to_render(body.world_position + axis * (s * reach), cam), 0.0f);
+        }
+        m_orbits.add_line(m_line_points,
+                          glm::vec4(kJetAxisColor, kJetAxisOpacity * static_cast<float>(shown) * (i < fades.size() ? fades[i] : 1.0f)),
+                          1.0f);
+    }
+
     // Lines of apsides, one per periapsis within the trail: from the periapsis
     // through the parent out to the following apoapsis, fading with age like
     // the trail. They turn by the apsidal advance each orbit. The
@@ -2833,6 +2975,9 @@ void SceneRenderer::render(const Frame& frame, const Simulation& sim, const Outp
     m_nebula.composite(pass, targets.nebula);
     m_disk.composite(frame.cmd, pass, targets.disk);
     m_black_hole.composite(frame.cmd, pass, targets.black_hole);
+    if (JetUniforms jet; jet_uniforms(sim, view, jet)) {
+        m_jet.draw(frame.cmd, pass, jet);
+    }
     if (neutron_star >= 0) {
         draw_neutron_star(frame.cmd, pass, sim, view, neutron_star, neutron_star_blend, options.star_brightness);
     }

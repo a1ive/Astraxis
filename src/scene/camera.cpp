@@ -12,7 +12,6 @@ namespace astraxis {
 namespace {
 
 constexpr double kFocusTransitionSeconds = 1.5;
-constexpr double kMaxDistanceKm = 1e14; // ~670,000 au
 constexpr double kPitchLimit = 89.0 * kDegToRad;
 // The camera never gets closer than this many radii to any body's center
 // (transitions between distant targets could otherwise cut through a planet).
@@ -207,7 +206,7 @@ void OrbitCamera::update(double real_dt, const Scene& scene)
         m_yaw = wrap_pi(m_yaw + m_drift * real_dt);
     }
 
-    m_distance = std::clamp(m_distance, min_distance(m_target, scene), kMaxDistanceKm);
+    m_distance = std::clamp(m_distance, min_distance(m_target, scene), scene.view.max_distance_km);
 
     // Collision avoidance: push the camera out of any body it would be inside.
     m_position = m_focus_point + orbit_offset();

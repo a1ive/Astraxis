@@ -2,6 +2,7 @@
 
 #include "core/time.hpp"
 #include "ephem/motion.hpp"
+#include "ephem/jet.hpp"
 #include "ephem/riaf.hpp"
 #include "scene/accretion_disk.hpp"
 #include "scene/aurora_model.hpp"
@@ -386,6 +387,9 @@ struct Body {
     double flare_tau0 = 0.1;
     double flare_diameter_m = 6.0;
     double flare_display_gain = 1.0; // drawn spots only: T_s x gain in the false color (illustrative)
+    // Black holes: a relativistic jet pair in visible light (ephem/jet.hpp), along the
+    // spin axis, its nozzle precessing about it if the jet has a precession.
+    std::optional<JetParams> jet;
 
     // Stars: effective temperature (color) and luminosity (apparent brightness).
     double temperature_k = 5772.0;
@@ -759,6 +763,7 @@ struct SceneEvent {
     // (display only: a short path through a face-on disk, or shells around
     // something else the event shows).
     double disk_display_gain = 1.0;
+    double jet_display_gain = 1.0; // a black hole's jet (Body::jet), on top of its own display_gain
     double nebula_display_gain = 1.0;
     bool aurora_visible = false; // visible aurora while the event is active
     bool aurora_ultraviolet = false; // UV false-color overlay on the visible planet
@@ -891,6 +896,9 @@ struct SceneView {
     int initial_event = -1; // named event selected when the scene opens
     int focus = 0;
     double distance_km = 0.0; // 0 = automatic
+    // Farthest the camera goes: 1e14 km (~670,000 au), or 3x the farthest view or event
+    // distance of the scene (a galaxy's kiloparsec jet).
+    double max_distance_km = 1e14;
     double pitch_rad = 0.35;  // camera elevation above the frame's reference plane
     double yaw_rad = -1.2;    // camera azimuth from the frame's x axis
     int frame = 0;

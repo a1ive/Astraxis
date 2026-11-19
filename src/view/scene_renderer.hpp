@@ -16,6 +16,7 @@
 #include "render/nebula_pass.hpp"
 #include "render/pinwheel_pass.hpp"
 #include "render/impact_pass.hpp"
+#include "render/jet_pass.hpp"
 #include "render/plume_pass.hpp"
 #include "render/post_process.hpp"
 #include "render/ring_pass.hpp"
@@ -73,6 +74,8 @@ private:
     // Traces the (first visible) black hole off-screen; composited in the scene pass.
     void trace_black_hole(SDL_GPUCommandBuffer* cmd, uint32_t width, uint32_t height, float star_brightness,
                           const Simulation& sim, const OutputView& view, BlackHoleTargets& targets);
+    // The first visible black hole's jet (Body::jet); false for none.
+    bool jet_uniforms(const Simulation& sim, const CameraView& view, JetUniforms& u) const;
     void draw_neutron_star(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* pass, const Simulation& sim,
                            const CameraView& view, int index, float blend, float star_brightness);
 
@@ -124,6 +127,7 @@ private:
     DiskPass m_disk;
     BeamPass m_beams;
     BlackHolePass m_black_hole;
+    JetPass m_jet;
     PostProcess m_post;
 
     SDL_GPUTexture* m_sky_cube = nullptr; // starfield cube map for lensing (created on demand)

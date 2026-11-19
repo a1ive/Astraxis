@@ -7,8 +7,10 @@
 #include "scene/pulsar.hpp"
 #include "scene/simulation.hpp"
 
+#include "core/color.hpp"
 #include "core/math.hpp"
 #include "core/time.hpp"
+#include "ephem/jet.hpp"
 #include "ephem/kerr_lens.hpp"
 #include "ephem/kerr_null.hpp"
 #include "ephem/kerr_orbit.hpp"
@@ -2192,10 +2194,222 @@ void test_flow_ray_optically_thick()
           "thick brightness ~ source at tau = 1", ray.tb_k / ray.tau1_source_k);
 }
 
+// M87* (assets/scenes/m87.toml): the hole's orientation, its jet (ephem/jet.hpp) and hot flow.
+
+constexpr double kM87Ra = 187.705904;
+constexpr double kM87Dec = 12.391117;
+constexpr double kM87DistancePc = 1.68e7;
+
+const Body& m87_hole(const Scene& scene)
+{
+    const int i = scene.find("M87*");
+    check(i >= 0, "M87* in its scene");
+    return scene.bodies[static_cast<size_t>(std::max(i, 0))];
+}
+
+// The spin points away from the Earth [EHT19V]: the approaching jet, along the other
+// pole, at [CU23]'s precession axis (position angle 288.47 deg, 17.21 deg from us).
+void test_m87_orientation()
+{
+    const Scene scene = load_scene_or_die("m87.toml");
+    const Body& hole = m87_hole(scene);
+    const SkyAxes sky = sky_axes(kM87Ra, kM87Dec);
+    check(std::abs(std::acos(glm::dot(hole.pole, sky.toward_observer)) * kRadToDeg - 162.79) < 0.01,
+          "M87* spin 162.79 deg from the line of sight", std::acos(glm::dot(hole.pole, sky.toward_observer)) * kRadToDeg);
+    const double jet_pa = wrap_two_pi(sky_position_angle(-hole.pole, sky)) * kRadToDeg;
+    check(std::abs(jet_pa - 288.47) < 0.01, "M87* approaching jet at position angle 288.47 deg", jet_pa);
+    check(hole.jet.has_value() && hole.jet->precesses && hole.jet->knots.size() == 12, "M87* has a precessing jet with 12 knots");
+    check(hole.hot_flow.has_value(), "M87* has a hot flow");
+    check_model_sky(scene, "M87* model sky (its own starlight, tools/sky/make_m87_sky.py)");
+    if (hole.jet) {
+        check(hole.jet->ra_deg == kM87Ra && hole.jet->dec_deg == kM87Dec, "M87* jet at the hole's place on the sky");
+    }
+}
+
+// The nozzle's position angle and viewing angle follow [CU23] eqs. 3-9 with Table 1's
+// parameters (written out here independently of jet_nozzle()).
+void test_m87_precession()
+{
+    const Scene scene = load_scene_or_die("m87.toml");
+    const Body& hole = m87_hole(scene);
+    if (!hole.jet) {
+        return;
+    }
+    const JetPrecession& p = hole.jet->precession;
+    const SkyAxes sky = sky_axes(kM87Ra, kM87Dec);
+    const glm::dvec3 axis = -hole.pole;
+    const double eta_p = 288.47 * kDegToRad;
+    const double theta = 17.21 * kDegToRad;
+    const double phi = 1.25 * kDegToRad;
+    double worst_pa = 0.0;
+    double worst_view = 0.0;
+    double pa_min = 1e9;
+    double pa_max = -1e9;
+    double view_min = 1e9;
+    double view_max = -1e9;
+    for (double year = 2006.0; year <= 2022.0; year += 0.05) {
+        const double turn = -0.56 * (year - 2014.82);
+        const double a = std::cos(theta) * std::cos(turn) * std::sin(phi) + std::sin(theta) * std::cos(phi);
+        const double b = std::sin(turn) * std::sin(phi);
+        const double jx = a * std::cos(eta_p) - b * std::sin(eta_p);
+        const double jy = a * std::sin(eta_p) + b * std::cos(eta_p);
+        const double pa = wrap_two_pi(std::atan2(jy, jx));
+        const double view = std::asin(std::sqrt(jx * jx + jy * jy));
+
+        const glm::dvec3 nozzle = jet_nozzle(p, axis, sky, year);
+        const double pa_model = wrap_two_pi(sky_position_angle(nozzle, sky));
+        const double view_model = std::acos(glm::dot(nozzle, sky.toward_observer));
+        worst_pa = std::max(worst_pa, std::abs(wrap_pi(pa_model - pa)));
+        worst_view = std::max(worst_view, std::abs(view_model - view));
+        pa_min = std::min(pa_min, pa);
+        pa_max = std::max(pa_max, pa);
+        view_min = std::min(view_min, view);
+        view_max = std::max(view_max, view);
+    }
+    check(worst_pa * kRadToDeg < 0.02, "M87* nozzle position angle as Cui et al. 2023 eq. 8", worst_pa * kRadToDeg);
+    check(worst_view * kRadToDeg < 0.02, "M87* nozzle viewing angle as Cui et al. 2023 eq. 9", worst_view * kRadToDeg);
+    // "a peak-to-peak amplitude of approximately 10 deg centred at PA 288 deg"; "the jet viewing
+    // angle oscillates between 16 and 18.5 deg".
+    std::printf("info: M87* nozzle: position angle %.2f-%.2f deg, viewing angle %.2f-%.2f deg\n", pa_min * kRadToDeg,
+                pa_max * kRadToDeg, view_min * kRadToDeg, view_max * kRadToDeg);
+    check(std::abs((pa_max - pa_min) * kRadToDeg - 8.5) < 1.0, "M87* jet position angle swings ~8-10 deg",
+          (pa_max - pa_min) * kRadToDeg);
+    check(std::abs(0.5 * (pa_max + pa_min) * kRadToDeg - 288.47) < 0.1, "M87* swing centred at 288.47 deg",
+          0.5 * (pa_max + pa_min) * kRadToDeg);
+    check(std::abs(view_min * kRadToDeg - 16.0) < 0.1 && std::abs(view_max * kRadToDeg - 18.46) < 0.1,
+          "M87* viewing angle 16-18.5 deg", view_max * kRadToDeg);
+    // Period 2 pi / 0.56 = 11.22 yr (Table 1: 11.24 +- 0.47).
+    const double period = kTwoPi / p.omega_rad_per_year;
+    const glm::dvec3 now = jet_nozzle(p, axis, sky, 2026.9);
+    const glm::dvec3 later = jet_nozzle(p, axis, sky, 2026.9 + period);
+    const glm::dvec3 half = jet_nozzle(p, axis, sky, 2026.9 + 0.5 * period);
+    check(glm::length(later - now) < 1e-9 && std::abs(std::acos(glm::dot(now, half)) * kRadToDeg - 2.5) < 0.01,
+          "M87* nozzle returns after 11.22 years, opposite (2.5 deg away) after half", period);
+    check(std::abs(std::acos(glm::dot(now, axis)) * kRadToDeg - 1.25) < 1e-9, "M87* nozzle 1.25 deg from the axis");
+}
+
+// The jet's shape and speed against [AN12] and [PA19]; the knots' deprojection; the
+// beaming that makes the counter-jet invisible from the Earth.
+void test_m87_jet_model()
+{
+    const Scene scene = load_scene_or_die("m87.toml");
+    const Body& hole = m87_hole(scene);
+    if (!hole.jet) {
+        return;
+    }
+    const JetParams& p = *hole.jet;
+    // [AN12] Fig. 2: r = 1.43 z^0.578 (r_s); r = 0.007 z (conical); M = r_s / 2.
+    const auto an12_parabola = [](double z_m) { return 2.0 * 1.43 * std::pow(0.5 * z_m, 0.578); };
+    for (const double z : {3.0e3, 1.0e4, 3.0e4}) {
+        check(std::abs(jet_radius(p, z) / an12_parabola(z) - 1.0) < 0.12, "M87* jet radius on the parabola [AN12]",
+              jet_radius(p, z) / an12_parabola(z));
+    }
+    check(std::abs(jet_radius(p, 2.0e7) / (0.007 * 2.0e7) - 1.0) < 0.02, "M87* jet conical far out [AN12]",
+          jet_radius(p, 2.0e7) / (0.007 * 2.0e7));
+    // [PA19]: Gamma = (z / 300 R_S)^0.16.
+    const double gb = jet_gamma_beta(p, 2.0e5);
+    const double gamma = std::pow(1.0e5 / 300.0, 0.16);
+    check(std::abs(std::sqrt(1.0 + gb * gb) / gamma - 1.0) < 1e-9, "M87* jet Gamma at 10^5 R_S [PA19]", gb);
+    check(jet_gamma_beta(p, 200.0) == 0.4, "M87* jet slow near the hole [PA19]");
+    check(std::abs(jet_gamma_beta(p, 1.5e7) - 1.5) < 0.15, "M87* knots at Gamma beta ~1.5 [PA19]",
+          jet_gamma_beta(p, 1.5e7));
+
+    // HST-1 starts 0.607" out in projection: 0.607" x 81.45 pc/" / sin(17.21 deg) deprojected.
+    const double m_km = hole.gm_km3_s2 / (kSpeedOfLightKmS * kSpeedOfLightKmS);
+    const double expected = 0.607 / 3600.0 * kDegToRad * kM87DistancePc * kParsecKm / std::sin(17.21 * kDegToRad) / m_km;
+    check(std::abs(p.knots[0].start_m / expected - 1.0) < 1e-3, "M87* HST-1 deprojected", p.knots[0].start_m);
+    check(p.knots[0].line_brightness == 1.0, "M87* knots normalized to HST-1");
+
+    // Seen from the Earth (17.21 deg), the jet on the ridge at HST-1 against the counter-jet's.
+    const double theta = 17.21 * kDegToRad;
+    const glm::dvec3 to_earth(std::sin(theta), 0.0, std::cos(theta)); // jet frame, the jet along +z
+    const double z = p.knots[0].start_m;
+    const double ridge = 0.82 * jet_radius(p, z);
+    const double app = jet_emissivity(p, glm::dvec3(0.0, ridge, z), to_earth, 0.0);
+    const double counter = jet_emissivity(p, glm::dvec3(0.0, ridge, -z), to_earth, 0.0);
+    std::printf("info: M87* jet / counter-jet at HST-1 from the Earth: %.3g\n", app / counter);
+    check(app / counter > 1e3, "M87* counter-jet thousands of times fainter from the Earth", app / counter);
+    // From the side the two match.
+    const glm::dvec3 side(1.0, 0.0, 0.0);
+    const double app_side = jet_emissivity(p, glm::dvec3(0.0, ridge, z), side, 0.0);
+    const double counter_side = jet_emissivity(p, glm::dvec3(0.0, ridge, -z), side, 0.0);
+    check(std::abs(app_side / counter_side - 1.0) < 1e-9, "M87* jets alike from the side", app_side / counter_side);
+    // Limb brightened: the ridge outshines the axis.
+    check(app > 2.0 * jet_emissivity(p, glm::dvec3(0.0, 0.0, z), to_earth, 0.0), "M87* jet limb brightened");
+
+    // The nozzle leans: across the jet at 2000 M, the two ridges straddle z tan(1.25 deg).
+    const double h = 2000.0;
+    const double w = jet_radius(p, h);
+    const double tan_tilt = std::tan(1.25 * kDegToRad);
+    const glm::dvec3 up(0.0, 0.0, 1.0);
+    double best[2] = {0.0, 0.0};
+    double at[2] = {0.0, 0.0};
+    for (int i = 0; i <= 4000; ++i) {
+        const double x = -1.5 * w + 3.0 * w * i / 4000.0;
+        const double e = jet_emissivity(p, glm::dvec3(x, 0.0, h), up, tan_tilt);
+        const int k = x < h * tan_tilt ? 0 : 1;
+        if (e > best[k]) {
+            best[k] = e;
+            at[k] = x;
+        }
+    }
+    check(std::abs(0.5 * (at[0] + at[1]) - h * tan_tilt) < 0.01 * w, "M87* nozzle leans by 1.25 deg at 2000 M",
+          0.5 * (at[0] + at[1]));
+    check(jet_emissivity(p, glm::dvec3(0.0, 0.0, 3.0), up, tan_tilt) == 0.0, "M87* jet starts 5 M above the hole");
+}
+
+// The color of synchrotron light: the spectrum integration reproduces the Planckian
+// locus fit, and F_nu ~ nu^-0.9 is bluish white.
+void test_power_law_color()
+{
+    const glm::dvec3 planck = spectrum_linear_srgb(
+        [](double lambda, double t) {
+            const double x = 1.438776877e7 / (lambda * t);
+            return 1.0 / (std::pow(lambda, 5.0) * (std::exp(x) - 1.0));
+        },
+        5000.0);
+    const glm::dvec3 locus = blackbody_linear_srgb(5000.0);
+    check(glm::length(planck - locus) < 0.03, "CIE fit integration matches the Planckian locus at 5000 K",
+          glm::length(planck - locus));
+    const glm::dvec3 jet = power_law_linear_srgb(0.9);
+    std::printf("info: synchrotron nu^-0.9 color (linear sRGB) %.3f %.3f %.3f\n", jet.r, jet.g, jet.b);
+    check(jet.b == 1.0 && jet.r > 0.6, "nu^-0.9 is bluish white", jet.r);
+}
+
+// The 230 GHz flux of the hot flow from the Earth, and its ring.
+void test_m87_hot_flow()
+{
+    const Scene scene = load_scene_or_die("m87.toml");
+    const Body& hole = m87_hole(scene);
+    if (!hole.hot_flow) {
+        return;
+    }
+    const SkyAxes sky = sky_axes(kM87Ra, kM87Dec);
+    const double inclination = std::acos(glm::dot(hole.pole, sky.toward_observer));
+    const double theta_g_uas =
+        hole.gm_km3_s2 / (kSpeedOfLightKmS * kSpeedOfLightKmS) / (kM87DistancePc * kParsecKm) * kRadToDeg * 3600.0 * 1e6;
+    check(std::abs(theta_g_uas - 3.8) < 0.05, "M87* theta_g 3.8 microarcseconds [EHT19VI]", theta_g_uas);
+    const RiafImage image =
+        riaf_image(hole.spin, hole.gm_km3_s2, *hole.hot_flow, inclination, kM87DistancePc, 96, 15.0, 20.0 / theta_g_uas);
+    const double diameter = 2.0 * image.ring_radius_m * theta_g_uas;
+    std::printf("info: M87* RIAF at 230 GHz: %.3f Jy, ring %.1f microarcseconds across (EHT: 42 +- 3)\n",
+                image.flux_jy, diameter);
+    check(std::abs(image.flux_jy / 0.5 - 1.0) < 0.1, "M87* 230 GHz flux 0.5 Jy [EHT19V]", image.flux_jy);
+    // Blurred to EHT's 20 microarcseconds the ring comes out ~22 across, against 42 +- 3 [EHT19VI]
+    // (unblurred ~33): seen nearly face-on, the plunging gas inside the photon ring fills the
+    // middle (limitations.md). Held at the model's own value so that it does not drift unnoticed.
+    check(std::abs(diameter / 22.0 - 1.0) < 0.1, "M87* 230 GHz ring diameter (microarcseconds)", diameter);
+}
+
 } // namespace
 
 void run_relativity_tests()
 {
+    test_m87_orientation();
+    test_m87_precession();
+    test_m87_jet_model();
+    test_power_law_color();
+    test_m87_hot_flow();
     test_kerr_conservation();
     test_kerr_tilted_conservation();
     test_tilted_orbit_matches_equatorial();

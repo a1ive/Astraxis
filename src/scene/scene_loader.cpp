@@ -522,6 +522,89 @@ void validate_template_table(const toml::table& table, const TemplateFields& all
     }
 }
 
+// A black hole's jet ([bodies.jet], ephem/jet.hpp), once its spin axis is known: the
+// knots' projected distances (arcsec) are deprojected along the axis' side toward the
+// Earth (the approaching jet).
+JetParams parse_jet(const toml::table& t, const std::string& ctx, const Body& hole)
+{
+    JetParams p;
+    double place[2];
+    get_array(t, "ra_dec_deg", ctx, place, 2, 2);
+    p.ra_deg = place[0];
+    p.dec_deg = place[1];
+    p.distance_pc = get_double(t, "distance_pc", ctx);
+    p.parabola_k_m = get_double_or(t, "parabola_k_m", p.parabola_k_m);
+    p.cone_slope = get_double_or(t, "cone_slope", p.cone_slope);
+    p.lorentz_unity_m = get_double_or(t, "lorentz_unity_m", p.lorentz_unity_m);
+    p.lorentz_index = get_double_or(t, "lorentz_index", p.lorentz_index);
+    p.gamma_beta_min = get_double_or(t, "gamma_beta_min", p.gamma_beta_min);
+    p.accel_end_m = get_double_or(t, "accel_end_m", p.accel_end_m);
+    p.decel_index = get_double_or(t, "decel_index", p.decel_index);
+    p.spectral_index = get_double_or(t, "spectral_index", p.spectral_index);
+    p.base_m = get_double_or(t, "base_m", p.base_m);
+    p.display_gain = get_double_or(t, "display_gain", p.display_gain);
+    if (!(p.distance_pc > 0.0 && p.parabola_k_m > 0.0 && p.cone_slope >= 0.0 && p.lorentz_unity_m > 0.0 &&
+          p.gamma_beta_min > 0.0 && p.accel_end_m > 0.0 && p.spectral_index > 0.0 && p.base_m > 0.0 &&
+          p.display_gain > 0.0)) {
+        fail(ctx, "distance_pc, parabola_k_m, lorentz_unity_m, gamma_beta_min, accel_end_m, spectral_index, base_m "
+                  "and display_gain must be positive, cone_slope not negative");
+    }
+
+    const SkyAxes sky = sky_axes(p.ra_deg, p.dec_deg);
+    const double cos_theta = std::abs(glm::dot(hole.pole, sky.toward_observer));
+    const double sin_theta = std::sqrt(std::max(1.0 - cos_theta * cos_theta, 0.0));
+    if (sin_theta < 0.01) {
+        fail(ctx, "the jet points at the Earth: its knots cannot be deprojected");
+    }
+    const double m_km = hole.gm_km3_s2 / (kSpeedOfLightKmS * kSpeedOfLightKmS);
+    const double m_per_arcsec = kDegToRad / 3600.0 * p.distance_pc * kParsecKm / sin_theta / m_km;
+    const double length_arcsec = get_double(t, "length_arcsec", ctx);
+    p.length_m = length_arcsec * m_per_arcsec;
+    if (!(p.length_m > 10.0 * p.base_m)) {
+        fail(ctx, "length_arcsec is too short");
+    }
+    if (const toml::array* knots = t["knots"].as_array()) {
+        for (const toml::node& node : *knots) {
+            const toml::table* kt = node.as_table();
+            const std::string kctx = ctx + " knots";
+            if (!kt) {
+                fail(kctx, "must be tables");
+            }
+            JetKnot k;
+            k.name = get_string(*kt, "name", kctx);
+            double range[2];
+            get_array(*kt, "arcsec", kctx, range, 2, 2);
+            k.start_m = range[0] * m_per_arcsec;
+            k.end_m = range[1] * m_per_arcsec;
+            k.flux = get_double(*kt, "flux", kctx);
+            if (!(range[1] > range[0] && range[0] > 0.0 && k.flux > 0.0) ||
+                (!p.knots.empty() && range[0] <= p.knots.back().start_m / m_per_arcsec)) {
+                fail(kctx, "'" + k.name + "': arcsec must be an increasing range beyond the previous knot's start, "
+                                           "flux positive");
+            }
+            p.knots.push_back(k);
+        }
+        if (p.knots.size() > static_cast<size_t>(kMaxJetKnots)) {
+            fail(ctx, "at most " + std::to_string(kMaxJetKnots) + " knots");
+        }
+    }
+    if (const toml::table* pr = t["precession"].as_table()) {
+        const std::string pctx = ctx + " precession";
+        p.precesses = true;
+        p.precession.t0_year = get_double(*pr, "t0_year", pctx);
+        p.precession.omega_rad_per_year = get_double(*pr, "omega_rad_per_year", pctx);
+        p.precession.half_angle_deg = get_double(*pr, "half_angle_deg", pctx);
+        get_array(*pr, "tilt_m", pctx, p.precession.tilt_m, 4, 4);
+        const double* m = p.precession.tilt_m;
+        if (!(m[0] > 0.0 && m[1] > m[0] && m[2] >= m[1] && m[3] > m[2]) || !(p.precession.half_angle_deg > 0.0 &&
+                                                                              p.precession.half_angle_deg < 30.0)) {
+            fail(pctx, "tilt_m must be four increasing heights, half_angle_deg within (0, 30)");
+        }
+    }
+    prepare_jet(p, std::acos(cos_theta));
+    return p;
+}
+
 // Templates contain properties that can be evaluated without scene body references.
 // Keep the accepted keys explicit so a misspelling cannot silently inherit a default.
 // `where` says who wrote the table: the template, or the scene overriding its properties.
@@ -1352,6 +1435,12 @@ void Loader::parse(const toml::table& root, Scene& out)
             body.pole = glm::normalize(visual_orbit_frame(plane)[2]);
             body.pole_ra = std::atan2(body.pole.y, body.pole.x);
             body.pole_dec = std::asin(std::clamp(body.pole.z, -1.0, 1.0));
+        }
+        if (const toml::table* jet = (*t)["jet"].as_table()) {
+            if (body.kind != BodyKind::BlackHole) {
+                fail(ctx, "only black holes have a jet");
+            }
+            body.jet = parse_jet(*jet, ctx + " jet", body);
         }
 
         double pm[3] = {0.0, 0.0, 0.0}; // W0 deg, deg/day, optional deg/day^2
@@ -2737,6 +2826,10 @@ void Loader::parse(const toml::table& root, Scene& out)
             if (e.disk_r2_scaled && (e.nebula_infrared || e.disk_millimeter || e.disk_gas)) {
                 fail(ctx, "disk_r2_scaled applies to the scattered light");
             }
+            e.jet_display_gain = get_double_or(*t, "jet_display_gain", 1.0);
+            if (!(e.jet_display_gain >= 0.0 && e.jet_display_gain <= 1000.0)) {
+                fail(ctx, "jet_display_gain must be in [0, 1000]");
+            }
             e.disk_display_gain = get_double_or(*t, "disk_display_gain", 1.0);
             e.nebula_display_gain = get_double_or(*t, "nebula_display_gain", 1.0);
             if (!(e.disk_display_gain > 0.0 && e.disk_display_gain <= 100.0 && e.nebula_display_gain > 0.0 &&
@@ -2944,6 +3037,9 @@ void Loader::parse(const toml::table& root, Scene& out)
     }
 
     for (const SceneEvent& event : out.events) {
+        out.view.max_distance_km = std::max(out.view.max_distance_km, 3.0 * event.distance_km);
+    }
+    for (const SceneEvent& event : out.events) {
         if (event.from_earth && !(glm::length(out.sky.viewer_pc) > 0.0)) {
             fail("event '" + event.name + "'", "from_earth needs sky.viewer_ra_dec_distance_pc away from Earth");
         }
@@ -2962,6 +3058,7 @@ void Loader::parse(const toml::table& root, Scene& out)
             if (out.view.initial_event < 0) fail(ctx, "unknown initial event '" + name + "'");
         }
         out.view.distance_km = get_double_or(*view, "distance_km", 0.0);
+        out.view.max_distance_km = std::max(out.view.max_distance_km, 3.0 * out.view.distance_km);
         out.view.pitch_rad = get_double_or(*view, "pitch_deg", out.view.pitch_rad * kRadToDeg) * kDegToRad;
         out.view.yaw_rad = get_double_or(*view, "yaw_deg", out.view.yaw_rad * kRadToDeg) * kDegToRad;
         if (view->contains("frame")) {

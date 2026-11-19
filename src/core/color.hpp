@@ -13,6 +13,14 @@ double temperature_from_bv(double bv);
 // valid 1667-25000 K (input is clamped), then XYZ -> linear sRGB (IEC 61966-2-1).
 glm::dvec3 blackbody_linear_srgb(double kelvin);
 
+// Linear sRGB color (largest component 1) of a spectrum given as F_lambda by `spectrum`
+// (any units), sampled 380-780 nm against the CIE 1931 2-degree color matching
+// functions in the multi-lobe Gaussian fit of Wyman, Sloan & Shirley 2013 (JCGT 2, 1).
+glm::dvec3 spectrum_linear_srgb(double (*spectrum)(double lambda_nm, double param), double param);
+
+// Color of a power-law spectrum F_nu ~ nu^-alpha (optically thin synchrotron).
+glm::dvec3 power_law_linear_srgb(double alpha);
+
 // Share of a black body's power (sigma T^4) emitted between lo_nm and hi_nm:
 // (15 / pi^4) times the integral of x^3 / (e^x - 1) over x = c2 / (lambda T)
 // (c2 = hc / k, CODATA 2018).
