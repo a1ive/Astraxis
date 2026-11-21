@@ -32,7 +32,7 @@ Astraxis is an astronomy background app with planets, spacecraft and stars anima
 | Alpha Centauri | Three-star dynamics and Proxima's 2016 superflare |
 | Beta Pictoris | Three young giants, a warped debris halo, the cat's tail in visible light and infrared, and modeled comet transits |
 | Sgr A* | Ray-traced Galactic Centre black hole and orbiting S-stars |
-| M87* | Ray-traced black hole and its jet in visible light, from the precessing nozzle to the kiloparsec knots |
+| M87* | Ray-traced black hole, precessing jet nozzle, Hubble proper motions of the optical knots, and the HST-1 flare |
 | Gargantua (Interstellar) | The film's black hole and Endurance with its rotating ring |
 | Kerbol System (Kerbal Space Program) | The game's planetary system, orbits and calendar |
 | PDS 70 | Two growing planets in a disk gap, with a moon-forming disk around c |

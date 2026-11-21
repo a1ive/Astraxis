@@ -90,6 +90,7 @@ double observed_magnitude_held(const ObservedLightCurve& curve, double t_tdb);
 // without stars), and the same as a factor on their light.
 double observed_magnitude_offset(const ObservedLightCurve& curve, double t_tdb);
 double observed_light_factor(const ObservedLightCurve& curve, double t_tdb);
+double observed_knot_factor(const ObservedLightCurve& curve, int body, int knot, double t_tdb);
 
 // Display gain for a selected star, after brightness limiting (1 for other
 // bodies). Shared by the point sprite, glow and resolved stellar surface.

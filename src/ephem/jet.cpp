@@ -32,6 +32,62 @@ double soft_box(double a, double b, double x)
 
 } // namespace
 
+glm::dvec3 jet_feature_position(const JetAstrometry& a, const JetFeature& f, double year)
+{
+    const double t = std::clamp(year, f.first_year, f.last_year);
+    // The tabulated position and the fitted velocity refer to different epochs.
+    const double dt = t - f.first_year;
+    const glm::dvec2 mean_motion = f.motion_mas_yr + (0.5 * dt + f.first_year - a.velocity_year) * f.acceleration_mas_yr2;
+    const glm::dvec2 xy = f.offset_arcsec + (0.001 * dt) * mean_motion;
+    return xy.x * a.along_m + xy.y * a.across_m;
+}
+
+double jet_feature_visibility(const JetAstrometry& a, const JetFeature& f, double year)
+{
+    double v = 1.0;
+    if (f.first_year > a.first_year) {
+        v *= smoothstep(f.first_year - kJetFeatureRampYears, f.first_year, year);
+    }
+    if (f.last_year < a.last_year) {
+        v *= 1.0 - smoothstep(f.last_year, f.last_year + kJetFeatureRampYears, year);
+    }
+    return v;
+}
+
+double jet_knot_diffuse_share(const JetAstrometry& a, const JetKnot& k, double year)
+{
+    double total = 0.0, shown = 0.0;
+    for (const JetFeature& f : k.features) {
+        total += f.weight;
+        shown += f.weight * jet_feature_visibility(a, f, year);
+    }
+    return total > 0.0 ? 1.0 - k.feature_fraction * shown / total : 1.0;
+}
+
+double jet_ridge_offset(const JetParams& p, double zeta)
+{
+    const std::vector<glm::dvec2>& r = p.ridge;
+    if (r.empty() || zeta <= r.front().x) {
+        return r.empty() ? 0.0 : r.front().y;
+    }
+    for (size_t i = 1; i < r.size(); ++i) {
+        if (zeta < r[i].x) {
+            const double u = (zeta - r[i - 1].x) / (r[i].x - r[i - 1].x);
+            return r[i - 1].y + u * (r[i].y - r[i - 1].y);
+        }
+    }
+    return r.back().y;
+}
+
+double jet_ridge_slope_bound(const JetParams& p)
+{
+    double k = 0.0;
+    for (size_t i = 1; i < p.ridge.size(); ++i) {
+        k = std::max(k, std::abs(p.ridge[i].y) / (p.ridge[i].x - p.ridge.front().x));
+    }
+    return k;
+}
+
 double jet_profile(double psi)
 {
     if (psi > kProfileEnd) {
@@ -85,7 +141,7 @@ double jet_tilt_fraction(const JetPrecession& p, double zeta)
            (1.0 - smoothstep(std::log(p.tilt_m[2]), std::log(p.tilt_m[3]), l));
 }
 
-double jet_line_brightness(const JetParams& p, double zeta)
+double jet_line_brightness(const JetParams& p, double zeta, bool exclude_features)
 {
     const double alpha = p.spectral_index;
     if (p.knots.empty()) {
@@ -96,7 +152,8 @@ double jet_line_brightness(const JetParams& p, double zeta)
     double sum = first.line_brightness * std::pow(jet_radius(p, zeta) / jet_radius(p, first.start_m), -(1.0 + alpha)) *
                  (1.0 - smoothstep(first.start_m - h, first.start_m + h, zeta));
     for (const JetKnot& k : p.knots) {
-        sum += k.line_brightness * soft_box(k.start_m, k.end_m, zeta);
+        const double share = exclude_features ? 1.0 - k.feature_fraction : 1.0;
+        sum += share * k.line_brightness * soft_box(k.start_m, k.end_m, zeta);
     }
     return sum;
 }
@@ -121,11 +178,18 @@ void prepare_jet(JetParams& p, double theta_earth)
     }
     for (JetKnot& k : p.knots) {
         k.line_brightness /= first; // the first knot at 1
+        double total_weight = 0.0;
+        for (const JetFeature& f : k.features) {
+            total_weight += f.weight;
+        }
+        for (JetFeature& f : k.features) {
+            f.flux = k.flux * k.feature_fraction / first * (f.weight / total_weight);
+        }
     }
 }
 
 double jet_emissivity(const JetParams& p, const glm::dvec3& x, const glm::dvec3& to_camera, double tan_tilt,
-                      double min_width_m)
+                      double min_width_m, glm::dvec2 outer_slope, glm::dvec2 across_m)
 {
     const double zeta = std::abs(x.z);
     if (zeta < p.base_m || zeta > p.length_m) {
@@ -133,7 +197,10 @@ double jet_emissivity(const JetParams& p, const glm::dvec3& x, const glm::dvec3&
     }
     const double side = x.z >= 0.0 ? 1.0 : -1.0;
     const double lean = p.precesses ? std::tan(std::atan(tan_tilt) * jet_tilt_fraction(p.precession, zeta)) : 0.0;
-    const glm::dvec2 lateral(x.x - x.z * lean, x.y);
+    const double split = p.precesses ? p.precession.tilt_m[3] : 0.0;
+    const glm::dvec2 ridge = side > 0.0 ? jet_ridge_offset(p, zeta) * across_m : glm::dvec2(0.0);
+    const glm::dvec2 lateral =
+        glm::dvec2(x.x - x.z * lean, x.y) - side * std::max(zeta - split, 0.0) * outer_slope - ridge;
     const double s = glm::length(lateral);
     const double w = jet_radius(p, zeta);
     const double width = std::sqrt(w * w + min_width_m * min_width_m);
@@ -146,6 +213,9 @@ double jet_emissivity(const JetParams& p, const glm::dvec3& x, const glm::dvec3&
 
     // Along the local streamline: the leaning axis, spreading as the radius grows.
     glm::dvec3 dir = side * glm::dvec3(lean, 0.0, 1.0);
+    if (zeta > split) {
+        dir += side * glm::dvec3(outer_slope, 0.0);
+    }
     if (s > 0.0) {
         dir += glm::dvec3(lateral / s, 0.0) * (s / w) * jet_radius_slope(p, zeta);
     }
@@ -153,7 +223,7 @@ double jet_emissivity(const JetParams& p, const glm::dvec3& x, const glm::dvec3&
     const double gb = jet_gamma_beta(p, zeta);
     const double gamma = std::sqrt(1.0 + gb * gb);
     const double doppler = 1.0 / (gamma - gb * glm::dot(dir, to_camera));
-    return fade * jet_line_brightness(p, zeta) * cross * std::pow(doppler, 2.0 + p.spectral_index);
+    return fade * jet_line_brightness(p, zeta, side > 0.0) * cross * std::pow(doppler, 2.0 + p.spectral_index);
 }
 
 SkyAxes sky_axes(double ra_deg, double dec_deg)

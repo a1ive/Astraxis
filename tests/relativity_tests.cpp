@@ -2320,14 +2320,14 @@ void test_m87_jet_model()
     check(std::abs(p.knots[0].start_m / expected - 1.0) < 1e-3, "M87* HST-1 deprojected", p.knots[0].start_m);
     check(p.knots[0].line_brightness == 1.0, "M87* knots normalized to HST-1");
 
-    // Seen from the Earth (17.21 deg), the jet on the ridge at HST-1 against the counter-jet's.
+    // Just upstream of the first aperture, both jets have the same intrinsic ridge.
     const double theta = 17.21 * kDegToRad;
     const glm::dvec3 to_earth(std::sin(theta), 0.0, std::cos(theta)); // jet frame, the jet along +z
-    const double z = p.knots[0].start_m;
+    const double z = 0.99 * (p.knots[0].start_m - 0.3 * (p.knots[0].end_m - p.knots[0].start_m));
     const double ridge = 0.82 * jet_radius(p, z);
     const double app = jet_emissivity(p, glm::dvec3(0.0, ridge, z), to_earth, 0.0);
     const double counter = jet_emissivity(p, glm::dvec3(0.0, ridge, -z), to_earth, 0.0);
-    std::printf("info: M87* jet / counter-jet at HST-1 from the Earth: %.3g\n", app / counter);
+    std::printf("info: M87* jet / counter-jet upstream of HST-1 from the Earth: %.3g\n", app / counter);
     check(app / counter > 1e3, "M87* counter-jet thousands of times fainter from the Earth", app / counter);
     // From the side the two match.
     const glm::dvec3 side(1.0, 0.0, 0.0);
@@ -2356,6 +2356,115 @@ void test_m87_jet_model()
     check(std::abs(0.5 * (at[0] + at[1]) - h * tan_tilt) < 0.01 * w, "M87* nozzle leans by 1.25 deg at 2000 M",
           0.5 * (at[0] + at[1]));
     check(jet_emissivity(p, glm::dvec3(0.0, 0.0, 3.0), up, tan_tilt) == 0.0, "M87* jet starts 5 M above the hole");
+}
+
+void test_m87_optical_epochs()
+{
+    const Scene scene = load_scene_or_die("m87.toml");
+    const Body& hole = m87_hole(scene);
+    const JetParams& p = *hole.jet;
+    const JetKnot& hst = p.knots.at(0);
+    const JetKnot& d = p.knots.at(1);
+    const JetFeature& middle = d.features.at(1);
+    const JetFeature& west = d.features.at(2);
+    const double m_km = hole.gm_km3_s2 / (kSpeedOfLightKmS * kSpeedOfLightKmS);
+    const double m_per_mas = kM87DistancePc * kParsecKm * kDegToRad / 3600000.0 / m_km;
+    const SkyAxes sky = sky_axes(kM87Ra, kM87Dec);
+    const double pa = 290.0 * kDegToRad;
+    const glm::dvec3 along = std::cos(pa) * sky.north + std::sin(pa) * sky.east;
+    const glm::dvec3 across = -std::sin(pa) * sky.north + std::cos(pa) * sky.east;
+    const auto position = [&](const JetFeature& f, double year) {
+        const auto v = jet_feature_position(p.astrometry, f, year);
+        return glm::dvec2(glm::dot(v, along), glm::dot(v, across)) / m_per_mas;
+    };
+    const auto motion = [&](const JetFeature& f, double year) {
+        return position(f, year + 0.05) - position(f, year - 0.05);
+    };
+    check(std::abs(position(middle, 1995.0).x - 3610.0) < 0.01, "D-Middle projected separation in 1995 [ME13]");
+    check(glm::length(10.0 * motion(middle, 2004.06) - glm::dvec2(16.2, -1.3)) < 1e-6,
+          "D-Middle along and across the sky in mas/yr [ME13]");
+    check(std::abs(10.0 * motion(west, 1996.0).x * 0.264 - 2.73) < 0.02 &&
+          std::abs(10.0 * motion(west, 2008.0).x) < 1.0, "D-West slows from 2.73c to a near stop [ME13 Fig. 2]");
+    check(std::abs(10.0 * motion(p.knots.at(4).features.at(0), 2000.0).x + 0.9) < 1e-6,
+          "knot I retains its signed inward fit [ME13]");
+    check(position(middle, 2050.0) == position(middle, 2007.0) && position(west, 1800.0) == position(west, 1995.0) &&
+          position(west, 2050.0) == position(west, 2008.25), "astrometric fits held at their individual endpoints");
+    check(std::abs(position(hst.features.at(0), 2005.0).x - 820.0) < 0.01, "HST-1 compact flare at 0.82 arcsec [PE03]");
+
+    // Redistributing reference aperture light into compact features conserves the flux seen from Earth.
+    const double theta = 17.21 * kDegToRad;
+    const auto aperture_flux = [&](const JetKnot& k) {
+        return (k.end_m - k.start_m) * k.line_brightness *
+               std::pow(jet_doppler(p, 0.5 * (k.start_m + k.end_m), theta), 2.0 + p.spectral_index);
+    };
+    double d_flux = aperture_flux(d) * (1.0 - d.feature_fraction);
+    for (const JetFeature& f : d.features) {
+        d_flux += f.flux;
+    }
+    check(std::abs(d_flux / hst.features[0].flux - 117.0 / 19.8) < 1e-6 &&
+          std::abs(middle.flux / west.flux - 28.6 / 23.0) < 1e-6, "D aperture total and relative subknot fluxes [PE01]");
+    check(jet_line_brightness(p, 0.5 * (hst.start_m + hst.end_m), true) == 0.0,
+          "HST-1 compact peak is counted only once");
+
+    // B5-n appears in 2001 and D-Middle fades after 2007; their light returns to the
+    // diffuse aperture, whose total is unchanged [ME13 sec. 3, Table 1 note b].
+    const JetFeature& b5n = p.knots.at(9).features.at(1);
+    check(b5n.name == "B5-n" && std::abs(position(b5n, 2001.0).x - 15180.0) < 0.01 &&
+          std::abs(position(b5n, 1995.0).x - 15180.0) < 0.01, "B5-n starts at 15.18 arcsec in 2001 [ME13]");
+    const auto shown = [&](const JetFeature& f, double year) { return jet_feature_visibility(p.astrometry, f, year); };
+    check(shown(b5n, 1999.9) == 0.0 && shown(b5n, 2000.5) > 0.0 && shown(b5n, 2000.5) < 1.0 && shown(b5n, 2001.0) == 1.0,
+          "B5-n fades in over the year before its first detection");
+    check(shown(middle, 2007.0) == 1.0 && shown(middle, 2008.0) == 0.0 && shown(west, 1995.0) == 1.0 &&
+          shown(west, 2008.25) == 1.0, "D-Middle fades out after 2007, the other peaks stay");
+    for (const double year : {1995.0, 2007.5, 2010.0}) {
+        double total = aperture_flux(d) * jet_knot_diffuse_share(p.astrometry, d, year);
+        for (const JetFeature& f : d.features) {
+            total += shown(f, year) * f.flux;
+        }
+        check(std::abs(total / hst.features[0].flux - 117.0 / 19.8) < 1e-6, "D aperture flux conserved while peaks fade");
+    }
+
+    // The approaching ridge through each aperture's peaks: knot C-1's mean offset, near the
+    // centre of [PE01]'s C-1 box (rows 191-220 about the nucleus at row 200, 0.0758667"/px).
+    const JetKnot& c1 = p.knots.at(10);
+    const double c1_mid = 0.5 * (c1.start_m + c1.end_m);
+    const double c1_ridge = jet_ridge_offset(p, c1_mid);
+    check(c1.name == "C-1" && std::abs(c1_ridge - 1.4 / 3.0) < 1e-9 && std::abs(c1_ridge - 5.5 * 0.0758667) < 0.1,
+          "C-1 ridge at its peaks' mean offset [ME13], near the [PE01] box centre", c1_ridge);
+    check(jet_ridge_offset(p, 0.5 * (hst.start_m + hst.end_m)) == 0.0 && jet_ridge_offset(p, 0.0) == 0.0,
+          "M87 ridge starts on the axis at HST-1");
+    double bound_ok = 1.0;
+    for (double z = p.ridge.front().x; z < p.length_m; z *= 1.01) {
+        if (std::abs(jet_ridge_offset(p, z)) > jet_ridge_slope_bound(p) * (z - p.ridge.front().x) * (1.0 + 1e-12)) {
+            bound_ok = 0.0;
+        }
+    }
+    check(bound_ok == 1.0, "ridge offsets within the shader envelope's bound");
+    // The diffuse jet is centred on the displaced ridge; the counter-jet is not displaced.
+    const double sky_m_per_arcsec = 1000.0 * m_per_mas;
+    const glm::dvec2 across_jet(0.0, sky_m_per_arcsec); // the jet frame's y on the sky
+    const double ring = 0.82 * jet_radius(p, c1_mid);
+    const double y_c = c1_ridge * sky_m_per_arcsec;
+    const glm::dvec3 to_earth(std::sin(theta), 0.0, std::cos(theta));
+    const auto at_c1 = [&](double y, double z) {
+        return jet_emissivity(p, glm::dvec3(0.0, y, z), to_earth, 0.0, 0.0, {}, across_jet);
+    };
+    check(std::abs(at_c1(y_c + ring, c1_mid) / at_c1(y_c - ring, c1_mid) - 1.0) < 1e-9 &&
+          at_c1(y_c + ring, c1_mid) > 10.0 * at_c1(-ring, c1_mid), "approaching C-1 emission about the shifted ridge");
+    check(std::abs(at_c1(ring, -c1_mid) / at_c1(-ring, -c1_mid) - 1.0) < 1e-9, "counter-jet stays on the axis");
+
+    const ObservedLightCurve& curve = scene.observed_light_curve;
+    const int body = scene.find("M87*");
+    const auto at = [&](const char* date, int knot = 0) {
+        double t = 0.0;
+        check(parse_utc(date, &t), "valid photometry test date");
+        return observed_knot_factor(curve, body, knot, t);
+    };
+    check(std::abs(at("2005-03-27") * 19.8 - 1404.0) < 0.02 &&
+          std::abs(at("2006-05-23") * 19.8 - 592.0) < 0.02 &&
+          std::abs(at("2006-11-28") * 19.8 - 862.0) < 0.02, "HST-1 F606W peak, decline and rebrightening [PE11]");
+    check(at("1900-01-01") == 1.0 && std::abs(at("2100-01-01") * 19.8 - 35.0) < 0.01 &&
+          at("2005-03-27", 1) == 1.0, "HST-1 endpoint fluxes held, unrelated knots steady [PE01, MW21]");
 }
 
 // The color of synchrotron light: the spectrum integration reproduces the Planckian
@@ -2408,6 +2517,7 @@ void run_relativity_tests()
     test_m87_orientation();
     test_m87_precession();
     test_m87_jet_model();
+    test_m87_optical_epochs();
     test_power_law_color();
     test_m87_hot_flow();
     test_kerr_conservation();

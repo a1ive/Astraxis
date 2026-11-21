@@ -632,6 +632,14 @@ double observed_light_factor(const ObservedLightCurve& curve, double t_tdb)
     return std::pow(10.0, -0.4 * observed_magnitude_offset(curve, t_tdb));
 }
 
+double observed_knot_factor(const ObservedLightCurve& curve, int body, int knot, double t_tdb)
+{
+    if (curve.jet_body != body || curve.jet_knot != knot) {
+        return 1.0;
+    }
+    return std::pow(10.0, -0.4 * (observed_magnitude_held(curve, t_tdb) - curve.reference_magnitude));
+}
+
 double observed_star_display_gain(const ObservedLightCurve& curve, int star, double t_tdb)
 {
     if (std::find(curve.stars.begin(), curve.stars.end(), star) == curve.stars.end()) {

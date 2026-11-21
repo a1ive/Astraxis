@@ -337,6 +337,28 @@ double Simulation::fade() const
 
 bool Simulation::light_curve_in_view() const
 {
+    const ObservedLightCurve& observed = m_scene.observed_light_curve;
+    if (observed.jet_body >= 0) {
+        if (m_clock.t_tdb < observed.from_tdb || m_clock.t_tdb > observed.to_tdb) {
+            return false;
+        }
+        const Body& hole = m_scene.bodies[static_cast<size_t>(observed.jet_body)];
+        const double m_km = hole.gm_km3_s2 / (kSpeedOfLightKmS * kSpeedOfLightKmS);
+        const JetParams& jet = *hole.jet;
+        const JetKnot& knot = jet.knots[static_cast<size_t>(observed.jet_knot)];
+        const auto sky = sky_axes(jet.ra_deg, jet.dec_deg);
+        const glm::dvec3 axis = glm::dot(hole.pole, sky.toward_observer) < 0.0 ? -hole.pole : hole.pole;
+        glm::dvec3 center = axis * (0.5 * (knot.start_m + knot.end_m));
+        if (!knot.features.empty()) {
+            const double year = 2000.0 + m_clock.t_tdb / (kSecondsPerDay * kDaysPerJulianYear);
+            center = jet_feature_position(jet.astrometry, knot.features.front(), year);
+        }
+        // The plot accompanies the knot when it lies in the central square of the shot.
+        const CameraView view = m_camera.view(1, 1);
+        const glm::dvec3 delta = hole.world_position - view.position + m_scene.current_transform().direction_to_display(center * m_km);
+        const glm::vec4 clip = view.view_proj * glm::vec4(glm::vec3(delta), 1.0f);
+        return std::abs(clip.x) < clip.w && std::abs(clip.y) < clip.w;
+    }
     if (m_scene.light_curve.shown_during_flare) {
         const std::vector<int>& stars = m_scene.light_curve.stars;
         if (std::none_of(stars.begin(), stars.end(), [&](int star) {

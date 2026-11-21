@@ -12,6 +12,7 @@
 #include "common.hlsli"
 
 #define MAX_KNOTS 12
+#define MAX_FEATURES 24
 
 cbuffer Uniforms : register(b0, space3)
 {
@@ -22,13 +23,18 @@ cbuffer Uniforms : register(b0, space3)
     float4 u_shape;     // parabola k, cone slope^2, base, length
     float4 u_speed;     // height of Gamma = 1, Lorentz index, smallest Gamma beta, end of acceleration
     float4 u_speed2;    // deceleration index, Gamma beta at the end of acceleration, spectral index, profile area
-    float4 u_tilt;      // x = precession half-angle (rad), y = height where the tilted envelope piece ends
+    float4 u_tilt;      // half-angle (rad), end of precessing nozzle, outer jet's dx/dz and dy/dz
     float4 u_tilt_log;  // ln of the tilt heights
     float4 u_envelope;  // A, B through the tilt; A, B beyond it
     float4 u_envelope2; // x = C
+    float4 u_envelope3; // approaching jet beyond the first ridge node: A, B, C, that height
     float4 u_color;     // rgb = color x display gain, w = exposure (inside the compression)
-    float4 u_inner;     // x = first knot start, y = jet radius there, z = knot count
-    float4 u_knots[MAX_KNOTS]; // start, end, line brightness
+    float4 u_inner;     // x = first knot start, y = jet radius there, z = knot count, w = ridge nodes
+    float4 u_knots[MAX_KNOTS]; // start, end, receding and approaching diffuse brightness
+    float4 u_ridge[MAX_KNOTS]; // approaching ridge: height, (x, y) offset
+    float4 u_feature_bounds;   // z min, z max, cylinder radius squared, count
+    float4 u_feature_centers[MAX_FEATURES]; // jet-frame position, radius
+    float4 u_feature_light[(MAX_FEATURES + 3) / 4];
 };
 
 struct PSInput
@@ -70,7 +76,7 @@ float soft_box(float a, float b, float x)
     return smoothstep(a - h, a + h, x) * (1.0 - smoothstep(b - h, b + h, x));
 }
 
-float line_brightness(float zeta)
+float line_brightness(float zeta, float side)
 {
     float alpha = u_speed2.z;
     int count = (int)u_inner.z;
@@ -82,7 +88,8 @@ float line_brightness(float zeta)
     float sum = pow(jet_radius(zeta) / u_inner.y, -(1.0 + alpha)) * (1.0 - smoothstep(z0 - h, z0 + h, zeta)) * u_knots[0].z;
     if (zeta > z0 - h) {
         for (int i = 0; i < count; ++i) {
-            sum += u_knots[i].z * soft_box(u_knots[i].x, u_knots[i].y, zeta);
+            float brightness = side > 0.0 ? u_knots[i].w : u_knots[i].z;
+            sum += brightness * soft_box(u_knots[i].x, u_knots[i].y, zeta);
         }
     }
     return sum;
@@ -95,6 +102,25 @@ float profile(float psi)
     return psi > kProfileEnd ? 0.0 : exp(-0.5 * r * r) + kSpineShare * exp(-0.5 * c * c);
 }
 
+// jet_ridge_offset() of src/ephem/jet.cpp, in the jet frame.
+float2 ridge_offset(float zeta)
+{
+    int count = (int)u_inner.w;
+    if (count == 0) {
+        return float2(0.0, 0.0);
+    }
+    if (zeta <= u_ridge[0].x) {
+        return u_ridge[0].yz;
+    }
+    for (int i = 1; i < count; ++i) {
+        if (zeta < u_ridge[i].x) {
+            float u = (zeta - u_ridge[i - 1].x) / (u_ridge[i].x - u_ridge[i - 1].x);
+            return lerp(u_ridge[i - 1].yz, u_ridge[i].yz, u);
+        }
+    }
+    return u_ridge[count - 1].yz;
+}
+
 // jet_emissivity() of src/ephem/jet.cpp.
 float emissivity(float3 x, float3 to_camera, float min_width)
 {
@@ -104,7 +130,10 @@ float emissivity(float3 x, float3 to_camera, float min_width)
     }
     float side = x.z >= 0.0 ? 1.0 : -1.0;
     float lean = tan(u_tilt.x * tilt_fraction(zeta));
-    float2 lateral = float2(x.x - x.z * lean, x.y);
+    float2 lateral = x.xy - float2(x.z * lean, 0.0) - side * max(zeta - u_tilt.y, 0.0) * u_tilt.zw;
+    if (side > 0.0) {
+        lateral -= ridge_offset(zeta);
+    }
     float s = length(lateral);
     float w = jet_radius(zeta);
     float width2 = w * w + min_width * min_width;
@@ -117,13 +146,16 @@ float emissivity(float3 x, float3 to_camera, float min_width)
 
     float slope = (u_shape.x + 2.0 * u_shape.y * zeta) / (2.0 * w);
     float3 dir = side * float3(lean, 0.0, 1.0);
+    if (zeta > u_tilt.y) {
+        dir.xy += side * u_tilt.zw;
+    }
     if (s > 0.0) {
         dir += float3(lateral / s, 0.0) * (s / w) * slope;
     }
     dir = normalize(dir);
     float gb = gamma_beta(zeta);
     float doppler = 1.0 / (sqrt(1.0 + gb * gb) - gb * dot(dir, to_camera));
-    return fade * line_brightness(zeta) * cross_section * pow(doppler, 2.0 + u_speed2.z);
+    return fade * line_brightness(zeta, side) * cross_section * pow(doppler, 2.0 + u_speed2.z);
 }
 
 // Where Q(t) = a t^2 + b t + c < 0, within [lo, hi]: up to two intervals (x..y, z..w; empty: x >= y).
@@ -190,6 +222,13 @@ float asinh_(float x)
     return sign(x) * log(a + sqrt(a * a + 1.0));
 }
 
+// Primitive of (1 - u^2)^3, the compact emissivity along a chord of unit half-length.
+float feature_primitive(float u)
+{
+    float s = u * u;
+    return u * (1.0 + s * (-1.0 + s * (0.6 - s / 7.0)));
+}
+
 float4 main(PSInput input) : SV_Target0
 {
     float2 ndc = float2(input.uv.x * 2.0 - 1.0, 1.0 - input.uv.y * 2.0);
@@ -205,8 +244,8 @@ float4 main(PSInput input) : SV_Target0
         t_max = t_c;
     }
 
-    // Up to two pieces per side, each up to two intervals.
-    float2 spans[8];
+    // Up to two pieces per side (three for the approaching jet with a ridge), each up to two intervals.
+    float2 spans[10];
     int count = 0;
     float z_base = 0.9 * u_shape.z;
     float z_split = u_tilt.y;
@@ -214,13 +253,50 @@ float4 main(PSInput input) : SV_Target0
     for (int k = 0; k < 2; ++k) {
         float side = k == 0 ? 1.0 : -1.0;
         float4 near_part = piece(o, d, side, u_envelope.x, u_envelope.y, u_envelope2.x, z_base, max(z_split, z_base), t_max);
-        float4 far_part = piece(o, d, side, u_envelope.z, u_envelope.w, u_envelope2.x, max(z_split, z_base), u_shape.w, t_max);
+        float3 far_o = float3(o.xy - (o.z - side * z_split) * u_tilt.zw, o.z);
+        float3 far_d = float3(d.xy - d.z * u_tilt.zw, d.z);
+        // Beyond the first ridge node the approaching envelope also covers the ridge's
+        // offsets, |offset| <= k (z - z_r): (sqrt(Q) + k (z - z_r))^2 <= 2 Q + 2 k^2 (z - z_r)^2.
+        bool ridge = side > 0.0 && u_inner.w > 0.0;
+        float z_far = max(z_split, z_base);
+        float z_ridge = ridge ? max(u_envelope3.w, z_far) : u_shape.w;
+        float4 far_part = piece(far_o, far_d, side, u_envelope.z, u_envelope.w, u_envelope2.x, z_far, z_ridge, t_max);
         if (near_part.x < near_part.y) { spans[count++] = near_part.xy; }
         if (near_part.z < near_part.w) { spans[count++] = near_part.zw; }
         if (far_part.x < far_part.y) { spans[count++] = far_part.xy; }
         if (far_part.z < far_part.w) { spans[count++] = far_part.zw; }
+        if (ridge) {
+            float4 ridge_part = piece(far_o, far_d, side, u_envelope3.x, u_envelope3.y, u_envelope3.z, z_ridge, u_shape.w, t_max);
+            if (ridge_part.x < ridge_part.y) { spans[count++] = ridge_part.xy; }
+            if (ridge_part.z < ridge_part.w) { spans[count++] = ridge_part.zw; }
+        }
     }
-    if (count == 0) {
+    // Compact peaks are smaller than the ray-march spacing. Integrate their
+    // compact volume profiles exactly over the visible part of each chord.
+    float sum = 0.0;
+    if (u_feature_bounds.w > 0.0) {
+        float4 bounds = piece(o, d, 1.0, 0.0, 0.0, u_feature_bounds.z, u_feature_bounds.x, u_feature_bounds.y, t_max);
+        if (bounds.x < bounds.y || bounds.z < bounds.w) {
+            for (int i = 0; i < (int)u_feature_bounds.w; ++i) {
+                float4 peak = u_feature_centers[i];
+                float3 offset = peak.xyz - p_c;
+                float3 perp = cross(offset, d) / peak.w;
+                float h2 = 1.0 - dot(perp, perp);
+                if (h2 > 0.0) {
+                    float h = sqrt(h2);
+                    float t = dot(peak.xyz - o, d);
+                    float half_chord = h * peak.w;
+                    float lo = max(-1.0, -t / half_chord);
+                    float hi = min(1.0, (t_max - t) / half_chord);
+                    if (hi > lo) {
+                        float chord = max(feature_primitive(hi) - feature_primitive(lo), 0.0);
+                        sum += u_feature_light[i / 4][i % 4] * h2 * h2 * h2 * h * chord;
+                    }
+                }
+            }
+        }
+    }
+    if (count == 0 && sum == 0.0) {
         discard;
     }
 
@@ -230,7 +306,6 @@ float4 main(PSInput input) : SV_Target0
     float jitter = frac(52.9829189 * frac(dot(input.position.xy, float2(0.06711056, 0.00583715))));
     float min_width_per_distance = u_forward.w;
     float3 to_camera = -d;
-    float sum = 0.0;
     for (int i = 0; i < count; ++i) {
         float u0 = asinh_((spans[i].x - t_c) / bb);
         float du = (asinh_((spans[i].y - t_c) / bb) - u0) / kSamplesPerSpan;

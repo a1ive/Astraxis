@@ -1193,8 +1193,8 @@ bool SceneRenderer::jet_uniforms(const Simulation& sim, const CameraView& view, 
             axis = -axis;
         }
         glm::dvec3 lean = glm::cross(axis, std::abs(axis.z) < 0.9 ? glm::dvec3(0.0, 0.0, 1.0) : glm::dvec3(1.0, 0.0, 0.0));
+        const double year = 2000.0 + sim.clock().t_tdb / (kSecondsPerDay * kDaysPerJulianYear);
         if (p.precesses) {
-            const double year = 2000.0 + sim.clock().t_tdb / (86400.0 * 365.25);
             const glm::dvec3 nozzle = jet_nozzle(p.precession, axis, sky, year);
             lean = nozzle - glm::dot(nozzle, axis) * axis;
         }
@@ -1228,6 +1228,12 @@ bool SceneRenderer::jet_uniforms(const Simulation& sim, const CameraView& view, 
         const double tan_tilt = p.precesses ? std::tan(p.precession.half_angle_deg * kDegToRad) : 0.0;
         u.tilt = glm::vec4(static_cast<float>(p.precesses ? p.precession.half_angle_deg * kDegToRad : 0.0),
                            static_cast<float>(p.precesses ? tilt[3] : 0.0), 0.0f, 0.0f);
+        const glm::dvec3 outer = to_jet(frame.direction_to_display(p.astrometry.along_m));
+        const glm::dvec3 outer_dir = outer.z > 0.0 ? glm::normalize(outer) : glm::dvec3(0.0, 0.0, 1.0);
+        if (outer.z > 0.0) {
+            u.tilt.z = static_cast<float>(outer.x / outer.z);
+            u.tilt.w = static_cast<float>(outer.y / outer.z);
+        }
         u.tilt_log = glm::vec4(static_cast<float>(std::log(tilt[0])), static_cast<float>(std::log(tilt[1])),
                                static_cast<float>(std::log(tilt[2])), static_cast<float>(std::log(tilt[3])));
         // Envelopes: 1.4 radii (where the profile ends; squared, 2) of the radius widened to
@@ -1238,6 +1244,20 @@ bool SceneRenderer::jet_uniforms(const Simulation& sim, const CameraView& view, 
         u.envelope = glm::vec4(static_cast<float>(2.0 * a_far), static_cast<float>(2.0 * b_far + 2.0 * tan_tilt * tan_tilt),
                                static_cast<float>(a_far), static_cast<float>(b_far));
         u.envelope2 = glm::vec4(static_cast<float>(4.0 * q2 * distance * distance), 0.0f, 0.0f, 0.0f);
+        // The approaching ridge's offsets across the sky, and an envelope that covers them.
+        const glm::dvec3 across3 = to_jet(frame.direction_to_display(p.astrometry.across_m));
+        const glm::dvec2 across(across3.x, across3.y);
+        for (size_t i = 0; i < p.ridge.size(); ++i) {
+            u.ridge[i] = glm::vec4(static_cast<float>(p.ridge[i].x), glm::vec2(p.ridge[i].y * across), 0.0f);
+        }
+        if (!p.ridge.empty()) {
+            const double k = jet_ridge_slope_bound(p) * glm::length(across);
+            const double z_r = p.ridge.front().x;
+            u.envelope3 = glm::vec4(static_cast<float>(2.0 * a_far - 4.0 * k * k * z_r),
+                                    static_cast<float>(2.0 * b_far + 2.0 * k * k),
+                                    static_cast<float>(2.0 * u.envelope2.x + 2.0 * k * k * z_r * z_r),
+                                    static_cast<float>(z_r));
+        }
 
         // Exposure: the approaching jet seen from the Earth as bright at every scale, at the
         // height spanned by half the view; beyond the first knot, by the brightest knot.
@@ -1267,11 +1287,43 @@ bool SceneRenderer::jet_uniforms(const Simulation& sim, const CameraView& view, 
         const double gain = p.display_gain * event_gain;
         u.color = glm::vec4(glm::vec3(power_law_linear_srgb(p.spectral_index) * gain), static_cast<float>(1.0 / reference));
         u.inner = glm::vec4(static_cast<float>(first), static_cast<float>(jet_radius(p, first)),
-                            static_cast<float>(p.knots.size()), 0.0f);
-        for (size_t i = 0; i < p.knots.size() && i < static_cast<size_t>(kMaxJetKnots); ++i) {
-            u.knots[i] = glm::vec4(static_cast<float>(p.knots[i].start_m), static_cast<float>(p.knots[i].end_m),
-                                   static_cast<float>(p.knots[i].line_brightness), 0.0f);
+                            static_cast<float>(p.knots.size()), static_cast<float>(p.ridge.size()));
+        // The exposure and inner jet stay calibrated to the reference apertures.
+        // Only the approaching jet has measured compact features and a light curve; a
+        // peak not visible yet (or any more) leaves its light to the diffuse jet.
+        int count = 0;
+        double min_z = p.length_m, max_z = 0.0, bound_radius = 0.0;
+        const int body_index = static_cast<int>(&body - scene.bodies.data());
+        for (size_t i = 0; i < p.knots.size(); ++i) {
+            const JetKnot& k = p.knots[i];
+            const double factor = observed_knot_factor(scene.observed_light_curve, body_index, static_cast<int>(i),
+                                                       sim.clock().t_tdb);
+            u.knots[i] = glm::vec4(k.start_m, k.end_m, k.line_brightness,
+                                   k.line_brightness * jet_knot_diffuse_share(p.astrometry, k, year) * factor);
+            for (const JetFeature& f : k.features) {
+                const double visibility = jet_feature_visibility(p.astrometry, f, year);
+                if (visibility <= 0.0) {
+                    continue;
+                }
+                const glm::dvec3 center = to_jet(frame.direction_to_display(jet_feature_position(p.astrometry, f, year)));
+                const glm::dvec3 eye = cam - center;
+                const double range = glm::length(eye);
+                const double radius = std::hypot(k.feature_radius_m, 2.5 * min_width * range);
+                const double gb = jet_gamma_beta(p, center.z);
+                const double gamma = std::hypot(1.0, gb);
+                const double cos_view = range > 0.0 ? glm::dot(eye, outer_dir) / range : 0.0;
+                const double beaming = (gamma - gb * std::cos(theta_earth)) / (gamma - gb * cos_view);
+                const double flux = f.flux * visibility * factor * std::pow(beaming, boost);
+                // Volume profile (1 - r^2/R^2)^3 inside R, integrated in units of R.
+                u.feature_centers[count] = glm::vec4(glm::vec3(center), static_cast<float>(radius));
+                u.feature_light[count / 4][count % 4] = static_cast<float>(315.0 * flux / (64.0 * kPi * radius * radius));
+                min_z = std::min(min_z, center.z - radius);
+                max_z = std::max(max_z, center.z + radius);
+                bound_radius = std::max(bound_radius, std::hypot(center.x, center.y) + radius);
+                ++count;
+            }
         }
+        u.feature_bounds = glm::vec4(min_z, max_z, bound_radius * bound_radius, count);
         return gain > 0.0;
     }
     return false;

@@ -867,6 +867,7 @@ struct ObservedLightCurve {
     std::vector<double> t_tdb; // ascending
     std::vector<float> magnitude;
     std::vector<int> stars;          // shown as bright as observed; empty: none
+    int jet_body = -1, jet_knot = -1; // approaching aperture driven by this curve
     double reference_magnitude = 0.0; // observed at the reference time
 
     bool enabled() const { return t_tdb.size() >= 2; }

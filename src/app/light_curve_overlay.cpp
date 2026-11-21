@@ -104,13 +104,16 @@ void draw_observed_light_curve(const CaptionFonts& fonts, const ObservedLightCur
         const float w = font->CalcTextSizeA(small, FLT_MAX, 0.0f, text).x;
         draw->AddText(font, small, ImVec2(left - 0.4f * em - w, y - 0.5f * small), gray(170, 0.6f * alpha), text);
     }
-    // Years: a tick every 10, labels every 50.
+    // Keep year labels legible for both short monitoring campaigns and historical records.
     const double year_s = kDaysPerJulianYear * kSecondsPerDay;
     const double first_year = 2000.0 + lc.from_tdb / year_s;
     const double last_year = 2000.0 + lc.to_tdb / year_s;
-    for (double y = std::ceil(first_year / 10.0) * 10.0; y <= last_year; y += 10.0) {
+    const bool short_record = last_year - first_year <= 25.0;
+    const double tick_years = short_record ? 1.0 : 10.0;
+    const double label_years = short_record ? (last_year - first_year <= 10.0 ? 2.0 : 5.0) : 50.0;
+    for (double y = std::ceil(first_year / tick_years) * tick_years; y <= last_year; y += tick_years) {
         const float tx = to_x((y - 2000.0) * year_s);
-        const bool label = std::fmod(y, 50.0) == 0.0;
+        const bool label = std::fmod(y, label_years) == 0.0;
         draw->AddLine(ImVec2(tx, bottom), ImVec2(tx, bottom + (label ? 0.35f : 0.2f) * em),
                       gray(170, 0.45f * alpha), 1.0f);
         if (label) {

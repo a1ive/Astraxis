@@ -49,6 +49,17 @@
 #        the jet (0.0758667"/pixel, nucleus at pixel 20); optical spectral indices
 #        alpha_o 0.8-1.1 (F_nu ~ nu^-alpha). HST-1 lies behind a dust lane (low in blue).
 #
+# [ME13] Meyer et al. 2013, ApJL 774, L21 (arXiv:1308.4633), Table 1. F814W positions
+#        at the 1995 epoch, proper motions along PA 290 deg and transverse toward PA 20 deg.
+#        Use the preferred quadratic fit per coordinate, with velocities at 2004.06.
+#        Initial along-axis offsets approximate the tabulated core distances. Transverse
+#        offsets are rough readings from the arrow origins in Fig. 3 relative to core-I.
+#        Peaks fade in over the year before first_year (B5-n, first seen in 2001) and out
+#        over the year after an early last_year (D-Middle, fading, fit to 2007).
+# [PE11] Perlman et al. 2011, ApJ 743, 119 (arXiv:1109.6252), Table 1, HST-1/F606W.
+# [MW21] EHT MWL Science Working Group et al. 2021, ApJL 911, L11, Table A5, F606W.
+# [PE03] Perlman et al. 2003, ApJL 599, L65 (arXiv:astro-ph/0311161): HST-1 at 0.82".
+#
 # What is drawn:
 # - The hole is ray traced (shadow, lensed sky) with a hot, thick flow (the RIAF model of
 #   Sgr A*'s scene, Broderick et al. 2009) in its 230 GHz light, in FALSE COLOR with
@@ -65,12 +76,21 @@
 #   the view's scale (an exposure that follows the camera's distance), so the jet near
 #   the hole and the kiloparsec knots are both visible; the ratios within one view, and
 #   between the approaching and counter jets, are as modelled. The knots' brightness
-#   along the jet is the measured one with the boost toward the Earth taken out. The
-#   knots do not move (they show superluminal motions of up to 6c).
+#   along the jet is the measured one with the boost toward the Earth taken out. The approaching jet
+#   resolves [ME13]'s measured peaks. Where the aperture contains peaks we assign them
+#   40% of its [PE01] flux. For D we weight its three peaks by their F606W subaperture
+#   fluxes in Table 2; elsewhere the shares are equal. The compact fraction and radii are illustrative.
+#   HST-1 is unresolved here and receives its full aperture flux at [PE03]'s position.
+#   The approaching diffuse ridge passes through each aperture's flux-weighted mean
+#   transverse peak offset (C-1: +0.47", near the +0.42" centre of [PE01]'s box).
+#   Peaks keep a constant flux while tracked; [ME13]'s fading of D-Middle, I and A is
+#   not measured photometrically and is not drawn.
+#   All views replay the Earth-observed epochs. The counter-jet uses the steady model.
 # - The jet is not lensed and starts 5 M above the hole; rays into the shadow end there.
 # - The nozzle leans by [CU23]'s 1.25 deg from 100 M to 10^4 M (blending in from 10 M and
 #   out by 10^5 M: illustrative; [CU23] measured it at 600-2500 r_g), turning about the
-#   spin axis as in [CU23] eq. 1. Near the hole and far out the jet follows the axis.
+#   spin axis as in [CU23] eq. 1. Near the hole the jet follows the spin. Beyond the nozzle its ridge follows the
+#   optical jet at PA 290 deg [ME13].
 #   The flow itself is not tilted (a tilt of ~1 deg would not show).
 # - The sky is M87's own starlight seen from its centre (tools/sky/make_m87_sky.py,
 #   assets/sky/SOURCES.md): [KFCB]'s V-band profile deprojected, a uniform glow of about
@@ -124,6 +144,10 @@ spectral_index = 0.9           # [PE01]
 base_m = 5.0
 length_arcsec = 19.5           # to the end of knot C [PE01]
 display_gain = 0.05
+[bodies.jet.astrometry]        # [ME13] Table 1 and Fig. 2; approximate limits of the stacks
+years = [1995.0, 2008.25]
+velocity_year = 2004.06
+pa_deg = 290.0
 [bodies.jet.precession]        # [CU23] Table 1
 t0_year = 2014.82
 omega_rad_per_year = 0.56
@@ -134,22 +158,51 @@ tilt_m = [10.0, 100.0, 1.0e4, 1.0e5]   # illustrative (see the header)
 name = "HST-1"
 arcsec = [0.607, 1.897]
 flux = 19.8
+feature_fraction = 1.0
+feature_radius_arcsec = 0.08
+features = [
+    { name = "HST-1", xy_arcsec = [0.82, 0.00], mu_mas_yr = [0.0, 0.0] },
+]
 [[bodies.jet.knots]]
 name = "D"
 arcsec = [2.428, 4.476]
 flux = 117.0
+feature_fraction = 0.4
+feature_radius_arcsec = 0.15
+features = [
+    { name = "D-East", xy_arcsec = [2.77, 0.00], mu_mas_yr = [1.1, -0.2], weight = 66.2 },
+    { name = "D-Middle", xy_arcsec = [3.61, -0.20], mu_mas_yr = [16.2, -1.3], acc_mas_yr2 = [0.00, -0.20], last_year = 2007.0, weight = 28.6 },
+    { name = "D-West", xy_arcsec = [3.97, 0.00], mu_mas_yr = [3.9, -2.2], acc_mas_yr2 = [-0.80, 0.00], weight = 23.0 },
+]
 [[bodies.jet.knots]]
 name = "E"
 arcsec = [5.842, 6.752]
 flux = 33.4
+feature_fraction = 0.4
+feature_radius_arcsec = 0.15
+features = [
+    { name = "E-East", xy_arcsec = [5.86, 0.05], mu_mas_yr = [9.6, -1.8] },
+    { name = "E-West", xy_arcsec = [6.21, -0.15], mu_mas_yr = [7.2, 0.0] },
+]
 [[bodies.jet.knots]]
 name = "F"
 arcsec = [7.814, 9.635]
 flux = 123.0
+feature_fraction = 0.4
+feature_radius_arcsec = 0.15
+features = [
+    { name = "F-East", xy_arcsec = [8.23, -0.15], mu_mas_yr = [7.0, -1.3] },
+    { name = "F-Middle", xy_arcsec = [8.68, -0.05], mu_mas_yr = [1.4, 2.2], acc_mas_yr2 = [0.00, 0.60] },
+]
 [[bodies.jet.knots]]
 name = "I"
 arcsec = [10.773, 11.608]
 flux = 54.2
+feature_fraction = 0.4
+feature_radius_arcsec = 0.15
+features = [
+    { name = "I", xy_arcsec = [11.01, 0.00], mu_mas_yr = [-0.9, -0.1] },
+]
 [[bodies.jet.knots]]
 name = "A bar"
 arcsec = [11.608, 11.987]
@@ -158,26 +211,69 @@ flux = 83.8
 name = "A shock"
 arcsec = [12.063, 12.746]
 flux = 670.0
+feature_fraction = 0.4
+feature_radius_arcsec = 0.15
+features = [
+    { name = "A1", xy_arcsec = [12.28, 0.05], mu_mas_yr = [5.0, 3.1], acc_mas_yr2 = [0.00, 0.30] },
+    { name = "A2", xy_arcsec = [12.60, 0.05], mu_mas_yr = [1.2, 1.9] },
+]
 [[bodies.jet.knots]]
 name = "A diffuse"
 arcsec = [12.821, 13.732]
 flux = 332.6
+feature_fraction = 0.4
+feature_radius_arcsec = 0.15
+features = [
+    { name = "B1", xy_arcsec = [12.88, 0.55], mu_mas_yr = [5.2, 2.0], acc_mas_yr2 = [0.00, 1.10] },
+    { name = "B2", xy_arcsec = [13.16, -0.15], mu_mas_yr = [1.6, -0.8], acc_mas_yr2 = [0.00, 0.20] },
+]
 [[bodies.jet.knots]]
 name = "B-1"
 arcsec = [13.808, 15.022]
 flux = 400.0
+feature_fraction = 0.4
+feature_radius_arcsec = 0.15
+features = [
+    { name = "B3", xy_arcsec = [13.74, -0.10], mu_mas_yr = [1.9, 1.6], acc_mas_yr2 = [0.30, 0.20] },
+    { name = "B4", xy_arcsec = [14.29, 0.10], mu_mas_yr = [6.3, -1.7], acc_mas_yr2 = [0.00, 0.70] },
+]
 [[bodies.jet.knots]]
 name = "B-2"
 arcsec = [15.098, 16.160]
 flux = 189.4
+feature_fraction = 0.4
+feature_radius_arcsec = 0.15
+features = [
+    { name = "B5-s", xy_arcsec = [15.18, -0.30], mu_mas_yr = [7.2, 1.8], acc_mas_yr2 = [0.00, -0.40] },
+    # First seen in the 2001 stack; its fit uses 2001-2008 [ME13 sec. 3.2].
+    { name = "B5-n", xy_arcsec = [15.18, 0.00], mu_mas_yr = [8.2, 4.9], first_year = 2001.0 },
+]
 [[bodies.jet.knots]]
 name = "C-1"
 arcsec = [16.842, 18.208]
 flux = 310.7
+feature_fraction = 0.4
+feature_radius_arcsec = 0.15
+features = [
+    { name = "C1", xy_arcsec = [17.48, 0.40], mu_mas_yr = [3.3, 0.3], acc_mas_yr2 = [0.00, 0.40] },
+    { name = "C2", xy_arcsec = [17.83, 0.60], mu_mas_yr = [1.5, -5.6], acc_mas_yr2 = [-0.40, -1.60] },
+    { name = "C3", xy_arcsec = [17.90, 0.40], mu_mas_yr = [2.2, -1.7], acc_mas_yr2 = [0.00, -1.00] },
+]
 [[bodies.jet.knots]]
 name = "C-2"
 arcsec = [18.284, 18.967]
 flux = 86.3
+
+[observed_light_curve]
+file = "stars/m87_hst1_f606w.csv"
+band = "F606W"
+source = "HST-1"
+from = "2002-01-01"            # show the monitored flare at a readable scale
+to = "2008-01-01"
+gap_years = 1.1
+jet_body = "M87*"
+jet_knot = "HST-1"
+reference_time = "1998-02-25"  # [PE01], 19.8 microJy
 
 [[events]]
 name = "The black hole: hot flow and the base of the jet"
@@ -250,4 +346,35 @@ jet_display_gain = 14.0        # seen from the side, the jets are far dimmer tha
 caption = """\
     The jet points nearly at us, and its light, beamed forward by its speed, looks \
     thousands of times brighter than the counter-jet's. Seen from the side, the two jets \
-    look alike, and both are far dimmer: they are brightened here."""
+    have similar diffuse light. Both are far dimmer from this angle and are brightened here."""
+
+[[events]]
+name = "Proper motions in knot D"
+time = "1995-01-01"
+focus = "M87*"
+observer = "M87*"
+observer_offset_km = [8.56457478e+17, 1.23323043e+17, -1.87353119e+17]
+aim_offset_km = [2.40761117e+16, 1.06933245e+16, -2.81096155e+15]  # 3.12 arcsec along PA 290 deg [ME13]
+fov_deg = 0.56
+jet_display_gain = 2.8         # fixed gain for the faint D complex
+warp = 15778800.0              # six months per second, 1995-2008 in 26 s
+# [ME13] Table 1, Figs. 1-2
+caption = """\
+    Hubble resolved three peaks in knot D. The one nearest the core barely shifts. The \
+    middle peak moves outward at an apparent 4.3 times the speed of light, closing the gap \
+    to the outer peak, whose outward motion nearly stops by 2008."""
+
+[[events]]
+name = "The optical flare of HST-1"
+time = "2002-12-07"
+focus = "M87*"
+from_earth = true
+distance_km = 8.6e17
+fov_deg = 0.55
+warp = 3944700.0               # 1.5 months per second
+jet_display_gain = 0.22        # fixed for the full flare, preserving headroom at maximum
+# [PE03], [PE11], [MW21]
+caption = """\
+    The small knot just beyond the nucleus is HST-1. In March 2005 Hubble measured \
+    1.4 millijanskys in visible light, about 71 times its 1998 flux. Watch it fade, \
+    then brighten again in late 2006. The dots mark the Hubble observations."""

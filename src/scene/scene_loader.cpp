@@ -563,6 +563,24 @@ JetParams parse_jet(const toml::table& t, const std::string& ctx, const Body& ho
     if (!(p.length_m > 10.0 * p.base_m)) {
         fail(ctx, "length_arcsec is too short");
     }
+    const double sky_m_per_arcsec = m_per_arcsec * sin_theta;
+    double last_year = 0.0;
+    if (const toml::table* ast = t["astrometry"].as_table()) {
+        double span[2];
+        get_array(*ast, "years", ctx, span, 2, 2);
+        if (!(span[0] < span[1])) {
+            fail(ctx, "astrometry years must increase");
+        }
+        p.astrometry.first_year = span[0];
+        p.astrometry.last_year = span[1];
+        last_year = span[1];
+        p.astrometry.velocity_year = get_double(*ast, "velocity_year", ctx);
+        const double pa = get_double(*ast, "pa_deg", ctx) * kDegToRad;
+        const glm::dvec3 along_sky = std::cos(pa) * sky.north + std::sin(pa) * sky.east;
+        p.astrometry.along_m = along_sky * sky_m_per_arcsec + sky.toward_observer * (cos_theta * m_per_arcsec);
+        p.astrometry.across_m = (-std::sin(pa) * sky.north + std::cos(pa) * sky.east) * sky_m_per_arcsec;
+    }
+    size_t feature_count = 0;
     if (const toml::array* knots = t["knots"].as_array()) {
         for (const toml::node& node : *knots) {
             const toml::table* kt = node.as_table();
@@ -582,10 +600,72 @@ JetParams parse_jet(const toml::table& t, const std::string& ctx, const Body& ho
                 fail(kctx, "'" + k.name + "': arcsec must be an increasing range beyond the previous knot's start, "
                                            "flux positive");
             }
-            p.knots.push_back(k);
+            if (kt->contains("features")) {
+                const auto* features = (*kt)["features"].as_array();
+                if (!features || features->empty() || !t["astrometry"].is_table()) {
+                    fail(kctx, "features require jet astrometry and a nonempty array");
+                }
+                feature_count += features->size();
+                k.feature_fraction = get_double(*kt, "feature_fraction", kctx);
+                k.feature_radius_m = get_double(*kt, "feature_radius_arcsec", kctx) * sky_m_per_arcsec;
+                if (feature_count > kMaxJetFeatures) {
+                    fail(kctx, "at most " + std::to_string(kMaxJetFeatures) + " compact features per jet");
+                }
+                if (!(k.feature_fraction > 0.0 && k.feature_fraction <= 1.0 && k.feature_radius_m > 0.0)) {
+                    fail(kctx, "feature_fraction must be in (0, 1] and feature_radius_arcsec positive");
+                }
+                const auto read_pair = [&](const toml::table& ft, std::string_view key) {
+                    double v[2];
+                    get_array(ft, key, kctx, v, 2, 2);
+                    if (!(std::isfinite(v[0]) && std::isfinite(v[1]))) {
+                        fail(kctx, std::string(key) + " must be finite");
+                    }
+                    return glm::dvec2(v[0], v[1]);
+                };
+                for (const auto& item : *features) {
+                    const auto* ft = item.as_table();
+                    if (!ft) {
+                        fail(kctx, "each feature must be a table");
+                    }
+                    JetFeature f;
+                    f.name = get_string(*ft, "name", kctx);
+                    f.weight = get_double_or(*ft, "weight", 1.0);
+                    if (!(std::isfinite(f.weight) && f.weight > 0.0)) {
+                        fail(kctx, "feature weight must be finite and positive");
+                    }
+                    f.offset_arcsec = read_pair(*ft, "xy_arcsec");
+                    f.motion_mas_yr = read_pair(*ft, "mu_mas_yr");
+                    if (ft->contains("acc_mas_yr2")) {
+                        f.acceleration_mas_yr2 = read_pair(*ft, "acc_mas_yr2");
+                    }
+                    f.first_year = get_double_or(*ft, "first_year", p.astrometry.first_year);
+                    f.last_year = get_double_or(*ft, "last_year", last_year);
+                    if (!(f.first_year >= p.astrometry.first_year && f.first_year < f.last_year &&
+                          f.last_year <= last_year)) {
+                        fail(kctx, "feature first_year and last_year must increase within the astrometric interval");
+                    }
+                    k.features.push_back(std::move(f));
+                }
+            }
+            p.knots.push_back(std::move(k));
         }
         if (p.knots.size() > static_cast<size_t>(kMaxJetKnots)) {
             fail(ctx, "at most " + std::to_string(kMaxJetKnots) + " knots");
+        }
+    }
+    // The approaching ridge passes through each knot's peaks: their weighted mean
+    // transverse offset at the knot's middle, linear in between, from 0 at the base.
+    for (const JetKnot& k : p.knots) {
+        double weight = 0.0, offset = 0.0;
+        for (const JetFeature& f : k.features) {
+            weight += f.weight;
+            offset += f.weight * f.offset_arcsec.y;
+        }
+        if (weight > 0.0) {
+            if (p.ridge.empty() && offset != 0.0) {
+                p.ridge.emplace_back(p.base_m, 0.0);
+            }
+            p.ridge.emplace_back(0.5 * (k.start_m + k.end_m), offset / weight);
         }
     }
     if (const toml::table* pr = t["precession"].as_table()) {
@@ -3138,6 +3218,24 @@ void Loader::parse(const toml::table& root, Scene& out)
                 }
                 curve.stars.push_back(i);
             }
+        }
+        if (olc->contains("jet_knot") || olc->contains("jet_body")) {
+            curve.jet_body = body_ref(out, *olc, "jet_body", ctx, false);
+            const auto& jet = out.bodies[static_cast<size_t>(curve.jet_body)].jet;
+            const std::string name = get_string(*olc, "jet_knot", ctx);
+            if (jet) {
+                for (size_t i = 0; i < jet->knots.size(); ++i) {
+                    if (jet->knots[i].name == name) {
+                        curve.jet_knot = static_cast<int>(i);
+                        break;
+                    }
+                }
+            }
+            if (curve.jet_knot < 0) {
+                fail(ctx, "unknown jet knot '" + name + "'");
+            }
+        }
+        if (!curve.stars.empty() || curve.jet_body >= 0) {
             curve.reference_magnitude = observed_magnitude_held(curve, parse_time(*olc, "reference_time", ctx));
         }
     }

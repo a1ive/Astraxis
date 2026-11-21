@@ -1,5 +1,6 @@
 #pragma once
 
+#include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 
 #include <string>
@@ -26,14 +27,53 @@ namespace astraxis {
 // The nozzle (the jet within the tilt range) leans by the precession half-angle: the
 // spine at height z lies at z tan(angle tau(zeta)) along x, tau rising from 0 to 1
 // between tilt_m[0] and tilt_m[1] and falling back between tilt_m[2] and tilt_m[3]
-// (log-smoothstep), so near the hole and far out the jet follows the mean axis.
+// (log-smoothstep). Beyond the nozzle a jet with astrometry follows the measured sky PA,
+// and the approaching ridge is displaced across the sky through the mean transverse
+// offsets of the knots' compact peaks (ridge).
+
+// A compact peak within a photometric aperture. Both coordinates are on the
+// observer's sky, along the astrometric position angle and 90 degrees east of it.
+// It is drawn from first_year to last_year, fading in over the year before and out
+// over the year after when those fall inside the astrometric interval.
+struct JetFeature {
+    std::string name;
+    glm::dvec2 offset_arcsec{0.0};       // at first_year
+    glm::dvec2 motion_mas_yr{0.0};       // at the velocity epoch
+    glm::dvec2 acceleration_mas_yr2{0.0};
+    double first_year = 0.0;
+    double last_year = 0.0;
+    double weight = 1.0; // relative photometry within the parent aperture
+    double flux = 0.0;   // as seen from Earth, in the prepared model's units
+};
+
+struct JetAstrometry {
+    double first_year = 0.0; // the measured interval
+    double last_year = 0.0;
+    double velocity_year = 0.0;
+    glm::dvec3 along_m{0.0}; // ICRF displacements per arcsecond in each sky coordinate
+    glm::dvec3 across_m{0.0};
+};
+
+inline constexpr double kJetFeatureRampYears = 1.0;
+
+glm::dvec3 jet_feature_position(const JetAstrometry& a, const JetFeature& f, double year);
+// 0 before a peak appears or after it fades, 1 while it is tracked.
+double jet_feature_visibility(const JetAstrometry& a, const JetFeature& f, double year);
+
 struct JetKnot {
     std::string name;
     double start_m = 0.0; // deprojected distance range along the jet (M)
     double end_m = 0.0;
     double flux = 0.0;    // measured flux density (any unit: only ratios matter)
     double line_brightness = 0.0; // intrinsic, per unit length (set by prepare_jet)
+    std::vector<JetFeature> features;
+    double feature_fraction = 0.0; // share of the approaching aperture flux in compact peaks
+    double feature_radius_m = 0.0;
 };
+
+// The approaching diffuse jet's share of a knot's flux at `year`: peaks not yet
+// visible (or faded) give their light back to the diffuse jet.
+double jet_knot_diffuse_share(const JetAstrometry& a, const JetKnot& k, double year);
 
 struct JetPrecession {
     double t0_year = 2000.0;            // reference time of Cui et al. 2023 eq. 1 (Julian years)
@@ -55,6 +95,10 @@ struct JetParams {
     double length_m = 2.0e7;        // and out over the last 10%
     double display_gain = 1.0;
     std::vector<JetKnot> knots;     // ordered outward, at most kMaxJetKnots
+    JetAstrometry astrometry;
+    // Approaching ridge across the sky: (height in M, offset in arcsec along
+    // astrometry.across_m), ascending, the first offset 0.
+    std::vector<glm::dvec2> ridge;
     bool precesses = false;
     JetPrecession precession;
     // Where the jet is on the sky, for the knots' projected positions and the
@@ -65,6 +109,7 @@ struct JetParams {
 };
 
 inline constexpr int kMaxJetKnots = 12;
+inline constexpr int kMaxJetFeatures = 24;
 
 // Cross-section profile (psi = s / w) and its area integral 2 pi int profile psi dpsi.
 double jet_profile(double psi);
@@ -77,8 +122,14 @@ double jet_radius_slope(const JetParams& p, double zeta);
 double jet_gamma_beta(const JetParams& p, double zeta);
 // Fraction of the precession half-angle the spine leans by at height zeta.
 double jet_tilt_fraction(const JetPrecession& p, double zeta);
-// Intrinsic brightness per unit length (relative units).
-double jet_line_brightness(const JetParams& p, double zeta);
+// Intrinsic brightness per unit length at the reference epoch. The exposure
+// uses the full aperture flux; the approaching diffuse jet excludes resolved peaks
+// (all of them visible).
+double jet_line_brightness(const JetParams& p, double zeta, bool exclude_features = false);
+// The approaching ridge's offset across the sky at height zeta (arcsec), and the
+// smallest k with |offset| <= k (zeta - ridge.front().x) (arcsec per M).
+double jet_ridge_offset(const JetParams& p, double zeta);
+double jet_ridge_slope_bound(const JetParams& p);
 // Doppler factor of the flow on the spine at height zeta seen at angle theta from it.
 double jet_doppler(const JetParams& p, double zeta, double theta);
 
@@ -87,12 +138,13 @@ double jet_doppler(const JetParams& p, double zeta, double theta);
 // taken out).
 void prepare_jet(JetParams& p, double theta_earth);
 
-// Observer-frame emissivity (relative units: line brightness per M^2) at x (jet frame,
+// Diffuse observer-frame emissivity at the reference epoch (line brightness per M^2) at x (jet frame,
 // M) seen from the unit direction to_camera, with the nozzle tilted by tan_tilt (tan of
-// the precession half-angle; 0 for none). min_width_m widens the jet (conserving its
-// line brightness) where it would be thinner than a pixel.
+// the precession half-angle; 0 for none). min_width_m widens subpixel jets at fixed
+// line brightness. outer_slope is the outer ridge's (dx/dz, dy/dz) in this jet frame,
+// across_m the (x, y) of astrometry.across_m in it (for the ridge offsets).
 double jet_emissivity(const JetParams& p, const glm::dvec3& x, const glm::dvec3& to_camera, double tan_tilt,
-                      double min_width_m = 0.0);
+                      double min_width_m = 0.0, glm::dvec2 outer_slope = {}, glm::dvec2 across_m = {});
 
 // Directions at a place on the sky (ICRF unit vectors): north, east and toward the observer.
 struct SkyAxes {
