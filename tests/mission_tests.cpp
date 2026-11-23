@@ -1800,6 +1800,24 @@ void test_isee3_scene()
         closest(craft, halley, utc({1986, 3, 25, 0, 0, 0}), 10 * kSecondsPerDay, 3600.0).first;
     check(std::abs(halley_min - 2.8e7) < 1.0e6, "closest to Halley (km)", halley_min);
 
+    // Halley's 2061 return: the 1986 solution (Horizons, JPL#75) against Yeomans' prediction
+    // from before 1986, "29 July 2061" (Marsden 1979, p. 186; [MAR79] in isee3.toml); the
+    // date read as July 29.0-30.0, with a day for the difference between the solutions.
+    // Hidden between its tables.
+    {
+        scene.update(utc({2000, 1, 1, 0, 0, 0}));
+        check(!scene.bodies[static_cast<size_t>(halley)].visible, "Halley hidden between 1987 and 2060");
+        scene.update(utc({2061, 7, 1, 0, 0, 0}));
+        check(scene.bodies[static_cast<size_t>(halley)].visible, "Halley shown in 2061");
+        const auto [q, t_q] = closest(halley, sun, utc({2061, 7, 29, 0, 0, 0}), 10 * kSecondsPerDay, 600.0);
+        const double off_d = (t_q - utc({2061, 7, 29, 12, 0, 0})) / kSecondsPerDay;
+        check(std::abs(off_d) < 1.5, "Halley's 2061 perihelion vs Yeomans' date (d)", off_d);
+        check(std::abs(q / kAuKm - 0.5928) < 0.0005, "Halley's 2061 perihelion distance (au)", q / kAuKm);
+        const auto [delta, t_delta] = closest(halley, earth, utc({2061, 7, 29, 0, 0, 0}), 5 * kSecondsPerDay, 600.0);
+        std::printf("info: Halley 2061: perihelion %s at %.4f au, closest to the Earth %s at %.4f au\n",
+                    format_utc(t_q).c_str(), q / kAuKm, format_utc(t_delta).c_str(), delta / kAuKm);
+    }
+
     // 1987-2013, between the 1986-1987 maneuvers and the 2014 return: "an aphelion of 1.03 AU,
     // a perihelion of 0.93 AU and an inclination of 0.1 deg" (Wikipedia, International
     // Cometary Explorer) and a "355-day orbit" (Dunham, Farquhar et al., IAC-14.B6.3.4).

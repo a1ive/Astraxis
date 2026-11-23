@@ -22,6 +22,9 @@
 # Pioneer 7, launched in 1966 and never maneuvered since, crossed the comet's wake 12 million
 # km downstream on 03-20; its 1986 position is integrated from its launch and published orbit.
 #
+# The last events jump to Halley's next return, perihelion on 2061-07-28: the 1986 orbit
+# solution carried forward, with no spacecraft.
+#
 # Sources
 # [REC]  tools/isee3/isee3_reconstruct.py (assets/ephem/SOURCES.md). Horizons only has ISEE-3
 #        in 2014, so 1978-1983 are ballistic arcs fitted to NASA GSFC SSCWeb positions and
@@ -34,8 +37,15 @@
 #        (~270 km) near the encounter.
 # [HZN]  JPL Horizons state vectors (tools/bake/ephem.toml): the Earth-Moon barycenter, the
 #        geocentric Moon (moon_isee3 for 1982-06 .. 1984-01, 0.5 km), Venus (1984-12 .. 1986, for
-#        Vega 1's flyby; [APX] outside it), comet Halley (JPL#75),
-#        ISEE-3 in 2014 (-111, JPL solution s45, fitted after the lunar flyby).
+#        Vega 1's flyby; [APX] outside it), comet Halley (JPL#75, 1985-1986; the same solution,
+#        observations 1835-1994, integrated with its non-gravitational terms for 2060-07 ..
+#        2062-07: perihelion 2061-07-28 17:17 TDB at 0.5928 au, closest to the Earth on 07-29,
+#        0.477 au, 21 deg from the Sun), ISEE-3 in 2014 (-111, JPL solution s45, fitted after
+#        the lunar flyby).
+# [MAR79] B. G. Marsden 1979, "Comet Halley and history", in Space Missions to Comets (NASA
+#        GSFC; NTRS 19800003728), p. 186: Yeomans "gives 29 July 2061 as the date of the
+#        following perihelion passage" (D. K. Yeomans 1977, AJ 82, 435, from the observations of
+#        1607-1911). tests/mission_tests.cpp checks [HZN] against it.
 # [FQ01] R. W. Farquhar 2001, "The Flight of ISEE-3/ICE: Origins, Mission History, and a
 #        Legacy", J. Astronaut. Sci. 49, 23: the last lunar flyby (p. 45, Fig. 23: in the
 #        Moon's shadow 18:19-18:47 UTC, 28 minutes; perilune 18:45, 120 km); maneuvers on
@@ -359,6 +369,9 @@ solar_wind_km_s = 400.0
 [bodies.orbit]                             # [HZN] 1P, 1985 .. 1986
 type = "ephemeris"
 file = "ephem/halley.eph"
+[bodies.orbit.fallback]                    # [HZN] 1P, 2060-07 .. 2062-07 (hidden in between)
+type = "ephemeris"
+file = "ephem/halley_2061.eph"
 
 # --- ISEE-3 / ICE -----------------------------------------------------------------------
 # A child of the Sun: heliocentric from 1983-12-31, before that a geocentric table added to
@@ -1002,3 +1015,35 @@ caption = """\
 [[events.trails]]
 body = "ISEE-3"
 trail_history_days = 13300.0
+
+# Epilogue: Halley's next return, from the 1986 solution [HZN]; the perihelion date agrees with
+# Yeomans' prediction from before 1986 [MAR79]. Perihelion 2061-07-28 17:17 TDB at 0.593 au;
+# closest to the Earth 2061-07-29 11:10 UTC, 0.477 au (71 million km), 21 deg from the Sun.
+[[events]]
+name = "Halley returns (2061)"
+time = "2061-06-15 00:00"
+focus = "Sun"
+frame = "Heliocentric"
+from_orbit_normal = "Earth-Moon barycenter"
+distance_km = 4.0e8
+warp = 86400.0             # a day per second: perihelion in about 45 seconds
+# [HZN], [MAR79]
+caption = """\
+    Seventy-five years after the Armada, Halley comes back. This time it rounds \
+    the Sun on the Earth's side: perihelion on 28 July 2061, and the next day it \
+    passes 71 million km from the Earth. In 1986 it went around behind the Sun."""
+
+# The camera on the Earth's side, a little farther from the comet than the Earth.
+[[events]]
+name = "Halley seen from the Earth's side (2061-07)"
+time = "2061-07-25 00:00"
+focus = "Halley"
+frame = "Earth-centered"
+from_body = "Earth"
+distance_km = 8.5e7
+warp = 3600.0
+# [HZN]
+caption = """\
+    Roughly the view from near the Earth at the end of July 2061: Halley's tails \
+    stream away from the Sun, which is only about 21 degrees from the comet in the \
+    sky, so the comet is seen low in twilight."""

@@ -1390,6 +1390,21 @@ base_step_minutes = 1440
 tolerance_km = 5.0
 kepler_gm_km3_s2 = 1.32712440041279419e11
 
+# The next return (perihelion 2061-07-28): the same solution (JPL#75, observations to 1994)
+# integrated forward with its non-gravitational terms. CAP<2062 picks up a newer solution
+# for this apparition if Horizons ever adds one.
+[[target]]
+name = "halley_2061"
+command = "DES=1P;CAP<2062"
+naif_id = 90000030          # Horizons record number (checked 2026-11-23)
+center = "500@10"
+center_naif_id = 10
+start = "2060-07-01"
+stop = "2062-07-01"
+base_step_minutes = 1440
+tolerance_km = 5.0
+kepler_gm_km3_s2 = 1.32712440041279419e11
+
 [[target]]
 name = "venus_1985"          # Vega 1's flyby (ISEE-3 scene); the approximate elements are
 command = "299"              # thousands of km off
