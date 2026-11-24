@@ -146,6 +146,12 @@ python -E -P tools/textures/make_spc_relief.py dione <bundle>/data/global assets
 python -E -P tools/textures/make_spc_relief.py rhea <bundle>/data assets/textures/rhea_relief.jpg
 ```
 
+## Pandora（《阿凡达》）
+
+`avatar_pandora.jpg`、`avatar_pandora_relief.jpg` 和 `avatar_pandora_clouds.jpg` 是项目原创的虚构地貌和云量图（GPL-3.0-or-later）。三张图均为 2048 × 1024 等距圆柱投影，西经 180° 位于左边。重建命令为 `python -E -P tools/textures/make_avatar_pandora.py assets/textures`，需要 NumPy 和 Pillow。
+
+地表沿用 Kerbin 的球面噪声算法，采用独立种子。按球面面积取 62% 为海洋，随水深从青绿浅滩过渡到深蓝色外海；陆地按湿度与高程绘制林地、山脊和少量积雪。同一条海岸线决定水面反光的边界，坡度按场景中的 5723.5 km 半径计算。云量图由独立的球面噪声生成，局部旋转采样方向使云带卷曲。运行时按纬度漂移云图，在海陆上方计算大气散射。
+
 ## Kerbol 系统（程序生成）
 
 Kerbol 场景 16 个天体的纹理（`kerbin.jpg`、`mun.jpg`、`minmus.jpg`、`moho.jpg`、`eve.jpg`、`gilly.jpg`、`duna.jpg`、`ike.jpg`、`dres.jpg`、`jool.jpg`、`laythe.jpg`、`vall.jpg`、`tylo.jpg`、`bop.jpg`、`pol.jpg`、`eeloo.jpg`）是虚构表面，由 `tools/textures/make_kerbol_textures.py` 生成，不含《坎巴拉太空计划》的任何游戏文件，也不模仿游戏里的具体地形；属于本项目的产物（GPL-3.0-or-later）。每个天体只保留辨识度最高的一两个特征：Kerbin 的海洋（约占 64% 面积）、绿色陆地、沙漠、雪山和冰盖，Mun 的灰色陨石坑，Minmus 的薄荷绿和边缘清晰的浅色平原，Moho 的深棕色坑，Eve 的紫色陆地和暗色海，Duna 的锈红色平原、暗色高地和极冠，Ike 的深灰坑，Dres 的灰色坑和几条暗色峡谷，Jool 的绿色条带和几个风暴卵形斑，Laythe 的海洋（约占 86%）和沙色群岛，Vall 的浅蓝冰面裂纹，Tylo 的大片明暗斑块，Eeloo 的白冰和棕色裂纹，Gilly、Bop、Pol 的棕灰、深棕和黄褐色。

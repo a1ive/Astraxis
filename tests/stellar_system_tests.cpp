@@ -230,16 +230,42 @@ void test_alpha_centauri_scene()
     // loaded states against the gravitational screening estimates [HW99, DWY06].
     const int poly = scene.find("Polyphemus (Avatar)");
     const int pandora = scene.find("Pandora (Avatar)");
-    check(poly >= 0 && pandora >= 0, "Avatar bodies exist");
+    const int isv = scene.find("ISV Venture Star");
+    check(poly >= 0 && pandora >= 0 && isv >= 0, "Avatar bodies exist");
+    if (poly < 0 || pandora < 0 || isv < 0) return;
     const Body& giant = scene.bodies[static_cast<size_t>(poly)];
     const Body& moon = scene.bodies[static_cast<size_t>(pandora)];
-    check(giant.parent == a && moon.parent == poly, "Avatar parent hierarchy");
-    check(giant.event >= 0 && moon.event == giant.event, "Avatar shares one event");
-    const double avatar_t = scene.events[static_cast<size_t>(giant.event)].t_tdb;
+    check(moon.atmosphere.enabled && moon.atmosphere.deck_altitude_km == 0.0 && moon.sea.wind_m_s > 0.0 &&
+              moon.clouds.albedo > 0.0, "Pandora has a transparent atmosphere, clouds and reflective seas");
+    const TestImage surface = load_test_image(moon.texture.c_str());
+    const TestImage relief = load_test_image(moon.relief.texture.c_str());
+    const TestImage clouds = load_test_image(moon.clouds.texture.c_str());
+    check(surface.height > 0 && surface.width == 2 * surface.height &&
+              relief.width == surface.width && relief.height == surface.height &&
+              clouds.width == surface.width && clouds.height == surface.height,
+          "Pandora's surface, relief and cloud maps load on the same cylindrical grid");
+    const Body& ship = scene.bodies[static_cast<size_t>(isv)];
+    check(giant.parent == a && moon.parent == poly && ship.parent == pandora, "Avatar parent hierarchy");
+    check(giant.event >= 0 && moon.event == giant.event && ship.event == giant.event, "Avatar shares one event");
+    if (giant.event < 0) return;
+    const SceneEvent& arrival = scene.events[static_cast<size_t>(giant.event)];
+    const double avatar_t = arrival.t_tdb;
+    check(arrival.focus == isv && ship.kind == BodyKind::Spacecraft && ship.shape && !ship.shape->map_v.empty(),
+          "Avatar arrival focuses the textured Venture Star mesh");
+    check(std::abs(glm::length(ship.motion->eval(avatar_t).position) - 30000.0) < 0.01,
+          "Venture Star parking orbit about Pandora (km)");
+    if (ship.shape) {
+        double extent = 0.0;
+        for (const glm::vec3& p : ship.shape->positions) {
+            extent = std::max(extent, glm::length(glm::dvec3(p)));
+        }
+        check(extent > 0.74 && extent <= ship.equatorial_radius_km,
+              "Venture Star mesh in km fits the camera clearance", extent);
+    }
     for (int event : {-1, giant.event, -1}) {
         scene.set_active_event(event);
         scene.update(avatar_t);
-        check(giant.visible == (event >= 0) && moon.visible == (event >= 0),
+        check(giant.visible == (event >= 0) && moon.visible == (event >= 0) && ship.visible == (event >= 0),
               "Avatar visibility on entry and exit");
     }
     const State pg = giant.motion->eval(avatar_t);

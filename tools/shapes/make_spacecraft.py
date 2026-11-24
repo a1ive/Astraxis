@@ -42,6 +42,12 @@ RAY_START_KM = 3e-6
 
 
 CRAFT = {
+    # Authored in metres, exported from Blender with Y forward and Z up.
+    'venture_star': {
+        'file': 'isv/venture_star.obj', 'origin_m': (0, 0, 0), 'scale': 1.0,
+        'body_x': (1, 0, 0), 'body_z': (0, 0, 1), 'bake_sun': False,
+        'atlas_width': 64, 'format': 'png',
+    },
     # The dish (3.81 m in the model) is 3.7 m (the scene's [VOY]). The model's +y is the way
     # the dish faces.
     'voyager': {

@@ -130,6 +130,9 @@
 #      These are one published interpretation: Avatar.com's Pandorapedia instead
 #      calls Polyphemus Neptune-sized. Neither source supplies complete orbits.
 #      https://www.avatar.com/pandorapedia/polyphemus
+# [ISV] Avatar, ISV (Venture Star and its debris shields):
+#      https://www.avatar.com/pandorapedia/isv
+#      Ship geometry and Blender rebuild instructions: assets/shapes/SOURCES.md.
 # [AVMODEL] Fictional reconstruction, not a fit to the real Ab candidate:
 #      Polyphemus: assumed Jupiter mass (JUP365 GM, bodies/jupiter.toml), circular
 #      1.25 au orbit coplanar/prograde with AB. A supplies 0.964 Earth insolation.
@@ -137,6 +140,8 @@
 #      rotation (6.45 days, not the Wiki's 27-hour day or 29-degree obliquity).
 #      Both phases are arbitrary at 2154.0; colours and giant bands are artistic.
 #      Nested Kepler orbits omit stellar/moon perturbations, tides and reflex motion.
+#      Pandora's terrain and clouds: tools/textures/make_avatar_pandora.py.
+#      Ocean fraction, winds and atmospheric scattering are illustrative.
 # [HW99] Holman & Wiegert 1999, AJ 117, 621, eq. 1 (initially circular coplanar
 #      test particles): https://arxiv.org/abs/astro-ph/9809315
 #      With [AK21], A's circumstellar critical semimajor axis is about 2.74 au.
@@ -357,7 +362,27 @@ radii_km = [5723.5]            # [AV]
 body_gm_km3_s2 = 286992.313565 # 0.72 Earth [AV]
 synchronous = true            # assumed [AVMODEL]
 color = "#5a998c"
+texture = "textures/avatar_pandora.jpg"
+texture_left_lon_deg = -180.0
 orbit_color = "#83d8b9"
+[bodies.atmosphere]            # [AVMODEL] assumed clear air with a low haze
+height_km = 80.0
+rayleigh_depth = 0.125
+rayleigh_scale_height_km = 9.0
+haze_depth = 0.006
+haze_scale_height_km = 1.5
+haze_albedo = 0.9
+haze_g = 0.8
+[bodies.clouds]
+texture = "textures/avatar_pandora_clouds.jpg"
+albedo = 0.78
+tropical_drift_deg_per_day = -4.0
+midlatitude_drift_deg_per_day = 8.0
+[bodies.relief]
+texture = "textures/avatar_pandora_relief.jpg"
+[bodies.sea]                   # water glint, as on Kerbin
+wind_m_s = 7.0
+refractive_index = 1.333
 [bodies.orbit]                 # [AVMODEL]
 type = "visual_orbit"
 gm_km3_s2 = 126973524.213565
@@ -367,6 +392,29 @@ i_deg = 79.2430
 node_deg = 205.073
 arg_peri_deg = 90.0
 t_peri_year = 2154.0
+sky_ra_dec_deg = [219.85892215, -60.83163195]
+
+[[bodies]]
+name = "ISV Venture Star"
+parent = "Pandora (Avatar)"
+kind = "spacecraft"
+radii_km = [0.77]              # encloses the 1.5 km schematic [ISV]
+shape = "shapes/venture_star.mesh"
+texture = "textures/venture_star.png"
+color = "#e2e4df"
+fill_light = 0.20
+pole_ra_dec_deg = [191.7, -9.1] # fixed illustrative attitude, +x along the spine
+prime_meridian_deg = [68.1, 0.0]
+trail = "none"
+[bodies.orbit]                 # illustrative circular parking orbit, coplanar with Pandora
+type = "visual_orbit"
+gm_km3_s2 = 286992.313565      # Pandora alone [AVMODEL]
+a_au = 0.000200537613668       # 30000 km from Pandora's centre
+e = 0.0
+i_deg = 79.2430
+node_deg = 205.073
+arg_peri_deg = 115.0           # chosen to frame both worlds on arrival
+t_peri_jd_tdb = 2507793.5
 sky_ra_dec_deg = [219.85892215, -60.83163195]
 
 [[bodies]]
@@ -567,20 +615,19 @@ up = "orbit_normal:Pandora (Avatar)"
 
 [[events]]
 name = "Avatar: Polyphemus and Pandora (fictional reconstruction)"
-time = "2154-01-01"            # illustrative epoch, not a dated film scene
-focus = "Polyphemus (Avatar)"
-distance_km = 2800000.0
-warp = 10800.0                 # 3 hours per second; Pandora circles in about 52 s
+time = "2154-01-02"            # illustrative epoch chosen to show both terminators
+focus = "ISV Venture Star"
+distance_km = 1.85
+warp = 1.0
 frame = "Polyphemus-centered (Avatar)"
-from_body = "Alpha Centauri A"
-phase_deg = 35.0
-elevation_deg = 25.0
-show = ["Polyphemus (Avatar)", "Pandora (Avatar)"]
-# [AV], [AVMODEL], [HW99], [DWY06]
+from_body = "Polyphemus (Avatar)"
+phase_deg = 191.0
+elevation_deg = 8.0
+show = ["Polyphemus (Avatar)", "Pandora (Avatar)", "ISV Venture Star"]
+# [AV], [AVMODEL], [HW99], [DWY06], [ISV]
 caption = """\
-    In Avatar, Pandora is a moon of Polyphemus, a gas giant orbiting Alpha \
-    Centauri A. This fictional reconstruction places the giant at 1.25 au \
-    and Pandora a million km from it, on a 6.45-day orbit. Both fit within \
-    approximate gravitational stability limits. Their orbits and the giant's \
-    mass are assumed; the colours are illustrative. The real Ab candidate \
-    belongs to a separate observational interpretation."""
+    The ISV Venture Star circles Pandora. The blue, banded world beyond it is \
+    Polyphemus. In this reconstruction the gas giant orbits Alpha Centauri A \
+    at 1.25 au, and Pandora circles the giant in 6.45 days at a million km. \
+    Both orbits fit approximate stability limits. The orbits, giant's mass and \
+    colours are illustrative. The real Ab candidate has a separate interpretation."""
