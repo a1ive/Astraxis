@@ -5,20 +5,31 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <memory>
 #include <string>
 #include <vector>
 
 namespace astraxis {
 
-// Loads a JPEG/PNG as an sRGB RGBA8 texture with a full mip chain (sampling
-// returns linear values). Returns nullptr and sets `error` on failure;
-// `width` (optional) receives the image width.
-SDL_GPUTexture* load_texture_srgb(SDL_GPUDevice* device, const std::filesystem::path& path, std::string* error,
-                                  uint32_t* width = nullptr);
+// A JPEG/PNG decoded to RGBA8 on the CPU, not yet a texture: decoding is the
+// slow part of a texture load and may run on any thread, the upload may not.
+struct DecodedImage {
+    struct Free {
+        void operator()(uint8_t* pixels) const;
+    };
+    std::unique_ptr<uint8_t, Free> pixels; // null if the file could not be read or decoded
+    uint32_t width = 0;
+    uint32_t height = 0;
+    std::string source; // the file, for messages
+    std::string error;  // why `pixels` is null
+};
 
-// Loads a JPEG/PNG whose channels are plain numbers, not colors (a relief map): RGBA8 with a
-// full mip chain, sampled as stored.
-SDL_GPUTexture* load_texture_linear(SDL_GPUDevice* device, const std::filesystem::path& path, std::string* error);
+DecodedImage decode_image(const std::filesystem::path& path);
+
+// An RGBA8 texture of a decoded image with a full mip chain: sRGB for colors
+// (sampling returns linear values), plain for numbers such as a relief map.
+// Returns nullptr and sets `error` if the image is empty or the upload fails.
+SDL_GPUTexture* upload_image(SDL_GPUDevice* device, const DecodedImage& image, bool srgb, std::string* error);
 
 // RGBA8 texture with optional mipmaps; `srgb` selects the sRGB format (sampling
 // decodes to linear), otherwise values are used as they are.

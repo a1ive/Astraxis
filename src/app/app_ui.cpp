@@ -182,6 +182,11 @@ void App::build_ui()
     ImGui::NewFrame();
 
     m_panel_rects.clear();
+    if (!m_has_scene) {
+        draw_loading_spinner();
+        ImGui::Render();
+        return;
+    }
     if (m_show_labels) {
         build_labels();
     }
@@ -196,7 +201,44 @@ void App::build_ui()
         draw_light_curve_plot();
     }
     draw_captions();
+    if (scene_loading()) {
+        draw_loading_spinner();
+    }
     ImGui::Render();
+}
+
+void App::draw_loading_spinner()
+{
+    // Quick loads pass without a flash: fade in after a moment.
+    constexpr double kDelay = 0.2;
+    constexpr double kFade = 0.3;
+    constexpr double kTurnSeconds = 1.2;
+    const float alpha = static_cast<float>(std::clamp((m_loading_age - kDelay) / kFade, 0.0, 1.0));
+    if (alpha <= 0.0f) {
+        return;
+    }
+    const float scale = ImGui::GetStyle().FontScaleDpi;
+    const ImVec2 size = ImGui::GetIO().DisplaySize;
+    const ImVec2 center(size.x * 0.5f, size.y * 0.5f);
+    const float radius = 16.0f * scale;
+    const float width = 2.5f * scale;
+    const float start = static_cast<float>(std::fmod(m_loading_age, kTurnSeconds) / kTurnSeconds * 2.0 * kPi);
+    const char* name = m_scene_names[requested_scene()].c_str();
+    const ImVec2 text = ImGui::CalcTextSize(name);
+    const float gap = 10.0f * scale;
+    const float pad = 14.0f * scale;
+
+    ImDrawList* draw = ImGui::GetForegroundDrawList();
+    // A dark plate: the focused body (a bright star) is often right behind the center.
+    const float half_w = std::max(radius, text.x * 0.5f) + pad;
+    draw->AddRectFilled(ImVec2(center.x - half_w, center.y - radius - pad),
+                        ImVec2(center.x + half_w, center.y + radius + gap + text.y + pad),
+                        ImGui::GetColorU32(ImVec4(0.0f, 0.0f, 0.0f, 0.55f * alpha)), 8.0f * scale);
+    draw->AddCircle(center, radius, ImGui::GetColorU32(ImVec4(1.0f, 1.0f, 1.0f, 0.15f * alpha)), 48, width);
+    draw->PathArcTo(center, radius, start, start + 1.5f * static_cast<float>(kPi), 36);
+    draw->PathStroke(ImGui::GetColorU32(ImVec4(1.0f, 1.0f, 1.0f, 0.8f * alpha)), 0, width);
+    draw->AddText(ImVec2(center.x - text.x * 0.5f, center.y + radius + gap),
+                  ImGui::GetColorU32(ImVec4(1.0f, 1.0f, 1.0f, 0.7f * alpha)), name);
 }
 
 void App::build_control_panel()
@@ -209,10 +251,11 @@ void App::build_control_panel()
     // --- Scene ---
     if (m_scene_files.size() > 1) {
         ImGui::SetNextItemWidth(200.0f * ImGui::GetStyle().FontScaleDpi); // as the View combos
-        if (ImGui::BeginCombo("Scene", m_scene_names[m_scene_index].c_str())) {
+        const size_t requested = requested_scene();
+        if (ImGui::BeginCombo("Scene", m_scene_names[requested].c_str())) {
             for (size_t i = 0; i < m_scene_files.size(); ++i) {
-                if (ImGui::Selectable(m_scene_names[i].c_str(), i == m_scene_index) && i != m_scene_index) {
-                    load_scene(i);
+                if (ImGui::Selectable(m_scene_names[i].c_str(), i == requested) && i != requested) {
+                    request_scene(i);
                 }
             }
             ImGui::EndCombo();

@@ -46,8 +46,9 @@ public:
     bool begin_frame(Frame& frame);
     void end_frame(Frame& frame);
 
-    // Begins a pass that draws on top of the swapchain texture (e.g. ImGui).
-    static SDL_GPURenderPass* begin_overlay_pass(const Frame& frame);
+    // Begins a pass that draws on top of the swapchain texture (e.g. ImGui),
+    // or on black (`clear`) when no scene was drawn.
+    static SDL_GPURenderPass* begin_overlay_pass(const Frame& frame, bool clear = false);
 
 private:
     const GpuDevice* m_device = nullptr;

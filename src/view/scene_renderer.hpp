@@ -22,6 +22,7 @@
 #include "render/ring_pass.hpp"
 #include "render/starfield_pass.hpp"
 #include "render/sun_pass.hpp"
+#include "render/texture.hpp"
 #include "scene/comet.hpp"
 #include "scene/star_catalog.hpp"
 #include "view/view_options.hpp"
@@ -32,6 +33,8 @@
 #include <array>
 #include <cstdint>
 #include <filesystem>
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace astraxis {
@@ -42,6 +45,18 @@ struct Body;
 class Simulation;
 struct Frame;
 struct OutputView;
+
+// A scene's image files decoded ahead of SceneRenderer::load_scene, which then
+// only uploads them. Keyed by the asset path as the scene gives it.
+struct SceneImages {
+    std::unordered_map<std::string, DecodedImage> images;
+};
+
+// Decodes the maps load_scene would read for `scene`; it touches no renderer or
+// GPU state, so it may run on another thread. `loaded_milky_way` is the map the
+// renderer already holds (SceneRenderer::milky_way_path), not decoded again.
+SceneImages decode_scene_images(const Scene& scene, const std::filesystem::path& asset_dir,
+                                const std::string& loaded_milky_way);
 
 // Draws a Simulation: turns its scene into the passes' draw items, renders
 // them into the frame's scene targets and tonemaps the result into its
@@ -59,7 +74,9 @@ public:
 
     // Replaces the GPU resources of the previous scene (textures, meshes, belts,
     // sky). `output_height` (pixels) sizes the stars of the black-hole lensing sky.
-    void load_scene(const Scene& scene, const ViewOptions& options, uint32_t output_height);
+    // Maps missing from `images` (all of them by default) are decoded here.
+    void load_scene(const Scene& scene, const ViewOptions& options, uint32_t output_height, SceneImages images = {});
+    const std::string& milky_way_path() const { return m_milky_way_path; }
 
     // Records the frame (its swapchain texture must be present). The host may
     // draw an overlay on the swapchain texture afterwards.

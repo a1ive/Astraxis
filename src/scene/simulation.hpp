@@ -59,6 +59,9 @@ public:
     // Loads a scene file and starts at the scene's own time and view; a running
     // tour goes on in the new scene. On failure nothing changes.
     bool load_scene(const std::filesystem::path& file, std::string* error);
+    // The same for a scene already read by load_scene_file, the slow part
+    // (integrations, tables), which a host may run on another thread.
+    void start_scene(Scene&& scene);
 
     // Advances the clock, the scene, the tour and the camera by `real_dt` seconds.
     void update(double real_dt);

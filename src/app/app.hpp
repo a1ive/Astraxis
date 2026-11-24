@@ -11,6 +11,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <future>
 #include <optional>
 #include <string>
 #include <vector>
@@ -34,7 +35,8 @@ struct LaunchOptions {
 class App {
 public:
     bool init(const LaunchOptions& options);
-    void run();
+    // False if the first scene could not be loaded.
+    bool run();
     void shutdown();
 
 private:
@@ -48,12 +50,25 @@ private:
     void build_labels();
     void draw_captions();  // the scene title card and the last event's caption
     void draw_light_curve_plot();
+    void draw_loading_spinner(); // while a scene is read in the background
     void toggle_caption(); // dismisses the event caption, or shows it again
     void set_msaa(int samples);
     void set_render_scale(float scale);
     void render();
 
-    bool load_scene(size_t index);
+    // Scenes are read on a worker thread (the file, its integrations and its
+    // maps) while the window keeps drawing the previous one; the latest request wins.
+    struct SceneLoad {
+        bool ok = false;
+        Scene scene;
+        SceneImages images;
+        std::string error;
+    };
+    void request_scene(size_t index);
+    void poll_scene_load(); // starts the scene once it has been read
+    void start_scene(SceneLoad&& load);
+    bool scene_loading() const { return m_loading.valid(); }
+    size_t requested_scene() const; // the one loading or queued, else the one shown
     void save_settings();
 
     // Auto tour (idle mode).
@@ -88,8 +103,14 @@ private:
     std::filesystem::path m_asset_dir;
     std::vector<std::filesystem::path> m_scene_files;
     std::vector<std::string> m_scene_names; // each file's own `name`, for the scene list
-    size_t m_scene_index = 0;
+    size_t m_scene_index = 0; // the scene shown
     std::string m_scene_error;
+    bool m_has_scene = false; // false until the first scene has loaded: only the spinner is drawn
+    std::future<SceneLoad> m_loading;
+    size_t m_loading_index = 0;
+    std::optional<size_t> m_next_scene; // requested while another was loading
+    double m_loading_age = 0.0;         // seconds since the load started (the spinner fades in)
+    int m_start_event = 0;              // the command line's --event, for the first scene
 
     bool m_initialized = false; // init succeeded: save the settings on shutdown
     bool m_running = false;

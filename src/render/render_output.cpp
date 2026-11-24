@@ -76,11 +76,12 @@ void RenderOutput::end_frame(Frame& frame)
     frame = {};
 }
 
-SDL_GPURenderPass* RenderOutput::begin_overlay_pass(const Frame& frame)
+SDL_GPURenderPass* RenderOutput::begin_overlay_pass(const Frame& frame, bool clear)
 {
     SDL_GPUColorTargetInfo color = {};
     color.texture = frame.swapchain;
-    color.load_op = SDL_GPU_LOADOP_LOAD;
+    color.clear_color = {0.0f, 0.0f, 0.0f, 1.0f};
+    color.load_op = clear ? SDL_GPU_LOADOP_CLEAR : SDL_GPU_LOADOP_LOAD;
     color.store_op = SDL_GPU_STOREOP_STORE;
     return SDL_BeginGPURenderPass(frame.cmd, &color, 1, nullptr);
 }

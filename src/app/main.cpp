@@ -223,9 +223,9 @@ int main(int argc, char* argv[])
     }
 
     astraxis::App app;
-    const bool ok = app.init(options);
+    bool ok = app.init(options);
     if (ok) {
-        app.run();
+        ok = app.run();
     }
     app.shutdown();
     return ok ? 0 : 1;

@@ -2,6 +2,7 @@
 
 #include "app/scene_list.hpp"
 #include "platform/paths.hpp"
+#include "scene/scene_loader.hpp"
 
 #include <SDL3/SDL.h>
 #include <imgui.h>
@@ -9,6 +10,7 @@
 #include <imgui_impl_sdlgpu3.h>
 
 #include <algorithm>
+#include <chrono>
 
 namespace astraxis {
 
@@ -111,21 +113,15 @@ bool App::init(const LaunchOptions& options)
         SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Scene '%s' not found", scene.c_str());
     }
 
-    if (m_scene_files.empty() || !load_scene(m_scene_index)) {
-        const std::string message = m_scene_files.empty()
-                                        ? "No scenes found in " + (m_asset_dir / "scenes").string()
-                                        : m_scene_error;
+    if (m_scene_files.empty()) {
+        const std::string message = "No scenes found in " + (m_asset_dir / "scenes").string();
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", message.c_str());
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Astraxis", message.c_str(), m_window.handle());
         return false;
     }
-    if (options.event > 0) {
-        if (static_cast<size_t>(options.event) <= m_sim.scene().events.size()) {
-            m_sim.jump_to_event(static_cast<size_t>(options.event - 1));
-        } else {
-            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Scene has no event %d", options.event);
-        }
-    }
+    // The window shows the spinner until the scene is ready (see run).
+    m_start_event = options.event;
+    request_scene(m_scene_index);
 
     m_start_scene = m_scene_files[m_scene_index].stem().string();
     m_last_counter = SDL_GetPerformanceCounter();
@@ -135,10 +131,11 @@ bool App::init(const LaunchOptions& options)
     return true;
 }
 
-void App::run()
+bool App::run()
 {
     while (m_running) {
         handle_events();
+        poll_scene_load();
         if (!m_running) {
             break;
         }
@@ -146,13 +143,16 @@ void App::run()
         const uint64_t now = SDL_GetPerformanceCounter();
         const double real_dt = static_cast<double>(now - m_last_counter) / SDL_GetPerformanceFrequency();
         m_last_counter = now;
+        m_loading_age += real_dt;
 
         if (m_window.is_minimized()) {
             SDL_Delay(50);
             continue;
         }
 
-        update(std::min(real_dt, kMaxRealDt));
+        if (m_has_scene) {
+            update(std::min(real_dt, kMaxRealDt));
+        }
         build_ui();
         render();
 
@@ -165,10 +165,16 @@ void App::run()
         }
         m_frame_start_ns = SDL_GetTicksNS();
     }
+    return m_initialized;
 }
 
 void App::shutdown()
 {
+    if (m_loading.valid()) {
+        // The reading cannot be cut short: let it finish out of sight.
+        SDL_HideWindow(m_window.handle());
+        m_loading.wait();
+    }
     if (m_initialized) {
         save_settings();
         m_initialized = false;
@@ -260,6 +266,9 @@ void App::handle_key(const SDL_Event& event)
     if (event.key.repeat) {
         return;
     }
+    if (!m_has_scene && key != SDLK_F11) {
+        return; // nothing to control yet
+    }
     note_activity(false);
 
     SimClock& clock = m_sim.clock();
@@ -331,15 +340,69 @@ void App::handle_key(const SDL_Event& event)
     }
 }
 
-bool App::load_scene(size_t index)
+void App::request_scene(size_t index)
+{
+    if (scene_loading()) {
+        m_next_scene = index;
+        return;
+    }
+    m_loading_index = index;
+    m_loading_age = 0.0;
+    // Copies only: the worker shares nothing with the window's thread.
+    m_loading = std::async(std::launch::async, [file = m_scene_files[index], asset_dir = m_asset_dir,
+                                                milky_way = m_scene_renderer.milky_way_path()] {
+        SceneLoad load;
+        const uint64_t start = SDL_GetTicksNS();
+        load.ok = load_scene_file(file, load.scene, &load.error);
+        const uint64_t read = SDL_GetTicksNS();
+        if (load.ok) {
+            load.images = decode_scene_images(load.scene, asset_dir, milky_way);
+        }
+        SDL_LogVerbose(SDL_LOG_CATEGORY_APPLICATION, "Scene %s read in %.2f s, its maps decoded in %.2f s",
+                       file.stem().string().c_str(), static_cast<double>(read - start) / SDL_NS_PER_SECOND,
+                       static_cast<double>(SDL_GetTicksNS() - read) / SDL_NS_PER_SECOND);
+        return load;
+    });
+}
+
+size_t App::requested_scene() const
+{
+    return m_next_scene ? *m_next_scene : scene_loading() ? m_loading_index : m_scene_index;
+}
+
+void App::poll_scene_load()
+{
+    if (!scene_loading() || m_loading.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
+        return;
+    }
+    SceneLoad load = m_loading.get();
+    if (m_next_scene) {
+        const size_t next = *m_next_scene;
+        m_next_scene.reset();
+        if (next != m_loading_index || !load.ok) {
+            request_scene(next); // superseded: this one is dropped
+            return;
+        }
+    }
+    if (!load.ok) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", load.error.c_str());
+        m_scene_error = load.error;
+        if (!m_has_scene) {
+            SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Astraxis", load.error.c_str(), m_window.handle());
+            m_initialized = false; // nothing was shown: keep the settings as they are
+            m_running = false;
+        }
+        return;
+    }
+    start_scene(std::move(load));
+}
+
+void App::start_scene(SceneLoad&& load)
 {
     const bool touring = m_sim.touring();
-    if (!m_sim.load_scene(m_scene_files[index], &m_scene_error)) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", m_scene_error.c_str());
-        return false;
-    }
+    m_sim.start_scene(std::move(load.scene));
     m_scene_error.clear();
-    m_scene_index = index;
+    m_scene_index = m_loading_index;
     m_labels.reset();
     if (touring) {
         m_pointer_idle = kPointerHideSeconds; // the tour goes on: hide the panel right away
@@ -351,8 +414,19 @@ bool App::load_scene(size_t index)
     // The frame drawn next must not see the previous scene's bodies.
     m_sim.compute_view(width, height, m_window.content_scale(), m_view);
     m_scene_renderer.load_scene(m_sim.scene(), m_view_options,
-                                static_cast<uint32_t>(static_cast<float>(std::max(height, 0)) * m_render_scale));
-    return true;
+                                static_cast<uint32_t>(static_cast<float>(std::max(height, 0)) * m_render_scale),
+                                std::move(load.images));
+
+    if (!m_has_scene) {
+        m_has_scene = true;
+        if (m_start_event > 0) {
+            if (static_cast<size_t>(m_start_event) <= m_sim.scene().events.size()) {
+                m_sim.jump_to_event(static_cast<size_t>(m_start_event - 1));
+            } else {
+                SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Scene has no event %d", m_start_event);
+            }
+        }
+    }
 }
 
 void App::set_msaa(int samples)
@@ -463,9 +537,11 @@ void App::render()
 
     if (frame.swapchain && frame.width > 0 && frame.height > 0) {
         ImGui_ImplSDLGPU3_PrepareDrawData(draw_data, frame.cmd); // a copy pass: before the render passes
-        m_scene_renderer.render(frame, m_sim, m_view, m_view_options);
+        if (m_has_scene) {
+            m_scene_renderer.render(frame, m_sim, m_view, m_view_options);
+        }
 
-        SDL_GPURenderPass* overlay = RenderOutput::begin_overlay_pass(frame);
+        SDL_GPURenderPass* overlay = RenderOutput::begin_overlay_pass(frame, !m_has_scene);
         ImGui_ImplSDLGPU3_RenderDrawData(draw_data, frame.cmd, overlay);
         SDL_EndGPURenderPass(overlay);
     }

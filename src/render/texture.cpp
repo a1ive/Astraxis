@@ -75,55 +75,51 @@ SDL_GPUTexture* create_and_upload(SDL_GPUDevice* device, const uint8_t* rgba, ui
 
 } // namespace
 
-namespace {
-
-SDL_GPUTexture* load_texture(SDL_GPUDevice* device, const std::filesystem::path& path, std::string* error,
-                             uint32_t* width, bool srgb)
+void DecodedImage::Free::operator()(uint8_t* pixels) const
 {
+    stbi_image_free(pixels);
+}
+
+DecodedImage decode_image(const std::filesystem::path& path)
+{
+    DecodedImage image;
+    image.source = path.string();
     std::ifstream file(path, std::ios::binary);
     if (!file) {
-        if (error) {
-            *error = "cannot open " + path.string();
-        }
-        return nullptr;
+        image.error = "cannot open " + image.source;
+        return image;
     }
     const std::vector<char> bytes((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 
     int w = 0;
     int h = 0;
     int channels = 0;
-    stbi_uc* pixels = stbi_load_from_memory(reinterpret_cast<const stbi_uc*>(bytes.data()),
-                                            static_cast<int>(bytes.size()), &w, &h, &channels, 4);
-    if (!pixels) {
+    // stb_image keeps its failure reason per thread (STBI_THREAD_LOCAL), so
+    // images may be decoded on several threads at once.
+    image.pixels.reset(stbi_load_from_memory(reinterpret_cast<const stbi_uc*>(bytes.data()),
+                                             static_cast<int>(bytes.size()), &w, &h, &channels, 4));
+    if (!image.pixels) {
+        image.error = image.source + ": " + stbi_failure_reason();
+        return image;
+    }
+    image.width = static_cast<uint32_t>(w);
+    image.height = static_cast<uint32_t>(h);
+    return image;
+}
+
+SDL_GPUTexture* upload_image(SDL_GPUDevice* device, const DecodedImage& image, bool srgb, std::string* error)
+{
+    if (!image.pixels) {
         if (error) {
-            *error = path.string() + ": " + stbi_failure_reason();
+            *error = image.error;
         }
         return nullptr;
     }
-
-    SDL_GPUTexture* texture =
-        create_and_upload(device, pixels, static_cast<uint32_t>(w), static_cast<uint32_t>(h), true, srgb);
-    stbi_image_free(pixels);
+    SDL_GPUTexture* texture = create_and_upload(device, image.pixels.get(), image.width, image.height, true, srgb);
     if (!texture && error) {
-        *error = path.string() + ": GPU upload failed";
-    }
-    if (texture && width) {
-        *width = static_cast<uint32_t>(w);
+        *error = image.source + ": GPU upload failed";
     }
     return texture;
-}
-
-} // namespace
-
-SDL_GPUTexture* load_texture_srgb(SDL_GPUDevice* device, const std::filesystem::path& path, std::string* error,
-                                  uint32_t* width)
-{
-    return load_texture(device, path, error, width, true);
-}
-
-SDL_GPUTexture* load_texture_linear(SDL_GPUDevice* device, const std::filesystem::path& path, std::string* error)
-{
-    return load_texture(device, path, error, nullptr, false);
 }
 
 SDL_GPUTexture* create_texture_rgba8(SDL_GPUDevice* device, const uint8_t* rgba, uint32_t width, uint32_t height,

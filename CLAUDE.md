@@ -27,6 +27,7 @@ ctest --test-dir build/linux -C Release --output-on-failure --no-tests=error
 - 用 `--scene <名称> --event <n>` 打开指定事件，编号从 1 开始。运行时读取 exe 旁的资源副本，改动 `assets/` 后重新构建。场景改名或删除时清理构建目录中对应的旧副本。
 - [截图脚本](tools/capture/capture_window.ps1) 的 `-Config` 可传入一个空配置文件以复现默认设置。镜头未就位时调大 `-WaitSeconds`，留出空闲 60 秒自动导览的余量。检查颜色时留意展签遮挡和 ACES 色调映射。
 - Release 和系统启动的屏保用 `ASTRAXIS_LOG=<文件>` 收集日志。测试 `.scr` 参数时用 `ProcessStartInfo` 并设置 `UseShellExecute = false`，否则文件关联会插入 `/S`。`astraxis_layer_probe.exe` 可用 GDI 单独测试 Windows 壁纸挂载。
+- `SDL_LOGGING=app=verbose` 会记下每次读场景和解码贴图的耗时。启动后约第 10 帧，`SDL_WaitAndAcquireGPUSwapchainTexture` 常会等 0.4–1 s，窗口模式也一样。这是系统合成器的预热，和场景加载无关。
 
 ## 架构与约定
 
@@ -41,6 +42,7 @@ ctest --test-dir build/linux -C Release --output-on-failure --no-tests=error
 - 依赖按表中顺序向下。`astraxis_sim` 包含 `core`、`ephem`、`scene`，`astraxis_settings` 负责设置，两者均独立于 SDL 和 GPU。图形后端统一使用 SDL_GPU，保持现有分层和小型程序的范围。
 - `MotionSource::eval(t_tdb)` 返回相对父天体的 ICRF 状态。`Scene::update` 沿父子链得到 `icrf_position`，再经 `FrameTransform` 得到供相机、导演、标签和渲染使用的 `world_position`。测试中先更新场景再读位置或光照。`Scene::icrf_state_at` 返回相对场景根的状态，求相对轨道时先减去中心天体。
 - 宿主每帧推进一次 `Simulation`，再为每个输出计算视图并渲染。GPU 设备共享，交换链和 `SceneTargets` 属于各输出，各自等待交换链。屏保 `.scr` 由主程序复制，`/p` 的跨进程预览使用 GDI。壁纸和屏保设置的优先级为代码默认值 → `[view]` → 模式小节 → 命令行。
+- 窗口版在工作线程上读场景（`load_scene_file`）并解码贴图（`decode_scene_images`），读完后回到主线程，用 `Simulation::start_scene` 和 `SceneRenderer::load_scene` 接管。这期间旧场景照常绘制，并叠加一个转圈；首次启动时是黑底转圈。所以 `scene/`、`ephem/`、`core/` 的加载路径里不能有可变的全局或静态缓存。壁纸和屏保仍在启动时同步加载。
 - 仿真时间为自 J2000 起的 TDB 秒数，使用 `double`。长度用 km、时间用 s、GM 用 km³/s²。积分型运动生成节点表或使用滚动窗口，以支持跳时和倒放。
 - CPU 使用右手系和双精度位置。先以双精度减相机位置，再转为 GPU 的 float。深度用 reversed-Z。渲染在线性 HDR 空间计算，配置和代码中的颜色常量用 sRGB，颜色纹理用 sRGB 格式。
 - 类型用 `PascalCase`，函数和变量用 `snake_case`，成员加 `m_`，常量加 `k`。代码和注释使用英文，项目内开发说明使用中文。

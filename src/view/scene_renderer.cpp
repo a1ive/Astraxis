@@ -853,10 +853,43 @@ void SceneRenderer::shutdown()
     m_device = nullptr;
 }
 
-void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, uint32_t output_height)
+SceneImages decode_scene_images(const Scene& scene, const std::filesystem::path& asset_dir,
+                                const std::string& loaded_milky_way)
+{
+    SceneImages out;
+    const auto add = [&](const std::string& path) {
+        if (!path.empty() && !out.images.contains(path)) {
+            out.images.emplace(path, decode_image(asset_dir / path));
+        }
+    };
+    // As SceneRenderer::load_scene reads them: the other maps only with a surface map.
+    for (const Body& body : scene.bodies) {
+        if (body.texture.empty()) {
+            continue;
+        }
+        add(body.texture);
+        add(body.night_lights.texture);
+        add(body.relief.texture);
+        add(body.clouds.texture);
+    }
+    if (scene.sky.milky_way != loaded_milky_way) {
+        add(scene.sky.milky_way);
+    }
+    return out;
+}
+
+void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, uint32_t output_height,
+                               SceneImages images)
 {
     SDL_WaitForGPUIdle(m_device->device());
     release_body_textures();
+    const auto image = [&](const std::string& path) -> const DecodedImage& {
+        auto it = images.images.find(path);
+        if (it == images.images.end()) {
+            it = images.images.emplace(path, decode_image(m_asset_dir / path)).first;
+        }
+        return it->second;
+    };
 
     m_dust_tails.assign(scene.bodies.size(), DustTail{});
     m_bound_tails.assign(scene.bodies.size(), BoundDustTail{});
@@ -944,28 +977,27 @@ void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, u
             continue;
         }
         std::string error;
-        m_body_textures[i] = load_texture_srgb(m_device->device(), m_asset_dir / body.texture, &error);
+        m_body_textures[i] = upload_image(m_device->device(), image(body.texture), true, &error);
         if (!m_body_textures[i]) {
             SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Texture for %s unavailable: %s", body.name.c_str(),
                         error.c_str());
         }
         if (!body.night_lights.texture.empty()) {
-            m_night_textures[i] =
-                load_texture_srgb(m_device->device(), m_asset_dir / body.night_lights.texture, &error);
+            m_night_textures[i] = upload_image(m_device->device(), image(body.night_lights.texture), true, &error);
             if (!m_night_textures[i]) {
                 SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Night lights for %s unavailable: %s",
                             body.name.c_str(), error.c_str());
             }
         }
         if (!body.relief.texture.empty()) {
-            m_relief_textures[i] = load_texture_linear(m_device->device(), m_asset_dir / body.relief.texture, &error);
+            m_relief_textures[i] = upload_image(m_device->device(), image(body.relief.texture), false, &error);
             if (!m_relief_textures[i]) {
                 SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Relief map for %s unavailable: %s", body.name.c_str(),
                             error.c_str());
             }
         }
         if (!body.clouds.texture.empty()) {
-            m_cloud_textures[i] = load_texture_linear(m_device->device(), m_asset_dir / body.clouds.texture, &error);
+            m_cloud_textures[i] = upload_image(m_device->device(), image(body.clouds.texture), false, &error);
             if (!m_cloud_textures[i]) {
                 SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Clouds for %s unavailable: %s", body.name.c_str(),
                             error.c_str());
@@ -993,8 +1025,9 @@ void SceneRenderer::load_scene(const Scene& scene, const ViewOptions& options, u
         m_milky_way_width = 0;
         if (!m_milky_way_path.empty()) {
             std::string error;
-            m_milky_way = load_texture_srgb(m_device->device(), m_asset_dir / m_milky_way_path, &error,
-                                            &m_milky_way_width);
+            const DecodedImage& map = image(m_milky_way_path);
+            m_milky_way = upload_image(m_device->device(), map, true, &error);
+            m_milky_way_width = m_milky_way ? map.width : 0;
             if (!m_milky_way) {
                 SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Milky Way map unavailable: %s", error.c_str());
             }

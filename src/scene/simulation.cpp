@@ -150,6 +150,12 @@ bool Simulation::load_scene(const std::filesystem::path& file, std::string* erro
     if (!load_scene_file(file, scene, error)) {
         return false;
     }
+    start_scene(std::move(scene));
+    return true;
+}
+
+void Simulation::start_scene(Scene&& scene)
+{
     m_scene = std::move(scene);
     m_rotor_turns.assign(m_scene.bodies.size(), 0.0);
     m_io = -1;
@@ -196,7 +202,6 @@ bool Simulation::load_scene(const std::filesystem::path& file, std::string* erro
     if (touring) {
         start_tour();
     }
-    return true;
 }
 
 void Simulation::update(double real_dt)
