@@ -102,6 +102,39 @@ void LabelLayout::update(const Scene& scene, const OutputView& view, int focus, 
         }
     }
 
+    m_snapshot_labels.clear();
+    if (const int event = scene.active_event(); event >= 0) {
+        const OrbitSnapshots& snaps = scene.events[static_cast<size_t>(event)].orbit_snapshots;
+        const Body* center = snaps.enabled() ? &scene.bodies[static_cast<size_t>(snaps.center)] : nullptr;
+        glm::vec2 center_screen(0.0f);
+        float w = 0.0f;
+        const bool center_shown = center && project(center->world_position - cam, &center_screen, &w);
+        for (const OrbitSnapshot& snap : snaps.orbits) {
+            const glm::vec3 color = scene.bodies[static_cast<size_t>(snaps.body)].orbit_color;
+            auto add = [&](const KeplerElements& el, const std::string& text, const glm::vec3& c) {
+                glm::vec2 s;
+                if (!text.empty() && project(scene.orbit_snapshot_point(snaps, el, 0.0) - cam, &s, &w)) {
+                    const glm::vec2 d = s - center_screen;
+                    const float length = glm::length(d);
+                    m_snapshot_labels.push_back({&text, s, center_shown && length > 1.0f ? d / length : glm::vec2(0.0f), c});
+                }
+            };
+            const size_t first = m_snapshot_labels.size();
+            add(snap.elements, snap.label, color);
+            if (snap.newtonian) {
+                add(newtonian_elements(snap, center->gm_km3_s2, snaps.newtonian_from_tdb), snap.newtonian_label,
+                    glm::mix(color, glm::vec3(0.55f), 0.6f));
+                if (m_snapshot_labels.size() == first + 2) {
+                    // Each label away from the other periapsis.
+                    SnapshotLabel& real = m_snapshot_labels[first];
+                    SnapshotLabel& newton = m_snapshot_labels[first + 1];
+                    real.side = real.position.x >= newton.position.x ? 1.0f : -1.0f;
+                    newton.side = -real.side;
+                }
+            }
+        }
+    }
+
     struct Candidate {
         int body;
         int rank;

@@ -21,7 +21,7 @@ Astraxis is an astronomy background app with planets, spacecraft and stars anima
 | Uranus | Eccentric rings, Voyager 2's flyby, a tilted magnetic field and seasonal infrared glow |
 | Neptune | Voyager 2, dark spots, Adams ring arcs, Triton's plumes and infrared aurora |
 | Trans-Neptunian Objects | Neptune's Trojans and resonant, classical, scattered and detached objects, with resonances seen in Neptune's turning frame |
-| Mercury: MESSENGER & BepiColombo | Gravity assists and orbits around Mercury |
+| Mercury: MESSENGER & BepiColombo | Gravity assists and orbits around Mercury; its perihelion turning over 18,000 years |
 | Venus | Venus Express, Akatsuki, Zoozve and spacecraft flybys |
 | Mars | Phobos and Deimos, Mars orbiters, and comets Siding Spring and 3I/ATLAS |
 | Rosetta & 67P | Rosetta's comet rendezvous and Philae's landing |

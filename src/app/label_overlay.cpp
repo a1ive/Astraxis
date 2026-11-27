@@ -49,6 +49,16 @@ void draw_labels(LabelLayout& labels, const Scene& scene, const OutputView& view
                       scene.markers[static_cast<size_t>(marker.marker)].name.c_str());
     }
 
+    // An event's orbit snapshots: each label beyond its periapsis, away from the center.
+    for (const LabelLayout::SnapshotLabel& label : labels.snapshot_labels()) {
+        const ImVec2 size = ImGui::CalcTextSize(label.text->c_str());
+        const bool ends_at = label.side != 0.0f ? label.side < 0.0f : label.outward.x < 0.0f;
+        const glm::vec2 at = label.position + label.outward * (0.6f * font_size) +
+                             glm::vec2(ends_at ? -size.x : 0.0f, (0.5f * label.outward.y - 0.5f) * size.y);
+        draw->AddText(ImVec2(at.x, at.y), to_imgui_color(glm::mix(label.color, glm::vec3(1.0f), 0.4f), 0.85f * alpha),
+                      label.text->c_str());
+    }
+
     const float dot_radius = LabelLayout::kMarkerRadius;
     for (const LabelLayout::BodyMark& mark : labels.bodies()) {
         const Body& body = scene.bodies[static_cast<size_t>(mark.body)];

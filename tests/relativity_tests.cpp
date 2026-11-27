@@ -332,6 +332,90 @@ void test_post_keplerian()
           "post-Keplerian orbit line starts at the body and closes");
 }
 
+// Mercury's perihelion over 18,000 years (mercury.toml, DE441 elements [HZNE]): the
+// orbit at J2000 and the turning rate agree with Standish's Table 2a ([APX], fit to an
+// independent JPL ephemeris over 3000 BC .. AD 3000), the relativistic share is the
+// textbook 43"/century, and the Newtonian orbit of AD 9000 lies 0.84 deg behind.
+void test_mercury_perihelion_snapshots()
+{
+    Scene scene = load_scene_or_die("mercury.toml");
+    const int sun = scene.find("Sun");
+    const OrbitSnapshots* fan = nullptr;
+    const OrbitSnapshots* close = nullptr;
+    for (const SceneEvent& e : scene.events) {
+        if (e.orbit_snapshots.enabled()) {
+            (e.orbit_snapshots.orbits.size() > 2 ? fan : close) = &e.orbit_snapshots;
+        }
+    }
+    check(fan && close && fan->center == sun && close->center == sun, "Mercury: two orbit-snapshot events around the Sun");
+    if (!fan || !close) {
+        return;
+    }
+    auto varpi_deg = [](const OrbitSnapshot& s) {
+        return std::fmod((s.elements.node + s.elements.arg_peri) * kRadToDeg + 720.0, 360.0);
+    };
+    const OrbitSnapshot* j2000 = nullptr;
+    for (const OrbitSnapshot& s : fan->orbits) {
+        if (std::abs(s.t_tdb) < 1.0) {
+            j2000 = &s;
+        }
+    }
+    check(j2000 != nullptr, "Mercury: a snapshot at J2000");
+    if (!j2000) {
+        return;
+    }
+    // [APX] Table 2a at J2000: longitude of perihelion 77.45771895 deg, e 0.20563661,
+    // i 7.00559432 deg (osculating elements wobble by ~0.01 deg).
+    check(std::abs(varpi_deg(*j2000) - 77.45771895) < 0.01, "Mercury J2000 longitude of perihelion vs Standish",
+          varpi_deg(*j2000));
+    check(std::abs(j2000->elements.e - 0.20563661) < 2e-5, "Mercury J2000 eccentricity vs Standish", j2000->elements.e);
+    check(std::abs(j2000->elements.i * kRadToDeg - 7.00559432) < 0.002, "Mercury J2000 inclination vs Standish",
+          j2000->elements.i * kRadToDeg);
+    // The turning over 18,000 years: [APX] 0.15940013 deg/century.
+    const OrbitSnapshot& first = fan->orbits.front();
+    const OrbitSnapshot& last = fan->orbits.back();
+    const double centuries = (last.t_tdb - first.t_tdb) / (kDaysPerJulianCentury * kSecondsPerDay);
+    double turn = varpi_deg(last) - varpi_deg(first);
+    turn += turn < 0.0 ? 360.0 : 0.0;
+    check(std::abs(turn / centuries / 0.15940013 - 1.0) < 0.01, "Mercury perihelion rate vs Standish (deg/century)",
+          turn / centuries);
+    const glm::dvec3 p0 = glm::normalize(orbit_point_icrf(first.elements, 0.0));
+    const glm::dvec3 p1 = glm::normalize(orbit_point_icrf(last.elements, 0.0));
+    check(std::abs(std::acos(glm::dot(p0, p1)) * kRadToDeg - 28.9) < 0.1, "Mercury perihelion direction turns 28.9 deg",
+          std::acos(glm::dot(p0, p1)) * kRadToDeg);
+
+    // General relativity: 42.98"/century (e.g. Park et al. 2017, AJ 153, 121).
+    const double gm = scene.bodies[static_cast<size_t>(sun)].gm_km3_s2;
+    const double rate = relativistic_apsidal_rate(gm, j2000->elements.a, j2000->elements.e) * kRadToDeg * 3600.0 *
+                        kDaysPerJulianCentury * kSecondsPerDay;
+    check(std::abs(rate - 42.98) < 0.01, "Mercury relativistic perihelion advance (arcsec/century)", rate);
+
+    // AD 9000 without it: 0.84 deg behind in the orbit plane, about 670,000 km at the perihelion.
+    const OrbitSnapshot& ad9000 = close->orbits.back();
+    check(ad9000.newtonian && std::abs(close->newtonian_from_tdb) < 1.0, "Mercury: AD 9000 Newtonian from J2000");
+    const KeplerElements newton = newtonian_elements(ad9000, gm, close->newtonian_from_tdb);
+    const glm::dvec3 real = orbit_point_icrf(ad9000.elements, 0.0);
+    const glm::dvec3 ghost = orbit_point_icrf(newton, 0.0);
+    const double angle = std::acos(glm::dot(glm::normalize(real), glm::normalize(ghost))) * kRadToDeg;
+    check(std::abs(angle - 0.836) < 0.003, "Mercury AD 9000 Newtonian perihelion offset (deg)", angle);
+    check(std::abs(glm::length(real - ghost) - 6.70e5) < 0.05e5, "Mercury AD 9000 Newtonian perihelion gap (km)",
+          glm::length(real - ghost));
+    check(std::abs(glm::length(real - orbit_point_icrf(close->orbits.front().elements, 0.0)) - 8.92e6) < 0.05e6,
+          "Mercury perihelia of AD 2000 and AD 9000 apart (km)",
+          glm::length(real - orbit_point_icrf(close->orbits.front().elements, 0.0)));
+    // The close-up's camera looks at the three perihelia (its aim is their middle, within a
+    // fourteenth of the 14 million km to it).
+    for (const SceneEvent& e : scene.events) {
+        if (&e.orbit_snapshots == close) {
+            const glm::dvec3 mid = (real + ghost + orbit_point_icrf(close->orbits.front().elements, 0.0)) / 3.0;
+            check(glm::length(e.aim_offset_km - mid) < 1e6, "Mercury close-up aims at the perihelia",
+                  glm::length(e.aim_offset_km - mid));
+            check(std::abs(glm::length(e.observer_offset_km - e.aim_offset_km) - 1.4e7) < 1e5,
+                  "Mercury close-up camera 14 million km away", glm::length(e.observer_offset_km - e.aim_offset_km));
+        }
+    }
+}
+
 void test_psr_b1913_scene()
 {
     Scene scene = load_scene_or_die("psr_b1913.toml");
@@ -2525,6 +2609,7 @@ void run_relativity_tests()
     test_tilted_orbit_matches_equatorial();
     test_kerr_schwarzschild_precession();
     test_post_keplerian();
+    test_mercury_perihelion_snapshots();
     test_psr_b1913_scene();
     test_psr_j1141_scene();
     test_pulsar_field_lines();

@@ -30,6 +30,16 @@
 #        - Mercury and Venus (body centers), heliocentric 2004-07-01 .. 2027-04-12 / 2030;
 #          the Earth-Moon barycenter 1972..2100 and the geocentric Moon (Earth and Moon
 #          around their barycenter, as in solar_system.toml).
+# [HZNE] JPL Horizons (DE441), retrieved 2026-11-27: Mercury's geometric osculating elements
+#        around the Sun's center, ecliptic and mean equinox of J2000 (EPHEM_TYPE = ELEMENTS,
+#        CENTER = 500@10, REF_PLANE = ECLIPTIC), at JD 2451545.0 + k * 365250 TDB, k = -11..7:
+#        J2000 and every 1000 Julian years from it (Horizons' calendar dates: B.C. 9002-Dec-19
+#        to A.D. 9000-Feb-22). A straight-line fit gives 573.7"/century for the longitude of
+#        perihelion ([APX]: 573.8"). The short-period wobble of osculating elements is about
+#        35" peak to peak (daily elements 1990-2030), under 0.01 deg.
+# [REL]  The relativistic perihelion advance, 3 GM^1.5 / (c^2 a^2.5 (1 - e^2)) with the Sun's
+#        GM [GM] and these elements: 42.98"/century at J2000 (scene/orbit_snapshot.hpp;
+#        tests/relativity_tests.cpp).
 # [APX]  E. M. Standish, Approximate Positions of the Planets, Table 2a: Mars, and the
 #        others outside their baked spans.
 # [GM]   JPL SSD astrodynamic parameters (DE440), https://ssd.jpl.nasa.gov/astro_par.html
@@ -556,3 +566,74 @@ caption = """\
     cloth sunshade keeps its instruments out of the sunlight, and its two solar panels are \
     two-thirds mirrors, to stay cool. The roll about the shade's axis and the light on the \
     shaded side are illustrative."""
+
+# Mercury's perihelion over 18,000 years: its orbit every 1000 Julian years [HZNE], from
+# above. The perihelion lines fan out by 28.9 deg.
+[[events]]
+name = "Mercury's turning orbit, 9002 BC to AD 9000"
+time_tdb = "2000-01-01 12:00"
+focus = "Sun"
+from_orbit_normal = "Mercury"
+distance_km = 1.8e8
+warp = 86400.0
+hide_orbits = true
+# [HZNE], [REL]
+caption = """\
+    Mercury's orbit every thousand years for eighteen thousand years, from JPL's DE441 \
+    ephemeris. Its point nearest the Sun, the perihelion, swings round by 29 degrees, \
+    574 arcseconds a century. The pull of Venus, Jupiter and the other planets explains \
+    most of this. Newton's gravity left 43 arcseconds a century unexplained, until \
+    Einstein's general relativity accounted for them in 1915."""
+[events.orbit_snapshots]
+body = "Mercury"
+# Osculating elements [HZNE]: epoch, semi-major axis, eccentricity, and the inclination,
+# ascending node and argument of perihelion in the ecliptic and mean equinox of J2000.
+orbits = [
+    { jd_tdb = -1566205.0, a_km = 5.790917e7, e = 0.2033440, i_deg = 7.607857, node_deg = 61.381271, arg_peri_deg = 358.450742, label = "9002 BC" },
+    { jd_tdb = -1200955.0, a_km = 5.790943e7, e = 0.2035220, i_deg = 7.562055, node_deg = 60.227673, arg_peri_deg = 1.214495 },
+    { jd_tdb = -835705.0, a_km = 5.790916e7, e = 0.2037118, i_deg = 7.513556, node_deg = 59.074039, arg_peri_deg = 3.981640 },
+    { jd_tdb = -470455.0, a_km = 5.790927e7, e = 0.2039320, i_deg = 7.462895, node_deg = 57.917256, arg_peri_deg = 6.746844 },
+    { jd_tdb = -105205.0, a_km = 5.790917e7, e = 0.2041225, i_deg = 7.409846, node_deg = 56.754682, arg_peri_deg = 9.517643 },
+    { jd_tdb = 260045.0, a_km = 5.790905e7, e = 0.2043513, i_deg = 7.355208, node_deg = 55.586394, arg_peri_deg = 12.292111 },
+    { jd_tdb = 625295.0, a_km = 5.790913e7, e = 0.2045644, i_deg = 7.298957, node_deg = 54.408246, arg_peri_deg = 15.071673 },
+    { jd_tdb = 990545.0, a_km = 5.790897e7, e = 0.2047804, i_deg = 7.241442, node_deg = 53.220169, arg_peri_deg = 17.861699 },
+    { jd_tdb = 1355795.0, a_km = 5.790905e7, e = 0.2050093, i_deg = 7.183069, node_deg = 52.020050, arg_peri_deg = 20.660126 },
+    { jd_tdb = 1721045.0, a_km = 5.790901e7, e = 0.2052086, i_deg = 7.123990, node_deg = 50.805247, arg_peri_deg = 23.466900 },
+    { jd_tdb = 2086295.0, a_km = 5.790898e7, e = 0.2054392, i_deg = 7.064529, node_deg = 49.577184, arg_peri_deg = 26.291048 },
+    { jd_tdb = 2451545.0, a_km = 5.790907e7, e = 0.2056303, i_deg = 7.005014, node_deg = 48.330539, arg_peri_deg = 29.124282, label = "AD 2000" },
+    { jd_tdb = 2816795.0, a_km = 5.790892e7, e = 0.2058351, i_deg = 6.945568, node_deg = 47.067561, arg_peri_deg = 31.976066 },
+    { jd_tdb = 3182045.0, a_km = 5.790907e7, e = 0.2060341, i_deg = 6.886609, node_deg = 45.785851, arg_peri_deg = 34.842479 },
+    { jd_tdb = 3547295.0, a_km = 5.790892e7, e = 0.2062100, i_deg = 6.828287, node_deg = 44.483176, arg_peri_deg = 37.725294 },
+    { jd_tdb = 3912545.0, a_km = 5.790901e7, e = 0.2063972, i_deg = 6.770725, node_deg = 43.160627, arg_peri_deg = 40.631375 },
+    { jd_tdb = 4277795.0, a_km = 5.790900e7, e = 0.2065600, i_deg = 6.714505, node_deg = 41.816115, arg_peri_deg = 43.546295 },
+    { jd_tdb = 4643045.0, a_km = 5.790897e7, e = 0.2067228, i_deg = 6.659303, node_deg = 40.448488, arg_peri_deg = 46.492698 },
+    { jd_tdb = 5008295.0, a_km = 5.790908e7, e = 0.2068672, i_deg = 6.605788, node_deg = 39.057945, arg_peri_deg = 49.450953, label = "AD 9000" },
+]
+
+# The same perihelia of AD 2000 and AD 9000 up close, 8.9 million km apart, and in grey
+# that of AD 9000 without the relativistic advance since 2000 [REL]: 0.84 deg, 670,000 km
+# short. The camera is 14 million km from the three, 45 deg from the orbit's normal in AD
+# 9000, tilted outward about the line through them so that they lie across the screen
+# and the Sun is ahead, above them (ICRF offsets from the Sun).
+[[events]]
+name = "Mercury's perihelion: the relativistic 43 arcseconds"
+time_tdb = "2000-01-01 12:00"
+focus = "Sun"
+observer = "Sun"
+observer_offset_km = [6.375e6, 4.4196e7, 3.4638e7]
+aim_offset_km = [4.489e6, 4.0246e7, 2.1340e7]
+warp = 86400.0
+hide_orbits = true
+# [HZNE], [REL]
+caption = """\
+    Mercury's perihelion in AD 2000 and in AD 9000, nine million kilometres apart. In grey, \
+    where the AD 9000 perihelion would be under Newton's gravity, with only the planets' \
+    pull. General relativity adds 43 arcseconds a century: 0.84 degrees over these seven \
+    thousand years, or 670,000 km here, about half the Sun's width."""
+[events.orbit_snapshots]
+body = "Mercury"
+newtonian_from_jd_tdb = 2451545.0
+orbits = [
+    { jd_tdb = 2451545.0, a_km = 5.790907e7, e = 0.2056303, i_deg = 7.005014, node_deg = 48.330539, arg_peri_deg = 29.124282, label = "AD 2000" },
+    { jd_tdb = 5008295.0, a_km = 5.790908e7, e = 0.2068672, i_deg = 6.605788, node_deg = 39.057945, arg_peri_deg = 49.450953, label = "AD 9000", newtonian = true, newtonian_label = "AD 9000 without relativity" },
+]

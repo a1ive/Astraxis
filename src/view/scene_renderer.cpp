@@ -2487,6 +2487,55 @@ void SceneRenderer::build_orbit_lines(const Simulation& sim, const OutputView& o
     }
 }
 
+// The active event's orbit snapshots (SceneEvent::orbit_snapshots): each orbit whole, the
+// older ones fainter, with its periapsis line (from the periapsis in toward the center,
+// fading); an orbit without general relativity in grey.
+void SceneRenderer::build_orbit_snapshots(const Simulation& sim, const OutputView& output_view,
+                                          const ViewOptions& options)
+{
+    const Scene& scene = sim.scene();
+    const int event = scene.active_event();
+    if (!options.orbits || event < 0) {
+        return;
+    }
+    const OrbitSnapshots& snaps = scene.events[static_cast<size_t>(event)].orbit_snapshots;
+    if (!snaps.enabled()) {
+        return;
+    }
+    const Body& body = scene.bodies[static_cast<size_t>(snaps.body)];
+    const Body& center = scene.bodies[static_cast<size_t>(snaps.center)];
+    const glm::dvec3& cam = output_view.camera.position;
+    const double gap = center.equatorial_radius_km * 1.5;
+    constexpr int kSnapshotPoints = 720;
+    auto add = [&](const KeplerElements& el, const glm::vec3& color, float opacity) {
+        m_line_points.clear();
+        for (int k = 0; k <= kSnapshotPoints; ++k) {
+            const double nu = kTwoPi * k / kSnapshotPoints;
+            m_line_points.emplace_back(to_render(scene.orbit_snapshot_point(snaps, el, nu), cam), 0.0f);
+        }
+        m_orbits.add_line(m_line_points, glm::vec4(color, opacity), 1.0f);
+        const glm::dvec3 peri = scene.orbit_snapshot_point(snaps, el, 0.0);
+        const glm::dvec3 out = peri - center.world_position;
+        if (glm::length(out) <= gap) {
+            return;
+        }
+        m_line_points.clear();
+        m_line_points.emplace_back(to_render(peri, cam), 0.0f);
+        m_line_points.emplace_back(to_render(center.world_position + glm::normalize(out) * gap, cam), 1.0f);
+        m_orbits.add_line(m_line_points, glm::vec4(glm::mix(color, glm::vec3(1.0f), 0.5f), opacity), 0.2f);
+    };
+    const glm::vec3 newtonian_color = glm::mix(body.orbit_color, glm::vec3(0.55f), 0.6f);
+    const size_t n = snaps.orbits.size();
+    for (size_t k = 0; k < n; ++k) {
+        const OrbitSnapshot& snap = snaps.orbits[k];
+        const float age = n > 1 ? static_cast<float>(k) / static_cast<float>(n - 1) : 1.0f;
+        add(snap.elements, body.orbit_color, kOrbitOpacity * (0.3f + 0.7f * age));
+        if (snap.newtonian) {
+            add(newtonian_elements(snap, center.gm_km3_s2, snaps.newtonian_from_tdb), newtonian_color, kOrbitOpacity);
+        }
+    }
+}
+
 void SceneRenderer::build_pulsar_lines(const Simulation& sim, const OutputView& output_view, size_t body_index)
 {
     const Scene& scene = sim.scene();
@@ -3010,6 +3059,7 @@ void SceneRenderer::render(const Frame& frame, const Simulation& sim, const Outp
         glm::smoothstep(kNeutronStarMinRadiusPx, kNeutronStarFullRadiusPx, largest_radius_px));
     build_body_items(sim, output_view, options, neutron_star);
     build_orbit_lines(sim, output_view, options);
+    build_orbit_snapshots(sim, output_view, options);
     build_magnetic_lines(sim, output_view, options); // in the same pass, after the orbits
     build_magnetospheres(sim, output_view, options);
     build_habitable_zones(sim, output_view, options);

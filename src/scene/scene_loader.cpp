@@ -440,6 +440,7 @@ private:
     void parse_nbody(const toml::table& t, Scene& out);
     void load_pulsation_table(const std::string& file, const std::string& ctx, Pulsation& out);
     void parse_event_ghost(const toml::table* t, const std::string& ctx, int event, SceneEvent& e, Scene& out);
+    void parse_orbit_snapshots(const toml::table* t, const std::string& ctx, OrbitSnapshots& s, const Scene& out);
     std::shared_ptr<const EphemerisTable> load_table(const std::string& file, const std::string& ctx);
     void load_ring_profile(const std::string& file, const std::string& ctx, RingSystem& rings) const;
     void load_belt(const std::string& file, const std::string& ctx, SceneBelt& belt) const;
@@ -2953,6 +2954,9 @@ void Loader::parse(const toml::table& root, Scene& out)
                     e.magnetosphere.push_back(state);
                 }
             }
+            if (const toml::node* snapshots = t->get("orbit_snapshots")) {
+                parse_orbit_snapshots(snapshots->as_table(), ctx, e.orbit_snapshots, out);
+            }
             e.focus_orbits_only = (*t)["focus_orbits_only"].value<bool>().value_or(false);
             e.light_curve_span_days = get_double_or(*t, "light_curve_span_days", 0.0);
             e.hide_orbits = (*t)["hide_orbits"].value<bool>().value_or(false);
@@ -3935,6 +3939,63 @@ void Loader::build_roche_star(const RocheSpec& spec, Scene& out) const
     star.shape = std::shared_ptr<const ShapeModel>(surface, &surface->mesh);
     star.roche = std::move(surface);
     star.synchronous_with = c;
+}
+
+// [events.orbit_snapshots]: `body`'s orbit around its parent at several epochs,
+// `orbits` = [{ jd_tdb, a_km, e, i_deg, node_deg, arg_peri_deg, label?, newtonian?,
+// newtonian_label? }, ...], oldest first, in the mean ecliptic and equinox of J2000.
+// With `newtonian`, also that orbit without the relativistic advance since
+// `newtonian_from_jd_tdb` (around the parent's GM).
+void Loader::parse_orbit_snapshots(const toml::table* t, const std::string& event_ctx, OrbitSnapshots& s,
+                                   const Scene& out)
+{
+    const std::string ctx = event_ctx + ", orbit_snapshots";
+    if (!t) {
+        fail(ctx, "must be a table");
+    }
+    s.body = body_ref(out, *t, "body", ctx, false);
+    s.center = out.bodies[static_cast<size_t>(s.body)].parent;
+    if (s.center < 0) {
+        fail(ctx, "the body has no parent to go around");
+    }
+    const toml::array* orbits = (*t)["orbits"].as_array();
+    if (!orbits || orbits->empty()) {
+        fail(ctx, "orbits must be a non-empty array of tables");
+    }
+    bool newtonian = false;
+    for (const auto& node : *orbits) {
+        const toml::table* o = node.as_table();
+        if (!o) {
+            fail(ctx, "orbits must be an array of tables");
+        }
+        OrbitSnapshot snap;
+        snap.t_tdb = (get_double(*o, "jd_tdb", ctx) - kJ2000Jd) * kSecondsPerDay;
+        if (!s.orbits.empty() && snap.t_tdb <= s.orbits.back().t_tdb) {
+            fail(ctx, "orbits must be in time order");
+        }
+        KeplerElements& el = snap.elements;
+        el.a = get_double(*o, "a_km", ctx);
+        el.e = get_double(*o, "e", ctx);
+        if (el.a <= 0.0 || el.e < 0.0 || el.e >= 1.0) {
+            fail(ctx, "each orbit needs a positive a_km and 0 <= e < 1");
+        }
+        el.i = get_double(*o, "i_deg", ctx) * kDegToRad;
+        el.node = get_double(*o, "node_deg", ctx) * kDegToRad;
+        el.arg_peri = get_double(*o, "arg_peri_deg", ctx) * kDegToRad;
+        snap.label = get_string_or(*o, "label", "");
+        snap.newtonian = (*o)["newtonian"].value<bool>().value_or(false);
+        snap.newtonian_label = get_string_or(*o, "newtonian_label", "");
+        newtonian = newtonian || snap.newtonian;
+        s.orbits.push_back(std::move(snap));
+    }
+    if (newtonian) {
+        if (out.bodies[static_cast<size_t>(s.center)].gm_km3_s2 <= 0.0) {
+            fail(ctx, "a newtonian orbit needs the parent's gm_km3_s2");
+        }
+        s.newtonian_from_tdb = (get_double(*t, "newtonian_from_jd_tdb", ctx) - kJ2000Jd) * kSecondsPerDay;
+    } else if (t->contains("newtonian_from_jd_tdb")) {
+        fail(ctx, "newtonian_from_jd_tdb is for orbits marked newtonian");
+    }
 }
 
 // [events.ghost]: a Ghost body coasting from `body`'s state just before the burn.

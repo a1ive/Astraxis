@@ -1,6 +1,7 @@
 #pragma once
 
 #include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 
 #include <functional>
@@ -37,6 +38,18 @@ public:
         glm::vec2 position; // on screen
     };
 
+    // A label of the active event's orbit snapshots (SceneEvent::orbit_snapshots), next to
+    // its periapsis; not placed against the others.
+    struct SnapshotLabel {
+        const std::string* text;
+        glm::vec2 position; // the periapsis on screen
+        glm::vec2 outward;  // on screen, away from the center (unit; zero if unknown)
+        glm::vec3 color;    // the orbit's
+        // > 0: the text starts at the periapsis, < 0: it ends there (an orbit and the
+        // same without relativity, labelled apart); 0: on the side of `outward`.
+        float side = 0.0f;
+    };
+
     enum class Dot { None, Filled, Hollow };
 
     struct BodyMark {
@@ -65,6 +78,7 @@ public:
     void reset() { m_labels.clear(); }
 
     const std::vector<SceneMarker>& markers() const { return m_markers; }
+    const std::vector<SnapshotLabel>& snapshot_labels() const { return m_snapshot_labels; }
     // In placement order (highest priority first).
     const std::vector<BodyMark>& bodies() const { return m_bodies; }
 
@@ -80,6 +94,7 @@ private:
     };
     std::vector<LabelState> m_labels; // per body
     std::vector<SceneMarker> m_markers;
+    std::vector<SnapshotLabel> m_snapshot_labels;
     std::vector<BodyMark> m_bodies;
 };
 
